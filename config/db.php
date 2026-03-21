@@ -4,14 +4,14 @@
 // ═══════════════════════════════════════════════════════
 
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'optms_invoice');
+define('DB_NAME', 'edrppymy_optms_invoice');
 define('DB_USER', 'edrppymy_optms_invoice');          // ← Change to your MySQL username
 define('DB_PASS', '1234@Optmsdatabase');              // ← Change to your MySQL password
 define('DB_CHARSET', 'utf8mb4');
 
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
 define('APP_VERSION', '1.0.0');
-define('APP_URL',     'http://localhost/optms_invoice'); // ← Change to your domain
+define('APP_URL',     'http://localhost/edrppymy_optms_invoice'); // ← Change to your domain
 
 // Session settings
 define('SESSION_LIFETIME', 7200); // 2 hours
