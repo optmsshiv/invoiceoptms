@@ -5,8 +5,8 @@
 
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'optms_invoice');
-define('DB_USER', 'root');          // ← Change to your MySQL username
-define('DB_PASS', '');              // ← Change to your MySQL password
+define('DB_USER', 'edrppymy_optms_invoice');          // ← Change to your MySQL username
+define('DB_PASS', '1234@Optmsdatabase');              // ← Change to your MySQL password
 define('DB_CHARSET', 'utf8mb4');
 
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
