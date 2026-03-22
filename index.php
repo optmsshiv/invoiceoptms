@@ -4947,7 +4947,7 @@ window.saveInvoice = async function() {
     signature: d.signature, qr_code: d.qrUrl,
     template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
     pdf_options: d.popt,
-    items: formItems.map(i => ({ desc: i.desc, qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: parseFloat(i.gst)||18 }))
+    items: formItems.map(i => ({ desc: i.desc, qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
     if (STATE.editingInvoiceId) {
