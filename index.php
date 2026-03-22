@@ -969,6 +969,9 @@ const SERVER = {
           <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
         </div>
       </div>
+      <!-- WhatsApp Automation Status Bar -->
+      <div id="dashWABar" style="margin-bottom:14px"></div>
+
       <div class="dash-stats-row">
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div>
@@ -1056,7 +1059,6 @@ const SERVER = {
         <div class="dash-card" style="flex:0 0 200px;min-width:0">
           <div class="card-header"><span class="card-title">Quick Insights</span></div>
           <div id="dashQuickKpis"></div>
-        <div class="dash-card" id="dashWACard" style="margin-top:0"></div>
         </div>
         <!-- Recent Activity -->
         <div class="dash-card" style="flex:1;min-width:0">
@@ -1758,7 +1760,7 @@ const SERVER = {
           </div>
           <div class="form-grid g2">
             <div class="field"><label>Festival / Occasion Name</label>
-              <select id="wa-festival">
+              <select id="wa-festival" onchange="debounceFestivalSave()">
                 <option value="diwali">Diwali 🪔</option>
                 <option value="holi">Holi 🎨</option>
                 <option value="eid">Eid Mubarak 🌙</option>
@@ -1782,7 +1784,7 @@ const SERVER = {
               <div id="wa-festival-img-preview" style="margin-top:6px"></div>
             </div>
             <div class="field"><label>Send To</label>
-              <select id="wa-send-to">
+              <select id="wa-send-to" onchange="debounceFestivalSave()">
                 <option value="all">All Active Clients</option>
                 <option value="paid">Clients with Paid Invoices</option>
                 <option value="active">Clients with Recent Activity (90 days)</option>
@@ -1790,17 +1792,18 @@ const SERVER = {
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Festival Message</label>
-            <textarea id="wa-tpl-festival" style="min-height:90px">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Festival Message</label><span id="festival-save-ind" style="font-size:11px;color:var(--teal);opacity:0;transition:opacity .3s;font-weight:600">✓ Auto-saved</span></div>
+          <textarea id="wa-tpl-festival" style="min-height:90px;width:100%" oninput="debounceFestivalSave()">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
           </div>
           <!-- Schedule options -->
           <div class="form-grid g2" style="margin-top:12px">
             <div class="field">
               <label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(leave blank to send now)</span></label>
-              <input type="datetime-local" id="wa-festival-schedule" style="width:100%">
+              <input type="datetime-local" id="wa-festival-schedule" onchange="debounceFestivalSave()" style="width:100%">
             </div>
             <div class="field">
               <label>Repeat <span style="font-size:10px;color:var(--muted)">(for recurring campaigns)</span></label>
-              <select id="wa-festival-repeat">
+              <select id="wa-festival-repeat" onchange="debounceFestivalSave()">
                 <option value="">No repeat (one-time)</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -1810,6 +1813,7 @@ const SERVER = {
           </div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="previewFestivalMsg()"><i class="fas fa-eye"></i> Preview</button>
+            <span id="festival-save-ind" style="font-size:11px;color:var(--teal);opacity:0;transition:opacity .4s;align-self:center">✓ Saved</span>
             <button class="btn btn-primary" onclick="saveFestivalCampaign()"><i class="fas fa-save"></i> Save Campaign</button>
             <button class="btn btn-whatsapp" onclick="sendFestivalBulk()"><i class="fab fa-whatsapp"></i> Send Now</button>
           </div>
@@ -4929,48 +4933,75 @@ function renderDashKpis() {
     <div><div style="font-size:10px;color:var(--muted)">${k.l}</div><div style="font-weight:700;font-size:13px">${k.v}</div></div>
   </div>`).join('');
 
-  // WA info card
-  const waEl = document.getElementById('dashWACard');
+  // WA horizontal status bar
+  // ── WA Automation horizontal bar above all cards ────────────
+  const waEl = document.getElementById('dashWABar');
   if (waEl) {
-    const wa       = STATE.settings.wa || {};
-    const hasAPI   = !!(wa.token && wa.pid);
-    const autoOn   = wa.auto_inv === '1' || wa.auto_paid !== '0' || wa.auto_remind !== '0';
-    const modeLabel = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
-    const toggOn   = [wa.auto_inv==='1', wa.auto_paid!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0'].filter(Boolean).length;
-    waEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:38px;height:38px;background:linear-gradient(135deg,#25D366,#128C7E);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📱</div>
+    const wa      = STATE.settings.wa || {};
+    const hasAPI  = !!(wa.token && wa.pid);
+    const mode    = wa.msg_mode === 'template' ? '✅ Template' : '💬 Session';
+    const toggles = [
+      { key:'auto_inv',     label:'New Invoice',     icon:'📄', val: wa.auto_inv     === '1' },
+      { key:'auto_paid',    label:'Payment Receipt', icon:'✅', val: wa.auto_paid    !== '0' },
+      { key:'auto_remind',  label:'Due Reminder',    icon:'🔔', val: wa.auto_remind  !== '0' },
+      { key:'auto_overdue', label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue !== '0' },
+      { key:'auto_followup',label:'Follow-up',       icon:'📋', val: wa.auto_followup === '1' },
+    ];
+    const onCount = toggles.filter(t => t.val).length;
+
+    waEl.innerHTML = `<div style="
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        background:linear-gradient(135deg,#1A2332 0%,#263348 60%,#0d3d2e 100%);
+        border-radius:12px; padding:12px 18px; margin-bottom:16px;
+        box-shadow:0 4px 16px rgba(0,0,0,.18)">
+
+      <!-- Brand icon + title -->
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div style="width:36px;height:36px;background:#25D366;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📱</div>
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text)">WhatsApp Automation</div>
-          <div style="font-size:11px;color:var(--muted)">${modeLabel}</div>
-        </div>
-        <div style="margin-left:auto;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${hasAPI?'#E8F5E9':'#FFF3E0'};color:${hasAPI?'#2E7D32':'#E65100'}">
-          ${hasAPI ? '● Connected' : '○ Not Connected'}
+          <div style="color:#fff;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
+          <div style="color:rgba(255,255,255,.5);font-size:10px">${mode}</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:${wa.auto_inv==='1'?'#E8F5E9':'var(--bg)'};border-radius:8px;padding:8px 10px;border:1px solid ${wa.auto_inv==='1'?'#A5D6A7':'var(--border)'}">
-          <div style="font-size:10px;color:var(--muted)">New Invoice</div>
-          <div style="font-size:12px;font-weight:700;color:${wa.auto_inv==='1'?'#2E7D32':'var(--muted)'}">${wa.auto_inv==='1'?'✓ Auto-send':'○ Off'}</div>
-        </div>
-        <div style="background:${wa.auto_paid!=='0'?'#E8F5E9':'var(--bg)'};border-radius:8px;padding:8px 10px;border:1px solid ${wa.auto_paid!=='0'?'#A5D6A7':'var(--border)'}">
-          <div style="font-size:10px;color:var(--muted)">Payment Receipt</div>
-          <div style="font-size:12px;font-weight:700;color:${wa.auto_paid!=='0'?'#2E7D32':'var(--muted)'}">${wa.auto_paid!=='0'?'✓ Auto-send':'○ Off'}</div>
-        </div>
-        <div style="background:${wa.auto_remind!=='0'?'#E8F5E9':'var(--bg)'};border-radius:8px;padding:8px 10px;border:1px solid ${wa.auto_remind!=='0'?'#A5D6A7':'var(--border)'}">
-          <div style="font-size:10px;color:var(--muted)">Due Reminder</div>
-          <div style="font-size:12px;font-weight:700;color:${wa.auto_remind!=='0'?'#2E7D32':'var(--muted)'}">${wa.auto_remind!=='0'?'✓ Auto-send':'○ Off'}</div>
-        </div>
-        <div style="background:${wa.auto_overdue!=='0'?'#E8F5E9':'var(--bg)'};border-radius:8px;padding:8px 10px;border:1px solid ${wa.auto_overdue!=='0'?'#A5D6A7':'var(--border)'}">
-          <div style="font-size:10px;color:var(--muted)">Overdue Alert</div>
-          <div style="font-size:12px;font-weight:700;color:${wa.auto_overdue!=='0'?'#2E7D32':'var(--muted)'}">${wa.auto_overdue!=='0'?'✓ Auto-send':'○ Off'}</div>
-        </div>
+
+      <!-- API status pill -->
+      <div style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;
+          background:${hasAPI ? 'rgba(37,211,102,.2)' : 'rgba(255,255,255,.08)'};
+          color:${hasAPI ? '#25D366' : 'rgba(255,255,255,.4)'};
+          border:1px solid ${hasAPI ? 'rgba(37,211,102,.4)' : 'rgba(255,255,255,.15)'}">
+        ${hasAPI ? '● Connected' : '○ No API'}
       </div>
-      <div style="margin-top:8px;text-align:center">
-        <button class="cf-btn" onclick="showPage('whatsapp',null)" style="font-size:11px;color:var(--teal);border-color:var(--teal)">
-          <i class="fab fa-whatsapp"></i> Manage WhatsApp Settings
+
+      <!-- Divider -->
+      <div style="width:1px;height:32px;background:rgba(255,255,255,.12);flex-shrink:0"></div>
+
+      <!-- Toggle pills - horizontal row -->
+      ${toggles.map(t => `
+        <div onclick="showPage('whatsapp',null)" style="
+            display:flex;align-items:center;gap:5px;
+            padding:5px 11px;border-radius:20px;cursor:pointer;flex-shrink:0;
+            background:${t.val ? 'rgba(37,211,102,.15)' : 'rgba(255,255,255,.06)'};
+            border:1px solid ${t.val ? 'rgba(37,211,102,.35)' : 'rgba(255,255,255,.1)'};
+            transition:.2s" title="Click to manage">
+          <span style="font-size:13px">${t.icon}</span>
+          <span style="font-size:11px;font-weight:600;color:${t.val ? '#4ade80' : 'rgba(255,255,255,.4)'}">
+            ${t.label}
+          </span>
+          <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;
+              background:${t.val ? '#25D366' : 'rgba(255,255,255,.2)'}"></span>
+        </div>`).join('')}
+
+      <!-- Count + manage button -->
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:11px;color:rgba(255,255,255,.5)">${onCount}/5 active</span>
+        <button onclick="showPage('whatsapp',null)"
+            style="padding:6px 14px;background:rgba(37,211,102,.2);color:#25D366;
+                   border:1px solid rgba(37,211,102,.4);border-radius:8px;
+                   font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          <i class="fas fa-cog"></i> Manage
         </button>
-      </div>`;
+      </div>
+    </div>`;
   }
 }
 
@@ -5123,6 +5154,13 @@ async function loadAllData() {
         tpl_lang_followup: s.wa_tpl_lang_followup || 'en',
         tpl_name_festival: s.wa_tpl_name_festival || '',
         tpl_lang_festival: s.wa_tpl_lang_festival || 'en',
+        // Festival campaign state
+        festival_tpl:      s.wa_festival_tpl      || '',
+        festival_sendto:   s.wa_festival_sendto   || 'all',
+        festival_img:      s.wa_festival_img      || '',
+        festival_schedule: s.wa_festival_schedule || '',
+        festival_repeat:   s.wa_festival_repeat   || '',
+        festival_name:     s.wa_festival_name     || 'diwali',
       };
       // Parse TPL_CUSTOM settings
       if (window.TPL_CUSTOM) {
@@ -5653,6 +5691,14 @@ function populateWAPage() {
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en';
   });
+  // Festival campaign fields
+  const setFes = (id,v) => { const e=document.getElementById(id); if(e&&v) e.value=v; };
+  setFes('wa-tpl-festival',      wa.festival_tpl    || wa.tpl_festival || getDefaultWATpl('festival'));
+  setFes('wa-send-to',           wa.festival_sendto || 'all');
+  setFes('wa-festival-img',      wa.festival_img    || '');
+  setFes('wa-festival-schedule', wa.festival_schedule || '');
+  setFes('wa-festival-repeat',   wa.festival_repeat   || '');
+  setFes('wa-festival',          wa.festival_name     || 'diwali');
 }
 
 
@@ -6152,6 +6198,52 @@ window.clearFestivalCampaign = async function() {
   } catch(e) { toast('❌ '+e.message,'error'); }
 };
 
+
+// ── Festival auto-save (debounced) ────────────────────────────
+let _festivalSaveTimer = null;
+function debounceFestivalSave() {
+  // Show a subtle "saving..." indicator
+  const log = document.getElementById('wa-bulk-log');
+  clearTimeout(_festivalSaveTimer);
+  _festivalSaveTimer = setTimeout(async () => {
+    const payload = {
+      wa_festival_tpl:      document.getElementById('wa-tpl-festival')?.value    || '',
+      wa_festival_sendto:   document.getElementById('wa-send-to')?.value         || 'all',
+      wa_festival_img:      document.getElementById('wa-festival-img')?.value    || '',
+      wa_festival_schedule: document.getElementById('wa-festival-schedule')?.value || '',
+      wa_festival_repeat:   document.getElementById('wa-festival-repeat')?.value || '',
+      wa_festival_name:     document.getElementById('wa-festival')?.value         || 'custom',
+    };
+    try {
+      await api('api/settings.php', 'POST', payload);
+      if (!STATE.settings.wa) STATE.settings.wa = {};
+      Object.assign(STATE.settings.wa, {
+        festival_tpl:      payload.wa_festival_tpl,
+        festival_sendto:   payload.wa_festival_sendto,
+        festival_img:      payload.wa_festival_img,
+        festival_schedule: payload.wa_festival_schedule,
+        festival_repeat:   payload.wa_festival_repeat,
+        festival_name:     payload.wa_festival_name,
+      });
+      renderFestivalCampaigns();
+      // Brief visual feedback — tiny teal dot on the textarea
+      const ta = document.getElementById('wa-tpl-festival');
+      if (ta) {
+        ta.style.borderColor = 'var(--teal)';
+        ta.style.boxShadow   = '0 0 0 3px rgba(0,137,123,.15)';
+        setTimeout(() => { ta.style.borderColor=''; ta.style.boxShadow=''; }, 1200);
+      }
+    } catch(e) {
+      console.warn('Festival auto-save failed:', e.message);
+    }
+  }, 900); // 900ms debounce
+}
+
+// Festival fields restored inside populateWAPage directly (see the function)
+
+
+// autoSaveFestivalMsg: merged into debounceFestivalSave above
+function autoSaveFestivalMsg() { debounceFestivalSave(); }
 
 </script>
 
