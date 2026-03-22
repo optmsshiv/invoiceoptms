@@ -36,7 +36,7 @@ if (strlen($phone) < 10) {
 }
 
 // Build Meta WA Business API request
-$url  = "https://graph.facebook.com/v19.0/{$pid}/messages";
+$url  = "https://graph.facebook.com/v22.0/{$pid}/messages";
 $body = json_encode([
     'messaging_product' => 'whatsapp',
     'recipient_type'    => 'individual',
