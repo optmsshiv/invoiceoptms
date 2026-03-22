@@ -24,7 +24,7 @@ function startSession(): void {
 function requireLogin(): void {
     startSession();
     if (empty($_SESSION['user_id'])) {
-        header('Location: ' . APP_URL . '/auth/login.php');
+        header('Location: /auth/login.php');
         exit;
     }
     // Refresh session timeout on activity
