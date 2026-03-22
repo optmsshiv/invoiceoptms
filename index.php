@@ -1,7 +1,7 @@
 <?php
 // ================================================================
 //  OPTMS Tech Invoice Manager — index.php (Production, domain root)
-//  Works at: http://invc.optms.co.in/
+//  Works at: http://invcs.optms.co.in/
 // ================================================================
 
 // ── Error handling: suppress display, log to file ──────────────
@@ -828,27 +828,7 @@ const SERVER = {
   settings: <?= json_encode($settings) ?>,
   prefix:   <?= json_encode($prefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
-  year:     <?= date('Y') ?>,
-  // WA settings pre-loaded from DB for instant toggle restore
-  wa: {
-    token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
-    pid:           <?= json_encode($settings['wa_pid']          ?? '') ?>,
-    bid:           <?= json_encode($settings['wa_bid']          ?? '') ?>,
-    test_phone:    <?= json_encode($settings['wa_test_phone']   ?? '') ?>,
-    remind_days:   <?= json_encode($settings['wa_remind_days']  ?? '3') ?>,
-    max_followup:  <?= json_encode($settings['wa_max_followup'] ?? '3') ?>,
-    tpl_inv:       <?= json_encode($settings['wa_tpl_inv']      ?? '') ?>,
-    tpl_paid:      <?= json_encode($settings['wa_tpl_paid']     ?? '') ?>,
-    tpl_remind:    <?= json_encode($settings['wa_tpl_remind']   ?? '') ?>,
-    tpl_overdue:   <?= json_encode($settings['wa_tpl_overdue']  ?? '') ?>,
-    tpl_followup:  <?= json_encode($settings['wa_tpl_followup'] ?? '') ?>,
-    tpl_festival:  <?= json_encode($settings['wa_tpl_festival'] ?? '') ?>,
-    auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '0') ?>,
-    auto_paid:     <?= json_encode($settings['wa_auto_paid']    ?? '1') ?>,
-    auto_remind:   <?= json_encode($settings['wa_auto_remind']  ?? '1') ?>,
-    auto_overdue:  <?= json_encode($settings['wa_auto_overdue'] ?? '1') ?>,
-    auto_followup: <?= json_encode($settings['wa_auto_followup']?? '0') ?>,
-  }
+  year:     <?= date('Y') ?>
 };
 </script>
 
@@ -1685,10 +1665,10 @@ const SERVER = {
         <div class="settings-block">
           <div class="sb-title"><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp Business API</div>
           <div class="form-grid g2">
-            <div class="field"><label>API Token</label><input type="password" id="wa-token" placeholder="Bearer token from Meta Developer Console" value="<?= htmlspecialchars($settings['wa_token']??'') ?>"></div>
-            <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345" value="<?= htmlspecialchars($settings['wa_pid']??'') ?>"></div>
-            <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID" value="<?= htmlspecialchars($settings['wa_bid']??'') ?>"></div>
-            <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
+            <div class="field"><label>API Token</label><input type="password" id="wa-token" placeholder="Bearer token from Meta Developer Console"></div>
+            <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345"></div>
+            <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID"></div>
+            <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX (for test messages)"></div>
           </div>
           <div style="display:flex;gap:10px;margin-top:14px">
             <button class="btn btn-whatsapp" onclick="testWA()"><i class="fab fa-whatsapp"></i> Send Test Message</button>
@@ -1700,11 +1680,11 @@ const SERVER = {
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-robot"></i> Automation Triggers</div>
           <div class="toggle-list">
-            <div class="toggle-item"><span><strong>New Invoice</strong> — auto-send when invoice created</span><div class="tog <?= (($settings['wa_auto_inv']??'0')==='1')?'on':'' ?>" id="twa1" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_inv', this)"></div></div>
-            <div class="toggle-item"><span><strong>Payment Receipt</strong> — send when marked paid</span><div class="tog <?= (($settings['wa_auto_paid']??'1')!=='0')?'on':'' ?>" id="twa2" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_paid', this)"></div></div>
-            <div class="toggle-item"><span><strong>Due Soon</strong> — reminder 3 days before due date</span><div class="tog <?= (($settings['wa_auto_remind']??'1')!=='0')?'on':'' ?>" id="twa3" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_remind', this)"></div></div>
-            <div class="toggle-item"><span><strong>Overdue Alert</strong> — send on due date if unpaid</span><div class="tog <?= (($settings['wa_auto_overdue']??'1')!=='0')?'on':'' ?>" id="twa4" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_overdue', this)"></div></div>
-            <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every 7 days while overdue</span><div class="tog <?= (($settings['wa_auto_followup']??'0')==='1')?'on':'' ?>" id="twa5" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_followup', this)"></div></div>
+            <div class="toggle-item"><span><strong>New Invoice</strong> — auto-send when invoice created</span><div class="tog" id="twa1" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-item"><span><strong>Payment Receipt</strong> — send when marked paid</span><div class="tog on" id="twa2" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-item"><span><strong>Due Soon</strong> — reminder 3 days before due date</span><div class="tog on" id="twa3" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-item"><span><strong>Overdue Alert</strong> — send on due date if unpaid</span><div class="tog on" id="twa4" onclick="this.classList.toggle('on')"></div></div>
+            <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every 7 days while overdue</span><div class="tog" id="twa5" onclick="this.classList.toggle('on')"></div></div>
           </div>
           <div class="form-grid g2" style="margin-top:14px">
             <div class="field"><label>Reminder Days Before Due</label>
@@ -4478,27 +4458,7 @@ function saveCompanySettings() {
   toast('✅ Company settings saved!', 'success');
 }
 
-// saveWASettings: see // saveWASettings is defined below as // Auto-save a single WA toggle immediately when clicked
-async function saveWAToggle(key, el) {
-  const val = el.classList.contains('on') ? '1' : '0';
-  // Update STATE immediately
-  if (!STATE.settings.wa) STATE.settings.wa = {};
-  STATE.settings.wa[key.replace('wa_', '')] = val;
-  // Save single key to DB
-  try {
-    await api('api/settings.php', 'POST', { [key]: val });
-    // Brief visual feedback on the toggle
-    el.style.transition = 'box-shadow .2s';
-    el.style.boxShadow  = '0 0 0 3px rgba(0,137,123,.3)';
-    setTimeout(() => { el.style.boxShadow = ''; }, 600);
-  } catch(e) {
-    // Revert on error
-    el.classList.toggle('on');
-    toast('❌ Failed to save: ' + e.message, 'error');
-  }
-}
-
-window.saveWASettings = async function()
+// saveWASettings: see // saveWASettings is defined below as window.saveWASettings = async function()
 function saveEmailSettings() {
   toast('✅ Email settings saved!', 'success');
 }
@@ -4780,10 +4740,6 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   STATE.settings.activeTemplate = parseInt(s.active_template) || 1;
   STATE.settings.defaultGST     = (s.default_gst !== undefined && s.default_gst !== null && s.default_gst !== '') ? parseInt(s.default_gst) : 18;
   STATE.settings.dueDays        = parseInt(s.due_days) || 15;
-  // Apply WA settings from PHP-rendered SERVER.wa (guaranteed accurate)
-  if (SERVER.wa) {
-    STATE.settings.wa = Object.assign({}, SERVER.wa);
-  }
 })();
 
 // ── API helper ──────────────────────────────────────────────────
