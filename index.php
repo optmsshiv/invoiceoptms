@@ -4496,101 +4496,12 @@ function formatWAMsg(tpl, inv, client, settings) {
 
 
 
-function testWA() {
-  const wa = STATE.settings.wa || {};
-  const token = document.getElementById('wa-token')?.value || wa.token || '';
-  const pid   = document.getElementById('wa-pid')?.value   || wa.pid   || '';
-  const phone = (document.getElementById('wa-test-phone')?.value || '').replace(/\D/g, '');
-  if (!phone) { toast('⚠️ Enter a test phone number first', 'warning'); return; }
-  const sampleInv = {
-    num: 'TEST-001', invoice_number: 'TEST-001',
-    issued: new Date().toISOString().split('T')[0],
-    due: new Date(Date.now()+15*86400000).toISOString().split('T')[0],
-    amount: 10000, currency: '₹', service: 'Test Service',
-    service_type: 'Test Service', status: 'Pending',
-    items: [{desc:'Sample Service', qty:1, rate:10000}]
-  };
-  const tpl = document.getElementById('wa-tpl-inv')?.value || wa.tpl_inv || 'Hi {client_name}! Test from {company_name}. Invoice #{invoice_no} for {currency}{amount}. Due: {due_date}.';
-  const msg = formatWAMsg(tpl, sampleInv, {name:'Test Client'}, STATE.settings);
-
-  if (token && pid) {
-    // Send via Meta WhatsApp Business API
-    sendWABusinessMsg(phone, msg, token, pid)
-      .then(() => toast('✅ Test message sent via WhatsApp Business API!', 'success'))
-      .catch(e => {
-        toast('⚠️ API failed, opening WhatsApp web... (' + e.message + ')', 'warning');
-        window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-      });
-  } else {
-    // Fallback to wa.me link
-    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-    toast('📱 Opening WhatsApp (add API credentials for direct sending)', 'info');
-  }
-}
 
 // Send message via Meta WhatsApp Business API
-async function sendWABusinessMsg(toPhone, message, token, phoneNumberId) {
-  const phone = toPhone.replace(/\D/g, '');
-  const finalPhone = phone.startsWith('91') ? phone : '91' + phone;
-  const body = {
-    messaging_product: 'whatsapp',
-    recipient_type:    'individual',
-    to:                finalPhone,
-    type:              'text',
-    text:              { preview_url: false, body: message }
-  };
-  const res = await fetch('https://graph.facebook.com/v19.0/' + phoneNumberId + '/messages', {
-    method:  'POST',
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type':  'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  const data = await res.json();
-  if (!res.ok || data.error) {
-    throw new Error(data.error?.message || 'API error ' + res.status);
-  }
-  return data;
-}
 
 // Send WA for an invoice (called from rowMenuAction 'wa')
-async function sendWAForInvoice(inv) {
-  const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-  const wa  = STATE.settings.wa || {};
-  const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
-  if (!phone) { toast('⚠️ No WhatsApp number for this client', 'warning'); return; }
-  const tpl = wa.tpl_inv || 'Hi {client_name}! Invoice #{invoice_no} for {currency}{amount} is ready. Due: {due_date}. Pay via UPI: {upi}. From {company_name}.';
-  const msg = formatWAMsg(tpl, inv, c, STATE.settings);
-  const token = wa.token || '';
-  const pid   = wa.pid   || '';
-  if (token && pid) {
-    try {
-      await sendWABusinessMsg(phone, msg, token, pid);
-      toast('✅ WhatsApp sent to ' + (c.name || phone) + '!', 'success');
-    } catch(e) {
-      toast('⚠️ API failed: ' + e.message + '. Opening WhatsApp web...', 'warning');
-      window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-    }
-  } else {
-    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-  }
-}
 
 // Send WA for payment reminder (called on mark-paid or manual trigger)
-async function sendWAPaymentReminder(inv) {
-  const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-  const wa  = STATE.settings.wa || {};
-  const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
-  if (!phone) return;
-  const tpl = wa.tpl_remind || 'Hi {client_name}! 🔔 Reminder: Invoice #{invoice_no} ({currency}{amount}) is due on {due_date}. UPI: {upi}.';
-  const msg = formatWAMsg(tpl, inv, c, STATE.settings);
-  const token = wa.token || '', pid = wa.pid || '';
-  if (token && pid) {
-    try { await sendWABusinessMsg(phone, msg, token, pid); }
-    catch(e) { console.warn('WA reminder failed:', e.message); }
-  }
-}
 
 // Manual WA send button
 // sendManualWA: see below
@@ -4869,15 +4780,23 @@ async function loadAllData() {
       const s = cfg.data;
       // Parse WA settings into nested object
       STATE.settings.wa = {
-        token:        s.wa_token||'', pid: s.wa_pid||'', bid: s.wa_bid||'',
-        test_phone:   s.wa_test_phone||'',
-        remind_days:  s.wa_remind_days||'3', max_followup: s.wa_max_followup||'3',
-        tpl_inv:      s.wa_tpl_inv||'', tpl_paid: s.wa_tpl_paid||'',
-        tpl_remind:   s.wa_tpl_remind||'', tpl_overdue: s.wa_tpl_overdue||'',
-        tpl_followup: s.wa_tpl_followup||'', tpl_festival: s.wa_tpl_festival||'',
-        auto_inv:     s.wa_auto_inv||'0', auto_paid: s.wa_auto_paid||'1',
-        auto_remind:  s.wa_auto_remind||'1', auto_overdue: s.wa_auto_overdue||'1',
-        auto_followup:s.wa_auto_followup||'0',
+        token:         s.wa_token        || '',
+        pid:           s.wa_pid          || '',
+        bid:           s.wa_bid          || '',
+        test_phone:    s.wa_test_phone   || '',
+        remind_days:   s.wa_remind_days  || '3',
+        max_followup:  s.wa_max_followup || '3',
+        tpl_inv:       s.wa_tpl_inv      || '',
+        tpl_paid:      s.wa_tpl_paid     || '',
+        tpl_remind:    s.wa_tpl_remind   || '',
+        tpl_overdue:   s.wa_tpl_overdue  || '',
+        tpl_followup:  s.wa_tpl_followup || '',
+        tpl_festival:  s.wa_tpl_festival || '',
+        auto_inv:      s.wa_auto_inv      !== undefined ? s.wa_auto_inv      : '0',
+        auto_paid:     s.wa_auto_paid     !== undefined ? s.wa_auto_paid     : '1',
+        auto_remind:   s.wa_auto_remind   !== undefined ? s.wa_auto_remind   : '1',
+        auto_overdue:  s.wa_auto_overdue  !== undefined ? s.wa_auto_overdue  : '1',
+        auto_followup: s.wa_auto_followup !== undefined ? s.wa_auto_followup : '0',
       };
       // Parse TPL_CUSTOM settings
       if (window.TPL_CUSTOM) {
@@ -5364,137 +5283,364 @@ window.saveProfile = async function() {
 };
 
 
-// ── WhatsApp Functions ─────────────────────────────────────────
-window.saveWASettings = async function() {
-  const payload = {
-    wa_token:         document.getElementById('wa-token')?.value || '',
-    wa_pid:           document.getElementById('wa-pid')?.value   || '',
-    wa_bid:           document.getElementById('wa-bid')?.value   || '',
-    wa_remind_days:   document.getElementById('wa-remind-days')?.value || '3',
-    wa_max_followup:  document.getElementById('wa-max-followup')?.value || '3',
-    wa_tpl_inv:       document.getElementById('wa-tpl-inv')?.value     || '',
-    wa_tpl_paid:      document.getElementById('wa-tpl-paid')?.value    || '',
-    wa_tpl_remind:    document.getElementById('wa-tpl-remind')?.value  || '',
-    wa_tpl_overdue:   document.getElementById('wa-tpl-overdue')?.value || '',
-    wa_tpl_followup:  document.getElementById('wa-tpl-followup')?.value|| '',
-    wa_auto_inv:      document.getElementById('twa1')?.classList.contains('on') ? '1':'0',
-    wa_auto_paid:     document.getElementById('twa2')?.classList.contains('on') ? '1':'0',
-    wa_auto_remind:   document.getElementById('twa3')?.classList.contains('on') ? '1':'0',
-    wa_auto_overdue:  document.getElementById('twa4')?.classList.contains('on') ? '1':'0',
-    wa_auto_followup: document.getElementById('twa5')?.classList.contains('on') ? '1':'0',
+// ── WhatsApp Functions ─────────────────────────────────────────;
+
+
+;
+
+
+// ══════════════════════════════════════════════════════════════
+//  WHATSAPP — Clean unified implementation (snake_case throughout)
+// ══════════════════════════════════════════════════════════════
+
+// ── Populate WA page from STATE.settings.wa ──────────────────
+function populateWAPage() {
+  populateWAClientDropdown();
+  const wa = STATE.settings.wa || {};
+
+  const setV = (id, v) => {
+    const e = document.getElementById(id);
+    if (e && v !== undefined && v !== null && v !== '') e.value = v;
   };
+  const setTog = (id, on) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    if (on) e.classList.add('on'); else e.classList.remove('on');
+  };
+
+  // Credentials
+  setV('wa-token',       wa.token || '');
+  setV('wa-pid',         wa.pid   || '');
+  setV('wa-bid',         wa.bid   || '');
+  setV('wa-test-phone',  wa.test_phone || '');
+  setV('wa-remind-days', wa.remind_days || '3');
+  setV('wa-max-followup',wa.max_followup || '3');
+
+  // Templates — use saved or rich defaults
+  setV('wa-tpl-inv',     wa.tpl_inv     || getDefaultWATpl('inv'));
+  setV('wa-tpl-paid',    wa.tpl_paid    || getDefaultWATpl('paid'));
+  setV('wa-tpl-remind',  wa.tpl_remind  || getDefaultWATpl('remind'));
+  setV('wa-tpl-overdue', wa.tpl_overdue || getDefaultWATpl('overdue'));
+  setV('wa-tpl-followup',wa.tpl_followup|| getDefaultWATpl('followup'));
+  setV('wa-tpl-festival',wa.tpl_festival|| getDefaultWATpl('festival'));
+
+  // Toggles — all values stored as string '1'/'0' in DB
+  setTog('twa1', wa.auto_inv     === '1');
+  setTog('twa2', wa.auto_paid    !== '0');   // default ON
+  setTog('twa3', wa.auto_remind  !== '0');   // default ON
+  setTog('twa4', wa.auto_overdue !== '0');   // default ON
+  setTog('twa5', wa.auto_followup === '1');
+}
+
+function populateWAClientDropdown() {
+  const sel = document.getElementById('wa-manual-client');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Select Client --</option>' +
+    STATE.clients.map(c => {
+      const ph = c.wa || c.whatsapp || c.phone || '';
+      return `<option value="${c.id}">${c.name}${ph ? ' (' + ph + ')' : ''}</option>`;
+    }).join('');
+}
+
+// ── Default rich message templates ───────────────────────────
+function getDefaultWATpl(type) {
+  const d = {
+    inv: `Hi {client_name}! 👋
+
+*Invoice #{invoice_no}* from {company_name}
+
+📋 *Details:*
+• Service: {service}
+• Issue Date: {issue_date}
+• Due Date: {due_date}
+• Amount: *{currency}{amount}*
+
+{item_list}
+
+💳 *Pay via UPI:* {upi}
+🏦 {bank_details}
+
+Thank you for choosing {company_name}!
+📞 {company_phone} | ✉ {company_email}`,
+
+    paid: `Hi {client_name}! ✅
+
+Payment received for *Invoice #{invoice_no}*
+
+💰 Amount: *{currency}{amount}*
+📅 Date: {issue_date}
+📋 Service: {service}
+
+Thank you for the prompt payment! 🙏
+We look forward to serving you again.
+
+— {company_name}
+📞 {company_phone}`,
+
+    remind: `Hi {client_name}! 🔔 *Payment Reminder*
+
+*Invoice #{invoice_no}* is due on *{due_date}*
+
+📋 Service: {service}
+💰 Amount Due: *{currency}{amount}*
+
+Please arrange payment at your earliest convenience.
+
+💳 *UPI:* {upi}
+🏦 {bank_details}
+
+{company_name} | 📞 {company_phone}`,
+
+    overdue: `Hi {client_name}! ⚠️ *Overdue Notice*
+
+*Invoice #{invoice_no}* was due on *{due_date}*
+Overdue by: *{days_overdue} days*
+
+📋 Service: {service}
+💰 Outstanding: *{currency}{amount}*
+
+Please clear this payment immediately to avoid any inconvenience.
+
+💳 *UPI:* {upi}
+🏦 {bank_details}
+
+{company_name} | 📞 {company_phone}`,
+
+    followup: `Hi {client_name},
+
+This is a follow-up regarding *Invoice #{invoice_no}* ({currency}{amount}).
+
+⚠️ Still overdue by *{days_overdue} days*
+📋 Service: {service}
+
+Kindly process the payment immediately or contact us to discuss.
+
+💳 *UPI:* {upi}
+
+{company_name} | 📞 {company_phone} | ✉ {company_email}`,
+
+    festival: `Hi {client_name}! 🎉
+
+Warm *festival greetings* from the entire team at *{company_name}*!
+
+May this occasion bring you joy, prosperity, and success. 🌟
+
+Thank you for your continued trust and support. We are grateful for your partnership. 🙏
+
+*{company_name}*
+📞 {company_phone} | ✉ {company_email}`
+  };
+  return d[type] || '';
+}
+
+// ── Save WA settings to DB + STATE ───────────────────────────
+window.saveWASettings = async function() {
+  const tog = id => document.getElementById(id)?.classList.contains('on') ? '1' : '0';
+  const val = id => document.getElementById(id)?.value || '';
+
+  const payload = {
+    wa_token:          val('wa-token'),
+    wa_pid:            val('wa-pid'),
+    wa_bid:            val('wa-bid'),
+    wa_test_phone:     val('wa-test-phone'),
+    wa_remind_days:    val('wa-remind-days') || '3',
+    wa_max_followup:   val('wa-max-followup') || '3',
+    wa_tpl_inv:        val('wa-tpl-inv'),
+    wa_tpl_paid:       val('wa-tpl-paid'),
+    wa_tpl_remind:     val('wa-tpl-remind'),
+    wa_tpl_overdue:    val('wa-tpl-overdue'),
+    wa_tpl_followup:   val('wa-tpl-followup'),
+    wa_tpl_festival:   val('wa-tpl-festival'),
+    wa_auto_inv:       tog('twa1'),
+    wa_auto_paid:      tog('twa2'),
+    wa_auto_remind:    tog('twa3'),
+    wa_auto_overdue:   tog('twa4'),
+    wa_auto_followup:  tog('twa5'),
+  };
+
+  // Update STATE immediately (all snake_case)
+  STATE.settings.wa = {
+    token:         payload.wa_token,
+    pid:           payload.wa_pid,
+    bid:           payload.wa_bid,
+    test_phone:    payload.wa_test_phone,
+    remind_days:   payload.wa_remind_days,
+    max_followup:  payload.wa_max_followup,
+    tpl_inv:       payload.wa_tpl_inv,
+    tpl_paid:      payload.wa_tpl_paid,
+    tpl_remind:    payload.wa_tpl_remind,
+    tpl_overdue:   payload.wa_tpl_overdue,
+    tpl_followup:  payload.wa_tpl_followup,
+    tpl_festival:  payload.wa_tpl_festival,
+    auto_inv:      payload.wa_auto_inv,
+    auto_paid:     payload.wa_auto_paid,
+    auto_remind:   payload.wa_auto_remind,
+    auto_overdue:  payload.wa_auto_overdue,
+    auto_followup: payload.wa_auto_followup,
+  };
+
   try {
     await api('api/settings.php', 'POST', payload);
-    // Update in-memory WA state
-    if (!STATE.settings.wa) STATE.settings.wa = {};
-    STATE.settings.wa.token       = payload.wa_token;
-    STATE.settings.wa.pid         = payload.wa_pid;
-    STATE.settings.wa.bid         = payload.wa_bid;
-    STATE.settings.wa.remindDays  = payload.wa_remind_days;
-    STATE.settings.wa.maxFollowup = payload.wa_max_followup;
-    STATE.settings.wa.tplInv      = payload.wa_tpl_inv;
-    STATE.settings.wa.tplPaid     = payload.wa_tpl_paid;
-    STATE.settings.wa.tplRemind   = payload.wa_tpl_remind;
-    STATE.settings.wa.tplOverdue  = payload.wa_tpl_overdue;
-    STATE.settings.wa.tplFollowup = payload.wa_tpl_followup;
-    STATE.settings.wa.autoInv     = payload.wa_auto_inv  === '1';
-    STATE.settings.wa.autoPaid    = payload.wa_auto_paid !== '0';
-    STATE.settings.wa.autoRemind  = payload.wa_auto_remind !== '0';
-    STATE.settings.wa.autoOverdue = payload.wa_auto_overdue !== '0';
-    STATE.settings.wa.autoFollowup= payload.wa_auto_followup === '1';
     toast('✅ WhatsApp settings saved!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); };
-    STATE.settings.wa = Object.assign(STATE.settings.wa||{}, {
-      token:payload.wa_token,pid:payload.wa_pid,bid:payload.wa_bid,
-      auto_inv:payload.wa_auto_inv,auto_paid:payload.wa_auto_paid,
-      auto_remind:payload.wa_auto_remind,auto_overdue:payload.wa_auto_overdue,
-      auto_followup:payload.wa_auto_followup,
-    });
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
 };
 
+// ── Send via Meta WhatsApp Business API ──────────────────────
+async function sendWABusinessMsg(toPhone, message, token, pid) {
+  const phone = String(toPhone).replace(/\D/g, '');
+  const to    = phone.length === 10 ? '91' + phone : phone;
+  const res   = await fetch('https://graph.facebook.com/v19.0/' + pid + '/messages', {
+    method:  'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type:    'individual',
+      to,
+      type: 'text',
+      text: { preview_url: false, body: message }
+    })
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error?.message || 'HTTP ' + res.status);
+  return data;
+}
 
+// ── Send WA (API first, wa.me fallback) ──────────────────────
+async function sendWA(phone, message) {
+  const wa    = STATE.settings.wa || {};
+  const token = wa.token || '';
+  const pid   = wa.pid   || '';
+  const clean = String(phone).replace(/\D/g, '');
+  if (!clean) throw new Error('No phone number');
+  if (token && pid) {
+    return await sendWABusinessMsg(clean, message, token, pid);
+  }
+  // Fallback: open wa.me
+  window.open('https://wa.me/' + (clean.length===10?'91'+clean:clean) + '?text=' + encodeURIComponent(message), '_blank');
+  return null;
+}
 
-window.testWA = async function() {
-  const token = (document.getElementById('wa-token')?.value || '').trim() || (STATE.settings.wa||{}).token || '';
-  const pid   = (document.getElementById('wa-pid')?.value   || '').trim() || (STATE.settings.wa||{}).pid   || '';
-  const phone = (document.getElementById('wa-test-phone')?.value||'').replace(/[^0-9]/g,'');
-  if (!token) { toast('⚠️ Enter API Token first', 'warning'); return; }
-  if (!pid)   { toast('⚠️ Enter Phone Number ID first', 'warning'); return; }
-  if (!phone) { toast('⚠️ Enter a test phone number', 'warning'); return; }
+// ── Test Message ──────────────────────────────────────────────
+function testWA() {
+  const wa    = STATE.settings.wa || {};
+  const token = document.getElementById('wa-token')?.value || wa.token || '';
+  const pid   = document.getElementById('wa-pid')?.value   || wa.pid   || '';
+  const phone = (document.getElementById('wa-test-phone')?.value || '').replace(/\D/g, '');
+  if (!phone) { toast('⚠️ Enter test phone number first', 'warning'); return; }
+
+  const sampleInv = {
+    num: 'TEST-001', invoice_number: 'TEST-001',
+    issued: new Date().toISOString().split('T')[0],
+    due:    new Date(Date.now()+15*86400000).toISOString().split('T')[0],
+    amount: 15000, currency: '₹', service: 'Web Development',
+    service_type: 'Web Development', status: 'Pending',
+    items: [{desc:'Website Design', qty:1, rate:10000},{desc:'SEO Setup', qty:1, rate:5000}]
+  };
+  const tplRaw = document.getElementById('wa-tpl-inv')?.value || wa.tpl_inv || getDefaultWATpl('inv');
+  const msg    = formatWAMsg(tplRaw, sampleInv, {name: 'Test Client'}, STATE.settings);
+
+  if (token && pid) {
+    sendWABusinessMsg(phone, msg, token, pid)
+      .then(()  => toast('✅ Test message sent via WhatsApp Business API!', 'success'))
+      .catch(err => {
+        console.error('WA API error:', err);
+        toast('❌ API Error: ' + err.message, 'error');
+      });
+  } else {
+    const clean = phone.length===10 ? '91'+phone : phone;
+    window.open('https://wa.me/' + clean + '?text=' + encodeURIComponent(msg), '_blank');
+    toast('📱 Opened WhatsApp (enter API credentials to send directly)', 'info');
+  }
+}
+
+// ── Send WA for an invoice ────────────────────────────────────
+async function sendWAForInvoice(inv) {
+  const c     = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+  const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
+  if (!phone) { toast('⚠️ No WhatsApp number for this client', 'warning'); return; }
+  const wa  = STATE.settings.wa || {};
+  const tpl = wa.tpl_inv || getDefaultWATpl('inv');
+  const msg = formatWAMsg(tpl, inv, c, STATE.settings);
   try {
-    const res = await fetch(`https://graph.facebook.com/v18.0/${pid}/messages`, {
-      method:'POST',
-      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-      body: JSON.stringify({
-        messaging_product:'whatsapp', to: phone, type:'text',
-        text:{ body:`Test from ${STATE.settings.company||'OPTMS Tech'} Invoice Manager - WhatsApp connected! ✅` }
-      })
-    });
-    const data = await res.json();
-    if (res.ok) toast('✅ Test message sent! Check WhatsApp on ' + phone, 'success');
-    else toast('❌ API: ' + (data.error?.message || JSON.stringify(data).substring(0,100)), 'error');
+    const result = await sendWA(phone, msg);
+    toast(result ? '✅ WhatsApp sent to ' + c.name + '!' : '📱 WhatsApp opened', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── Manual send from WA page ──────────────────────────────────
+window.sendManualWA = async function() {
+  const phone = (document.getElementById('wa-manual-phone')?.value || '').replace(/\D/g, '');
+  const msg   = document.getElementById('wa-manual-msg')?.value || '';
+  if (!phone) { toast('⚠️ Enter phone number', 'warning'); return; }
+  if (!msg)   { toast('⚠️ Enter message text', 'warning'); return; }
+  try {
+    const result = await sendWA(phone, msg);
+    toast(result ? '✅ Message sent via API!' : '📱 WhatsApp opened', 'success');
+    if (result) { document.getElementById('wa-manual-msg').value = ''; }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
-window.previewFestivalMsg = function() {
-  const festival = document.getElementById('wa-festival')?.value;
-  const custom   = document.getElementById('wa-festival-custom')?.value;
-  const tpl      = document.getElementById('wa-tpl-festival')?.value || '';
-  const sc       = STATE.settings;
-  const preview  = tpl.replace('{client_name}','[Client Name]')
-                       .replace('{company_name}', sc.company)
-                       .replace(/{festival}/g, custom || festival);
-  toast('📱 Preview: ' + preview.substring(0,100) + (preview.length>100?'...':''), 'info');
+// ── Auto-fill phone when client selected ─────────────────────
+window.fillWaManualPhone = function() {
+  const sel = document.getElementById('wa-manual-client');
+  const c   = STATE.clients.find(x => String(x.id) === String(sel?.value));
+  if (!c) return;
+  const ph  = document.getElementById('wa-manual-phone');
+  if (ph)   ph.value = c.wa || c.whatsapp || c.phone || '';
+  const msg = document.getElementById('wa-manual-msg');
+  if (msg && !msg.value) msg.value = `Hi ${c.name}! `;
 };
 
+// ── Festival bulk sender ──────────────────────────────────────
 window.sendFestivalBulk = async function() {
-  const sendTo = document.getElementById('wa-send-to')?.value || 'all';
-  const tpl    = document.getElementById('wa-tpl-festival')?.value || '';
-  const imgUrl = document.getElementById('wa-festival-img')?.value || '';
-  const sc     = STATE.settings;
-  let targets = [...STATE.clients];
+  const sendTo  = document.getElementById('wa-send-to')?.value || 'all';
+  const tpl     = document.getElementById('wa-tpl-festival')?.value || getDefaultWATpl('festival');
+  const imgUrl  = document.getElementById('wa-festival-img')?.value || '';
+  const wa      = STATE.settings.wa || {};
+
+  let targets = [...STATE.clients].filter(c => c.wa || c.whatsapp || c.phone);
   if (sendTo === 'paid') {
-    const paidIds = new Set(STATE.invoices.filter(i=>i.status==='Paid').map(i=>i.client));
-    targets = targets.filter(c => paidIds.has(c.id));
+    const paidIds = new Set(STATE.invoices.filter(i=>i.status==='Paid').map(i=>String(i.client)));
+    targets = targets.filter(c => paidIds.has(String(c.id)));
   }
   if (sendTo === 'active') {
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-90);
-    const activeIds = new Set(STATE.invoices.filter(i=>{
-      return i.issued && new Date(i.issued) > cutoff;
-    }).map(i=>i.client));
-    targets = targets.filter(c => activeIds.has(c.id));
+    const cutoff  = new Date(); cutoff.setDate(cutoff.getDate()-90);
+    const actIds  = new Set(STATE.invoices.filter(i=>i.issued&&new Date(i.issued)>cutoff).map(i=>String(i.client)));
+    targets = targets.filter(c => actIds.has(String(c.id)));
   }
+
   const log = document.getElementById('wa-bulk-log');
-  if (log) { log.style.display='block'; log.innerHTML=''; }
-  let sent=0, failed=0;
+  if (log) { log.style.display = 'block'; log.innerHTML = `<b>Sending to ${targets.length} clients...</b><br>`; }
+
+  let sent = 0, failed = 0;
   for (const client of targets) {
-    if (!client.wa && !client.phone) { failed++; continue; }
-    const msg = formatWAMsg(tpl, {}, client, sc);
     const phone = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g,'');
-    if (phone) {
-      const wa = STATE.settings.wa || {};
-      if (wa.token && wa.pid) {
-        try {
-          await sendWABusinessMsg(phone, msg, wa.token, wa.pid);
-          sent++;
-          if (log) log.innerHTML += `<div style="color:var(--green)">✓ ${client.name} — sent via API</div>`;
-        } catch(e) {
-          // Fallback to wa.me
-          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-          sent++;
-          if (log) log.innerHTML += `<div style="color:var(--amber)">⚠ ${client.name} — opened WhatsApp (API error: ${e.message})</div>`;
-          await new Promise(r=>setTimeout(r,400));
-        }
-      } else {
-        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-        sent++;
-        if (log) log.innerHTML += `<div style="color:var(--green)">✓ ${client.name} (${client.wa||client.phone})</div>`;
-        await new Promise(r=>setTimeout(r,400));
-      }
-    } else { failed++; }
+    const msg   = formatWAMsg(tpl, {}, client, STATE.settings);
+    try {
+      const result = await sendWA(phone, msg);
+      sent++;
+      if (log) log.innerHTML += `<div style="color:var(--green)">✓ ${client.name}${result?' (API)':' (web)'}</div>`;
+      if (!result) await new Promise(r => setTimeout(r, 500));
+    } catch(e) {
+      failed++;
+      if (log) log.innerHTML += `<div style="color:var(--red)">✗ ${client.name}: ${e.message}</div>`;
+    }
   }
-  toast(`📱 Opened WhatsApp for ${sent} clients (${failed} skipped - no number)`, 'success');
+  toast(`📱 Done: ${sent} sent, ${failed} failed`, sent > 0 ? 'success' : 'warning');
 };
+
+// ── Preview festival message ──────────────────────────────────
+window.previewFestivalMsg = function() {
+  const tpl     = document.getElementById('wa-tpl-festival')?.value || getDefaultWATpl('festival');
+  const preview = formatWAMsg(tpl, {}, {name:'[Client Name]'}, STATE.settings);
+  toast('📱 ' + preview.substring(0,120) + (preview.length>120?'…':''), 'info');
+};
+
+// previewFestivalMsg: defined above
+
+;
 
 window.fillWaManualPhone = function() {
   const sel = document.getElementById('wa-manual-client');
@@ -5519,58 +5665,7 @@ window.sendManualWA = function() {
 };
 
 // Populate WA client dropdown when navigating to WA page
-function populateWAPage() {
-  populateWADropdown();
-  const wa = STATE.settings.wa || {};
-  const setV = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined)e.value=v; };
-  const setTog = (id,v) => { const e=document.getElementById(id); if(e){if(v)e.classList.add('on');else e.classList.remove('on');} };
-  setV('wa-token',       wa.token||'');
-  setV('wa-pid',         wa.pid||'');
-  setV('wa-bid',         wa.bid||'');
-  setV('wa-remind-days', wa.remindDays||'3');
-  setV('wa-max-followup',wa.maxFollowup||'3');
-  if (wa.tplInv)     setV('wa-tpl-inv',     wa.tplInv);
-  if (wa.tplPaid)    setV('wa-tpl-paid',    wa.tplPaid);
-  if (wa.tplRemind)  setV('wa-tpl-remind',  wa.tplRemind);
-  if (wa.tplOverdue) setV('wa-tpl-overdue', wa.tplOverdue);
-  if (wa.tplFollowup)setV('wa-tpl-followup',wa.tplFollowup);
-  if (wa.tplFestival)setV('wa-tpl-festival',wa.tplFestival);
-  setTog('twa1', wa.auto_inv === '1');
-  setTog('twa2', wa.auto_paid !== '0');
-  setTog('twa3', wa.auto_remind !== '0');
-  setTog('twa4', wa.auto_overdue !== '0');
-  setTog('twa5', wa.auto_followup === '1');
-}
 
-function populateWADropdown() {
-  const sel = document.getElementById('wa-manual-client');
-  if (sel) {
-    sel.innerHTML = '<option value="">-- Select Client --</option>' +
-      STATE.clients.map(c=>`<option value="${c.id}">${c.name}${c.wa||c.phone?' ('+( c.wa||c.phone)+')':''}</option>`).join('');
-  }
-  // Restore WA settings from STATE
-  const wa = STATE.settings.wa || {};
-  const set = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined) e.value=v; };
-  set('wa-token',      wa.token||'');
-  set('wa-pid',        wa.pid||'');
-  set('wa-bid',        wa.bid||'');
-  set('wa-test-phone', wa.test_phone||'');
-  set('wa-remind-days',wa.remind_days||'3');
-  set('wa-max-followup',wa.max_followup||'3');
-  set('wa-tpl-inv',    wa.tpl_inv||'Hi {client_name}! 👋 Invoice #{invoice_no} for {currency}{amount} from {company_name} is ready. Due: {due_date}. UPI: {upi}. Thanks! 🙏');
-  set('wa-tpl-paid',   wa.tpl_paid||'Hi {client_name}! ✅ Payment of {currency}{amount} for #{invoice_no} received. Thank you for choosing {company_name}! 🎉');
-  set('wa-tpl-remind', wa.tpl_remind||'Hi {client_name}! 🔔 Invoice #{invoice_no} for {currency}{amount} is due on {due_date}. Service: {service}. UPI: {upi}. 🙏');
-  set('wa-tpl-overdue',wa.tpl_overdue||'Hi {client_name}! ⚠️ Invoice #{invoice_no} for {currency}{amount} (due {due_date}) is OVERDUE by {days_overdue} days. Please pay immediately. UPI: {upi}.');
-  set('wa-tpl-followup',wa.tpl_followup||'Hi {client_name}, following up on invoice #{invoice_no} ({currency}{amount}), overdue {days_overdue} days. Service: {service}. Please clear ASAP. UPI: {upi}.');
-  set('wa-tpl-festival',wa.tpl_festival||'Hi {client_name}! 🌟 Warm wishes from {company_name}! Thank you for your continued trust. 🙏');
-  // Restore toggle states
-  const setTog = (id, val) => { const e=document.getElementById(id); if(e) { if(val==='1'||val===true) e.classList.add('on'); else e.classList.remove('on'); } };
-  setTog('twa1', wa.auto_inv === '1');
-  setTog('twa2', wa.auto_paid !== '0');
-  setTog('twa3', wa.auto_remind !== '0');
-  setTog('twa4', wa.auto_overdue !== '0');
-  setTog('twa5', wa.auto_followup === '1');
-}
 
 // ── Template Customization ─────────────────────────────────────
 const TPL_CUSTOM = {
