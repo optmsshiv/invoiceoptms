@@ -5491,7 +5491,7 @@ window.saveWASettings = async function() {
 async function sendWABusinessMsg(toPhone, message, token, pid) {
   const phone = String(toPhone).replace(/\D/g, '');
   const to    = phone.length === 10 ? '91' + phone : phone;
-  const res   = await fetch('https://graph.facebook.com/v19.0/' + pid + '/messages', {
+  const res   = await fetch('https://graph.facebook.com/v22.0/' + pid + '/messages', {
     method:  'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({
