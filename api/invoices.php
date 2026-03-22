@@ -27,8 +27,29 @@ switch ($method) {
       // Load items
       $si = $db->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order');
       $si->execute([$inv['id']]);
-      $inv['items'] = $si->fetchAll();
+      $rawItems = $si->fetchAll();
+      $inv['items'] = array_map(function($it) {
+        return [
+          'id'    => $it['id'],
+          'desc'  => $it['description'],
+          'qty'   => (float)$it['quantity'],
+          'rate'  => (float)$it['rate'],
+          'gst'   => (float)$it['gst_rate'],
+          'total' => (float)$it['line_total'],
+        ];
+      }, $rawItems);
       if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
+      // Remap for JS frontend
+      $inv['num']      = $inv['invoice_number'];
+      $inv['client']   = (string)$inv['client_id'];
+      $inv['service']  = $inv['service_type'];
+      $inv['issued']   = $inv['issued_date'];
+      $inv['due']      = $inv['due_date'];
+      $inv['amount']   = (float)$inv['grand_total'];
+      $inv['disc']     = (float)$inv['discount_pct'];
+      $inv['currency'] = $inv['currency'];
+      $inv['template'] = (int)$inv['template_id'];
+      $inv['subtotal'] = (float)$inv['subtotal'];
       jsonResponse(['data' => $inv]);
     }
     // List with optional filters
@@ -51,7 +72,10 @@ switch ($method) {
     foreach ($invoices as &$inv) {
       $si = $db->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order');
       $si->execute([$inv['id']]);
-      $inv['items'] = $si->fetchAll();
+      $rawItems = $si->fetchAll();
+      $inv['items'] = array_map(function($it){
+        return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total']];
+      }, $rawItems);
       $inv['num']       = $inv['invoice_number'];
       $inv['client']    = (string)$inv['client_id'];
       $inv['service']   = $inv['service_type'];

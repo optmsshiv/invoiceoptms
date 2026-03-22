@@ -90,7 +90,7 @@ $prefix      = $settings['invoice_prefix'] ?? 'OT-' . date('Y') . '-';
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; }
+html { font-size: 15px; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; overflow-x: hidden; }
 
 /* ── SCROLLBAR ── */
@@ -1583,7 +1583,7 @@ const SERVER = {
 
     <!-- ─────────── WHATSAPP SETUP ─────────── -->
     <div id="page-whatsapp" class="page">
-      <div class="settings-wrap">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
 
         <!-- API Credentials -->
         <div class="settings-block">
@@ -2682,7 +2682,7 @@ function calcTotals() {
     const gstRate = parseFloat(item.gst)||0;
     gstAmt += lineAmt * gstRate / 100;
   });
-  const disc    = parseFloat(document.getElementById('f-disc')?.value)||0;
+  const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
   const discAmt = sub * disc / 100;
   // Recalculate GST after discount proportionally
   const discFactor = sub > 0 ? (1 - disc/100) : 1;
@@ -2727,7 +2727,7 @@ function getFormData() {
   const cwa     = document.getElementById('f-cwa')?.value||'';
   const cgst    = document.getElementById('f-cgst')?.value||'';
   const caddr   = document.getElementById('f-caddr')?.value||'';
-  const disc    = parseFloat(document.getElementById('f-disc')?.value)||0;
+  const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
   const notes   = document.getElementById('f-notes')?.value||'';
   const bank    = document.getElementById('f-bank')?.value||'';
   const tnc     = document.getElementById('f-tnc')?.value||'';
@@ -2821,10 +2821,15 @@ function buildInvoiceHTML(d, forPrint) {
 
 // ── Shared helpers for templates ──
 function tplLogoHTML(d, sc) {
-  if (!d.popt.logo) return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px">${sc.company}</div>`;
-  const logo = d.companyLogo || sc.logo;
-  if (logo) return `<img src="${logo}" style="height:52px;max-width:180px;object-fit:contain;display:block" onerror="this.style.display='none'">`;
-  return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px">${sc.company}</div>`;
+  const font = (window.TPL_CUSTOM && TPL_CUSTOM.font) ? TPL_CUSTOM.font : "'Public Sans',sans-serif";
+  const tagline = (window.TPL_CUSTOM && TPL_CUSTOM.tagline) ? TPL_CUSTOM.tagline : '';
+  const logo = d.companyLogo || d.logo || sc.logo || STATE.settings.logo || '';
+  if (d.popt && d.popt.logo && logo) {
+    return `<div><img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block" onerror="this.style.display='none'">` +
+           (tagline ? `<div style="font-size:11px;opacity:.6;margin-top:4px;font-family:${font}">${tagline}</div>` : '') + '</div>';
+  }
+  return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px;font-family:${font}">${sc.company||STATE.settings.company}</div>` +
+         (tagline ? `<div style="font-size:11px;opacity:.6;margin-top:3px;font-family:${font}">${tagline}</div>` : '');
 }
 function tplClientLogoHTML(d) {
   if (!d.popt.clientLogo || !d.clientLogo) return '';
@@ -2873,19 +2878,24 @@ function tplTncHTML(d, color='#888') {
 
 // ── TEMPLATE 1: Classic Pro ──
 function buildTpl1(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   const showGst = d.popt ? d.popt.gstCol : true;
   const colSpan = showGst ? 5 : 4;
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
-  <div style="background:linear-gradient(135deg,#1A2332 0%,#263348 100%);padding:40px 48px 32px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start">
+  <div style="background:linear-gradient(135deg,${(window.TPL_CUSTOM&&TPL_CUSTOM.color1)||'#1A2332'} 0%,${(window.TPL_CUSTOM&&TPL_CUSTOM.color1+'dd')||'#263348'} 100%);padding:40px 48px 32px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start;font-family:${(window.TPL_CUSTOM&&TPL_CUSTOM.font)||'inherit'}">
     <div>
       ${tplLogoHTML(d,sc)}
-      <div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:6px">${sc.website} · GST: ${sc.gst}</div>
-      <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px">${sc.address}</div>
+      <div style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-top:8px">${sc.company||STATE.settings.company}</div>
+      ${(sc.phone||STATE.settings.phone)?`<div style="color:rgba(255,255,255,.55);font-size:11px;margin-top:3px">📞 ${sc.phone||STATE.settings.phone}</div>`:''}
+      ${(sc.email||STATE.settings.email)?`<div style="color:rgba(255,255,255,.55);font-size:11px;margin-top:2px">✉ ${sc.email||STATE.settings.email}</div>`:''}
+      ${(sc.website||STATE.settings.website)?`<div style="color:rgba(255,255,255,.45);font-size:10px;margin-top:2px">${sc.website||STATE.settings.website}</div>`:''}
+      ${(sc.gst||STATE.settings.gst)?`<div style="color:rgba(255,255,255,.45);font-size:10px;margin-top:2px">GST: ${sc.gst||STATE.settings.gst}</div>`:''}
+      ${(sc.address||STATE.settings.address)?`<div style="color:rgba(255,255,255,.4);font-size:10px;margin-top:3px;max-width:200px;line-height:1.5">${(sc.address||STATE.settings.address).replace(/\n/g,'<br>')}</div>`:''}
     </div>
     <div style="text-align:right">
       <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Tax Invoice</div>
-      <div style="font-size:26px;font-weight:800;color:#4DB6AC;font-family:monospace">#${d.num}</div>
+      <div style="font-size:26px;font-weight:800;color:${(window.TPL_CUSTOM&&TPL_CUSTOM.color2)||'#4DB6AC'};font-family:monospace">#${d.num}</div>
       <div style="margin-top:8px;background:${statusColor(d.status)};color:#fff;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">${d.status.toUpperCase()}</div>
     </div>
   </div>
@@ -2904,11 +2914,11 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader) {
       <div style="flex:1;background:#f8f9fa;border-radius:10px;padding:16px">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Invoice Details</div>
         ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#888">${k}</span><span style="font-weight:600;color:#1A2332">${v}</span></div>`:'').join('')}
-        <div style="margin-top:12px;text-align:right"><span style="font-size:11px;color:#888">Grand Total</span><br><span style="font-size:22px;font-weight:800;color:#4DB6AC;font-family:monospace">${fmt_money(d.grand,d.sym)}</span></div>
+        <div style="margin-top:12px;text-align:right"><span style="font-size:11px;color:#888">Grand Total</span><br><span style="font-size:22px;font-weight:800;color:${(window.TPL_CUSTOM&&TPL_CUSTOM.color2)||'#4DB6AC'};font-family:monospace">${fmt_money(d.grand,d.sym)}</span></div>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:18px">
-      <thead><tr style="background:#1A2332">
+      <thead><tr style="background:${(window.TPL_CUSTOM&&TPL_CUSTOM.color1)||'#1A2332'}">
         <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Description</th>
         <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Qty</th>
         ${gstColHeader.replace(/style="([^"]+)"/,'style="$1;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;text-transform:uppercase"')||''}
@@ -2953,10 +2963,15 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
 
 function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
   if (d.popt && d.popt.footer===false) return '';
-  const txt = (d.showGeneratedBy!==false && d.generatedBy) ? d.generatedBy : 'OPTMS Tech Invoice Manager';
-  return `<div style="background:${bg};padding:12px 40px;display:flex;justify-content:space-between;align-items:center">
+  const txt = (window.TPL_CUSTOM&&TPL_CUSTOM.footerText) ? TPL_CUSTOM.footerText
+            : (d.showGeneratedBy!==false && d.generatedBy) ? d.generatedBy : 'OPTMS Tech Invoice Manager';
+  const bgColor = (window.TPL_CUSTOM&&TPL_CUSTOM.color1) ? TPL_CUSTOM.color1 : bg;
+  const font    = (window.TPL_CUSTOM&&TPL_CUSTOM.font)   ? TPL_CUSTOM.font   : 'inherit';
+  const phone   = sc.phone||STATE.settings.phone||'';
+  const email   = sc.email||STATE.settings.email||'';
+  return `<div style="background:${bgColor};padding:12px 40px;display:flex;justify-content:space-between;align-items:center;font-family:${font}">
     <span style="color:${col};font-size:10px">${txt}</span>
-    <span style="color:${col};font-size:10px">${sc.phone} · ${sc.email}</span>
+    <span style="color:${col};font-size:10px">${phone}${phone&&email?' · ':''}${email}</span>
   </div>`;
 }
 
@@ -2964,8 +2979,25 @@ function statusColor(s) {
   return { Paid:'#388E3C', Pending:'#F57F17', Overdue:'#C62828', Draft:'#757575' }[s] || '#757575';
 }
 
+// ── Helper: resolve company settings (merge STATE if sc is sparse) ──
+function resolveCompany(sc) {
+  const S = STATE.settings;
+  return {
+    company: sc.company||S.company||'',
+    phone:   sc.phone||S.phone||'',
+    email:   sc.email||S.email||'',
+    website: sc.website||S.website||'',
+    gst:     sc.gst||S.gst||'',
+    address: sc.address||S.address||'',
+    logo:    sc.logo||S.logo||'',
+    signature: sc.signature||S.signature||'',
+    upi:     sc.upi||S.upi||''
+  };
+}
+
 // ── TEMPLATE 2: Modern Teal ──
 function buildTpl2(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#00897B,#26A69A);padding:36px 44px 28px">
@@ -3017,6 +3049,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 3: Bold Dark ──
 function buildTpl3(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#0F172A;color:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="padding:40px 48px 28px;border-bottom:2px solid rgba(56,189,248,.2)">
@@ -3069,6 +3102,7 @@ function buildTpl3(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 4: Minimal Clean ──
 function buildTpl4(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="padding:44px 52px 0">
@@ -3123,6 +3157,7 @@ function buildTpl4(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 5: Corporate Blue ──
 function buildTpl5(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#1565C0,#1976D2);padding:36px 44px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -3170,6 +3205,7 @@ function buildTpl5(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 6: Warm Orange ──
 function buildTpl6(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#BF360C,#E64A19);padding:36px 44px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -3216,6 +3252,7 @@ function buildTpl6(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 7: Purple Gradient ──
 function buildTpl7(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#4A148C,#7B1FA2,#AB47BC);padding:36px 44px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -3262,6 +3299,7 @@ function buildTpl7(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 8: Green Leaf ──
 function buildTpl8(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32,#388E3C);padding:36px 44px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -3308,6 +3346,7 @@ function buildTpl8(d, sc, itemsHTML, gstColHeader) {
 
 // ── TEMPLATE 9: Red Executive ──
 function buildTpl9(d, sc, itemsHTML, gstColHeader) {
+  sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
   <div style="background:linear-gradient(135deg,#7F0000,#B71C1C,#C62828);padding:36px 44px 28px;display:flex;justify-content:space-between;align-items:flex-start">
@@ -3411,12 +3450,77 @@ function openPrintWindow(d, items) {
 }
 
 function printFromModal() {
-  const id = document.getElementById('mp-title').dataset.invId;
+  const titleEl = document.getElementById('mp-title');
+  const id = titleEl?.dataset?.invId;
   if (id) {
-    const inv = STATE.invoices.find(i=>i.id===id);
-    if (inv) { printInvoiceData(inv); return; }
+    const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+    if (inv) { printInvoiceById(inv); return; }
   }
   printCurrentInvoice();
+}
+
+function printInvoiceById(inv) {
+  const c   = STATE.clients.find(x=>String(x.id)===String(inv.client)) || {};
+  const sc  = STATE.settings;
+  const items = (inv.items||[]);
+  const showGst = true;
+  const sym = inv.currency || '₹';
+  const itemsHTML = items.length
+    ? items.map(i=>{
+        const qty  = parseFloat(i.qty||i.quantity||1);
+        const rate = parseFloat(i.rate||0);
+        const gst  = parseFloat(i.gst||i.gst_rate||18);
+        const line = qty*rate;
+        return `<tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||i.description||'—'}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gst}%</td>
+          <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,sym)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,sym)}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="5" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+  const gstHdr = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
+  const d = {
+    tpl: parseInt(inv.template)||STATE.settings.activeTemplate||1,
+    num: inv.num||inv.invoice_number, date: inv.issued||inv.issued_date,
+    due: inv.due||inv.due_date, svc: inv.service||inv.service_type,
+    cname: c.name||inv.clientName||inv.client_name||'',
+    cperson:c.person||'', cemail:c.email||'', cwa:c.wa||c.whatsapp||'',
+    cgst:c.gst||c.gst_number||'', caddr:c.addr||c.address||'',
+    disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0,
+    notes:inv.notes||'', bank:inv.bank||inv.bank_details||'',
+    tnc:inv.tnc||inv.terms||'', status:inv.status, sym,
+    sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
+    grand:parseFloat(inv.amount||inv.grand_total)||0,
+    companyLogo:inv.company_logo||sc.logo||'',
+    clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
+    qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||'OPTMS Tech Invoice Manager',
+    showGeneratedBy:true,
+    popt:{bank:true,qr:!!(inv.qr_code),sign:!!(inv.signature||sc.signature),
+          logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,
+          watermark:inv.status==='Paid'}
+  };
+  const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
+              6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9};
+  const fn = tpls[d.tpl]||buildTpl1;
+  const html = fn(d, sc, itemsHTML, gstHdr);
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Invoice ${d.num}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;font-family:'Public Sans',sans-serif}
+    .np{background:#f5f5f5;padding:10px 20px;display:flex;gap:12px;align-items:center;font-family:'Public Sans',sans-serif;font-size:13px;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:99}
+    @page{margin:0;size:A4}@media print{.np{display:none!important}body{margin:0;padding:0}}</style>
+  </head><body>
+  <div class="np">
+    <button onclick="window.print()" style="padding:8px 20px;background:#00897B;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-family:inherit">🖨️ Print / Save PDF</button>
+    <button onclick="window.close()" style="padding:8px 16px;background:#fff;border:1.5px solid #ddd;border-radius:7px;cursor:pointer;font-family:inherit">Close</button>
+    <span style="color:#888;font-size:12px">Set print margins to "None" for best result</span>
+  </div>
+  ${html}
+  </body></html>`);
+  w.document.close();
 }
 
 // ══════════════════════════════════════════
@@ -3472,8 +3576,8 @@ function openPreviewModal(id) {
   const sc = STATE.settings;
   // Build data object directly from invoice — no form manipulation needed
   const d = {
-    tpl: inv.template || 1,
-    num: inv.num,
+    tpl: parseInt(inv.template) || STATE.settings.activeTemplate || 1,
+    num: inv.num || inv.invoice_number,
     date: inv.issued,
     due: inv.due,
     svc: inv.service,
@@ -3493,9 +3597,9 @@ function openPreviewModal(id) {
     sub: inv.subtotal || inv.amount,
     gstAmt: 0,
     grand: inv.amount,
-    companyLogo: sc.logo || '',
+    companyLogo: sc.logo || STATE.settings.logo || '',
     clientLogo: '',
-    signature: sc.signature || '',
+    signature: sc.signature || STATE.settings.signature || '',
     qrUrl: '',
     popt: { bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:inv.status==='Paid' },
     generatedBy: 'OPTMS Tech Invoice Manager · optmstech.in',
@@ -3512,12 +3616,16 @@ function openPreviewModal(id) {
   const invItems = (inv.items||[]);
   const previewItemsHTML = invItems.length
     ? invItems.map(i => {
-        const line=(i.qty||1)*(i.rate||0), gstR=parseFloat(i.gstRate||i.gst||18);
+        const qty  = parseFloat(i.qty||i.quantity||1);
+        const rate = parseFloat(i.rate||0);
+        const gstR = parseFloat(i.gst||i.gstRate||i.gst_rate||18);
+        const desc = i.desc||i.description||'—';
+        const line = qty*rate;
         return `<tr>
-          <td style="padding:9px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #eee">${desc}</td>
+          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>
-          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,d.sym)}</td>
           <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
         </tr>`;
       }).join('')
@@ -3537,14 +3645,15 @@ function openPreviewModal(id) {
 
 function loadInvoiceIntoForm(inv) {
   const c = STATE.clients.find(x=>x.id===inv.client);
-  document.getElementById('f-num').value      = inv.num;
+  document.getElementById('f-num').value      = inv.num || inv.invoice_number || '';
   document.getElementById('f-service').value  = inv.service || '';
   document.getElementById('f-date').value     = inv.issued;
   document.getElementById('f-due').value      = inv.due;
   document.getElementById('f-disc').value     = inv.disc||0;
   document.getElementById('f-notes').value    = inv.notes||'';
-  document.getElementById('f-bank').value     = inv.bank||'';
-  if (document.getElementById('f-tnc')) document.getElementById('f-tnc').value = inv.tnc||'';
+  document.getElementById('f-bank').value     = inv.bank||inv.bank_details||'';
+  if (document.getElementById('f-tnc')) document.getElementById('f-tnc').value = inv.tnc||inv.terms||'';
+  // f-bank and f-tnc set above
   document.getElementById('f-template').value = inv.template||1;
   document.getElementById('f-currency').value = inv.currency||'₹';
   document.getElementById('f-cname').value    = c ? c.name : (inv.clientName||'');
@@ -3713,7 +3822,7 @@ function confirmDelete() {
 // DUPLICATE
 // ══════════════════════════════════════════
 function duplicateInvoice(id) {
-  const inv = STATE.invoices.find(i=>i.id===id);
+  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
   const newNum = STATE.settings.prefix + (STATE.invoices.length + 1).toString().padStart(3,'0');
   const dup = { ...inv, id:'i'+Date.now(), num:newNum, status:'Draft', issued:fmt_date(new Date()) };
@@ -4380,7 +4489,7 @@ function updateClientDropdown() {
 }
 
 function editInvoice(id) {
-  const inv=STATE.invoices.find(i=>i.id===id); if(!inv) return;
+  const inv=STATE.invoices.find(i=>String(i.id)===String(id)); if(!inv) return;
   showPage('create',null);
   setTimeout(()=>{ STATE.editingInvoiceId=id; updateClientDropdown(); loadInvoiceIntoForm(inv); const s=document.getElementById('f-client-select');if(s)s.value=inv.client; livePreview(); toast(`✏️ Editing ${inv.num}`,'info'); },80);
 }
@@ -4558,7 +4667,8 @@ window.saveInvoice = async function() {
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
     discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
-    notes: d.notes, bank_details: d.bank, terms: d.tnc,
+    invoice_number: d.num,  // re-include to ensure edited invoice# is saved
+    notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
     company_logo: d.companyLogo, client_logo: d.clientLogo,
     signature: d.signature, qr_code: d.qrUrl,
     template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
@@ -4856,7 +4966,7 @@ function renderNotifications() {
 // ── saveInvoiceDefaults ─────────────────────────────────────────
 window.saveInvoiceDefaults = async function() {
   const payload = {
-    default_gst:     document.getElementById('sd-gst')?.value     || '18',
+    default_gst:     (document.getElementById('sd-gst')?.value ?? '18'),
     due_days:        document.getElementById('sd-due')?.value     || '15',
     active_template: document.getElementById('sd-tpl')?.value     || '1',
     invoice_prefix:  document.getElementById('sd-prefix')?.value  || STATE.settings.prefix || 'OT-',
@@ -4864,7 +4974,7 @@ window.saveInvoiceDefaults = async function() {
     default_bank:    document.getElementById('sd-bank')?.value    || '',
   };
   // Also update STATE
-  STATE.settings.defaultGST     = parseInt(payload.default_gst);
+  STATE.settings.defaultGST     = parseInt(payload.default_gst ?? '18');
   STATE.settings.dueDays        = parseInt(payload.due_days);
   STATE.settings.activeTemplate = parseInt(payload.active_template);
   if (payload.invoice_prefix) STATE.settings.prefix = payload.invoice_prefix;
@@ -5074,10 +5184,17 @@ window.applyTplCustomization = function() {
   TPL_CUSTOM.footerText   = document.getElementById('tpl-footer-text')?.value || '';
   TPL_CUSTOM.tagline      = document.getElementById('tpl-tagline')?.value     || '';
   TPL_CUSTOM.watermarkText= document.getElementById('tpl-watermark-text')?.value || 'PAID';
+  // Sync color hex inputs with color pickers
+  const c1hex = document.getElementById('tpl-color1-hex');
+  const c2hex = document.getElementById('tpl-color2-hex');
+  if (c1hex) { c1hex.value = TPL_CUSTOM.color1; document.getElementById('tpl-color1').value = TPL_CUSTOM.color1; }
+  if (c2hex) { c2hex.value = TPL_CUSTOM.color2; document.getElementById('tpl-color2').value = TPL_CUSTOM.color2; }
   // Preview the active template with new colors
   const n = STATE.settings.activeTemplate || 1;
   previewTemplate(n);
-  toast('✅ Customization applied — see preview below', 'success');
+  // Also update live preview on create page
+  if (document.getElementById('invoicePreviewWrap')) livePreview();
+  toast('✅ Customization applied! Click Save to persist.', 'success');
 };
 
 window.saveTplCustomization = async function() {
