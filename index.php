@@ -1792,6 +1792,123 @@ const SERVER = {
           <div id="wa-bulk-log" style="margin-top:14px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);display:none"></div>
         </div>
 
+        <!-- Approved Template Configuration -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-check-circle" style="color:#25D366"></i> Approved Message Templates</div>
+          <div style="background:#E8F5E9;border-radius:8px;padding:12px 16px;font-size:13px;color:#1B5E20;margin-bottom:16px;line-height:1.7">
+            <strong>📋 How it works:</strong><br>
+            • <strong>Session mode</strong> (default) — sends free-form text. Works only within 24h of client messaging you.<br>
+            • <strong>Template mode</strong> — uses Meta-approved templates. Works anytime for any number. Requires template approval from Meta first.
+          </div>
+
+          <div class="field" style="margin-bottom:16px">
+            <label>Message Sending Mode</label>
+            <div style="display:flex;gap:12px;margin-top:6px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-session-lbl">
+                <input type="radio" name="wa-msg-mode" value="session" id="mode-session" onchange="setWAMode('session')" style="accent-color:var(--teal)">
+                <div><div style="font-weight:700;font-size:13px">💬 Session Messages</div><div style="font-size:11px;color:var(--muted)">Free-form text, 24h window</div></div>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-template-lbl">
+                <input type="radio" name="wa-msg-mode" value="template" id="mode-template" onchange="setWAMode('template')" style="accent-color:var(--teal)">
+                <div><div style="font-weight:700;font-size:13px">✅ Approved Templates</div><div style="font-size:11px;color:var(--muted)">Any time, any number</div></div>
+              </label>
+            </div>
+          </div>
+
+          <div id="tpl-names-section" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+              Enter the exact template names as approved in your <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" style="color:var(--teal)">Meta Business Manager</a>.
+              Language code is usually <code>en</code> or <code>en_US</code>.
+            </div>
+            <div class="form-grid g2">
+              <div class="field">
+                <label>New Invoice Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-invoice" placeholder="e.g. invoice_created" style="flex:1">
+                  <input id="tpl-lang-invoice" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company</div>
+              </div>
+              <div class="field">
+                <label>Payment Reminder Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-reminder" placeholder="e.g. payment_reminder" style="flex:1">
+                  <input id="tpl-lang-reminder" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company</div>
+              </div>
+              <div class="field">
+                <label>Overdue Alert Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-overdue" placeholder="e.g. payment_overdue" style="flex:1">
+                  <input id="tpl-lang-overdue" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}company</div>
+              </div>
+              <div class="field">
+                <label>Payment Received Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-paid" placeholder="e.g. payment_received" style="flex:1">
+                  <input id="tpl-lang-paid" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}date {{5}}company</div>
+              </div>
+              <div class="field">
+                <label>Follow-up Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-followup" placeholder="e.g. invoice_followup" style="flex:1">
+                  <input id="tpl-lang-followup" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}phone</div>
+              </div>
+              <div class="field">
+                <label>Festival Greeting Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-festival" placeholder="e.g. festival_greeting" style="flex:1">
+                  <input id="tpl-lang-festival" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}company {{3}}phone</div>
+              </div>
+            </div>
+
+            <!-- Template samples to submit to Meta -->
+            <div style="margin-top:16px;background:var(--bg);border-radius:8px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📝 Suggested Template Content for Meta Approval</div>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Your invoice #{{2}} for ₹{{3}} has been created.
+Due Date: {{4}}
+Pay via UPI: {{5}}
+
+Thank you for choosing {{6}}!</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Friendly reminder: Invoice #{{2}} for ₹{{3}} is due on {{4}}.
+Pay via UPI: {{5}}
+
+Thank you, {{6}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--red)">payment_overdue — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Invoice #{{2}} for ₹{{3}} is overdue by {{4}} days.
+Please pay immediately via UPI: {{5}}
+
+Contact {{6}} for any queries.</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--blue)">payment_received — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Payment received for Invoice #{{2}}!
+Amount: ₹{{3}}
+Date: {{4}}
+
+Thank you for your prompt payment! — {{5}}</pre></details>
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save Template Settings</button>
+          </div>
+        </div>
+
         <!-- Send Manual Message -->
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-paper-plane"></i> Send Manual Message</div>
@@ -4882,6 +4999,20 @@ async function loadAllData() {
         auto_remind:   s.wa_auto_remind   !== undefined ? s.wa_auto_remind   : '1',
         auto_overdue:  s.wa_auto_overdue  !== undefined ? s.wa_auto_overdue  : '1',
         auto_followup: s.wa_auto_followup !== undefined ? s.wa_auto_followup : '0',
+        msg_mode:      s.wa_msg_mode || 'session',
+        // Template names
+        tpl_name_invoice:  s.wa_tpl_name_invoice  || '',
+        tpl_lang_invoice:  s.wa_tpl_lang_invoice  || 'en',
+        tpl_name_reminder: s.wa_tpl_name_reminder || '',
+        tpl_lang_reminder: s.wa_tpl_lang_reminder || 'en',
+        tpl_name_overdue:  s.wa_tpl_name_overdue  || '',
+        tpl_lang_overdue:  s.wa_tpl_lang_overdue  || 'en',
+        tpl_name_paid:     s.wa_tpl_name_paid     || '',
+        tpl_lang_paid:     s.wa_tpl_lang_paid     || 'en',
+        tpl_name_followup: s.wa_tpl_name_followup || '',
+        tpl_lang_followup: s.wa_tpl_lang_followup || 'en',
+        tpl_name_festival: s.wa_tpl_name_festival || '',
+        tpl_lang_festival: s.wa_tpl_lang_festival || 'en',
       };
       // Parse TPL_CUSTOM settings
       if (window.TPL_CUSTOM) {
@@ -5371,7 +5502,7 @@ function populateWAPage() {
   setV('wa-remind-days', wa.remind_days || '3');
   setV('wa-max-followup',wa.max_followup || '3');
 
-  // Templates — use saved or rich defaults
+  // Templates
   setV('wa-tpl-inv',     wa.tpl_inv     || getDefaultWATpl('inv'));
   setV('wa-tpl-paid',    wa.tpl_paid    || getDefaultWATpl('paid'));
   setV('wa-tpl-remind',  wa.tpl_remind  || getDefaultWATpl('remind'));
@@ -5379,13 +5510,26 @@ function populateWAPage() {
   setV('wa-tpl-followup',wa.tpl_followup|| getDefaultWATpl('followup'));
   setV('wa-tpl-festival',wa.tpl_festival|| getDefaultWATpl('festival'));
 
-  // Toggles — all values stored as string '1'/'0' in DB
+  // Toggles
   setTog('twa1', wa.auto_inv     === '1');
-  setTog('twa2', wa.auto_paid    !== '0');   // default ON
-  setTog('twa3', wa.auto_remind  !== '0');   // default ON
-  setTog('twa4', wa.auto_overdue !== '0');   // default ON
+  setTog('twa2', wa.auto_paid    !== '0');
+  setTog('twa3', wa.auto_remind  !== '0');
+  setTog('twa4', wa.auto_overdue !== '0');
   setTog('twa5', wa.auto_followup === '1');
+
+  // Template mode + names
+  const mode  = wa.msg_mode || 'session';
+  const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
+  if (radio) { radio.checked = true; setWAMode(mode); }
+  const tpls  = ['invoice','reminder','overdue','paid','followup','festival'];
+  tpls.forEach(t => {
+    const nEl = document.getElementById('tpl-name-' + t);
+    const lEl = document.getElementById('tpl-lang-' + t);
+    if (nEl) nEl.value = wa['tpl_name_' + t] || '';
+    if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en';
+  });
 }
+
 
 function populateWAClientDropdown() {
   const sel = document.getElementById('wa-manual-client');
@@ -5493,32 +5637,83 @@ Thank you for your continued trust and support. We are grateful for your partner
 // saveWASettings: defined above
 
 // ── Send via Meta WhatsApp Business API ──────────────────────
-async function sendWABusinessMsg(toPhone, message, token, pid) {
-  // All Meta API calls go through our PHP proxy to avoid CORS
+async function sendWABusinessMsg(toPhone, message, token, pid, tplOpts) {
+  // tplOpts = { name, lang, params[] } for approved templates
+  // If no tplOpts, sends as free-form text (requires active 24h session)
+  const body = tplOpts
+    ? { token, pid, to: toPhone, type: 'template',
+        template_name: tplOpts.name, template_lang: tplOpts.lang || 'en',
+        template_params: tplOpts.params || [], message }
+    : { token, pid, to: toPhone, type: 'text', message };
+
   const res  = await fetch('api/wa_send.php', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, pid, to: toPhone, message }),
+    body: JSON.stringify(body),
   });
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); }
-  catch(e) { throw new Error('Server returned non-JSON: ' + text.substring(0, 200)); }
-  if (!res.ok || data.error) {
-    throw new Error(data.error || 'API error ' + res.status);
-  }
+  catch(e) { throw new Error('Server error: ' + text.substring(0,200)); }
+  if (!res.ok || data.error) throw new Error(data.error || 'API error ' + res.status);
   return data;
 }
 
+// Build template params from invoice data
+function buildWATplParams(tplName, inv, client, settings) {
+  const sc  = settings || STATE.settings;
+  const c   = client  || {};
+  const dueDate   = inv.due || inv.due_date || '';
+  const dueFmt    = dueDate ? new Date(dueDate).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const issueFmt  = (inv.issued||inv.issued_date) ? new Date(inv.issued||inv.issued_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const amount    = String(parseFloat(inv.amount||inv.grand_total)||0);
+  const daysOver  = dueDate ? String(Math.max(0,Math.floor((new Date()-new Date(dueDate))/86400000))) : '0';
+
+  // Common params used across most templates
+  const common = {
+    client_name:    c.name || inv.client_name || 'Valued Client',
+    invoice_no:     inv.num || inv.invoice_number || '',
+    amount,
+    currency:       inv.currency || '₹',
+    due_date:       dueFmt,
+    issue_date:     issueFmt,
+    service:        inv.service || inv.service_type || '',
+    company_name:   sc.company || '',
+    upi:            sc.upi || '',
+    company_phone:  sc.phone || '',
+    days_overdue:   daysOver,
+  };
+
+  // Map template name to ordered params list
+  const maps = {
+    invoice_created:   ['client_name','invoice_no','amount','due_date','upi','company_name'],
+    payment_reminder:  ['client_name','invoice_no','amount','due_date','upi','company_name'],
+    payment_overdue:   ['client_name','invoice_no','amount','days_overdue','upi','company_name'],
+    payment_received:  ['client_name','invoice_no','amount','issue_date','company_name'],
+    invoice_followup:  ['client_name','invoice_no','amount','days_overdue','upi','company_phone'],
+    festival_greeting: ['client_name','company_name','company_phone'],
+  };
+
+  const paramKeys = maps[tplName] || Object.keys(common);
+  return paramKeys.map(k => common[k] || '');
+}
+
 // ── Send WA (API first, wa.me fallback) ──────────────────────
-async function sendWA(phone, message) {
+async function sendWA(phone, message, tplName, inv, client) {
   const wa    = STATE.settings.wa || {};
   const token = wa.token || '';
   const pid   = wa.pid   || '';
   const clean = String(phone).replace(/\D/g, '');
   if (!clean) throw new Error('No phone number');
   if (token && pid) {
-    return await sendWABusinessMsg(clean, message, token, pid);
+    // Use approved template if name configured AND mode is template
+    const useTemplate = wa.msg_mode === 'template' && tplName && wa['tpl_name_' + tplName];
+    const tplOpts = useTemplate ? {
+      name:   wa['tpl_name_' + tplName],
+      lang:   wa['tpl_lang_' + tplName] || 'en',
+      params: inv ? buildWATplParams(wa['tpl_name_' + tplName], inv, client, STATE.settings) : [],
+    } : null;
+    return await sendWABusinessMsg(clean, message, token, pid, tplOpts);
   }
   // Fallback: open wa.me
   window.open('https://wa.me/' + (clean.length===10?'91'+clean:clean) + '?text=' + encodeURIComponent(message), '_blank');
@@ -5567,7 +5762,7 @@ async function sendWAForInvoice(inv) {
   const tpl = wa.tpl_inv || getDefaultWATpl('inv');
   const msg = formatWAMsg(tpl, inv, c, STATE.settings);
   try {
-    const result = await sendWA(phone, msg);
+    const result = await sendWA(phone, msg, 'invoice_created', inv, c);
     toast(result ? '✅ WhatsApp sent to ' + c.name + '!' : '📱 WhatsApp opened', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -5759,6 +5954,20 @@ window.tplLogoHTML = function(d, sc) {
   if (logo) return `<img src="${logo}" style="height:52px;max-width:180px;object-fit:contain;display:block" onerror="this.style.display='none'">`;
   return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px;font-family:${font}">${sc.company}</div>${tag?`<div style="font-size:11px;opacity:.7;margin-top:2px">${tag}</div>`:''}`;
 };
+
+
+// ── WA Template Mode ───────────────────────────────────────────
+function setWAMode(mode) {
+  const sec = document.getElementById('tpl-names-section');
+  const sLbl = document.getElementById('mode-session-lbl');
+  const tLbl = document.getElementById('mode-template-lbl');
+  if (sec)  sec.style.display  = mode === 'template' ? 'block' : 'none';
+  if (sLbl) sLbl.style.borderColor = mode === 'session'  ? 'var(--teal)' : 'var(--border)';
+  if (tLbl) tLbl.style.borderColor = mode === 'template' ? 'var(--teal)' : 'var(--border)';
+  if (!STATE.settings.wa) STATE.settings.wa = {};
+  STATE.settings.wa.msg_mode = mode;
+}
+
 
 
 </script>
