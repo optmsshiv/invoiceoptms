@@ -7,10 +7,10 @@
 // Start output buffering immediately so no stray whitespace leaks into JSON responses
 if (!ob_get_level()) ob_start();
 
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'optms_invoice');   // ← your database name
-define('DB_USER',    'root');            // ← your MySQL username
-define('DB_PASS',    '');               // ← your MySQL password
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'edrppymy_optms_invoice');
+define('DB_USER', 'edrppymy_optms_invoice');          // ← Change to your MySQL username
+define('DB_PASS', '1234@Optmsdatabase');              // ← Change to your MySQL password
 define('DB_CHARSET', 'utf8mb4');
 
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
