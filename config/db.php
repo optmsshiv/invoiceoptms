@@ -11,7 +11,7 @@ define('DB_CHARSET', 'utf8mb4');
 
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
 define('APP_VERSION', '1.0.0');
-define('APP_URL',     'http://localhost/edrppymy_optms_invoice'); // ← Change to your domain
+define('APP_URL',     'https://invs.optms.co.in/'); // ← Change to your domain
 
 // Session settings
 define('SESSION_LIFETIME', 7200); // 2 hours
