@@ -887,6 +887,7 @@ const SERVER = {
     <a class="nav-item" data-page="backup" onclick="showPage('backup',this)">
       <i class="fas fa-database"></i><span>Backup & Export</span>
     </a>
+    <a class="nav-item" href="/auth/logout.php" style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)"><i class="fas fa-sign-out-alt" style="color:#ff8a80"></i><span style="color:#ff8a80">Logout</span></a>
   </nav>
 
   <div class="sidebar-footer">
@@ -921,9 +922,7 @@ const SERVER = {
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
-          <div class="np-item np-warn"><i class="fas fa-exclamation-circle"></i><div><b>Kapoor Retail</b> invoice overdue by 5 days</div></div>
-          <div class="np-item np-info"><i class="fas fa-check-circle"></i><div><b>Delhi Public School</b> payment of ₹45,000 received</div></div>
-          <div class="np-item np-info"><i class="fas fa-file-invoice"></i><div>3 invoices due in next 3 days</div></div>
+          <div id="notifItems"><div style="padding:12px 16px;color:var(--muted);font-size:13px;text-align:center">Loading notifications…</div></div>
           <div style="padding:10px 16px;text-align:center"><button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearNotifs()">Mark all read</button></div>
         </div>
       </div>
@@ -1154,17 +1153,12 @@ const SERVER = {
             <div class="form-grid g1" style="margin-bottom:12px">
               <div class="field"><label>Quick Select Client</label>
                 <select id="f-client-select" onchange="fillClientForm(this.value)">
-                  <option value="">— New Client —</option>
-                  <option value="dps">Delhi Public School</option>
-                  <option value="sunrise">Sunrise School</option>
-                  <option value="mehta">Mehta Industries</option>
-                  <option value="kapoor">Kapoor Retail</option>
-                  <option value="gupta">Gupta & Sons</option>
+                  <option value="">-- Quick Select Client --</option>
                 </select>
               </div>
             </div>
             <div class="form-grid g2">
-              <div class="field g-full"><label>Organization / Client Name *</label><input id="f-cname" placeholder="e.g. Delhi Public School" oninput="livePreview()"></div>
+              <div class="field g-full"><label>Organization / Client Name *</label><input id="f-cname" placeholder="Organization / Client Name" oninput="livePreview()"></div>
               <div class="field"><label>Contact Person</label><input id="f-cperson" placeholder="Full Name" oninput="livePreview()"></div>
               <div class="field"><label>WhatsApp Number</label><input id="f-cwa" placeholder="+91 9876543210" oninput="livePreview()"></div>
               <div class="field"><label>Email Address</label><input id="f-cemail" type="email" placeholder="client@domain.com" oninput="livePreview()"></div>
@@ -1818,110 +1812,18 @@ const STATE = {
   sortDir: 'desc'
 };
 
-// ── CLIENTS ──
-STATE.clients = [
-  { id:'c1', name:'Delhi Public School', person:'Rajan Sharma', wa:'+919876543210', email:'rajan@dps.edu', gst:'07AABCU9603R1ZP', addr:'Sector 5, Rohini, New Delhi – 110085', color:'#00897B', invoices:12, revenue:482000, image:'' },
-  { id:'c2', name:'Sunrise School', person:'Principal Mrs. Gupta', wa:'+919871234567', email:'principal@sunrise.edu', gst:'10AABCS1234P1ZQ', addr:'Bailey Road, Patna, Bihar – 800001', color:'#F9A825', invoices:8, revenue:620000, image:'' },
-  { id:'c3', name:'Mehta Industries', person:'Ankit Mehta', wa:'+919988776655', email:'ankit@mehtaind.com', gst:'27AABCM4032H1ZV', addr:'MIDC, Pune, Maharashtra – 411019', color:'#1976D2', invoices:5, revenue:123500, image:'' },
-  { id:'c4', name:'Kapoor Retail', person:'Vikas Kapoor', wa:'+919765432180', email:'vikas@kapoorretail.in', gst:'', addr:'Chandni Chowk, Delhi – 110006', color:'#E53935', invoices:4, revenue:72000, image:'' },
-  { id:'c5', name:'Gupta & Sons', person:'Rahul Gupta', wa:'+917890123456', email:'rahul@guptasons.com', gst:'06AABCG8907N1ZR', addr:'Hazratganj, Lucknow – 226001', color:'#7B1FA2', invoices:3, revenue:45000, image:'' },
-  { id:'c6', name:'Tech Vision Academy', person:'Dr. Amit Singh', wa:'+918765432109', email:'amit@techvision.edu', gst:'09AABCT1234R1ZS', addr:'Noida Sector 18, UP – 201301', color:'#388E3C', invoices:2, revenue:95000, image:'' },
-];
+// ── CLIENTS (loaded from DB via API) ──
+STATE.clients = [];
 
-// ── PRODUCTS / SERVICES ──
-STATE.products = [
-  { id:'p1', name:'Website Development – Basic', category:'Website Dev', rate:15000, hsn:'998314', gst:18 },
-  { id:'p2', name:'Website Development – Standard', category:'Website Dev', rate:35000, hsn:'998314', gst:18 },
-  { id:'p3', name:'Website Development – Premium', category:'Website Dev', rate:75000, hsn:'998314', gst:18 },
-  { id:'p4', name:'School ERP – Module License', category:'School ERP', rate:50000, hsn:'998315', gst:18 },
-  { id:'p5', name:'School ERP – Annual Maintenance', category:'School ERP', rate:12000, hsn:'998315', gst:18 },
-  { id:'p6', name:'School ERP – Training & Onboarding', category:'School ERP', rate:8000, hsn:'998315', gst:18 },
-  { id:'p7', name:'Mobile App Development', category:'Mobile App', rate:80000, hsn:'998315', gst:18 },
-  { id:'p8', name:'Domain + Hosting (1 year)', category:'Hosting', rate:4500, hsn:'998315', gst:18 },
-  { id:'p9', name:'Monthly Maintenance', category:'Maintenance', rate:3000, hsn:'998314', gst:18 },
-  { id:'p10',name:'SEO Package – 3 months', category:'Marketing', rate:18000, hsn:'998361', gst:18 },
-  { id:'p11',name:'UI/UX Design', category:'Design', rate:25000, hsn:'998314', gst:18 },
-  { id:'p12',name:'Technical Consultation (per hour)', category:'Consultation', rate:1500, hsn:'998314', gst:18 },
-];
+// ── PRODUCTS (loaded from DB via API) ──
+STATE.products = [];
 
-// ── INVOICES (34 sample) ──
-const invData = [
-  { id:'i1',  num:'OT-2025-001', client:'c1', service:'School ERP',          issued:'2025-01-05', due:'2025-01-20', amount:75000,  status:'Paid',    items:[{desc:'School ERP Module',qty:1,rate:75000}] },
-  { id:'i2',  num:'OT-2025-002', client:'c3', service:'Website Development', issued:'2025-01-08', due:'2025-01-23', amount:35000,  status:'Paid',    items:[{desc:'Business Website',qty:1,rate:35000}] },
-  { id:'i3',  num:'OT-2025-003', client:'c2', service:'School ERP',          issued:'2025-01-12', due:'2025-01-27', amount:92000,  status:'Paid',    items:[{desc:'ERP License',qty:1,rate:80000},{desc:'Training',qty:1,rate:12000}] },
-  { id:'i4',  num:'OT-2025-004', client:'c4', service:'Website Development', issued:'2025-01-15', due:'2025-01-30', amount:18000,  status:'Overdue', items:[{desc:'Portfolio Website',qty:1,rate:18000}] },
-  { id:'i5',  num:'OT-2025-005', client:'c5', service:'Maintenance',         issued:'2025-01-18', due:'2025-02-02', amount:3000,   status:'Paid',    items:[{desc:'Monthly Maintenance',qty:1,rate:3000}] },
-  { id:'i6',  num:'OT-2025-006', client:'c1', service:'Domain & Hosting',    issued:'2025-01-22', due:'2025-02-06', amount:4500,   status:'Paid',    items:[{desc:'Hosting Annual',qty:1,rate:4500}] },
-  { id:'i7',  num:'OT-2025-007', client:'c6', service:'Website Development', issued:'2025-01-28', due:'2025-02-12', amount:75000,  status:'Pending', items:[{desc:'Premium Website',qty:1,rate:75000}] },
-  { id:'i8',  num:'OT-2025-008', client:'c3', service:'Maintenance',         issued:'2025-02-01', due:'2025-02-16', amount:3000,   status:'Paid',    items:[{desc:'Maintenance',qty:1,rate:3000}] },
-  { id:'i9',  num:'OT-2025-009', client:'c2', service:'School ERP',          issued:'2025-02-05', due:'2025-02-20', amount:50000,  status:'Paid',    items:[{desc:'ERP Module 2',qty:1,rate:50000}] },
-  { id:'i10', num:'OT-2025-010', client:'c1', service:'Consultation',        issued:'2025-02-08', due:'2025-02-23', amount:7500,   status:'Paid',    items:[{desc:'Consultation 5hr',qty:5,rate:1500}] },
-  { id:'i11', num:'OT-2025-011', client:'c4', service:'Website Development', issued:'2025-02-12', due:'2025-02-27', amount:35000,  status:'Pending', items:[{desc:'E-Commerce Website',qty:1,rate:35000}] },
-  { id:'i12', num:'OT-2025-012', client:'c5', service:'Maintenance',         issued:'2025-02-15', due:'2025-03-01', amount:3000,   status:'Paid',    items:[{desc:'Maintenance Feb',qty:1,rate:3000}] },
-  { id:'i13', num:'OT-2025-013', client:'c6', service:'School ERP',          issued:'2025-02-18', due:'2025-03-05', amount:20000,  status:'Paid',    items:[{desc:'ERP Training',qty:1,rate:20000}] },
-  { id:'i14', num:'OT-2025-014', client:'c1', service:'School ERP',          issued:'2025-02-22', due:'2025-03-09', amount:12000,  status:'Paid',    items:[{desc:'Annual Maintenance',qty:1,rate:12000}] },
-  { id:'i15', num:'OT-2025-015', client:'c3', service:'Website Development', issued:'2025-03-01', due:'2025-03-16', amount:15000,  status:'Paid',    items:[{desc:'Landing Page',qty:1,rate:15000}] },
-  { id:'i16', num:'OT-2025-016', client:'c2', service:'Maintenance',         issued:'2025-03-04', due:'2025-03-19', amount:3000,   status:'Pending', items:[{desc:'Maintenance Mar',qty:1,rate:3000}] },
-  { id:'i17', num:'OT-2025-017', client:'c5', service:'Website Development', issued:'2025-03-06', due:'2025-03-21', amount:35000,  status:'Paid',    items:[{desc:'Business Website',qty:1,rate:35000}] },
-  { id:'i18', num:'OT-2025-018', client:'c4', service:'Maintenance',         issued:'2025-03-08', due:'2025-03-23', amount:3000,   status:'Overdue', items:[{desc:'Maintenance',qty:1,rate:3000}] },
-  { id:'i19', num:'OT-2025-019', client:'c1', service:'School ERP',          issued:'2025-03-10', due:'2025-03-25', amount:45000,  status:'Paid',    items:[{desc:'New Module',qty:1,rate:45000}] },
-  { id:'i20', num:'OT-2025-020', client:'c6', service:'Mobile App',          issued:'2025-03-12', due:'2025-03-27', amount:80000,  status:'Pending', items:[{desc:'Android App',qty:1,rate:80000}] },
-  { id:'i21', num:'OT-2025-021', client:'c3', service:'SEO Package',         issued:'2025-03-14', due:'2025-03-29', amount:18000,  status:'Paid',    items:[{desc:'SEO 3 months',qty:1,rate:18000}] },
-  { id:'i22', num:'OT-2025-022', client:'c2', service:'School ERP',          issued:'2025-03-16', due:'2025-03-31', amount:8000,   status:'Paid',    items:[{desc:'Onboarding',qty:1,rate:8000}] },
-  { id:'i23', num:'OT-2025-023', client:'c5', service:'Maintenance',         issued:'2025-03-18', due:'2025-04-02', amount:3000,   status:'Pending', items:[{desc:'Maintenance',qty:1,rate:3000}] },
-  { id:'i24', num:'OT-2025-024', client:'c4', service:'Website Development', issued:'2025-03-20', due:'2025-04-04', amount:25000,  status:'Draft',   items:[{desc:'UI Redesign',qty:1,rate:25000}] },
-  { id:'i25', num:'OT-2025-025', client:'c1', service:'Consultation',        issued:'2025-03-22', due:'2025-04-06', amount:6000,   status:'Paid',    items:[{desc:'Consultation 4hr',qty:4,rate:1500}] },
-  { id:'i26', num:'OT-2025-026', client:'c6', service:'Website Development', issued:'2025-03-24', due:'2025-04-08', amount:75000,  status:'Pending', items:[{desc:'Premium Site',qty:1,rate:75000}] },
-  { id:'i27', num:'OT-2025-027', client:'c3', service:'Domain & Hosting',    issued:'2025-03-26', due:'2025-04-10', amount:4500,   status:'Paid',    items:[{desc:'Hosting',qty:1,rate:4500}] },
-  { id:'i28', num:'OT-2025-028', client:'c2', service:'School ERP',          issued:'2025-03-28', due:'2025-04-12', amount:50000,  status:'Draft',   items:[{desc:'ERP Upgrade',qty:1,rate:50000}] },
-  { id:'i29', num:'OT-2025-029', client:'c5', service:'UI/UX Design',        issued:'2025-03-30', due:'2025-04-14', amount:25000,  status:'Pending', items:[{desc:'UI/UX Design',qty:1,rate:25000}] },
-  { id:'i30', num:'OT-2025-030', client:'c1', service:'School ERP',          issued:'2025-04-01', due:'2025-04-16', amount:92000,  status:'Draft',   items:[{desc:'Full ERP',qty:1,rate:92000}] },
-  { id:'i31', num:'OT-2025-031', client:'c4', service:'Website Development', issued:'2025-04-03', due:'2025-04-18', amount:18000,  status:'Overdue', items:[{desc:'Website',qty:1,rate:18000}] },
-  { id:'i32', num:'OT-2025-032', client:'c2', service:'School ERP',          issued:'2025-04-05', due:'2025-04-20', amount:75000,  status:'Paid',    items:[{desc:'ERP Full',qty:1,rate:75000}] },
-  { id:'i33', num:'OT-2025-033', client:'c3', service:'Website Development', issued:'2025-04-07', due:'2025-04-22', amount:28500,  status:'Pending', items:[{desc:'Corporate Site',qty:1,rate:28500}] },
-  { id:'i34', num:'OT-2025-034', client:'c1', service:'School ERP',          issued:'2025-04-09', due:'2025-04-24', amount:45000,  status:'Paid',    items:[{desc:'Module',qty:1,rate:45000}] },
-];
+// ── INVOICES (loaded from DB via API) ──
+STATE.invoices = [];
+STATE.filteredInvoices = [];
 
-STATE.invoices = (function() {
-  // Rebase all sample dates relative to today so calendar shows current month
-  const today = new Date();
-  const baseDate = new Date(2025, 3, 9); // April 9, 2025 (last sample date)
-  const diffMs = today - baseDate;
-  const diffDays = Math.round(diffMs / (1000*60*60*24));
-  function shiftDate(ds) {
-    if (!ds) return ds;
-    const d = new Date(ds);
-    d.setDate(d.getDate() + diffDays);
-    return d.toISOString().split('T')[0];
-  }
-  return invData.map(inv => ({
-    ...inv,
-    issued: shiftDate(inv.issued),
-    due: shiftDate(inv.due),
-    disc: 0, gst: 18,
-    notes: 'Thank you for choosing OPTMS Tech. Payment is due within 15 days.',
-    bank: 'Bank: SBI | A/C: 12345678901 | IFSC: SBIN0001234 | Name: OPTMS Tech | UPI: optmstech@upi',
-    currency: '₹',
-    template: 1,
-    subtotal: inv.items.reduce((s,i)=>s+i.qty*i.rate,0)
-  }));
-})();
-
-// ── PAYMENTS ──
-STATE.payments = (function() {
-  const today = new Date();
-  const baseDate = new Date(2025, 3, 9);
-  const diffDays = Math.round((today - baseDate) / (1000*60*60*24));
-  function shift(ds) { if(!ds) return ds; const d=new Date(ds); d.setDate(d.getDate()+diffDays); return d.toISOString().split('T')[0]; }
-  return [
-    { date:'2025-04-09', inv:'OT-2025-034', client:'Delhi Public School',  method:'UPI (GPay/PhonePe/Paytm)', txn:'UPI2025040912345', amount:45000, status:'Success' },
-    { date:'2025-04-05', inv:'OT-2025-032', client:'Sunrise School',        method:'Bank Transfer (NEFT/RTGS)', txn:'NEFT2025040556789', amount:75000, status:'Success' },
-    { date:'2025-03-28', inv:'OT-2025-027', client:'Mehta Industries',      method:'UPI (GPay/PhonePe/Paytm)', txn:'UPI2025032811111', amount:4500,  status:'Success' },
-    { date:'2025-03-22', inv:'OT-2025-025', client:'Delhi Public School',   method:'Bank Transfer (NEFT/RTGS)', txn:'NEFT2025032299999', amount:6000,  status:'Success' },
-    { date:'2025-03-14', inv:'OT-2025-021', client:'Mehta Industries',      method:'Cheque',                   txn:'CHQ00012345',       amount:18000, status:'Success' },
-    { date:'2025-03-06', inv:'OT-2025-017', client:'Gupta & Sons',          method:'UPI (GPay/PhonePe/Paytm)', txn:'UPI2025030677777', amount:35000, status:'Success' },
-  ].map(p => ({ ...p, date: shift(p.date) }));
-})();
+// ── PAYMENTS (loaded from DB via API) ──
+STATE.payments = [];
 
 // ── CHART DATA ──
 const CHART_DATA = {
@@ -2047,6 +1949,7 @@ function renderDashboard() {
   renderDashKpis();
   renderDashTopClients();
   renderDashAlerts();
+  renderNotifications();
   updateDashStats();
 }
 function updateDashStats() {
@@ -3944,8 +3847,8 @@ function previewTemplate(n) {
   label.textContent=`Template ${n}: ${tplNames[n-1]}`;
   const sc=STATE.settings;
   const sd={tpl:n,num:'OT-DEMO-001',date:'2025-04-10',due:'2025-04-25',svc:'Website Development',
-    cname:'Delhi Public School',cperson:'Rajan Sharma',cemail:'rajan@dps.edu',cwa:'+91 9876543210',
-    cgst:'07AABCU9603R1ZP',caddr:'Sector 5, Rohini, New Delhi',disc:0,discAmt:0,
+    cname:'Sample Client Ltd',cperson:'Contact Person',cemail:'client@example.com',cwa:'+91 9876543210',
+    cgst:'22AAAAA0000A1Z5',caddr:'Your City, State, India',disc:0,discAmt:0,
     notes:'Thank you for choosing OPTMS Tech.',
     bank:'SBI | A/C: 12345678901 | IFSC: SBIN0001234 | UPI: optmstech@upi',
     tnc:'All prices inclusive of taxes. Subject to Patna jurisdiction.',
@@ -4217,10 +4120,10 @@ document.addEventListener('click', e => closeAllDropdowns(e));
 
 <!-- ══ PHP-API BRIDGE: override save functions to persist to MySQL ══ -->
 <script>
-// ── Merge server settings into STATE ───────────────────────────
-(function applyServerSettings() {
-  if (!window.STATE || !SERVER.settings) return;
-  const s = SERVER.settings;
+// ── Apply server settings to STATE ────────────────────────────
+(function() {
+  if (!window.STATE || !window.SERVER) return;
+  const s = SERVER.settings || {};
   STATE.settings.company   = s.company_name    || STATE.settings.company;
   STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
   STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
@@ -4239,29 +4142,41 @@ document.addEventListener('click', e => closeAllDropdowns(e));
 // ── API helper ──────────────────────────────────────────────────
 async function api(endpoint, method, body) {
   method = method || 'GET';
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
   if (body) opts.body = JSON.stringify(body);
-  const res  = await fetch(endpoint, opts);
-  const data = await res.json();
+  const res = await fetch(endpoint, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch(e) {
+    console.error('API response not JSON from', endpoint, '\nResponse:', text.substring(0,300));
+    throw new Error('Server returned non-JSON response. Check PHP error logs.');
+  }
+  if (res.status === 401) { window.location.href = '/auth/login.php'; throw new Error('Not authenticated'); }
   if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
   return data;
 }
 
-// ── Load all data from API ──────────────────────────────────────
+// ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
     const [inv, cls, prd, pmt] = await Promise.all([
-      fetch('api/invoices.php').then(r=>r.json()).catch(()=>({data:[]})),
-      fetch('api/clients.php').then(r=>r.json()).catch(()=>({data:[]})),
-      fetch('api/products.php').then(r=>r.json()).catch(()=>({data:[]})),
-      fetch('api/payments.php').then(r=>r.json()).catch(()=>({data:[]})),
+      api('api/invoices.php'),
+      api('api/clients.php'),
+      api('api/products.php'),
+      api('api/payments.php'),
     ]);
-    if (inv.data && inv.data.length)  STATE.invoices  = inv.data;
-    if (cls.data && cls.data.length)  STATE.clients   = cls.data;
-    if (prd.data && prd.data.length)  STATE.products  = prd.data;
-    if (pmt.data && pmt.data.length)  STATE.payments  = pmt.data;
+    // Replace ALL data — empty arrays are fine (fresh install)
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data  : [];
+    STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
+    STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
+    STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
-  } catch(e) { console.warn('API load error:', e.message); }
+    console.log('Loaded from DB:', STATE.invoices.length, 'invoices,', STATE.clients.length, 'clients');
+  } catch(e) {
+    console.error('loadAllData failed:', e.message);
+    toast('⚠️ Could not load data from server: ' + e.message, 'warning');
+  }
 }
 
 // ── Override: saveInvoice ───────────────────────────────────────
@@ -4271,42 +4186,45 @@ window.saveInvoice = async function() {
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
   const selVal = document.getElementById('f-client-select')?.value;
   const payload = {
-    invoice_number: d.num, client_id: selVal?parseInt(selVal):null,
+    invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
     discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
     notes: d.notes, bank_details: d.bank, terms: d.tnc,
     company_logo: d.companyLogo, client_logo: d.clientLogo,
     signature: d.signature, qr_code: d.qrUrl,
-    template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy?1:0,
+    template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
     pdf_options: d.popt,
-    items: formItems.map(i=>({desc:i.desc,qty:i.qty,rate:i.rate,gst:i.gst||18}))
+    items: formItems.map(i => ({ desc: i.desc, qty: i.qty, rate: i.rate, gst: i.gst || 18 }))
   };
   try {
     if (STATE.editingInvoiceId) {
-      const inv = STATE.invoices.find(i=>i.id===STATE.editingInvoiceId);
-      await api('api/invoices.php?id='+(inv?._dbId||parseInt(inv?.id)||0), 'PUT', payload);
+      const inv = STATE.invoices.find(i => i.id === STATE.editingInvoiceId);
+      const dbId = inv?._dbId || parseInt(inv?.id) || 0;
+      await api('api/invoices.php?id=' + dbId, 'PUT', payload);
       toast('✅ Invoice updated!', 'success');
     } else {
       await api('api/invoices.php', 'POST', payload);
-      toast('✅ Invoice '+d.num+' saved!', 'success');
+      toast('✅ Invoice ' + d.num + ' saved!', 'success');
     }
     const r = await api('api/invoices.php');
-    if (r.data) { STATE.invoices = r.data; STATE.filteredInvoices = [...r.data]; }
+    STATE.invoices = Array.isArray(r.data) ? r.data : [];
+    STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
-    if(document.getElementById('badge-invoices')) document.getElementById('badge-invoices').textContent = STATE.invoices.length;
-  } catch(e) { toast('❌ '+e.message, 'error'); }
+    const badge = document.getElementById('badge-invoices');
+    if (badge) badge.textContent = STATE.invoices.length;
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
 // ── Override: confirmPaid ───────────────────────────────────────
 window.confirmPaid = async function() {
-  const inv = STATE.invoices.find(i=>i.id===STATE.activeMenuInvoiceId);
+  const inv = STATE.invoices.find(i => i.id === STATE.activeMenuInvoiceId);
   if (!inv) { closeModal('modal-paid'); return; }
   const payload = {
-    invoice_id: inv._dbId||parseInt(inv.id)||null,
+    invoice_id: parseInt(inv.id) || null,
     invoice_number: inv.num,
-    client_name: (STATE.clients.find(c=>c.id===inv.client)||{}).name||inv.clientName||'',
-    amount: parseFloat(document.getElementById('paid-amt').value)||inv.amount,
+    client_name: (STATE.clients.find(c => c.id === inv.client) || {}).name || inv.clientName || '',
+    amount: parseFloat(document.getElementById('paid-amt').value) || inv.amount,
     payment_date: document.getElementById('paid-date').value,
     method: document.getElementById('paid-method').value,
     transaction_id: document.getElementById('paid-txn').value,
@@ -4314,142 +4232,258 @@ window.confirmPaid = async function() {
   };
   try {
     await api('api/payments.php', 'POST', payload);
-    const [ir,pr] = await Promise.all([api('api/invoices.php'),api('api/payments.php')]);
-    if(ir.data) STATE.invoices=ir.data; if(pr.data) STATE.payments=pr.data;
-    STATE.filteredInvoices=[...STATE.invoices];
+    const [ir, pr] = await Promise.all([api('api/invoices.php'), api('api/payments.php')]);
+    STATE.invoices = Array.isArray(ir.data) ? ir.data : STATE.invoices;
+    STATE.payments = Array.isArray(pr.data) ? pr.data : STATE.payments;
+    STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments();
     toast('✅ Marked paid & recorded!', 'success');
-  } catch(e) { toast('❌ '+e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
   closeModal('modal-paid');
 };
 
 // ── Override: confirmDelete ─────────────────────────────────────
 window.confirmDelete = async function() {
-  const inv = STATE.invoices.find(i=>i.id===STATE.activeMenuInvoiceId);
+  const inv = STATE.invoices.find(i => i.id === STATE.activeMenuInvoiceId);
   if (!inv) { closeModal('modal-delete'); return; }
   try {
-    await api('api/invoices.php?id='+(inv._dbId||parseInt(inv.id)||0), 'DELETE');
-    STATE.invoices = STATE.invoices.filter(i=>i.id!==STATE.activeMenuInvoiceId);
-    STATE.filteredInvoices = STATE.filteredInvoices.filter(i=>i.id!==STATE.activeMenuInvoiceId);
+    await api('api/invoices.php?id=' + (parseInt(inv.id) || 0), 'DELETE');
+    STATE.invoices = STATE.invoices.filter(i => i.id !== STATE.activeMenuInvoiceId);
+    STATE.filteredInvoices = STATE.filteredInvoices.filter(i => i.id !== STATE.activeMenuInvoiceId);
     toast('🗑️ Deleted', 'info');
     renderInvoicesTable(); renderDashRecent(); renderDonutChart();
-  } catch(e) { toast('❌ '+e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
   closeModal('modal-delete');
 };
 
 // ── Override: saveNewClient ─────────────────────────────────────
 window.saveNewClient = async function() {
-  const name=(document.getElementById('nc-name')?.value||'').trim();
-  if(!name){toast('⚠️ Enter name','warning');return;}
-  const p={name,person:document.getElementById('nc-person')?.value||'',
-    email:document.getElementById('nc-email')?.value||'',
-    wa:document.getElementById('nc-wa')?.value||'',
-    gst:document.getElementById('nc-gst')?.value||'',
-    color:document.getElementById('nc-color')?.value||'#00897B',
-    addr:document.getElementById('nc-addr')?.value||''};
+  const name = (document.getElementById('nc-name')?.value || '').trim();
+  if (!name) { toast('⚠️ Enter name', 'warning'); return; }
+  const payload = {
+    name,
+    person: document.getElementById('nc-person')?.value || '',
+    email:  document.getElementById('nc-email')?.value  || '',
+    wa:     document.getElementById('nc-wa')?.value     || '',
+    gst:    document.getElementById('nc-gst')?.value    || '',
+    color:  document.getElementById('nc-color')?.value  || '#00897B',
+    addr:   document.getElementById('nc-addr')?.value   || ''
+  };
   try {
-    if(STATE._editCid){
-      const c=STATE.clients.find(x=>x.id===STATE._editCid);
-      await api('api/clients.php?id='+(c?._dbId||parseInt(c?.id)||0),'PUT',p);
-      toast('✅ Updated!','success'); STATE._editCid=null;
-      const hdr=document.querySelector('#modal-addclient .modal-header span'); if(hdr)hdr.textContent='Add New Client';
+    if (STATE._editCid) {
+      const c = STATE.clients.find(x => x.id === STATE._editCid);
+      await api('api/clients.php?id=' + (parseInt(c?.id) || 0), 'PUT', payload);
+      toast('✅ Client updated!', 'success');
+      STATE._editCid = null;
+      const hdr = document.querySelector('#modal-addclient .modal-header span');
+      if (hdr) hdr.textContent = 'Add New Client';
     } else {
-      await api('api/clients.php','POST',p); toast('✅ "'+name+'" added!','success');
+      await api('api/clients.php', 'POST', payload);
+      toast('✅ "' + name + '" added!', 'success');
     }
-    const r=await api('api/clients.php'); if(r.data)STATE.clients=r.data;
-    updateClientDropdown(); renderClients(); closeModal('modal-addclient');
-    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  } catch(e){toast('❌ '+e.message,'error');}
+    const r = await api('api/clients.php');
+    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
+    updateClientDropdown(); renderClients();
+    closeModal('modal-addclient');
+    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.value = '';
+    });
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
 // ── Override: saveCompanySettings ──────────────────────────────
 window.saveCompanySettings = async function() {
-  const p={
-    company_name:    document.getElementById('sc-name')?.value||'',
-    company_gst:     document.getElementById('sc-gst')?.value||'',
-    company_phone:   document.getElementById('sc-phone')?.value||'',
-    company_email:   document.getElementById('sc-email')?.value||'',
-    company_website: document.getElementById('sc-web')?.value||'',
-    invoice_prefix:  document.getElementById('sc-prefix')?.value||'',
-    company_upi:     document.getElementById('sc-upi')?.value||'',
-    company_address: document.getElementById('sc-addr')?.value||'',
-    company_logo:    document.getElementById('sc-logo')?.value||STATE.settings.logo||'',
-    company_sign:    document.getElementById('sc-sign')?.value||STATE.settings.signature||'',
+  const payload = {
+    company_name:    document.getElementById('sc-name')?.value    || '',
+    company_gst:     document.getElementById('sc-gst')?.value     || '',
+    company_phone:   document.getElementById('sc-phone')?.value   || '',
+    company_email:   document.getElementById('sc-email')?.value   || '',
+    company_website: document.getElementById('sc-web')?.value     || '',
+    invoice_prefix:  document.getElementById('sc-prefix')?.value  || '',
+    company_upi:     document.getElementById('sc-upi')?.value     || '',
+    company_address: document.getElementById('sc-addr')?.value    || '',
+    company_logo:    document.getElementById('sc-logo')?.value    || STATE.settings.logo || '',
+    company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
   };
-  Object.assign(STATE.settings,{company:p.company_name,gst:p.company_gst,phone:p.company_phone,
-    email:p.company_email,website:p.company_website,prefix:p.invoice_prefix,
-    upi:p.company_upi,address:p.company_address,logo:p.company_logo,signature:p.company_sign});
-  try { await api('api/settings.php','POST',p); livePreview(); toast('✅ Settings saved!','success'); }
-  catch(e){toast('❌ '+e.message,'error');}
+  Object.assign(STATE.settings, {
+    company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
+    email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
+    upi: payload.company_upi, address: payload.company_address,
+    logo: payload.company_logo, signature: payload.company_sign
+  });
+  try {
+    await api('api/settings.php', 'POST', payload);
+    livePreview();
+    toast('✅ Settings saved!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+};
+
+// ── Override: saveEditProd ──────────────────────────────────────
+window.saveEditProd = async function(id) {
+  const idx = STATE.products.findIndex(x => x.id === id); if (idx < 0) return;
+  const n = document.getElementById('ep-name')?.value?.trim();
+  if (!n) { toast('Name required', 'warning'); return; }
+  const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
+    rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
+    hsn:document.getElementById('ep-hsn')?.value||'998314',
+    gst:parseInt(document.getElementById('ep-gst')?.value)||18 };
+  try {
+    await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
+    STATE.products[idx] = { ...STATE.products[idx], ...payload };
+    renderProducts(); toast('✅ Updated!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+};
+
+// ── Override: saveNewProduct ────────────────────────────────────
+window.saveNewProduct = async function() {
+  const n = document.getElementById('np-name')?.value?.trim();
+  if (!n) { toast('⚠️ Name required', 'warning'); return; }
+  const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
+    rate:parseFloat(document.getElementById('np-rate')?.value)||0,
+    hsn:document.getElementById('np-hsn')?.value||'998314',
+    gst:parseInt(document.getElementById('np-gst')?.value)||18 };
+  try {
+    await api('api/products.php', 'POST', payload);
+    const r = await api('api/products.php');
+    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
+    document.getElementById('add-product-row')?.remove();
+    renderProducts(); toast('✅ "' + n + '" added!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+};
+
+// ── Override: deleteProduct ─────────────────────────────────────
+window.deleteProduct = async function(id) {
+  const p = STATE.products.find(x => x.id === id); if (!p) return;
+  const dbId = parseInt(id.replace('p','')) || 0;
+  try {
+    await api('api/products.php?id=' + dbId, 'DELETE');
+    STATE.products = STATE.products.filter(x => x.id !== id);
+    renderProducts(); toast('🗑️ Deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
 // ── Override: handleLogoUpload → server upload ──────────────────
 window.handleLogoUpload = async function(input, targetId, previewId) {
-  const file=input.files[0]; if(!file) return;
-  if(file.size>3*1024*1024){toast('⚠️ Max 3MB','warning');return;}
-  const typeMap={'f-company-logo':'logo','sc-logo':'logo','f-signature':'signature','sc-sign':'signature','f-client-logo':'client_logo','f-qr':'qr'};
-  const fd=new FormData(); fd.append('file',file); fd.append('type',typeMap[targetId]||'logo');
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 3*1024*1024) { toast('⚠️ Max 3MB', 'warning'); return; }
+  const typeMap = {
+    'f-company-logo':'logo','sc-logo':'logo',
+    'f-signature':'signature','sc-sign':'signature',
+    'f-client-logo':'client_logo','f-qr':'qr'
+  };
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('type', typeMap[targetId] || 'logo');
   try {
-    const res=await fetch('api/upload.php',{method:'POST',body:fd});
-    const data=await res.json();
-    if(!data.success) throw new Error(data.error);
-    const el=document.getElementById(targetId);
-    if(el){el.value=data.url;el.dispatchEvent(new Event('input'));}
-    if(targetId==='sc-logo'||targetId==='f-company-logo') STATE.settings.logo=data.url;
-    if(targetId==='sc-sign'||targetId==='f-signature') STATE.settings.signature=data.url;
-    if(previewId){
-      const prev=document.getElementById(previewId);
-      if(prev){
-        const isSign=previewId.includes('sign');
-        prev.innerHTML=`<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)"><img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px"><span style="font-size:11px;color:var(--muted)">${file.name}</span><button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button></div>`;
+    const res  = await fetch('api/upload.php', { method:'POST', body:fd });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Upload failed: server returned HTML'); }
+    if (!data.success) throw new Error(data.error || 'Upload failed');
+    const el = document.getElementById(targetId);
+    if (el) { el.value = data.url; el.dispatchEvent(new Event('input')); }
+    if (targetId === 'sc-logo' || targetId === 'f-company-logo') STATE.settings.logo = data.url;
+    if (targetId === 'sc-sign' || targetId === 'f-signature') STATE.settings.signature = data.url;
+    if (previewId) {
+      const prev = document.getElementById(previewId);
+      if (prev) {
+        const isSign = previewId.includes('sign');
+        prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
+          <img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px">
+          <span style="font-size:11px;color:var(--muted)">${file.name}</span>
+          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
+        </div>`;
       }
     }
-    toast('✅ Uploaded!','success');
+    toast('✅ Uploaded!', 'success');
   } catch(e) {
-    // Fallback to base64
-    const reader=new FileReader();
-    reader.onload=ev=>{const el=document.getElementById(targetId);if(el){el.value=ev.target.result;el.dispatchEvent(new Event('input'));}toast('✅ Loaded','success');};
+    // Fallback: use base64
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const el = document.getElementById(targetId);
+      if (el) { el.value = ev.target.result; el.dispatchEvent(new Event('input')); }
+      toast('✅ Image loaded', 'success');
+    };
     reader.readAsDataURL(file);
+    console.warn('Server upload failed, using base64:', e.message);
   }
 };
 
-// ── Override: saveEditProd + saveNewProduct + deleteProduct ─────
-window.saveEditProd = async function(id){
-  const idx=STATE.products.findIndex(x=>x.id===id);if(idx<0)return;
-  const n=document.getElementById('ep-name')?.value?.trim();if(!n){toast('Name required','warning');return;}
-  const p={name:n,category:document.getElementById('ep-cat')?.value||'Other',rate:parseFloat(document.getElementById('ep-rate')?.value)||0,hsn:document.getElementById('ep-hsn')?.value||'998314',gst:parseInt(document.getElementById('ep-gst')?.value)||18};
-  const dbId=STATE.products[idx]._dbId||id.replace('p','');
-  try{await api('api/products.php?id='+dbId,'PUT',p);STATE.products[idx]={...STATE.products[idx],...p};renderProducts();toast('✅ Updated!','success');}
-  catch(e){toast('❌ '+e.message,'error');}
-};
-window.saveNewProduct = async function(){
-  const n=document.getElementById('np-name')?.value?.trim();if(!n){toast('⚠️ Name required','warning');return;}
-  const p={name:n,category:document.getElementById('np-cat')?.value||'Other',rate:parseFloat(document.getElementById('np-rate')?.value)||0,hsn:document.getElementById('np-hsn')?.value||'998314',gst:parseInt(document.getElementById('np-gst')?.value)||18};
-  try{await api('api/products.php','POST',p);const r=await api('api/products.php');if(r.data)STATE.products=r.data;document.getElementById('add-product-row')?.remove();renderProducts();toast('✅ "'+n+'" added!','success');}
-  catch(e){toast('❌ '+e.message,'error');}
-};
-window.deleteProduct = async function(id){
-  const p=STATE.products.find(x=>x.id===id);if(!p)return;
-  const dbId=p._dbId||id.replace('p','');
-  try{await api('api/products.php?id='+dbId,'DELETE');STATE.products=STATE.products.filter(x=>x.id!==id);renderProducts();toast('🗑️ Deleted','info');}
-  catch(e){toast('❌ '+e.message,'error');}
-};
-
-// ── Bootstrap ──────────────────────────────────────────────────
+// ── Bootstrap: load DB data then init app ──────────────────────
 document.addEventListener('DOMContentLoaded', function() {
   loadAllData().then(function() {
-    // appInit is defined in the main JS block above
-    if (typeof appInit === 'function') appInit();
-    else {
-      // Fallback: call the original init sequence
-      setTodayDates(); addItem(); updateClientDropdown();
-      renderDashboard(); renderInvoicesTable(); renderClients();
-      renderProducts(); renderPayments(); renderTemplatesGrid();
-      setTimeout(livePreview, 100);
+    // Run the full app initialisation
+    try {
+      setTodayDates();
+      addItem();
+      updateClientDropdown();
+      renderDashboard();
+      renderInvoicesTable();
+      renderClients();
+      renderProducts();
+      renderPayments();
+      renderTemplatesGrid();
+      renderNotifications();
       STATE.filteredInvoices = [...STATE.invoices];
+      document.getElementById('badge-invoices').textContent = STATE.invoices.length;
+      setTimeout(livePreview, 100);
+      document.addEventListener('click', closeAllDropdowns);
+    } catch(initErr) {
+      console.error('App init error:', initErr);
     }
   });
 });
+// ── Populate notification bell from live data ──────────────────
+function renderNotifications() {
+  const today  = new Date();
+  const items  = [];
+
+  // Overdue invoices
+  STATE.invoices.filter(i => i.status === 'Overdue').slice(0,3).forEach(inv => {
+    const c = STATE.clients.find(x => x.id === inv.client) || {};
+    items.push({ type:'warn', text:`<b>${c.name || inv.clientName || inv.client}</b> invoice ${inv.num} is overdue` });
+  });
+
+  // Due in next 3 days
+  STATE.invoices.filter(i => {
+    if (i.status !== 'Pending' || !i.due) return false;
+    const diff = (new Date(i.due) - today) / 86400000;
+    return diff >= 0 && diff <= 3;
+  }).slice(0,3).forEach(inv => {
+    const c = STATE.clients.find(x => x.id === inv.client) || {};
+    const dueDate = new Date(inv.due).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+    items.push({ type:'info', text:`<b>${c.name || inv.clientName || inv.client}</b> — ${inv.num} due ${dueDate}` });
+  });
+
+  // Recent payments (last 2)
+  STATE.payments.slice(0,2).forEach(p => {
+    items.push({ type:'info', text:`Payment received from <b>${p.client}</b> — ${fmt_money(p.amount)}` });
+  });
+
+  const el = document.getElementById('notifItems');
+  if (el) {
+    if (!items.length) {
+      el.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;text-align:center">No new notifications</div>';
+    } else {
+      el.innerHTML = items.map(n =>
+        `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
+          <i class="fas ${n.type==='warn'?'fa-exclamation-circle':'fa-info-circle'}"></i>
+          <div>${n.text}</div>
+        </div>`
+      ).join('');
+    }
+  }
+
+  // Update bell count
+  const bell = document.getElementById('bellCount');
+  if (bell) {
+    const count = items.length;
+    bell.textContent = count;
+    bell.style.display = count > 0 ? 'flex' : 'none';
+  }
+}
+
+
 </script>
 
 </body>
