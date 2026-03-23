@@ -86,6 +86,9 @@ switch ($method) {
       $inv['currency']  = $inv['currency'];
       $inv['template']  = (int)$inv['template_id'];
       $inv['subtotal']  = (float)$inv['subtotal'];
+      $inv['bank']      = $inv['bank_details'] ?? '';
+      $inv['tnc']       = $inv['terms'] ?? '';
+      $inv['clientName']= $inv['client_name'] ?? '';
       if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
     }
     jsonResponse(['data' => $invoices]);
