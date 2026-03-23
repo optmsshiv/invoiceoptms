@@ -2229,32 +2229,6 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 </div>
 
 <!-- Receipt Modal -->
-<div class="modal-overlay" id="modal-receipt">
-  <div class="modal modal-md">
-    <div class="modal-header">
-      <span>Payment Receipt</span>
-      <button class="modal-close" onclick="closeModal('modal-receipt')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body" id="receiptBody" style="padding:24px;max-height:70vh;overflow-y:auto"></div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="printReceiptModal()"><i class="fas fa-print"></i> Print Receipt</button>
-      <button class="btn btn-outline" onclick="closeModal('modal-receipt')">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast-container" id="toastContainer"></div>
-
-<!-- Row Action Menu -->
-<div class="row-menu" id="rowMenu">
-  <div class="rm-item" onclick="rowMenuAction('download')"><i class="fas fa-download"></i> Download PDF</div>
-  <div class="rm-item" onclick="rowMenuAction('duplicate')"><i class="fas fa-copy"></i> Duplicate</div>
-  <div class="rm-item" onclick="rowMenuAction('wa')"><i class="fab fa-whatsapp"></i> Send WhatsApp</div>
-  <div class="rm-item" onclick="rowMenuAction('email')"><i class="fas fa-envelope"></i> Send Email</div>
-  <div class="rm-item" onclick="rowMenuAction('paid')"><i class="fas fa-check-circle"></i> Mark as Paid</div>
-  <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>
-</div>
 
 <!-- Receipt Modal (PHP build) -->
 <div class="modal-overlay" id="modal-receipt">
@@ -3832,42 +3806,54 @@ function printInvoiceById(inv) {
 // ══════════════════════════════════════════
 // SAVE INVOICE
 // ══════════════════════════════════════════
-function saveInvoice() {
+async function saveInvoice() {
   const d = getFormData();
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
-  if (formItems.length === 0) { toast('⚠️ Please add at least one line item', 'warning'); return; }
-  const num = STATE.invoices.length + 1;
-  const newInv = {
-    id: 'i' + Date.now(),
-    num: d.num,
-    client: document.getElementById('f-client-select').value || 'c_new',
-    clientName: d.cname,
-    service: d.svc,
-    issued: d.date,
-    due: d.due,
-    amount: d.grand,
-    status: d.status,
-    items: formItems.map(i => ({ desc:i.desc, qty:i.qty, rate:i.rate })),
-    disc: d.disc,
-    gst: d.gstR,
-    notes: d.notes,
-    bank: d.bank,
-    currency: d.sym,
-    template: d.tpl,
-    subtotal: d.sub
+  if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
+  const selVal = document.getElementById('f-client-select')?.value;
+  const payload = {
+    invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
+    client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
+    status: d.status, currency: d.sym, subtotal: d.sub,
+    discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
+    notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
+    company_logo: d.companyLogo, client_logo: d.clientLogo,
+    signature: d.signature, qr_code: d.qrUrl,
+    template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
+    pdf_options: d.popt,
+    items: formItems.map(i => ({ desc: i.desc, qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
-  if (STATE.editingInvoiceId) {
-    const idx = STATE.invoices.findIndex(i=>i.id===STATE.editingInvoiceId);
-    if (idx > -1) { STATE.invoices[idx] = { ...STATE.invoices[idx], ...newInv, id: STATE.editingInvoiceId }; toast('✅ Invoice updated!', 'success'); }
-  } else {
-    STATE.invoices.push(newInv);
+  try {
+    if (STATE.editingInvoiceId) {
+      const inv = STATE.invoices.find(i => String(i.id) === String(STATE.editingInvoiceId));
+      const dbId = inv?._dbId || parseInt(inv?.id) || 0;
+      await api('api/invoices.php?id=' + dbId, 'PUT', payload);
+      toast('✅ Invoice updated!', 'success');
+    } else {
+      await api('api/invoices.php', 'POST', payload);
+      toast('✅ Invoice ' + d.num + ' saved!', 'success');
+    }
+    const r = await api('api/invoices.php');
+    STATE.invoices = Array.isArray(r.data) ? r.data : [];
     STATE.filteredInvoices = [...STATE.invoices];
-    toast(`✅ Invoice ${d.num} saved!`, 'success');
-  }
-  renderInvoicesTable();
-  renderDashRecent();
-  renderDonutChart();
-  document.getElementById('badge-invoices').textContent = STATE.invoices.length;
+    renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
+    const badge = document.getElementById('badge-invoices');
+    if (badge) badge.textContent = STATE.invoices.length;
+    // Auto-send WA if automation toggle is ON
+    const wa = STATE.settings.wa || {};
+    if (wa.auto_inv === '1' && wa.token && wa.pid) {
+      const saved = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
+      if (saved) {
+        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
+        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
+        if (phone) {
+          const tpl = wa.tpl_inv || getDefaultWATpl('inv');
+          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
+          sendWA(phone, msg, 'invoice_created', saved, c).catch(e => console.warn('WA send failed:', e.message));
+        }
+      }
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 // ══════════════════════════════════════════
@@ -4216,24 +4202,38 @@ function openAddClientModal() {
   openModal('modal-addclient');
 }
 
-function saveNewClient() {
-  const name=(document.getElementById('nc-name')?.value||'').trim();
-  if(!name){toast('⚠️ Enter organization name','warning');return;}
-  const getData=fid=>document.getElementById(fid)?.value||'';
-  if(STATE._editCid){
-    const i=STATE.clients.findIndex(x=>x.id===STATE._editCid);
-    if(i>-1) STATE.clients[i]={...STATE.clients[i],name,person:getData('nc-person'),wa:getData('nc-wa'),email:getData('nc-email'),gst:getData('nc-gst'),color:getData('nc-color')||'#00897B',addr:getData('nc-addr')};
-    toast(`✅ Client updated!`,'success');
-    STATE._editCid=null;
-    const hdr=document.querySelector('#modal-addclient .modal-header span'); if(hdr) hdr.textContent='Add New Client';
-    const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary'); if(btn) btn.textContent='Add Client';
-  } else {
-    STATE.clients.push({id:'c'+Date.now(),name,person:getData('nc-person'),wa:getData('nc-wa'),email:getData('nc-email'),gst:getData('nc-gst'),color:getData('nc-color')||'#00897B',addr:getData('nc-addr'),invoices:0,revenue:0,image:''});
-    toast(`✅ Client "${name}" added!`,'success');
-  }
-  updateClientDropdown(); renderClients();
-  closeModal('modal-addclient');
-  ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+async function saveNewClient() {
+  const name = (document.getElementById('nc-name')?.value || '').trim();
+  if (!name) { toast('⚠️ Enter name', 'warning'); return; }
+  const payload = {
+    name,
+    person: document.getElementById('nc-person')?.value || '',
+    email:  document.getElementById('nc-email')?.value  || '',
+    wa:     document.getElementById('nc-wa')?.value     || '',
+    gst:    document.getElementById('nc-gst')?.value    || '',
+    color:  document.getElementById('nc-color')?.value  || '#00897B',
+    addr:   document.getElementById('nc-addr')?.value   || ''
+  };
+  try {
+    if (STATE._editCid) {
+      const c = STATE.clients.find(x => x.id === STATE._editCid);
+      await api('api/clients.php?id=' + (parseInt(c?.id) || 0), 'PUT', payload);
+      toast('✅ Client updated!', 'success');
+      STATE._editCid = null;
+      const hdr = document.querySelector('#modal-addclient .modal-header span');
+      if (hdr) hdr.textContent = 'Add New Client';
+    } else {
+      await api('api/clients.php', 'POST', payload);
+      toast('✅ "' + name + '" added!', 'success');
+    }
+    const r = await api('api/clients.php');
+    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
+    updateClientDropdown(); renderClients(); populateWAClientDropdown();
+    closeModal('modal-addclient');
+    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.value = '';
+    });
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function editClient(id) {
@@ -4293,11 +4293,19 @@ function editProduct(id){
     }
   });
 }
-function saveEditProd(id){
-  const i=STATE.products.findIndex(x=>x.id===id); if(i<0) return;
-  const n=document.getElementById('ep-name')?.value?.trim(); if(!n){toast('Name required','warning');return;}
-  STATE.products[i]={...STATE.products[i],name:n,category:document.getElementById('ep-cat')?.value||'Other',rate:parseFloat(document.getElementById('ep-rate')?.value)||0,hsn:document.getElementById('ep-hsn')?.value||'998314',gst:(document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18)};
-  renderProducts(); toast('✅ Updated!','success');
+async function saveEditProd(id) {
+  const idx = STATE.products.findIndex(x => x.id === id); if (idx < 0) return;
+  const n = document.getElementById('ep-name')?.value?.trim();
+  if (!n) { toast('Name required', 'warning'); return; }
+  const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
+    rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
+    hsn:document.getElementById('ep-hsn')?.value||'998314',
+    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18) };
+  try {
+    await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
+    STATE.products[idx] = { ...STATE.products[idx], ...payload };
+    renderProducts(); toast('✅ Updated!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function openAddProductModal() {
@@ -4330,20 +4338,20 @@ function openAddProductModal() {
   document.getElementById('np-name').focus();
 }
 
-function saveNewProduct() {
-  const name = document.getElementById('np-name')?.value?.trim();
-  if (!name) { toast('⚠️ Service name required', 'warning'); return; }
-  STATE.products.push({
-    id: 'p' + Date.now(),
-    name,
-    category: document.getElementById('np-cat')?.value || 'Other',
-    rate: parseFloat(document.getElementById('np-rate')?.value) || 0,
-    hsn: document.getElementById('np-hsn')?.value || '998314',
-    gst: (document.getElementById('np-gst')?.value !== '' && document.getElementById('np-gst')?.value !== undefined ? parseInt(document.getElementById('np-gst').value) : 18)
-  });
-  document.getElementById('add-product-row')?.remove();
-  renderProducts();
-  toast(`✅ Service "${name}" added!`, 'success');
+async function saveNewProduct() {
+  const n = document.getElementById('np-name')?.value?.trim();
+  if (!n) { toast('⚠️ Name required', 'warning'); return; }
+  const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
+    rate:parseFloat(document.getElementById('np-rate')?.value)||0,
+    hsn:document.getElementById('np-hsn')?.value||'998314',
+    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18) };
+  try {
+    await api('api/products.php', 'POST', payload);
+    const r = await api('api/products.php');
+    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
+    document.getElementById('add-product-row')?.remove();
+    renderProducts(); toast('✅ "' + n + '" added!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function addProductToInvoice(id) {
@@ -4358,10 +4366,14 @@ function addProductToInvoice(id) {
   }, 60);
 }
 
-function deleteProduct(id) {
-  STATE.products = STATE.products.filter(p=>p.id!==id);
-  renderProducts();
-  toast('🗑️ Service deleted', 'info');
+async function deleteProduct(id) {
+  const p = STATE.products.find(x => x.id === id); if (!p) return;
+  const dbId = parseInt(id.replace('p','')) || 0;
+  try {
+    await api('api/products.php?id=' + dbId, 'DELETE');
+    STATE.products = STATE.products.filter(x => x.id !== id);
+    renderProducts(); toast('🗑️ Deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function openProductPicker() {
@@ -4665,18 +4677,36 @@ function setActiveTemplate(n) {
 // ══════════════════════════════════════════
 // SETTINGS SAVE
 // ══════════════════════════════════════════
-function saveCompanySettings() {
-  STATE.settings.company = document.getElementById('sc-name').value;
-  STATE.settings.gst     = document.getElementById('sc-gst').value;
-  STATE.settings.phone   = document.getElementById('sc-phone').value;
-  STATE.settings.email   = document.getElementById('sc-email').value;
-  STATE.settings.website = document.getElementById('sc-web').value;
-  STATE.settings.prefix  = document.getElementById('sc-prefix').value;
-  STATE.settings.upi     = document.getElementById('sc-upi').value;
-  STATE.settings.address = document.getElementById('sc-addr').value;
-  STATE.settings.logo    = document.getElementById('sc-logo').value||STATE.settings.logo;
-  livePreview();
-  toast('✅ Company settings saved!', 'success');
+async function saveCompanySettings() {
+  const payload = {
+    company_name:    document.getElementById('sc-name')?.value    || '',
+    company_gst:     document.getElementById('sc-gst')?.value     || '',
+    company_phone:   document.getElementById('sc-phone')?.value   || '',
+    company_email:   document.getElementById('sc-email')?.value   || '',
+    company_website: document.getElementById('sc-web')?.value     || '',
+    invoice_prefix:  document.getElementById('sc-prefix')?.value  || '',
+    company_upi:     document.getElementById('sc-upi')?.value     || '',
+    company_address: document.getElementById('sc-addr')?.value    || '',
+    company_logo:    document.getElementById('sc-logo')?.value    || STATE.settings.logo || '',
+    company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
+    company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
+  };
+  Object.assign(STATE.settings, {
+    company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
+    email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
+    upi: payload.company_upi, address: payload.company_address,
+    logo: payload.company_logo || STATE.settings.logo,
+    signature: payload.company_sign || STATE.settings.signature,
+    defaultBank: payload.company_bank || STATE.settings.defaultBank
+  });
+  // Also refresh bank field in create form if open
+  const bankEl = document.getElementById('f-bank');
+  if (bankEl && !bankEl.value) bankEl.value = STATE.settings.defaultBank || '';
+  try {
+    await api('api/settings.php', 'POST', payload);
+    livePreview();
+    toast('✅ Settings saved!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 // saveWASettings: see // saveWASettings is defined below as // Auto-save a single WA toggle immediately when clicked
@@ -5022,30 +5052,53 @@ function renderDashAlerts() {
   if(da){da.style.display=soon.length?'':'none';if(soon.length)da.innerHTML=`<i class="fas fa-clock"></i> ${soon.length} Due Soon`;}
 }
 
-function handleLogoUpload(input, targetId, previewId) {
+async function handleLogoUpload(input, targetId, previewId) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 3*1024*1024) { toast('⚠️ Image too large (max 3MB)', 'warning'); return; }
-  const reader = new FileReader();
-  reader.onload = e => {
-    const url = e.target.result;
+  if (file.size > 3*1024*1024) { toast('⚠️ Max 3MB', 'warning'); return; }
+  const typeMap = {
+    'f-company-logo':'logo','sc-logo':'logo',
+    'f-signature':'signature','sc-sign':'signature',
+    'f-client-logo':'client_logo','f-qr':'qr'
+  };
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('type', typeMap[targetId] || 'logo');
+  try {
+    const res  = await fetch('api/upload.php', { method:'POST', body:fd });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Upload failed: server returned HTML'); }
+    if (!data.success) throw new Error(data.error || 'Upload failed');
     const el = document.getElementById(targetId);
-    if (el) { el.value = url; el.dispatchEvent(new Event('input')); }
-    if (targetId === 'sc-logo') STATE.settings.logo = url;
-    // Show preview thumbnail
+    if (el) { el.value = data.url; el.dispatchEvent(new Event('input')); }
+    if (targetId === 'sc-logo' || targetId === 'f-company-logo') {
+      STATE.settings.logo = data.url;
+      // Immediately update sidebar / topbar if logo shown there
+    }
+    if (targetId === 'sc-sign' || targetId === 'f-signature') STATE.settings.signature = data.url;
     if (previewId) {
       const prev = document.getElementById(previewId);
       if (prev) {
         const isSign = previewId.includes('sign');
         prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
-          <img src="${url}" style="height:${isSign?'36px':'32px'};max-width:120px;object-fit:contain;border-radius:4px;${isSign?'filter:invert(1)':''}">
+          <img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px">
           <span style="font-size:11px;color:var(--muted)">${file.name}</span>
-          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px;padding:0"><i class="fas fa-times"></i></button>
+          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
         </div>`;
       }
     }
-    toast('✅ Image uploaded!', 'success');
-  };
-  reader.readAsDataURL(file);
+    toast('✅ Uploaded!', 'success');
+  } catch(e) {
+    // Fallback: use base64
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const el = document.getElementById(targetId);
+      if (el) { el.value = ev.target.result; el.dispatchEvent(new Event('input')); }
+      toast('✅ Image loaded', 'success');
+    };
+    reader.readAsDataURL(file);
+    console.warn('Server upload failed, using base64:', e.message);
+  }
 }
 
 function clearLogoField(targetId, previewId) {
@@ -5203,221 +5256,43 @@ async function loadAllData() {
 }
 
 // ── Override: saveInvoice ───────────────────────────────────────
-window.saveInvoice = async function() {
-  const d = getFormData();
-  if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
-  if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
-  const selVal = document.getElementById('f-client-select')?.value;
-  const payload = {
-    invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
-    client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
-    status: d.status, currency: d.sym, subtotal: d.sub,
-    discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
-    notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
-    company_logo: d.companyLogo, client_logo: d.clientLogo,
-    signature: d.signature, qr_code: d.qrUrl,
-    template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
-    pdf_options: d.popt,
-    items: formItems.map(i => ({ desc: i.desc, qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
-  };
-  try {
-    if (STATE.editingInvoiceId) {
-      const inv = STATE.invoices.find(i => String(i.id) === String(STATE.editingInvoiceId));
-      const dbId = inv?._dbId || parseInt(inv?.id) || 0;
-      await api('api/invoices.php?id=' + dbId, 'PUT', payload);
-      toast('✅ Invoice updated!', 'success');
-    } else {
-      await api('api/invoices.php', 'POST', payload);
-      toast('✅ Invoice ' + d.num + ' saved!', 'success');
-    }
-    const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data : [];
-    STATE.filteredInvoices = [...STATE.invoices];
-    renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
-    const badge = document.getElementById('badge-invoices');
-    if (badge) badge.textContent = STATE.invoices.length;
-    // Auto-send WA if automation toggle is ON
-    const wa = STATE.settings.wa || {};
-    if (wa.auto_inv === '1' && wa.token && wa.pid) {
-      const saved = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
-      if (saved) {
-        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
-        if (phone) {
-          const tpl = wa.tpl_inv || getDefaultWATpl('inv');
-          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
-          sendWA(phone, msg, 'invoice_created', saved, c).catch(e => console.warn('WA send failed:', e.message));
-        }
-      }
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.saveInvoice: now handled by the function declaration above
+;
 
 // ── Override: confirmPaid ───────────────────────────────────────
 // confirmPaid: now handled by direct function
 // ── Override: confirmDelete ─────────────────────────────────────
 // confirmDelete: now handled by direct function
 // ── Override: saveNewClient ─────────────────────────────────────
-window.saveNewClient = async function() {
-  const name = (document.getElementById('nc-name')?.value || '').trim();
-  if (!name) { toast('⚠️ Enter name', 'warning'); return; }
-  const payload = {
-    name,
-    person: document.getElementById('nc-person')?.value || '',
-    email:  document.getElementById('nc-email')?.value  || '',
-    wa:     document.getElementById('nc-wa')?.value     || '',
-    gst:    document.getElementById('nc-gst')?.value    || '',
-    color:  document.getElementById('nc-color')?.value  || '#00897B',
-    addr:   document.getElementById('nc-addr')?.value   || ''
-  };
-  try {
-    if (STATE._editCid) {
-      const c = STATE.clients.find(x => x.id === STATE._editCid);
-      await api('api/clients.php?id=' + (parseInt(c?.id) || 0), 'PUT', payload);
-      toast('✅ Client updated!', 'success');
-      STATE._editCid = null;
-      const hdr = document.querySelector('#modal-addclient .modal-header span');
-      if (hdr) hdr.textContent = 'Add New Client';
-    } else {
-      await api('api/clients.php', 'POST', payload);
-      toast('✅ "' + name + '" added!', 'success');
-    }
-    const r = await api('api/clients.php');
-    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
-    updateClientDropdown(); renderClients(); populateWAClientDropdown();
-    closeModal('modal-addclient');
-    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id => {
-      const e = document.getElementById(id); if (e) e.value = '';
-    });
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.saveNewClient: now handled by the function declaration above
+;
 
 // ── Override: saveCompanySettings ──────────────────────────────
-window.saveCompanySettings = async function() {
-  const payload = {
-    company_name:    document.getElementById('sc-name')?.value    || '',
-    company_gst:     document.getElementById('sc-gst')?.value     || '',
-    company_phone:   document.getElementById('sc-phone')?.value   || '',
-    company_email:   document.getElementById('sc-email')?.value   || '',
-    company_website: document.getElementById('sc-web')?.value     || '',
-    invoice_prefix:  document.getElementById('sc-prefix')?.value  || '',
-    company_upi:     document.getElementById('sc-upi')?.value     || '',
-    company_address: document.getElementById('sc-addr')?.value    || '',
-    company_logo:    document.getElementById('sc-logo')?.value    || STATE.settings.logo || '',
-    company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
-    company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
-  };
-  Object.assign(STATE.settings, {
-    company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
-    email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
-    upi: payload.company_upi, address: payload.company_address,
-    logo: payload.company_logo || STATE.settings.logo,
-    signature: payload.company_sign || STATE.settings.signature,
-    defaultBank: payload.company_bank || STATE.settings.defaultBank
-  });
-  // Also refresh bank field in create form if open
-  const bankEl = document.getElementById('f-bank');
-  if (bankEl && !bankEl.value) bankEl.value = STATE.settings.defaultBank || '';
-  try {
-    await api('api/settings.php', 'POST', payload);
-    livePreview();
-    toast('✅ Settings saved!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.saveCompanySettings: now handled by the function declaration above
+;
 
 // ── Override: saveEditProd ──────────────────────────────────────
-window.saveEditProd = async function(id) {
-  const idx = STATE.products.findIndex(x => x.id === id); if (idx < 0) return;
-  const n = document.getElementById('ep-name')?.value?.trim();
-  if (!n) { toast('Name required', 'warning'); return; }
-  const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
-    rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
-    hsn:document.getElementById('ep-hsn')?.value||'998314',
-    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18) };
-  try {
-    await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
-    STATE.products[idx] = { ...STATE.products[idx], ...payload };
-    renderProducts(); toast('✅ Updated!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.saveEditProd: now handled by the function declaration above
+;
 
 // ── Override: saveNewProduct ────────────────────────────────────
-window.saveNewProduct = async function() {
-  const n = document.getElementById('np-name')?.value?.trim();
-  if (!n) { toast('⚠️ Name required', 'warning'); return; }
-  const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
-    rate:parseFloat(document.getElementById('np-rate')?.value)||0,
-    hsn:document.getElementById('np-hsn')?.value||'998314',
-    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18) };
-  try {
-    await api('api/products.php', 'POST', payload);
-    const r = await api('api/products.php');
-    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
-    document.getElementById('add-product-row')?.remove();
-    renderProducts(); toast('✅ "' + n + '" added!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.saveNewProduct: now handled by the function declaration above
+;
 
 // ── Override: deleteProduct ─────────────────────────────────────
-window.deleteProduct = async function(id) {
-  const p = STATE.products.find(x => x.id === id); if (!p) return;
-  const dbId = parseInt(id.replace('p','')) || 0;
-  try {
-    await api('api/products.php?id=' + dbId, 'DELETE');
-    STATE.products = STATE.products.filter(x => x.id !== id);
-    renderProducts(); toast('🗑️ Deleted', 'info');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+
+// window.deleteProduct: now handled by the function declaration above
+;
 
 // ── Override: handleLogoUpload → server upload ──────────────────
-window.handleLogoUpload = async function(input, targetId, previewId) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 3*1024*1024) { toast('⚠️ Max 3MB', 'warning'); return; }
-  const typeMap = {
-    'f-company-logo':'logo','sc-logo':'logo',
-    'f-signature':'signature','sc-sign':'signature',
-    'f-client-logo':'client_logo','f-qr':'qr'
-  };
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('type', typeMap[targetId] || 'logo');
-  try {
-    const res  = await fetch('api/upload.php', { method:'POST', body:fd });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch(e) { throw new Error('Upload failed: server returned HTML'); }
-    if (!data.success) throw new Error(data.error || 'Upload failed');
-    const el = document.getElementById(targetId);
-    if (el) { el.value = data.url; el.dispatchEvent(new Event('input')); }
-    if (targetId === 'sc-logo' || targetId === 'f-company-logo') {
-      STATE.settings.logo = data.url;
-      // Immediately update sidebar / topbar if logo shown there
-    }
-    if (targetId === 'sc-sign' || targetId === 'f-signature') STATE.settings.signature = data.url;
-    if (previewId) {
-      const prev = document.getElementById(previewId);
-      if (prev) {
-        const isSign = previewId.includes('sign');
-        prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
-          <img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px">
-          <span style="font-size:11px;color:var(--muted)">${file.name}</span>
-          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
-        </div>`;
-      }
-    }
-    toast('✅ Uploaded!', 'success');
-  } catch(e) {
-    // Fallback: use base64
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const el = document.getElementById(targetId);
-      if (el) { el.value = ev.target.result; el.dispatchEvent(new Event('input')); }
-      toast('✅ Image loaded', 'success');
-    };
-    reader.readAsDataURL(file);
-    console.warn('Server upload failed, using base64:', e.message);
-  }
-};
+
+// window.handleLogoUpload: now handled by the function declaration above
+;
 
 // ── Bootstrap: load DB data then init app ──────────────────────
 document.addEventListener('DOMContentLoaded', function() {
@@ -6134,14 +6009,9 @@ window.resetTplCustomization = function() {
 
 // Override tplLogoHTML to use custom font
 const _origTplLogoHTML = window.tplLogoHTML;
-window.tplLogoHTML = function(d, sc) {
-  const font = TPL_CUSTOM.font || "'Public Sans',sans-serif";
-  const tag  = TPL_CUSTOM.tagline || '';
-  if (!d.popt.logo) return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px;font-family:${font}">${sc.company}</div>${tag?`<div style="font-size:11px;opacity:.7;margin-top:2px">${tag}</div>`:''}`;
-  const logo = d.companyLogo || sc.logo;
-  if (logo) return `<img src="${logo}" style="height:52px;max-width:180px;object-fit:contain;display:block" onerror="this.style.display='none'">`;
-  return `<div style="font-size:28px;font-weight:800;letter-spacing:-1px;font-family:${font}">${sc.company}</div>${tag?`<div style="font-size:11px;opacity:.7;margin-top:2px">${tag}</div>`:''}`;
-};
+
+// tplLogoHTML: see function declaration above
+;
 
 
 // ── WA Template Mode ───────────────────────────────────────────
