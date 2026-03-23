@@ -44,7 +44,10 @@ switch ($method) {
         // Partial payment — mark as 'Partial' so PDF shows remaining amount
         $remainAmt = floatval($d['remaining_amt'] ?? 0);
         $db->prepare("UPDATE invoices SET status='Partial' WHERE id=?")->execute([$d['invoice_id']]);
-        // Note is stored in the payment record itself, NOT appended to invoice notes
+        // Update grand_total to show remaining (or keep original — we show breakdown in PDF)
+        // Add payment note
+        $db->prepare("UPDATE invoices SET notes = CONCAT(IFNULL(NULLIF(notes,''),''), CASE WHEN NULLIF(notes,'') IS NOT NULL THEN ' | ' ELSE '' END, 'Partial payment received. Remaining: ₹', ?) WHERE id=?")
+           ->execute([$remainAmt, $d['invoice_id']]);
       }
     }
     $s=$db->prepare('INSERT INTO payments (invoice_id,invoice_number,client_name,amount,payment_date,method,transaction_id,status,notes) VALUES (?,?,?,?,?,?,?,?,?)');

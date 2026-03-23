@@ -972,7 +972,6 @@ const SERVER = {
       </div>
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
-      <div id="dashPartialCard" style="margin-bottom:16px"></div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div>
@@ -1221,9 +1220,12 @@ const SERVER = {
                 <code class="neg" id="tp-disc">-₹0.00</code>
               </div>
               <div class="tp-row">
-                <span style="display:flex;flex-direction:column;gap:2px">
-                  <span style="font-size:11px;color:var(--muted);font-weight:600">Total GST</span>
-                  <span id="tp-gst-breakdown" style="font-size:10px;color:var(--muted)"></span>
+                <span>GST
+                  <select id="f-gst" class="inline-sel" onchange="calcTotals()">
+                    <option value="0">0%</option><option value="5">5%</option>
+                    <option value="12">12%</option><option value="18" selected>18%</option>
+                    <option value="28">28%</option>
+                  </select>
                 </span>
                 <code class="pos" id="tp-gst">+₹0.00</code>
               </div>
@@ -1736,9 +1738,6 @@ const SERVER = {
             </div>
             <div class="field"><label>✅ Payment Receipt Template</label>
               <textarea id="wa-tpl-paid" style="min-height:80px">Hi {client_name}! ✅ Payment of ₹{amount} for invoice #{invoice_no} received. Thank you for choosing {company_name}! 🎉</textarea>
-          <div class="field g-full"><label>Partial Payment Template <span style="font-size:10px;color:var(--muted)">— sent when partial payment recorded</span></label>
-            <textarea id="wa-tpl-partial" style="min-height:90px" oninput="saveWASettings()"></textarea>
-          </div>
             </div>
             <div class="field"><label>⏰ Payment Reminder Template (before due)</label>
               <textarea id="wa-tpl-remind" style="min-height:80px">Hi {client_name}! 🔔 Gentle reminder: Invoice #{invoice_no} for ₹{amount} is due on {due_date}. Please arrange payment. UPI: {upi} 🙏</textarea>
@@ -1889,14 +1888,6 @@ const SERVER = {
                   <input id="tpl-lang-followup" placeholder="en" style="width:48px;text-align:center">
                 </div>
                 <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}phone</div>
-              </div>
-              <div class="field">
-                <label>Partial Payment Template Name</label>
-                <div style="display:flex;gap:6px">
-                  <input id="tpl-name-partial" placeholder="e.g. partial_payment" style="flex:1">
-                  <input id="tpl-lang-partial" placeholder="en" style="width:48px;text-align:center">
-                </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}paid_amount {{4}}remaining {{5}}due_date</div>
               </div>
               <div class="field">
                 <label>Festival Greeting Template Name</label>
@@ -2182,13 +2173,10 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
       <div class="form-grid g2" style="gap:10px">
         <div class="field"><label>Payment Date</label><input type="date" id="paid-date"></div>
         <div class="field"><label>Payment Method</label>
-          <select id="paid-method" onchange="toggleSplitPayment()">
+          <select id="paid-method">
             <option>UPI (GPay/PhonePe/Paytm)</option>
             <option>Bank Transfer (NEFT/RTGS)</option>
-            <option>Cash</option>
-            <option>Cheque</option>
-            <option>Credit Card</option>
-            <option value="Split">⚡ Split Payment (multiple methods)</option>
+            <option>Cash</option><option>Cheque</option><option>Credit Card</option>
           </select>
         </div>
         <div class="field"><label>Amount Received (₹)</label>
@@ -2211,35 +2199,6 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <input type="checkbox" id="paid-collect-remaining" style="accent-color:var(--teal)">
             <span>Record as partial — keep invoice active to collect remaining amount</span>
           </label>
-        </div>
-      </div>
-      <!-- Split Payment Panel -->
-      <div id="split-payment-panel" style="display:none;margin-top:10px;background:#F3F4F6;border-radius:10px;padding:12px;border:1.5px solid #E65100">
-        <div style="font-size:12px;font-weight:700;color:#E65100;margin-bottom:10px">⚡ Split Payment — Enter amount per method</div>
-        <div style="display:flex;flex-direction:column;gap:8px" id="split-rows">
-          <div class="split-row" style="display:flex;gap:8px;align-items:center">
-            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
-              <option>UPI (GPay/PhonePe/Paytm)</option>
-              <option>Bank Transfer (NEFT/RTGS)</option>
-              <option>Cash</option><option>Cheque</option><option>Credit Card</option>
-            </select>
-            <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
-            <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>
-          </div>
-          <div class="split-row" style="display:flex;gap:8px;align-items:center">
-            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
-              <option>Cash</option>
-              <option>UPI (GPay/PhonePe/Paytm)</option>
-              <option>Bank Transfer (NEFT/RTGS)</option>
-              <option>Cheque</option><option>Credit Card</option>
-            </select>
-            <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
-            <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-          <button onclick="addSplitRow()" style="padding:6px 12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">+ Add Method</button>
-          <div style="font-size:12px">Split Total: <strong id="split-total" style="color:#E65100;font-family:var(--mono)">₹0.00</strong></div>
         </div>
       </div>
       <div class="field" style="margin-top:10px"><label>Notes (optional)</label>
@@ -2943,10 +2902,7 @@ function renderFormItems() {
   const el = document.getElementById('itemsList');
   if (!el) return;
   el.innerHTML = formItems.map(item => {
-    const base     = (item.qty||1)*(item.rate||0);
-    const gstRate  = parseFloat(item.gst ?? 0);
-    const gstAmt   = base * gstRate / 100;
-    const lineTotal = base + gstAmt;   // GST-inclusive total
+    const lineTotal = (item.qty||1)*(item.rate||0);
     return `
     <div class="item-row" id="item-${item.id}">
       <input class="item-desc" value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)">
@@ -2959,7 +2915,7 @@ function renderFormItems() {
         <option value="28" ${item.gst==28?'selected':''}>28%</option>
       </select>
       <input class="item-rate" type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)">
-      <div class="item-total" id="itot-${item.id}" title="Incl. GST">${fmt_money(lineTotal)}</div>
+      <div class="item-total" id="itot-${item.id}">${fmt_money(lineTotal)}</div>
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
     </div>`;
   }).join('');
@@ -2969,17 +2925,9 @@ function renderFormItems() {
 function updateItem(id, field, val) {
   const item = formItems.find(i=>i.id===id);
   if (!item) return;
-  if (field === 'gst') {
-    item.gst = (val !== '' && val !== null && val !== undefined) ? parseFloat(val) : 0;
-  } else {
-    item[field] = field==='desc' ? val : (parseFloat(val)||0);
-  }
+  item[field] = field==='desc' ? val : (parseFloat(val)||0);
   const tot = document.getElementById('itot-'+id);
-  if (tot) {
-    const base    = (item.qty||1)*(item.rate||0);
-    const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
-    tot.textContent = fmt_money(base + gstAmt);  // GST-inclusive
-  }
+  if (tot) tot.textContent = fmt_money((item.qty||1)*(item.rate||0));
   calcTotals();
 }
 
@@ -3008,18 +2956,6 @@ function calcTotals() {
   set('tp-sub',   fmt_money(sub));
   set('tp-disc',  '-'+fmt_money(discAmt));
   set('tp-gst',   '+'+fmt_money(gstAfterDisc));
-  // Show GST breakdown per item
-  const bd = document.getElementById('tp-gst-breakdown');
-  if (bd) {
-    const rates = [...new Set(formItems.filter(i=>parseFloat(i.gst??0)>0).map(i=>parseFloat(i.gst??0)))];
-    if (rates.length <= 1) {
-      bd.textContent = rates.length ? rates[0]+'% on subtotal' : '';
-    } else {
-      bd.textContent = formItems.filter(i=>parseFloat(i.gst??0)>0)
-        .map(i => { const b=(i.qty||1)*(i.rate||0); return parseFloat(i.gst)+'% on '+fmt_money(b); })
-        .join(' + ');
-    }
-  }
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
@@ -3372,28 +3308,10 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       <span style="font-family:monospace;font-weight:600;color:#2E7D32">+${fmt_money(d.gstAmt||0,d.sym)}</span>
     </div>` : '';
 
-  // Build individual instalment rows when more than one payment
-  const instalmentRows = (showPaidRow && paymentsForInv.length > 0)
-    ? paymentsForInv.map((p,i) => {
-        const dt  = p.date||p.payment_date||'';
-        const dtF = dt ? new Date(dt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
-        const meth= p.method||'';
-        const isSplit = meth.startsWith('Split');
-        return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px dashed ${borderColor}">
-          <span style="color:#388E3C">
-            ${isSplit?'⚡':'✓'} Instalment ${i+1}${dtF?' · '+dtF:''}${meth?' · '+meth.replace('Split: ','').substring(0,30):''}
-          </span>
-          <span style="font-family:monospace;font-weight:600;color:#388E3C">-${fmt_money(parseFloat(p.amount||0),d.sym)}</span>
-        </div>`;
-      }).join('')
-    : '';
   const paidRow = showPaidRow ? `
-    <div style="margin-top:4px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;${paymentsForInv.length>1?'border-bottom:2px solid #A5D6A7':'border-bottom:1px solid '+borderColor}">
-        <span style="color:#388E3C;font-weight:700">💚 Total Paid${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
-        <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
-      </div>
-      ${paymentsForInv.length>1 ? '<div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">'+instalmentRows+'</div>' : ''}
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor};margin-top:2px">
+      <span style="color:#388E3C;font-weight:600">✓ Paid${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
+      <span style="font-family:monospace;font-weight:700;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
     </div>` : '';
 
   const remainRow = showRemRow ? `
@@ -4058,7 +3976,7 @@ function openPreviewModal(id) {
     caddr: c.addr || '',
     disc: inv.disc || 0,
     discAmt: inv.subtotal ? inv.subtotal * (inv.disc||0) / 100 : 0,
-    notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
+    notes: inv.notes || '',
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
     tnc: inv.tnc || inv.terms || '',
     status: inv.status,
@@ -4120,7 +4038,7 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-date').value     = inv.issued;
   document.getElementById('f-due').value      = inv.due;
   document.getElementById('f-disc').value     = inv.disc||0;
-  document.getElementById('f-notes').value    = (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim();
+  document.getElementById('f-notes').value    = inv.notes||'';
   const _bankEl = document.getElementById('f-bank'); if(_bankEl) _bankEl.value = inv.bank||inv.bank_details||STATE.settings.defaultBank||'';
   const _tncEl  = document.getElementById('f-tnc');  if(_tncEl)  _tncEl.value  = inv.tnc||inv.terms||STATE.settings.defaultTnC||'';
   // f-bank and f-tnc set above
@@ -4338,9 +4256,7 @@ function confirmPaid() {
     client_name:    (STATE.clients.find(c=>String(c.id)===String(inv.client))||{}).name||inv.client_name||'',
     amount:         amtReceived,
     payment_date:   document.getElementById('paid-date').value,
-    method: (document.getElementById('paid-method').value === 'Split')
-              ? getSplitMethodLabel()
-              : document.getElementById('paid-method').value,
+    method:         document.getElementById('paid-method').value,
     transaction_id: document.getElementById('paid-txn').value,
     notes:          document.getElementById('paid-notes')?.value || '',
     status:         'Success',
@@ -4365,34 +4281,12 @@ function confirmPaid() {
       if (waP.auto_paid !== '0' && waP.token && waP.pid) {
         const paidInv = STATE.invoices.find(i => String(i.id) === String(mid));
         if (paidInv) {
-          const cP     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
+          const cP = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
           const phoneP = (cP.wa || cP.whatsapp || cP.phone || '').replace(/\D/g,'');
           if (phoneP) {
-            // Choose template based on payment type
-            const isSplitPmt = payload.method && payload.method.startsWith('Split');
-            let tplKey, tplDefault;
-            if (wasPartial) {
-              tplKey     = waP.tpl_partial;
-              tplDefault = getDefaultWATpl('partial_receipt');
-            } else if (isSplitPmt) {
-              tplKey     = waP.tpl_split || waP.tpl_paid;
-              tplDefault = getDefaultWATpl('split_receipt');
-            } else {
-              tplKey     = waP.tpl_paid;
-              tplDefault = getDefaultWATpl('paid');
-            }
-            const tplP = tplKey || tplDefault;
-            // Enrich inv with payment-specific data for template variables
-            const invWithPmt = Object.assign({}, paidInv, {
-              _paidAmt:      payload.amount,
-              _remainingAmt: payload.remaining_amt || 0,
-              _payMethod:    payload.method,
-              _instalmentNo: pr&&pr.data ? pr.data.filter(p=>String(p.invoice_id)===mid).length : 1,
-            });
-            const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
-            const tplName = wasPartial ? 'partial_payment' : isSplitPmt ? 'split_payment' : 'payment_received';
-            sendWA(phoneP, msgP, tplName, invWithPmt, cP)
-              .catch(e => console.warn('WA payment msg failed:', e.message));
+            const tplP = waP.tpl_paid || getDefaultWATpl('paid');
+            const msgP = formatWAMsg(tplP, paidInv, cP, STATE.settings);
+            sendWA(phoneP, msgP, 'payment_received', paidInv, cP).catch(e => console.warn('WA paid failed:', e.message));
           }
         }
       }
@@ -5107,11 +5001,7 @@ function formatWAMsg(tpl, inv, client, settings) {
     .replace(/{days_overdue}/g, String(daysOverdue))
     .replace(/{item_list}/g,    items||'')
     .replace(/{status}/g,       inv.status||'')
-    .replace(/{invoice_link}/g, '')
-    .replace(/{paid_amount}/g,      inv._paidAmt     !== undefined ? fmt_money(inv._paidAmt,    inv.currency||'₹') : '')
-    .replace(/{remaining_amount}/g, inv._remainingAmt !== undefined ? fmt_money(inv._remainingAmt, inv.currency||'₹') : '')
-    .replace(/{payment_method}/g,   inv._payMethod   || '')
-    .replace(/{instalment_no}/g,    String(inv._instalmentNo || ''));
+    .replace(/{invoice_link}/g, '');
 }
 
 
@@ -5307,15 +5197,11 @@ function renderDashKpis() {
   }).length;
   const waClients = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
 
-  const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
-  const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
   const miniCards = [
-    {ic:'fa-paper-plane',         col:'#25D366', label:'Need Follow-up',    val:pendWA,      sub:'pending/overdue'},
-    {ic:'fa-exclamation-triangle',col:'#e53935', label:'Overdue Alerts',    val:overWA,      sub:'send now'},
-    {ic:'fa-check-circle',        col:'#00897B', label:'Paid This Month',   val:paidTM,      sub:'receipts sent'},
-    {ic:'fa-clock',               col:'#E65100', label:'Partial Invoices',  val:partialInvs, sub:'awaiting balance'},
-    {ic:'fa-code-branch',         col:'#7B1FA2', label:'Split Payments',    val:splitPmts,   sub:'recorded'},
-    {ic:'fa-address-book',        col:'#1565C0', label:'WA-Ready Clients',  val:waClients,   sub:'have phone #'},
+    {ic:'fa-paper-plane',        col:'#25D366', label:'Need Follow-up',   val:pendWA,    sub:'pending/overdue'},
+    {ic:'fa-exclamation-triangle',col:'#e53935',label:'Overdue Alerts',   val:overWA,    sub:'send now'},
+    {ic:'fa-check-circle',       col:'#00897B', label:'Paid This Month',  val:paidTM,    sub:'receipts sent'},
+    {ic:'fa-address-book',       col:'#1565C0', label:'WA-Ready Clients', val:waClients, sub:'have phone #'},
   ].map(c => `<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
     <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
       <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
@@ -5360,48 +5246,6 @@ function renderDashKpis() {
         </button>
       </div>
     </div>`;
-
-
-  // ── Partial payments card ──────────────────────────────
-  const partEl = document.getElementById('dashPartialCard');
-  if (partEl) {
-    const partials = STATE.invoices.filter(i => i.status === 'Partial');
-    if (partials.length === 0) { partEl.innerHTML = ''; }
-    else {
-      const rows = partials.map(inv => {
-        const c       = STATE.clients.find(x=>String(x.id)===String(inv.client)) || {};
-        const pmts    = STATE.payments.filter(p=>p.invoice_id && String(p.invoice_id)===String(inv.id));
-        const paidAmt = pmts.reduce((s,p)=>s+parseFloat(p.amount||0),0);
-        const remAmt  = Math.max(0,(inv.amount||0)-paidAmt);
-        const pct     = inv.amount > 0 ? Math.round(paidAmt/inv.amount*100) : 0;
-        return `<div onclick="openPreviewModal('${inv.id}')" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px">
-              <span style="font-weight:700;font-size:13px">${inv.num||inv.invoice_number||''}</span>
-              <span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700">Partial</span>
-            </div>
-            <div style="font-size:11px;color:var(--muted)">${c.name||inv.clientName||''} · ${inv.service||inv.service_type||''}</div>
-            <div style="margin-top:6px;background:var(--border);border-radius:4px;height:5px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4CAF50,#8BC34A);border-radius:4px;transition:.4s"></div>
-            </div>
-          </div>
-          <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:11px;color:#388E3C;font-weight:700">${fmt_money(paidAmt,inv.currency||'₹')} paid</div>
-            <div style="font-size:12px;color:#E65100;font-weight:800">${fmt_money(remAmt,inv.currency||'₹')} due</div>
-            <div style="font-size:10px;color:var(--muted)">${pmts.length} instalment${pmts.length!==1?'s':''}</div>
-          </div>
-        </div>`;
-      }).join('');
-      partEl.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
-        <div class="card-header" style="padding:12px 16px">
-          <span class="card-title">⚡ Partial Payments</span>
-          <span style="font-size:11px;color:#E65100;font-weight:700">${partials.length} invoice${partials.length!==1?'s':''} pending clearance</span>
-        </div>
-        ${rows}
-      </div>`;
-    }
-  }
-
 }
 
 
@@ -5933,7 +5777,6 @@ function populateWAPage() {
   setV('wa-tpl-remind',  wa.tpl_remind  || getDefaultWATpl('remind'));
   setV('wa-tpl-overdue', wa.tpl_overdue || getDefaultWATpl('overdue'));
   setV('wa-tpl-followup',wa.tpl_followup|| getDefaultWATpl('followup'));
-  setV('wa-tpl-partial', wa.tpl_partial || getDefaultWATpl('partial_receipt'));
   setV('wa-tpl-festival',wa.tpl_festival|| getDefaultWATpl('festival'));
 
   // Toggles
@@ -6045,35 +5888,6 @@ Kindly process the payment immediately or contact us to discuss.
 💳 *UPI:* {upi}
 
 {company_name} | 📞 {company_phone} | ✉ {company_email}`,
-
-    partial_receipt: `Hi {client_name}! 💚
-
-*Partial Payment Received* for Invoice #{invoice_no}
-
-✅ Paid: *{currency}{paid_amount}*
-⏳ Remaining: *{currency}{remaining_amount}*
-📋 Invoice Total: {currency}{amount}
-📅 Date: {issue_date}
-📋 Service: {service}
-
-Please clear the remaining balance by *{due_date}*.
-💳 UPI: {upi}
-🏦 {bank_details}
-
-Thank you! — {company_name}
-📞 {company_phone}`,
-
-    split_receipt: `Hi {client_name}! ⚡
-
-*Split Payment Recorded* for Invoice #{invoice_no}
-
-💰 Amount: *{currency}{amount}*
-📋 Payment split across multiple methods
-📅 Date: {issue_date}
-📋 Service: {service}
-
-Your account is now clear. Thank you! 🙏
-— {company_name} | 📞 {company_phone}`,
 
     festival: `Hi {client_name}! 🎉
 
@@ -6528,16 +6342,7 @@ window.clearFestivalCampaign = async function() {
 // ── Auto-save invoice draft (tnc / notes / bank changes) ──────
 let _draftSaveTimer = null;
 function debounceSaveInvoiceDraft() {
-  // Show glow feedback immediately regardless of editing state
-  ['f-tnc','f-notes','f-bank'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && document.activeElement === el) {
-      el.style.borderColor = 'var(--teal)';
-      el.style.boxShadow   = '0 0 0 3px rgba(0,137,123,.15)';
-      setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 1500);
-    }
-  });
-  // Only auto-save if editing an existing invoice
+  // Only auto-save if editing an existing invoice (has an ID)
   if (!STATE.editingInvoiceId) return;
   clearTimeout(_draftSaveTimer);
   _draftSaveTimer = setTimeout(() => {
@@ -6566,60 +6371,6 @@ function debounceSaveInvoiceDraft() {
       })
       .catch(e => console.warn('Draft auto-save failed:', e.message));
   }, 1500);
-}
-
-// ── Split Payment UI ──────────────────────────────────────
-function toggleSplitPayment() {
-  const sel    = document.getElementById('paid-method');
-  const panel  = document.getElementById('split-payment-panel');
-  const amtFld = document.getElementById('paid-amt')?.parentElement;
-  if (!panel) return;
-  const isSplit = sel?.value === 'Split';
-  panel.style.display = isSplit ? 'block' : 'none';
-  if (amtFld) amtFld.style.opacity = isSplit ? '0.5' : '1';
-  if (isSplit) updateSplitTotal();
-}
-
-function updateSplitTotal() {
-  const rows = document.querySelectorAll('#split-rows .split-amt');
-  const total = Array.from(rows).reduce((s,el) => s + (parseFloat(el.value)||0), 0);
-  const el = document.getElementById('split-total');
-  if (el) el.textContent = fmt_money(total, '₹');
-  // Sync to main amount field
-  const amt = document.getElementById('paid-amt');
-  if (amt) { amt.value = total.toFixed(2); updatePaidRemaining(); }
-}
-
-function addSplitRow() {
-  const container = document.getElementById('split-rows');
-  const row = document.createElement('div');
-  row.className = 'split-row';
-  row.style.cssText = 'display:flex;gap:8px;align-items:center';
-  row.innerHTML = `<select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
-    <option>UPI (GPay/PhonePe/Paytm)</option>
-    <option>Bank Transfer (NEFT/RTGS)</option>
-    <option>Cash</option><option>Cheque</option><option>Credit Card</option>
-  </select>
-  <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
-  <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>`;
-  container.appendChild(row);
-}
-
-function removeSplitRow(btn) {
-  const rows = document.querySelectorAll('#split-rows .split-row');
-  if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
-  btn.closest('.split-row').remove();
-  updateSplitTotal();
-}
-
-function getSplitMethodLabel() {
-  const rows = document.querySelectorAll('#split-rows .split-row');
-  const parts = Array.from(rows).map(r => {
-    const m = r.querySelector('.split-method')?.value || '';
-    const a = parseFloat(r.querySelector('.split-amt')?.value || 0);
-    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(0)}` : null;
-  }).filter(Boolean);
-  return 'Split: ' + parts.join(' + ');
 }
 
 </script>
