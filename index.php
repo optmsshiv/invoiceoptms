@@ -2812,18 +2812,24 @@ function selectAllInv(cb) {
 function openRowMenu(e, id) {
   e.stopPropagation();
   STATE.activeMenuInvoiceId = id;
-  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+  const inv    = STATE.invoices.find(i=>String(i.id)===String(id));
   const isPaid = inv && inv.status === 'Paid';
-  const menu = document.getElementById('rowMenu');
-  menu.innerHTML = `
-    <div class="rm-item" onclick="rowMenuAction('preview')"><i class="fas fa-eye"></i> Preview</div>
-    <div class="rm-item ${isPaid ? 'rm-disabled' : ''}" onclick="${isPaid ? '' : "rowMenuAction('edit')"}" style="${isPaid ? 'opacity:.4;cursor:not-allowed;' : ''}"><i class="fas fa-edit"></i> Edit Invoice ${isPaid ? '<small style="font-size:9px">(paid)</small>' : ''}</div>
-    <div class="rm-item" onclick="rowMenuAction('download')"><i class="fas fa-download"></i> Download PDF</div>
-    <div class="rm-item" onclick="rowMenuAction('duplicate')"><i class="fas fa-copy"></i> Duplicate</div>
-    <div class="rm-item" onclick="rowMenuAction('wa')"><i class="fab fa-whatsapp"></i> Send WhatsApp</div>
-    <div class="rm-item" onclick="rowMenuAction('email')"><i class="fas fa-envelope"></i> Send Email</div>
-    <div class="rm-item ${isPaid ? 'rm-disabled' : ''}" onclick="${isPaid ? '' : "rowMenuAction('paid')"}" style="${isPaid ? 'opacity:.4;cursor:not-allowed' : ''}"><i class="fas fa-check-circle"></i> Mark as Paid ${isPaid ? '(already paid)' : ''}</div>
-    <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
+  const menu   = document.getElementById('rowMenu');
+  // Build items as array to avoid nested quote conflicts
+  const editCls   = isPaid ? 'rm-item rm-disabled' : 'rm-item';
+  const editStyle = isPaid ? 'opacity:.4;cursor:not-allowed;pointer-events:none' : '';
+  const editExtra = isPaid ? ' <small style="font-size:9px;opacity:.7">(paid)</small>' : '';
+  const paidCls   = isPaid ? 'rm-item rm-disabled' : 'rm-item';
+  const paidStyle = isPaid ? 'opacity:.4;cursor:not-allowed;pointer-events:none' : '';
+  const paidLabel = isPaid ? 'Already Paid' : 'Mark as Paid';
+  menu.innerHTML =
+    '<div class="rm-item" onclick="rowMenuAction(\'preview\')"><i class="fas fa-eye"></i> Preview / Download</div>' +
+    '<div class="' + editCls + '" style="' + editStyle + '" onclick="rowMenuAction(\'edit\')"><i class="fas fa-edit"></i> Edit Invoice' + editExtra + '</div>' +
+    '<div class="rm-item" onclick="rowMenuAction(\'duplicate\')"><i class="fas fa-copy"></i> Duplicate</div>' +
+    '<div class="rm-item" onclick="rowMenuAction(\'wa\')"><i class="fab fa-whatsapp" style="color:#25D366"></i> Send WhatsApp</div>' +
+    '<div class="rm-item" onclick="rowMenuAction(\'email\')"><i class="fas fa-envelope"></i> Send Email</div>' +
+    '<div class="' + paidCls + '" style="' + paidStyle + '" onclick="rowMenuAction(\'paid\')"><i class="fas fa-check-circle"></i> ' + paidLabel + '</div>' +
+    '<div class="rm-item rm-danger" onclick="rowMenuAction(\'delete\')"><i class="fas fa-trash"></i> Delete</div>';
   menu.style.top  = (e.clientY + 4) + 'px';
   menu.style.left = Math.min(e.clientX - 160, window.innerWidth - 200) + 'px';
   menu.classList.add('open');
