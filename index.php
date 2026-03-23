@@ -3873,12 +3873,13 @@ function openPrintWindow(d, items) {
     ? items.map(i => {
         const line = (i.qty||1)*(i.rate||0);
         const gstR = parseFloat(i.gst)||0;
+        const lineInclGst = line + (line * gstR / 100);
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           ${showGst ? `<td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>` : ''}
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGst?5:4}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
