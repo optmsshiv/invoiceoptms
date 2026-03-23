@@ -32,7 +32,15 @@ switch ($method) {
     $d=json_decode(file_get_contents('php://input'),true);
     // If marking invoice paid, update invoice status
     if (!empty($d['invoice_id'])) {
-      $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$d['invoice_id']]);
+      $partial = !empty($d['partial']) && $d['partial'] == 1;
+      if (!$partial) {
+        $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$d['invoice_id']]);
+      } else {
+        // Partial payment — add a note to the invoice but keep as Pending
+        $remainAmt = floatval($d['remaining_amt'] ?? 0);
+        $db->prepare("UPDATE invoices SET notes = CONCAT(IFNULL(notes,''), ' | Partial payment received. Remaining: ₹', ?) WHERE id=?")
+           ->execute([$remainAmt, $d['invoice_id']]);
+      }
     }
     $s=$db->prepare('INSERT INTO payments (invoice_id,invoice_number,client_name,amount,payment_date,method,transaction_id,status,notes) VALUES (?,?,?,?,?,?,?,?,?)');
     $s->execute([$d['invoice_id']??null,$d['invoice_number']??$d['inv']??'',$d['client_name']??$d['client']??'',$d['amount']??0,$d['payment_date']??$d['date']??date('Y-m-d'),$d['method']??'',$d['transaction_id']??$d['txn']??'',$d['status']??'Success',$d['notes']??'']);
