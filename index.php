@@ -461,6 +461,7 @@ canvas { max-width: 100% !important; }
 }
 .badge-paid    { background: #E8F5E9; color: #2E7D32; }
 .badge-pending { background: #FFF8E1; color: #F57F17; }
+.badge-partial { background: #FFF3E0; color: #E65100; font-weight:700; }
 .badge-overdue { background: #FFEBEE; color: #C62828; }
 .badge-draft   { background: #F5F5F5; color: #616161; }
 
@@ -4180,35 +4181,62 @@ function openPaidModal(id) {
   const c   = inv ? (STATE.clients.find(x=>String(x.id)===String(inv.client))||{}) : {};
   const amt = inv ? parseFloat(inv.amount||0) : parseFloat(getFormData().grand||0);
   // Calculate already paid amount for this invoice
+  // Only match by numeric invoice_id — no string fallback to avoid false matches
   const alreadyPaid = STATE.payments
-    .filter(p => String(p.invoice_id) === STATE.activeMenuInvoiceId ||
-                 (inv && p.invoice_number === (inv.num||inv.invoice_number)))
+    .filter(p => p.invoice_id && String(p.invoice_id) === STATE.activeMenuInvoiceId)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
   const remaining = Math.max(0, amt - alreadyPaid);
-  document.getElementById('paid-amt').value = remaining.toFixed(2);
+  // Show full amount if no prior payments, remaining if partial payments exist
+  document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
+  // If already partially paid, show it in the box immediately
+  if (alreadyPaid > 0.01 && remaining > 0.01) {
+    const rb = document.getElementById('paid-remaining-box');
+    if (rb) {
+      rb.style.display = 'block';
+      const sym = inv ? (inv.currency||'₹') : '₹';
+      const rt = document.getElementById('paid-rem-total');
+      const rr = document.getElementById('paid-rem-received');
+      const rd = document.getElementById('paid-rem-due');
+      if (rt) rt.textContent = fmt_money(amt, sym);
+      if (rr) rr.textContent = fmt_money(alreadyPaid, sym);
+      if (rd) rd.textContent = fmt_money(remaining, sym);
+      const cb = document.getElementById('paid-collect-remaining');
+      if (cb) cb.checked = true; // Default to partial for Partial invoices
+    }
+  }
   // Summary bar
   const numEl = document.getElementById('paid-inv-num');
   const cliEl = document.getElementById('paid-inv-client');
   const totEl = document.getElementById('paid-inv-total');
   if (numEl) numEl.textContent = inv ? (inv.num||inv.invoice_number||'') : '';
   if (cliEl) cliEl.textContent = c.name || (inv&&inv.client_name) || '';
-  if (totEl) totEl.textContent = fmt_money(amt, inv&&inv.currency||'₹');
+  if (totEl) totEl.textContent = fmt_money(amt, inv&&(inv.currency||'₹')||'₹');
+  // Update modal title based on status
+  const hdr = document.querySelector('#modal-paid .modal-header span');
+  if (hdr) hdr.textContent = inv&&inv.status==='Partial' ? 'Collect Remaining Payment' : 'Mark Invoice as Paid';
   openModal('modal-paid');
 }
 
 function updatePaidRemaining() {
-  const mid   = STATE.activeMenuInvoiceId;
-  const inv   = STATE.invoices.find(i=>String(i.id)===mid);
-  if (!inv) return;
-  const total    = parseFloat(inv.amount||0);
-  const received = parseFloat(document.getElementById('paid-amt').value)||0;
-  const remaining = total - received;
-  const remBox   = document.getElementById('paid-remaining-box');
-  if (remaining > 0.01 && received > 0) {
+  const mid  = STATE.activeMenuInvoiceId;
+  const inv  = STATE.invoices.find(i=>String(i.id)===mid);
+  if (!inv)  return;
+  const sym       = inv.currency || '₹';
+  const total     = parseFloat(inv.amount || 0);
+  const received  = parseFloat(document.getElementById('paid-amt').value) || 0;
+  // Add any previously recorded partial payments
+  const prevPaid  = STATE.payments
+    .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+    .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const totalReceived = prevPaid + received;
+  const remaining     = Math.max(0, total - totalReceived);
+  const remBox        = document.getElementById('paid-remaining-box');
+  if (remaining > 0.01 && received > 0 && received < total) {
     remBox.style.display = 'block';
-    document.getElementById('paid-rem-total').textContent    = fmt_money(total, inv.currency||'₹');
-    document.getElementById('paid-rem-received').textContent = fmt_money(received, inv.currency||'₹');
-    document.getElementById('paid-rem-due').textContent      = fmt_money(remaining, inv.currency||'₹');
+    document.getElementById('paid-rem-total').textContent    = fmt_money(total, sym);
+    // Show cumulative received (prev + current)
+    document.getElementById('paid-rem-received').textContent = fmt_money(totalReceived, sym);
+    document.getElementById('paid-rem-due').textContent      = fmt_money(remaining, sym);
   } else {
     remBox.style.display = 'none';
   }
