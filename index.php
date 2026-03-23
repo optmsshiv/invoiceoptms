@@ -1221,12 +1221,9 @@ const SERVER = {
                 <code class="neg" id="tp-disc">-₹0.00</code>
               </div>
               <div class="tp-row">
-                <span>GST
-                  <select id="f-gst" class="inline-sel" onchange="calcTotals()">
-                    <option value="0">0%</option><option value="5">5%</option>
-                    <option value="12">12%</option><option value="18" selected>18%</option>
-                    <option value="28">28%</option>
-                  </select>
+                <span style="display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:11px;color:var(--muted);font-weight:600">Total GST</span>
+                  <span id="tp-gst-breakdown" style="font-size:10px;color:var(--muted)"></span>
                 </span>
                 <code class="pos" id="tp-gst">+₹0.00</code>
               </div>
@@ -2946,7 +2943,10 @@ function renderFormItems() {
   const el = document.getElementById('itemsList');
   if (!el) return;
   el.innerHTML = formItems.map(item => {
-    const lineTotal = (item.qty||1)*(item.rate||0);
+    const base     = (item.qty||1)*(item.rate||0);
+    const gstRate  = parseFloat(item.gst ?? 0);
+    const gstAmt   = base * gstRate / 100;
+    const lineTotal = base + gstAmt;   // GST-inclusive total
     return `
     <div class="item-row" id="item-${item.id}">
       <input class="item-desc" value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)">
@@ -2959,7 +2959,7 @@ function renderFormItems() {
         <option value="28" ${item.gst==28?'selected':''}>28%</option>
       </select>
       <input class="item-rate" type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)">
-      <div class="item-total" id="itot-${item.id}">${fmt_money(lineTotal)}</div>
+      <div class="item-total" id="itot-${item.id}" title="Incl. GST">${fmt_money(lineTotal)}</div>
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
     </div>`;
   }).join('');
@@ -2969,9 +2969,17 @@ function renderFormItems() {
 function updateItem(id, field, val) {
   const item = formItems.find(i=>i.id===id);
   if (!item) return;
-  item[field] = field==='desc' ? val : (parseFloat(val)||0);
+  if (field === 'gst') {
+    item.gst = (val !== '' && val !== null && val !== undefined) ? parseFloat(val) : 0;
+  } else {
+    item[field] = field==='desc' ? val : (parseFloat(val)||0);
+  }
   const tot = document.getElementById('itot-'+id);
-  if (tot) tot.textContent = fmt_money((item.qty||1)*(item.rate||0));
+  if (tot) {
+    const base    = (item.qty||1)*(item.rate||0);
+    const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
+    tot.textContent = fmt_money(base + gstAmt);  // GST-inclusive
+  }
   calcTotals();
 }
 
@@ -3000,6 +3008,18 @@ function calcTotals() {
   set('tp-sub',   fmt_money(sub));
   set('tp-disc',  '-'+fmt_money(discAmt));
   set('tp-gst',   '+'+fmt_money(gstAfterDisc));
+  // Show GST breakdown per item
+  const bd = document.getElementById('tp-gst-breakdown');
+  if (bd) {
+    const rates = [...new Set(formItems.filter(i=>parseFloat(i.gst??0)>0).map(i=>parseFloat(i.gst??0)))];
+    if (rates.length <= 1) {
+      bd.textContent = rates.length ? rates[0]+'% on subtotal' : '';
+    } else {
+      bd.textContent = formItems.filter(i=>parseFloat(i.gst??0)>0)
+        .map(i => { const b=(i.qty||1)*(i.rate||0); return parseFloat(i.gst)+'% on '+fmt_money(b); })
+        .join(' + ');
+    }
+  }
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
@@ -4038,7 +4058,7 @@ function openPreviewModal(id) {
     caddr: c.addr || '',
     disc: inv.disc || 0,
     discAmt: inv.subtotal ? inv.subtotal * (inv.disc||0) / 100 : 0,
-    notes: inv.notes || '',
+    notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
     tnc: inv.tnc || inv.terms || '',
     status: inv.status,
@@ -4100,7 +4120,7 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-date').value     = inv.issued;
   document.getElementById('f-due').value      = inv.due;
   document.getElementById('f-disc').value     = inv.disc||0;
-  document.getElementById('f-notes').value    = inv.notes||'';
+  document.getElementById('f-notes').value    = (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim();
   const _bankEl = document.getElementById('f-bank'); if(_bankEl) _bankEl.value = inv.bank||inv.bank_details||STATE.settings.defaultBank||'';
   const _tncEl  = document.getElementById('f-tnc');  if(_tncEl)  _tncEl.value  = inv.tnc||inv.terms||STATE.settings.defaultTnC||'';
   // f-bank and f-tnc set above
@@ -6508,7 +6528,16 @@ window.clearFestivalCampaign = async function() {
 // ── Auto-save invoice draft (tnc / notes / bank changes) ──────
 let _draftSaveTimer = null;
 function debounceSaveInvoiceDraft() {
-  // Only auto-save if editing an existing invoice (has an ID)
+  // Show glow feedback immediately regardless of editing state
+  ['f-tnc','f-notes','f-bank'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement === el) {
+      el.style.borderColor = 'var(--teal)';
+      el.style.boxShadow   = '0 0 0 3px rgba(0,137,123,.15)';
+      setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; }, 1500);
+    }
+  });
+  // Only auto-save if editing an existing invoice
   if (!STATE.editingInvoiceId) return;
   clearTimeout(_draftSaveTimer);
   _draftSaveTimer = setTimeout(() => {
