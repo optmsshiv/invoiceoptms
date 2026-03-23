@@ -969,9 +969,6 @@ const SERVER = {
           <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
         </div>
       </div>
-      <!-- WhatsApp Automation Status Bar -->
-      <div id="dashWABar" style="margin-bottom:14px"></div>
-
       <div class="dash-stats-row">
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div>
@@ -1059,6 +1056,7 @@ const SERVER = {
         <div class="dash-card" style="flex:0 0 200px;min-width:0">
           <div class="card-header"><span class="card-title">Quick Insights</span></div>
           <div id="dashQuickKpis"></div>
+        <div class="dash-card" id="dashWACard" style="margin-top:0"></div>
         </div>
         <!-- Recent Activity -->
         <div class="dash-card" style="flex:1;min-width:0">
@@ -1554,14 +1552,14 @@ const SERVER = {
             <div class="field">
               <label>Company Name Size <span style="font-size:10px;color:var(--muted)">(px)</span></label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="range" id="tpl-name-size" min="16" max="48" value="28" style="flex:1" oninput="document.getElementById('tpl-name-size-val').textContent=this.value+'px'">
-                <span id="tpl-name-size-val" style="width:36px;font-size:12px;font-weight:700;color:var(--teal)">28px</span>
+                <input type="range" id="tpl-name-size" min="16" max="48" value="28" style="flex:1" oninput="(document.getElementById('tpl-r-name-size-val')||{}).textContent=this.value+'px'">
+                <span id="tpl-r-name-size-val" style="width:36px;font-size:12px;font-weight:700;color:var(--teal)">28px</span>
               </div>
             </div>
             <div class="field">
               <label>Company Name Color</label>
               <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="tpl-name-color" value="#ffffff" style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:2px">
+                <input type="color" id="tpl-r-name-color" value="#ffffff" style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:2px">
                 <div style="display:flex;gap:4px">
                   <span onclick="document.getElementById('tpl-name-color').value='#ffffff'" style="width:20px;height:20px;background:#fff;border-radius:4px;cursor:pointer;border:1px solid #ddd"></span>
                   <span onclick="document.getElementById('tpl-name-color').value='#FFD54F'" style="width:20px;height:20px;background:#FFD54F;border-radius:4px;cursor:pointer;border:1px solid #ddd"></span>
@@ -1573,7 +1571,7 @@ const SERVER = {
             </div>
             <div class="field">
               <label>Company Name Style</label>
-              <select id="tpl-name-style">
+              <select id="tpl-r-name-style">
                 <option value="800">Extra Bold</option>
                 <option value="700" selected>Bold</option>
                 <option value="600">Semi-Bold</option>
@@ -1583,7 +1581,7 @@ const SERVER = {
             </div>
             <div class="field">
               <label>Logo Position</label>
-              <select id="tpl-logo-pos">
+              <select id="tpl-r-logo-pos">
                 <option value="left">Left (Default)</option>
                 <option value="center">Center</option>
                 <option value="right">Right</option>
@@ -1760,7 +1758,7 @@ const SERVER = {
           </div>
           <div class="form-grid g2">
             <div class="field"><label>Festival / Occasion Name</label>
-              <select id="wa-festival" onchange="debounceFestivalSave()">
+              <select id="wa-festival">
                 <option value="diwali">Diwali 🪔</option>
                 <option value="holi">Holi 🎨</option>
                 <option value="eid">Eid Mubarak 🌙</option>
@@ -1784,7 +1782,7 @@ const SERVER = {
               <div id="wa-festival-img-preview" style="margin-top:6px"></div>
             </div>
             <div class="field"><label>Send To</label>
-              <select id="wa-send-to" onchange="debounceFestivalSave()">
+              <select id="wa-send-to">
                 <option value="all">All Active Clients</option>
                 <option value="paid">Clients with Paid Invoices</option>
                 <option value="active">Clients with Recent Activity (90 days)</option>
@@ -1792,18 +1790,17 @@ const SERVER = {
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Festival Message</label>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><label style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Festival Message</label><span id="festival-save-ind" style="font-size:11px;color:var(--teal);opacity:0;transition:opacity .3s;font-weight:600">✓ Auto-saved</span></div>
-          <textarea id="wa-tpl-festival" style="min-height:90px;width:100%" oninput="debounceFestivalSave()">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
+            <textarea id="wa-tpl-festival" style="min-height:90px">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
           </div>
           <!-- Schedule options -->
           <div class="form-grid g2" style="margin-top:12px">
             <div class="field">
               <label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(leave blank to send now)</span></label>
-              <input type="datetime-local" id="wa-festival-schedule" onchange="debounceFestivalSave()" style="width:100%">
+              <input type="datetime-local" id="wa-festival-schedule" style="width:100%">
             </div>
             <div class="field">
               <label>Repeat <span style="font-size:10px;color:var(--muted)">(for recurring campaigns)</span></label>
-              <select id="wa-festival-repeat" onchange="debounceFestivalSave()">
+              <select id="wa-festival-repeat">
                 <option value="">No repeat (one-time)</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -1813,7 +1810,6 @@ const SERVER = {
           </div>
           <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="previewFestivalMsg()"><i class="fas fa-eye"></i> Preview</button>
-            <span id="festival-save-ind" style="font-size:11px;color:var(--teal);opacity:0;transition:opacity .4s;align-self:center">✓ Saved</span>
             <button class="btn btn-primary" onclick="saveFestivalCampaign()"><i class="fas fa-save"></i> Save Campaign</button>
             <button class="btn btn-whatsapp" onclick="sendFestivalBulk()"><i class="fab fa-whatsapp"></i> Send Now</button>
           </div>
@@ -2438,7 +2434,7 @@ function showPage(name, el) {
   if (name === 'products') renderProducts();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
   if (name === 'dashboard') renderDashboard();
-  if (name === 'templates') renderTemplatesGrid();
+  if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
   if (name === 'settings')  populateSettingsForm();
 }
@@ -2633,7 +2629,7 @@ function renderDashRecent() {
         <div class="dri-amount">${fmt_money(inv.amount)}</div>
         <span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span>
       </div>
-    </div>`;
+    </div></div>`;
   }).join('');
 }
 
@@ -3128,7 +3124,9 @@ function tplWatermark(d) {
   return `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:80px;font-weight:900;color:rgba(0,150,0,.12);z-index:0;pointer-events:none;white-space:nowrap;letter-spacing:8px">${wText}</div>`;
 }
 function tplBankHTML(d, color='#00695C', bg='#e0f2f1', border='') {
-  if (!d.popt || !d.popt.bank || !d.bank) return '';
+  const bankText = d.bank || STATE.settings.defaultBank || '';
+  if (!bankText) return '';
+  if (d.popt && d.popt.bank === false) return '';
   const sc  = STATE.settings;
   const upi = sc.upi || '';
   const upiLine = upi
@@ -3136,7 +3134,7 @@ function tplBankHTML(d, color='#00695C', bg='#e0f2f1', border='') {
     : '';
   return `<div style="margin-top:16px;background:${bg};border-radius:8px;padding:12px 14px;font-size:11px;color:${color};line-height:1.8;${border}">
     <div style="font-weight:700;font-size:12px;margin-bottom:4px">💳 Payment Details:</div>
-    <div>${d.bank.replace(/\|/g,'<span style="opacity:.4;margin:0 4px">|</span>')}</div>
+    <div>${bankText.replace(/\|/g,'<span style="opacity:.4;margin:0 4px">|</span>')}</div>
     ${upiLine}
   </div>`;
 }
@@ -3989,11 +3987,10 @@ function sendWAFromForm() {
 }
 
 function sendWAFromModal() {
-  const id = document.getElementById('mp-title').dataset.invId;
-  const inv = STATE.invoices.find(i=>i.id===id);
-  if (!inv) return;
-  const c = STATE.clients.find(x=>x.id===inv.client);
-  sendWAMessage(c?.wa||'', c?.name||inv.clientName||'Client', inv.num, fmt_money(inv.amount), inv.due);
+  const id  = document.getElementById('mp-title').dataset.invId;
+  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+  if (!inv) { toast('⚠️ Invoice not found','warning'); return; }
+  sendWAForInvoice(inv).catch(e => { if(e) toast('❌ '+e.message,'error'); });
 }
 
 
@@ -4024,12 +4021,28 @@ function sendEmailFromForm() {
 }
 
 function sendEmailFromModal() {
-  const id = document.getElementById('mp-title').dataset.invId;
-  const inv = STATE.invoices.find(i=>i.id===id);
-  if (!inv) return;
-  const c = STATE.clients.find(x=>x.id===inv.client);
-  const d = getFormData();
-  sendEmailForClient(c?.email||'', c?.name||'Client', inv.num, fmt_money(inv.amount), inv.due, inv.service, d);
+  const id  = document.getElementById('mp-title').dataset.invId;
+  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+  if (!inv) { toast('⚠️ Invoice not found','warning'); return; }
+  const c   = STATE.clients.find(x=>String(x.id)===String(inv.client)) || {};
+  const email = c.email || '';
+  if (!email) { toast('⚠️ No email for this client','warning'); return; }
+  const sc  = STATE.settings;
+  const subj= encodeURIComponent(`Invoice #${inv.num||inv.invoice_number} from ${sc.company||'OPTMS Tech'} – ${fmt_money(inv.amount)}`);
+  const bdy = encodeURIComponent(`Dear ${c.name||'Client'},
+
+Invoice #: ${inv.num||inv.invoice_number}
+Service: ${inv.service||''}
+Amount: ${fmt_money(inv.amount)}
+Due: ${inv.due||''}
+
+UPI: ${sc.upi||''}
+
+Thank you,
+${sc.company||''}
+${sc.phone||''}`);
+  window.open(`mailto:${email}?subject=${subj}&body=${bdy}`,'_blank');
+  toast('📧 Opening email client...','info');
 }
 
 function sendEmailForInvoice(inv) {
@@ -4933,75 +4946,61 @@ function renderDashKpis() {
     <div><div style="font-size:10px;color:var(--muted)">${k.l}</div><div style="font-weight:700;font-size:13px">${k.v}</div></div>
   </div>`).join('');
 
-  // WA horizontal status bar
-  // ── WA Automation horizontal bar above all cards ────────────
-  const waEl = document.getElementById('dashWABar');
+  // WA info card
+  const waEl = document.getElementById('dashWACard');
   if (waEl) {
-    const wa      = STATE.settings.wa || {};
-    const hasAPI  = !!(wa.token && wa.pid);
-    const mode    = wa.msg_mode === 'template' ? '✅ Template' : '💬 Session';
-    const toggles = [
-      { key:'auto_inv',     label:'New Invoice',     icon:'📄', val: wa.auto_inv     === '1' },
-      { key:'auto_paid',    label:'Payment Receipt', icon:'✅', val: wa.auto_paid    !== '0' },
-      { key:'auto_remind',  label:'Due Reminder',    icon:'🔔', val: wa.auto_remind  !== '0' },
-      { key:'auto_overdue', label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue !== '0' },
-      { key:'auto_followup',label:'Follow-up',       icon:'📋', val: wa.auto_followup === '1' },
-    ];
-    const onCount = toggles.filter(t => t.val).length;
-
-    waEl.innerHTML = `<div style="
-        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-        background:linear-gradient(135deg,#1A2332 0%,#263348 60%,#0d3d2e 100%);
-        border-radius:12px; padding:12px 18px; margin-bottom:16px;
-        box-shadow:0 4px 16px rgba(0,0,0,.18)">
-
-      <!-- Brand icon + title -->
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <div style="width:36px;height:36px;background:#25D366;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📱</div>
-        <div>
-          <div style="color:#fff;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
-          <div style="color:rgba(255,255,255,.5);font-size:10px">${mode}</div>
-        </div>
+    const wa       = STATE.settings.wa || {};
+    const hasAPI   = !!(wa.token && wa.pid);
+    const autoOn   = wa.auto_inv === '1' || wa.auto_paid !== '0' || wa.auto_remind !== '0';
+    const modeLabel = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
+    const toggOn   = [wa.auto_inv==='1', wa.auto_paid!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0'].filter(Boolean).length;
+    // WA stats mini-cards
+  const _pendWA=STATE.invoices.filter(i=>i.status==='Pending'||i.status==='Overdue').length;
+  const _overWA=STATE.invoices.filter(i=>i.status==='Overdue').length;
+  const _paidTM=STATE.invoices.filter(i=>{const d=new Date();return i.status==='Paid'&&i.issued&&new Date(i.issued).getMonth()===d.getMonth()&&new Date(i.issued).getFullYear()===d.getFullYear();}).length;
+  const _waClientsCount=STATE.clients.filter(c=>c.wa||c.whatsapp||c.phone).length;
+  waEl.innerHTML = `
+  <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">
+    ${[
+      {ic:'fa-paper-plane',    col:'#25D366',label:'Need Follow-up',  val:_pendWA,           sub:'pending/overdue'},
+      {ic:'fa-exclamation-triangle',col:'#e53935',label:'Overdue Alerts',val:_overWA,         sub:'send now'},
+      {ic:'fa-check-circle',   col:'#00897B',label:'Paid This Month', val:_paidTM,            sub:'receipts sent'},
+      {ic:'fa-address-book',   col:'#1565C0',label:'WA-Ready Clients',val:_waClientsCount,    sub:'have phone #'},
+    ].map(c=>`<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
+        <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
       </div>
-
-      <!-- API status pill -->
-      <div style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;
-          background:${hasAPI ? 'rgba(37,211,102,.2)' : 'rgba(255,255,255,.08)'};
-          color:${hasAPI ? '#25D366' : 'rgba(255,255,255,.4)'};
-          border:1px solid ${hasAPI ? 'rgba(37,211,102,.4)' : 'rgba(255,255,255,.15)'}">
-        ${hasAPI ? '● Connected' : '○ No API'}
+      <div style="font-size:22px;font-weight:800;color:${c.col};line-height:1">${c.val}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
+    </div>`).join('')}
+  </div>
+  <!-- Automation bar -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card);border:1.5px solid #25D36628;border-radius:10px;padding:10px 14px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
+      <div>
+        <div style="color:var(--text);font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
+        <div style="color:var(--muted);font-size:10px">${mode}</div>
       </div>
-
-      <!-- Divider -->
-      <div style="width:1px;height:32px;background:rgba(255,255,255,.12);flex-shrink:0"></div>
-
-      <!-- Toggle pills - horizontal row -->
-      ${toggles.map(t => `
-        <div onclick="showPage('whatsapp',null)" style="
-            display:flex;align-items:center;gap:5px;
-            padding:5px 11px;border-radius:20px;cursor:pointer;flex-shrink:0;
-            background:${t.val ? 'rgba(37,211,102,.15)' : 'rgba(255,255,255,.06)'};
-            border:1px solid ${t.val ? 'rgba(37,211,102,.35)' : 'rgba(255,255,255,.1)'};
-            transition:.2s" title="Click to manage">
-          <span style="font-size:13px">${t.icon}</span>
-          <span style="font-size:11px;font-weight:600;color:${t.val ? '#4ade80' : 'rgba(255,255,255,.4)'}">
-            ${t.label}
-          </span>
-          <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;
-              background:${t.val ? '#25D366' : 'rgba(255,255,255,.2)'}"></span>
-        </div>`).join('')}
-
-      <!-- Count + manage button -->
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <span style="font-size:11px;color:rgba(255,255,255,.5)">${onCount}/5 active</span>
-        <button onclick="showPage('whatsapp',null)"
-            style="padding:6px 14px;background:rgba(37,211,102,.2);color:#25D366;
-                   border:1px solid rgba(37,211,102,.4);border-radius:8px;
-                   font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-          <i class="fas fa-cog"></i> Manage
-        </button>
-      </div>
-    </div>`;
+    </div>
+    <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
+      ${hasAPI ? '● Connected' : '○ No API'}
+    </div>
+    <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
+    ${toggles.map(t=>`
+      <div onclick="showPage('whatsapp',null)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val?'#25D36612':'var(--bg)'};border:1px solid ${t.val?'#25D36630':'var(--border)'}">
+        <span>${t.icon}</span>
+        <span style="font-size:11px;font-weight:600;color:${t.val?'#1a7a3c':'var(--muted)'}">${t.label}</span>
+        <span style="width:5px;height:5px;border-radius:50%;background:${t.val?'#25D366':'#ccc'};flex-shrink:0"></span>
+      </div>`).join('')}
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <span style="font-size:11px;color:var(--muted);font-weight:600">${onCount}/5 active</span>
+      <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+        <i class="fas fa-cog"></i> Manage
+      </button>
+    </div>
+  </div>`;
   }
 }
 
@@ -5154,20 +5153,13 @@ async function loadAllData() {
         tpl_lang_followup: s.wa_tpl_lang_followup || 'en',
         tpl_name_festival: s.wa_tpl_name_festival || '',
         tpl_lang_festival: s.wa_tpl_lang_festival || 'en',
-        // Festival campaign state
-        festival_tpl:      s.wa_festival_tpl      || '',
-        festival_sendto:   s.wa_festival_sendto   || 'all',
-        festival_img:      s.wa_festival_img      || '',
-        festival_schedule: s.wa_festival_schedule || '',
-        festival_repeat:   s.wa_festival_repeat   || '',
-        festival_name:     s.wa_festival_name     || 'diwali',
       };
       // Parse TPL_CUSTOM settings
       if (window.TPL_CUSTOM) {
         if (s.tpl_color1)        TPL_CUSTOM.color1         = s.tpl_color1;
         if (s.tpl_color2)        TPL_CUSTOM.color2         = s.tpl_color2;
         if (s.tpl_font)          TPL_CUSTOM.font           = s.tpl_font;
-        if (s.tpl_name_size)     TPL_CUSTOM.companyNameSize= s.tpl_name_size;
+        if (s.tpl_name_size)     TPL_CUSTOM.companyNameSize= String(parseInt(s.tpl_name_size)||28);
         if (s.tpl_name_color)    TPL_CUSTOM.companyNameColor=s.tpl_name_color;
         if (s.tpl_name_style)    TPL_CUSTOM.companyNameStyle=s.tpl_name_style;
         if (s.tpl_logo_position) TPL_CUSTOM.logoPosition   = s.tpl_logo_position;
@@ -5441,6 +5433,7 @@ document.addEventListener('DOMContentLoaded', function() {
       renderProducts();
       renderPayments();
       renderTemplatesGrid();
+      populateTemplateForm();
       renderNotifications();
       populateSettingsForm();
       populateWAPage();
@@ -5691,14 +5684,6 @@ function populateWAPage() {
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en';
   });
-  // Festival campaign fields
-  const setFes = (id,v) => { const e=document.getElementById(id); if(e&&v) e.value=v; };
-  setFes('wa-tpl-festival',      wa.festival_tpl    || wa.tpl_festival || getDefaultWATpl('festival'));
-  setFes('wa-send-to',           wa.festival_sendto || 'all');
-  setFes('wa-festival-img',      wa.festival_img    || '');
-  setFes('wa-festival-schedule', wa.festival_schedule || '');
-  setFes('wa-festival-repeat',   wa.festival_repeat   || '');
-  setFes('wa-festival',          wa.festival_name     || 'diwali');
 }
 
 
@@ -6056,6 +6041,31 @@ function setTplColor(inputId, color) {
   if (hexInput)   hexInput.value   = color;
 }
 
+// Sync TPL_CUSTOM → template customization form fields on page load
+function populateTemplateForm() {
+  const C = window.TPL_CUSTOM || {};
+  const setV = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined) e.value=String(v); };
+  setV('tpl-color1',       C.color1        || '#1A2332');
+  setV('tpl-color1-hex',   C.color1        || '#1A2332');
+  setV('tpl-color2',       C.color2        || '#4DB6AC');
+  setV('tpl-color2-hex',   C.color2        || '#4DB6AC');
+  setV('tpl-font',         C.font          || "'Public Sans',sans-serif");
+  setV('tpl-header-style', C.headerStyle   || 'gradient');
+  setV('tpl-table-style',  C.tableStyle    || 'dark');
+  setV('tpl-footer-text',  C.footerText    || '');
+  setV('tpl-tagline',      C.tagline       || '');
+  setV('tpl-watermark-text',C.watermarkText|| 'PAID');
+  setV('tpl-name-size',    C.companyNameSize   || '28');
+  setV('tpl-name-color',   C.companyNameColor  || '#ffffff');
+  setV('tpl-name-style',   C.companyNameWeight || '800');
+  setV('tpl-logo-pos',     C.logoPosition  || 'left');
+  // Sync range slider too
+  const rs = document.getElementById('tpl-r-name-size');
+  if (rs) { rs.value = C.companyNameSize||'28'; }
+  const rsLbl = document.getElementById('tpl-r-name-size-val');
+  if (rsLbl) rsLbl.textContent = (C.companyNameSize||'28')+'px';
+}
+
 window.applyTplCustomization = function() {
   TPL_CUSTOM.color1       = document.getElementById('tpl-color1')?.value      || TPL_CUSTOM.color1;
   TPL_CUSTOM.color2       = document.getElementById('tpl-color2')?.value      || TPL_CUSTOM.color2;
@@ -6067,7 +6077,12 @@ window.applyTplCustomization = function() {
   TPL_CUSTOM.watermarkText  = document.getElementById('tpl-watermark-text')?.value || 'PAID';
   TPL_CUSTOM.companyNameSize  = document.getElementById('tpl-name-size')?.value    || '28';
   TPL_CUSTOM.companyNameColor = document.getElementById('tpl-name-color')?.value   || '#ffffff';
-  TPL_CUSTOM.companyNameWeight= document.getElementById('tpl-name-style')?.value   || '800';  // tpl-name-style stores weight
+  TPL_CUSTOM.companyNameWeight= document.getElementById('tpl-name-style')?.value   || '800';
+  // Sync range slider from number input
+  const _rSize = document.getElementById('tpl-r-name-size');
+  if (_rSize) _rSize.value = TPL_CUSTOM.companyNameSize;
+  const _rLbl = document.getElementById('tpl-r-name-size-val');
+  if (_rLbl) _rLbl.textContent = TPL_CUSTOM.companyNameSize + 'px';
   TPL_CUSTOM.companyNameStyle = 'normal';  // italic toggle reserved
   TPL_CUSTOM.logoPosition     = document.getElementById('tpl-logo-pos')?.value     || 'left';
   // Sync color hex inputs with color pickers
@@ -6198,52 +6213,6 @@ window.clearFestivalCampaign = async function() {
   } catch(e) { toast('❌ '+e.message,'error'); }
 };
 
-
-// ── Festival auto-save (debounced) ────────────────────────────
-let _festivalSaveTimer = null;
-function debounceFestivalSave() {
-  // Show a subtle "saving..." indicator
-  const log = document.getElementById('wa-bulk-log');
-  clearTimeout(_festivalSaveTimer);
-  _festivalSaveTimer = setTimeout(async () => {
-    const payload = {
-      wa_festival_tpl:      document.getElementById('wa-tpl-festival')?.value    || '',
-      wa_festival_sendto:   document.getElementById('wa-send-to')?.value         || 'all',
-      wa_festival_img:      document.getElementById('wa-festival-img')?.value    || '',
-      wa_festival_schedule: document.getElementById('wa-festival-schedule')?.value || '',
-      wa_festival_repeat:   document.getElementById('wa-festival-repeat')?.value || '',
-      wa_festival_name:     document.getElementById('wa-festival')?.value         || 'custom',
-    };
-    try {
-      await api('api/settings.php', 'POST', payload);
-      if (!STATE.settings.wa) STATE.settings.wa = {};
-      Object.assign(STATE.settings.wa, {
-        festival_tpl:      payload.wa_festival_tpl,
-        festival_sendto:   payload.wa_festival_sendto,
-        festival_img:      payload.wa_festival_img,
-        festival_schedule: payload.wa_festival_schedule,
-        festival_repeat:   payload.wa_festival_repeat,
-        festival_name:     payload.wa_festival_name,
-      });
-      renderFestivalCampaigns();
-      // Brief visual feedback — tiny teal dot on the textarea
-      const ta = document.getElementById('wa-tpl-festival');
-      if (ta) {
-        ta.style.borderColor = 'var(--teal)';
-        ta.style.boxShadow   = '0 0 0 3px rgba(0,137,123,.15)';
-        setTimeout(() => { ta.style.borderColor=''; ta.style.boxShadow=''; }, 1200);
-      }
-    } catch(e) {
-      console.warn('Festival auto-save failed:', e.message);
-    }
-  }, 900); // 900ms debounce
-}
-
-// Festival fields restored inside populateWAPage directly (see the function)
-
-
-// autoSaveFestivalMsg: merged into debounceFestivalSave above
-function autoSaveFestivalMsg() { debounceFestivalSave(); }
 
 </script>
 
