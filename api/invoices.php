@@ -137,6 +137,22 @@ switch ($method) {
     jsonResponse(['success'=>true, 'id'=>$invId, 'invoice_number'=>$input['invoice_number']]);
 
   // ── PUT: update ─────────────────────────────────────
+  case 'PATCH':
+    // Partial update — only update supplied fields (notes/bank/terms auto-save)
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
+    if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
+    $allowed = ['notes','bank_details','terms','status'];
+    $sets=[]; $vals=[];
+    foreach($allowed as $f) {
+      if (array_key_exists($f, $input)) { $sets[]='`'.$f.'`=?'; $vals[]=$input[$f]; }
+    }
+    if (empty($sets)) { jsonResponse(['error'=>'Nothing to update'],400); }
+    $vals[]=$id;
+    $db->prepare('UPDATE invoices SET '.implode(',',$sets).' WHERE id=?')->execute($vals);
+    jsonResponse(['success'=>true]);
+    break;
+
   case 'PUT':
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
