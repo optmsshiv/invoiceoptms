@@ -19,12 +19,13 @@ switch ($method) {
     $s=$db->prepare($sql); $s->execute($params);
     $payments=$s->fetchAll();
     foreach ($payments as &$p) {
-      $p['amount']=(float)$p['amount'];
-      $p['inv']   =$p['invoice_number'];
-      $p['client']=$p['client_name'];
-      $p['method']=$p['method'];
-      $p['txn']   =$p['transaction_id'];
-      $p['date']  =$p['payment_date'];
+      $p['amount']    =(float)$p['amount'];
+      $p['invoice_id']=(int)$p['invoice_id'];
+      $p['inv']       =$p['invoice_number'];
+      $p['client']    =$p['client_name'];
+      $p['method']    =$p['method'];
+      $p['txn']       =$p['transaction_id'];
+      $p['date']      =$p['payment_date'];
     }
     jsonResponse(['data'=>$payments]);
 
@@ -36,9 +37,12 @@ switch ($method) {
       if (!$partial) {
         $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$d['invoice_id']]);
       } else {
-        // Partial payment — add a note to the invoice but keep as Pending
+        // Partial payment — mark as 'Partial' so PDF shows remaining amount
         $remainAmt = floatval($d['remaining_amt'] ?? 0);
-        $db->prepare("UPDATE invoices SET notes = CONCAT(IFNULL(notes,''), ' | Partial payment received. Remaining: ₹', ?) WHERE id=?")
+        $db->prepare("UPDATE invoices SET status='Partial' WHERE id=?")->execute([$d['invoice_id']]);
+        // Update grand_total to show remaining (or keep original — we show breakdown in PDF)
+        // Add payment note
+        $db->prepare("UPDATE invoices SET notes = CONCAT(IFNULL(NULLIF(notes,''),''), CASE WHEN NULLIF(notes,'') IS NOT NULL THEN ' | ' ELSE '' END, 'Partial payment received. Remaining: ₹', ?) WHERE id=?")
            ->execute([$remainAmt, $d['invoice_id']]);
       }
     }

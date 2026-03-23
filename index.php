@@ -3030,7 +3030,8 @@ function getFormData() {
   const gstAfterDisc = gstAmt * discFactor;
   const grand        = sub - discAmt + gstAfterDisc;
 
-  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy };
+  const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
+  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId };
 }
 
 function livePreview() {
@@ -3133,6 +3134,8 @@ function tplWatermark(d) {
     wText  = (window.TPL_CUSTOM && TPL_CUSTOM.watermarkText) ? TPL_CUSTOM.watermarkText : 'PAID';
     wColor = 'rgba(0,150,0,.12)';
     if (!d.popt || !d.popt.watermark) return '';
+  } else if (d.status === 'Partial') {
+    wText = 'PARTIAL'; wColor = 'rgba(255,152,0,.13)';
   } else if (d.status === 'Pending') {
     wText = 'PENDING'; wColor = 'rgba(255,152,0,.10)';
   } else if (d.status === 'Overdue') {
@@ -3274,19 +3277,52 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader) {
 
 // ── Helper: totals rows ──
 function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedColor='#666') {
+  // Calculate total already paid for this invoice
+  const invId = d.invId || d.id || '';
+  const paymentsForInv = invId
+    ? STATE.payments.filter(p => String(p.invoice_id||p.inv_id||p.invoice_number) === String(invId) ||
+                                  p.invoice_number === (d.num||d.invoice_number||''))
+    : [];
+  const totalPaid = paymentsForInv.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const remaining = Math.max(0, (d.grand||0) - totalPaid);
+  const isPartial = totalPaid > 0 && remaining > 0.01;
+  const showPaidRow = totalPaid > 0 && (d.status === 'Pending' || d.status === 'Overdue' || isPartial);
+
+  const discRow = d.disc > 0 ? `
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
+      <span style="color:${mutedColor}">Discount (${d.disc||0}%)</span>
+      <span style="font-family:monospace;font-weight:600;color:#E53935">-${fmt_money(d.discAmt||0,d.sym)}</span>
+    </div>` : '';
+
+  const gstRow = d.gstAmt > 0 ? `
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
+      <span style="color:${mutedColor}">GST</span>
+      <span style="font-family:monospace;font-weight:600;color:#2E7D32">+${fmt_money(d.gstAmt||0,d.sym)}</span>
+    </div>` : '';
+
+  const paidRow = showPaidRow ? `
+    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor};margin-top:2px">
+      <span style="color:#388E3C;font-weight:600">✓ Paid${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
+      <span style="font-family:monospace;font-weight:700;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
+    </div>` : '';
+
+  const remainRow = isPartial ? `
+    <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;padding:8px 10px;margin-top:6px;
+         background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
+      <span>⚠ Remaining Due</span>
+      <span style="font-family:monospace">${fmt_money(remaining,d.sym)}</span>
+    </div>` : '';
+
   return `
     <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
-      <span style="color:${mutedColor}">Subtotal</span><span style="font-family:monospace;font-weight:600;color:${mainColor}">${fmt_money(d.sub,d.sym)}</span>
+      <span style="color:${mutedColor}">Subtotal</span>
+      <span style="font-family:monospace;font-weight:600;color:${mainColor}">${fmt_money(d.sub,d.sym)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
-      <span style="color:${mutedColor}">Discount (${d.disc||0}%)</span><span style="font-family:monospace;font-weight:600;color:#E53935">-${fmt_money(d.discAmt||0,d.sym)}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
-      <span style="color:${mutedColor}">GST</span><span style="font-family:monospace;font-weight:600;color:#2E7D32">+${fmt_money(d.gstAmt||0,d.sym)}</span>
-    </div>
+    ${discRow}${gstRow}
     <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;padding:8px 0 0;margin-top:4px;color:${accentColor}">
       <span>Grand Total</span><span style="font-family:monospace">${fmt_money(d.grand||0,d.sym)}</span>
-    </div>`;
+    </div>
+    ${paidRow}${remainRow}`;
 }
 
 function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
@@ -3821,6 +3857,7 @@ function printInvoiceById(inv) {
     tnc:inv.tnc||inv.terms||'', status:inv.status, sym,
     sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
     grand:parseFloat(inv.amount||inv.grand_total)||0,
+    invId: String(inv.id||''),
     companyLogo:inv.company_logo||sc.logo||'',
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||'OPTMS Tech Invoice Manager',
@@ -3943,7 +3980,8 @@ function openPreviewModal(id) {
     clientLogo: '',
     signature: sc.signature || STATE.settings.signature || '',
     qrUrl: '',
-    popt: { bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:inv.status==='Paid' },
+    invId: String(inv.id || ''),
+    popt: { bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:true },
     generatedBy: 'OPTMS Tech Invoice Manager · optmstech.in',
     showGeneratedBy: true
   };
@@ -4766,7 +4804,7 @@ function previewTemplate(n) {
     notes:'Thank you for choosing OPTMS Tech.',
     bank:'SBI | A/C: 12345678901 | IFSC: SBIN0001234 | UPI: optmstech@upi',
     tnc:'All prices inclusive of taxes. Subject to Patna jurisdiction.',
-    status:'Paid',sym:'₹',sub:88500,gstAmt:15930,grand:104430,
+    status:'Paid',sym:'₹',sub:88500,gstAmt:15930,grand:104430,invId:'',
     companyLogo:sc.logo||'',clientLogo:'',signature:'',qrUrl:'',
     popt:{bank:true,qr:false,sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:true}};
   const iHTML=`<tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Website Development Premium</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹75,000.00</td></tr><tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Domain & Hosting</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹4,500.00</td></tr>`;
