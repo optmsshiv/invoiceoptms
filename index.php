@@ -3129,16 +3129,15 @@ function buildInvoiceHTML(d, forPrint) {
   const showGstCol = d.popt ? d.popt.gstCol : true;
   const itemsHTML = formItems.length
     ? formItems.map(i => {
-        const line    = (i.qty||1)*(i.rate||0);
+        const line = (i.qty||1)*(i.rate||0);
         const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
-        const lineInclGst = line + gstAmt;
+        const gstAmt = line * itemGst / 100;
         return `<tr>
           <td style="padding:9px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           ${showGstCol ? `<td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${itemGst}%</td>` : ''}
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGstCol?5:4}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
@@ -3873,13 +3872,12 @@ function openPrintWindow(d, items) {
     ? items.map(i => {
         const line = (i.qty||1)*(i.rate||0);
         const gstR = parseFloat(i.gst)||0;
-        const lineInclGst = line + (line * gstR / 100);
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           ${showGst ? `<td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>` : ''}
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGst?5:4}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -3925,15 +3923,14 @@ function printInvoiceById(inv) {
     ? items.map(i=>{
         const qty  = parseFloat(i.qty||i.quantity||1);
         const rate = parseFloat(i.rate||0);
-        const gst         = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
-        const line        = qty*rate;
-        const lineInclGst = line + (line * gst / 100);
+        const gst  = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
+        const line = qty*rate;
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||i.description||'—'}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gst}%</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,sym)}</td>
-          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,sym)}</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,sym)}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="5" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -4093,14 +4090,13 @@ function openPreviewModal(id) {
         const rate = parseFloat(i.rate||0);
         const gstR = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
         const desc = i.desc||i.description||'—';
-        const line        = qty*rate;
-        const lineInclGst = line + (line * gstR / 100);
+        const line = qty*rate;
         return `<tr>
           <td style="padding:9px 12px;border-bottom:1px solid #eee">${desc}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="5" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -6547,7 +6543,7 @@ function debounceSaveInvoiceDraft() {
   _draftSaveTimer = setTimeout(() => {
     const d = getFormData();
     const payload = { notes: d.notes, bank_details: d.bank, terms: d.tnc };
-    api('api/invoices.php?id=' + parseInt(STATE.editingInvoiceId), 'PATCH', payload)
+    api('api/invoices.php?id=' + parseInt(STATE.editingInvoiceId), 'PUT', payload)
       .then(() => {
         // Brief teal glow on the textarea
         ['f-tnc','f-notes','f-bank'].forEach(id => {
