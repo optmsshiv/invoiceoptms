@@ -3045,8 +3045,21 @@ function closeAllDropdowns(e) {
 // ══════════════════════════════════════════
 function resetCreateForm() {
   const prefix = STATE.settings.prefix || 'INV-';
-  const nextNum = (STATE.invoices.length + 1).toString().padStart(3,'0');
-  document.getElementById('f-num').value = prefix + nextNum;
+  // Find highest existing numeric suffix for this prefix to avoid collisions
+  let nextSeq = 1;
+  if (STATE.invoices.length > 0) {
+    STATE.invoices.forEach(inv => {
+      const num = inv.num || inv.invoice_number || '';
+      if (num.startsWith(prefix)) {
+        const suffix = num.slice(prefix.length);
+        const n = parseInt(suffix, 10);
+        if (!isNaN(n) && n >= nextSeq) nextSeq = n + 1;
+      }
+    });
+    // If no invoices matched the current prefix, still fall back to total count + 1
+    if (nextSeq === 1 && STATE.invoices.length > 0) nextSeq = STATE.invoices.length + 1;
+  }
+  document.getElementById('f-num').value = prefix + String(nextSeq).padStart(3,'0');
   // Load defaults from settings
   const bankEl = document.getElementById('f-bank');
   if (bankEl) bankEl.value = STATE.settings.defaultBank || '';
@@ -5294,11 +5307,14 @@ function formatWAMsg(tpl, inv, client, settings) {
     const invId = String(inv.id || inv._dbId || inv.invId || '');
     const invNum = String(inv.num || inv.invoice_number || '');
     if (STATE.payments && (invId || invNum)) {
-      const pmts = STATE.payments.filter(p => {
-        if (invId && p.invoice_id && String(p.invoice_id) === invId) return true;
-        if (invNum && p.invoice_number && String(p.invoice_number) === invNum) return true;
-        return false;
-      });
+      // Match by invoice_id (numeric) first; fall back to invoice_number string match.
+      // Use only ONE match strategy per payment to prevent double-counting.
+      let pmts = invId
+        ? STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId)
+        : [];
+      if (pmts.length === 0 && invNum) {
+        pmts = STATE.payments.filter(p => p.invoice_number && String(p.invoice_number) === invNum);
+      }
       const totalPaidFromDB = pmts.reduce((s,p) => s + parseFloat(p.amount||0), 0);
       paidAmt      = paidAmt      !== undefined ? paidAmt      : totalPaidFromDB;
       remainingAmt = remainingAmt !== undefined ? remainingAmt : Math.max(0, grandTotal - totalPaidFromDB);
@@ -6633,14 +6649,24 @@ async function sendWAForInvoice(inv) {
   const client = c.id ? c : cByName;
   const phone = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g, '');
   if (!phone) { toast('⚠️ No WhatsApp number for client "' + (client.name||'Unknown') + '"', 'warning'); return; }
+  // Pick the correct template based on invoice status
+  // (same logic as auto-send, so manual send always matches automated send)
   const wa = STATE.settings.wa || {};
-
-  // Row-menu manual send always uses the invoice template regardless of status.
-  // Automated sends (from confirmPaid) handle status-based templates themselves.
-  const tplKey     = wa.tpl_inv;
-  const tplDefault = getDefaultWATpl('inv');
-  const tplName    = 'invoice_created';
-  const statusLabel = 'Invoice';
+  let tplKey, tplDefault, tplName, statusLabel;
+  const status = inv.status || '';
+  if (status === 'Paid') {
+    tplKey = wa.tpl_paid; tplDefault = getDefaultWATpl('paid');
+    tplName = 'payment_received'; statusLabel = 'Payment Receipt';
+  } else if (status === 'Partial') {
+    tplKey = wa.tpl_partial; tplDefault = getDefaultWATpl('partial_receipt');
+    tplName = 'partial_payment'; statusLabel = 'Partial Receipt';
+  } else if (status === 'Overdue') {
+    tplKey = wa.tpl_overdue; tplDefault = getDefaultWATpl('overdue');
+    tplName = 'payment_overdue'; statusLabel = 'Overdue Alert';
+  } else {
+    tplKey = wa.tpl_inv; tplDefault = getDefaultWATpl('inv');
+    tplName = 'invoice_created'; statusLabel = 'Invoice';
+  }
   const tpl = tplKey || tplDefault;
   const msg = formatWAMsg(tpl, inv, client, STATE.settings);
   // Log message

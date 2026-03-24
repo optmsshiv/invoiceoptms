@@ -105,9 +105,30 @@ switch ($method) {
     $userId = $_SESSION['user_id'];
     // Auto-generate number if not provided
     if (empty($input['invoice_number'])) {
-      $cnt = $db->query('SELECT COUNT(*)+1 as n FROM invoices')->fetch()['n'];
       $pfx = getSetting('invoice_prefix', 'OT-' . date('Y') . '-');
+      // Find the highest existing numeric suffix for this prefix to avoid collisions
+      $like = $pfx . '%';
+      $row  = $db->prepare("SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY id DESC LIMIT 1");
+      $row->execute([$like]);
+      $last = $row->fetchColumn();
+      if ($last) {
+        // Extract trailing digits from last invoice number
+        preg_match('/(\d+)$/', $last, $m);
+        $cnt = isset($m[1]) ? ((int)$m[1] + 1) : 1;
+      } else {
+        // No invoices with this prefix yet — start at 1
+        $cnt = 1;
+      }
       $input['invoice_number'] = $pfx . str_pad($cnt, 3, '0', STR_PAD_LEFT);
+      // Safety: if still collides (race condition), fall back to MAX id + 1
+      try {
+        $check = $db->prepare('SELECT id FROM invoices WHERE invoice_number = ?');
+        $check->execute([$input['invoice_number']]);
+        if ($check->fetch()) {
+          $maxId = (int)$db->query('SELECT COALESCE(MAX(id),0)+1 FROM invoices')->fetchColumn();
+          $input['invoice_number'] = $pfx . str_pad($maxId, 3, '0', STR_PAD_LEFT);
+        }
+      } catch (\Exception $e) { /* ignore safety check errors */ }
     }
     $stmt = $db->prepare('
       INSERT INTO invoices (invoice_number,client_id,client_name,service_type,issued_date,due_date,
