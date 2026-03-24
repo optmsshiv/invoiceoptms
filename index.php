@@ -6635,23 +6635,12 @@ async function sendWAForInvoice(inv) {
   if (!phone) { toast('⚠️ No WhatsApp number for client "' + (client.name||'Unknown') + '"', 'warning'); return; }
   const wa = STATE.settings.wa || {};
 
-  // Pick the correct template and tplName based on invoice status
-  let tplKey, tplDefault, tplName, statusLabel;
-  const status = inv.status || '';
-  if (status === 'Paid') {
-    tplKey = wa.tpl_paid; tplDefault = getDefaultWATpl('paid');
-    tplName = 'payment_received'; statusLabel = 'Payment Receipt';
-  } else if (status === 'Partial') {
-    tplKey = wa.tpl_partial; tplDefault = getDefaultWATpl('partial_receipt');
-    tplName = 'partial_payment'; statusLabel = 'Partial Receipt';
-  } else if (status === 'Overdue') {
-    tplKey = wa.tpl_overdue; tplDefault = getDefaultWATpl('overdue');
-    tplName = 'payment_overdue'; statusLabel = 'Overdue Alert';
-  } else {
-    // Pending / Draft / default → new invoice template
-    tplKey = wa.tpl_inv; tplDefault = getDefaultWATpl('inv');
-    tplName = 'invoice_created'; statusLabel = 'Invoice';
-  }
+  // Row-menu manual send always uses the invoice template regardless of status.
+  // Automated sends (from confirmPaid) handle status-based templates themselves.
+  const tplKey     = wa.tpl_inv;
+  const tplDefault = getDefaultWATpl('inv');
+  const tplName    = 'invoice_created';
+  const statusLabel = 'Invoice';
   const tpl = tplKey || tplDefault;
   const msg = formatWAMsg(tpl, inv, client, STATE.settings);
   // Log message

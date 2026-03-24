@@ -5,6 +5,9 @@
 ob_start();                          // buffer any stray output/notices
 error_reporting(0);                  // suppress warnings from leaking into JSON
 require_once __DIR__ . '/../includes/auth.php';
+
+// Helper: convert empty string to null (prevents MySQL DATE/INT strict-mode errors)
+function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 requireLogin();
 
 $db     = getDB();
@@ -112,20 +115,25 @@ switch ($method) {
         notes,bank_details,terms,company_logo,client_logo,signature,qr_code,
         template_id,generated_by,show_generated,pdf_options,created_by)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    $stmt->execute([
-      $input['invoice_number'], $input['client_id']??null, $input['client_name']??'',
-      $input['service_type']??'', $input['issued_date']??null, $input['due_date']??null,
-      $input['status']??'Draft', $input['currency']??'₹',
-      $input['subtotal']??0, $input['discount_pct']??0, $input['discount_amt']??0,
-      $input['gst_amount']??0, $input['grand_total']??0,
-      $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
-      $input['company_logo']??'', $input['client_logo']??'',
-      $input['signature']??'', $input['qr_code']??'',
-      $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
-      $input['show_generated']??1,
-      isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
-      $userId
-    ]);
+    try {
+      $stmt->execute([
+        $input['invoice_number'], nullIfEmpty($input['client_id']??null), $input['client_name']??'',
+        $input['service_type']??'', nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null),
+        $input['status']??'Draft', $input['currency']??'₹',
+        $input['subtotal']??0, $input['discount_pct']??0, $input['discount_amt']??0,
+        $input['gst_amount']??0, $input['grand_total']??0,
+        $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
+        $input['company_logo']??'', $input['client_logo']??'',
+        $input['signature']??'', $input['qr_code']??'',
+        $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
+        $input['show_generated']??1,
+        isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
+        (int)$userId
+      ]);
+    } catch (\PDOException $e) {
+      error_log('Invoice INSERT error: ' . $e->getMessage());
+      jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+    }
     $invId = (int)$db->lastInsertId();
     // Insert items
     if (!empty($input['items'])) {
@@ -135,7 +143,7 @@ switch ($method) {
         $si->execute([$invId, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line, $idx]);
       }
     }
-    logActivity($userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
+    logActivity((int)$userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
     jsonResponse(['success'=>true, 'id'=>$invId, 'invoice_number'=>$input['invoice_number']]);
 
   // ── PUT: update ─────────────────────────────────────
@@ -165,19 +173,24 @@ switch ($method) {
         notes=?,bank_details=?,terms=?,company_logo=?,client_logo=?,signature=?,qr_code=?,
         template_id=?,generated_by=?,show_generated=?,pdf_options=?
       WHERE id=?');
-    $stmt->execute([
-      $input['client_id']??null, $input['client_name']??'', $input['service_type']??'',
-      $input['issued_date']??null, $input['due_date']??null, $input['status']??'Draft',
-      $input['currency']??'₹', $input['subtotal']??0, $input['discount_pct']??0,
-      $input['discount_amt']??0, $input['gst_amount']??0, $input['grand_total']??0,
-      $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
-      $input['company_logo']??'', $input['client_logo']??'',
-      $input['signature']??'', $input['qr_code']??'',
-      $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
-      $input['show_generated']??1,
-      isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
-      $id
-    ]);
+    try {
+      $stmt->execute([
+        nullIfEmpty($input['client_id']??null), $input['client_name']??'', $input['service_type']??'',
+        nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null), $input['status']??'Draft',
+        $input['currency']??'₹', $input['subtotal']??0, $input['discount_pct']??0,
+        $input['discount_amt']??0, $input['gst_amount']??0, $input['grand_total']??0,
+        $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
+        $input['company_logo']??'', $input['client_logo']??'',
+        $input['signature']??'', $input['qr_code']??'',
+        $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
+        $input['show_generated']??1,
+        isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
+        $id
+      ]);
+    } catch (\PDOException $e) {
+      error_log('Invoice UPDATE error: ' . $e->getMessage());
+      jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+    }
     // Re-insert items
     $db->prepare('DELETE FROM invoice_items WHERE invoice_id=?')->execute([$id]);
     if (!empty($input['items'])) {

@@ -1,4 +1,6 @@
 <?php
+ob_start();
+error_reporting(0);
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
@@ -6,6 +8,8 @@ $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
 try {
   $db->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Partial','Paid','Overdue','Cancelled') DEFAULT 'Draft'");
 } catch(Exception $e) { /* already migrated */ }
+
+function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 
 switch ($method) {
   case 'GET':
@@ -48,9 +52,24 @@ switch ($method) {
       }
     }
     $s=$db->prepare('INSERT INTO payments (invoice_id,invoice_number,client_name,amount,payment_date,method,transaction_id,status,notes) VALUES (?,?,?,?,?,?,?,?,?)');
-    $s->execute([$d['invoice_id']??null,$d['invoice_number']??$d['inv']??'',$d['client_name']??$d['client']??'',$d['amount']??0,$d['payment_date']??$d['date']??date('Y-m-d'),$d['method']??'',$d['transaction_id']??$d['txn']??'',$d['status']??'Success',$d['notes']??'']);
+    try {
+      $s->execute([
+        nullIfEmpty($d['invoice_id']??null),
+        $d['invoice_number']??$d['inv']??'',
+        $d['client_name']??$d['client']??'',
+        $d['amount']??0,
+        nullIfEmpty($d['payment_date']??$d['date']??date('Y-m-d')),
+        $d['method']??'',
+        $d['transaction_id']??$d['txn']??'',
+        $d['status']??'Success',
+        $d['notes']??''
+      ]);
+    } catch (\PDOException $e) {
+      error_log('Payment INSERT error: ' . $e->getMessage());
+      jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+    }
     $id=(int)$db->lastInsertId();
-    logActivity($_SESSION['user_id'],'create','payment',$id,"Recorded payment: ".($d['invoice_number']??$d['inv']??''));
+    logActivity((int)$_SESSION['user_id'],'create','payment',$id,"Recorded payment: ".($d['invoice_number']??$d['inv']??''));
     jsonResponse(['success'=>true,'id'=>$id]);
 
   case 'DELETE':

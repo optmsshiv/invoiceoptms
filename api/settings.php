@@ -1,4 +1,6 @@
 <?php
+ob_start();
+error_reporting(0);
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
@@ -17,7 +19,7 @@ switch ($method) {
     foreach ($d as $key => $val) {
       $stmt->execute([$key, $val, $val]);
     }
-    logActivity($_SESSION['user_id'], 'update', 'settings', 0, 'Company settings updated');
+    logActivity((int)$_SESSION['user_id'], 'update', 'settings', 0, 'Company settings updated');
     jsonResponse(['success'=>true]);
 
   default: jsonResponse(['error'=>'Method not allowed'], 405);
