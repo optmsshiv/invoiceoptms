@@ -5834,7 +5834,7 @@ function renderDashKpis() {
       <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
       ${pillsHTML}
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <span style="font-size:11px;color:var(--muted);font-weight:600">${onCount}/5 active</span>
+        <span style="font-size:11px;color:var(--muted);font-weight:600">${onCount}/6 active</span>
         <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
           <i class="fas fa-cog"></i> Manage
         </button>
