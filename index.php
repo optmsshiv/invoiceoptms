@@ -2238,9 +2238,15 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
     <div class="modal-header"><span>Mark Invoice as Paid</span><button class="modal-close" onclick="closeModal('modal-paid')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body" style="padding:24px">
       <!-- Invoice summary -->
-      <div id="paid-inv-summary" style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;display:flex;justify-content:space-between;align-items:center">
-        <div><span id="paid-inv-num" style="font-weight:700"></span> · <span id="paid-inv-client"></span></div>
-        <div>Total: <strong id="paid-inv-total" style="color:var(--teal);font-family:var(--mono)"></strong></div>
+      <div id="paid-inv-summary" style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><span id="paid-inv-num" style="font-weight:700"></span> · <span id="paid-inv-client"></span></div>
+          <div>Total: <strong id="paid-inv-total" style="color:var(--teal);font-family:var(--mono)"></strong></div>
+        </div>
+        <div id="paid-inv-remaining-row" style="display:none;margin-top:5px;padding-top:5px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+          <span style="color:#E65100;font-size:11px">Already Paid: <strong id="paid-inv-already" style="font-family:var(--mono)"></strong></span>
+          <span style="color:#C62828;font-size:11px;font-weight:700">Remaining Due: <strong id="paid-inv-remaining" style="font-family:var(--mono)"></strong></span>
+        </div>
       </div>
       <div class="form-grid g2" style="gap:10px">
         <div class="field"><label>Payment Date</label><input type="date" id="paid-date"></div>
@@ -2254,8 +2260,8 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <option value="Split">⚡ Split Payment (multiple methods)</option>
           </select>
         </div>
-        <div class="field"><label>Amount Received (₹)</label>
-          <input type="number" id="paid-amt" placeholder="0.00" oninput="updatePaidRemaining()">
+        <div class="field" id="paid-amt-field"><label>Amount Received (₹)</label>
+          <input type="number" id="paid-amt" placeholder="0.00" oninput="onPaidAmtInput()">
         </div>
         <div class="field"><label>Transaction ID / UTR</label>
           <input id="paid-txn" placeholder="Ref / UTR Number">
@@ -2286,7 +2292,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
               <option>Bank Transfer (NEFT/RTGS)</option>
               <option>Cash</option><option>Cheque</option><option>Credit Card</option>
             </select>
-            <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
+            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
             <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>
           </div>
           <div class="split-row" style="display:flex;gap:8px;align-items:center">
@@ -2296,7 +2302,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
               <option>Bank Transfer (NEFT/RTGS)</option>
               <option>Cheque</option><option>Credit Card</option>
             </select>
-            <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
+            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
             <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>
           </div>
         </div>
@@ -4419,33 +4425,51 @@ function openPaidModal(id) {
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
   document.getElementById('paid-remaining-box').style.display = 'none';
-  // Reset split payment panel
+  // Reset split payment panel — clear amounts to zero, hide panel
   const splitPanel = document.getElementById('split-payment-panel');
   if (splitPanel) splitPanel.style.display = 'none';
-  document.querySelectorAll('#split-rows .split-amt').forEach(el => el.value = '');
+  document.querySelectorAll('#split-rows .split-amt').forEach(el => { el.value = ''; });
   const splitTotal = document.getElementById('split-total');
   if (splitTotal) splitTotal.textContent = '₹0.00';
   const methodSel = document.getElementById('paid-method');
-  if (methodSel) { methodSel.selectedIndex = 0; }
-  const amtFld = document.getElementById('paid-amt')?.parentElement;
+  if (methodSel) methodSel.selectedIndex = 0;
+  // Re-enable amount field (may have been dimmed by split mode)
+  const amtFld = document.getElementById('paid-amt-field');
   if (amtFld) amtFld.style.opacity = '1';
+
   const inv = STATE.invoices.find(i=>String(i.id)===String(STATE.activeMenuInvoiceId));
   const c   = inv ? (STATE.clients.find(x=>String(x.id)===String(inv.client))||{}) : {};
   const amt = inv ? parseFloat(inv.amount||0) : parseFloat(getFormData().grand||0);
-  // Calculate already paid amount for this invoice
-  // Only match by numeric invoice_id — no string fallback to avoid false matches
+  const sym = inv ? (inv.currency||'₹') : '₹';
+
+  // Calculate already paid for this invoice
   const alreadyPaid = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === STATE.activeMenuInvoiceId)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
   const remaining = Math.max(0, amt - alreadyPaid);
-  // Show full amount if no prior payments, remaining if partial payments exist
+
+  // Pre-fill amount with what's still due
   document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
-  // If already partially paid, show it in the box immediately
+
+  // Show already-paid + remaining in summary bar
+  const remRow = document.getElementById('paid-inv-remaining-row');
+  const alreadyEl = document.getElementById('paid-inv-already');
+  const remainingEl = document.getElementById('paid-inv-remaining');
+  if (remRow) {
+    if (alreadyPaid > 0.01) {
+      remRow.style.display = 'flex';
+      if (alreadyEl) alreadyEl.textContent = fmt_money(alreadyPaid, sym);
+      if (remainingEl) remainingEl.textContent = fmt_money(remaining, sym);
+    } else {
+      remRow.style.display = 'none';
+    }
+  }
+
+  // If already partially paid, show partial box with checkbox pre-checked
   if (alreadyPaid > 0.01 && remaining > 0.01) {
     const rb = document.getElementById('paid-remaining-box');
     if (rb) {
       rb.style.display = 'block';
-      const sym = inv ? (inv.currency||'₹') : '₹';
       const rt = document.getElementById('paid-rem-total');
       const rr = document.getElementById('paid-rem-received');
       const rd = document.getElementById('paid-rem-due');
@@ -4453,20 +4477,28 @@ function openPaidModal(id) {
       if (rr) rr.textContent = fmt_money(alreadyPaid, sym);
       if (rd) rd.textContent = fmt_money(remaining, sym);
       const cb = document.getElementById('paid-collect-remaining');
-      if (cb) cb.checked = true; // Default to partial for Partial invoices
+      if (cb) cb.checked = true;
     }
   }
+
   // Summary bar
   const numEl = document.getElementById('paid-inv-num');
   const cliEl = document.getElementById('paid-inv-client');
   const totEl = document.getElementById('paid-inv-total');
   if (numEl) numEl.textContent = inv ? (inv.num||inv.invoice_number||'') : '';
   if (cliEl) cliEl.textContent = c.name || (inv&&inv.client_name) || '';
-  if (totEl) totEl.textContent = fmt_money(amt, inv&&(inv.currency||'₹')||'₹');
-  // Update modal title based on status
+  if (totEl) totEl.textContent = fmt_money(amt, sym);
+
   const hdr = document.querySelector('#modal-paid .modal-header span');
   if (hdr) hdr.textContent = inv&&inv.status==='Partial' ? 'Collect Remaining Payment' : 'Mark Invoice as Paid';
   openModal('modal-paid');
+}
+
+// Called when user types directly in Amount Received — ignored when split mode is active
+function onPaidAmtInput() {
+  const isSplit = document.getElementById('paid-method')?.value === 'Split';
+  if (isSplit) return; // split total drives paid-amt, not the other way
+  updatePaidRemaining();
 }
 
 function updatePaidRemaining() {
@@ -4476,7 +4508,6 @@ function updatePaidRemaining() {
   const sym       = inv.currency || '₹';
   const total     = parseFloat(inv.amount || 0);
   const received  = parseFloat(document.getElementById('paid-amt').value) || 0;
-  // Add any previously recorded partial payments
   const prevPaid  = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
@@ -4486,7 +4517,6 @@ function updatePaidRemaining() {
   if (remaining > 0.01 && received > 0 && received < total) {
     remBox.style.display = 'block';
     document.getElementById('paid-rem-total').textContent    = fmt_money(total, sym);
-    // Show cumulative received (prev + current)
     document.getElementById('paid-rem-received').textContent = fmt_money(totalReceived, sym);
     document.getElementById('paid-rem-due').textContent      = fmt_money(remaining, sym);
   } else {
@@ -7024,24 +7054,30 @@ function debounceSaveInvoiceDraft() {
 function toggleSplitPayment() {
   const sel    = document.getElementById('paid-method');
   const panel  = document.getElementById('split-payment-panel');
-  const amtFld = document.getElementById('paid-amt')?.parentElement;
+  const amtFld = document.getElementById('paid-amt-field');
   if (!panel) return;
   const isSplit = sel?.value === 'Split';
   panel.style.display = isSplit ? 'block' : 'none';
   if (amtFld) amtFld.style.opacity = isSplit ? '0.5' : '1';
   if (isSplit) {
-    const currentAmt = parseFloat(document.getElementById('paid-amt')?.value) || 0;
-    // Pre-fill ALL currently empty split rows proportionally before calling updateSplitTotal
-    // so the total never drops to zero
-    if (currentAmt > 0) {
-      const rows = document.querySelectorAll('#split-rows .split-amt');
-      const emptyRows = Array.from(rows).filter(r => !parseFloat(r.value));
-      if (emptyRows.length > 0) {
-        // Put full amount in first empty row so total is preserved
-        emptyRows[0].value = currentAmt.toFixed(2);
-      }
+    // Clear all split rows — user enters amounts manually, never auto-fill
+    document.querySelectorAll('#split-rows .split-amt').forEach(el => { el.value = ''; });
+    const splitTotalEl = document.getElementById('split-total');
+    if (splitTotalEl) splitTotalEl.textContent = '₹0.00';
+    // Do NOT touch paid-amt — it is read-only / driven by split total
+  } else {
+    // Switched back from split — restore paid-amt to invoice remaining
+    const mid = STATE.activeMenuInvoiceId;
+    const inv = STATE.invoices.find(i=>String(i.id)===mid);
+    if (inv) {
+      const amt = parseFloat(inv.amount||0);
+      const alreadyPaid = STATE.payments
+        .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+        .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+      const remaining = Math.max(0, amt - alreadyPaid);
+      document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
+      updatePaidRemaining();
     }
-    updateSplitTotal();
   }
 }
 
