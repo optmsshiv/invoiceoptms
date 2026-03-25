@@ -2395,53 +2395,46 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
-  <div class="modal" style="max-width:480px;max-height:92vh;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:520px;max-height:90vh;display:flex;flex-direction:column;">
 
     <!-- Header -->
-    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
-          <i class="fas fa-receipt" style="color:var(--teal);font-size:14px"></i>
+    <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-receipt" style="color:var(--teal);font-size:13px"></i>
         </div>
         <div>
           <div style="font-size:14px;font-weight:700;color:var(--text)">Record Payment</div>
-          <div id="paid-inv-subtitle" style="font-size:11px;color:var(--muted);font-weight:400;margin-top:1px"></div>
+          <div id="paid-inv-subtitle" style="font-size:11px;color:var(--muted);margin-top:1px"></div>
         </div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-paid')"><i class="fas fa-times"></i></button>
     </div>
 
     <!-- Scrollable body -->
-    <div class="modal-body" style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+    <div class="modal-body" style="overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:10px">
 
       <!-- Invoice summary strip -->
-      <div id="paid-inv-summary" style="background:linear-gradient(135deg,var(--teal),#00695C);border-radius:10px;padding:12px 16px;color:#fff">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Invoice</div>
-            <div style="font-size:15px;font-weight:800;font-family:var(--mono)" id="paid-inv-num"></div>
-            <div style="font-size:12px;opacity:.85;margin-top:2px" id="paid-inv-client"></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Grand Total</div>
-            <div style="font-size:18px;font-weight:800;font-family:var(--mono)" id="paid-inv-total"></div>
-          </div>
+      <div id="paid-inv-summary" style="background:linear-gradient(135deg,var(--teal),#00695C);border-radius:10px;padding:10px 14px;color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="min-width:0">
+          <div style="font-size:9px;opacity:.7;text-transform:uppercase;letter-spacing:.8px">Invoice</div>
+          <div style="font-size:14px;font-weight:800;font-family:var(--mono)" id="paid-inv-num"></div>
+          <div style="font-size:11px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px" id="paid-inv-client"></div>
         </div>
-        <!-- Already paid row (partial) -->
-        <div id="paid-inv-remaining-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;justify-content:space-between">
-          <span style="font-size:11px;opacity:.85">Already Paid: <strong id="paid-inv-already" style="font-family:var(--mono)"></strong></span>
-          <span style="font-size:11px;font-weight:700">Remaining: <strong id="paid-inv-remaining" style="font-family:var(--mono)"></strong></span>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:9px;opacity:.7;text-transform:uppercase;letter-spacing:.8px">Grand Total</div>
+          <div style="font-size:17px;font-weight:800;font-family:var(--mono)" id="paid-inv-total"></div>
+          <div id="paid-inv-remaining-row" style="display:none;margin-top:3px;display:flex;gap:8px;justify-content:flex-end">
+            <span style="font-size:10px;opacity:.85">Paid: <strong id="paid-inv-already" style="font-family:var(--mono)"></strong></span>
+            <span style="font-size:10px;font-weight:700;background:rgba(255,255,255,.2);border-radius:4px;padding:1px 6px">Due: <strong id="paid-inv-remaining" style="font-family:var(--mono)"></strong></span>
+          </div>
         </div>
       </div>
 
-      <!-- Date + Method (2-col) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field">
-          <label>Payment Date</label>
-          <input type="date" id="paid-date">
-        </div>
-        <div class="field">
-          <label>Method</label>
+      <!-- Date + Method -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field" style="margin:0"><label>Payment Date</label><input type="date" id="paid-date"></div>
+        <div class="field" style="margin:0"><label>Method</label>
           <select id="paid-method" onchange="toggleSplitPayment()">
             <option>UPI (GPay/PhonePe/Paytm)</option>
             <option>Bank Transfer (NEFT/RTGS)</option>
@@ -2453,62 +2446,69 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         </div>
       </div>
 
-      <!-- Amount + Txn ID (2-col) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field" id="paid-amt-field">
-          <label>Amount Received (₹)</label>
+      <!-- Amount + Txn ID -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field" id="paid-amt-field" style="margin:0"><label>Amount Received (₹)</label>
           <input type="number" id="paid-amt" placeholder="0.00" oninput="onPaidAmtInput()">
         </div>
-        <div class="field">
-          <label>Transaction ID / UTR</label>
+        <div class="field" style="margin:0"><label>Transaction ID / UTR</label>
           <input id="paid-txn" placeholder="Ref / UTR Number">
         </div>
       </div>
 
       <!-- Notes -->
-      <div class="field">
-        <label>Notes <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+      <div class="field" style="margin:0"><label>Notes <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
         <input id="paid-notes" placeholder="e.g. First instalment received">
       </div>
 
-      <!-- Partial payment box -->
+      <!-- ── Partial Payment Info — compact horizontal strip ── -->
       <div id="paid-remaining-box" style="display:none;border-radius:10px;overflow:hidden;border:1.5px solid #FFD54F">
-        <div style="background:linear-gradient(135deg,#FF8F00,#FFA000);padding:9px 14px;display:flex;align-items:center;gap:8px">
-          <i class="fas fa-exclamation-triangle" style="color:#fff;font-size:12px"></i>
-          <span style="color:#fff;font-weight:700;font-size:12px">Partial Payment Detected</span>
+        <!-- Single horizontal stats row -->
+        <div style="background:#FFFDE7;padding:8px 12px;display:flex;align-items:center;gap:0">
+          <!-- Label -->
+          <div style="display:flex;align-items:center;gap:5px;padding-right:10px;border-right:1px solid #FFE082;flex-shrink:0">
+            <i class="fas fa-exclamation-triangle" style="color:#FF8F00;font-size:10px"></i>
+            <span style="font-size:10px;font-weight:700;color:#E65100;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Partial</span>
+          </div>
+          <!-- Total -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1;padding:0 8px;border-right:1px solid #FFE082">
+            <span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Total</span>
+            <span id="paid-rem-total" style="font-size:13px;font-weight:800;color:#333;font-family:var(--mono)">₹0.00</span>
+          </div>
+          <!-- Received -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1;padding:0 8px;border-right:1px solid #FFE082">
+            <span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Received</span>
+            <span id="paid-rem-received" style="font-size:13px;font-weight:800;color:#2E7D32;font-family:var(--mono)">₹0.00</span>
+          </div>
+          <!-- Remaining -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1;padding:0 8px;border-right:1px solid #FFE082">
+            <span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Remaining</span>
+            <span id="paid-rem-due" style="font-size:13px;font-weight:800;color:#C62828;font-family:var(--mono)">₹0.00</span>
+          </div>
+          <!-- % -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-left:8px;min-width:40px">
+            <span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px">Paid</span>
+            <span id="paid-rem-pct" style="font-size:13px;font-weight:800;color:#FF8F00;font-family:var(--mono)">0%</span>
+          </div>
         </div>
-        <div style="background:#FFFDE7;padding:12px 14px">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-            <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #FFE082;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total</div>
-              <div id="paid-rem-total" style="font-size:13px;font-weight:800;color:#333;font-family:var(--mono)">₹0.00</div>
-            </div>
-            <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #A5D6A7;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Received</div>
-              <div id="paid-rem-received" style="font-size:13px;font-weight:800;color:#2E7D32;font-family:var(--mono)">₹0.00</div>
-            </div>
-            <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #FFCDD2;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Remaining</div>
-              <div id="paid-rem-due" style="font-size:13px;font-weight:800;color:#C62828;font-family:var(--mono)">₹0.00</div>
-            </div>
-          </div>
-          <div style="height:5px;background:#FFE082;border-radius:3px;margin-bottom:10px;overflow:hidden">
-            <div id="paid-rem-bar" style="height:100%;background:linear-gradient(90deg,#43A047,#66BB6A);border-radius:3px;width:0%;transition:width .4s"></div>
-          </div>
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border-radius:8px;padding:10px 12px;border:1.5px solid #FFD54F">
-            <input type="checkbox" id="paid-collect-remaining" style="accent-color:#E65100;width:15px;height:15px;flex-shrink:0;margin-top:1px">
-            <div>
-              <div style="font-size:12px;font-weight:700;color:#E65100">Record as partial payment</div>
-              <div style="font-size:11px;color:#795548;margin-top:2px">Invoice stays active — collect remaining amount later. If unchecked, invoice will be marked Paid.</div>
-            </div>
+        <!-- Thin progress bar -->
+        <div style="height:3px;background:#FFE082;overflow:hidden">
+          <div id="paid-rem-bar" style="height:100%;background:linear-gradient(90deg,#43A047,#66BB6A);width:0%;transition:width .4s"></div>
+        </div>
+        <!-- Checkbox row -->
+        <div style="background:#FFF8E1;padding:7px 12px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="paid-collect-remaining" style="accent-color:#E65100;width:14px;height:14px;flex-shrink:0">
+            <span style="font-size:12px;font-weight:700;color:#E65100">Record as partial</span>
+            <span style="font-size:11px;color:#795548">— invoice stays active for remaining balance</span>
           </label>
         </div>
       </div>
 
       <!-- Split Payment Panel -->
-      <div id="split-payment-panel" style="display:none;background:#F8F9FA;border-radius:10px;padding:12px;border:1.5px solid #E65100">
-        <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-          <i class="fas fa-bolt"></i> Split Payment — Amount per method
+      <div id="split-payment-panel" style="display:none;background:#F3F4F6;border-radius:10px;padding:12px;border:1.5px solid #E65100">
+        <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <i class="fas fa-bolt"></i> Split Payment — amount per method
         </div>
         <div style="display:flex;flex-direction:column;gap:7px" id="split-rows">
           <div class="split-row" style="display:flex;gap:7px;align-items:center">
@@ -2517,7 +2517,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
               <option>Bank Transfer (NEFT/RTGS)</option>
               <option>Cash</option><option>Cheque</option><option>Credit Card</option>
             </select>
-            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:90px;flex-shrink:0;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:var(--mono)" oninput="updateSplitTotal()">
+            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:88px;flex-shrink:0;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:var(--mono)" oninput="updateSplitTotal()">
             <button onclick="removeSplitRow(this)" style="width:28px;height:28px;flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button>
           </div>
           <div class="split-row" style="display:flex;gap:7px;align-items:center">
@@ -2527,24 +2527,24 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
               <option>Bank Transfer (NEFT/RTGS)</option>
               <option>Cheque</option><option>Credit Card</option>
             </select>
-            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:90px;flex-shrink:0;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:var(--mono)" oninput="updateSplitTotal()">
+            <input type="number" class="split-amt" placeholder="0.00" value="" style="width:88px;flex-shrink:0;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:var(--mono)" oninput="updateSplitTotal()">
             <button onclick="removeSplitRow(this)" style="width:28px;height:28px;flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button>
           </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-          <button onclick="addSplitRow()" style="padding:5px 12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">+ Add Method</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <button onclick="addSplitRow()" style="padding:5px 10px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">+ Add Method</button>
           <div style="font-size:12px;color:var(--muted)">Total: <strong id="split-total" style="color:#E65100;font-family:var(--mono)">₹0.00</strong></div>
         </div>
-        <div id="split-breakdown-bar" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding:7px 10px;background:#fff;border-radius:7px;border:1px solid #e0e0e0;font-size:12px"></div>
-        <div id="split-mismatch-warn" style="display:none;margin-top:8px;font-size:11px;color:#C62828;background:#FFEBEE;border-radius:6px;padding:6px 10px;font-weight:600"></div>
+        <div id="split-breakdown-bar" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;margin-top:7px;padding:6px 10px;background:#fff;border-radius:7px;border:1px solid #e0e0e0;font-size:11px"></div>
+        <div id="split-mismatch-warn" style="display:none;margin-top:6px;font-size:11px;color:#C62828;background:#FFEBEE;border-radius:6px;padding:5px 10px;font-weight:600"></div>
       </div>
 
     </div><!-- end modal-body -->
 
     <!-- Footer -->
-    <div class="modal-footer" style="padding:14px 20px;flex-shrink:0">
+    <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
       <button class="btn btn-success" onclick="confirmPaid()" style="flex:1"><i class="fas fa-check"></i> Confirm Payment</button>
-      <button class="btn btn-outline" onclick="closeModal('modal-paid')" style="padding:9px 20px">Cancel</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-paid')" style="padding:9px 18px">Cancel</button>
     </div>
 
   </div>
@@ -4803,8 +4803,8 @@ function openPaidModal(id) {
   if (cliEl) cliEl.textContent = c.name || (inv&&inv.client_name) || '';
   if (totEl) totEl.textContent = fmt_money(amt, sym);
 
-  const hdr = document.getElementById('paid-inv-subtitle');
-  if (hdr) hdr.textContent = inv&&inv.status==='Partial' ? 'Collect remaining payment' : 'Mark invoice as paid';
+  const hdr = document.querySelector('#modal-paid .modal-header span');
+  if (hdr) hdr.textContent = inv&&inv.status==='Partial' ? 'Collect Remaining Payment' : 'Mark Invoice as Paid';
   openModal('modal-paid');
 }
 
@@ -4839,18 +4839,21 @@ function updatePaidRemaining() {
   const totalReceived = prevPaid + received;
   const remaining     = Math.max(0, total - totalReceived);
   const remBox        = document.getElementById('paid-remaining-box');
-  const hasPartialSituation = prevPaid > 0.01 || (received > 0 && remaining > 0.01);
-  if (hasPartialSituation) {
+  // Rule: hide ONLY when no prior payment history AND this payment covers full total.
+  // Once any partial payment exists (prevPaid > 0), box is ALWAYS visible.
+  if (prevPaid < 0.01 && remaining < 0.01) {
+    remBox.style.display = 'none';
+  } else {
     remBox.style.display = 'block';
-    const el = id => document.getElementById(id);
+    const el  = id => document.getElementById(id);
+    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
     el('paid-rem-received').textContent = fmt_money(totalReceived, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
-    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
+    const pctEl = el('paid-rem-pct');
+    if (pctEl) pctEl.textContent = pct + '%';
     const bar = el('paid-rem-bar');
     if (bar) bar.style.width = pct + '%';
-  } else {
-    remBox.style.display = 'none';
   }
 }
 
