@@ -522,7 +522,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 62px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -546,7 +546,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 62px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -597,12 +597,12 @@ select { cursor: pointer; }
 .item-qty   { border-right: 1px solid var(--border); }
 .item-qty input { text-align: center; padding: 10px 6px; }
 .item-rate  { border-right: 1px solid var(--border); }
-.item-rate input { text-align: right; padding: 10px 8px; }
+.item-rate input { text-align: right; padding: 10px 12px; }
 
 .item-amount {
   font-weight: 600; font-family: var(--mono); font-size: 12px;
   color: var(--text2); text-align: right;
-  padding: 0 10px; border-right: 1px solid var(--border);
+  padding: 0 12px; border-right: 1px solid var(--border);
   display: flex; align-items: center; justify-content: flex-end;
   background: #F8F9FA;
   white-space: nowrap;
@@ -610,7 +610,7 @@ select { cursor: pointer; }
   text-overflow: ellipsis;
 }
 .item-gst { border-right: 1px solid var(--border); min-width: 0; }
-.item-gst select { padding: 10px 5px; font-size: 11.5px; }
+.item-gst select { padding: 10px 10px; font-size: 11.5px; width: 100%; }
 
 .item-total {
   font-weight: 700; font-family: var(--mono); font-size: 12px;
