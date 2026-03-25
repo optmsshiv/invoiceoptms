@@ -593,9 +593,9 @@ select { cursor: pointer; }
 .item-desc  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-desc input { font-weight: 500; padding-left: 14px; }
 .item-type  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
-.item-type select { padding: 10px 6px; }
+.item-type select { padding: 10px 12px; }
 .item-qty   { border-right: 1px solid var(--border); }
-.item-qty input { text-align: center; padding: 10px 6px; }
+.item-qty input { text-align: center; padding: 10px 2px; }
 .item-rate  { border-right: 1px solid var(--border); }
 .item-rate input { text-align: center; padding: 10px 12px; }
 
