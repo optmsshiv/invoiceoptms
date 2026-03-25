@@ -2314,7 +2314,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <div style="font-size:12px;font-weight:700;color:#E65100;margin-bottom:10px">⚡ Split Payment — Enter amount per method</div>
         <div style="display:flex;flex-direction:column;gap:8px" id="split-rows">
           <div class="split-row" style="display:flex;gap:8px;align-items:center">
-            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
+            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" onchange="renderSplitBreakdown()">
               <option>UPI (GPay/PhonePe/Paytm)</option>
               <option>Bank Transfer (NEFT/RTGS)</option>
               <option>Cash</option><option>Cheque</option><option>Credit Card</option>
@@ -2323,7 +2323,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>
           </div>
           <div class="split-row" style="display:flex;gap:8px;align-items:center">
-            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
+            <select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" onchange="renderSplitBreakdown()">
               <option>Cash</option>
               <option>UPI (GPay/PhonePe/Paytm)</option>
               <option>Bank Transfer (NEFT/RTGS)</option>
@@ -2337,6 +2337,8 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
           <button onclick="addSplitRow()" style="padding:6px 12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">+ Add Method</button>
           <div style="font-size:12px">Split Total: <strong id="split-total" style="color:#E65100;font-family:var(--mono)">₹0.00</strong></div>
         </div>
+        <!-- Breakdown bar: Total | Mode1 | Mode2 -->
+        <div id="split-breakdown-bar" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding:7px 10px;background:#fff;border-radius:7px;border:1px solid #e0e0e0;font-size:12px"></div>
         <div id="split-mismatch-warn" style="display:none;margin-top:8px;font-size:11px;color:#C62828;background:#FFEBEE;border-radius:6px;padding:6px 10px;font-weight:600"></div>
       </div>
       <div class="field" style="margin-top:10px"><label>Notes (optional)</label>
@@ -4563,8 +4565,15 @@ function openPaidModal(id) {
 function onPaidAmtInput() {
   const isSplit = document.getElementById('paid-method')?.value === 'Split';
   if (isSplit) {
-    // In split mode, also update the mismatch warning
+    // When total amount changes in split mode, redistribute: fill row 0 with full amount, clear row 1 so user re-adjusts
+    const totalAmt = parseFloat(document.getElementById('paid-amt')?.value) || 0;
+    const rows = document.querySelectorAll('#split-rows .split-amt');
+    if (rows.length >= 2) {
+      rows[0].value = totalAmt > 0 ? totalAmt.toFixed(2) : '';
+      rows[1].value = '';
+    }
     updateSplitTotal();
+    renderSplitBreakdown();
     return;
   }
   updatePaidRemaining();
@@ -7232,33 +7241,92 @@ function toggleSplitPayment() {
   panel.style.display = isSplit ? 'block' : 'none';
   if (amtFld) amtFld.style.opacity = isSplit ? '0.6' : '1';
   if (isSplit) {
-    // Clear split rows to zero — user fills manually, never auto-populate
-    document.querySelectorAll('#split-rows .split-amt').forEach(el => { el.value = ''; });
-    const splitTotalEl = document.getElementById('split-total');
-    if (splitTotalEl) splitTotalEl.textContent = '₹0.00';
+    // Pre-fill first row with full amount received, second row 0 — user adjusts
+    const totalAmt = parseFloat(document.getElementById('paid-amt')?.value) || 0;
+    const rows = document.querySelectorAll('#split-rows .split-amt');
+    if (rows.length >= 2) {
+      rows[0].value = totalAmt > 0 ? totalAmt.toFixed(2) : '';
+      rows[1].value = '';
+    }
+    updateSplitTotal();
+    // Show partial info box if amount < invoice total
+    updatePaidRemaining();
   }
-  // NEVER reset paid-amt or hide partial info box when changing method
 }
 
 function updateSplitTotal() {
   const rows = document.querySelectorAll('#split-rows .split-amt');
-  const splitSum = Array.from(rows).reduce((s,el) => s + (parseFloat(el.value)||0), 0);
+  const amts = Array.from(rows).map(el => parseFloat(el.value)||0);
+  const splitSum = amts.reduce((s,v) => s+v, 0);
   const el = document.getElementById('split-total');
   if (el) el.textContent = fmt_money(splitSum, '₹');
+
+  // Auto-fill last row with remainder when first row changes
+  // Only when exactly 2 rows and user typed in row 0
+  const totalAmt = parseFloat(document.getElementById('paid-amt')?.value) || 0;
+  if (rows.length === 2 && totalAmt > 0) {
+    // Identify which row triggered the input — the one with focus
+    const focusedRow = document.activeElement?.closest('.split-row');
+    const focusedIdx = focusedRow ? Array.from(document.querySelectorAll('#split-rows .split-row')).indexOf(focusedRow) : -1;
+    if (focusedIdx === 0) {
+      const remainder = Math.max(0, totalAmt - (parseFloat(rows[0].value)||0));
+      rows[1].value = remainder > 0 ? remainder.toFixed(2) : '';
+    } else if (focusedIdx === 1) {
+      const remainder = Math.max(0, totalAmt - (parseFloat(rows[1].value)||0));
+      rows[0].value = remainder > 0 ? remainder.toFixed(2) : '';
+    }
+  }
+
+  // Re-calc split sum after auto-fill
+  const finalAmts = Array.from(document.querySelectorAll('#split-rows .split-amt')).map(el => parseFloat(el.value)||0);
+  const finalSum = finalAmts.reduce((s,v) => s+v, 0);
+  if (el) el.textContent = fmt_money(finalSum, '₹');
+
   // Show mismatch warning if split total differs from Amount Received
   const amtReceived = parseFloat(document.getElementById('paid-amt')?.value) || 0;
   const warnEl = document.getElementById('split-mismatch-warn');
   if (warnEl) {
-    if (amtReceived > 0 && Math.abs(splitSum - amtReceived) > 0.01) {
+    if (amtReceived > 0 && Math.abs(finalSum - amtReceived) > 0.01) {
       warnEl.style.display = 'block';
-      warnEl.textContent = splitSum > amtReceived
-        ? `⚠️ Split total (${fmt_money(splitSum,'₹')}) exceeds Amount Received`
-        : `⚠️ Split total (${fmt_money(splitSum,'₹')}) is less than Amount Received`;
+      warnEl.textContent = finalSum > amtReceived
+        ? `⚠️ Split total (${fmt_money(finalSum,'₹')}) exceeds Amount Received`
+        : `⚠️ Split total (${fmt_money(finalSum,'₹')}) is less than Amount Received`;
     } else {
       warnEl.style.display = 'none';
     }
   }
-  // Do NOT change paid-amt — Amount Received is the source of truth
+
+  // Update split breakdown bar
+  renderSplitBreakdown();
+
+  // Keep partial info box in sync
+  updatePaidRemaining();
+}
+
+function renderSplitBreakdown() {
+  const barEl = document.getElementById('split-breakdown-bar');
+  if (!barEl) return;
+  const totalAmt = parseFloat(document.getElementById('paid-amt')?.value) || 0;
+  const rows = document.querySelectorAll('#split-rows .split-row');
+  const parts = Array.from(rows).map((row, i) => {
+    const method = row.querySelector('.split-method')?.value || '';
+    const amt    = parseFloat(row.querySelector('.split-amt')?.value) || 0;
+    const shortM = method.split(' ')[0]; // UPI, Bank, Cash, Cheque, Credit
+    const colors = ['#1565C0','#2E7D32','#E65100','#6A1B9A','#B71C1C'];
+    const col = colors[i % colors.length];
+    return `<span style="display:inline-flex;align-items:center;gap:4px">
+      <span style="font-weight:700;color:${col}">${shortM}:</span>
+      <span style="font-family:var(--mono);color:${col}">${fmt_money(amt,'₹')}</span>
+    </span>`;
+  });
+  barEl.innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:4px">
+      <span style="font-weight:700;color:var(--teal)">Total:</span>
+      <span style="font-family:var(--mono);color:var(--teal)">${fmt_money(totalAmt,'₹')}</span>
+    </span>
+    <span style="color:var(--muted2)">|</span>
+    ${parts.join('<span style="color:var(--muted2)">|</span>')}`;
+  barEl.style.display = rows.length > 0 ? 'flex' : 'none';
 }
 
 function addSplitRow() {
@@ -7266,7 +7334,7 @@ function addSplitRow() {
   const row = document.createElement('div');
   row.className = 'split-row';
   row.style.cssText = 'display:flex;gap:8px;align-items:center';
-  row.innerHTML = `<select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px">
+  row.innerHTML = `<select class="split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" onchange="renderSplitBreakdown()">
     <option>UPI (GPay/PhonePe/Paytm)</option>
     <option>Bank Transfer (NEFT/RTGS)</option>
     <option>Cash</option><option>Cheque</option><option>Credit Card</option>
@@ -7274,6 +7342,7 @@ function addSplitRow() {
   <input type="number" class="split-amt" placeholder="0.00" style="width:100px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updateSplitTotal()">
   <button onclick="removeSplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>`;
   container.appendChild(row);
+  renderSplitBreakdown();
 }
 
 function removeSplitRow(btn) {
@@ -7281,6 +7350,7 @@ function removeSplitRow(btn) {
   if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
   btn.closest('.split-row').remove();
   updateSplitTotal();
+  renderSplitBreakdown();
 }
 
 function getSplitMethodLabel() {
