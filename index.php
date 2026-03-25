@@ -1226,12 +1226,12 @@ const SERVER = {
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
             <div class="items-head-row">
               <span style="flex:1.8">Description</span>
-              <span style="flex:.8">Type</span>
               <span style="flex:.4;text-align:center">Qty</span>
               <span style="flex:.75;text-align:right">Rate</span>
               <span style="flex:.75;text-align:right">Amount</span>
               <span style="flex:.55;text-align:center">GST%</span>
               <span style="flex:.8;text-align:right">Total</span>
+              <span style="flex:.8">Type</span>
               <span style="width:28px"></span>
             </div>
             <div id="itemsList"></div>
@@ -2176,6 +2176,19 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addCategory()"><i class="fas fa-plus"></i> Add</button>
           </div>
         </div>
+
+        <!-- Item Types Manager -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-layer-group"></i> Line Item Types</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Manage item types shown in the invoice line-item "Type" dropdown. These are saved to the database and available across all invoices.</p>
+          <div id="item-type-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input id="itype-new-name" class="table-search" placeholder="Type name e.g. Subscription…" style="flex:1;min-width:160px;max-width:240px">
+            <input type="color" id="itype-new-color" value="#1976D2" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+            <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addItemType()"><i class="fas fa-plus"></i> Add Type</button>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin-top:10px"><i class="fas fa-info-circle"></i> Default types (Service, Product, Labour, Other) are always available even if deleted — they will be recreated on page reload.</p>
+        </div>
       </div>
     </div>
 
@@ -2303,17 +2316,39 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         </div>
       </div>
       <!-- Remaining amount info (shown only for partial) -->
-      <div id="paid-remaining-box" style="display:none;margin-top:10px;background:#FFF8E1;border:1.5px solid #FFD54F;border-radius:8px;padding:10px 14px">
-        <div style="font-size:12px;font-weight:700;color:#E65100;margin-bottom:4px">⚠️ Partial Payment</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px">
-          <span>Total Invoice: <strong id="paid-rem-total" style="font-family:var(--mono)"></strong></span>
-          <span>Received: <strong id="paid-rem-received" style="color:var(--teal);font-family:var(--mono)"></strong></span>
-          <span>Remaining: <strong id="paid-rem-due" style="color:#E65100;font-family:var(--mono)"></strong></span>
+      <div id="paid-remaining-box" style="display:none;margin-top:12px;border-radius:12px;overflow:hidden;border:1.5px solid #FFD54F;box-shadow:0 2px 12px rgba(230,81,0,.1)">
+        <!-- Header bar -->
+        <div style="background:linear-gradient(135deg,#FF8F00,#FFA000);padding:10px 16px;display:flex;align-items:center;gap:8px">
+          <i class="fas fa-exclamation-triangle" style="color:#fff;font-size:14px"></i>
+          <span style="color:#fff;font-weight:700;font-size:13px">Partial Payment Detected</span>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:#795548">
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" id="paid-collect-remaining" style="accent-color:var(--teal)">
-            <span>Record as partial — keep invoice active to collect remaining amount</span>
+        <!-- Stats row -->
+        <div style="background:#FFFDE7;padding:12px 16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="background:#fff;border-radius:8px;padding:10px 12px;border:1px solid #FFE082;text-align:center">
+              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Invoice Total</div>
+              <div id="paid-rem-total" style="font-size:14px;font-weight:800;color:#333;font-family:var(--mono)">₹0.00</div>
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:10px 12px;border:1px solid #A5D6A7;text-align:center">
+              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Received</div>
+              <div id="paid-rem-received" style="font-size:14px;font-weight:800;color:#2E7D32;font-family:var(--mono)">₹0.00</div>
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:10px 12px;border:1px solid #FFCDD2;text-align:center">
+              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Remaining</div>
+              <div id="paid-rem-due" style="font-size:14px;font-weight:800;color:#C62828;font-family:var(--mono)">₹0.00</div>
+            </div>
+          </div>
+          <!-- Progress bar -->
+          <div style="height:6px;background:#FFE082;border-radius:3px;margin-bottom:12px;overflow:hidden">
+            <div id="paid-rem-bar" style="height:100%;background:linear-gradient(90deg,#43A047,#66BB6A);border-radius:3px;width:0%;transition:width .4s"></div>
+          </div>
+          <!-- Checkbox action -->
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border-radius:8px;padding:10px 12px;border:1.5px solid #FFD54F">
+            <input type="checkbox" id="paid-collect-remaining" style="accent-color:#E65100;width:16px;height:16px;flex-shrink:0;margin-top:1px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#E65100">Record as partial payment</div>
+              <div style="font-size:11px;color:#795548;margin-top:2px">Invoice stays active — you can collect the remaining amount later. If unchecked, invoice will be marked Paid.</div>
+            </div>
           </label>
         </div>
       </div>
@@ -2440,6 +2475,12 @@ const STATE = {
   clients: [],
   products: [],
   payments: [],
+  itemTypes: [
+    {name:'Service',  color:'#00897B'},
+    {name:'Product',  color:'#1976D2'},
+    {name:'Labour',   color:'#E65100'},
+    {name:'Other',    color:'#757575'},
+  ],
   categories: [
     {name:'Web Development', color:'#1976D2'},
     {name:'Mobile App',      color:'#7B1FA2'},
@@ -3177,11 +3218,8 @@ function renderFormItems() {
     return `
     <div class="item-row" id="item-${item.id}">
       <input class="item-desc" value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)">
-      <select class="item-type" onchange="updateItem(${item.id},'itemType',this.value)">
-        <option value="Service" ${itemType==='Service'?'selected':''}>Service</option>
-        <option value="Product" ${itemType==='Product'?'selected':''}>Product</option>
-        <option value="Labour" ${itemType==='Labour'?'selected':''}>Labour</option>
-        <option value="Other" ${itemType==='Other'?'selected':''}>Other</option>
+      <select class="item-type" onchange="updateItem(${item.id},'itemType',this.value)" style="padding:7px 5px;font-size:12px">
+        ${(STATE.itemTypes||[{name:'Service'},{name:'Product'},{name:'Labour'},{name:'Other'}]).map(t=>`<option value="${t.name}" ${itemType===t.name?'selected':''}>${t.name}</option>`).join('')}
       </select>
       <input class="item-qty" type="number" value="${item.qty}" min="1" oninput="updateItem(${item.id},'qty',this.value)">
       <input class="item-rate" type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)">
@@ -3377,12 +3415,12 @@ function buildInvoiceHTML(d, forPrint) {
         const itype = i.itemType||'Service';
         return `<tr>
           <td style="padding:9px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">${itype}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
           ${showGstCol ? `<td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${itemGst}%</td>` : ''}
           <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGstCol?7:6}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
@@ -3563,12 +3601,12 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader) {
     <table style="width:100%;border-collapse:collapse;margin-bottom:18px">
       <thead><tr style="background:${(window.TPL_CUSTOM&&TPL_CUSTOM.color1)||'#1A2332'}">
         <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Description</th>
-        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Type</th>
         <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Qty</th>
         <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Rate</th>
         <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Amount</th>
         ${gstColHeader.replace(/style="([^"]+)"/,'style="$1;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;text-transform:uppercase"')||''}
         <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Total</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Type</th>
       </tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
@@ -3744,7 +3782,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#00897B"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:#00897B"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -3793,12 +3831,12 @@ function buildTpl3(d, sc, itemsHTML, gstColHeader) {
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
       <thead><tr style="background:rgba(56,189,248,.12);border-bottom:1px solid rgba(56,189,248,.3)">
         <th style="padding:10px 12px;text-align:left;color:#38BDF8;font-size:11px">Description</th>
-        <th style="padding:10px 12px;text-align:center;color:#38BDF8;font-size:11px">Type</th>
         <th style="padding:10px 12px;text-align:center;color:#38BDF8;font-size:11px">Qty</th>
         <th style="padding:10px 12px;text-align:right;color:#38BDF8;font-size:11px">Rate</th>
         <th style="padding:10px 12px;text-align:right;color:#38BDF8;font-size:11px">Amount</th>
         ${gstColHeader.replace('style="','style="color:#38BDF8;font-size:11px;')}
         <th style="padding:10px 12px;text-align:right;color:#38BDF8;font-size:11px">Total</th>
+        <th style="padding:10px 12px;text-align:center;color:#38BDF8;font-size:11px">Type</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:1px solid rgba(255,255,255,.07)').replace(/color:#[0-9a-fA-F]{3,6}/g,'color:rgba(255,255,255,.8)')}</tbody>
     </table>
@@ -3817,55 +3855,66 @@ function buildTpl4(d, sc, itemsHTML, gstColHeader) {
   sc = resolveCompany(sc);
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
-  <div style="padding:44px 52px 0">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:2px solid #111">
-      <div>${tplLogoHTML(d,sc)}${tplCompanyInfoHTML(sc,'#555','#888')}</div>
+  <div style="padding:0">
+    <!-- Header: dark band for B&W print visibility -->
+    <div style="background:#1A2332;padding:36px 52px 28px;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        ${tplLogoHTML(d,sc)}
+        <div style="color:rgba(255,255,255,.85);font-size:12px;font-weight:600;margin-top:6px">${sc.company||''}</div>
+        ${(sc.phone)?`<div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:2px">📞 ${sc.phone}</div>`:''}
+        ${(sc.email)?`<div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:2px">✉ ${sc.email}</div>`:''}
+        ${(sc.website)?`<div style="color:rgba(255,255,255,.5);font-size:10px;margin-top:2px">${sc.website}</div>`:''}
+        ${(sc.gst)?`<div style="color:rgba(255,255,255,.5);font-size:10px;margin-top:2px">GST: ${sc.gst}</div>`:''}
+        ${(sc.address)?`<div style="color:rgba(255,255,255,.45);font-size:10px;margin-top:3px;max-width:220px;line-height:1.5">${sc.address.replace(/\n/g,'<br>')}</div>`:''}
+      </div>
       <div style="text-align:right">
-        <div style="font-size:32px;font-weight:900;color:#111;letter-spacing:-1px">INVOICE</div>
-        <div style="font-size:15px;color:#555;font-family:monospace;margin-top:2px">#${d.num}</div>
-        <div style="margin-top:8px;border:1.5px solid ${statusColor(d.status)};color:${statusColor(d.status)};padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block">${d.status}</div>
+        <div style="font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.5);text-transform:uppercase;margin-bottom:6px">Tax Invoice</div>
+        <div style="font-size:30px;font-weight:900;color:#fff;letter-spacing:-1px;font-family:monospace">#${d.num}</div>
+        <div style="margin-top:8px;background:${statusColor(d.status)};color:#fff;padding:4px 14px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block">${d.status}</div>
       </div>
     </div>
-    <div style="display:flex;gap:24px;padding:20px 0;border-bottom:1px solid #eee;margin-bottom:20px">
-      <div style="flex:1">
-        <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Billed To</div>
+    <!-- Sub-bar: issue/due/service details -->
+    <div style="background:#f0f2f5;padding:10px 52px;display:flex;gap:28px;border-bottom:1px solid #ddd">
+      ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div><span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px">${k}</span><br><span style="font-size:12px;font-weight:700;color:#1A2332">${v}</span></div>`:'').join('')}
+    </div>
+  </div>
+  <div style="padding:28px 52px">
+    <div style="display:flex;gap:20px;margin-bottom:24px">
+      <div style="flex:1;border:1.5px solid #e0e0e0;border-radius:10px;padding:14px">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#aaa;margin-bottom:8px">Billed To</div>
         ${tplClientLogoHTML(d)}
-        <div style="font-weight:700;font-size:13px">${d.cname}</div>
-        ${d.cperson?`<div style="color:#666;font-size:12px">${d.cperson}</div>`:''}
+        <div style="font-weight:700;font-size:14px;color:#111">${d.cname}</div>
+        ${d.cperson?`<div style="color:#555;font-size:12px;margin-top:2px">${d.cperson}</div>`:''}
         ${d.cemail?`<div style="color:#888;font-size:11px">${d.cemail}</div>`:''}
         ${d.cwa?`<div style="color:#888;font-size:11px">${d.cwa}</div>`:''}
-        ${d.caddr?`<div style="color:#888;font-size:11px">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
+        ${d.caddr?`<div style="color:#888;font-size:11px;margin-top:3px">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
         ${d.cgst?`<div style="color:#888;font-size:11px">GST: ${d.cgst}</div>`:''}
       </div>
-      <div style="flex:0 0 180px">
-        <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Details</div>
-        ${[['Issued',d.date],['Due',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0"><span style="color:#aaa">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
-      </div>
-      <div style="flex:0 0 140px;text-align:right;border-left:1px solid #eee;padding-left:20px">
+      <div style="flex:0 0 190px;text-align:right;border-left:2px solid #1A2332;padding-left:20px">
         <div style="font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Amount Due</div>
-        <div style="font-size:24px;font-weight:900;color:#111;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
+        <div style="font-size:26px;font-weight:900;color:#1A2332;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="border-bottom:2px solid #111">
-        <th style="padding:8px 0;text-align:left;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Description</th>
-        <th style="padding:8px 0;text-align:center;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Type</th>
-        <th style="padding:8px 0;text-align:center;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Qty</th>
-        <th style="padding:8px 0;text-align:right;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Rate</th>
-        <th style="padding:8px 0;text-align:right;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Amount</th>
-        ${gstColHeader.replace('style="','style="font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;')}
-        <th style="padding:8px 0;text-align:right;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase">Total</th>
+      <thead><tr style="background:#1A2332">
+        <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Description</th>
+        <th style="padding:9px 12px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Type</th>
+        <th style="padding:9px 12px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Qty</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Rate</th>
+        <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Amount</th>
+        ${gstColHeader.replace('style="','style="font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase;')}
+        <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Total</th>
       </tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
-      <div style="flex:1">${tplBankHTML(d,'#444','#f8f8f8')}${tplQrHTML(d)}${tplNotesHTML(d,'#666','#f8f8f8')}</div>
-      <div style="width:200px;border-top:2px solid #111;padding-top:12px">${totalsRows(d,'#111','#eee')}</div>
+      <div style="flex:1">${tplBankHTML(d,'#1A2332','#f0f2f5')}${tplQrHTML(d)}${tplNotesHTML(d,'#444','#f8f8f8')}</div>
+      <div style="width:210px;border-top:2px solid #1A2332;padding-top:12px">${totalsRows(d,'#1A2332','#e0e0e0')}</div>
     </div>
     ${tplSignHTML(d)}${tplTncHTML(d)}
     <div style="height:24px"></div>
   </div>
-  ${footerBar(d,sc,'#f8f8f8','#aaa')}
+  ${footerBar(d,sc,'#1A2332','rgba(255,255,255,.5)')}
   </div>`;
 }
 
@@ -3904,7 +3953,7 @@ function buildTpl5(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#1565C0"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:#1565C0"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -3951,7 +4000,7 @@ function buildTpl6(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#E64A19"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:#E64A19"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -3998,7 +4047,7 @@ function buildTpl7(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:linear-gradient(135deg,#7B1FA2,#AB47BC)"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:linear-gradient(135deg,#7B1FA2,#AB47BC)"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -4045,7 +4094,7 @@ function buildTpl8(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#388E3C"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:#388E3C"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -4095,7 +4144,7 @@ function buildTpl9(d, sc, itemsHTML, gstColHeader) {
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-      <thead><tr style="background:#B71C1C"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <thead><tr style="background:#B71C1C"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th></tr></thead>
       <tbody>${itemsHTML}</tbody>
     </table>
     <div style="display:flex;gap:16px;align-items:flex-start">
@@ -4136,12 +4185,12 @@ function openPrintWindow(d, items) {
         const itype = i.itemType||'Service';
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
           ${showGst ? `<td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>` : ''}
           <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGst?7:6}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -4194,12 +4243,12 @@ function printInvoiceById(inv) {
         const itype       = i.itemType||i.item_type||'Service';
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||i.description||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,sym)}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${gst}%</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,sym)}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="7" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -4368,12 +4417,12 @@ function openPreviewModal(id) {
         const itype       = i.itemType||i.item_type||'Service';
         return `<tr>
           <td style="padding:9px 12px;border-bottom:1px solid #eee">${desc}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">${itype}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,d.sym)}</td>
           <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
           <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>
           <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="7" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -4635,14 +4684,18 @@ function updatePaidRemaining() {
   const totalReceived = prevPaid + received;
   const remaining     = Math.max(0, total - totalReceived);
   const remBox        = document.getElementById('paid-remaining-box');
-  // Show box whenever there is a partial situation (prev payments exist, or current < total)
-  // NEVER hide it just because payment method changed
   const hasPartialSituation = prevPaid > 0.01 || (received > 0 && remaining > 0.01);
   if (hasPartialSituation) {
     remBox.style.display = 'block';
-    document.getElementById('paid-rem-total').textContent    = fmt_money(total, sym);
-    document.getElementById('paid-rem-received').textContent = fmt_money(totalReceived, sym);
-    document.getElementById('paid-rem-due').textContent      = fmt_money(remaining, sym);
+    const el = id => document.getElementById(id);
+    el('paid-rem-total').textContent    = fmt_money(total, sym);
+    el('paid-rem-received').textContent = fmt_money(totalReceived, sym);
+    el('paid-rem-due').textContent      = fmt_money(remaining, sym);
+    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
+    const bar = el('paid-rem-bar');
+    if (bar) bar.style.width = pct + '%';
+  } else {
+    remBox.style.display = 'none';
   }
 }
 
@@ -4669,7 +4722,18 @@ function confirmPaid() {
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
   const cumulativePaid = prevPaid + amtReceived;
-  const isPartial = (totalAmt - cumulativePaid) > 0.01 &&
+  const remaining = Math.max(0, totalAmt - cumulativePaid);
+  // ALERT: if amount < total and checkbox not checked, warn user
+  if (remaining > 0.01) {
+    const partialCheckEl = document.getElementById('paid-collect-remaining');
+    if (!partialCheckEl || !partialCheckEl.checked) {
+      const remBox = document.getElementById('paid-remaining-box');
+      if (remBox) { remBox.style.display = 'block'; remBox.style.border = '2px solid #E53935'; remBox.style.background = '#FFF3F3'; setTimeout(()=>{ remBox.style.border='1.5px solid #FFD54F'; remBox.style.background='#FFF8E1'; },2500); }
+      toast(`⚠️ Amount received (${fmt_money(amtReceived,'₹')}) is less than invoice total (${fmt_money(totalAmt,'₹')}). Please tick "Record as partial" checkbox to keep invoice active for the remaining ${fmt_money(remaining,'₹')}, or enter the full amount.`, 'warning');
+      return;
+    }
+  }
+  const isPartial = remaining > 0.01 &&
                     document.getElementById('paid-collect-remaining')?.checked;
   const payload = {
     invoice_id:     parseInt(mid)||null,
@@ -4684,7 +4748,7 @@ function confirmPaid() {
     notes:          document.getElementById('paid-notes')?.value || '',
     status:         'Success',
     partial:        isPartial ? 1 : 0,
-    remaining_amt:  isPartial ? Math.max(0, totalAmt - cumulativePaid) : 0,
+    remaining_amt:  isPartial ? remaining : 0,
   };
   api('api/payments.php','POST',payload)
     .then(() => Promise.all([api('api/invoices.php'),api('api/payments.php')]))
@@ -5330,7 +5394,7 @@ function previewTemplate(n) {
     status:'Paid',sym:'₹',sub:88500,gstAmt:15930,grand:104430,invId:'',
     companyLogo:sc.logo||'',clientLogo:'',signature:'',qrUrl:'',
     popt:{bank:true,qr:false,sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:true}};
-  const iHTML=`<tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Website Development Premium</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹75,000.00</td></tr><tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Domain & Hosting</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹4,500.00</td></tr>`;
+  const iHTML=`<tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Website Development Premium</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Service</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹88,500.00</td></tr><tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Domain & Hosting</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Product</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹5,310.00</td></tr>`;
   const gH=`<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9};
   const fn=tpls[n]||buildTpl1;
@@ -6251,6 +6315,10 @@ async function loadAllData() {
       if (s.product_categories) {
         try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
       }
+      // Load item types from settings JSON if saved
+      if (s.item_types) {
+        try { const iTypes = JSON.parse(s.item_types); if (Array.isArray(iTypes) && iTypes.length) STATE.itemTypes = iTypes; } catch(e) {}
+      }
       // Restore TPL_CUSTOM from saved settings
       if (s.tpl_color1)      TPL_CUSTOM.color1          = s.tpl_color1;
       if (s.tpl_color2)      TPL_CUSTOM.color2          = s.tpl_color2;
@@ -6470,6 +6538,49 @@ function updateProductCatDropdowns() {
   if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
 }
 
+// ── Item Type Management ─────────────────────────────────────────
+function renderItemTypeList() {
+  const el = document.getElementById('item-type-list'); if (!el) return;
+  const types = STATE.itemTypes || [];
+  if (!types.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No types yet.</span>'; return; }
+  el.innerHTML = types.map((t,i) => {
+    const bg = t.color || '#757575';
+    const r = parseInt(bg.slice(1,3),16)||0, g = parseInt(bg.slice(3,5),16)||0, b = parseInt(bg.slice(5,7),16)||0;
+    const tc = (0.299*r + 0.587*g + 0.114*b) > 160 ? '#222' : '#fff';
+    const isDefault = ['Service','Product','Labour','Other'].includes(t.name);
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:${bg};color:${tc};font-size:12px;font-weight:700;box-shadow:0 1px 4px ${bg}60">
+      ${t.name}${isDefault ? ' <span style="font-size:9px;opacity:.7">(default)</span>' : ''}
+      ${!isDefault ? `<button onclick="deleteItemType(${i})" style="background:none;border:none;cursor:pointer;color:${tc};opacity:.7;font-size:13px;line-height:1;padding:0 0 0 2px" title="Remove">×</button>` : ''}
+    </div>`;
+  }).join('');
+}
+async function addItemType() {
+  const nameEl  = document.getElementById('itype-new-name');
+  const colorEl = document.getElementById('itype-new-color');
+  const name = nameEl?.value.trim();
+  if (!name) { toast('⚠️ Enter a type name', 'warning'); return; }
+  if ((STATE.itemTypes||[]).find(t => t.name.toLowerCase() === name.toLowerCase())) { toast('⚠️ Type already exists', 'warning'); return; }
+  if (!STATE.itemTypes) STATE.itemTypes = [];
+  STATE.itemTypes.push({ name, color: colorEl?.value || '#1976D2' });
+  if (nameEl) nameEl.value = '';
+  renderItemTypeList();
+  await saveItemTypes();
+  renderFormItems(); // refresh open invoice form if any
+  toast('✅ Item type added!', 'success');
+}
+async function deleteItemType(idx) {
+  const t = STATE.itemTypes[idx];
+  if (['Service','Product','Labour','Other'].includes(t?.name)) { toast('⚠️ Default types cannot be deleted', 'warning'); return; }
+  STATE.itemTypes.splice(idx, 1);
+  renderItemTypeList();
+  await saveItemTypes();
+  renderFormItems();
+  toast('🗑️ Item type removed', 'info');
+}
+async function saveItemTypes() {
+  try { await api('api/settings.php','POST',{ item_types: JSON.stringify(STATE.itemTypes) }); } catch(e) { console.warn('ItemType save err',e); }
+}
+
 // ── populateSettingsForm: load saved settings into the form fields ──
 function populateSettingsForm() {
   const s = STATE.settings;
@@ -6479,7 +6590,7 @@ function populateSettingsForm() {
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   renderCategoryList();
-  set('sc-web',     s.website);
+  renderItemTypeList();
   set('sc-prefix',  s.prefix);
   set('sc-upi',     s.upi);
   set('sc-addr',    s.address);
@@ -7079,44 +7190,49 @@ function populateTemplateForm() {
 }
 
 window.applyTplCustomization = function() {
-  TPL_CUSTOM.color1       = document.getElementById('tpl-color1')?.value      || TPL_CUSTOM.color1;
-  TPL_CUSTOM.color2       = document.getElementById('tpl-color2')?.value      || TPL_CUSTOM.color2;
+  // Read color from hex input first (most reliably updated), fallback to color picker
+  const readColor = (hexId, pickerId) => {
+    const hex = document.getElementById(hexId);
+    const pick = document.getElementById(pickerId);
+    const v = (hex && hex.value && hex.value.match(/^#[0-9a-fA-F]{3,6}$/)) ? hex.value : (pick ? pick.value : '');
+    if (hex && v) hex.value = v;
+    if (pick && v) pick.value = v;
+    return v;
+  };
+  TPL_CUSTOM.color1       = readColor('tpl-color1-hex', 'tpl-color1') || TPL_CUSTOM.color1;
+  TPL_CUSTOM.color2       = readColor('tpl-color2-hex', 'tpl-color2') || TPL_CUSTOM.color2;
   TPL_CUSTOM.font         = document.getElementById('tpl-font')?.value        || TPL_CUSTOM.font;
   TPL_CUSTOM.headerStyle  = document.getElementById('tpl-header-style')?.value|| TPL_CUSTOM.headerStyle;
   TPL_CUSTOM.tableStyle   = document.getElementById('tpl-table-style')?.value || TPL_CUSTOM.tableStyle;
-  TPL_CUSTOM.footerText   = document.getElementById('tpl-footer-text')?.value || '';
-  TPL_CUSTOM.tagline      = document.getElementById('tpl-tagline')?.value     || '';
-  TPL_CUSTOM.watermarkText  = document.getElementById('tpl-watermark-text')?.value || 'PAID';
-  // Read from user-visible panel (tpl-r-*) preferentially, fallback to slider
+  TPL_CUSTOM.footerText   = document.getElementById('tpl-footer-text')?.value ?? '';
+  TPL_CUSTOM.tagline      = document.getElementById('tpl-tagline')?.value     ?? '';
+  TPL_CUSTOM.watermarkText= document.getElementById('tpl-watermark-text')?.value || 'PAID';
+  // Read from user-visible panel (tpl-r-*) preferentially
   const _rSizeEl = document.getElementById('tpl-r-name-size');
   TPL_CUSTOM.companyNameSize  = (_rSizeEl?.value) || document.getElementById('tpl-name-size')?.value || '28';
   const _rColorEl = document.getElementById('tpl-r-name-color');
   TPL_CUSTOM.companyNameColor = (_rColorEl?.value) || document.getElementById('tpl-name-color')?.value || '#ffffff';
   const _rStyleEl = document.getElementById('tpl-r-name-style');
   TPL_CUSTOM.companyNameWeight= (_rStyleEl?.value) || document.getElementById('tpl-name-style')?.value || '800';
-  // Sync range slider
+  // Sync range slider label
   const _rSlideLbl = document.getElementById('tpl-r-name-size-val');
   if (_rSlideLbl) _rSlideLbl.textContent = TPL_CUSTOM.companyNameSize + 'px';
-  TPL_CUSTOM.companyNameStyle = 'normal';
+  TPL_CUSTOM.companyNameStyle = document.getElementById('tpl-name-style')?.value || 'normal';
   const _rLogoPosEl = document.getElementById('tpl-r-logo-pos');
   TPL_CUSTOM.logoPosition = (_rLogoPosEl?.value) || document.getElementById('tpl-logo-pos')?.value || 'left';
-  // Sync size display
+  // Sync all UI controls
+  const sync = (id, val) => { const e=document.getElementById(id); if(e) e.value=val; };
+  sync('tpl-color1',     TPL_CUSTOM.color1); sync('tpl-color1-hex', TPL_CUSTOM.color1);
+  sync('tpl-color2',     TPL_CUSTOM.color2); sync('tpl-color2-hex', TPL_CUSTOM.color2);
   const sizeVal = document.getElementById('tpl-name-size-val');
   if (sizeVal) sizeVal.textContent = TPL_CUSTOM.companyNameSize + 'px';
   const sizeRange = document.getElementById('tpl-name-size');
   if (sizeRange) sizeRange.value = TPL_CUSTOM.companyNameSize;
-  // Sync color hex inputs
-  const c1hex = document.getElementById('tpl-color1-hex');
-  const c2hex = document.getElementById('tpl-color2-hex');
-  if (c1hex) { c1hex.value = TPL_CUSTOM.color1; document.getElementById('tpl-color1').value = TPL_CUSTOM.color1; }
-  if (c2hex) { c2hex.value = TPL_CUSTOM.color2; document.getElementById('tpl-color2').value = TPL_CUSTOM.color2; }
-  // Sync name color picker
   const nc = document.getElementById('tpl-name-color');
   if (nc) nc.value = TPL_CUSTOM.companyNameColor;
-  // Preview the active template with updated TPL_CUSTOM
+  // Preview
   const n = STATE.settings.activeTemplate || 1;
   previewTemplate(n);
-  // Also update live preview on create page
   if (document.getElementById('invoicePreviewWrap')) livePreview();
   toast('✅ Customization applied! Click Save to persist.', 'success');
 };
