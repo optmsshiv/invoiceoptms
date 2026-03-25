@@ -530,11 +530,13 @@ select { cursor: pointer; }
 }
 .item-row:last-child { border: none; }
 .item-row input { padding: 7px 8px; font-size: 12.5px; }
-.item-desc { flex: 2; min-width: 0; }
-.item-qty  { flex: .5; min-width: 44px; }
-.item-gst  { flex: .6; min-width: 52px; }
-.item-rate { flex: .9; min-width: 72px; }
-.item-total { flex: .9; font-weight: 700; font-family: var(--mono); font-size: 12px; color: var(--teal); text-align: right; padding-right: 4px; min-width: 72px; }
+.item-desc  { flex: 1.8; min-width: 0; }
+.item-type  { flex: .8; min-width: 70px; font-size: 11.5px; padding: 6px 4px; }
+.item-qty   { flex: .4; min-width: 40px; }
+.item-rate  { flex: .75; min-width: 65px; }
+.item-amount { flex: .75; font-weight: 600; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; padding-right: 4px; min-width: 65px; }
+.item-gst   { flex: .55; min-width: 50px; }
+.item-total { flex: .8; font-weight: 700; font-family: var(--mono); font-size: 12px; color: var(--teal); text-align: right; padding-right: 4px; min-width: 68px; }
 .item-del { width: 28px; height: 28px; border-radius: 7px; border: none; background: var(--red-bg); color: var(--red); cursor: pointer; font-size: 11px; flex-shrink: 0; transition: .2s; display:flex;align-items:center;justify-content:center; }
 .item-del:hover { background: var(--red); color: #fff; }
 .add-line-btn {
@@ -1223,11 +1225,13 @@ const SERVER = {
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
             <div class="items-head-row">
-              <span style="flex:2">Description</span>
-              <span style="flex:.5;text-align:center">Qty</span>
-              <span style="flex:.6;text-align:center">GST%</span>
-              <span style="flex:.9;text-align:right">Rate (₹)</span>
-              <span style="flex:.9;text-align:right">Total</span>
+              <span style="flex:1.8">Description</span>
+              <span style="flex:.8">Type</span>
+              <span style="flex:.4;text-align:center">Qty</span>
+              <span style="flex:.75;text-align:right">Rate</span>
+              <span style="flex:.75;text-align:right">Amount</span>
+              <span style="flex:.55;text-align:center">GST%</span>
+              <span style="flex:.8;text-align:right">Total</span>
               <span style="width:28px"></span>
             </div>
             <div id="itemsList"></div>
@@ -1243,6 +1247,10 @@ const SERVER = {
               <div class="tp-row">
                 <span>Discount <input type="number" id="f-disc" value="0" min="0" class="inline-num" oninput="calcTotals()"> <select id="f-disc-type" onchange="calcTotals()" style="font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:5px;background:var(--card);color:var(--text)"><option value="pct">%</option><option value="fixed">₹</option></select></span>
                 <code class="neg" id="tp-disc">-₹0.00</code>
+              </div>
+              <div class="tp-row">
+                <span style="font-weight:700">Amount</span>
+                <code id="tp-amount" style="font-weight:700">₹0.00</code>
               </div>
               <div class="tp-row">
                 <span style="display:flex;flex-direction:column;gap:2px">
@@ -3153,7 +3161,7 @@ function addItem() {
   const fgst = document.getElementById('f-gst');
   const gstVal = fgst ? fgst.value : String(STATE.settings.defaultGST ?? 18);
   const defaultGst = (gstVal !== '' && gstVal !== null) ? parseInt(gstVal) : (STATE.settings.defaultGST ?? 18);
-  formItems.push({ id: Date.now(), desc: '', qty: 1, gst: defaultGst, rate: 0 });
+  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0 });
   renderFormItems();
 }
 
@@ -3165,10 +3173,19 @@ function renderFormItems() {
     const gstRate  = parseFloat(item.gst ?? 0);
     const gstAmt   = base * gstRate / 100;
     const lineTotal = base + gstAmt;   // GST-inclusive total
+    const itemType = item.itemType || 'Service';
     return `
     <div class="item-row" id="item-${item.id}">
       <input class="item-desc" value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)">
+      <select class="item-type" onchange="updateItem(${item.id},'itemType',this.value)">
+        <option value="Service" ${itemType==='Service'?'selected':''}>Service</option>
+        <option value="Product" ${itemType==='Product'?'selected':''}>Product</option>
+        <option value="Labour" ${itemType==='Labour'?'selected':''}>Labour</option>
+        <option value="Other" ${itemType==='Other'?'selected':''}>Other</option>
+      </select>
       <input class="item-qty" type="number" value="${item.qty}" min="1" oninput="updateItem(${item.id},'qty',this.value)">
+      <input class="item-rate" type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)">
+      <div class="item-amount" id="iamt-${item.id}" title="Amount (excl. GST)">${fmt_money(base)}</div>
       <select class="item-gst" onchange="updateItem(${item.id},'gst',this.value)" style="padding:7px 5px;font-size:12px">
         <option value="0" ${item.gst==0?'selected':''}>0%</option>
         <option value="5" ${item.gst==5?'selected':''}>5%</option>
@@ -3176,8 +3193,7 @@ function renderFormItems() {
         <option value="18" ${item.gst==18?'selected':''}>18%</option>
         <option value="28" ${item.gst==28?'selected':''}>28%</option>
       </select>
-      <input class="item-rate" type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)">
-      <div class="item-total" id="itot-${item.id}" title="Incl. GST">${fmt_money(lineTotal)}</div>
+      <div class="item-total" id="itot-${item.id}" title="Total (incl. GST)">${fmt_money(lineTotal)}</div>
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
     </div>`;
   }).join('');
@@ -3189,15 +3205,17 @@ function updateItem(id, field, val) {
   if (!item) return;
   if (field === 'gst') {
     item.gst = (val !== '' && val !== null && val !== undefined) ? parseFloat(val) : 0;
+  } else if (field === 'itemType') {
+    item.itemType = val;
   } else {
     item[field] = field==='desc' ? val : (parseFloat(val)||0);
   }
+  const base    = (item.qty||1)*(item.rate||0);
+  const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
+  const amt = document.getElementById('iamt-'+id);
+  if (amt) amt.textContent = fmt_money(base);
   const tot = document.getElementById('itot-'+id);
-  if (tot) {
-    const base    = (item.qty||1)*(item.rate||0);
-    const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
-    tot.textContent = fmt_money(base + gstAmt);  // GST-inclusive
-  }
+  if (tot) tot.textContent = fmt_money(base + gstAmt);  // GST-inclusive
   calcTotals();
 }
 
@@ -3225,9 +3243,10 @@ function calcTotals() {
   const grand = sub - discAmt + gstAfterDisc;
 
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
-  set('tp-sub',   fmt_money(sub));
-  set('tp-disc',  '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
-  set('tp-gst',   '+'+fmt_money(gstAfterDisc));
+  set('tp-sub',    fmt_money(sub));
+  set('tp-disc',   '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
+  set('tp-amount', fmt_money(sub - discAmt));
+  set('tp-gst',    '+'+fmt_money(gstAfterDisc));
   // Show GST breakdown per item
   const bd = document.getElementById('tp-gst-breakdown');
   if (bd) {
@@ -4086,8 +4105,7 @@ function printCurrentInvoice() {
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
-  loadInvoiceIntoForm(inv);
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -4225,7 +4243,7 @@ async function saveInvoice() {
     signature: d.signature, qr_code: d.qrUrl,
     template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
     pdf_options: d.popt,
-    items: formItems.map(i => ({ desc: i.desc, qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
     if (STATE.editingInvoiceId) {
@@ -4367,8 +4385,7 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-caddr').value    = c ? c.addr : '';
   const sr = document.querySelectorAll('input[name="inv-status"]');
   sr.forEach(r => r.checked = r.value === inv.status);
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
-  renderFormItems();
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
   livePreview();
 }
 
@@ -4980,7 +4997,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   showPage('create', null);
   setTimeout(() => {
-    formItems.push({ id:Date.now(), desc:p.name, qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
+    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
     renderFormItems();
     livePreview();
     toast(`✅ "${p.name}" added to invoice`, 'success');
@@ -5020,7 +5037,7 @@ function filterProductPicker(val) {
 function pickProduct(id) {
   const p = STATE.products.find(x=>x.id===id);
   if (!p) return;
-  formItems.push({ id:Date.now(), desc:p.name, qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
+  formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
   renderFormItems();
   livePreview();
   closeModal('modal-products');
