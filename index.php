@@ -597,7 +597,7 @@ select { cursor: pointer; }
 .item-qty   { border-right: 1px solid var(--border); }
 .item-qty input { text-align: center; padding: 10px 6px; }
 .item-rate  { border-right: 1px solid var(--border); }
-.item-rate input { text-align: right; padding: 10px 12px; }
+.item-rate input { text-align: center; padding: 10px 12px; }
 
 .item-amount {
   font-weight: 600; font-family: var(--mono); font-size: 12px;
@@ -610,7 +610,7 @@ select { cursor: pointer; }
   text-overflow: ellipsis;
 }
 .item-gst { border-right: 1px solid var(--border); min-width: 0; }
-.item-gst select { padding: 10px 10px; font-size: 11.5px; width: 100%; }
+.item-gst select { text-align: center; padding: 10px 10px; font-size: 11.5px; width: 100%; }
 
 .item-total {
   font-weight: 700; font-family: var(--mono); font-size: 12px;
