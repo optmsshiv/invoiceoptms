@@ -39,16 +39,27 @@ switch ($method) {
 
   case 'POST':
     $d=json_decode(file_get_contents('php://input'),true);
-    // If marking invoice paid, update invoice status
+    // If marking invoice paid, update invoice status based on cumulative payments
     if (!empty($d['invoice_id'])) {
-      $partial = !empty($d['partial']) && $d['partial'] == 1;
-      if (!$partial) {
-        $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$d['invoice_id']]);
+      $invoiceId  = (int)$d['invoice_id'];
+      $partial    = !empty($d['partial']) && $d['partial'] == 1;
+      // Sum all previous payments for this invoice
+      $prevStmt   = $db->prepare('SELECT COALESCE(SUM(amount),0) as paid FROM payments WHERE invoice_id = ?');
+      $prevStmt->execute([$invoiceId]);
+      $prevPaid   = (float)$prevStmt->fetchColumn();
+      $thisAmt    = floatval($d['amount'] ?? 0);
+      $cumulative = $prevPaid + $thisAmt;
+      // Get invoice grand_total to compare
+      $invStmt    = $db->prepare('SELECT grand_total FROM invoices WHERE id = ?');
+      $invStmt->execute([$invoiceId]);
+      $grandTotal = (float)$invStmt->fetchColumn();
+      // If cumulative >= grand_total → fully paid regardless of partial flag
+      if ($grandTotal > 0 && ($grandTotal - $cumulative) <= 0.01) {
+        $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$invoiceId]);
+      } elseif ($partial) {
+        $db->prepare("UPDATE invoices SET status='Partial' WHERE id=?")->execute([$invoiceId]);
       } else {
-        // Partial payment — mark as 'Partial' so PDF shows remaining amount
-        $remainAmt = floatval($d['remaining_amt'] ?? 0);
-        $db->prepare("UPDATE invoices SET status='Partial' WHERE id=?")->execute([$d['invoice_id']]);
-        // Note is stored in the payment record itself, NOT appended to invoice notes
+        $db->prepare("UPDATE invoices SET status='Paid' WHERE id=?")->execute([$invoiceId]);
       }
     }
     $s=$db->prepare('INSERT INTO payments (invoice_id,invoice_number,client_name,amount,payment_date,method,transaction_id,status,notes) VALUES (?,?,?,?,?,?,?,?,?)');

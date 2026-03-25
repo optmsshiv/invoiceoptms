@@ -326,12 +326,12 @@ canvas { max-width: 100% !important; }
   font-weight: 500; color: var(--text2);
 }
 .cal-day.today { background: var(--teal); color: #fff; font-weight: 800; border-radius: 6px; }
-.cal-day.has-due { border: 2px solid var(--teal); border-radius: 6px; color: var(--teal); font-weight: 700; }
-.cal-day.has-overdue { border: 2px solid var(--red); border-radius: 6px; color: var(--red); font-weight: 700; background: var(--red-bg); }
-.cal-day.has-paid { border: 2px solid var(--blue); border-radius: 6px; color: var(--blue); font-weight: 600; }
+.cal-day.has-due { border: 2px solid var(--teal); border-radius: 6px; color: var(--teal); font-weight: 700; animation: statusGlow-due 2s ease-in-out infinite; }
+.cal-day.has-overdue { border: 2px solid var(--red); border-radius: 6px; color: var(--red); font-weight: 700; background: var(--red-bg); animation: statusGlow-overdue 2s ease-in-out infinite; }
+.cal-day.has-paid { border: 2px solid var(--green); border-radius: 6px; color: var(--green); font-weight: 600; animation: statusGlow-paid 2s ease-in-out infinite; }
 .cal-day.has-due::after { content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--teal); border-radius:50%; }
 .cal-day.has-overdue::after { background: var(--red); content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; }
-.cal-day.has-paid::after { background: var(--blue); content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; }
+.cal-day.has-paid::after { content:'✓'; position:absolute; bottom:0px; left:50%; transform:translateX(-50%); font-size:7px; font-weight:900; color:var(--green); line-height:1; }
 .cal-day.other-month { color: var(--muted2); }
 .cal-month-title { text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 10px; color: var(--text); }
 .cal-legend { display: flex; align-items: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
@@ -599,6 +599,19 @@ select { cursor: pointer; }
 .btn-outline:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
 .btn-whatsapp  { background: #25D366; color: #fff; }
 .btn-whatsapp:hover { background: #1DA851; }
+@keyframes waGlow {
+  0%,100% { box-shadow: 0 0 10px #25D36650, 0 0 24px #25D36620; border-color: #25D36699; }
+  50%      { box-shadow: 0 0 18px #25D36690, 0 0 40px #25D36645; border-color: #25D366; }
+}
+@keyframes statusGlow-due {
+  0%,100% { box-shadow: 0 0 6px #00897B55; } 50% { box-shadow: 0 0 14px #00897B99; }
+}
+@keyframes statusGlow-overdue {
+  0%,100% { box-shadow: 0 0 6px #C6282855; } 50% { box-shadow: 0 0 14px #C6282899; }
+}
+@keyframes statusGlow-paid {
+  0%,100% { box-shadow: 0 0 6px #388E3C55; } 50% { box-shadow: 0 0 14px #388E3C99; }
+}
 .btn-email     { background: var(--blue-bg); color: var(--blue); border: 1.5px solid #90CAF9; }
 .btn-email:hover { background: var(--blue); color: #fff; }
 .btn-danger    { background: var(--red-bg); color: var(--red); border: 1.5px solid #FFCDD2; }
@@ -1154,7 +1167,7 @@ const SERVER = {
                   <option>Consultation</option><option>Domain & Hosting</option><option>Other</option>
                 </select>
               </div>
-              <div class="field"><label>Issue Date</label><input type="date" id="f-date" oninput="livePreview()"></div>
+              <div class="field"><label>Issue Date</label><input type="date" id="f-date" oninput="updateDueFromIssue();livePreview()"></div>
               <div class="field"><label>Due Date</label><input type="date" id="f-due" oninput="livePreview()"></div>
               <div class="field"><label>Currency</label>
                 <select id="f-currency" onchange="livePreview()">
@@ -1228,7 +1241,7 @@ const SERVER = {
                 <code id="tp-sub">₹0.00</code>
               </div>
               <div class="tp-row">
-                <span>Discount <input type="number" id="f-disc" value="0" min="0" max="100" class="inline-num" oninput="calcTotals()"> %</span>
+                <span>Discount <input type="number" id="f-disc" value="0" min="0" class="inline-num" oninput="calcTotals()"> <select id="f-disc-type" onchange="calcTotals()" style="font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:5px;background:var(--card);color:var(--text)"><option value="pct">%</option><option value="fixed">₹</option></select></span>
                 <code class="neg" id="tp-disc">-₹0.00</code>
               </div>
               <div class="tp-row">
@@ -1395,9 +1408,6 @@ const SERVER = {
         <input type="text" class="table-search" placeholder="Search services…" oninput="filterProducts(this.value)" id="productSearch">
         <select class="table-filter" onchange="filterProductsCat(this.value)" id="productCatFilter">
           <option value="">All Categories</option>
-          <option>Website Dev</option><option>School ERP</option><option>Mobile App</option>
-          <option>Hosting</option><option>Maintenance</option><option>Marketing</option>
-          <option>Design</option><option>Consultation</option><option>Other</option>
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
@@ -1445,6 +1455,10 @@ const SERVER = {
           </tr></thead>
           <tbody id="paymentsTbody"></tbody>
         </table>
+        <div style="padding:6px 14px 2px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <i class="fas fa-layer-group" style="font-size:10px"></i>
+          <span>Rows sharing the same invoice number share a colour chip. <i class="fas fa-layer-group" style="font-size:9px"></i> icon = multiple payments (partial instalments).</span>
+        </div>
         <div class="table-footer">
           <div class="tf-info" id="pmtInfo"></div>
           <div class="pagination" id="pmtPagination"></div>
@@ -2133,13 +2147,26 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
                 <option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option>
               </select>
             </div>
-            <div class="field"><label>Default Bank Details</label>
+            <div class="field" style="grid-column:1/-1"><label>Default Bank Details</label>
               <textarea id="sd-bank" style="min-height:60px" placeholder="Bank name, account, IFSC, UPI..."></textarea>
+            </div>
+            <div class="field" style="grid-column:1/-1"><label>Default Terms &amp; Conditions</label>
+              <textarea id="sd-tnc" style="min-height:80px" placeholder="Enter default terms and conditions for all invoices..."></textarea>
             </div>
           </div>
           <button class="btn btn-primary" style="margin-top:14px" onclick="saveInvoiceDefaults()">
             <i class="fas fa-save"></i> Save Invoice Defaults
           </button>
+        </div>
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-tags"></i> Service / Product Categories</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Create and color-code categories to organise your services and products.</p>
+          <div id="cat-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input id="cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
+            <input type="color" id="cat-new-color" value="#00897B" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+            <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addCategory()"><i class="fas fa-plus"></i> Add</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2403,6 +2430,15 @@ const STATE = {
   clients: [],
   products: [],
   payments: [],
+  categories: [
+    {name:'Web Development', color:'#1976D2'},
+    {name:'Mobile App',      color:'#7B1FA2'},
+    {name:'SEO / Marketing', color:'#F57F17'},
+    {name:'Design',          color:'#E53935'},
+    {name:'Hosting',         color:'#00897B'},
+    {name:'Consulting',      color:'#455A64'},
+    {name:'Other',           color:'#757575'},
+  ],
   settings: {
     company: 'OPTMS Tech',
     gst: '22AAAAA0000A1Z5',
@@ -2507,10 +2543,22 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function setTodayDates() {
   const today = new Date();
-  const due = new Date(); due.setDate(today.getDate() + 15);
+  const dueDays = parseInt(STATE.settings.dueDays) || 15;
+  const due = new Date(); due.setDate(today.getDate() + dueDays);
   document.getElementById('f-date').value = fmt_date(today);
   document.getElementById('f-due').value  = fmt_date(due);
   document.getElementById('paid-date').value = fmt_date(today);
+}
+function updateDueFromIssue() {
+  const dateEl = document.getElementById('f-date');
+  const dueEl  = document.getElementById('f-due');
+  if (!dateEl || !dueEl) return;
+  const issueDate = new Date(dateEl.value);
+  if (isNaN(issueDate)) return;
+  const dueDays = parseInt(STATE.settings.dueDays) || 15;
+  const due = new Date(issueDate);
+  due.setDate(issueDate.getDate() + dueDays);
+  dueEl.value = fmt_date(due);
 }
 function fmt_date(d) { return d.toISOString().split('T')[0]; }
 function fmt_money(n, sym='₹') { return sym + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -3076,14 +3124,24 @@ function resetCreateForm() {
   if (tncEl) tncEl.value = STATE.settings.defaultTnC ||
     '1. All prices are inclusive of applicable taxes.\n2. Disputes must be raised within 7 days.\n3. Computer-generated invoice. Subject to Patna jurisdiction.';
   setTodayDates();
+  // Clear client fields
   document.getElementById('f-cname').value = '';
   document.getElementById('f-cperson').value = '';
   document.getElementById('f-cwa').value = '';
   document.getElementById('f-cemail').value = '';
   document.getElementById('f-cgst').value = '';
   document.getElementById('f-caddr').value = '';
+  // Clear other form fields
   document.getElementById('f-disc').value = '0';
-  document.getElementById('f-gst').value = '18';
+  const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
+  document.getElementById('f-gst').value = String(STATE.settings.defaultGST ?? 18);
+  const notesEl = document.getElementById('f-notes'); if (notesEl) notesEl.value = '';
+  const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
+  const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = '₹';
+  const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || 1);
+  const clientSelEl = document.getElementById('f-client'); if (clientSelEl) clientSelEl.value = '';
+  // Reset company logo, qr to defaults
+  const qrEl = document.getElementById('f-qr'); if (qrEl) qrEl.value = '';
   document.querySelectorAll('input[name="inv-status"]')[0].checked = true;
   formItems = [];
   addItem();
@@ -3156,15 +3214,17 @@ function calcTotals() {
     gstAmt += lineAmt * gstRate / 100;
   });
   const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
-  const discAmt = sub * disc / 100;
+  const discType = document.getElementById('f-disc-type')?.value || 'pct';
+  const discAmt = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
+  const discPct = sub > 0 ? (discAmt / sub * 100) : 0;
   // Recalculate GST after discount proportionally
-  const discFactor = sub > 0 ? (1 - disc/100) : 1;
+  const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
   const gstAfterDisc = gstAmt * discFactor;
   const grand = sub - discAmt + gstAfterDisc;
 
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   set('tp-sub',   fmt_money(sub));
-  set('tp-disc',  '-'+fmt_money(discAmt));
+  set('tp-disc',  '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
   set('tp-gst',   '+'+fmt_money(gstAfterDisc));
   // Show GST breakdown per item
   const bd = document.getElementById('tp-gst-breakdown');
@@ -3213,7 +3273,7 @@ function getFormData() {
   const cgst    = document.getElementById('f-cgst')?.value||'';
   const caddr   = document.getElementById('f-caddr')?.value||'';
   const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
-  const notes   = document.getElementById('f-notes')?.value||'';
+  const discType = document.getElementById('f-disc-type')?.value || 'pct';
   const bank    = document.getElementById('f-bank')?.value||'';
   const tnc     = document.getElementById('f-tnc')?.value||'';
   const generatedBy = document.getElementById('f-generated-by')?.value || 'OPTMS Tech Invoice Manager';
@@ -3248,13 +3308,14 @@ function getFormData() {
     sub += line;
     gstAmt += line * (parseFloat(item.gst)||0) / 100;
   });
-  const discAmt      = sub * disc / 100;
-  const discFactor   = sub > 0 ? (1 - disc/100) : 1;
+  const discAmt      = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
+  const discPct      = sub > 0 ? (discAmt / sub * 100) : 0;
+  const discFactor   = sub > 0 ? (1 - discAmt/sub) : 1;
   const gstAfterDisc = gstAmt * discFactor;
   const grand        = sub - discAmt + gstAfterDisc;
 
   const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
-  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId };
+  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId };
 }
 
 function livePreview() {
@@ -3508,9 +3569,11 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   // (number strings are not unique enough and cause false matches)
   const invId = d.invId ? String(d.invId) : '';
   const isPartialStatus = d.status === 'Partial';
+  const isPaidStatus = d.status === 'Paid';
+  const showInstalmentsSection = isPartialStatus || isPaidStatus;
 
   let totalPaid = 0, paymentsForInv = [], remaining = 0;
-  if (isPartialStatus && invId && invId !== '0' && invId !== '') {
+  if (showInstalmentsSection && invId && invId !== '0' && invId !== '') {
     paymentsForInv = STATE.payments.filter(p =>
       p.invoice_id && String(p.invoice_id) === invId
     );
@@ -3518,12 +3581,12 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
     remaining  = Math.max(0, (d.grand||0) - totalPaid);
   }
 
-  const showPaidRow = isPartialStatus && totalPaid > 0.01;
+  const showPaidRow = showInstalmentsSection && totalPaid > 0.01;
   const showRemRow  = isPartialStatus && remaining  > 0.01;
 
-  const discRow = d.disc > 0 ? `
+  const discRow = d.disc > 0 || d.discAmt > 0 ? `
     <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
-      <span style="color:${mutedColor}">Discount (${d.disc||0}%)</span>
+      <span style="color:${mutedColor}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
       <span style="font-family:monospace;font-weight:600;color:#E53935">-${fmt_money(d.discAmt||0,d.sym)}</span>
     </div>` : '';
 
@@ -3551,7 +3614,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   const paidRow = showPaidRow ? `
     <div style="margin-top:4px">
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;${paymentsForInv.length>1?'border-bottom:2px solid #A5D6A7':'border-bottom:1px solid '+borderColor}">
-        <span style="color:#388E3C;font-weight:700">💚 Total Paid${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
+        <span style="color:#388E3C;font-weight:700">${isPaidStatus?'✅':'💚'} ${isPaidStatus?'Paid in Full':'Total Paid'}${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
         <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
       </div>
       ${paymentsForInv.length>1 ? '<div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">'+instalmentRows+'</div>' : ''}
@@ -4793,16 +4856,19 @@ function editClient(id) {
 // PRODUCTS
 // ══════════════════════════════════════════
 const PROD = { page:1, per:8, list:[] };
-function renderProducts() { PROD.list=[...STATE.products]; PROD.page=1; _renderProdPage(); }
+function renderProducts() { updateProductCatDropdowns(); PROD.list=[...STATE.products]; PROD.page=1; _renderProdPage(); }
 function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=STATE.products.filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
 function filterProductsCat(v) { filterProducts(document.getElementById('productSearch')?.value||''); }
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
   const s=(PROD.page-1)*PROD.per, e=s+PROD.per, pg=PROD.list.slice(s,e);
-  tbody.innerHTML = pg.map((p,i)=>`<tr>
+  tbody.innerHTML = pg.map((p,i)=>{
+    const catColor = getCatColor(p.category);
+    const catTc = getCatTextColor(catColor);
+    return `<tr>
     <td>${s+i+1}</td>
     <td><strong>${p.name}</strong></td>
-    <td><span style="padding:2px 7px;border-radius:10px;background:var(--teal-bg);color:var(--teal);font-size:11px;font-weight:600">${p.category}</span></td>
+    <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${p.category}</span></td>
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${p.hsn}</code></td>
     <td><strong>${p.gst}%</strong></td>
@@ -4811,7 +4877,7 @@ function _renderProdPage() {
       <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
       <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>
     </div></td>
-  </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No services found</td></tr>';
+  </tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No services found</td></tr>';
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -4821,12 +4887,13 @@ function _renderProdPage() {
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
+  const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${c.name}</option>`).join('');
   document.querySelectorAll('#productsTbody tr').forEach(row=>{
     if(row.innerHTML.includes(`editProduct('${id}')`)){
       row.style.background='#f0fdf4';
       row.innerHTML=`<td><span style="color:var(--teal);font-size:11px;font-weight:700">EDIT</span></td>
       <td><input id="ep-name" class="table-search" style="width:100%" value="${p.name}"></td>
-      <td><input id="ep-cat" class="table-search" style="width:110px" value="${p.category}"></td>
+      <td><select id="ep-cat" class="table-filter cat-select" style="min-width:120px">${catOpts}</select></td>
       <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
       <td><input id="ep-hsn" class="table-search" style="width:75px" value="${p.hsn}"></td>
       <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
@@ -4861,7 +4928,7 @@ function openAddProductModal() {
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">NEW</span></td>
     <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value=""></td>
-    <td><input id="np-cat" class="table-search" style="width:120px" placeholder="Category" value="Other"></td>
+    <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="0"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="998314"></td>
     <td>
@@ -4876,6 +4943,9 @@ function openAddProductModal() {
       </div>
     </td>`;
   tbody.insertBefore(row, tbody.firstChild);
+  // Populate category dropdown
+  const npCat = document.getElementById('np-cat');
+  if (npCat) { npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${c.name}</option>`).join(''); }
   document.getElementById('np-name').focus();
 }
 
@@ -4992,12 +5062,25 @@ function _renderPmtSummary(){
 function _renderPmtPage(){
   const tbody=document.getElementById('paymentsTbody'); if(!tbody) return;
   const s=(PMT.page-1)*PMT.per, e=s+PMT.per, pg=PMT.list.slice(s,e);
+
+  // Assign matte color per unique invoice number for visual grouping
+  const invColors=['#455A64','#00695C','#1565C0','#6A1B9A','#4E342E','#37474F','#2E7D32','#283593','#B71C1C','#E65100'];
+  const invNums=[...new Set(pg.map(p=>p.inv))];
+  const invColorMap={};
+  invNums.forEach((num,i)=>{ invColorMap[num]=invColors[i%invColors.length]; });
+  const invCount={};
+  pg.forEach(p=>{ invCount[p.inv]=(invCount[p.inv]||0)+1; });
+
   tbody.innerHTML=pg.map((p,i)=>{
     const df=p.date?new Date(p.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):p.date;
     const mi=p.method&&p.method.toLowerCase().includes('upi')?'fa-mobile-alt':p.method&&p.method.toLowerCase().includes('cheque')?'fa-money-check':p.method&&p.method.toLowerCase().includes('cash')?'fa-money-bill-wave':'fa-university';
-    return `<tr>
+    const chipColor=invColorMap[p.inv]||'#455A64';
+    const isMulti=invCount[p.inv]>1;
+    const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
+    const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
+    return `<tr style="${isMulti?'border-left:3px solid '+chipColor+';background:'+chipColor+'08':''}">
       <td style="font-size:12px">${df}</td>
-      <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${p.inv}</code></td>
+      <td>${invChip}</td>
       <td><strong>${p.client}</strong></td>
       <td><span style="display:flex;align-items:center;gap:5px"><i class="fas ${mi}" style="color:var(--muted2);font-size:11px"></i>${p.method}</span></td>
       <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
@@ -5820,12 +5903,12 @@ function renderDashKpis() {
 
   waEl.innerHTML = `
     <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card);border:1.5px solid #25D36628;border-radius:10px;padding:10px 14px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#0d1f14;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36650,0 0 28px #25D36625;animation:waGlow 2.5s ease-in-out infinite">
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
         <div>
-          <div style="color:var(--text);font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
-          <div style="color:var(--muted);font-size:10px">${mode}</div>
+          <div style="color:#e0f2e9;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
+          <div style="color:#7ec99a;font-size:10px">${mode}</div>
         </div>
       </div>
       <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
@@ -5834,7 +5917,7 @@ function renderDashKpis() {
       <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
       ${pillsHTML}
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <span style="font-size:11px;color:var(--muted);font-weight:600">${onCount}/6 active</span>
+        <span style="font-size:11px;color:#7ec99a;font-weight:600">${onCount}/6 active</span>
         <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
           <i class="fas fa-cog"></i> Manage
         </button>
@@ -6110,6 +6193,11 @@ async function loadAllData() {
       STATE.settings.defaultGST     = (s.default_gst !== undefined && s.default_gst !== '') ? parseInt(s.default_gst) : 18;
       STATE.settings.dueDays        = parseInt(s.due_days)||15;
       STATE.settings.defaultBank    = s.default_bank || '';
+      STATE.settings.defaultTnC     = s.default_tnc  || '';
+      // Load categories from settings JSON if saved
+      if (s.product_categories) {
+        try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
+      }
       // Restore TPL_CUSTOM from saved settings
       if (s.tpl_color1)      TPL_CUSTOM.color1          = s.tpl_color1;
       if (s.tpl_color2)      TPL_CUSTOM.color2          = s.tpl_color2;
@@ -6259,17 +6347,75 @@ window.saveInvoiceDefaults = async function() {
     invoice_prefix:  document.getElementById('sd-prefix')?.value  || STATE.settings.prefix || 'OT-',
     default_currency:document.getElementById('sd-currency')?.value|| '₹',
     default_bank:    document.getElementById('sd-bank')?.value    || '',
+    default_tnc:     document.getElementById('sd-tnc')?.value     || '',
   };
   // Also update STATE
   STATE.settings.defaultGST     = parseInt(payload.default_gst ?? '0');
   STATE.settings.dueDays        = parseInt(payload.due_days);
   STATE.settings.activeTemplate = parseInt(payload.active_template);
   if (payload.invoice_prefix) STATE.settings.prefix = payload.invoice_prefix;
+  if (payload.default_tnc !== undefined) STATE.settings.defaultTnC = payload.default_tnc;
   try {
     await api('api/settings.php', 'POST', payload);
     toast('✅ Invoice defaults saved!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
+
+// ── Category Management ──────────────────────────────────────────
+function getCatColor(name) {
+  const cat = STATE.categories.find(c => c.name === name);
+  return cat ? cat.color : '#757575';
+}
+function getCatTextColor(hex) {
+  // Return black or white based on background luminance
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return (0.299*r + 0.587*g + 0.114*b) > 160 ? '#222' : '#fff';
+}
+function renderCategoryList() {
+  const el = document.getElementById('cat-list'); if (!el) return;
+  if (!STATE.categories.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No categories yet.</span>'; return; }
+  el.innerHTML = STATE.categories.map((c,i) => {
+    const tc = getCatTextColor(c.color);
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:${c.color};color:${tc};font-size:12px;font-weight:700;box-shadow:0 1px 4px ${c.color}60">
+      ${c.name}
+      <button onclick="deleteCategory(${i})" style="background:none;border:none;cursor:pointer;color:${tc};opacity:.7;font-size:13px;line-height:1;padding:0 0 0 2px" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+async function addCategory() {
+  const nameEl = document.getElementById('cat-new-name');
+  const colorEl = document.getElementById('cat-new-color');
+  const name = nameEl?.value.trim();
+  if (!name) { toast('⚠️ Enter a category name', 'warning'); return; }
+  if (STATE.categories.find(c => c.name.toLowerCase() === name.toLowerCase())) { toast('⚠️ Category already exists', 'warning'); return; }
+  STATE.categories.push({ name, color: colorEl?.value || '#00897B' });
+  nameEl.value = '';
+  renderCategoryList();
+  updateProductCatDropdowns();
+  await saveCategories();
+  toast('✅ Category added!', 'success');
+}
+async function deleteCategory(idx) {
+  STATE.categories.splice(idx, 1);
+  renderCategoryList();
+  updateProductCatDropdowns();
+  await saveCategories();
+  toast('🗑️ Category removed', 'info');
+}
+async function saveCategories() {
+  try { await api('api/settings.php','POST',{ product_categories: JSON.stringify(STATE.categories) }); } catch(e) { console.warn('Cat save err',e); }
+}
+function updateProductCatDropdowns() {
+  // Update all category dropdowns in the products page / filter
+  const opts = STATE.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  document.querySelectorAll('.cat-select').forEach(el => {
+    const cur = el.value;
+    el.innerHTML = opts;
+    el.value = cur;
+  });
+  const filter = document.getElementById('productCatFilter');
+  if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
+}
 
 // ── populateSettingsForm: load saved settings into the form fields ──
 function populateSettingsForm() {
@@ -6279,6 +6425,7 @@ function populateSettingsForm() {
   set('sc-gst',     s.gst);
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
+  renderCategoryList();
   set('sc-web',     s.website);
   set('sc-prefix',  s.prefix);
   set('sc-upi',     s.upi);
@@ -6290,6 +6437,7 @@ function populateSettingsForm() {
   set('sd-prefix',  s.prefix);
   set('sd-due',     s.dueDays);
   set('sd-bank',    s.defaultBank || '');
+  set('sd-tnc',     s.defaultTnC  || '');
   // Restore template customization
   const setV = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined&&v!=='')e.value=v; };
   if (TPL_CUSTOM.color1)          { setV('tpl-color1',TPL_CUSTOM.color1); setV('tpl-color1-hex',TPL_CUSTOM.color1); }
