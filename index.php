@@ -2491,7 +2491,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
               </select>
             </div>
             <div class="field"><label>Portal Base URL</label>
-              <input id="portal-base-url" placeholder="https://inv.optms.co.in/portal" value="https://inv.optms.co.in/portal">
+              <input id="portal-base-url" placeholder="https://invcs.optms.co.in/portal" value="https://invcs.optms.co.in/portal">
             </div>
           </div>
           <div id="portal-link-box" style="display:none;background:var(--bg);border-radius:10px;padding:16px;border:1.5px solid var(--teal)">
@@ -8382,7 +8382,7 @@ function renderPortal() {
 }
 
 function _portalURL(inv) {
-  const base = (document.getElementById('portal-base-url')?.value || 'https://inv.optms.co.in/portal').replace(/\/$/,'');
+  const base = (document.getElementById('portal-base-url')?.value || 'https://invcs.optms.co.in/portal').replace(/\/$/,'');
   const token = btoa(String(inv.id) + ':' + (inv.num||inv.invoice_number||''));
   return `${base}?t=${token}`;
 }
