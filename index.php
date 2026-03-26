@@ -1008,7 +1008,7 @@ const SERVER = {
     </a>
     <a class="nav-item" data-page="invoices" onclick="showPage('invoices',this)">
       <i class="fas fa-file-invoice"></i><span>Invoices</span>
-      <span class="nav-badge" id="badge-invoices">34</span>
+      <span class="nav-badge" id="badge-invoices">Pro</span>
     </a>
     <a class="nav-item" data-page="create" onclick="showPage('create',this)">
       <i class="fas fa-plus-circle"></i><span>New Invoice</span>
