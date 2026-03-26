@@ -2395,7 +2395,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
-  <div class="modal" style="max-width:600px;max-height:92vh;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:500px;max-height:92vh;display:flex;flex-direction:column;">
 
     <!-- Header -->
     <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
@@ -2432,14 +2432,14 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
           <!-- Already Paid — orange chip -->
           <div style="backdrop-filter: blur(6px);display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px 3px 7px">
             <span style="width:7px;height:7px;border-radius:50%;background:#FFB300;flex-shrink:0;box-shadow:0 0 0 2px rgba(255,179,0,.35)"></span>
-            <span style="font-size:13px;font-weight:600;color:#FFE082;white-space:nowrap">Already Paid&nbsp;</span>
-            <strong id="paid-inv-already" style="font-family:var(--mono);font-size:13px;color:#fff"></strong>
+            <span style="font-size:12px;font-weight:600;color:#FFE082;white-space:nowrap">Already Paid&nbsp;</span>
+            <strong id="paid-inv-already" style="font-family:var(--mono);font-size:12px;color:#fff"></strong>
           </div>
           <!-- Remaining — matte red chip -->
           <div style="margin-left:auto;backdrop-filter: blur(6px);display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px 3px 7px">
             <span style="width:7px;height:7px;border-radius:50%;background:#EF5350;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,83,80,.35)"></span>
-            <span style="font-size:13px;font-weight:600;color:#FFCDD2;white-space:nowrap">Remaining Due&nbsp;</span>
-            <strong id="paid-inv-remaining" style="font-family:var(--mono);font-size:13px;color:#fff"></strong>
+            <span style="font-size:12px;font-weight:600;color:#FFCDD2;white-space:nowrap">Remaining Due&nbsp;</span>
+            <strong id="paid-inv-remaining" style="font-family:var(--mono);font-size:12px;color:#fff"></strong>
           </div>
         </div>
       </div>
