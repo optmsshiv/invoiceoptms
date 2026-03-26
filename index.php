@@ -2395,7 +2395,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
-  <div class="modal" style="max-width:480px;max-height:92vh;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:580px;max-height:92vh;display:flex;flex-direction:column;">
 
     <!-- Header -->
     <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
@@ -2472,7 +2472,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
       </div>
 
       <!-- Partial payment box -->
-      <div id="paid-remaining-box" style="display:none;border-radius:10px;overflow:hidden;border:1.5px solid #FFD54F">
+      <div id="paid-remaining-box" style="display:none;border-radius:10px;border:1.5px solid #FFD54F">
         <div style="background:linear-gradient(135deg,#FF8F00,#FFA000);padding:9px 14px;display:flex;align-items:center;gap:8px">
           <i class="fas fa-exclamation-triangle" style="color:#fff;font-size:12px"></i>
           <span style="color:#fff;font-weight:700;font-size:12px">Partial Payment Detected</span>
