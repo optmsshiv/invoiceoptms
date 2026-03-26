@@ -2510,7 +2510,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <input type="text" class="table-search" placeholder="Search…" oninput="filterPortalTable(this.value)" style="max-width:200px">
           </div>
           <table class="data-table"><thead><tr>
-            <th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th><th>Portal Link</th><th>Actions</th>
+            <th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th><th>Portal Link</th><th>Views</th><th>Actions</th>
           </tr></thead><tbody id="portal-tbody"></tbody></table>
         </div>
       </div>
@@ -8369,6 +8369,10 @@ function exportExpensesCSV() {
 // ══════════════════════════════════════════════════════════════
 // 3. CLIENT PORTAL
 // ══════════════════════════════════════════════════════════════
+
+// In-memory cache: invoiceId (string) → token string
+const _portalTokenCache = {};
+
 function renderPortal() {
   const sel = document.getElementById('portal-inv-select');
   if (sel) {
@@ -8381,85 +8385,177 @@ function renderPortal() {
   _renderPortalTable();
 }
 
-function _portalURL(inv) {
-  const base = (document.getElementById('portal-base-url')?.value || 'https://invcs.optms.co.in/portal').replace(/\/$/,'');
-  const token = btoa(String(inv.id) + ':' + (inv.num||inv.invoice_number||''));
-  return `${base}?t=${token}`;
+function _portalBaseURL() {
+  return (document.getElementById('portal-base-url')?.value || 'https://invcs.optms.co.in/portal').replace(/\/$/,'');
 }
 
-function renderPortalLink() {
-  const id  = document.getElementById('portal-inv-select')?.value;
-  const box = document.getElementById('portal-link-box');
+function _buildPortalURL(token) {
+  return `${_portalBaseURL()}?t=${token}`;
+}
+
+async function renderPortalLink() {
+  const id    = document.getElementById('portal-inv-select')?.value;
+  const box   = document.getElementById('portal-link-box');
   const urlEl = document.getElementById('portal-link-url');
   const prev  = document.getElementById('portal-inv-preview');
-  if (!id || !box) { if(box) box.style.display='none'; return; }
-  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+  if (!id || !box) { if (box) box.style.display = 'none'; return; }
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
-  const url = _portalURL(inv);
+
   box.style.display = 'block';
-  if (urlEl) urlEl.textContent = url;
-  const c = STATE.clients.find(x=>String(x.id)===String(inv.client))||{};
-  const pmts = STATE.payments.filter(p=>String(p.invoice_id)===String(inv.id));
-  const received = pmts.reduce((s,p)=>s+parseFloat(p.amount||0),0);
-  if (prev) prev.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
-    <div><span style="color:var(--muted)">Client:</span> <strong>${c.name||'—'}</strong></div>
-    <div><span style="color:var(--muted)">Amount:</span> <strong style="font-family:var(--mono)">${fmt_money(inv.amount||0)}</strong></div>
-    <div><span style="color:var(--muted)">Received:</span> <strong style="font-family:var(--mono);color:#2E7D32">${fmt_money(received)}</strong></div>
-    <div><span style="color:var(--muted)">Status:</span> <strong>${inv.status}</strong></div>
-    <div><span style="color:var(--muted)">Due:</span> <strong>${inv.due||'—'}</strong></div>
-  </div>`;
+  if (urlEl) urlEl.textContent = '⏳ Generating secure link…';
+
+  try {
+    const res = await api('api/portal.php', 'POST', { invoice_id: parseInt(id) });
+    if (!res.success) throw new Error(res.error || 'Failed to generate token');
+    const token = res.token;
+    _portalTokenCache[String(id)] = token;
+    const url = _buildPortalURL(token);
+    if (urlEl) urlEl.textContent = url;
+
+    const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const pmts = STATE.payments.filter(p => String(p.invoice_id) === String(inv.id));
+    const received = pmts.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    if (prev) prev.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+        <div><span style="color:var(--muted)">Client:</span> <strong>${c.name||'—'}</strong></div>
+        <div><span style="color:var(--muted)">Amount:</span> <strong style="font-family:var(--mono)">${fmt_money(inv.amount||0)}</strong></div>
+        <div><span style="color:var(--muted)">Received:</span> <strong style="font-family:var(--mono);color:#2E7D32">${fmt_money(received)}</strong></div>
+        <div><span style="color:var(--muted)">Status:</span> <strong>${inv.status}</strong></div>
+        <div><span style="color:var(--muted)">Due:</span> <strong>${inv.due||'—'}</strong></div>
+      </div>`;
+    _renderPortalTable();
+    toast('🔗 Secure link generated!', 'success');
+  } catch(e) {
+    if (urlEl) urlEl.textContent = '❌ ' + e.message;
+    toast('❌ ' + e.message, 'error');
+  }
 }
 
 function copyPortalLink() {
   const url = document.getElementById('portal-link-url')?.textContent;
-  if (!url) return;
-  navigator.clipboard.writeText(url).then(()=>toast('✅ Link copied!','success')).catch(()=>{
-    const ta = document.createElement('textarea'); ta.value=url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('✅ Link copied!','success');
-  });
+  if (!url || url.startsWith('⏳') || url.startsWith('❌')) return;
+  navigator.clipboard.writeText(url)
+    .then(() => toast('✅ Link copied!', 'success'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('✅ Link copied!', 'success');
+    });
 }
 
 function sharePortalWA() {
   const url = document.getElementById('portal-link-url')?.textContent;
-  if (!url) return;
+  if (!url || url.startsWith('⏳') || url.startsWith('❌')) {
+    toast('⚠️ Generate the link first', 'warning'); return;
+  }
   const id  = document.getElementById('portal-inv-select')?.value;
-  const inv = id ? STATE.invoices.find(i=>String(i.id)===String(id)) : null;
-  const c   = inv ? (STATE.clients.find(x=>String(x.id)===String(inv.client))||{}) : {};
-  const phone = (c.wa||c.whatsapp||c.phone||'').replace(/\D/g,'');
-  const msg   = encodeURIComponent(`Hi ${c.name||''},\n\nYour invoice ${inv?.num||''} is ready.\n\nView here: ${url}\n\nThank you!`);
+  const inv = id ? STATE.invoices.find(i => String(i.id) === String(id)) : null;
+  const c   = inv ? (STATE.clients.find(x => String(x.id) === String(inv.client)) || {}) : {};
+  const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
+  const msg = encodeURIComponent(
+    `Hi ${c.name||''},\n\nYour invoice ${inv?.num||''} is ready.\nAmount: ${fmt_money(inv?.amount||0)}\n\nView & track payment here:\n${url}\n\nThank you!`
+  );
   window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+}
+
+async function revokePortalLink(invId) {
+  if (!confirm('Revoke this portal link? The client will no longer be able to access it.')) return;
+  try {
+    await api('api/portal.php?invoice_id=' + invId, 'DELETE');
+    delete _portalTokenCache[String(invId)];
+    toast('🗑️ Link revoked', 'info');
+    _renderPortalTable();
+    const sel = document.getElementById('portal-inv-select');
+    if (sel && String(sel.value) === String(invId)) {
+      const box = document.getElementById('portal-link-box');
+      if (box) box.style.display = 'none';
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function filterPortalTable(val) {
   _renderPortalTable(val);
 }
 
-function _renderPortalTable(search) {
+// Loaded token map from DB — refreshed each time portal page opens
+let _portalTokenMap = {};
+
+async function _renderPortalTable(search) {
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
-  const s = (search||'').toLowerCase();
+
+  // Show loading
+  tbody.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>`;
+
+  // Fetch all tokens from DB
+  try {
+    const res = await api('api/portal.php');
+    if (res.success && Array.isArray(res.data)) {
+      _portalTokenMap = {};
+      res.data.forEach(t => { _portalTokenMap[String(t.invoice_id)] = t; });
+    }
+  } catch(e) { _portalTokenMap = {}; }
+
+  const s = (search || '').toLowerCase();
   const rows = STATE.invoices.filter(inv => {
     if (!s) return true;
-    const c = STATE.clients.find(x=>String(x.id)===String(inv.client))||{};
+    const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     return (inv.num||'').toLowerCase().includes(s) || (c.name||'').toLowerCase().includes(s);
   });
+
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--muted)">No invoices found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)">No invoices found</td></tr>`;
     return;
   }
+
   const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575'};
   tbody.innerHTML = rows.map(inv => {
-    const c   = STATE.clients.find(x=>String(x.id)===String(inv.client))||{};
-    const url = _portalURL(inv);
-    const sc  = statusColors[inv.status]||'#888';
+    const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const t   = _portalTokenMap[String(inv.id)];
+    const url = t ? _buildPortalURL(t.token) : '';
+    const sc  = statusColors[inv.status] || '#888';
+    const views = t ? (parseInt(t.views) || 0) : null;
+    const lastViewed = t && t.last_viewed
+      ? new Date(t.last_viewed).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})
+      : null;
+
     return `<tr>
-      <td><strong style="font-family:var(--mono)">${inv.num||inv.invoice_number||''}</strong></td>
-      <td>${c.name||'—'}</td>
-      <td style="font-family:var(--mono)">${fmt_money(inv.amount||0)}</td>
-      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}15;color:${sc}">${inv.status}</span></td>
-      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><code style="font-size:11px;color:var(--teal)">${url}</code></td>
+      <td><strong style="font-family:var(--mono);font-size:12px">${inv.num||inv.invoice_number||''}</strong></td>
+      <td style="font-size:13px">${c.name||'—'}</td>
+      <td style="font-family:var(--mono);font-size:13px">${fmt_money(inv.amount||0)}</td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span></td>
+      <td style="max-width:220px">
+        ${url
+          ? `<code style="font-size:11px;color:var(--teal);word-break:break-all">${url}</code>`
+          : `<span style="color:var(--muted);font-size:12px;font-style:italic">No link yet</span>`}
+      </td>
+      <td style="text-align:center;font-size:12px">
+        ${views !== null
+          ? `<strong style="color:var(--teal)">${views}</strong>${lastViewed ? `<br><span style="font-size:10px;color:var(--muted)">${lastViewed}</span>` : ''}`
+          : `<span style="color:var(--muted)">—</span>`}
+      </td>
       <td style="white-space:nowrap">
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))" style="padding:3px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-copy"></i></button>
-        <button onclick="window.open('${url}','_blank')" style="padding:3px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-external-link-alt"></i></button>
+        <button onclick="(async()=>{document.getElementById('portal-inv-select').value='${inv.id}';await renderPortalLink();})()"
+          title="${t ? 'Regenerate link' : 'Generate link'}"
+          style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
+          <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
+        </button>
+        ${url ? `
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))"
+          title="Copy link"
+          style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
+          <i class="fas fa-copy"></i>
+        </button>
+        <button onclick="window.open('${url}','_blank')" title="Preview"
+          style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
+          <i class="fas fa-external-link-alt"></i>
+        </button>
+        <button onclick="revokePortalLink(${inv.id})" title="Revoke link"
+          style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #FFCDD2;border-radius:6px;cursor:pointer;font-size:11px">
+          <i class="fas fa-trash"></i>
+        </button>` : ''}
       </td>
     </tr>`;
   }).join('');

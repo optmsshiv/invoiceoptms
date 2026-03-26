@@ -23,9 +23,11 @@ if ($method === 'GET' && !empty($_GET['token'])) {
     try {
         $db   = getDB();
         $stmt = $db->prepare(
-            'SELECT pt.*, i.invoice_number, i.issue_date, i.due_date, i.amount,
-                    i.status, i.client_id, i.service_type, i.notes, i.terms, i.bank_details,
-                    i.gst_rate, i.discount, i.currency
+            'SELECT pt.invoice_id, pt.views, pt.expires_at, pt.created_at,
+                    i.invoice_number, i.issued_date AS issue_date, i.due_date,
+                    i.grand_total AS amount, i.subtotal, i.discount_pct, i.discount_amt,
+                    i.gst_amount, i.status, i.client_id, i.service_type,
+                    i.notes, i.terms, i.bank_details, i.currency
              FROM portal_tokens pt
              JOIN invoices i ON i.id = pt.invoice_id
              WHERE pt.token = :token
@@ -43,16 +45,21 @@ if ($method === 'GET' && !empty($_GET['token'])) {
            ->execute([':t' => $token]);
 
         // Fetch client info
-        $cStmt = $db->prepare('SELECT name, email, phone FROM clients WHERE id = :id');
+        $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
         $cStmt->execute([':id' => $row['client_id']]);
         $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        // Fetch line items from invoice_items table
+        $iStmt = $db->prepare('SELECT description, quantity, rate, gst_rate, line_total, item_type FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+        $iStmt->execute([':id' => $row['invoice_id']]);
+        $lineItems = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch payments
         $pStmt = $db->prepare('SELECT amount, payment_date, method, transaction_id FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC');
         $pStmt->execute([':id' => $row['invoice_id']]);
         $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['success'=>true,'invoice'=>$row,'client'=>$client,'payments'=>$payments,'views'=>(int)$row['views']+1]);
+        echo json_encode(['success'=>true,'invoice'=>$row,'client'=>$client,'items'=>$lineItems,'payments'=>$payments,'views'=>(int)$row['views']+1]);
     } catch (Exception $e) {
         error_log('portal.php token error: ' . $e->getMessage());
         http_response_code(500);
@@ -71,7 +78,7 @@ try {
     // ── GET: list all tokens ──────────────────────────────────────
     if ($method === 'GET' && empty($_GET['invoice_id'])) {
         $stmt = $db->query(
-            'SELECT pt.*, i.invoice_number, i.amount, i.status,
+            'SELECT pt.*, i.invoice_number, i.grand_total AS amount, i.status,
                     c.name AS client_name
              FROM portal_tokens pt
              JOIN invoices i ON i.id = pt.invoice_id

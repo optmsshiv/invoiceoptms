@@ -39,10 +39,10 @@ if (!$token) {
         // Load token + invoice in one query
         $stmt = $db->prepare("
             SELECT pt.invoice_id, pt.views, pt.expires_at,
-                   i.invoice_number, i.issue_date, i.due_date, i.amount,
-                   i.status, i.client_id, i.service_type, i.notes,
-                   i.terms, i.bank_details, i.gst_rate, i.discount, i.currency,
-                   i.items_json
+                   i.invoice_number, i.issued_date AS issue_date, i.due_date,
+                   i.grand_total AS amount, i.subtotal, i.discount_pct, i.discount_amt,
+                   i.gst_amount, i.status, i.client_id, i.service_type,
+                   i.notes, i.terms, i.bank_details, i.currency, i.company_logo
             FROM portal_tokens pt
             JOIN invoices i ON i.id = pt.invoice_id
             WHERE pt.token = :token
@@ -60,9 +60,14 @@ if (!$token) {
                ->execute([':t' => $token]);
 
             // Client details
-            $cStmt = $db->prepare('SELECT name, email, phone, address FROM clients WHERE id = :id');
+            $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
             $cStmt->execute([':id' => $inv['client_id']]);
             $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            // Line items from invoice_items table (NOT items_json)
+            $iStmt = $db->prepare('SELECT description, quantity, rate, gst_rate, line_total, item_type FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+            $iStmt->execute([':id' => $inv['invoice_id']]);
+            $items = $iStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
             // Payments
             $pStmt = $db->prepare('SELECT amount, payment_date, method, transaction_id, notes FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC');
@@ -261,7 +266,7 @@ tr:last-child td{border:none}
     <div class="info-grid">
       <div class="info-item"><label>Invoice Number</label><span style="font-family:var(--mono)"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span></div>
       <div class="info-item"><label>Service</label><span><?= htmlspecialchars($inv['service_type'] ?? '—') ?></span></div>
-      <div class="info-item"><label>Issue Date</label><span><?= htmlspecialchars($inv['issue_date'] ?? '—') ?></span></div>
+      <div class="info-item"><label>Issue Date</label><span><?= htmlspecialchars($inv['issued_date'] ?? '—') ?></span></div>
       <div class="info-item"><label>Due Date</label><span style="color:<?= $inv['status']==='Overdue'?'var(--red)':'inherit' ?>"><?= htmlspecialchars($inv['due_date'] ?? '—') ?></span></div>
       <?php if (!empty($inv['gst_rate'])): ?>
       <div class="info-item"><label>GST Rate</label><span><?= htmlspecialchars($inv['gst_rate']) ?>%</span></div>
@@ -286,6 +291,9 @@ tr:last-child td{border:none}
       <?php if (!empty($client['phone'])): ?>
       <div class="info-item"><label>Phone</label><span><?= htmlspecialchars($client['phone']) ?></span></div>
       <?php endif; ?>
+      <?php if (!empty($client['gst_number'])): ?>
+      <div class="info-item"><label>GSTIN</label><span style="font-family:var(--mono)"><?= htmlspecialchars($client['gst_number']) ?></span></div>
+      <?php endif; ?>
       <?php if (!empty($client['address'])): ?>
       <div class="info-item" style="grid-column:1/-1"><label>Address</label><span><?= nl2br(htmlspecialchars($client['address'])) ?></span></div>
       <?php endif; ?>
@@ -295,35 +303,79 @@ tr:last-child td{border:none}
 <?php endif; ?>
 
 <!-- ── Line items ── -->
-<?php
-$items = [];
-if (!empty($inv['items_json'])) {
-    $items = json_decode($inv['items_json'], true) ?: [];
-}
-if ($items):
-?>
+<?php if ($items): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-list"></i> Line Items</div>
+  <div style="overflow-x:auto">
   <table>
     <thead><tr>
-      <th>#</th><th>Description</th><th class="tr">Qty</th><th class="tr">Rate</th><th class="tr">GST</th><th class="tr">Amount</th>
+      <th>#</th>
+      <th>Description</th>
+      <th>Type</th>
+      <th class="tr">Qty</th>
+      <th class="tr">Rate</th>
+      <th class="tr">Amount</th>
+      <th class="tr">GST%</th>
+      <th class="tr">Total</th>
     </tr></thead>
     <tbody>
-    <?php foreach ($items as $i => $item): ?>
+    <?php foreach ($items as $i => $item):
+      $qty    = (float)($item['quantity'] ?? 1);
+      $rate   = (float)($item['rate'] ?? 0);
+      $gstR   = (float)($item['gst_rate'] ?? 0);
+      $base   = $qty * $rate;
+      $gstAmt = $base * $gstR / 100;
+      $total  = $base + $gstAmt;
+      $itype  = $item['item_type'] ?? '';
+    ?>
       <tr>
-        <td style="color:var(--muted)"><?= $i+1 ?></td>
-        <td><strong><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong><?php if (!empty($item['type'])): ?><br><span style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?></td>
-        <td class="tr"><?= htmlspecialchars($item['qty'] ?? 1) ?></td>
-        <td class="tr" style="font-family:var(--mono)"><?= fmt_inr($item['rate'] ?? 0) ?></td>
-        <td class="tr"><?= htmlspecialchars($item['gst'] ?? '') ?>%</td>
-        <td class="tr" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($item['total'] ?? $item['amount'] ?? 0) ?></td>
+        <td style="color:var(--muted);width:28px"><?= $i+1 ?></td>
+        <td><strong><?= htmlspecialchars($item['description'] ?? '') ?></strong></td>
+        <td><?php if ($itype): ?><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:var(--teal-bg);color:var(--teal)"><?= htmlspecialchars($itype) ?></span><?php else: ?>—<?php endif; ?></td>
+        <td class="tr"><?= $qty ?></td>
+        <td class="tr" style="font-family:var(--mono)"><?= fmt_inr($rate, $inv['currency'] ?: '₹') ?></td>
+        <td class="tr" style="font-family:var(--mono)"><?= fmt_inr($base, $inv['currency'] ?: '₹') ?></td>
+        <td class="tr"><?= $gstR ?>%</td>
+        <td class="tr" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($total, $inv['currency'] ?: '₹') ?></td>
       </tr>
     <?php endforeach; ?>
     </tbody>
     <tfoot>
-      <tr style="background:var(--bg)"><td colspan="5" style="text-align:right;font-weight:700;padding:10px 12px">Grand Total</td><td class="tr" style="font-family:var(--mono);font-size:15px;font-weight:800;color:var(--teal);padding:10px 12px"><?= fmt_inr($totalAmt, $inv['currency'] ?: '₹') ?></td></tr>
+      <?php
+        $sub      = (float)($inv['subtotal'] ?? 0);
+        $discAmt  = (float)($inv['discount_amt'] ?? 0);
+        $discPct  = (float)($inv['discount_pct'] ?? 0);
+        $gstTotal = (float)($inv['gst_amount'] ?? 0);
+        $grand    = (float)($inv['amount'] ?? 0);
+        $sym      = $inv['currency'] ?: '₹';
+      ?>
+      <tr style="background:var(--bg)">
+        <td colspan="7" style="text-align:right;color:var(--muted);padding:8px 12px;font-size:12px">Subtotal</td>
+        <td class="tr" style="font-family:var(--mono);padding:8px 12px"><?= fmt_inr($sub, $sym) ?></td>
+      </tr>
+      <?php if ($discAmt > 0): ?>
+      <tr style="background:var(--bg)">
+        <td colspan="7" style="text-align:right;color:var(--muted);padding:4px 12px;font-size:12px">Discount<?= $discPct > 0 ? ' ('.$discPct.'%)' : '' ?></td>
+        <td class="tr" style="font-family:var(--mono);color:var(--red);padding:4px 12px">-<?= fmt_inr($discAmt, $sym) ?></td>
+      </tr>
+      <tr style="background:var(--bg)">
+        <td colspan="7" style="text-align:right;font-weight:700;padding:4px 12px;font-size:13px">Amount</td>
+        <td class="tr" style="font-family:var(--mono);font-weight:700;padding:4px 12px"><?= fmt_inr($sub - $discAmt, $sym) ?></td>
+      </tr>
+      <?php endif; ?>
+      <?php if ($gstTotal > 0): ?>
+      <tr style="background:var(--bg)">
+        <td colspan="7" style="text-align:right;color:var(--muted);padding:4px 12px;font-size:12px">Total GST</td>
+        <td class="tr" style="font-family:var(--mono);color:var(--green);padding:4px 12px">+<?= fmt_inr($gstTotal, $sym) ?></td>
+      </tr>
+      <?php endif; ?>
+      <tr style="background:var(--teal-bg)">
+        <td colspan="7" style="text-align:right;font-weight:800;padding:12px;font-size:14px;color:var(--teal)">Grand Total</td>
+        <td class="tr" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:12px"><?= fmt_inr($grand, $sym) ?></td>
+      </tr>
     </tfoot>
   </table>
+  </div>
 </div>
 <?php endif; ?>
 
