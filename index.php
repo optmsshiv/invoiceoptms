@@ -2430,16 +2430,16 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <!-- Already paid + remaining chips row -->
         <div id="paid-inv-remaining-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <!-- Already Paid — orange chip -->
-          <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px 3px 7px">
+          <div style="backdrop-filter: blur(6px);display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px 3px 7px">
             <span style="width:7px;height:7px;border-radius:50%;background:#FFB300;flex-shrink:0;box-shadow:0 0 0 2px rgba(255,179,0,.35)"></span>
-            <span style="font-size:10px;font-weight:600;color:#FFE082;white-space:nowrap">Paid&nbsp;</span>
-            <strong id="paid-inv-already" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
+            <span style="font-size:13px;font-weight:600;color:#FFE082;white-space:nowrap">Already Paid&nbsp;</span>
+            <strong id="paid-inv-already" style="font-family:var(--mono);font-size:13px;color:#fff"></strong>
           </div>
           <!-- Remaining — matte red chip -->
-          <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px 3px 7px">
+          <div style="margin-left:auto;backdrop-filter: blur(6px);display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px 3px 7px">
             <span style="width:7px;height:7px;border-radius:50%;background:#EF5350;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,83,80,.35)"></span>
-            <span style="font-size:10px;font-weight:600;color:#FFCDD2;white-space:nowrap">Due&nbsp;</span>
-            <strong id="paid-inv-remaining" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
+            <span style="font-size:13px;font-weight:600;color:#FFCDD2;white-space:nowrap">Remaining Due&nbsp;</span>
+            <strong id="paid-inv-remaining" style="font-family:var(--mono);font-size:13px;color:#fff"></strong>
           </div>
         </div>
       </div>
