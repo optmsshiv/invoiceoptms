@@ -2395,7 +2395,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
-  <div class="modal" style="max-width:600px;max-height:92vh;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:580px;max-height:92vh;display:flex;flex-direction:column;">
 
     <!-- Header -->
     <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
@@ -2427,20 +2427,10 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <div style="font-size:18px;font-weight:800;font-family:var(--mono)" id="paid-inv-total"></div>
           </div>
         </div>
-        <!-- Already paid + remaining chips row -->
-        <div id="paid-inv-remaining-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <!-- Already Paid — orange chip -->
-          <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px 3px 7px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#FFB300;flex-shrink:0;box-shadow:0 0 0 2px rgba(255,179,0,.35)"></span>
-            <span style="font-size:10px;font-weight:600;color:#FFE082;white-space:nowrap">Paid&nbsp;</span>
-            <strong id="paid-inv-already" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-          </div>
-          <!-- Remaining — matte red chip -->
-          <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px 3px 7px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#EF5350;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,83,80,.35)"></span>
-            <span style="font-size:10px;font-weight:600;color:#FFCDD2;white-space:nowrap">Due&nbsp;</span>
-            <strong id="paid-inv-remaining" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-          </div>
+        <!-- Already paid row (partial) -->
+        <div id="paid-inv-remaining-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);display:flex;justify-content:space-between">
+          <span style="font-size:11px;opacity:.85">Already Paid: <strong id="paid-inv-already" style="font-family:var(--mono)"></strong></span>
+          <span style="font-size:11px;font-weight:700">Remaining: <strong id="paid-inv-remaining" style="font-family:var(--mono)"></strong></span>
         </div>
       </div>
 
@@ -2481,15 +2471,14 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <input id="paid-notes" placeholder="e.g. First instalment received">
       </div>
 
-      <!-- Partial payment box — no overflow:hidden, with % column -->
+      <!-- Partial payment box -->
       <div id="paid-remaining-box" style="display:none;border-radius:10px;border:1.5px solid #FFD54F">
-        <div style="background:linear-gradient(135deg,#FF8F00,#FFA000);border-radius:8px 8px 0 0;padding:9px 14px;display:flex;align-items:center;gap:8px">
+        <div style="background:linear-gradient(135deg,#FF8F00,#FFA000);padding:9px 14px;display:flex;align-items:center;gap:8px">
           <i class="fas fa-exclamation-triangle" style="color:#fff;font-size:12px"></i>
           <span style="color:#fff;font-weight:700;font-size:12px">Partial Payment Detected</span>
         </div>
-        <div style="background:#FFFDE7;border-radius:0 0 8px 8px;padding:12px 14px">
-          <!-- 4-col stats: Total | Received | Remaining | Paid % -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="background:#FFFDE7;padding:12px 14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
             <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #FFE082;text-align:center">
               <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Total</div>
               <div id="paid-rem-total" style="font-size:13px;font-weight:800;color:#333;font-family:var(--mono)">₹0.00</div>
@@ -2501,10 +2490,6 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #FFCDD2;text-align:center">
               <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Remaining</div>
               <div id="paid-rem-due" style="font-size:13px;font-weight:800;color:#C62828;font-family:var(--mono)">₹0.00</div>
-            </div>
-            <div style="background:#fff;border-radius:7px;padding:8px 10px;border:1px solid #CE93D8;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px">Paid %</div>
-              <div id="paid-rem-pct" style="font-size:13px;font-weight:800;color:#7B1FA2;font-family:var(--mono)">0%</div>
             </div>
           </div>
           <div style="height:5px;background:#FFE082;border-radius:3px;margin-bottom:10px;overflow:hidden">
@@ -4845,30 +4830,27 @@ function updatePaidRemaining() {
   const mid  = STATE.activeMenuInvoiceId;
   const inv  = STATE.invoices.find(i=>String(i.id)===mid);
   if (!inv)  return;
-  const sym        = inv.currency || '₹';
-  const total      = parseFloat(inv.amount || 0);
-  const received   = parseFloat(document.getElementById('paid-amt').value) || 0;
-  const prevPaid   = STATE.payments
+  const sym       = inv.currency || '₹';
+  const total     = parseFloat(inv.amount || 0);
+  const received  = parseFloat(document.getElementById('paid-amt').value) || 0;
+  const prevPaid  = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
   const totalReceived = prevPaid + received;
   const remaining     = Math.max(0, total - totalReceived);
   const remBox        = document.getElementById('paid-remaining-box');
-  // Hide ONLY when no prior history AND this payment covers the full total.
-  // Once any partial exists (prevPaid > 0), box is always visible.
-  if (prevPaid < 0.01 && remaining < 0.01) {
-    remBox.style.display = 'none';
-  } else {
+  const hasPartialSituation = prevPaid > 0.01 || (received > 0 && remaining > 0.01);
+  if (hasPartialSituation) {
     remBox.style.display = 'block';
-    const el  = id => document.getElementById(id);
-    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
+    const el = id => document.getElementById(id);
     el('paid-rem-total').textContent    = fmt_money(total, sym);
     el('paid-rem-received').textContent = fmt_money(totalReceived, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
-    const pctEl = el('paid-rem-pct');
-    if (pctEl) pctEl.textContent = pct + '%';
+    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
     const bar = el('paid-rem-bar');
     if (bar) bar.style.width = pct + '%';
+  } else {
+    remBox.style.display = 'none';
   }
 }
 
