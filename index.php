@@ -326,12 +326,12 @@ canvas { max-width: 100% !important; }
   font-weight: 500; color: var(--text2);
 }
 .cal-day.today { background: var(--teal); color: #fff; font-weight: 800; border-radius: 6px; }
-.cal-day.has-due { border: 2px solid var(--teal); border-radius: 6px; color: var(--teal); font-weight: 700; animation: statusGlow-due 2s ease-in-out infinite; }
+.cal-day.has-due { border: 2px solid var(--teal); border-radius: 6px; color: var(--amber); font-weight: 700; animation: statusGlow-due 2s ease-in-out infinite; }
 .cal-day.has-overdue { border: 2px solid var(--red); border-radius: 6px; color: var(--red); font-weight: 700; background: var(--red-bg); animation: statusGlow-overdue 2s ease-in-out infinite; }
 .cal-day.has-paid { border: 2px solid var(--green); border-radius: 6px; color: var(--green); font-weight: 600; animation: statusGlow-paid 2s ease-in-out infinite; }
 .cal-day.has-due::after { content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--teal); border-radius:50%; }
 .cal-day.has-overdue::after { background: var(--red); content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; }
-.cal-day.has-paid::after { content:'•'; position:absolute; bottom:0px; left:50%; transform:translateX(-50%); font-size:14px; font-weight:900; color:var(--green); line-height:1; }
+.cal-day.has-paid::after { content:'•'; position:absolute; bottom:0px; left:50%; transform:translateX(-50%); font-size:14px; font-weight:900; color:var(--amber); line-height:1; }
 .cal-day.other-month { color: var(--muted2); }
 .cal-month-title { text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 10px; color: var(--text); }
 .cal-legend { display: flex; align-items: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
