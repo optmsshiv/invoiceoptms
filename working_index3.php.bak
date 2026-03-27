@@ -2480,29 +2480,34 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
     <!-- ─────────── CLIENT PORTAL ─────────── -->
     <div id="page-portal" class="page">
-      <div style="max-width:860px">
-        <!-- Info banner -->
-        <div style="display:flex;align-items:flex-start;gap:14px;background:linear-gradient(135deg,#e0f2f1,#e3f2fd);border-radius:12px;padding:16px 20px;margin-bottom:18px;border:1px solid #b2dfdb">
-          <div style="font-size:24px;line-height:1">&#128279;</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;color:#00695C;margin-bottom:4px">Portal links are auto-generated</div>
-            <div style="font-size:12px;color:#555;line-height:1.6">Every new invoice gets a unique secure link automatically when saved. Links for existing invoices are generated on first page load. Clients can view invoice details, status &amp; payment info &#8212; no login needed.</div>
+      <div style="max-width:760px">
+        <div class="settings-block" style="margin-bottom:18px">
+          <div class="sb-title"><i class="fas fa-link" style="color:var(--teal)"></i> Client Portal Links</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Each invoice gets a unique read-only shareable link. Clients can view invoice details without logging in.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+            <div class="field"><label>Find Invoice</label>
+              <select id="portal-inv-select" onchange="renderPortalLink()" style="width:100%">
+                <option value="">— Select an invoice —</option>
+              </select>
+            </div>
+            <div class="field"><label>Portal Base URL</label>
+              <input id="portal-base-url" placeholder="https://invcs.optms.co.in/portal" value="https://invcs.optms.co.in/portal">
+            </div>
           </div>
-        </div>
-        <!-- Base URL config -->
-        <div class="settings-block" style="margin-bottom:18px;padding:14px 18px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fas fa-globe" style="color:var(--teal);margin-right:6px"></i>Portal Base URL</div>
-            <input id="portal-base-url" placeholder="https://invcs.optms.co.in/portal" value="https://invcs.optms.co.in/portal" style="flex:1;min-width:200px">
-            <button class="btn btn-outline" onclick="_renderPortalTable()" style="white-space:nowrap"><i class="fas fa-sync-alt"></i> Refresh</button>
-            <div id="portal-autogen-status" style="font-size:11px;color:var(--muted)"></div>
+          <div id="portal-link-box" style="display:none;background:var(--bg);border-radius:10px;padding:16px;border:1.5px solid var(--teal)">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Shareable Link</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <code id="portal-link-url" style="flex:1;font-size:13px;word-break:break-all;color:var(--teal);font-family:var(--mono)"></code>
+              <button class="btn btn-outline" onclick="copyPortalLink()" style="flex-shrink:0"><i class="fas fa-copy"></i> Copy</button>
+              <button class="btn btn-whatsapp" onclick="sharePortalWA()" style="flex-shrink:0"><i class="fab fa-whatsapp"></i> Share</button>
+            </div>
+            <div id="portal-inv-preview" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"></div>
           </div>
         </div>
         <!-- All portal links -->
         <div class="settings-block" style="padding:0;overflow:hidden">
-          <div class="card-header" style="padding:14px 18px">
-            <span class="card-title">All Invoice Portal Links</span>
-            <input type="text" class="table-search" placeholder="Search&#x2026;" oninput="filterPortalTable(this.value)" style="max-width:200px">
+          <div class="card-header" style="padding:14px 18px"><span class="card-title">All Invoice Portal Links</span>
+            <input type="text" class="table-search" placeholder="Search…" oninput="filterPortalTable(this.value)" style="max-width:200px">
           </div>
           <table class="data-table"><thead><tr>
             <th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th><th>Portal Link</th><th>Views</th><th>Actions</th>
@@ -2510,7 +2515,8 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         </div>
       </div>
     </div>
-        <!-- ─────────── PAYMENT REMINDERS ─────────── -->
+
+    <!-- ─────────── PAYMENT REMINDERS ─────────── -->
     <div id="page-reminders" class="page">
       <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:18px;flex-wrap:wrap">
         <!-- Settings panel -->
@@ -4858,15 +4864,6 @@ async function saveInvoice() {
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
     const badge = document.getElementById('badge-invoices');
     if (badge) badge.textContent = STATE.invoices.length;
-    // Auto-generate portal link for new invoices (silent background)
-    if (!STATE.editingInvoiceId) {
-      const savedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
-      if (savedInv && savedInv.id) {
-        api('api/portal.php', 'POST', { invoice_id: parseInt(savedInv.id) })
-          .then(res => { if (res && res.token) _portalTokenCache[String(savedInv.id)] = res.token; })
-          .catch(() => {});
-      }
-    }
     // Auto-send WA if automation toggle is ON
     const wa = STATE.settings.wa || {};
     if (wa.auto_inv === '1') {
@@ -8436,34 +8433,15 @@ function exportExpensesCSV() {
 const _portalTokenCache = {};
 
 function renderPortal() {
+  const sel = document.getElementById('portal-inv-select');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select an invoice —</option>' +
+      STATE.invoices.map(inv => {
+        const c = STATE.clients.find(x=>String(x.id)===String(inv.client))||{};
+        return `<option value="${inv.id}">${inv.num||inv.invoice_number||''} · ${c.name||''} · ${fmt_money(inv.amount||0)}</option>`;
+      }).join('');
+  }
   _renderPortalTable();
-  // Auto-generate links for any invoices that don't have one yet (background)
-  _autoGenMissingPortalLinks();
-}
-
-async function _autoGenMissingPortalLinks() {
-  const statusEl = document.getElementById('portal-autogen-status');
-  try {
-    const res = await api('api/portal.php');
-    if (!res.success || !Array.isArray(res.data)) return;
-    const existing = new Set(res.data.map(t => String(t.invoice_id)));
-    const missing = STATE.invoices.filter(i => !existing.has(String(i.id)) && i.status !== 'Cancelled');
-    if (!missing.length) {
-      if (statusEl) statusEl.textContent = '✅ All links up to date';
-      return;
-    }
-    if (statusEl) statusEl.textContent = `⏳ Generating ${missing.length} link${missing.length>1?'s':''}…`;
-    let done = 0;
-    for (const inv of missing) {
-      try {
-        const r = await api('api/portal.php', 'POST', { invoice_id: parseInt(inv.id) });
-        if (r && r.token) { _portalTokenCache[String(inv.id)] = r.token; done++; }
-      } catch(e) {}
-    }
-    if (statusEl) statusEl.textContent = `✅ ${done} link${done>1?'s':''} generated`;
-    _renderPortalTable();
-    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
-  } catch(e) {}
 }
 
 function _portalBaseURL() {
