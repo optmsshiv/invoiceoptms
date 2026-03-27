@@ -91,14 +91,13 @@ if (!$error && $invoiceId > 0) {
 
         // Fetch invoice — look up by id only (the number in the token is just for display)
         $stmt = $db->prepare("
-            SELECT i.id AS invoice_id, i.invoice_number, i.issue_date, i.due_date,
-                   i.amount, i.status, i.client_id, i.service_type,
-                   i.notes, i.terms, i.bank_details,
-                   i.gst_rate, i.discount, i.currency, i.items_json
-            FROM invoices i
-            WHERE i.id = :id
-            LIMIT 1
-        ");
+            SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
+                   i.due_date, i.grand_total AS amount, i.subtotal,
+                   i.discount_pct, i.discount_amt, i.gst_amount,
+                   i.status, i.client_id, i.service_type,
+                   i.notes, i.terms, i.bank_details, i.currency
+            FROM invoices i WHERE i.id = :id LIMIT 1
+          ");
         $stmt->execute([':id' => $invoiceId]);
         $inv = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -345,8 +344,9 @@ tr:last-child td{border:none}
 
 <!-- Line items -->
 <?php
-$items = [];
-if (!empty($inv['items_json'])) $items = json_decode($inv['items_json'], true) ?: [];
+$iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+$iStmt->execute([':id' => $inv['invoice_id']]);
+$items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($items):
 ?>
 <div class="card">
