@@ -335,7 +335,7 @@ canvas { max-width: 100% !important; }
 .cal-day.other-month { color: var(--muted2); }
 .cal-month-title { text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 10px; color: var(--text); }
 .cal-legend { display: flex; align-items: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
-.cal-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 
 /* Dashboard Recent */
 .dash-recent-item {
@@ -1197,7 +1197,7 @@ const SERVER = {
           </div>
           <div id="calendarWidget"></div>
           <div class="cal-legend">
-            <span class="cal-dot" style="background:#00897B"></span>Due
+            <span class="cal-dot" style="background:#F9A825"></span>Due
             <span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue
             <span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid
           </div>
