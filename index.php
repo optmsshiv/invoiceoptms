@@ -8050,7 +8050,16 @@ async function loadFeatureData() {
     console.warn('expenses API unavailable (run migration?):', expR.reason?.message);
 
   if (remR.status === 'fulfilled') {
-    if (remR.value?.log)      STATE.reminders    = remR.value.log;
+  //──  if (remR.value?.log)      STATE.reminders    = remR.value.log; (it has been replaced) ──────────────
+  if (remR.value?.log) STATE.reminders = remR.value.log.map(r => ({
+  id:         r.id,
+  ts:         r.sent_at,          // DB: sent_at  → JS: ts
+  invNum:     r.invoice_num,      // DB: invoice_num → JS: invNum
+  clientName: r.client_name,      // DB: client_name → JS: clientName
+  type:       r.type,
+  channel:    r.channel,
+  status:     r.status
+}));
     if (remR.value?.settings) STATE._remSettings = remR.value.settings;
   } else {
     console.warn('reminders API unavailable (run migration?):', remR.reason?.message);
