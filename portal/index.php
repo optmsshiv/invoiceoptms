@@ -363,18 +363,60 @@ if ($items):
         <strong><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
         <?php if (!empty($item['type'])): ?><br><span style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
       </td>
-      <td class="r"><?= htmlspecialchars((string)($item['qty'] ?? 1)) ?></td>
-      <td class="r" style="font-family:var(--mono)"><?= fmt_inr($item['rate'] ?? 0, '') ?></td>
-      <td class="r" style="font-family:var(--mono)"><?= fmt_inr((float)($item['qty'] ?? 1) * (float)($item['rate'] ?? 0), '') ?></td>
-      <td class="r"><?= htmlspecialchars((string)($item['gst'] ?? 0)) ?>%</td>
-      <td class="r" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($item['total'] ?? $item['amount'] ?? 0, $sym) ?></td>
+      <?php
+        $lineQty    = (float)($item['qty']  ?? 1);
+        $lineRate   = (float)($item['rate'] ?? 0);
+        $lineGstPct = (float)($item['gst']  ?? 0);
+        $lineAmt    = $lineQty * $lineRate;
+        $lineGstAmt = $lineAmt * $lineGstPct / 100;
+        $lineTotal  = $lineAmt + $lineGstAmt;
+      ?>
+      <td class="r"><?= number_format($lineQty, 2) ?></td>
+      <td class="r" style="font-family:var(--mono)"><?= fmt_inr($lineRate, '') ?></td>
+      <td class="r" style="font-family:var(--mono)"><?= fmt_inr($lineAmt, '') ?></td>
+      <td class="r"><?= number_format($lineGstPct, 2) ?>%</td>
+      <td class="r" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($lineTotal, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
+    <?php
+      // Compute totals from items
+      $calcSubtotal  = 0; $calcGst = 0;
+      foreach ($items as $item) {
+        $q = (float)($item['qty'] ?? 1);
+        $r = (float)($item['rate'] ?? 0);
+        $g = (float)($item['gst'] ?? 0);
+        $a = $q * $r;
+        $calcSubtotal += $a;
+        $calcGst      += $a * $g / 100;
+      }
+      $discountAmt = (float)($inv['discount_amt'] ?? 0);
+      $discountPct = (float)($inv['discount_pct'] ?? 0);
+      if ($discountAmt == 0 && $discountPct > 0) {
+        $discountAmt = $calcSubtotal * $discountPct / 100;
+      }
+      $calcGrandTotal = $calcSubtotal - $discountAmt + $calcGst;
+    ?>
     <tfoot>
-      <tr style="background:var(--bg)">
+      <tr>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:8px 12px">Subtotal</td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;padding:8px 12px"><?= fmt_inr($calcSubtotal, $sym) ?></td>
+      </tr>
+      <?php if ($discountAmt > 0): ?>
+      <tr>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">
+          Discount<?= $discountPct > 0 ? ' (' . number_format($discountPct, 2) . '%)' : '' ?>
+        </td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;color:var(--red);padding:4px 12px">− <?= fmt_inr($discountAmt, $sym) ?></td>
+      </tr>
+      <?php endif; ?>
+      <tr>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">GST</td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;padding:4px 12px"><?= fmt_inr($calcGst, $sym) ?></td>
+      </tr>
+      <tr style="background:var(--bg);border-top:2px solid var(--border)">
         <td colspan="6" style="text-align:right;font-weight:700;padding:11px 12px;font-size:13px">Grand Total</td>
-        <td class="r" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:11px 12px"><?= fmt_inr($totalAmt, $sym) ?></td>
+        <td class="r" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:11px 12px"><?= fmt_inr($calcGrandTotal, $sym) ?></td>
       </tr>
     </tfoot>
   </table>
