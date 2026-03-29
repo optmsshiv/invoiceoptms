@@ -353,7 +353,7 @@ if ($items):
   <div class="card-head"><i class="fas fa-list-ul"></i> Line Items</div>
   <table>
     <thead><tr>
-      <th>#</th><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th><th class="r">GST</th><th class="r">Total</th>
+      <th>#</th><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">GST</th><th class="r">Amount</th>
     </tr></thead>
     <tbody>
     <?php foreach ($items as $i => $item): ?>
@@ -365,7 +365,6 @@ if ($items):
       </td>
       <td class="r"><?= htmlspecialchars((string)($item['qty'] ?? 1)) ?></td>
       <td class="r" style="font-family:var(--mono)"><?= fmt_inr($item['rate'] ?? 0, '') ?></td>
-      <td class="r" style="font-family:var(--mono)"><?= fmt_inr((float)($item['qty'] ?? 1) * (float)($item['rate'] ?? 0), '') ?></td>
       <td class="r"><?= htmlspecialchars((string)($item['gst'] ?? 0)) ?>%</td>
       <td class="r" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($item['total'] ?? $item['amount'] ?? 0, $sym) ?></td>
     </tr>
@@ -373,7 +372,7 @@ if ($items):
     </tbody>
     <tfoot>
       <tr style="background:var(--bg)">
-        <td colspan="6" style="text-align:right;font-weight:700;padding:11px 12px;font-size:13px">Grand Total</td>
+        <td colspan="5" style="text-align:right;font-weight:700;padding:11px 12px;font-size:13px">Grand Total</td>
         <td class="r" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:11px 12px"><?= fmt_inr($totalAmt, $sym) ?></td>
       </tr>
     </tfoot>
