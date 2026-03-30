@@ -3962,7 +3962,7 @@ function tplLogoHTML(d, sc) {
   if (showLogo && logo) {
     return `<div>
       <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block" onerror="this.style.display='none'">
-      ${tagDiv}
+      ${nameDiv}${tagDiv}
     </div>`;
   }
   return `<div>${nameDiv}${tagDiv}</div>`;
@@ -3979,8 +3979,7 @@ function tplCompanyInfoHTML(sc, textColor='rgba(255,255,255,.65)', smallColor='r
   const ws = sc.website||STATE.settings.website||'';
   const gst = sc.gst||STATE.settings.gst||'';
   const addr = sc.address||STATE.settings.address||'';
-  // Company name is rendered by tplLogoHTML — only show contact/address info here
-  return ''
+  return (co?`<div style="color:${textColor};font-size:11px;font-weight:600;margin-top:7px">${co}</div>`:'')
        + (ph?`<div style="color:${smallColor};font-size:10px;margin-top:3px">📞 ${ph}</div>`:'')
        + (em?`<div style="color:${smallColor};font-size:10px;margin-top:2px">✉ ${em}</div>`:'')
        + (ws?`<div style="color:${smallColor};font-size:10px;margin-top:2px">${ws}</div>`:'')
@@ -4224,8 +4223,12 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   ${d.popt.footer!==false?`
   <div style="padding:12px 28px;border-top:${B};display:flex;justify-content:space-between;align-items:center">
     <div>
-      <div style="font-size:9.5px;font-weight:800;color:#000;text-transform:uppercase;letter-spacing:.8px;line-height:1.8">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
+      <div style="font-size:9.5px;font-weight:800;color:#000;text-transform:uppercase;letter-spacing:.8px;line-height:1.8">${sc.company} · GSTIN: ${sc.gst||'—'}</div>
       <div style="font-size:9.5px;font-weight:700;color:#000;text-transform:uppercase;letter-spacing:.8px">Computer-generated invoice · No signature required</div>
+    </div>
+    <div style="text-align:right">
+      <div style="width:120px;border-bottom:1.5px solid #000;height:28px;margin-left:auto;margin-bottom:5px"></div>
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#000">Authorised Signatory</div>
     </div>
   </div>`:''}
   </div>`;
@@ -4439,7 +4442,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </div>
     <div style="flex:1;padding:18px 24px;background:${T.issbg}">
       <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.isslbl};margin-bottom:8px">Invoice Details</div>
-      ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`
+      ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GSTIN',sc.gst]].map(([k,v])=>v?`
       <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid ${T.issbr}">
         <span style="color:#777;font-weight:600">${k}</span>
         <span style="font-weight:700;color:#111">${v}</span>
@@ -4506,8 +4509,12 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   ${d.popt.footer!==false?`
   <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
     <div>
-      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
+      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company} · GSTIN: ${sc.gst||'—'}</div>
       <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
+    </div>
+    <div style="text-align:right">
+      <div style="width:110px;border-bottom:1px solid ${T.foottext};height:24px;margin-left:auto;margin-bottom:4px"></div>
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${T.foottext}">Authorised Signatory</div>
     </div>
   </div>`:''}
   </div>`;
@@ -4542,7 +4549,7 @@ function buildTpl3(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       </div>
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(56,189,248,.15);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Invoice Details</div>
-        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span style="color:rgba(255,255,255,.45)">${k}</span><span style="color:#fff;font-weight:600">${v}</span></div>`:'').join('')}
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span style="color:rgba(255,255,255,.45)">${k}</span><span style="color:#fff;font-weight:600">${v}</span></div>`:'').join('')}
         <div style="margin-top:12px;text-align:right"><span style="color:rgba(255,255,255,.4);font-size:11px">Grand Total</span><br><span style="font-size:22px;font-weight:800;color:#38BDF8;font-family:monospace">${fmt_money(d.grand,d.sym)}</span></div>
       </div>
     </div>
@@ -4710,7 +4717,7 @@ function buildTpl6(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         ${d.cgst?`<div style="color:#888;font-size:11px">GST: ${d.cgst}</div>`:''}
       </div>
       <div style="flex:0 0 200px">
-        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;border-bottom:1px solid #FBE9E7"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;border-bottom:1px solid #FBE9E7"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
         <div style="margin-top:10px;background:#E64A19;color:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:9px;text-transform:uppercase;opacity:.8">Total</div>
           <div style="font-size:20px;font-weight:800;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
@@ -4757,7 +4764,7 @@ function buildTpl7(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         ${d.cgst?`<div style="color:#888;font-size:11px">GST: ${d.cgst}</div>`:''}
       </div>
       <div style="flex:0 0 200px">
-        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #F3E5F5"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #F3E5F5"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
         <div style="margin-top:10px;background:linear-gradient(135deg,#7B1FA2,#AB47BC);color:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:9px;text-transform:uppercase;opacity:.8">Total</div>
           <div style="font-size:20px;font-weight:800;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
@@ -4804,7 +4811,7 @@ function buildTpl8(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         ${d.cgst?`<div style="color:#888;font-size:11px">GST: ${d.cgst}</div>`:''}
       </div>
       <div style="flex:0 0 200px">
-        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #E8F5E9"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #E8F5E9"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
         <div style="margin-top:10px;background:#388E3C;color:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:9px;text-transform:uppercase;opacity:.8">Total</div>
           <div style="font-size:20px;font-weight:800;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
@@ -4856,7 +4863,9 @@ function buildTpl9(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <div style="flex:0 0 200px;background:#FFEBEE;border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;text-align:center">Amount Due</div>
         <div style="font-size:26px;font-weight:900;color:#B71C1C;font-family:monospace;text-align:center">${fmt_money(d.grand,d.sym)}</div>
-
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #FFCDD2">
+          ${[['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:10px"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
+        </div>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
@@ -8006,11 +8015,11 @@ window.applyTplCustomization = function() {
   const _rColorEl = document.getElementById('tpl-r-name-color');
   TPL_CUSTOM.companyNameColor = (_rColorEl?.value) || document.getElementById('tpl-name-color')?.value || '#ffffff';
   const _rStyleEl = document.getElementById('tpl-r-name-style');
-  TPL_CUSTOM.companyNameWeight= (_rStyleEl?.value) || document.getElementById('tpl-name-weight')?.value || '800';
+  TPL_CUSTOM.companyNameWeight= (_rStyleEl?.value) || document.getElementById('tpl-name-style')?.value || '800';
   // Sync range slider label
   const _rSlideLbl = document.getElementById('tpl-r-name-size-val');
   if (_rSlideLbl) _rSlideLbl.textContent = TPL_CUSTOM.companyNameSize + 'px';
-  TPL_CUSTOM.companyNameStyle = document.getElementById('tpl-name-style')?.value || TPL_CUSTOM.companyNameStyle || 'normal';
+  TPL_CUSTOM.companyNameStyle = document.getElementById('tpl-name-style')?.value || 'normal';
   const _rLogoPosEl = document.getElementById('tpl-r-logo-pos');
   TPL_CUSTOM.logoPosition = (_rLogoPosEl?.value) || document.getElementById('tpl-logo-pos')?.value || 'left';
   // Sync all UI controls
