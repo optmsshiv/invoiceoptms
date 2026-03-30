@@ -1307,9 +1307,9 @@ const SERVER = {
                 </select>
               </div>
               <div class="field"><label>PDF Template</label>
-                <select id="f-template" onchange="syncThemePicker();livePreview()">
-                  <option value="1">1 – Pure Black</option>
-                  <option value="2">2 – Colorful Matte</option>
+                <select id="f-template" onchange="livePreview()">
+                  <option value="1">1 – Classic Pro</option>
+                  <option value="2">2 – Modern Teal</option>
                   <option value="3">3 – Bold Dark</option>
                   <option value="4">4 – Minimal Clean</option>
                   <option value="5">5 – Corporate Blue</option>
@@ -1708,18 +1708,6 @@ const SERVER = {
           <span style="font-size:12px;color:var(--muted)">Changes apply to new invoices</span>
         </div>
         <div style="padding:0 4px">
-          <!-- Theme selector — shown only when Template 2 is active -->
-          <div id="tpl2-theme-picker" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Color Theme (Template 2 — Colorful Matte)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px">
-              ${[['1','Indigo','#2D3A8C'],['2','Emerald','#065F46'],['3','Rose','#881337'],['4','Amber','#78350F'],['5','Ocean','#0C4A6E'],['6','Violet','#4C1D95'],['7','Slate','#1E293B'],['8','Crimson','#7F1D1D']].map(([id,name,col])=>`
-              <button onclick="setMatteTheme(${id})" id="mtheme-btn-${id}" style="display:flex;align-items:center;gap:7px;padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);font-family:var(--font);transition:.15s">
-                <span style="width:14px;height:14px;border-radius:3px;background:${col};flex-shrink:0;display:inline-block"></span>${name}
-              </button>`).join('')}
-            </div>
-            <input type="hidden" id="tpl-color-theme" value="1">
-          </div>
-
           <div class="form-grid g2" style="margin-bottom:16px">
             <div class="field">
               <label>Primary Color <span style="font-size:10px;color:var(--muted)">(header background)</span></label>
@@ -2313,7 +2301,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             </div>
             <div class="field"><label>Default Template</label>
               <select id="sd-tpl">
-                <option value="1">1 – Pure Black</option><option value="2">2 – Colorful Matte</option>
+                <option value="1">1 – Classic Pro</option><option value="2">2 – Modern Teal</option>
                 <option value="3">3 – Bold Dark</option><option value="4">4 – Minimal Clean</option>
                 <option value="5">5 – Corporate Blue</option><option value="6">6 – Warm Orange</option>
                 <option value="7">7 – Purple Gradient</option><option value="8">8 – Green Leaf</option>
@@ -4089,128 +4077,73 @@ function tplTncHTML(d, color='#888') {
   return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${d.tnc}</div></div>`;
 }
 
-// ── TEMPLATE 1: Pure Black ──
+// ── TEMPLATE 1: Classic Pro ──
 function buildTpl1(d, sc, itemsHTML, gstColHeader) {
   sc = resolveCompany(sc);
-  const B = '2px solid #000';
-  const b = '1px solid #000';
-  const pillStyles = {
-    Paid:      'background:#000;color:#fff;border:1.5px solid #000',
-    Overdue:   'background:#000;color:#fff;border:1.5px dashed #000',
-    Pending:   'background:#fff;color:#000;border:1.5px dashed #000',
-    Draft:     'background:#fff;color:#000;border:1.5px solid #000',
-    Partial:   'background:#fff;color:#000;border:1.5px dashed #000',
-    Cancelled: 'background:#000;color:#fff;border:1.5px solid #000'
-  };
-  const pill = pillStyles[d.status] || pillStyles.Draft;
-  const th = `padding:10px 8px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#000;border-bottom:${B};text-align:left`;
-  const thr = `${th};text-align:right`;
-  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden;border:${B}">
+  const showGst = d.popt ? d.popt.gstCol : true;
+  const colSpan = showGst ? 5 : 4;
+  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
-
-  <!-- HEADER -->
-  <div style="padding:28px 36px;border-bottom:${B};display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
+  <div style="background:linear-gradient(135deg,${(window.TPL_CUSTOM&&TPL_CUSTOM.color1)||'#1A2332'} 0%,${(window.TPL_CUSTOM&&TPL_CUSTOM.color1+'dd')||'#263348'} 100%);padding:40px 48px 32px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start;font-family:${(window.TPL_CUSTOM&&TPL_CUSTOM.font)||'inherit'}">
     <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:48px;max-width:160px;object-fit:contain;display:block;margin-bottom:8px" onerror="this.style.display='none'">`:''}
-      <div style="font-size:22px;font-weight:800;color:#000;letter-spacing:-1px;text-transform:uppercase;line-height:1;margin-bottom:2px">${sc.company}</div>
-      ${sc.gst?`<div style="font-size:10px;font-weight:700;color:#000;letter-spacing:.5px;margin-bottom:10px">GSTIN: ${sc.gst}</div>`:'<div style="margin-bottom:10px"></div>'}
-      ${sc.phone?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${sc.phone}</div>`:''}
-      ${sc.email?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${sc.email}</div>`:''}
-      ${sc.website?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${sc.website}</div>`:''}
-      ${sc.address?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9;max-width:220px">${sc.address.replace(/\n/g,', ')}</div>`:''}
-    </div>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div style="font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#000;border:1.5px solid #000;padding:3px 10px;display:inline-block">Tax Invoice</div>
-      <div style="font-size:28px;font-weight:800;color:#000;font-family:monospace;letter-spacing:-1px;line-height:1">#${d.num}</div>
-      <span style="display:inline-block;padding:3px 12px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;${pill}">${d.status.toUpperCase()}</span>
-    </div>
-  </div>
-
-  <!-- META STRIP -->
-  <div style="display:flex;border-bottom:${B}">
-    ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['Grand Total',fmt_money(d.grand,d.sym)]].map((pair,i,arr)=>`
-    <div style="flex:1;padding:11px 28px;${i<arr.length-1?'border-right:'+b:''}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#000;margin-bottom:4px">${pair[0]}</div>
-      <div style="font-size:${pair[0]==='Grand Total'?'15':'13'}px;font-weight:${pair[0]==='Grand Total'?'800':'700'};color:#000;font-family:monospace">${pair[1]||'—'}</div>
-    </div>`).join('')}
-  </div>
-
-  <!-- PARTIES -->
-  <div style="display:flex;border-bottom:${b}">
-    <div style="flex:1;padding:18px 28px;border-right:${b}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#000;margin-bottom:8px">Billed To</div>
-      ${tplClientLogoHTML(d)}
-      <div style="font-size:14px;font-weight:800;color:#000;text-transform:uppercase;margin-bottom:3px">${d.cname}</div>
-      ${d.cperson?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${d.cperson}</div>`:''}
-      ${d.cemail?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${d.cemail}</div>`:''}
-      ${d.cwa?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.9">${d.cwa}</div>`:''}
-      ${d.caddr?`<div style="font-size:11px;color:#000;font-weight:600;line-height:1.7;max-width:220px">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
-      ${d.cgst?`<div style="font-size:11px;color:#000;font-weight:700;margin-top:4px">GSTIN: ${d.cgst}</div>`:''}
-    </div>
-    <div style="flex:1;padding:18px 28px">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#000;margin-bottom:8px">Invoice Details</div>
-      ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`
-      <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:${b}">
-        <span style="color:#000;font-weight:700;text-transform:uppercase;font-size:9.5px;letter-spacing:.5px">${k}</span>
-        <span style="font-weight:700;color:#000;font-family:monospace">${v}</span>
-      </div>`:'').join('')}
-    </div>
-  </div>
-
-  <!-- LINE ITEMS -->
-  <div style="padding:0 28px;border-bottom:${b}">
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr>
-        <th style="${th};width:28px">#</th>
-        <th style="${th}">Description</th>
-        <th style="${th};text-align:center">Type</th>
-        <th style="${thr}">Qty</th>
-        <th style="${thr}">Rate</th>
-        <th style="${thr}">Amount</th>
-        ${gstColHeader?`<th style="${thr}">GST</th>`:''}
-        <th style="${thr}">Total</th>
-      </tr></thead>
-      <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:${b}`).replace(/color:#[0-9a-fA-F]{3,6}/g,'color:#000')}</tbody>
-    </table>
-  </div>
-
-  <!-- BOTTOM: NOTES + TOTALS -->
-  <div style="display:flex;border-top:${B}">
-    <div style="flex:1;padding:18px 28px;border-right:${b}">
-      ${tplBankHTML(d,'#000','#fff','border:1px solid #000')}
-      ${tplNotesHTML(d,'#000','#fff')}
-      ${tplTncHTML(d,'#000')}
-    </div>
-    <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column">
-      <div style="flex:1;padding:0">
-        ${['Subtotal','Discount','GST'].map(k=>`
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:${b};font-size:12px">
-          <span style="color:#000;font-weight:800;text-transform:uppercase;font-size:10px;letter-spacing:.5px">${k}</span>
-          <span style="font-family:monospace;font-weight:800;color:#000">
-            ${k==='Subtotal'?fmt_money(d.sub,d.sym):k==='Discount'?(d.discAmt>0?'-'+fmt_money(d.discAmt,d.sym):'—'):(d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):'—')}
-          </span>
-        </div>`).join('')}
-      </div>
-      <div style="background:#000;padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-        <span style="color:#fff;font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- SIGN + FOOTER -->
-  ${tplSignHTML(d)}
-  ${d.popt.footer!==false?`
-  <div style="padding:12px 28px;border-top:${B};display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:9.5px;font-weight:800;color:#000;text-transform:uppercase;letter-spacing:.8px;line-height:1.8">${sc.company} · GSTIN: ${sc.gst||'—'}</div>
-      <div style="font-size:9.5px;font-weight:700;color:#000;text-transform:uppercase;letter-spacing:.8px">Computer-generated invoice · No signature required</div>
+      ${tplLogoHTML(d,sc)}
+      <div style="color:rgba(255,255,255,.75);font-size:12px;font-weight:600;margin-top:8px">${sc.company||STATE.settings.company}</div>
+      ${(sc.phone||STATE.settings.phone)?`<div style="color:rgba(255,255,255,.55);font-size:11px;margin-top:3px">📞 ${sc.phone||STATE.settings.phone}</div>`:''}
+      ${(sc.email||STATE.settings.email)?`<div style="color:rgba(255,255,255,.55);font-size:11px;margin-top:2px">✉ ${sc.email||STATE.settings.email}</div>`:''}
+      ${(sc.website||STATE.settings.website)?`<div style="color:rgba(255,255,255,.45);font-size:10px;margin-top:2px">${sc.website||STATE.settings.website}</div>`:''}
+      ${(sc.gst||STATE.settings.gst)?`<div style="color:rgba(255,255,255,.45);font-size:10px;margin-top:2px">GST: ${sc.gst||STATE.settings.gst}</div>`:''}
+      ${(sc.address||STATE.settings.address)?`<div style="color:rgba(255,255,255,.4);font-size:10px;margin-top:3px;max-width:200px;line-height:1.5">${(sc.address||STATE.settings.address).replace(/\n/g,'<br>')}</div>`:''}
     </div>
     <div style="text-align:right">
-      <div style="width:120px;border-bottom:1.5px solid #000;height:28px;margin-left:auto;margin-bottom:5px"></div>
-      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#000">Authorised Signatory</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Tax Invoice</div>
+      <div style="font-size:26px;font-weight:800;color:${(window.TPL_CUSTOM&&TPL_CUSTOM.color2)||'#4DB6AC'};font-family:monospace">#${d.num}</div>
+      <div style="margin-top:8px;background:${statusColor(d.status)};color:#fff;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block">${d.status.toUpperCase()}</div>
     </div>
-  </div>`:''}
+  </div>
+  <div style="padding:32px 48px">
+    <div style="display:flex;gap:20px;margin-bottom:26px">
+      <div style="flex:1;background:#f8f9fa;border-radius:10px;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Billed To</div>
+        ${tplClientLogoHTML(d)}
+        <div style="font-weight:700;font-size:15px;color:#1A2332">${d.cname}</div>
+        ${d.cperson?`<div style="color:#666;font-size:12px;margin-top:3px">${d.cperson}</div>`:''}
+        ${d.cemail?`<div style="color:#888;font-size:11px;margin-top:2px">${d.cemail}</div>`:''}
+        ${d.cwa?`<div style="color:#888;font-size:11px;margin-top:2px">${d.cwa}</div>`:''}
+        ${d.caddr?`<div style="color:#888;font-size:11px;margin-top:4px;line-height:1.6">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
+        ${d.cgst?`<div style="color:#888;font-size:11px;margin-top:4px">GST: ${d.cgst}</div>`:''}
+      </div>
+      <div style="flex:1;background:#f8f9fa;border-radius:10px;padding:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:8px">Invoice Details</div>
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#888">${k}</span><span style="font-weight:600;color:#1A2332">${v}</span></div>`:'').join('')}
+        <div style="margin-top:12px;text-align:right"><span style="font-size:11px;color:#888">Grand Total</span><br><span style="font-size:22px;font-weight:800;color:${(window.TPL_CUSTOM&&TPL_CUSTOM.color2)||'#4DB6AC'};font-family:monospace">${fmt_money(d.grand,d.sym)}</span></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:18px">
+      <thead><tr style="background:${(window.TPL_CUSTOM&&TPL_CUSTOM.color1)||'#1A2332'}">
+        <th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,.8);text-transform:uppercase">Description</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Type</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Qty</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Rate</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Amount</th>
+        ${gstColHeader.replace(/style="([^"]+)"/,'style="$1;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;text-transform:uppercase"')||''}
+        <th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">Total</th>
+      </tr></thead>
+      <tbody>${itemsHTML}</tbody>
+    </table>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <div style="flex:1">
+        ${tplBankHTML(d,'#00695C','#e0f2f1')}
+        ${tplQrHTML(d)}
+        ${tplNotesHTML(d)}
+      </div>
+      <div style="width:260px;background:#f8f9fa;border-radius:10px;padding:16px;flex-shrink:0">
+        ${totalsRows(d,'#1A2332')}
+      </div>
+    </div>
+    ${tplSignHTML(d)}
+    ${tplTncHTML(d)}
+  </div>
+  ${d.popt.footer!==false?`<div style="background:#1A2332;padding:14px 48px;display:flex;justify-content:space-between;align-items:center"><span style="color:rgba(255,255,255,.4);font-size:10px">${(d.showGeneratedBy!==false&&d.generatedBy)?d.generatedBy:"Generated by OPTMS Tech Invoice Manager"}</span><span style="color:rgba(255,255,255,.4);font-size:10px">${sc.phone} · ${sc.email}</span></div>`:''}
   </div>`;
 }
 
@@ -4334,150 +4267,55 @@ function resolveCompany(sc) {
   };
 }
 
-// ── TEMPLATE 2: Colorful Matte — 8 themes ──
-// Theme is picked from TPL_CUSTOM.colorTheme (1–8) or defaults to 1 (Indigo)
-const _MATTE_THEMES = {
-  1:{ name:'Indigo',    hbg:'#2D3A8C', htext:'#fff', htag:'#A5B4FC', hnum:'#fff', metabg:'#EEF2FF', metabr:'#C7D2FE', metalbl:'#4338CA', metaval:'#1E1B4B', billbg:'#EEF2FF', billbr:'#C7D2FE', billlbl:'#4338CA', issbg:'#F0F4FF', issbr:'#C7D2FE', isslbl:'#3730A3', thbg:'#2D3A8C', thtext:'#fff', notesbg:'#EEF2FF', notesbr:'#C7D2FE', noteslbl:'#4338CA', totbg:'#EEF2FF', totbr:'#C7D2FE', totlbl:'#4338CA', totval:'#1E1B4B', grandbg:'#2D3A8C', grandtext:'#fff', footbg:'#2D3A8C', foottext:'rgba(165,180,252,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#3730A3|#EEF2FF', band:'#2D3A8C,#6366F1,#818CF8' },
-  2:{ name:'Emerald',   hbg:'#065F46', htext:'#fff', htag:'#6EE7B7', hnum:'#fff', metabg:'#ECFDF5', metabr:'#A7F3D0', metalbl:'#059669', metaval:'#064E3B', billbg:'#ECFDF5', billbr:'#A7F3D0', billlbl:'#059669', issbg:'#F0FDF4', issbr:'#A7F3D0', isslbl:'#047857', thbg:'#065F46', thtext:'#fff', notesbg:'#ECFDF5', notesbr:'#A7F3D0', noteslbl:'#059669', totbg:'#ECFDF5', totbr:'#A7F3D0', totlbl:'#059669', totval:'#064E3B', grandbg:'#065F46', grandtext:'#fff', footbg:'#065F46', foottext:'rgba(110,231,183,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#065F46|#ECFDF5', band:'#065F46,#059669,#34D399' },
-  3:{ name:'Rose',      hbg:'#881337', htext:'#fff', htag:'#FDA4AF', hnum:'#fff', metabg:'#FFF1F2', metabr:'#FECDD3', metalbl:'#BE185D', metaval:'#4C0519', billbg:'#FFF1F2', billbr:'#FECDD3', billlbl:'#BE185D', issbg:'#FFF0F3', issbr:'#FECDD3', isslbl:'#9F1239', thbg:'#881337', thtext:'#fff', notesbg:'#FFF1F2', notesbr:'#FECDD3', noteslbl:'#BE185D', totbg:'#FFF1F2', totbr:'#FECDD3', totlbl:'#BE185D', totval:'#4C0519', grandbg:'#881337', grandtext:'#fff', footbg:'#881337', foottext:'rgba(253,164,175,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#881337|#FFF1F2', band:'#881337,#E11D48,#FDA4AF' },
-  4:{ name:'Amber',     hbg:'#78350F', htext:'#fff', htag:'#FCD34D', hnum:'#fff', metabg:'#FFFBEB', metabr:'#FDE68A', metalbl:'#B45309', metaval:'#451A03', billbg:'#FFFBEB', billbr:'#FDE68A', billlbl:'#B45309', issbg:'#FFFDF5', issbr:'#FDE68A', isslbl:'#92400E', thbg:'#78350F', thtext:'#fff', notesbg:'#FFFBEB', notesbr:'#FDE68A', noteslbl:'#B45309', totbg:'#FFFBEB', totbr:'#FDE68A', totlbl:'#B45309', totval:'#451A03', grandbg:'#78350F', grandtext:'#fff', footbg:'#78350F', foottext:'rgba(252,211,77,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#78350F|#FFFBEB', band:'#78350F,#D97706,#FCD34D' },
-  5:{ name:'Ocean',     hbg:'#0C4A6E', htext:'#fff', htag:'#7DD3FC', hnum:'#fff', metabg:'#F0F9FF', metabr:'#BAE6FD', metalbl:'#0369A1', metaval:'#0C4A6E', billbg:'#F0F9FF', billbr:'#BAE6FD', billlbl:'#0369A1', issbg:'#E0F2FE', issbr:'#BAE6FD', isslbl:'#075985', thbg:'#0C4A6E', thtext:'#fff', notesbg:'#F0F9FF', notesbr:'#BAE6FD', noteslbl:'#0369A1', totbg:'#F0F9FF', totbr:'#BAE6FD', totlbl:'#0369A1', totval:'#0C4A6E', grandbg:'#0C4A6E', grandtext:'#fff', footbg:'#0C4A6E', foottext:'rgba(125,211,252,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#0C4A6E|#F0F9FF', band:'#0C4A6E,#0369A1,#38BDF8' },
-  6:{ name:'Violet',    hbg:'#4C1D95', htext:'#fff', htag:'#C4B5FD', hnum:'#fff', metabg:'#F5F3FF', metabr:'#DDD6FE', metalbl:'#7C3AED', metaval:'#2E1065', billbg:'#F5F3FF', billbr:'#DDD6FE', billlbl:'#7C3AED', issbg:'#EDE9FE', issbr:'#DDD6FE', isslbl:'#6D28D9', thbg:'#4C1D95', thtext:'#fff', notesbg:'#F5F3FF', notesbr:'#DDD6FE', noteslbl:'#7C3AED', totbg:'#F5F3FF', totbr:'#DDD6FE', totlbl:'#7C3AED', totval:'#2E1065', grandbg:'#4C1D95', grandtext:'#fff', footbg:'#4C1D95', foottext:'rgba(196,181,253,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#4C1D95|#F5F3FF', band:'#4C1D95,#7C3AED,#A78BFA' },
-  7:{ name:'Slate',     hbg:'#1E293B', htext:'#fff', htag:'#94A3B8', hnum:'#fff', metabg:'#F1F5F9', metabr:'#CBD5E1', metalbl:'#475569', metaval:'#0F172A', billbg:'#F1F5F9', billbr:'#CBD5E1', billlbl:'#475569', issbg:'#E2E8F0', issbr:'#CBD5E1', isslbl:'#334155', thbg:'#1E293B', thtext:'#fff', notesbg:'#F1F5F9', notesbr:'#CBD5E1', noteslbl:'#475569', totbg:'#F1F5F9', totbr:'#CBD5E1', totlbl:'#475569', totval:'#0F172A', grandbg:'#1E293B', grandtext:'#fff', footbg:'#1E293B', foottext:'rgba(148,163,184,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#1E293B|#F1F5F9', band:'#1E293B,#334155,#64748B' },
-  8:{ name:'Crimson',   hbg:'#7F1D1D', htext:'#fff', htag:'#FCA5A5', hnum:'#fff', metabg:'#FEF2F2', metabr:'#FECACA', metalbl:'#DC2626', metaval:'#450A0A', billbg:'#FEF2F2', billbr:'#FECACA', billlbl:'#DC2626', issbg:'#FFF5F5', issbr:'#FECACA', isslbl:'#B91C1C', thbg:'#7F1D1D', thtext:'#fff', notesbg:'#FEF2F2', notesbr:'#FECACA', noteslbl:'#DC2626', totbg:'#FEF2F2', totbr:'#FECACA', totlbl:'#DC2626', totval:'#450A0A', grandbg:'#7F1D1D', grandtext:'#fff', footbg:'#7F1D1D', foottext:'rgba(252,165,165,.8)', pillpaid:'#166534|#DCFCE7', pillpending:'#92400E|#FEF3C7', pilloverdue:'#991B1B|#FEE2E2', pilldraft:'#7F1D1D|#FEF2F2', band:'#7F1D1D,#DC2626,#FCA5A5' }
-};
-
+// ── TEMPLATE 2: Modern Teal ──
 function buildTpl2(d, sc, itemsHTML, gstColHeader) {
   sc = resolveCompany(sc);
-  const tid = (window.TPL_CUSTOM && TPL_CUSTOM.colorTheme) ? parseInt(TPL_CUSTOM.colorTheme)||1 : 1;
-  const T = _MATTE_THEMES[tid] || _MATTE_THEMES[1];
-
-  // Status pill colors
-  const pillMap = { Paid: T.pillpaid, Pending: T.pillpending, Overdue: T.pilloverdue, Draft: T.pilldraft, Partial: T.pillpending, Cancelled: '991B1B|FEE2E2' };
-  const [ptxt, pbg] = (pillMap[d.status]||T.pilldraft).split('|');
-
-  // Color band stripes at top
-  const [b1,b2,b3] = T.band.split(',');
-  const bandCSS = `repeating-linear-gradient(90deg,${b1} 0,${b1} 12px,${b2} 12px,${b2} 24px,${b3} 24px,${b3} 36px)`;
-
-  const thStyle = `padding:10px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.thtext};text-align:left`;
-  const thr = `${thStyle};text-align:right`;
-
-  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden;border:1.5px solid ${T.metabr};border-radius:0">
+  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden">
   ${tplWatermark(d)}
-
-  <!-- COLOR BAND -->
-  <div style="height:5px;background:${bandCSS}"></div>
-
-  <!-- HEADER -->
-  <div style="background:${T.hbg};padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
-    <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:44px;max-width:150px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none'">`:''}
-      <div style="font-size:20px;font-weight:800;color:${T.htext};letter-spacing:-.5px;line-height:1;margin-bottom:2px">${sc.company}</div>
-      <div style="font-size:10px;color:${T.htag};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600">Code is made of possible</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
-        ${sc.phone?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">${sc.phone}</div>`:''}
-        ${sc.email?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">${sc.email}</div>`:''}
-        ${sc.website?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">${sc.website}</div>`:''}
-        ${sc.gst?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">GSTIN: ${sc.gst}</div>`:''}
-        ${sc.address?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9;grid-column:1/-1">${sc.address.replace(/\n/g,', ')}</div>`:''}
+  <div style="background:linear-gradient(135deg,#00897B,#26A69A);padding:36px 44px 28px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>${tplLogoHTML(d,sc)}${tplCompanyInfoHTML(sc)}</div>
+      <div style="text-align:right">
+        <div style="background:rgba(255,255,255,.15);border-radius:12px;padding:14px 20px;display:inline-block">
+          <div style="color:rgba(255,255,255,.8);font-size:10px;text-transform:uppercase;letter-spacing:1px">INVOICE</div>
+          <div style="color:#fff;font-size:24px;font-weight:800;font-family:monospace">#${d.num}</div>
+          <div style="margin-top:6px;background:${statusColor(d.status)};color:#fff;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;display:inline-block">${d.status}</div>
+        </div>
       </div>
     </div>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div style="font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${T.htag};border:1px solid ${T.htag};padding:3px 10px;border-radius:3px;opacity:.8">Tax Invoice</div>
-      <div style="font-size:26px;font-weight:800;color:${T.hnum};font-family:monospace;letter-spacing:-1px;line-height:1.1">#${d.num}</div>
-      <span style="display:inline-block;padding:4px 14px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:4px;background:${pbg};color:${ptxt};margin-top:2px">${d.status.toUpperCase()}</span>
-    </div>
   </div>
-
-  <!-- META STRIP -->
-  <div style="display:flex;background:${T.metabg};border-bottom:1.5px solid ${T.metabr}">
-    ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc||'—'],['Grand Total',fmt_money(d.grand,d.sym)]].map((pair,i,arr)=>`
-    <div style="flex:1;padding:12px 24px;${i<arr.length-1?`border-right:1px solid ${T.metabr}`:''}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.metalbl};margin-bottom:4px">${pair[0]}</div>
-      <div style="font-size:${pair[0]==='Grand Total'?'15':'13'}px;font-weight:${pair[0]==='Grand Total'?'800':'700'};color:${pair[0]==='Grand Total'?T.metalbl:T.metaval};font-family:monospace">${pair[1]||'—'}</div>
-    </div>`).join('')}
-  </div>
-
-  <!-- PARTIES -->
-  <div style="display:flex;border-bottom:1.5px solid ${T.metabr}">
-    <div style="flex:1;padding:18px 24px;background:${T.billbg};border-right:1.5px solid ${T.billbr}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.billlbl};margin-bottom:8px">Billed To</div>
-      ${tplClientLogoHTML(d)}
-      <div style="font-size:14px;font-weight:800;color:#111;margin-bottom:2px">${d.cname}</div>
-      ${d.cperson?`<div style="font-size:11px;color:#555;line-height:1.8">${d.cperson}</div>`:''}
-      ${d.cemail?`<div style="font-size:11px;color:#555;line-height:1.8">${d.cemail}</div>`:''}
-      ${d.cwa?`<div style="font-size:11px;color:#555;line-height:1.8">${d.cwa}</div>`:''}
-      ${d.caddr?`<div style="font-size:11px;color:#555;line-height:1.7;margin-top:3px">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
-      ${d.cgst?`<div style="font-size:11px;color:#555;margin-top:4px;font-weight:600">GSTIN: ${d.cgst}</div>`:''}
+  <div style="padding:28px 44px">
+    <div style="display:flex;gap:16px;margin-bottom:24px">
+      <div style="flex:1;border:2px solid #e0f2f1;border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:#00897B;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Bill To</div>
+        ${tplClientLogoHTML(d)}
+        <div style="font-weight:700;font-size:14px">${d.cname}</div>
+        ${d.cperson?`<div style="color:#666;font-size:12px;margin-top:2px">${d.cperson}</div>`:''}
+        ${d.cemail?`<div style="color:#888;font-size:11px">${d.cemail}</div>`:''}
+        ${d.cwa?`<div style="color:#888;font-size:11px">${d.cwa}</div>`:''}
+        ${d.caddr?`<div style="color:#888;font-size:11px;margin-top:3px">${d.caddr.replace(/\n/g,'<br>')}</div>`:''}
+        ${d.cgst?`<div style="color:#888;font-size:11px">GST: ${d.cgst}</div>`:''}
+      </div>
+      <div style="flex:0 0 200px;border:2px solid #e0f2f1;border-radius:10px;padding:14px">
+        <div style="font-size:10px;font-weight:700;color:#00897B;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Details</div>
+        ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GST No.',sc.gst]].map(([k,v])=>v?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0"><span style="color:#888">${k}</span><span style="font-weight:600">${v}</span></div>`:'').join('')}
+        <div style="margin-top:10px;background:#e0f2f1;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:#00897B">Grand Total</div>
+          <div style="font-size:20px;font-weight:800;color:#00897B;font-family:monospace">${fmt_money(d.grand,d.sym)}</div>
+        </div>
+      </div>
     </div>
-    <div style="flex:1;padding:18px 24px;background:${T.issbg}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.isslbl};margin-bottom:8px">Invoice Details</div>
-      ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc],['GSTIN',sc.gst]].map(([k,v])=>v?`
-      <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid ${T.issbr}">
-        <span style="color:#777;font-weight:600">${k}</span>
-        <span style="font-weight:700;color:#111">${v}</span>
-      </div>`:'').join('')}
-    </div>
-  </div>
-
-  <!-- LINE ITEMS -->
-  <div style="padding:0 24px;border-bottom:1.5px solid ${T.metabr}">
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="background:${T.thbg}">
-        <th style="${thStyle};width:26px">#</th>
-        <th style="${thStyle}">Description</th>
-        <th style="${thStyle};text-align:center">Type</th>
-        <th style="${thr}">Qty</th>
-        <th style="${thr}">Rate</th>
-        <th style="${thr}">Amount</th>
-        ${gstColHeader?`<th style="${thr}">GST</th>`:''}
-        <th style="${thr}">Total</th>
-      </tr></thead>
-      <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:1px solid ${T.metabr}`)}</tbody>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead><tr style="background:#00897B"><th style="padding:9px 12px;text-align:left;color:#fff;font-size:11px">Description</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Type</th><th style="padding:9px 12px;text-align:center;color:#fff;font-size:11px">Qty</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Rate</th><th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Amount</th>${gstColHeader.replace('style="','style="color:#fff;font-size:11px;')}<th style="padding:9px 12px;text-align:right;color:#fff;font-size:11px">Total</th></tr></thead>
+      <tbody>${itemsHTML}</tbody>
     </table>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="flex:1">${tplBankHTML(d,'#00695C','#e0f2f1')}${tplQrHTML(d)}${tplNotesHTML(d)}</div>
+      <div style="width:220px;border:2px solid #e0f2f1;border-radius:10px;padding:14px">${totalsRows(d,'#00897B','#e0f2f1')}</div>
+    </div>
+    ${tplSignHTML(d)}${tplTncHTML(d)}
   </div>
-
-  <!-- BOTTOM: NOTES + TOTALS -->
-  <div style="display:flex;border-top:1.5px solid ${T.metabr}">
-    <div style="flex:1;padding:18px 24px;background:${T.notesbg};border-right:1.5px solid ${T.notesbr}">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.noteslbl};margin-bottom:7px">Notes</div>
-      ${tplBankHTML(d,T.noteslbl,T.notesbg)}
-      ${tplNotesHTML(d,T.noteslbl,T.notesbg)}
-      ${tplTncHTML(d,T.noteslbl)}
-    </div>
-    <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
-      <div style="flex:1">
-        ${['Subtotal','Discount','GST'].map(k=>`
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">${k}</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">
-            ${k==='Subtotal'?fmt_money(d.sub,d.sym):k==='Discount'?(d.discAmt>0?'−'+fmt_money(d.discAmt,d.sym):'—'):(d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):'—')}
-          </span>
-        </div>`).join('')}
-      </div>
-      <div style="background:${T.grandbg};padding:16px 22px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-        <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- SIGN -->
-  ${tplSignHTML(d)}
-
-  <!-- FOOTER -->
-  ${d.popt.footer!==false?`
-  <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company} · GSTIN: ${sc.gst||'—'}</div>
-      <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
-    </div>
-    <div style="text-align:right">
-      <div style="width:110px;border-bottom:1px solid ${T.foottext};height:24px;margin-left:auto;margin-bottom:4px"></div>
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${T.foottext}">Authorised Signatory</div>
-    </div>
-  </div>`:''}
+  ${footerBar(d,sc,'#00897B','rgba(255,255,255,.6)')}
   </div>`;
 }
 
@@ -6054,7 +5892,7 @@ function _renderRptCharts(){
 // ══════════════════════════════════════════
 // TEMPLATES GRID
 // ══════════════════════════════════════════
-const tplNames = ['Pure Black','Colorful Matte','Bold Dark','Minimal Clean','Corporate Blue','Warm Orange','Purple Gradient','Green Leaf','Red Executive'];
+const tplNames = ['Classic Pro','Modern Teal','Bold Dark','Minimal Clean','Corporate Blue','Warm Orange','Purple Gradient','Green Leaf','Red Executive'];
 const tplColors = ['#1A2332','#00897B','#0F172A','#000000','#1565C0','#E64A19','#7B1FA2','#1B5E20','#B71C1C'];
 const tplAccents = ['#4DB6AC','#26A69A','#38BDF8','#CCCCCC','#42A5F5','#FF7043','#AB47BC','#A5D6A7','#EF9A9A'];
 
@@ -7103,7 +6941,6 @@ document.addEventListener('DOMContentLoaded', function() {
       renderPayments();
       renderTemplatesGrid();
       populateTemplateForm();
-      syncThemePicker();
       renderNotifications();
       populateSettingsForm();
       populateWAPage();
@@ -7869,33 +7706,8 @@ const TPL_CUSTOM = {
   footerText: '', tagline: '', watermarkText: 'PAID',
   companyNameSize: '28', companyNameColor: '#ffffff',
   companyNameWeight: '800', companyNameStyle: 'normal',
-  logoPosition: 'left',
-  colorTheme: 1
+  logoPosition: 'left'
 };
-
-// Show/hide theme picker depending on active template
-function syncThemePicker() {
-  const tplSel = document.getElementById('f-template');
-  const picker  = document.getElementById('tpl2-theme-picker');
-  if (!picker) return;
-  picker.style.display = (tplSel && tplSel.value === '2') ? 'block' : 'none';
-}
-
-// Set matte theme for Template 2
-function setMatteTheme(id) {
-  TPL_CUSTOM.colorTheme = id;
-  const hidEl = document.getElementById('tpl-color-theme');
-  if (hidEl) hidEl.value = id;
-  // Highlight active button
-  for (let i = 1; i <= 8; i++) {
-    const btn = document.getElementById('mtheme-btn-' + i);
-    if (!btn) continue;
-    btn.style.background   = (i === id) ? '#1A2332' : '#fff';
-    btn.style.color        = (i === id) ? '#fff'    : 'var(--text2)';
-    btn.style.borderColor  = (i === id) ? '#1A2332' : 'var(--border)';
-  }
-  livePreview();
-}
 
 function setTplColor(inputId, color) {
   const colorInput = document.getElementById(inputId);
@@ -7944,7 +7756,6 @@ window.applyTplCustomization = function() {
   TPL_CUSTOM.color1       = readColor('tpl-color1-hex', 'tpl-color1') || TPL_CUSTOM.color1;
   TPL_CUSTOM.color2       = readColor('tpl-color2-hex', 'tpl-color2') || TPL_CUSTOM.color2;
   TPL_CUSTOM.font         = document.getElementById('tpl-font')?.value        || TPL_CUSTOM.font;
-  TPL_CUSTOM.colorTheme   = parseInt(document.getElementById('tpl-color-theme')?.value||'1') || 1;
   TPL_CUSTOM.headerStyle  = document.getElementById('tpl-header-style')?.value|| TPL_CUSTOM.headerStyle;
   TPL_CUSTOM.tableStyle   = document.getElementById('tpl-table-style')?.value || TPL_CUSTOM.tableStyle;
   TPL_CUSTOM.footerText   = document.getElementById('tpl-footer-text')?.value ?? '';
