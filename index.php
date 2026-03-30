@@ -4741,7 +4741,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         ${d.discAmt>0?`
         <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
           <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
-          <span style="font-family:monospace;font-weight:700;color:#DC2626">${fmt_money(d.discAmt,d.sym)}</span>
+          <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
         </div>`:''}
         <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
           <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
