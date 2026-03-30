@@ -4167,10 +4167,10 @@ function tplWatermark(d) {
   return `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:80px;font-weight:900;color:${wColor};z-index:0;pointer-events:none;white-space:nowrap;letter-spacing:8px">${wText}</div>`;
 }
 function tplBankHTML(d, color='#00695C', bg='#e0f2f1', border='') {
+  if (!d.popt || d.popt.bank === false) return '';
   if (d.status === 'Paid') return '';  // Hide bank details on paid invoices
   const _sc = (typeof STATE !== 'undefined' ? STATE.settings : {});
   const bankText = d.bank || _sc.defaultBank || '';
-  if (!d.popt || d.popt.bank === false) return '';
   const sc  = _sc;
   const upi = d.upi || sc.upi || '';
   const hasBank = !!bankText;
@@ -4252,11 +4252,15 @@ function tplNotesHTML(d, color='#795548', bg='#fff8e1') {
     </div>`;
   }
   if (!d.notes) return '';
-  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${d.notes}</div>`;
+  const notesHtml = d.notes.replace(/\n/g, '<br>');
+  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${notesHtml}</div>`;
 }
 function tplTncHTML(d, color='#888') {
-  if (!d.popt.tnc || !d.tnc) return '';
-  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${d.tnc}</div></div>`;
+  if (!d.popt || !d.popt.tnc) return '';
+  const tnc = (d.tnc || '').trim();
+  if (!tnc) return '';
+  const tncHtml = tnc.replace(/\n/g, '<br>');
+  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${tncHtml}</div></div>`;
 }
 
 // ── TEMPLATE 1: Pure Black ──
@@ -5167,8 +5171,8 @@ function printInvoiceById(inv) {
     cperson:c.person||'', cemail:c.email||'', cwa:c.wa||c.whatsapp||'',
     cgst:c.gst||c.gst_number||'', caddr:c.addr||c.address||'',
     disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0, discType:inv.discount_type||(parseFloat(inv.discount_amt)>0&&!(parseFloat(inv.disc||0)>0)?'fixed':'percent'),
-    notes:inv.notes||'', bank:inv.bank||inv.bank_details||'',
-    tnc:inv.tnc||inv.terms||'', status:inv.status, sym,
+    notes:inv.notes||'', bank:inv.bank||inv.bank_details||STATE.settings.defaultBank||'',
+    tnc:inv.tnc||inv.terms||STATE.settings.defaultTnC||'', status:inv.status, sym,
     sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
     grand:parseFloat(inv.amount||inv.grand_total)||0,
     invId: String(inv.id||''),
@@ -5176,9 +5180,12 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||'OPTMS Tech Invoice Manager',
     showGeneratedBy:true,
-    popt:{bank:true,qr:!!(inv.qr_code),sign:true,
-          logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,
-          watermark:inv.status==='Paid'}
+    popt:(function(){
+      // Parse pdf_options from DB (may be JSON string or already an object)
+      let saved = inv.pdf_options || inv.popt || null;
+      if (saved && typeof saved === 'string') { try { saved = JSON.parse(saved); } catch(e) { saved = null; } }
+      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:inv.status==='Paid'}, saved||{});
+    })()
   };
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
               6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9};
@@ -5246,7 +5253,7 @@ async function saveInvoice() {
     showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
     }
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
     STATE.editingInvoiceId = null;
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
@@ -5309,7 +5316,7 @@ function openPreviewModal(id) {
     discAmt: parseFloat(inv.discount_amt) > 0 ? parseFloat(inv.discount_amt) : (inv.subtotal ? inv.subtotal * (parseFloat(inv.disc||inv.discount_pct)||0) / 100 : 0),
     notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
-    tnc: inv.tnc || inv.terms || '',
+    tnc: inv.tnc || inv.terms || STATE.settings.defaultTnC || '',
     status: inv.status,
     sym: inv.currency || '₹',
     sub: inv.subtotal || inv.amount,
@@ -5318,12 +5325,11 @@ function openPreviewModal(id) {
     companyLogo: STATE.settings.logo || sc.logo || '',
     clientLogo: '',
     signature: sc.signature || STATE.settings.signature || '',
-    qrUrl: '',
+    qrUrl: inv.qr_code || '',
     invId: String(inv.id || ''),
-    popt: { bank:true, qr:false, sign:!!(sc.signature||STATE.settings.signature), logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:true },
+    popt: (function(){ var saved=inv.pdf_options||inv.popt||null; if(saved&&typeof saved==='string'){try{saved=JSON.parse(saved);}catch(e){saved=null;}} return Object.assign({bank:true,qr:!!(inv.qr_code),sign:!!(sc.signature||STATE.settings.signature),logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:true},saved||{}); })(),
     generatedBy: 'OPTMS Tech Invoice Manager · optmstech.in',
-    showGeneratedBy: true,
-    invId: String(inv.id || '')
+    showGeneratedBy: true
   };
   // Recalculate totals from items if available
   if (inv.items && inv.items.length) {
@@ -5696,7 +5702,7 @@ function confirmPaid() {
   api('api/payments.php','POST',payload)
     .then(() => Promise.all([api('api/invoices.php'),api('api/payments.php')]))
     .then(([ir,pr]) => {
-      if (ir&&ir.data) { STATE.invoices=ir.data; STATE.filteredInvoices=[...ir.data]; }
+      if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
       if (pr&&pr.data)   STATE.payments=pr.data;
       renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
@@ -7203,6 +7209,27 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   }
 })();
 
+// ── Normalize invoice object from API ─────────────────────────
+// Parses JSON-string fields (pdf_options, items) returned from DB,
+// and unifies field aliases (bank_details→bank, terms→tnc, etc.)
+function normalizeInvoice(inv) {
+  if (!inv || typeof inv !== 'object') return inv;
+  // Parse pdf_options JSON string from DB into object
+  if (inv.pdf_options && typeof inv.pdf_options === 'string') {
+    try { inv.pdf_options = JSON.parse(inv.pdf_options); } catch(e) { inv.pdf_options = null; }
+  }
+  // Parse items JSON string from DB into array
+  if (inv.items && typeof inv.items === 'string') {
+    try { inv.items = JSON.parse(inv.items); } catch(e) { inv.items = []; }
+  }
+  if (!Array.isArray(inv.items)) inv.items = [];
+  // Unify bank field aliases
+  if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
+  // Unify tnc field aliases
+  if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
+  return inv;
+}
+
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
@@ -7213,7 +7240,7 @@ async function loadAllData() {
       api('api/payments.php'),
       api('api/settings.php'),
     ]);
-    STATE.invoices  = Array.isArray(inv.data)  ? inv.data  : [];
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
@@ -9890,7 +9917,7 @@ async function runRecurringCheck() {
   if (generated > 0) {
     // Reload invoices
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDashRecent(); updateDashStats();
     toast(`✅ ${generated} invoice${generated>1?'s':''} generated!`, 'success');
