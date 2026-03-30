@@ -4398,9 +4398,9 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   <!-- HEADER -->
   <div style="background:${T.hbg};padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
     <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:44px;max-width:150px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none'">`:''}
+      ${sc.logo?`<img src="${sc.logo}" style="height:110px;max-width:350px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none'">`:''}
       <div style="font-size:20px;font-weight:800;color:${T.htext};letter-spacing:-.5px;line-height:1;margin-bottom:2px">${sc.company}</div>
-      <div style="font-size:10px;color:${T.htag};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600">Code is made of possible</div>
+      <div style="font-size:10px;color:${T.htag};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600">Code we make it possible</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
         ${sc.phone?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">${sc.phone}</div>`:''}
         ${sc.email?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9">${sc.email}</div>`:''}
