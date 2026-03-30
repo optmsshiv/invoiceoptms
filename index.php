@@ -1,7 +1,7 @@
 <?php
 // ================================================================
 //  OPTMS Tech Invoice Manager — index.php (Production, domain root)
-//  Works at: http://invcs.optms.co.in/ 
+//  Works at: http://invcs.optms.co.in/
 // ================================================================
 
 // ── Error handling: suppress display, log to file ──────────────
@@ -2620,7 +2620,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
     <!-- ─────────── RECURRING MODAL ─────────── -->
     <div id="modal-recurring" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-recurring')">
-      <div class="modal-box" style="width:520px;max-width:95vw;background:var(--card);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .2s ease;display:flex;flex-direction:column">
+      <div class="modal-box" style="width:520px;max-width:95vw">
         <div class="modal-header">
           <span class="modal-title" id="rec-modal-title">New Recurring Schedule</span>
           <button class="modal-close" onclick="closeModal('modal-recurring')">×</button>
@@ -4149,15 +4149,14 @@ function tplWatermark(d) {
   let wText = '', wColor = '';
   if (d.status === 'Paid') {
     wText  = (window.TPL_CUSTOM && TPL_CUSTOM.watermarkText) ? TPL_CUSTOM.watermarkText : 'PAID';
-    wColor = 'rgba(0,150,0,.13)';
-    // Always show PAID watermark — it confirms payment status clearly on the PDF
+    wColor = 'rgba(0,150,0,.12)';
+    if (!d.popt || !d.popt.watermark) return '';
   } else if (d.status === 'Cancelled') {
     wText = 'CANCELLED'; wColor = 'rgba(183,28,28,.15)';
   } else if (d.status === 'Partial') {
     wText = 'PARTIAL'; wColor = 'rgba(255,152,0,.13)';
   } else if (d.status === 'Pending') {
     wText = 'PENDING'; wColor = 'rgba(255,152,0,.10)';
-    if (!d.popt || !d.popt.watermark) return '';
   } else if (d.status === 'Overdue') {
     wText = 'OVERDUE'; wColor = 'rgba(229,57,53,.12)';
   } else if (d.status === 'Draft') {
@@ -4168,10 +4167,10 @@ function tplWatermark(d) {
   return `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:80px;font-weight:900;color:${wColor};z-index:0;pointer-events:none;white-space:nowrap;letter-spacing:8px">${wText}</div>`;
 }
 function tplBankHTML(d, color='#00695C', bg='#e0f2f1', border='') {
-  if (!d.popt || d.popt.bank === false) return '';
   if (d.status === 'Paid') return '';  // Hide bank details on paid invoices
   const _sc = (typeof STATE !== 'undefined' ? STATE.settings : {});
   const bankText = d.bank || _sc.defaultBank || '';
+  if (!d.popt || d.popt.bank === false) return '';
   const sc  = _sc;
   const upi = d.upi || sc.upi || '';
   const hasBank = !!bankText;
@@ -4253,15 +4252,11 @@ function tplNotesHTML(d, color='#795548', bg='#fff8e1') {
     </div>`;
   }
   if (!d.notes) return '';
-  const notesHtml = d.notes.replace(/\n/g, '<br>');
-  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${notesHtml}</div>`;
+  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${d.notes}</div>`;
 }
 function tplTncHTML(d, color='#888') {
-  if (!d.popt || !d.popt.tnc) return '';
-  const tnc = (d.tnc || '').trim();
-  if (!tnc) return '';
-  const tncHtml = tnc.replace(/\n/g, '<br>');
-  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${tncHtml}</div></div>`;
+  if (!d.popt.tnc || !d.tnc) return '';
+  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${d.tnc}</div></div>`;
 }
 
 // ── TEMPLATE 1: Pure Black ──
@@ -4479,7 +4474,6 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       <span>Grand Total</span><span style="font-family:monospace">${fmt_money(d.grand||0,d.sym)}</span>
     </div>
     ${paidRow}${remainRow}`;
-  // ORDER: Subtotal → Discount → Amount → GST → Grand Total
 }
 
 function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
@@ -4554,7 +4548,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   const thStyle = `padding:10px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.thtext};text-align:left`;
   const thr = `${thStyle};text-align:right`;
 
-  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;border:1.5px solid ${T.metabr};border-radius:0">
+  return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden;border:1.5px solid ${T.metabr};border-radius:0">
   ${tplWatermark(d)}
 
   <!-- COLOR BAND -->
@@ -4629,146 +4623,49 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </table>
   </div>
 
-  <!-- BOTTOM: Bank | Notes | T&C in amber row, then totals+history -->
-  ${(()=>{
-    /* ── gather payment data ── */
-    const invId = d.invId ? String(d.invId) : '';
-    const isPartial = d.status === 'Partial';
-    const isPaid    = d.status === 'Paid';
-    const showHistory = (isPartial || isPaid) && invId && invId !== '0';
-    let paymentsForInv = [], totalPaid = 0, remaining = 0;
-    if (showHistory) {
-      const allPmts = (typeof STATE !== 'undefined' ? STATE.payments : []);
-      /* Sort strictly by payment date ASC, then by DB id ASC as tiebreaker — ensures 800→300→500 order */
-      paymentsForInv = allPmts
-        .filter(p => p.invoice_id && String(p.invoice_id) === invId)
-        .slice()
-        .sort((a, b) => {
-          const da = new Date(a.payment_date || a.date || 0).getTime();
-          const db = new Date(b.payment_date || b.date || 0).getTime();
-          if (da !== db) return da - db;
-          return (parseInt(a.id) || 0) - (parseInt(b.id) || 0);
-        });
-      totalPaid = paymentsForInv.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-      remaining = Math.max(0, (d.grand || 0) - totalPaid);
-    }
-
-    /* ── amber info row: Bank Details | Notes | Terms & Conditions ── */
-    const bankText = d.bank || (typeof STATE !== 'undefined' ? STATE.settings.defaultBank : '') || '';
-    const upi      = d.upi  || (typeof STATE !== 'undefined' ? STATE.settings.upi         : '') || '';
-    const hasBank  = !!bankText, hasUpi = !!upi;
-
-    const bankCol = (hasBank || hasUpi) ? `
-      <div style="flex:1;padding:16px 20px;background:#FFFBEB;border-right:1.5px solid #FDE68A">
-        <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:8px">💳 Bank Details</div>
-        ${hasBank ? `<div style="font-size:10.5px;line-height:2;color:#78350F">${bankText.split('|').map(s=>s.trim()).filter(Boolean).map(s=>`<div>${s}</div>`).join('')}</div>` : ''}
-        ${hasUpi  ? `<div style="margin-top:${hasBank?'8':'0'}px;display:inline-flex;align-items:center;gap:6px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:6px;padding:5px 10px">
-            <span style="font-size:10px;font-weight:700;color:#B45309">📲 UPI</span>
-            <span style="font-size:11px;font-weight:800;color:#78350F;letter-spacing:.3px">${upi}</span>
-          </div>` : ''}
-      </div>` : '';
-
-    const showNotes = d.popt && d.popt.notes && d.notes;
-    /* For Paid status: show thank-you message instead of regular notes */
-    const notesContent = isPaid
-      ? `<div style="font-size:11px;color:#78350F;line-height:1.8">
-           <div style="font-weight:800;font-size:13px;margin-bottom:4px;color:#B45309">🎉 Thank You for Your Payment!</div>
-           <div>We appreciate your prompt payment and continued trust in <strong>${sc.company||''}</strong>. Your account is now fully clear.</div>
-         </div>`
-      : (showNotes ? `<div style="font-size:11px;color:#78350F;line-height:1.7">${d.notes.replace(/\n/g,'<br>')}</div>` : '');
-
-    const notesCol = notesContent ? `
-      <div style="flex:1;padding:16px 20px;background:#FFFBEB;border-right:1.5px solid #FDE68A">
-        <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:8px">Notes</div>
-        ${notesContent}
-      </div>` : '';
-
-    const tncText  = (d.popt && d.popt.tnc) ? (d.tnc || '').trim() : '';
-    const tncCol   = tncText ? `
-      <div style="flex:1;padding:16px 20px;background:#FFFBEB">
-        <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:8px">Terms &amp; Conditions</div>
-        <div style="font-size:10.5px;color:#78350F;line-height:1.7">${tncText.replace(/\n/g,'<br>')}</div>
-      </div>` : '';
-
-    const infoRow = (bankCol || notesCol || tncCol) ? `
-      <div style="display:flex;border-top:1.5px solid #FDE68A;border-bottom:1.5px solid #FDE68A">
-        ${bankCol}${notesCol}${tncCol}
-      </div>` : '';
-
-    /* ── instalment history rows (date-sorted) ── */
-    const instalmentRows = paymentsForInv.map((p, i) => {
-      const rawDt  = p.payment_date || p.date || '';
-      const dtF    = rawDt ? new Date(rawDt).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : '';
-      const meth   = (p.method || '').replace('Split: ','').substring(0, 28);
-      const isSplit= (p.method || '').startsWith('Split');
-      return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:5px 22px;border-bottom:1px dashed #D1FAE5">
-        <span style="color:#166534;flex:1">${isSplit ? '⚡' : '✓'} Instalment ${i + 1}${dtF ? ' · <em style="font-weight:500">' + dtF + '</em>' : ''}${meth ? ' · ' + meth : ''}</span>
-        <span style="font-family:monospace;font-weight:700;color:#166534;white-space:nowrap">−${fmt_money(parseFloat(p.amount || 0), d.sym)}</span>
-      </div>`;
-    }).join('');
-
-    const totalPaidRow = (showHistory && totalPaid > 0.01) ? `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="color:#166534;font-weight:700">${isPaid ? '✅' : '💚'} ${isPaid ? 'Paid in Full' : 'Total Paid'}${paymentsForInv.length > 1 ? ' (' + paymentsForInv.length + ' instalments)' : ''}</span>
-        <span style="font-family:monospace;font-weight:800;color:#166534">−${fmt_money(totalPaid, d.sym)}</span>
-      </div>
-      ${paymentsForInv.length > 1 ? `<div style="background:#F0FDF4;border-bottom:1px solid ${T.totbr}">${instalmentRows}</div>` : ''}` : '';
-
-    const remainRow = (isPartial && remaining > 0.01) ? `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 22px;margin:8px 14px;background:#FFF8E1;border:2px solid #F59E0B;border-radius:8px;font-size:13px;font-weight:800;color:#B45309">
-        <span>⚠ Remaining Due</span>
-        <span style="font-family:monospace">${fmt_money(remaining, d.sym)}</span>
-      </div>` : '';
-
-    const signBlock = d.popt.sign ? (()=>{
-      const sig = d.signature || (typeof STATE !== 'undefined' ? STATE.settings.signature : '') || '';
-      return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">
-        ${sig ? `<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">` : `<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>`}
-        <div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div>
-        <div style="font-size:10px;color:#bbb">${sc.company}</div>
-      </div>`;
-    })() : '';
-
-    return `
-    ${infoRow}
-    <!-- Totals aligned right -->
-    <div style="display:flex;justify-content:flex-end;border-top:1.5px solid ${T.metabr}">
-      <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Subtotal</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money(d.sub,d.sym)}</span>
-        </div>
-        ${d.discAmt>0?`
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
-          <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
-        </div>`:''}
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
-        </div>
-        <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
-          <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-          <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
-        </div>
-        ${totalPaidRow}${remainRow}${signBlock}
-      </div>
+  <!-- BOTTOM: NOTES + TOTALS -->
+  <div style="display:flex;border-top:1.5px solid ${T.metabr}">
+    <div style="flex:1;padding:18px 24px;background:#FFFBEB;border-right:1.5px solid #FDE68A">
+      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:7px">Notes</div>
+      ${tplBankHTML(d,'#B45309','#FFFBEB')}
+      ${tplNotesHTML(d,'#B45309','#FFFBEB')}
+      ${tplTncHTML(d,'#B45309')}
     </div>
-
-    <!-- FOOTER -->
-    ${d.popt.footer!==false?`
-    <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
-        <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
+    <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Subtotal</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money(d.sub,d.sym)}</span>
       </div>
-    </div>`:''}
-    </div>`;
-  })()}
+      ${d.discAmt>0?`
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
+        <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
+      </div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
+      </div>
+      <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
+        <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
+      </div>
+      ${d.popt.sign?(()=>{const sig=d.signature||STATE.settings.signature||'';return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">${sig?`<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">`:'<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>'}<div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div><div style="font-size:10px;color:#bbb">${sc.company}</div></div>`;})():''}
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  ${d.popt.footer!==false?`
+  <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
+      <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
+    </div>
+  </div>`:''}
+  </div>`;
 }
 
 // ── TEMPLATE 3: Bold Dark ──
@@ -5270,8 +5167,8 @@ function printInvoiceById(inv) {
     cperson:c.person||'', cemail:c.email||'', cwa:c.wa||c.whatsapp||'',
     cgst:c.gst||c.gst_number||'', caddr:c.addr||c.address||'',
     disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0, discType:inv.discount_type||(parseFloat(inv.discount_amt)>0&&!(parseFloat(inv.disc||0)>0)?'fixed':'percent'),
-    notes:inv.notes||'', bank:inv.bank||inv.bank_details||STATE.settings.defaultBank||'',
-    tnc:inv.tnc||inv.terms||STATE.settings.defaultTnC||'', status:inv.status, sym,
+    notes:inv.notes||'', bank:inv.bank||inv.bank_details||'',
+    tnc:inv.tnc||inv.terms||'', status:inv.status, sym,
     sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
     grand:parseFloat(inv.amount||inv.grand_total)||0,
     invId: String(inv.id||''),
@@ -5279,12 +5176,9 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||'OPTMS Tech Invoice Manager',
     showGeneratedBy:true,
-    popt:(function(){
-      // Parse pdf_options from DB (may be JSON string or already an object)
-      let saved = inv.pdf_options || inv.popt || null;
-      if (saved && typeof saved === 'string') { try { saved = JSON.parse(saved); } catch(e) { saved = null; } }
-      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:inv.status==='Paid'}, saved||{});
-    })()
+    popt:{bank:true,qr:!!(inv.qr_code),sign:true,
+          logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,
+          watermark:inv.status==='Paid'}
   };
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
               6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9};
@@ -5349,19 +5243,16 @@ async function saveInvoice() {
     } else {
       await api('api/invoices.php', 'POST', payload);
       toast('✅ Invoice ' + d.num + ' saved!', 'success');
-      // Reset form for next new invoice
-      STATE.editingInvoiceId = null;
-      resetCreateForm();
-      setTimeout(livePreview, 50);
-      showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
+    showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
     }
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data : [];
     STATE.filteredInvoices = [...STATE.invoices];
     STATE.editingInvoiceId = null;
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
     const badge = document.getElementById('badge-invoices');
     if (badge) badge.textContent = STATE.invoices.length;
+    // Auto-generate portal link for new invoices (silent background)
     if (!STATE.editingInvoiceId) {
       const savedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
       if (savedInv && savedInv.id) {
@@ -5418,7 +5309,7 @@ function openPreviewModal(id) {
     discAmt: parseFloat(inv.discount_amt) > 0 ? parseFloat(inv.discount_amt) : (inv.subtotal ? inv.subtotal * (parseFloat(inv.disc||inv.discount_pct)||0) / 100 : 0),
     notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
-    tnc: inv.tnc || inv.terms || STATE.settings.defaultTnC || '',
+    tnc: inv.tnc || inv.terms || '',
     status: inv.status,
     sym: inv.currency || '₹',
     sub: inv.subtotal || inv.amount,
@@ -5427,11 +5318,12 @@ function openPreviewModal(id) {
     companyLogo: STATE.settings.logo || sc.logo || '',
     clientLogo: '',
     signature: sc.signature || STATE.settings.signature || '',
-    qrUrl: inv.qr_code || '',
+    qrUrl: '',
     invId: String(inv.id || ''),
-    popt: (function(){ var saved=inv.pdf_options||inv.popt||null; if(saved&&typeof saved==='string'){try{saved=JSON.parse(saved);}catch(e){saved=null;}} return Object.assign({bank:true,qr:!!(inv.qr_code),sign:!!(sc.signature||STATE.settings.signature),logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:true},saved||{}); })(),
+    popt: { bank:true, qr:false, sign:!!(sc.signature||STATE.settings.signature), logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:true },
     generatedBy: 'OPTMS Tech Invoice Manager · optmstech.in',
-    showGeneratedBy: true
+    showGeneratedBy: true,
+    invId: String(inv.id || '')
   };
   // Recalculate totals from items if available
   if (inv.items && inv.items.length) {
@@ -5804,7 +5696,7 @@ function confirmPaid() {
   api('api/payments.php','POST',payload)
     .then(() => Promise.all([api('api/invoices.php'),api('api/payments.php')]))
     .then(([ir,pr]) => {
-      if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
+      if (ir&&ir.data) { STATE.invoices=ir.data; STATE.filteredInvoices=[...ir.data]; }
       if (pr&&pr.data)   STATE.payments=pr.data;
       renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
@@ -7311,27 +7203,6 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   }
 })();
 
-// ── Normalize invoice object from API ─────────────────────────
-// Parses JSON-string fields (pdf_options, items) returned from DB,
-// and unifies field aliases (bank_details→bank, terms→tnc, etc.)
-function normalizeInvoice(inv) {
-  if (!inv || typeof inv !== 'object') return inv;
-  // Parse pdf_options JSON string from DB into object
-  if (inv.pdf_options && typeof inv.pdf_options === 'string') {
-    try { inv.pdf_options = JSON.parse(inv.pdf_options); } catch(e) { inv.pdf_options = null; }
-  }
-  // Parse items JSON string from DB into array
-  if (inv.items && typeof inv.items === 'string') {
-    try { inv.items = JSON.parse(inv.items); } catch(e) { inv.items = []; }
-  }
-  if (!Array.isArray(inv.items)) inv.items = [];
-  // Unify bank field aliases
-  if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
-  // Unify tnc field aliases
-  if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
-  return inv;
-}
-
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
@@ -7342,7 +7213,7 @@ async function loadAllData() {
       api('api/payments.php'),
       api('api/settings.php'),
     ]);
-    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data  : [];
     STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
@@ -10019,7 +9890,7 @@ async function runRecurringCheck() {
   if (generated > 0) {
     // Reload invoices
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data : [];
     STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDashRecent(); updateDashStats();
     toast(`✅ ${generated} invoice${generated>1?'s':''} generated!`, 'success');
