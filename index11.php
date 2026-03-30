@@ -3226,8 +3226,20 @@ let donutChartInstance = null;
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
-// NOTE: Init is handled below by the DB-backed DOMContentLoaded at line ~7512
-// (removed duplicate early-init that was rendering empty STATE before DB loaded)
+window.addEventListener('DOMContentLoaded', () => {
+  setTodayDates();
+  addItem();
+  updateClientDropdown();
+  renderDashboard();
+  renderInvoicesTable();
+  renderClients();
+  renderProducts();
+  renderPayments();
+  renderTemplatesGrid();
+  setTimeout(livePreview, 100);
+  STATE.filteredInvoices = [...STATE.invoices];
+  document.addEventListener('click', closeAllDropdowns);
+});
 
 function setTodayDates() {
   const today = new Date();
@@ -7317,50 +7329,23 @@ function normalizeInvoice(inv) {
   if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
   // Unify tnc field aliases
   if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
-  // FIX: Alias DB snake_case field names to short JS names used throughout the app
-  if (!inv.num     && inv.invoice_number) inv.num     = inv.invoice_number;
-  if (!inv.issued  && inv.issued_date)    inv.issued   = inv.issued_date;
-  if (!inv.due     && inv.due_date)       inv.due      = inv.due_date;
-  if (!inv.service && inv.service_type)   inv.service  = inv.service_type;
-  if (!inv.amount  && inv.grand_total)    inv.amount   = parseFloat(inv.grand_total);
-  if (!inv.disc    && inv.discount_pct)   inv.disc     = parseFloat(inv.discount_pct);
-  // Unify client id to string for consistent comparisons
-  if (inv.client_id !== undefined && inv.client_id !== null) inv.client = String(inv.client_id);
-  else if (inv.client !== undefined && inv.client !== null)  inv.client = String(inv.client);
-  // Unify template field
-  if (!inv.template && inv.template_id)  inv.template = inv.template_id;
   return inv;
 }
 
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    // FIX: Use allSettled so one failing endpoint never blocks invoices/clients loading
-    const [invR, clsR, prdR, pmtR, cfgR] = await Promise.allSettled([
+    const [inv, cls, prd, pmt, cfg] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
       api('api/payments.php'),
       api('api/settings.php'),
     ]);
-    if (invR.status === 'fulfilled' && Array.isArray(invR.value?.data))
-      STATE.invoices  = invR.value.data.map(normalizeInvoice);
-    else if (invR.status === 'rejected') console.warn('invoices API error:', invR.reason?.message);
-
-    if (clsR.status === 'fulfilled' && Array.isArray(clsR.value?.data))
-      STATE.clients   = clsR.value.data;
-    else if (clsR.status === 'rejected') console.warn('clients API error:', clsR.reason?.message);
-
-    if (prdR.status === 'fulfilled' && Array.isArray(prdR.value?.data))
-      STATE.products  = prdR.value.data;
-    else if (prdR.status === 'rejected') console.warn('products API error:', prdR.reason?.message);
-
-    if (pmtR.status === 'fulfilled' && Array.isArray(pmtR.value?.data))
-      STATE.payments  = pmtR.value.data;
-    else if (pmtR.status === 'rejected') console.warn('payments API error:', pmtR.reason?.message);
-
-    // alias so the rest of the function (settings merge) is unchanged
-    const cfg = (cfgR.status === 'fulfilled') ? cfgR.value : { data: null };
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
+    STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
+    STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
+    STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Merge latest server settings into STATE.settings
     if (cfg.data) {
