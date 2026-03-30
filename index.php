@@ -5146,7 +5146,7 @@ function openPreviewModal(id) {
   // Build items HTML
   const invItems = (inv.items||[]);
   const previewItemsHTML = invItems.length
-    ? invItems.map(i => {
+    ? invItems.map((i, idx) => {
         const qty  = parseFloat(i.qty||i.quantity||1);
         const rate = parseFloat(i.rate||0);
         const gstR = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
@@ -5155,23 +5155,32 @@ function openPreviewModal(id) {
         const gstAmt      = line * gstR / 100;
         const lineInclGst = line + gstAmt;
         const itype       = i.itemType||i.item_type||'Service';
+        const gstBadge = gstR === 0
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1">${gstR}%</span>`
+          : gstR <= 5
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F0FDF4;color:#166534;border:1px solid #86EFAC">${gstR}%</span>`
+          : gstR <= 12
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">${gstR}%</span>`
+          : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">${gstR}%</span>`;
         return `<tr>
-          <td style="padding:9px 12px;border-bottom:1px solid #eee">${desc}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
-          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
-          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${gstR}%</td>
-          <td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #eee;font-weight:700;color:#111">${desc}</td>
+          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee"><span style="font-size:10px;font-weight:700;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">${itype}</span></td>
+          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
+          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
+          <td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>
+          <td style="padding:9px 12px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#111">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="7" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
+  const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
   const templates = { 1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9 };
   const fn = templates[d.tpl] || buildTpl1;
   const scale = 0.72;
   const scaledH = Math.round(1123*scale);
-  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${fn(d, sc, previewItemsHTML, gstColHeader)}</div></div>`;
+  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader)}</div></div>`;
   document.getElementById('mp-body').innerHTML = previewWrap;
   const titleEl = document.getElementById('mp-title');
   titleEl.textContent = `Invoice ${inv.num} — ${c.name||''}`;
