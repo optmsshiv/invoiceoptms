@@ -1,7 +1,7 @@
 <?php
 // ================================================================
 //  OPTMS Tech Invoice Manager — index.php (Production, domain root)
-//  Works at: http://invcs.optms.co.in/
+//  Works at: http://invcs.optms.co.in/ 
 // ================================================================
 
 // ── Error handling: suppress display, log to file ──────────────
