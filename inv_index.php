@@ -2620,7 +2620,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
     <!-- ─────────── RECURRING MODAL ─────────── -->
     <div id="modal-recurring" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-recurring')">
-      <div class="modal-box" style="width:520px;max-width:95vw;background:var(--card);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .2s ease;display:flex;flex-direction:column">
+      <div class="modal-box" style="width:520px;max-width:95vw">
         <div class="modal-header">
           <span class="modal-title" id="rec-modal-title">New Recurring Schedule</span>
           <button class="modal-close" onclick="closeModal('modal-recurring')">×</button>
@@ -4478,7 +4478,6 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       <span>Grand Total</span><span style="font-family:monospace">${fmt_money(d.grand||0,d.sym)}</span>
     </div>
     ${paidRow}${remainRow}`;
-  // ORDER: Subtotal → Discount → Amount → GST → Grand Total
 }
 
 function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
@@ -4628,72 +4627,37 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </table>
   </div>
 
-  <!-- BOTTOM: BANK | NOTES | TNC in row, then TOTALS -->
-  <div style="display:flex;flex-direction:column;border-top:1.5px solid ${T.metabr}">
-    <!-- Row: Bank Details | Notes | Terms & Conditions -->
-    <div style="display:flex;border-bottom:1px solid ${T.metabr}">
-      ${(()=>{ const bankText = d.bank || (typeof STATE!=='undefined'?STATE.settings.defaultBank:'') || ''; const upi = d.upi || (typeof STATE!=='undefined'?STATE.settings.upi:'') || ''; const hasBank=!!bankText; const hasUpi=!!upi; if (!hasBank && !hasUpi) return ''; return `<div style="flex:1;padding:14px 18px;border-right:1px solid ${T.metabr}"><div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.noteslbl};margin-bottom:7px">💳 Bank Details</div>${hasBank?`<div style="font-size:10.5px;line-height:1.9;color:${T.noteslbl}">${bankText.split('|').map(s=>s.trim()).filter(Boolean).map(s=>`<div>${s}</div>`).join('')}</div>`:''}${hasUpi?`<div style="margin-top:6px;font-size:10px;font-weight:700;color:${T.noteslbl}">📲 UPI: ${upi}</div>`:''}</div>`; })()}
-      ${(()=>{ if (!d.popt||!d.popt.notes) return ''; if (d.status==='Paid') return ''; if (!d.notes) return ''; return `<div style="flex:1;padding:14px 18px;border-right:1px solid ${T.metabr}"><div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.noteslbl};margin-bottom:7px">Notes</div><div style="font-size:11px;color:${T.noteslbl};line-height:1.7">${d.notes.replace(/\n/g,'<br>')}</div></div>`; })()}
-      ${(()=>{ if (!d.popt||!d.popt.tnc) return ''; const tnc=(d.tnc||'').trim(); if(!tnc) return ''; return `<div style="flex:1;padding:14px 18px"><div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.noteslbl};margin-bottom:7px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${T.noteslbl};line-height:1.7">${tnc.replace(/\n/g,'<br>')}</div></div>`; })()}
+  <!-- BOTTOM: NOTES + TOTALS -->
+  <div style="display:flex;border-top:1.5px solid ${T.metabr}">
+    <div style="flex:1;padding:18px 24px;background:#FFFBEB;border-right:1.5px solid #FDE68A">
+      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:7px">Notes</div>
+      ${tplBankHTML(d,'#B45309','#FFFBEB')}
+      ${tplNotesHTML(d,'#B45309','#FFFBEB')}
+      ${tplTncHTML(d,'#B45309')}
     </div>
-    <!-- Totals row: Subtotal → Discount → Amount → GST → Grand Total + partial history -->
-    <div style="display:flex;justify-content:flex-end">
-      <div style="width:280px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Subtotal</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money(d.sub,d.sym)}</span>
-        </div>
-        ${d.discAmt>0?`
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
-          <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
-        </div>`:''}
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-          <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
-          <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
-        </div>
-        <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
-          <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-          <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
-        </div>
-        ${(()=>{
-          // Partial payment history for Template 2
-          const invId = d.invId ? String(d.invId) : '';
-          const isPartialStatus = d.status === 'Partial';
-          const isPaidStatus = d.status === 'Paid';
-          if ((!isPartialStatus && !isPaidStatus) || !invId || invId === '0') return '';
-          const paymentsForInv = (typeof STATE!=='undefined' ? STATE.payments : []).filter(p =>
-            p.invoice_id && String(p.invoice_id) === invId
-          ).sort((a,b) => new Date(a.date||a.payment_date||0) - new Date(b.date||b.payment_date||0));
-          const totalPaid = paymentsForInv.reduce((s,p) => s + parseFloat(p.amount||0), 0);
-          const remaining = Math.max(0, (d.grand||0) - totalPaid);
-          if (totalPaid < 0.01) return '';
-          const instalmentRows = paymentsForInv.map((p,i) => {
-            const dt = p.date||p.payment_date||'';
-            const dtF = dt ? new Date(dt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
-            const meth = p.method||'';
-            const isSplit = meth.startsWith('Split');
-            return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 22px;border-bottom:1px dashed ${T.totbr}">
-              <span style="color:#388E3C">${isSplit?'⚡':'✓'} Instalment ${i+1}${dtF?' · '+dtF:''}${meth?' · '+meth.replace('Split: ','').substring(0,20):''}</span>
-              <span style="font-family:monospace;font-weight:600;color:#388E3C">-${fmt_money(parseFloat(p.amount||0),d.sym)}</span>
-            </div>`;
-          }).join('');
-          const paidRow = `<div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-            <span style="color:#388E3C;font-weight:700">${isPaidStatus?'✅':'💚'} ${isPaidStatus?'Paid in Full':'Total Paid'}${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
-            <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
-          </div>`;
-          const instalBlock = paymentsForInv.length > 1 ? `<div style="background:#F1F8E9">${instalmentRows}</div>` : '';
-          const remRow = isPartialStatus && remaining > 0.01 ? `<div style="display:flex;justify-content:space-between;padding:10px 22px;background:#FFF8E1;border:2px solid #FFB300;margin:6px 12px;border-radius:7px;font-size:13px;font-weight:800;color:#E65100">
-            <span>⚠ Remaining Due</span><span style="font-family:monospace">${fmt_money(remaining,d.sym)}</span>
-          </div>` : '';
-          return paidRow + instalBlock + remRow;
-        })()}
-        ${d.popt.sign?(()=>{const sig=d.signature||STATE.settings.signature||'';return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">${sig?`<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">`:'<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>'}<div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div><div style="font-size:10px;color:#bbb">${sc.company}</div></div>`;})():''}
+    <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Subtotal</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money(d.sub,d.sym)}</span>
       </div>
+      ${d.discAmt>0?`
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
+        <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
+      </div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
+      </div>
+      <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
+        <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
+      </div>
+      ${d.popt.sign?(()=>{const sig=d.signature||STATE.settings.signature||'';return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">${sig?`<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">`:'<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>'}<div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div><div style="font-size:10px;color:#bbb">${sc.company}</div></div>`;})():''}
     </div>
   </div>
 
@@ -5286,11 +5250,7 @@ async function saveInvoice() {
     } else {
       await api('api/invoices.php', 'POST', payload);
       toast('✅ Invoice ' + d.num + ' saved!', 'success');
-      // Reset form for next new invoice
-      STATE.editingInvoiceId = null;
-      resetCreateForm();
-      setTimeout(livePreview, 50);
-      showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
+    showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
     }
     const r = await api('api/invoices.php');
     STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
@@ -5299,6 +5259,7 @@ async function saveInvoice() {
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
     const badge = document.getElementById('badge-invoices');
     if (badge) badge.textContent = STATE.invoices.length;
+    // Auto-generate portal link for new invoices (silent background)
     if (!STATE.editingInvoiceId) {
       const savedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
       if (savedInv && savedInv.id) {
