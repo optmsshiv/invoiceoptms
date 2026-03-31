@@ -4432,7 +4432,9 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
     ).sort((a,b) => {
       const da = new Date(a.date||a.payment_date||0);
       const db = new Date(b.date||b.payment_date||0);
-      return da - db;
+      if (da - db !== 0) return da - db;
+      // Same date — fall back to insertion order (id)
+      return (parseInt(a.id)||0) - (parseInt(b.id)||0);
     });
     totalPaid  = paymentsForInv.reduce((s,p) => s + parseFloat(p.amount||0), 0);
     remaining  = Math.max(0, (d.grand||0) - totalPaid);
@@ -4753,7 +4755,12 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         const isPaid2    = d.status === 'Paid';
         if (!(isPartial2 || isPaid2) || !invId2 || invId2 === '0') return '';
         const pays2 = (typeof STATE !== 'undefined' ? STATE.payments : []).filter(p => p.invoice_id && String(p.invoice_id) === invId2)
-          .sort((a,b) => new Date(a.date||a.payment_date||0) - new Date(b.date||b.payment_date||0));
+          .sort((a,b) => {
+            const da = new Date(a.date||a.payment_date||0);
+            const db = new Date(b.date||b.payment_date||0);
+            if (da - db !== 0) return da - db;
+            return (parseInt(a.id)||0) - (parseInt(b.id)||0);
+          });
         const totalPaid2 = pays2.reduce((s,p) => s + parseFloat(p.amount||0), 0);
         const remaining2 = Math.max(0, (d.grand||0) - totalPaid2);
         if (totalPaid2 < 0.01) return '';

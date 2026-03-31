@@ -4697,7 +4697,8 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
             <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Notes</div>
             <div style="background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:8px;padding:10px 12px;font-size:11px;color:#2E7D32;line-height:1.8;border-left:3px solid #4CAF50">
               <div style="font-weight:800;font-size:12px;margin-bottom:3px">🎉 Thank You for Your Payment!</div>
-              <div>We appreciate your trust in <strong>${_sc3.company||''}</strong>. Your account is now up to date.</div>
+              <div>We appreciate your prompt payment and continued trust in <strong>${_sc3.company||''}</strong>. Your account is now clear and up to date.</div>
+              <div style="margin-top:5px;opacity:.85">We look forward to serving you again. For any queries, reach us at ${_sc3.phone||_sc3.email||''}.</div>
             </div>
           </div>`;
         }
