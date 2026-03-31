@@ -18,19 +18,20 @@ switch ($method) {
     $clients = $s->fetchAll();
     // Remap for frontend compatibility
     foreach ($clients as &$c) {
-      $c['id']     = (string)$c['id'];
-      $c['person'] = $c['person']??'';
-      $c['wa']     = $c['whatsapp']??'';
-      $c['gst']    = $c['gst_number']??'';
-      $c['addr']   = $c['address']??'';
-      $c['image']  = $c['logo']??'';
+      $c['id']       = (string)$c['id'];
+      $c['person']   = $c['person']??'';
+      $c['wa']       = $c['whatsapp']??'';
+      $c['gst']      = $c['gst_number']??'';
+      $c['addr']     = $c['address']??'';
+      $c['landmark'] = $c['landmark']??'';
+      $c['image']    = $c['logo']??'';
     }
     jsonResponse(['data'=>$clients]);
 
   case 'POST':
-    $i=$db->prepare('INSERT INTO clients (name,person,email,phone,whatsapp,gst_number,address,color,logo) VALUES (?,?,?,?,?,?,?,?,?)');
+    $i=$db->prepare('INSERT INTO clients (name,person,email,phone,whatsapp,gst_number,address,landmark,color,logo) VALUES (?,?,?,?,?,?,?,?,?,?)');
     $d=json_decode(file_get_contents('php://input'),true);
-    $i->execute([$d['name']??'',$d['person']??'',$d['email']??'',$d['phone']??'',$d['wa']??$d['whatsapp']??'',$d['gst']??$d['gst_number']??'',$d['addr']??$d['address']??'',$d['color']??'#00897B',$d['logo']??$d['image']??'']);
+    $i->execute([$d['name']??'',$d['person']??'',$d['email']??'',$d['phone']??'',$d['wa']??$d['whatsapp']??'',$d['gst']??$d['gst_number']??'',$d['addr']??$d['address']??'',$d['landmark']??'',$d['color']??'#00897B',$d['logo']??$d['image']??'']);
     $id=(int)$db->lastInsertId();
     logActivity((int)$_SESSION['user_id'],'create','client',$id,"Added client: ".($d['name']??''));
     jsonResponse(['success'=>true,'id'=>$id]);
@@ -38,8 +39,8 @@ switch ($method) {
   case 'PUT':
     $d=json_decode(file_get_contents('php://input'),true);
     $id=(int)($_GET['id']??$d['id']??0); if(!$id) jsonResponse(['error'=>'ID required'],400);
-    $u=$db->prepare('UPDATE clients SET name=?,person=?,email=?,phone=?,whatsapp=?,gst_number=?,address=?,color=?,logo=? WHERE id=?');
-    $u->execute([$d['name']??'',$d['person']??'',$d['email']??'',$d['phone']??'',$d['wa']??$d['whatsapp']??'',$d['gst']??$d['gst_number']??'',$d['addr']??$d['address']??'',$d['color']??'#00897B',$d['logo']??$d['image']??'',$id]);
+    $u=$db->prepare('UPDATE clients SET name=?,person=?,email=?,phone=?,whatsapp=?,gst_number=?,address=?,landmark=?,color=?,logo=? WHERE id=?');
+    $u->execute([$d['name']??'',$d['person']??'',$d['email']??'',$d['phone']??'',$d['wa']??$d['whatsapp']??'',$d['gst']??$d['gst_number']??'',$d['addr']??$d['address']??'',$d['landmark']??'',$d['color']??'#00897B',$d['logo']??$d['image']??'',$id]);
     logActivity((int)$_SESSION['user_id'],'update','client',$id,"Updated client #$id");
     jsonResponse(['success'=>true]);
 
