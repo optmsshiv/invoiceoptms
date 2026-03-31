@@ -3871,18 +3871,6 @@ function resetCreateForm() {
   const qrEl = document.getElementById('f-qr'); if (qrEl) qrEl.value = '';
   const _radios = document.querySelectorAll('input[name="inv-status"]');
   if (_radios.length) _radios[0].checked = true;
-  // Reset PDF option checkboxes to defaults
-  const _sc2 = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
-  _sc2('popt-bank',        true);
-  _sc2('popt-qr',          false);
-  _sc2('popt-sign',        true);
-  _sc2('popt-logo',        true);
-  _sc2('popt-client-logo', false);
-  _sc2('popt-notes',       true);
-  _sc2('popt-tnc',         true);
-  _sc2('popt-gst-col',     true);
-  _sc2('popt-footer',      true);
-  _sc2('popt-watermark',   false);
   formItems = [];
   addItem();
 }
@@ -5553,22 +5541,6 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-caddr').value    = c ? c.addr : '';
   const sr = document.querySelectorAll('input[name="inv-status"]');
   sr.forEach(r => r.checked = r.value === inv.status);
-  // ── Restore PDF options checkboxes from saved pdf_options ──
-  let _savedPopt = inv.pdf_options || inv.popt || null;
-  if (_savedPopt && typeof _savedPopt === 'string') { try { _savedPopt = JSON.parse(_savedPopt); } catch(e) { _savedPopt = null; } }
-  if (_savedPopt && typeof _savedPopt === 'object') {
-    const _sc = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
-    _sc('popt-bank',       _savedPopt.bank       !== false);
-    _sc('popt-qr',         !!_savedPopt.qr);
-    _sc('popt-sign',       _savedPopt.sign        !== false);
-    _sc('popt-logo',       _savedPopt.logo        !== false);
-    _sc('popt-client-logo',!!_savedPopt.clientLogo);
-    _sc('popt-notes',      _savedPopt.notes       !== false);
-    _sc('popt-tnc',        _savedPopt.tnc         !== false);
-    _sc('popt-gst-col',    _savedPopt.gstCol      !== false);
-    _sc('popt-footer',     _savedPopt.footer      !== false);
-    _sc('popt-watermark',  !!_savedPopt.watermark);
-  }
   formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
   livePreview();
 }
