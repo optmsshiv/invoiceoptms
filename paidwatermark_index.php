@@ -4166,13 +4166,12 @@ function tplCompanyInfoHTML(sc, textColor='rgba(255,255,255,.65)', smallColor='r
 }
 
 function tplWatermark(d) {
-  // Always respect the watermark toggle — for all statuses
-  if (!d.popt || !d.popt.watermark) return '';
-
+  // Determine watermark text and color based on status
   let wText = '', wColor = '';
   if (d.status === 'Paid') {
     wText  = (window.TPL_CUSTOM && TPL_CUSTOM.watermarkText) ? TPL_CUSTOM.watermarkText : 'PAID';
     wColor = 'rgba(0,150,0,.12)';
+    if (!d.popt || !d.popt.watermark) return '';
   } else if (d.status === 'Cancelled') {
     wText = 'CANCELLED'; wColor = 'rgba(183,28,28,.15)';
   } else if (d.status === 'Partial') {
