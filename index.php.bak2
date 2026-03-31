@@ -2811,10 +2811,10 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Invoice Preview Modal -->
 <div class="modal-overlay" id="modal-preview">
-  <div class="modal modal-xl" style="max-height:94vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="flex-shrink:0"><span id="mp-title">Invoice Preview</span><button class="modal-close" onclick="closeModal('modal-preview')"><i class="fas fa-times"></i></button></div>
-    <div class="modal-body" id="mp-body" style="padding:24px;overflow-y:auto;flex:1;min-height:0"></div>
-    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
+  <div class="modal modal-xl">
+    <div class="modal-header"><span id="mp-title">Invoice Preview</span><button class="modal-close" onclick="closeModal('modal-preview')"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body" id="mp-body" style="padding:24px;overflow-y:auto;max-height:75vh"></div>
+    <div class="modal-footer">
       <button class="btn btn-primary" onclick="printFromModal()"><i class="fas fa-print"></i> Print / Save PDF</button>
       <button class="btn btn-whatsapp" onclick="sendWAFromModal()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
       <button class="btn btn-email" onclick="sendEmailFromModal()"><i class="fas fa-envelope"></i> Email</button>
@@ -4648,74 +4648,35 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </table>
   </div>
 
-  <!-- BOTTOM: BANK → NOTES → TnC stacked, then TOTALS -->
+  <!-- BOTTOM: BANK + NOTES row, then TnC, then TOTALS -->
   <div style="display:flex;border-top:1.5px solid ${T.metabr}">
 
-    <!-- LEFT: stacked vertically — Bank Details, Notes, Terms & Conditions — warm amber bg -->
-    <div style="flex:1;padding:18px 24px;border-right:1.5px solid #FDE68A;background:#FFFBEB;display:flex;flex-direction:column;gap:0">
-
-      <!-- BANK DETAILS -->
-      ${(()=>{
-        const _sc2 = (typeof STATE !== 'undefined' ? STATE.settings : {});
-        const bankText = d.bank || _sc2.defaultBank || '';
-        const upi = d.upi || _sc2.upi || '';
-        if (d.popt && d.popt.bank === false) return '';
-        if (d.status === 'Paid') return '';
-        if (!bankText && !upi) return '';
-        const leftCol = bankText
-          ? `<div style="flex:1;min-width:0">
-              <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">💳 Bank Details</div>
-              <div style="font-size:10.5px;line-height:1.9;color:#78350F">
-                ${bankText.split('|').map(s=>s.trim()).filter(Boolean).map(s=>`<div>${s}</div>`).join('')}
-              </div>
-            </div>`
-          : '';
-        const qrImg = (d.popt && d.popt.qr && d.qrUrl)
-          ? `<div style="margin-top:6px;text-align:center"><img src="${d.qrUrl}" style="width:70px;height:70px;border-radius:6px;border:1px solid #FDE68A;display:block;margin:0 auto" onerror="this.style.display='none'"><div style="font-size:9px;color:#92400E;margin-top:3px">Scan to Pay</div></div>`
-          : '';
-        const upiBlock = upi
-          ? `<div>
-              <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">📲 UPI</div>
-              <div style="background:#FEF3C7;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:800;letter-spacing:.4px;color:#92400E;text-align:center">${upi}</div>
-              ${qrImg}
-            </div>`
-          : '';
-        const divider = bankText && upi ? `<div style="width:1px;background:#FDE68A;margin:0 14px;align-self:stretch"></div>` : '';
-        return `<div style="display:flex;align-items:flex-start;gap:0;padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
-          ${leftCol}${divider}${upiBlock}
-        </div>`;
-      })()}
-
-      <!-- NOTES -->
-      ${(()=>{
-        if (!d.popt || !d.popt.notes) return '';
-        if (d.status === 'Paid') {
-          const _sc3 = (typeof STATE !== 'undefined' ? STATE.settings : {});
-          return `<div style="padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
-            <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Notes</div>
-            <div style="background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:8px;padding:10px 12px;font-size:11px;color:#2E7D32;line-height:1.8;border-left:3px solid #4CAF50">
-              <div style="font-weight:800;font-size:12px;margin-bottom:3px">🎉 Thank You for Your Payment!</div>
-              <div>We appreciate your trust in <strong>${_sc3.company||''}</strong>. Your account is now up to date.</div>
-            </div>
-          </div>`;
-        }
-        if (!d.notes) return '';
-        return `<div style="padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
-          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Notes</div>
-          <div style="font-size:10.5px;color:#78350F;line-height:1.7">${d.notes.replace(/\n/g,'<br>')}</div>
-        </div>`;
-      })()}
-
-      <!-- TERMS & CONDITIONS -->
-      ${(()=>{
-        if (!d.popt || !d.popt.tnc) return '';
-        const tnc = (d.tnc || '').trim();
-        if (!tnc) return '';
-        return `<div>
-          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Terms &amp; Conditions</div>
-          <div style="font-size:10.5px;color:#92400E;line-height:1.7">${tnc.replace(/\n/g,'<br>')}</div>
-        </div>`;
-      })()}
+    <!-- LEFT: Bank Details + Notes side by side, TnC below -->
+    <div style="flex:1;padding:18px 24px;border-right:1.5px solid ${T.metabr};background:${T.notesbg}">
+      <!-- Bank + Notes in a row -->
+      <div style="display:flex;gap:18px;align-items:flex-start">
+        ${(()=>{
+          const _sc2 = (typeof STATE !== 'undefined' ? STATE.settings : {});
+          const bankText = d.bank || _sc2.defaultBank || '';
+          const upi = d.upi || _sc2.upi || '';
+          const hasBankSection = (d.popt && d.popt.bank !== false) && d.status !== 'Paid' && (!!bankText || !!upi);
+          const hasNotes = d.popt && d.popt.notes && !!d.notes;
+          const bankBlock = hasBankSection ? tplBankHTML(d, T.noteslbl, T.notesbg) : '';
+          const notesBlock = hasNotes ? `<div style="flex:1;min-width:0">
+            <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.noteslbl};margin-bottom:6px">Notes</div>
+            <div style="font-size:10.5px;color:${T.noteslbl};line-height:1.7;background:${T.notesbg};border-radius:7px;padding:8px 10px">${d.notes.replace(/\n/g,'<br>')}</div>
+          </div>` : '';
+          // If paid, replace notes with thank-you
+          const _stS2 = (typeof STATE !== 'undefined' ? STATE.settings : {});
+          const paidBlock = (d.status === 'Paid' && d.popt && d.popt.notes) ? `<div style="flex:1;min-width:0;background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:8px;padding:12px 14px;font-size:11px;color:#2E7D32;line-height:1.8;border-left:3px solid #4CAF50"><div style="font-weight:800;font-size:12px;margin-bottom:4px">🎉 Thank You!</div><div>Your payment is confirmed. We look forward to serving you again.</div></div>` : '';
+          if (hasBankSection && (hasNotes || d.status==='Paid')) {
+            return `<div style="flex:1">${bankBlock}</div><div style="width:1px;background:${T.notesbr};align-self:stretch;margin:0 4px"></div>${d.status==='Paid'?paidBlock:notesBlock}`;
+          }
+          return bankBlock + (d.status==='Paid' ? paidBlock : notesBlock);
+        })()}
+      </div>
+      <!-- Terms & Conditions below -->
+      ${tplTncHTML(d, T.noteslbl)}
     </div>
 
     <!-- RIGHT: Totals (with correct order + partial history) -->
