@@ -1299,7 +1299,6 @@ const SERVER = {
               <th onclick="sortTable('issued')" class="sortable">Issue Date <i class="fas fa-sort"></i></th>
               <th onclick="sortTable('due')" class="sortable">Due Date <i class="fas fa-sort"></i></th>
               <th onclick="sortTable('amount')" class="sortable">Amount <i class="fas fa-sort"></i></th>
-              <th style="text-align:center">Paid</th>
               <th onclick="sortTable('status')" class="sortable">Status <i class="fas fa-sort"></i></th>
               <th>Actions</th>
             </tr>
@@ -1326,7 +1325,7 @@ const SERVER = {
               <div class="field"><label>Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
               <div class="field"><label>Service Type</label>
                 <select id="f-service" onchange="livePreview()">
-                  <option value="">-- Quick Select Service Type--</option>
+                  <option value="">-- Quick Select Service Type --</option>
                   <option>Website Development</option><option>School ERP</option>
                   <option>Mobile App</option><option>Maintenance</option>
                   <option>Consultation</option><option>Domain & Hosting</option><option>Other</option>
@@ -3635,24 +3634,6 @@ function applyFiltersAndRender() {
     const avatar = c.image
       ? `<div class="cc-avatar" style="background:${c.color}"><img src="${c.image}" alt="${c.name}"></div>`
       : `<div class="cc-avatar" style="background:${c.color}">${initials}</div>`;
-
-    // Paid amount cell
-    const invId = String(inv.id);
-    const paidPayments = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId);
-    const totalPaid = paidPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    let paidCell = '';
-    if (inv.status === 'Paid') {
-      paidCell = `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px"><i class="fas fa-check" style="font-size:9px"></i> Full</span>`;
-    } else if (inv.status === 'Partial' && totalPaid > 0) {
-      const remaining = Math.max(0, inv.amount - totalPaid);
-      paidCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-        <span style="background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:var(--mono)">${fmt_money(totalPaid)}</span>
-        <span style="color:var(--red);font-size:10px;font-weight:600;font-family:var(--mono)">-${fmt_money(remaining)}</span>
-      </div>`;
-    } else {
-      paidCell = `<span style="color:var(--muted2);font-size:12px">—</span>`;
-    }
-
     return `<tr data-id="${inv.id}">
       <td><input type="checkbox" class="inv-check" value="${inv.id}"></td>
       <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600">${inv.num}</code></td>
@@ -3661,7 +3642,6 @@ function applyFiltersAndRender() {
       <td>${inv.issued}</td>
       <td>${inv.due}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
-      <td style="text-align:center">${paidCell}</td>
       <td><span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span></td>
       <td>
         <div class="action-cell">
@@ -3671,7 +3651,7 @@ function applyFiltersAndRender() {
         </div>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)"><i class="fas fa-file-invoice" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>No invoices found</td></tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)"><i class="fas fa-file-invoice" style="font-size:32px;margin-bottom:12px;display:block;opacity:.3"></i>No invoices found</td></tr>`;
 
   renderPagination();
   const info = document.getElementById('tfInfo');
