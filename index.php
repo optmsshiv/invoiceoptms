@@ -756,6 +756,15 @@ select { cursor: pointer; }
 .cc-stat-val { font-weight: 800; font-size: 16px; }
 .cc-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
 .cc-footer { margin-top: 12px; display: flex; gap: 8px; }
+.client-card.inactive-card {
+  background: #FFF8E1 !important;
+  border: 2px solid #F9A825 !important;
+  animation: inactiveGlow 3s ease-in-out infinite;
+}
+@keyframes inactiveGlow {
+  0%,100% { box-shadow: 0 0 0 2px rgba(249,168,37,.15), var(--shadow); }
+  50%      { box-shadow: 0 0 0 4px rgba(249,168,37,.30), var(--shadow-md); }
+}
 
 /* ══════════════════════════════════════════
    SETTINGS
@@ -2981,6 +2990,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <div class="field"><label>GST Number</label><input id="nc-gst"></div>
         <div class="field"><label>Avatar Color</label><input type="color" id="nc-color" value="#00897B"></div>
         <div class="field g-full"><label>Address</label><textarea id="nc-addr"></textarea></div>
+        <div class="field g-full"><label>Landmark <span style="font-size:10px;color:var(--muted)">(optional — nearby area or landmark)</span></label><input id="nc-landmark" placeholder="e.g. Near City Mall, Sector 12"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -3086,6 +3096,24 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- ══ MAIN APP JS (embedded) ══ -->
 <script>
+
+// ── API helper ──────────────────────────────────────────────────
+async function api(endpoint, method, body) {
+  method = method || 'GET';
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(endpoint, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch(e) {
+    console.error('API response not JSON from', endpoint, '\nResponse:', text.substring(0,300));
+    throw new Error('Server returned non-JSON response. Check PHP error logs.');
+  }
+  if (res.status === 401) { window.location.href = '/auth/login.php'; throw new Error('Not authenticated'); }
+  if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
+  return data;
+}
 
 // ══════════════════════════════════════════
 // OPTMS Tech – data.js  (App State & Sample Data)
@@ -4139,10 +4167,10 @@ function tplWatermark(d) {
   return `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:80px;font-weight:900;color:${wColor};z-index:0;pointer-events:none;white-space:nowrap;letter-spacing:8px">${wText}</div>`;
 }
 function tplBankHTML(d, color='#00695C', bg='#e0f2f1', border='') {
+  if (!d.popt || d.popt.bank === false) return '';
   if (d.status === 'Paid') return '';  // Hide bank details on paid invoices
   const _sc = (typeof STATE !== 'undefined' ? STATE.settings : {});
   const bankText = d.bank || _sc.defaultBank || '';
-  if (!d.popt || d.popt.bank === false) return '';
   const sc  = _sc;
   const upi = d.upi || sc.upi || '';
   const hasBank = !!bankText;
@@ -4224,11 +4252,15 @@ function tplNotesHTML(d, color='#795548', bg='#fff8e1') {
     </div>`;
   }
   if (!d.notes) return '';
-  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${d.notes}</div>`;
+  const notesHtml = d.notes.replace(/\n/g, '<br>');
+  return `<div style="margin-top:10px;background:${bg};border-radius:8px;padding:10px 14px;font-size:11px;color:${color};line-height:1.6">${notesHtml}</div>`;
 }
 function tplTncHTML(d, color='#888') {
-  if (!d.popt.tnc || !d.tnc) return '';
-  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${d.tnc}</div></div>`;
+  if (!d.popt || !d.popt.tnc) return '';
+  const tnc = (d.tnc || '').trim();
+  if (!tnc) return '';
+  const tncHtml = tnc.replace(/\n/g, '<br>');
+  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px;width:100%"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#aaa;margin-bottom:5px">Terms &amp; Conditions</div><div style="font-size:10.5px;color:${color};line-height:1.7">${tncHtml}</div></div>`;
 }
 
 // ── TEMPLATE 1: Pure Black ──
@@ -4579,7 +4611,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   </div>
 
   <!-- LINE ITEMS -->
-  <div style="padding:0 24px;border-bottom:1.5px solid ${T.metabr}">
+  <div style="padding:0 1px;border-bottom:1.5px solid ${T.metabr}">
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
@@ -5139,8 +5171,8 @@ function printInvoiceById(inv) {
     cperson:c.person||'', cemail:c.email||'', cwa:c.wa||c.whatsapp||'',
     cgst:c.gst||c.gst_number||'', caddr:c.addr||c.address||'',
     disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0, discType:inv.discount_type||(parseFloat(inv.discount_amt)>0&&!(parseFloat(inv.disc||0)>0)?'fixed':'percent'),
-    notes:inv.notes||'', bank:inv.bank||inv.bank_details||'',
-    tnc:inv.tnc||inv.terms||'', status:inv.status, sym,
+    notes:inv.notes||'', bank:inv.bank||inv.bank_details||STATE.settings.defaultBank||'',
+    tnc:inv.tnc||inv.terms||STATE.settings.defaultTnC||'', status:inv.status, sym,
     sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
     grand:parseFloat(inv.amount||inv.grand_total)||0,
     invId: String(inv.id||''),
@@ -5148,9 +5180,12 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||'OPTMS Tech Invoice Manager',
     showGeneratedBy:true,
-    popt:{bank:true,qr:!!(inv.qr_code),sign:!!(inv.signature||sc.signature),
-          logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,
-          watermark:inv.status==='Paid'}
+    popt:(function(){
+      // Parse pdf_options from DB (may be JSON string or already an object)
+      let saved = inv.pdf_options || inv.popt || null;
+      if (saved && typeof saved === 'string') { try { saved = JSON.parse(saved); } catch(e) { saved = null; } }
+      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:inv.status==='Paid'}, saved||{});
+    })()
   };
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
               6:buildTpl6,7:buildTpl7,8:buildTpl8,9:buildTpl9};
@@ -5218,7 +5253,7 @@ async function saveInvoice() {
     showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
     }
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
     STATE.editingInvoiceId = null;
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
@@ -5281,7 +5316,7 @@ function openPreviewModal(id) {
     discAmt: parseFloat(inv.discount_amt) > 0 ? parseFloat(inv.discount_amt) : (inv.subtotal ? inv.subtotal * (parseFloat(inv.disc||inv.discount_pct)||0) / 100 : 0),
     notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
-    tnc: inv.tnc || inv.terms || '',
+    tnc: inv.tnc || inv.terms || STATE.settings.defaultTnC || '',
     status: inv.status,
     sym: inv.currency || '₹',
     sub: inv.subtotal || inv.amount,
@@ -5290,9 +5325,9 @@ function openPreviewModal(id) {
     companyLogo: STATE.settings.logo || sc.logo || '',
     clientLogo: '',
     signature: sc.signature || STATE.settings.signature || '',
-    qrUrl: '',
+    qrUrl: inv.qr_code || '',
     invId: String(inv.id || ''),
-    popt: { bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:true },
+    popt: (function(){ var saved=inv.pdf_options||inv.popt||null; if(saved&&typeof saved==='string'){try{saved=JSON.parse(saved);}catch(e){saved=null;}} return Object.assign({bank:true,qr:!!(inv.qr_code),sign:!!(sc.signature||STATE.settings.signature),logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:true},saved||{}); })(),
     generatedBy: 'OPTMS Tech Invoice Manager · optmstech.in',
     showGeneratedBy: true
   };
@@ -5667,7 +5702,7 @@ function confirmPaid() {
   api('api/payments.php','POST',payload)
     .then(() => Promise.all([api('api/invoices.php'),api('api/payments.php')]))
     .then(([ir,pr]) => {
-      if (ir&&ir.data) { STATE.invoices=ir.data; STATE.filteredInvoices=[...ir.data]; }
+      if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
       if (pr&&pr.data)   STATE.payments=pr.data;
       renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
@@ -5799,27 +5834,43 @@ function renderClients() {
     const initials = getInitials(c.name);
     const rev = STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid').reduce((s,i)=>s+i.amount,0);
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
-    return `<div class="client-card" style="--c:${c.color}">
-      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${c.color}"></div>
+    const isInactive = c.active === 0 || c.active === '0' || c.status === 'inactive';
+
+    const cardStyle = isInactive
+      ? `background:#FFF8E1;border:2px solid #F9A825;box-shadow:0 0 0 1px #F9A82555;opacity:.85;`
+      : '';
+    const inactiveBadge = isInactive
+      ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#F9A825;color:#fff;margin-left:6px;vertical-align:middle">INACTIVE</span>`
+      : '';
+
+    return `<div class="client-card" style="--c:${c.color};${cardStyle}">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${isInactive?'#F9A825':c.color}"></div>
+      ${isInactive ? `<div style="position:absolute;top:8px;right:8px;background:#FFF3CD;border:1.5px solid #F9A825;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;color:#856404;z-index:2"><i class="fas fa-pause-circle"></i> Inactive</div>` : ''}
       <div class="cc-head">
-        <div class="cc-big-avatar" style="background:${c.color}">
+        <div class="cc-big-avatar" style="background:${isInactive?'#F9A825':c.color};${isInactive?'opacity:.7':''}">
           ${c.image ? `<img src="${c.image}" alt="${c.name}">` : initials}
         </div>
-        <div>
-          <div class="cc-org">${c.name}</div>
-          <div class="cc-contact">${c.person}</div>
-          <div class="cc-contact">${c.email}</div>
+        <div style="flex:1;min-width:0">
+          <div class="cc-org">${c.name}${inactiveBadge}</div>
+          <div class="cc-contact">${c.person||''}</div>
+          <div class="cc-contact">${c.email||''}</div>
+          ${c.landmark ? `<div class="cc-contact" style="font-size:11px;color:var(--muted)"><i class="fas fa-map-marker-alt" style="color:var(--teal);margin-right:3px;font-size:10px"></i>${c.landmark}</div>` : ''}
         </div>
       </div>
-      <div class="cc-stats">
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${c.color}">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+      <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
       </div>
-      <div class="cc-footer">
-        <button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>
-        <button class="btn btn-whatsapp" style="flex:1;font-size:12px" onclick="sendWAMessage('${c.wa}','${c.name}','','','')"><i class="fab fa-whatsapp"></i> Message</button>
-        <button class="btn btn-outline" style="padding:9px 12px" onclick="editClient('${c.id}')"><i class="fas fa-edit"></i></button>
+      <div class="cc-footer" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        ${!isInactive ? `<button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>` : ''}
+        ${!isInactive ? `<button class="btn btn-whatsapp" style="flex:1;font-size:12px" onclick="sendWAMessage('${c.wa}','${c.name}','','','')"><i class="fab fa-whatsapp"></i> Msg</button>` : ''}
+        <button class="btn btn-outline" style="padding:9px 12px;font-size:12px" onclick="editClient('${c.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+        ${isInactive
+          ? `<button class="btn" style="flex:1;font-size:12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7" onclick="toggleClientActive('${c.id}',true)" title="Re-activate client"><i class="fas fa-check-circle"></i> Activate</button>`
+          : `<button class="btn btn-outline" style="padding:9px 12px;font-size:12px;color:var(--amber);border-color:var(--amber)" onclick="toggleClientActive('${c.id}',false)" title="Set Inactive"><i class="fas fa-pause-circle"></i></button>`
+        }
+        <button class="btn btn-danger" style="padding:9px 12px;font-size:12px" onclick="deleteClient('${c.id}')" title="Delete client"><i class="fas fa-trash"></i></button>
       </div>
     </div>`;
   }).join('');
@@ -5839,7 +5890,7 @@ function createInvoiceForClient(id) {
 
 function openAddClientModal() {
   STATE._editCid=null;
-  ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); 
   const col=document.getElementById('nc-color');if(col)col.value='#00897B';
   const hdr=document.querySelector('#modal-addclient .modal-header span');if(hdr)hdr.textContent='Add New Client';
   const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary');if(btn)btn.textContent='Add Client';
@@ -5856,7 +5907,8 @@ async function saveNewClient() {
     wa:     document.getElementById('nc-wa')?.value     || '',
     gst:    document.getElementById('nc-gst')?.value    || '',
     color:  document.getElementById('nc-color')?.value  || '#00897B',
-    addr:   document.getElementById('nc-addr')?.value   || ''
+    addr:   document.getElementById('nc-addr')?.value   || '',
+    landmark: document.getElementById('nc-landmark')?.value || ''
   };
   try {
     if (STATE._editCid) {
@@ -5874,7 +5926,7 @@ async function saveNewClient() {
     STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
     updateClientDropdown(); renderClients(); populateWAClientDropdown();
     closeModal('modal-addclient');
-    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(id => {
+    ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(id => {
       const e = document.getElementById(id); if (e) e.value = '';
     });
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -5883,13 +5935,56 @@ async function saveNewClient() {
 function editClient(id) {
   const c=STATE.clients.find(x=>x.id===id); if(!c) return;
   STATE._editCid=id;
-  ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr'].forEach(fid=>{
-    const f=document.getElementById(fid); if(f) f.value=c[{'nc-name':'name','nc-person':'person','nc-wa':'wa','nc-email':'email','nc-gst':'gst','nc-addr':'addr'}[fid]]||'';
+  ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(fid=>{
+    const f=document.getElementById(fid); if(f) f.value=c[{'nc-name':'name','nc-person':'person','nc-wa':'wa','nc-email':'email','nc-gst':'gst','nc-addr':'addr','nc-landmark':'landmark'}[fid]]||'';
   });
   const col=document.getElementById('nc-color'); if(col) col.value=c.color||'#00897B';
   const hdr=document.querySelector('#modal-addclient .modal-header span'); if(hdr) hdr.textContent='Edit Client';
   const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary'); if(btn) btn.textContent='Update Client';
   openModal('modal-addclient');
+}
+
+async function deleteClient(id) {
+  const c = STATE.clients.find(x => String(x.id) === String(id));
+  if (!c) return;
+  const hasInvoices = STATE.invoices.some(i => String(i.client) === String(id));
+  const msg = hasInvoices
+    ? `⚠️ "${c.name}" has existing invoices. Deleting the client will NOT delete their invoices.\n\nAre you sure you want to delete this client?`
+    : `Are you sure you want to delete "${c.name}"? This cannot be undone.`;
+  if (!confirm(msg)) return;
+  try {
+    const dbId = parseInt(c._dbId || c.id) || 0;
+    await api('api/clients.php?id=' + dbId, 'DELETE');
+    toast('🗑 Client "' + c.name + '" deleted', 'info');
+    const r = await api('api/clients.php');
+    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients.filter(x => String(x.id) !== String(id));
+    updateClientDropdown(); renderClients(); populateWAClientDropdown();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function toggleClientActive(id, makeActive) {
+  const c = STATE.clients.find(x => String(x.id) === String(id));
+  if (!c) return;
+  try {
+    const dbId = parseInt(c._dbId || c.id) || 0;
+    await api('api/clients.php?id=' + dbId, 'PUT', {
+      name: c.name, person: c.person||'', email: c.email||'', wa: c.wa||'',
+      gst: c.gst||'', color: c.color||'#00897B', addr: c.addr||'',
+      landmark: c.landmark||'', active: makeActive ? 1 : 0
+    });
+    // Update local state immediately for instant UI feedback
+    const idx = STATE.clients.findIndex(x => String(x.id) === String(id));
+    if (idx >= 0) STATE.clients[idx].active = makeActive ? 1 : 0;
+    renderClients();
+    toast(makeActive ? '✅ Client activated' : '⏸ Client set to inactive', makeActive ? 'success' : 'info');
+    updateClientDropdown();
+  } catch(e) {
+    // Fallback: update local state only if API not yet supporting active field
+    const idx = STATE.clients.findIndex(x => String(x.id) === String(id));
+    if (idx >= 0) STATE.clients[idx].active = makeActive ? 1 : 0;
+    renderClients();
+    toast(makeActive ? '✅ Client activated (local)' : '⏸ Client set to inactive (local)', makeActive ? 'success' : 'info');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -7114,22 +7209,25 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   }
 })();
 
-// ── API helper ──────────────────────────────────────────────────
-async function api(endpoint, method, body) {
-  method = method || 'GET';
-  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(endpoint, opts);
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); }
-  catch(e) {
-    console.error('API response not JSON from', endpoint, '\nResponse:', text.substring(0,300));
-    throw new Error('Server returned non-JSON response. Check PHP error logs.');
+// ── Normalize invoice object from API ─────────────────────────
+// Parses JSON-string fields (pdf_options, items) returned from DB,
+// and unifies field aliases (bank_details→bank, terms→tnc, etc.)
+function normalizeInvoice(inv) {
+  if (!inv || typeof inv !== 'object') return inv;
+  // Parse pdf_options JSON string from DB into object
+  if (inv.pdf_options && typeof inv.pdf_options === 'string') {
+    try { inv.pdf_options = JSON.parse(inv.pdf_options); } catch(e) { inv.pdf_options = null; }
   }
-  if (res.status === 401) { window.location.href = '/auth/login.php'; throw new Error('Not authenticated'); }
-  if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
-  return data;
+  // Parse items JSON string from DB into array
+  if (inv.items && typeof inv.items === 'string') {
+    try { inv.items = JSON.parse(inv.items); } catch(e) { inv.items = []; }
+  }
+  if (!Array.isArray(inv.items)) inv.items = [];
+  // Unify bank field aliases
+  if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
+  // Unify tnc field aliases
+  if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
+  return inv;
 }
 
 // ── Load all data from API on page load ────────────────────────
@@ -7142,7 +7240,7 @@ async function loadAllData() {
       api('api/payments.php'),
       api('api/settings.php'),
     ]);
-    STATE.invoices  = Array.isArray(inv.data)  ? inv.data  : [];
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
@@ -9749,7 +9847,7 @@ function recPause(id) {
 }
 
 function recDelete(id) {
-  if (!confirm('Delete this recurring schedule? This won't delete any already-generated invoices.')) return;
+  if (!confirm('Delete this recurring schedule? This will not delete any already-generated invoices.')) return;
   const schedules = recGetAll().filter(x => x.id !== id);
   recSaveAll(schedules);
   renderRecurringPage();
@@ -9819,7 +9917,7 @@ async function runRecurringCheck() {
   if (generated > 0) {
     // Reload invoices
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data : [];
+    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDashRecent(); updateDashStats();
     toast(`✅ ${generated} invoice${generated>1?'s':''} generated!`, 'success');
