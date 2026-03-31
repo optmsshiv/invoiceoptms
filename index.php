@@ -1325,6 +1325,7 @@ const SERVER = {
               <div class="field"><label>Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
               <div class="field"><label>Service Type</label>
                 <select id="f-service" onchange="livePreview()">
+                  <option value="">-- Quick Select Service Type --</option>
                   <option>Website Development</option><option>School ERP</option>
                   <option>Mobile App</option><option>Maintenance</option>
                   <option>Consultation</option><option>Domain & Hosting</option><option>Other</option>
