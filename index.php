@@ -3861,12 +3861,12 @@ function resetCreateForm() {
   // Clear other form fields
   _sv('f-disc', '0');
   const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
-  document.getElementById('f-gst').value = String(STATE.settings.defaultGST ?? 18);
+  const _gstEl2 = document.getElementById('f-gst'); if (_gstEl2) _gstEl2.value = String(STATE.settings.defaultGST ?? 18);
   const notesEl = document.getElementById('f-notes'); if (notesEl) notesEl.value = '';
   const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
   const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = '₹';
   const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || 1);
-  const clientSelEl = document.getElementById('f-client'); if (clientSelEl) clientSelEl.value = '';
+  const clientSelEl = document.getElementById('f-client-select'); if (clientSelEl) clientSelEl.value = '';
   // Reset company logo, qr to defaults
   const qrEl = document.getElementById('f-qr'); if (qrEl) qrEl.value = '';
   const _radios = document.querySelectorAll('input[name="inv-status"]');
@@ -5375,10 +5375,8 @@ async function saveInvoice() {
     } else {
       await api('api/invoices.php', 'POST', payload);
       toast('✅ Invoice ' + d.num + ' saved!', 'success');
+      // Navigate to invoices list — showPage will trigger resetCreateForm next time 'create' is opened
       showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
-      // Reset form for next new invoice
-      STATE._editingNext = false;
-      resetCreateForm();
     }
     const r = await api('api/invoices.php');
     STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];

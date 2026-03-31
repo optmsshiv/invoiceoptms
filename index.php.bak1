@@ -829,6 +829,24 @@ select { cursor: pointer; }
   backdrop-filter: blur(3px);
 }
 .modal-overlay.open { display: flex; }
+/* modal-box: used by recurring modal and others */
+.modal-box {
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
+  animation: modalIn .2s ease;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-box .modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 700;
+  position: sticky; top: 0; background: var(--card); z-index: 1;
+}
 .modal {
   background: var(--card); border-radius: 14px; width: 100%;
   box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .2s ease;
@@ -2793,10 +2811,10 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
 
 <!-- Invoice Preview Modal -->
 <div class="modal-overlay" id="modal-preview">
-  <div class="modal modal-xl">
-    <div class="modal-header"><span id="mp-title">Invoice Preview</span><button class="modal-close" onclick="closeModal('modal-preview')"><i class="fas fa-times"></i></button></div>
-    <div class="modal-body" id="mp-body" style="padding:24px;overflow-y:auto;max-height:75vh"></div>
-    <div class="modal-footer">
+  <div class="modal modal-xl" style="max-height:94vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="flex-shrink:0"><span id="mp-title">Invoice Preview</span><button class="modal-close" onclick="closeModal('modal-preview')"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body" id="mp-body" style="padding:24px;overflow-y:auto;flex:1;min-height:0"></div>
+    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
       <button class="btn btn-primary" onclick="printFromModal()"><i class="fas fa-print"></i> Print / Save PDF</button>
       <button class="btn btn-whatsapp" onclick="sendWAFromModal()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
       <button class="btn btn-email" onclick="sendEmailFromModal()"><i class="fas fa-envelope"></i> Email</button>
@@ -3596,6 +3614,9 @@ function calNext() { calMonth++; if (calMonth > 11) { calMonth=0; calYear++; } r
 // ══════════════════════════════════════════
 function renderInvoicesTable() {
   STATE.filteredInvoices = [...STATE.invoices];
+  // Always keep the sidebar invoice badge in sync
+  const _badgeInv = document.getElementById('badge-invoices');
+  if (_badgeInv) _badgeInv.textContent = STATE.invoices.length;
   applyFiltersAndRender();
 }
 
@@ -4627,36 +4648,140 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </table>
   </div>
 
-  <!-- BOTTOM: NOTES + TOTALS -->
+  <!-- BOTTOM: BANK → NOTES → TnC stacked, then TOTALS -->
   <div style="display:flex;border-top:1.5px solid ${T.metabr}">
-    <div style="flex:1;padding:18px 24px;background:#FFFBEB;border-right:1.5px solid #FDE68A">
-      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#B45309;margin-bottom:7px">Notes</div>
-      ${tplBankHTML(d,'#B45309','#FFFBEB')}
-      ${tplNotesHTML(d,'#B45309','#FFFBEB')}
-      ${tplTncHTML(d,'#B45309')}
+
+    <!-- LEFT: stacked vertically — Bank Details, Notes, Terms & Conditions — warm amber bg -->
+    <div style="flex:1;padding:18px 24px;border-right:1.5px solid #FDE68A;background:#FFFBEB;display:flex;flex-direction:column;gap:0">
+
+      <!-- BANK DETAILS -->
+      ${(()=>{
+        const _sc2 = (typeof STATE !== 'undefined' ? STATE.settings : {});
+        const bankText = d.bank || _sc2.defaultBank || '';
+        const upi = d.upi || _sc2.upi || '';
+        if (d.popt && d.popt.bank === false) return '';
+        if (d.status === 'Paid') return '';
+        if (!bankText && !upi) return '';
+        const leftCol = bankText
+          ? `<div style="flex:1;min-width:0">
+              <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">💳 Bank Details</div>
+              <div style="font-size:10.5px;line-height:1.9;color:#78350F">
+                ${bankText.split('|').map(s=>s.trim()).filter(Boolean).map(s=>`<div>${s}</div>`).join('')}
+              </div>
+            </div>`
+          : '';
+        const qrImg = (d.popt && d.popt.qr && d.qrUrl)
+          ? `<div style="margin-top:6px;text-align:center"><img src="${d.qrUrl}" style="width:70px;height:70px;border-radius:6px;border:1px solid #FDE68A;display:block;margin:0 auto" onerror="this.style.display='none'"><div style="font-size:9px;color:#92400E;margin-top:3px">Scan to Pay</div></div>`
+          : '';
+        const upiBlock = upi
+          ? `<div>
+              <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">📲 UPI</div>
+              <div style="background:#FEF3C7;border-radius:6px;padding:5px 8px;font-size:12px;font-weight:800;letter-spacing:.4px;color:#92400E;text-align:center">${upi}</div>
+              ${qrImg}
+            </div>`
+          : '';
+        const divider = bankText && upi ? `<div style="width:1px;background:#FDE68A;margin:0 14px;align-self:stretch"></div>` : '';
+        return `<div style="display:flex;align-items:flex-start;gap:0;padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
+          ${leftCol}${divider}${upiBlock}
+        </div>`;
+      })()}
+
+      <!-- NOTES -->
+      ${(()=>{
+        if (!d.popt || !d.popt.notes) return '';
+        if (d.status === 'Paid') {
+          const _sc3 = (typeof STATE !== 'undefined' ? STATE.settings : {});
+          return `<div style="padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
+            <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Notes</div>
+            <div style="background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:8px;padding:10px 12px;font-size:11px;color:#2E7D32;line-height:1.8;border-left:3px solid #4CAF50">
+              <div style="font-weight:800;font-size:12px;margin-bottom:3px">🎉 Thank You for Your Payment!</div>
+              <div>We appreciate your trust in <strong>${_sc3.company||''}</strong>. Your account is now up to date.</div>
+            </div>
+          </div>`;
+        }
+        if (!d.notes) return '';
+        return `<div style="padding-bottom:14px;border-bottom:1px solid #FDE68A;margin-bottom:14px">
+          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Notes</div>
+          <div style="font-size:10.5px;color:#78350F;line-height:1.7">${d.notes.replace(/\n/g,'<br>')}</div>
+        </div>`;
+      })()}
+
+      <!-- TERMS & CONDITIONS -->
+      ${(()=>{
+        if (!d.popt || !d.popt.tnc) return '';
+        const tnc = (d.tnc || '').trim();
+        if (!tnc) return '';
+        return `<div>
+          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#92400E;margin-bottom:6px">Terms &amp; Conditions</div>
+          <div style="font-size:10.5px;color:#92400E;line-height:1.7">${tnc.replace(/\n/g,'<br>')}</div>
+        </div>`;
+      })()}
     </div>
-    <div style="width:250px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
+
+    <!-- RIGHT: Totals (with correct order + partial history) -->
+    <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
+      <!-- Subtotal -->
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
         <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Subtotal</span>
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money(d.sub,d.sym)}</span>
       </div>
+      <!-- Discount (if any) -->
       ${d.discAmt>0?`
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
         <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
         <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
       </div>`:''}
-      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
-        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
-      </div>
+      <!-- Amount (after discount, before GST) -->
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
         <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
       </div>
+      <!-- GST -->
+      <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
+        <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
+      </div>
+      <!-- Grand Total -->
       <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
         <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
       </div>
+      <!-- Partial payment history (instalments + remaining due) -->
+      ${(()=>{
+        const invId2 = d.invId ? String(d.invId) : '';
+        const isPartial2 = d.status === 'Partial';
+        const isPaid2    = d.status === 'Paid';
+        if (!(isPartial2 || isPaid2) || !invId2 || invId2 === '0') return '';
+        const pays2 = (typeof STATE !== 'undefined' ? STATE.payments : []).filter(p => p.invoice_id && String(p.invoice_id) === invId2)
+          .sort((a,b) => new Date(a.date||a.payment_date||0) - new Date(b.date||b.payment_date||0));
+        const totalPaid2 = pays2.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+        const remaining2 = Math.max(0, (d.grand||0) - totalPaid2);
+        if (totalPaid2 < 0.01) return '';
+        const instalRows2 = pays2.map((p,i) => {
+          const dtF = p.date||p.payment_date ? new Date(p.date||p.payment_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
+          const meth = p.method||'';
+          return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px dashed ${T.totbr}">
+            <span style="color:#388E3C">${meth.startsWith('Split')?'⚡':'✓'} Instalment ${i+1}${dtF?' · '+dtF:''}${meth?' · '+meth.replace('Split: ','').substring(0,28):''}</span>
+            <span style="font-family:monospace;font-weight:600;color:#388E3C">-${fmt_money(parseFloat(p.amount||0),d.sym)}</span>
+          </div>`;
+        }).join('');
+        const paidLabel = isPaid2 ? '✅ Paid in Full' : `💚 Total Paid${pays2.length>1?' ('+pays2.length+' instalments)':''}`;
+        const paidRow2 = `<div style="padding:8px 22px;border-top:1px solid ${T.totbr}">
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;${pays2.length>1?'border-bottom:2px solid #A5D6A7':''}">
+            <span style="color:#388E3C;font-weight:700">${paidLabel}</span>
+            <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid2,d.sym)}</span>
+          </div>
+          ${pays2.length>1?`<div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">${instalRows2}</div>`:''}
+        </div>`;
+        const remRow2 = (isPartial2 && remaining2 > 0.01)
+          ? `<div style="margin:6px 14px 10px;display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:8px 10px;background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
+              <span>⚠ Remaining Due</span>
+              <span style="font-family:monospace">${fmt_money(remaining2,d.sym)}</span>
+            </div>`
+          : '';
+        return paidRow2 + remRow2;
+      })()}
+      <!-- Signature -->
       ${d.popt.sign?(()=>{const sig=d.signature||STATE.settings.signature||'';return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">${sig?`<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">`:'<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>'}<div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div><div style="font-size:10px;color:#bbb">${sc.company}</div></div>`;})():''}
     </div>
   </div>
@@ -5250,7 +5375,10 @@ async function saveInvoice() {
     } else {
       await api('api/invoices.php', 'POST', payload);
       toast('✅ Invoice ' + d.num + ' saved!', 'success');
-    showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
+      showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
+      // Reset form for next new invoice
+      STATE._editingNext = false;
+      resetCreateForm();
     }
     const r = await api('api/invoices.php');
     STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
