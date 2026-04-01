@@ -3908,7 +3908,8 @@ function resetCreateForm() {
   _sv('f-disc', '0');
   const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
   const _gstEl2 = document.getElementById('f-gst'); if (_gstEl2) _gstEl2.value = String(STATE.settings.defaultGST ?? 18);
-  const notesEl = document.getElementById('f-notes'); if (notesEl) notesEl.value = '';
+  const DEFAULT_NOTES = 'Thank you for choosing OPTMS Tech. Payment is due within 15 days of invoice date. Late payments may incur a 2% monthly interest charge.';
+  const notesEl = document.getElementById('f-notes'); if (notesEl) notesEl.value = STATE.settings.defaultNotes || DEFAULT_NOTES;
   const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
   const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = '₹';
   const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || 1);
@@ -7442,6 +7443,8 @@ function normalizeInvoice(inv) {
   if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
   // Unify tnc field aliases
   if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
+  // Fall back to default notes if empty
+  if (!inv.notes) inv.notes = 'Thank you for choosing OPTMS Tech. Payment is due within 15 days of invoice date. Late payments may incur a 2% monthly interest charge.';
   return inv;
 }
 
@@ -8208,12 +8211,24 @@ async function sendWA(phone, message, tplName, inv, client) {
   const clean = String(phone).replace(/\D/g, '');
   if (!clean) throw new Error('No phone number');
   if (token && pid) {
+    // Map verbose tplName strings to STATE tpl_name_* keys
+    const TPL_KEY_MAP = {
+      'invoice_created':  'invoice',
+      'payment_received': 'paid',
+      'partial_payment':  'partial',
+      'split_payment':    'paid',
+      'payment_overdue':  'overdue',
+      'payment_reminder': 'reminder',
+      'invoice_followup': 'followup',
+      'festival':         'festival',
+    };
+    const tplKey = TPL_KEY_MAP[tplName] || tplName;
     // Use approved template if name configured AND mode is template
-    const useTemplate = wa.msg_mode === 'template' && tplName && wa['tpl_name_' + tplName];
+    const useTemplate = wa.msg_mode === 'template' && tplKey && wa['tpl_name_' + tplKey];
     const tplOpts = useTemplate ? {
-      name:   wa['tpl_name_' + tplName],
-      lang:   wa['tpl_lang_' + tplName] || 'en',
-      params: inv ? buildWATplParams(wa['tpl_name_' + tplName], inv, client, STATE.settings) : [],
+      name:   wa['tpl_name_' + tplKey],
+      lang:   wa['tpl_lang_' + tplKey] || 'en',
+      params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
     } : null;
     return await sendWABusinessMsg(clean, message, token, pid, tplOpts);
   }
