@@ -5416,7 +5416,7 @@ async function saveInvoice() {
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
     discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
-    notes: STATE.editingInvoiceId ? (d.notes || '') : '', bank_details: d.bank || '', terms: d.tnc || '',
+    notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
     company_logo: d.companyLogo, client_logo: d.clientLogo,
     signature: d.signature, qr_code: d.qrUrl,
     template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
