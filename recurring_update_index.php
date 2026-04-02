@@ -2920,30 +2920,13 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
       <!-- Amount + Txn ID (2-col) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field" id="paid-amt-field">
-          <label>Amount Received (₹) <span id="paid-amt-label-note" style="font-size:10px;font-weight:400;color:var(--muted)"></span></label>
+          <label>Amount Received (₹)</label>
           <input type="number" id="paid-amt" placeholder="0.00" oninput="onPaidAmtInput()">
         </div>
         <div class="field">
           <label>Transaction ID / UTR</label>
           <input id="paid-txn" placeholder="Ref / UTR Number">
         </div>
-      </div>
-
-      <!-- Settlement Discount -->
-      <div class="field" id="paid-settle-disc-row">
-        <label style="display:flex;align-items:center;gap:6px">
-          Settlement Discount
-          <span style="font-size:10px;font-weight:400;color:var(--muted);background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;padding:1px 6px">optional</span>
-        </label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <select id="paid-settle-disc-type" style="width:90px;flex-shrink:0" onchange="onPaidSettleDiscInput()">
-            <option value="pct">%</option>
-            <option value="fixed">₹ Fixed</option>
-          </select>
-          <input type="number" id="paid-settle-disc" value="0" min="0" step="0.01" style="flex:1" oninput="onPaidSettleDiscInput()" placeholder="0">
-          <span id="paid-settle-disc-display" style="font-size:12px;font-weight:700;color:#E65100;min-width:70px;text-align:right;display:none"></span>
-        </div>
-        <div id="paid-settle-disc-info" style="display:none;font-size:11px;color:#E65100;margin-top:4px;background:#FFF3E0;border-radius:6px;padding:5px 8px;border:1px solid #FFCC80"></div>
       </div>
 
       <!-- Notes -->
@@ -4489,20 +4472,6 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         <span style="color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
         <span style="color:#fff;font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
       </div>
-      ${(()=>{
-        const invId1 = d.invId ? String(d.invId) : '';
-        if (!invId1 || (d.status!=='Paid'&&d.status!=='Partial')) return '';
-        const pmts1 = STATE.payments.filter(p=>p.invoice_id&&String(p.invoice_id)===invId1).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
-        const totPaid1 = pmts1.reduce((s,p)=>s+parseFloat(p.amount||0),0);
-        const totSettle1 = pmts1.reduce((s,p)=>s+parseFloat(p.settlement_discount||0),0);
-        if (totPaid1 < 0.01) return '';
-        const rem1 = Math.max(0,(d.grand||0)-totPaid1-totSettle1);
-        return `<div style="padding:8px 22px;border-top:2px solid #eee">
-          ${totSettle1>0?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#E65100;font-weight:700">✂ Settlement Discount</span><span style="font-family:monospace;font-weight:700;color:#E65100">-${fmt_money(totSettle1,d.sym)}</span></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;${d.status==='Partial'?'border-bottom:1px solid #eee':''}"><span style="color:#388E3C;font-weight:700">${d.status==='Paid'?'✅ Paid in Full':'💚 Total Paid'}</span><span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totPaid1,d.sym)}</span></div>
-          ${rem1>0.01?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:#E65100;font-weight:700">⚠ Remaining Due</span><span style="font-family:monospace;font-weight:700;color:#E65100">${fmt_money(rem1,d.sym)}</span></div>`:''}
-        </div>`;
-      })()}
     </div>
   </div>
 
@@ -4540,8 +4509,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       return (parseInt(a.id)||0) - (parseInt(b.id)||0);
     });
     totalPaid  = paymentsForInv.reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    const totalSettleDiscForRem = paymentsForInv.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-    remaining  = Math.max(0, (d.grand||0) - totalPaid - totalSettleDiscForRem);
+    remaining  = Math.max(0, (d.grand||0) - totalPaid);
   }
 
   const showPaidRow = showInstalmentsSection && totalPaid > 0.01;
@@ -4559,9 +4527,6 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       <span style="font-family:monospace;font-weight:600;color:#2E7D32">+${fmt_money(d.gstAmt||0,d.sym)}</span>
     </div>` : '';
 
-  // Sum settlement discounts across all payments for this invoice
-  const totalSettleDisc = paymentsForInv.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-
   // Build individual instalment rows when more than one payment
   const instalmentRows = (showPaidRow && paymentsForInv.length > 0)
     ? paymentsForInv.map((p,i) => {
@@ -4569,26 +4534,16 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
         const dtF = dt ? new Date(dt).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
         const meth= p.method||'';
         const isSplit = meth.startsWith('Split');
-        const pSettle = parseFloat(p.settlement_discount||0);
         return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px dashed ${borderColor}">
           <span style="color:#388E3C">
-            ${isSplit?'⚡':'✓'} Instalment ${i+1}${dtF?' · '+dtF:''}${meth?' · '+meth.replace('Split: ','').substring(0,30):''}${pSettle>0?' (incl. '+fmt_money(pSettle,d.sym)+' disc)':''}
+            ${isSplit?'⚡':'✓'} Instalment ${i+1}${dtF?' · '+dtF:''}${meth?' · '+meth.replace('Split: ','').substring(0,30):''}
           </span>
           <span style="font-family:monospace;font-weight:600;color:#388E3C">-${fmt_money(parseFloat(p.amount||0),d.sym)}</span>
         </div>`;
       }).join('')
     : '';
-
-  // Settlement discount row — shown when any payment has a settlement discount
-  const settleDiscRow = totalSettleDisc > 0.001 ? `
-    <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
-      <span style="color:#E65100;font-weight:600">✂ Settlement Discount</span>
-      <span style="font-family:monospace;font-weight:700;color:#E65100">-${fmt_money(totalSettleDisc,d.sym)}</span>
-    </div>` : '';
-
   const paidRow = showPaidRow ? `
     <div style="margin-top:4px">
-      ${settleDiscRow}
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;${paymentsForInv.length>1?'border-bottom:2px solid #A5D6A7':'border-bottom:1px solid '+borderColor}">
         <span style="color:#388E3C;font-weight:700">${isPaidStatus?'✅':'💚'} ${isPaidStatus?'Paid in Full':'Total Paid'}${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
         <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid,d.sym)}</span>
@@ -5796,10 +5751,6 @@ function openPaidModal(id) {
   document.getElementById('paid-date').value = fmt_date(new Date());
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
-  const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
-  const sdtEl = document.getElementById('paid-settle-disc-type'); if (sdtEl) sdtEl.value = 'pct';
-  const sdDisp = document.getElementById('paid-settle-disc-display'); if (sdDisp) { sdDisp.style.display='none'; sdDisp.textContent=''; }
-  const sdInfo = document.getElementById('paid-settle-disc-info'); if (sdInfo) { sdInfo.style.display='none'; sdInfo.textContent=''; }
   document.getElementById('paid-remaining-box').style.display = 'none';
   // Reset split payment panel — clear amounts to zero, hide panel
   const splitPanel = document.getElementById('split-payment-panel');
@@ -5888,44 +5839,6 @@ function onPaidAmtInput() {
   updatePaidRemaining();
 }
 
-// Get computed settlement discount amount from modal inputs
-function getSettlementDiscAmt(totalAmt) {
-  const discType = document.getElementById('paid-settle-disc-type')?.value || 'pct';
-  const discVal  = parseFloat(document.getElementById('paid-settle-disc')?.value) || 0;
-  if (!discVal) return 0;
-  return discType === 'fixed' ? Math.min(discVal, totalAmt) : totalAmt * discVal / 100;
-}
-
-// Called when settlement discount input changes
-function onPaidSettleDiscInput() {
-  const mid = STATE.activeMenuInvoiceId;
-  const inv = STATE.invoices.find(i => String(i.id) === mid);
-  if (!inv) return;
-  const sym      = inv.currency || '₹';
-  const totalAmt = parseFloat(inv.amount || 0);
-  const discAmt  = getSettlementDiscAmt(totalAmt);
-  const dispEl   = document.getElementById('paid-settle-disc-display');
-  const infoEl   = document.getElementById('paid-settle-disc-info');
-  const noteEl = document.getElementById('paid-amt-label-note');
-  if (discAmt > 0.001) {
-    const effAmt = Math.max(0, totalAmt - discAmt);
-    if (dispEl) { dispEl.textContent = '-' + fmt_money(discAmt, sym); dispEl.style.display = 'block'; }
-    if (infoEl) {
-      infoEl.textContent = `Client pays ${fmt_money(effAmt, sym)} — ${fmt_money(discAmt, sym)} discount written off. Invoice will be marked Paid.`;
-      infoEl.style.display = 'block';
-    }
-    if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill amount received with the effective payable amount
-    const amtEl = document.getElementById('paid-amt');
-    if (amtEl) amtEl.value = effAmt.toFixed(2);
-  } else {
-    if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
-    if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
-    if (noteEl) noteEl.textContent = '';
-  }
-  updatePaidRemaining();
-}
-
 function updatePaidRemaining() {
   const mid  = STATE.activeMenuInvoiceId;
   const inv  = STATE.invoices.find(i=>String(i.id)===mid);
@@ -5933,22 +5846,22 @@ function updatePaidRemaining() {
   const sym        = inv.currency || '₹';
   const total      = parseFloat(inv.amount || 0);
   const received   = parseFloat(document.getElementById('paid-amt').value) || 0;
-  const settleDisc = getSettlementDiscAmt(total);
   const prevPaid   = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-  // Effective coverage = received + settlement discount
-  const totalCovered  = prevPaid + received + settleDisc;
-  const remaining      = Math.max(0, total - totalCovered);
-  const remBox         = document.getElementById('paid-remaining-box');
+  const totalReceived = prevPaid + received;
+  const remaining     = Math.max(0, total - totalReceived);
+  const remBox        = document.getElementById('paid-remaining-box');
+  // Hide ONLY when no prior history AND this payment covers the full total.
+  // Once any partial exists (prevPaid > 0), box is always visible.
   if (prevPaid < 0.01 && remaining < 0.01) {
     remBox.style.display = 'none';
   } else {
     remBox.style.display = 'block';
     const el  = id => document.getElementById(id);
-    const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
+    const pct = total > 0 ? Math.min(100, Math.round(totalReceived / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)} disc` : '');
+    el('paid-rem-received').textContent = fmt_money(totalReceived, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     const pctEl = el('paid-rem-pct');
     if (pctEl) pctEl.textContent = pct + '%';
@@ -5973,15 +5886,14 @@ function confirmPaid() {
       return;
     }
   }
-  const amtReceived    = parseFloat(document.getElementById('paid-amt').value)||parseFloat(inv.amount)||0;
-  const totalAmt       = parseFloat(inv.amount||0);
-  const settleDiscAmt  = getSettlementDiscAmt(totalAmt);
-  // Total paid including ALL previous partial payments + this payment + settlement discount
+  const amtReceived = parseFloat(document.getElementById('paid-amt').value)||parseFloat(inv.amount)||0;
+  const totalAmt    = parseFloat(inv.amount||0);
+  // Total paid including ALL previous partial payments + this payment
   const prevPaid = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-  const totalCovered   = prevPaid + amtReceived + settleDiscAmt;
-  const remaining      = Math.max(0, totalAmt - totalCovered);
+  const cumulativePaid = prevPaid + amtReceived;
+  const remaining = Math.max(0, totalAmt - cumulativePaid);
   // ALERT: if amount < total and checkbox not checked, warn user
   if (remaining > 0.01) {
     const partialCheckEl = document.getElementById('paid-collect-remaining');
@@ -5995,12 +5907,11 @@ function confirmPaid() {
   const isPartial = remaining > 0.01 &&
                     document.getElementById('paid-collect-remaining')?.checked;
   const payload = {
-    invoice_id:          parseInt(mid)||null,
-    invoice_number:      inv.num||inv.invoice_number||'',
-    client_name:         (STATE.clients.find(c=>String(c.id)===String(inv.client))||{}).name||inv.client_name||'',
-    amount:              amtReceived,
-    settlement_discount: settleDiscAmt > 0 ? settleDiscAmt : 0,
-    payment_date:        document.getElementById('paid-date').value,
+    invoice_id:     parseInt(mid)||null,
+    invoice_number: inv.num||inv.invoice_number||'',
+    client_name:    (STATE.clients.find(c=>String(c.id)===String(inv.client))||{}).name||inv.client_name||'',
+    amount:         amtReceived,
+    payment_date:   document.getElementById('paid-date').value,
     method: (document.getElementById('paid-method').value === 'Split')
               ? getSplitMethodLabel()
               : document.getElementById('paid-method').value,
@@ -6053,7 +5964,6 @@ function confirmPaid() {
               _remainingAmt: payload.remaining_amt || 0,
               _payMethod:    payload.method,
               _instalmentNo: pr&&pr.data ? pr.data.filter(p=>String(p.invoice_id)===mid).length : 1,
-              _settleDisc:   payload.settlement_discount || 0,
             });
             const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
             logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'sending' });
@@ -6949,25 +6859,6 @@ function formatWAMsg(tpl, inv, client, settings) {
     .replace(/{item_list}/g,    items||'')
     .replace(/{status}/g,       inv.status||'')
     .replace(/{invoice_link}/g, portalLink)
-    .replace(/{settlement_discount}/g, (() => {
-      const invId = String(inv.id || inv._dbId || '');
-      if (!invId || !STATE.payments) return '';
-      const pmts = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId);
-      const total = pmts.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-      return total > 0.001 ? fmt_money(total, sym) : '';
-    })())
-    .replace(/{settlement_discount_line}/g, (() => {
-      const invId = String(inv.id || inv._dbId || '');
-      // Also check inv._settleDisc for freshly-recorded payment (not yet in STATE.payments)
-      const fromInv = parseFloat(inv._settleDisc || 0);
-      if (fromInv > 0.001) return `
-✂ Settlement Discount: -${fmt_money(fromInv, sym)}`;
-      if (!invId || !STATE.payments) return '';
-      const pmts = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId);
-      const total = pmts.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-      return total > 0.001 ? `
-✂ Settlement Discount: -${fmt_money(total, sym)}` : '';
-    })())
     .replace(/{paid_amount}/g,      fmt_money(paidAmt, sym))
     .replace(/{remaining_amount}/g, fmt_money(remainingAmt, sym))
     .replace(/{payment_method}/g,   inv._payMethod   || '')
@@ -8184,11 +8075,11 @@ Thank you for choosing {company_name}!
 
 Payment received for *Invoice #{invoice_no}*
 
-💰 Amount Received: *{currency}{amount}*{settlement_discount_line}
+💰 Amount: *{currency}{amount}*
 📅 Date: {issue_date}
 📋 Service: {service}
 
-Your account is now clear. Thank you! 🙏
+Thank you for the prompt payment! 🙏
 We look forward to serving you again.
 
 — {company_name}
@@ -8331,32 +8222,20 @@ function buildWATplParams(tplName, inv, client, settings) {
     tplPortalLink = _portalBaseURL() + '?t=' + _portalTokenMap[tplInvId].token;
   }
 
-  // Settlement discount for this payment
-  const settleDiscStr = (() => {
-    const sd = parseFloat(inv._settleDisc || 0);
-    if (sd > 0.001) return fmt_money(sd, inv.currency || '₹');
-    const invId = String(inv.id || inv._dbId || '');
-    if (!invId || !STATE.payments) return '0';
-    const pmts = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId);
-    const total = pmts.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-    return total > 0.001 ? fmt_money(total, inv.currency || '₹') : '0';
-  })();
-
   // Common params used across most templates
   const common = {
-    client_name:          c.name || inv.client_name || 'Valued Client',
-    invoice_no:           inv.num || inv.invoice_number || '',
+    client_name:    c.name || inv.client_name || 'Valued Client',
+    invoice_no:     inv.num || inv.invoice_number || '',
     amount,
-    currency:             inv.currency || '₹',
-    due_date:             dueFmt,
-    issue_date:           issueFmt,
-    service:              inv.service || inv.service_type || '',
-    company_name:         sc.company || '',
-    upi:                  sc.upi || '',
-    company_phone:        sc.phone || '',
-    days_overdue:         daysOver,
-    portal_link:          tplPortalLink,
-    settlement_discount:  settleDiscStr,
+    currency:       inv.currency || '₹',
+    due_date:       dueFmt,
+    issue_date:     issueFmt,
+    service:        inv.service || inv.service_type || '',
+    company_name:   sc.company || '',
+    upi:            sc.upi || '',
+    company_phone:  sc.phone || '',
+    days_overdue:   daysOver,
+    portal_link:    tplPortalLink,
   };
 
   // Map template name to ordered params list
@@ -8364,7 +8243,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     invoice_created:   ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     payment_reminder:  ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     payment_overdue:   ['client_name','invoice_no','amount','days_overdue','upi','company_name','portal_link'],
-    payment_received:  ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
+    payment_received:  ['client_name','invoice_no','amount','issue_date','company_name','portal_link'],
     invoice_followup:  ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival_greeting: ['client_name','company_name','company_phone'],
   };
