@@ -113,7 +113,8 @@ if (!$error && $invoiceId > 0) {
 
             // Payment history
             $pStmt = $db->prepare(
-                'SELECT amount, payment_date, method, transaction_id, notes
+                'SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount,
+                        payment_date, method, transaction_id, notes
                  FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC'
             );
             $pStmt->execute([':id' => $inv['invoice_id']]);
@@ -147,11 +148,14 @@ function status_col($s) {
     };
 }
 
-$sym        = $inv['currency'] ?: '₹';
-$totalAmt   = (float)($inv['amount']  ?? 0);
-$totalPaid  = array_sum(array_column($payments, 'amount'));
-$remaining  = max(0, $totalAmt - $totalPaid);
-$pct        = $totalAmt > 0 ? min(100, round($totalPaid / $totalAmt * 100)) : 0;
+$sym           = $inv['currency'] ?: '₹';
+$totalAmt      = (float)($inv['amount'] ?? 0);
+$totalCash     = array_sum(array_column($payments, 'amount'));
+$totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
+$totalPaid     = $totalCash;                          // cash received (shown as "Amount Paid")
+$totalCovered  = $totalCash + $totalSettle;           // cash + settlement discount
+$remaining     = max(0, $totalAmt - $totalCovered);
+$pct           = $totalAmt > 0 ? min(100, round($totalCovered / $totalAmt * 100)) : 0;
 
 $companyName    = $settings['company_name']    ?? 'OPTMS Tech';
 $companyAddress = $settings['company_address'] ?? '';
@@ -283,7 +287,12 @@ tr:last-child td{border:none}
     </div>
     <div class="amt-cell">
       <div class="lbl">Amount Paid</div>
-      <div class="val" style="color:var(--green)"><?= fmt_inr($totalPaid, $sym) ?></div>
+      <div class="val" style="color:var(--green)"><?= fmt_inr($totalCovered, $sym) ?></div>
+      <?php if ($totalSettle > 0.01): ?>
+      <div style="font-size:10px;color:#E65100;margin-top:2px">
+        <?= fmt_inr($totalCash, $sym) ?> cash + <?= fmt_inr($totalSettle, $sym) ?> discount
+      </div>
+      <?php endif; ?>
     </div>
     <div class="amt-cell">
       <div class="lbl"><?= $remaining > 0 ? 'Balance Due' : 'Status' ?></div>
@@ -441,9 +450,20 @@ if ($items):
         <div class="pmt-txn"><?= htmlspecialchars($p['notes']) ?></div>
         <?php endif; ?>
       </div>
-      <div class="pmt-amt"><?= fmt_inr($p['amount'], $sym) ?></div>
+      <div style="text-align:right">
+        <div class="pmt-amt"><?= fmt_inr($p['amount'], $sym) ?></div>
+        <?php if (!empty($p['settlement_discount']) && (float)$p['settlement_discount'] > 0.01): ?>
+        <div style="font-size:10px;color:#E65100;margin-top:2px">+<?= fmt_inr($p['settlement_discount'], $sym) ?> disc</div>
+        <?php endif; ?>
+      </div>
     </div>
     <?php endforeach; ?>
+    <?php if ($totalSettle > 0.01): ?>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px dashed var(--border);margin-top:4px;font-size:12px">
+      <span style="color:#E65100;font-weight:700">✂ Total Settlement Discount</span>
+      <span style="color:#E65100;font-weight:700;font-family:var(--mono)">-<?= fmt_inr($totalSettle, $sym) ?></span>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 <?php endif; ?>
