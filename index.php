@@ -1968,26 +1968,109 @@ const SERVER = {
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-comment-alt"></i> Message Templates</div>
           <div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--teal);margin-bottom:16px">
-            <strong>Variables:</strong> {client_name} {invoice_no} {amount} {currency} {due_date} {issue_date} {service} {company_name} {company_phone} {upi} {bank_details} {days_overdue} {item_list} {status}
+            <strong>Variables:</strong> {client_name} {invoice_no} {amount} {currency} {due_date} {issue_date} {service} {company_name} {company_phone} {company_email} {upi} {bank_details} {days_overdue} {item_list} {status} {paid_amount} {remaining_amount} {payment_method} {settlement_discount}
+            <span style="margin-left:6px;padding:2px 8px;background:#E0F2F1;border-radius:4px;color:var(--teal);font-weight:700">{invoice_link}</span> — portal &amp; PDF link
           </div>
           <div class="form-grid g1">
             <div class="field"><label>📄 New Invoice Template</label>
-              <textarea id="wa-tpl-inv" style="min-height:80px">Hi {client_name}! 👋 Invoice #{invoice_no} for ₹{amount} from {company_name} is ready. Due: {due_date}. Pay to UPI: {upi}. Thanks! 🙏</textarea>
+              <textarea id="wa-tpl-inv" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 👋
+
+*Invoice #{invoice_no}* from *{company_name}* is ready.
+
+📋 Service: {service}
+📅 Due Date: {due_date}
+💰 Amount: *{currency}{amount}*
+
+💳 Pay via UPI: {upi}
+🏦 {bank_details}
+
+🔗 View & Download Invoice:
+{invoice_link}
+
+Thank you for choosing {company_name}!
+📞 {company_phone}</textarea>
             </div>
             <div class="field"><label>✅ Payment Receipt Template</label>
-              <textarea id="wa-tpl-paid" style="min-height:80px">Hi {client_name}! ✅ Payment of ₹{amount} for invoice #{invoice_no} received. Thank you for choosing {company_name}! 🎉</textarea>
-          <div class="field g-full"><label>Partial Payment Template <span style="font-size:10px;color:var(--muted)">— sent when partial payment recorded</span></label>
-            <textarea id="wa-tpl-partial" style="min-height:90px" oninput="saveWASettings()"></textarea>
-          </div>
+              <textarea id="wa-tpl-paid" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! ✅
+
+Payment received for *Invoice #{invoice_no}*{settlement_discount_line}
+
+💰 Amount Received: *{currency}{amount}*
+📅 Date: {issue_date}
+📋 Service: {service}
+
+🔗 View Receipt:
+{invoice_link}
+
+Your account is now clear. Thank you! 🙏
+— *{company_name}* | 📞 {company_phone}</textarea>
+            </div>
+            <div class="field"><label>💚 Partial Payment Template <span style="font-size:10px;color:var(--muted)">— sent when partial payment recorded</span></label>
+              <textarea id="wa-tpl-partial" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 💚
+
+*Partial Payment Received* for Invoice #{invoice_no}
+
+✅ Paid: *{paid_amount}*
+⏳ Remaining: *{remaining_amount}*
+📋 Invoice Total: {currency}{amount}
+📅 Date: {issue_date}
+
+Please clear the remaining balance by *{due_date}*.
+💳 UPI: {upi}
+
+🔗 View Invoice:
+{invoice_link}
+
+Thank you! — *{company_name}*
+📞 {company_phone}</textarea>
             </div>
             <div class="field"><label>⏰ Payment Reminder Template (before due)</label>
-              <textarea id="wa-tpl-remind" style="min-height:80px">Hi {client_name}! 🔔 Gentle reminder: Invoice #{invoice_no} for ₹{amount} is due on {due_date}. Please arrange payment. UPI: {upi} 🙏</textarea>
+              <textarea id="wa-tpl-remind" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 🔔 *Payment Reminder*
+
+*Invoice #{invoice_no}* for *{currency}{amount}* is due on *{due_date}*.
+
+📋 Service: {service}
+
+💳 Pay via UPI: {upi}
+🏦 {bank_details}
+
+🔗 View Invoice:
+{invoice_link}
+
+Please arrange payment at your earliest convenience.
+— {company_name} | 📞 {company_phone}</textarea>
             </div>
             <div class="field"><label>🔴 Overdue Alert Template</label>
-              <textarea id="wa-tpl-overdue" style="min-height:80px">Hi {client_name}! ⚠️ Invoice #{invoice_no} for ₹{amount} was due on {due_date} and is now overdue. Please pay immediately. UPI: {upi}. Contact us if any issue.</textarea>
+              <textarea id="wa-tpl-overdue" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! ⚠️ *Overdue Notice*
+
+*Invoice #{invoice_no}* for *{currency}{amount}* was due on *{due_date}*.
+Overdue by: *{days_overdue} days*
+
+📋 Service: {service}
+
+Please clear this immediately to avoid any inconvenience.
+💳 UPI: {upi}
+
+🔗 View Invoice:
+{invoice_link}
+
+— {company_name} | 📞 {company_phone}</textarea>
             </div>
             <div class="field"><label>📋 Overdue Follow-up Template</label>
-              <textarea id="wa-tpl-followup" style="min-height:80px">Hi {client_name}, this is a follow-up regarding invoice #{invoice_no} (₹{amount}), overdue by {days_overdue} days. Please clear this at earliest. UPI: {upi}.</textarea>
+              <textarea id="wa-tpl-followup" style="min-height:120px" oninput="saveWASettings()">Hi {client_name},
+
+This is a follow-up for *Invoice #{invoice_no}* (*{currency}{amount}*).
+⚠️ Still overdue by *{days_overdue} days*
+
+📋 Service: {service}
+
+Kindly process the payment immediately or contact us to discuss.
+💳 UPI: {upi}
+
+🔗 View Invoice:
+{invoice_link}
+
+— {company_name} | 📞 {company_phone} | ✉ {company_email}</textarea>
             </div>
           </div>
           <button class="btn btn-primary" style="margin-top:14px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save All Templates</button>
@@ -2033,7 +2116,7 @@ const SERVER = {
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Festival Message</label>
-            <textarea id="wa-tpl-festival" style="min-height:90px">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
+            <textarea id="wa-tpl-festival" style="min-height:90px" oninput="saveWASettings()">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
           </div>
           <!-- Schedule options -->
           <div class="form-grid g2" style="margin-top:12px">
@@ -2096,7 +2179,7 @@ const SERVER = {
                   <input id="tpl-name-invoice" placeholder="e.g. invoice_created" style="flex:1">
                   <input id="tpl-lang-invoice" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company {{7}}portal_link</div>
               </div>
               <div class="field">
                 <label>Payment Reminder Template Name</label>
@@ -2104,7 +2187,7 @@ const SERVER = {
                   <input id="tpl-name-reminder" placeholder="e.g. payment_reminder" style="flex:1">
                   <input id="tpl-lang-reminder" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company {{7}}portal_link</div>
               </div>
               <div class="field">
                 <label>Overdue Alert Template Name</label>
@@ -2112,7 +2195,7 @@ const SERVER = {
                   <input id="tpl-name-overdue" placeholder="e.g. payment_overdue" style="flex:1">
                   <input id="tpl-lang-overdue" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}company</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}company {{7}}portal_link</div>
               </div>
               <div class="field">
                 <label>Payment Received Template Name</label>
@@ -2120,7 +2203,7 @@ const SERVER = {
                   <input id="tpl-name-paid" placeholder="e.g. payment_received" style="flex:1">
                   <input id="tpl-lang-paid" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}date {{5}}company</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}settlement_discount {{5}}date {{6}}company {{7}}portal_link</div>
               </div>
               <div class="field">
                 <label>Follow-up Template Name</label>
@@ -2128,7 +2211,7 @@ const SERVER = {
                   <input id="tpl-name-followup" placeholder="e.g. invoice_followup" style="flex:1">
                   <input id="tpl-lang-followup" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}phone</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}phone {{7}}portal_link</div>
               </div>
               <div class="field">
                 <label>Partial Payment Template Name</label>
@@ -2136,7 +2219,7 @@ const SERVER = {
                   <input id="tpl-name-partial" placeholder="e.g. partial_payment" style="flex:1">
                   <input id="tpl-lang-partial" placeholder="en" style="width:48px;text-align:center">
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}paid_amount {{4}}remaining {{5}}due_date</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}paid_amount {{4}}remaining {{5}}due_date {{6}}portal_link</div>
               </div>
               <div class="field">
                 <label>Festival Greeting Template Name</label>
@@ -2154,33 +2237,56 @@ const SERVER = {
               <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary>
               <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
 
-Your invoice #{{2}} for ₹{{3}} has been created.
+Your invoice #{{2}} for ₹{{3}} is ready.
 Due Date: {{4}}
 Pay via UPI: {{5}}
 
-Thank you for choosing {{6}}!</pre></details>
+Thank you for choosing {{6}}!
+View Invoice: {{7}}</pre></details>
               <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary>
               <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
 
 Friendly reminder: Invoice #{{2}} for ₹{{3}} is due on {{4}}.
 Pay via UPI: {{5}}
 
-Thank you, {{6}}</pre></details>
+Thank you, {{6}}
+View Invoice: {{7}}</pre></details>
               <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--red)">payment_overdue — UTILITY</summary>
               <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
 
 Invoice #{{2}} for ₹{{3}} is overdue by {{4}} days.
 Please pay immediately via UPI: {{5}}
 
-Contact {{6}} for any queries.</pre></details>
+Contact {{6}} for any queries.
+View Invoice: {{7}}</pre></details>
               <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--blue)">payment_received — UTILITY</summary>
               <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
 
 Payment received for Invoice #{{2}}!
 Amount: ₹{{3}}
-Date: {{4}}
+Settlement Discount: {{4}}
+Date: {{5}}
 
-Thank you for your prompt payment! — {{5}}</pre></details>
+Thank you for your prompt payment! — {{6}}
+View Receipt: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--orange)">invoice_followup — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Follow-up for Invoice #{{2}} (₹{{3}}).
+Overdue by {{4}} days.
+Pay via UPI: {{5}}
+
+Contact: {{6}}
+View Invoice: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--green)">partial_payment — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Partial payment received for Invoice #{{2}}.
+Paid: ₹{{3}}
+Remaining: ₹{{4}}
+Due by: {{5}}
+
+View Invoice: {{6}}</pre></details>
             </div>
             <button class="btn btn-primary" style="margin-top:14px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save Template Settings</button>
           </div>
@@ -8171,85 +8277,89 @@ function getDefaultWATpl(type) {
   const d = {
     inv: `Hi {client_name}! 👋
 
-*Invoice #{invoice_no}* from {company_name}
+*Invoice #{invoice_no}* from *{company_name}* is ready.
 
-📋 *Details:*
-• Service: {service}
-• Issue Date: {issue_date}
-• Due Date: {due_date}
-• Amount: *{currency}{amount}*
+📋 Service: {service}
+📅 Issue Date: {issue_date}
+⏳ Due Date: *{due_date}*
+💰 Amount: *{currency}{amount}*
 
 {item_list}
 
 💳 *Pay via UPI:* {upi}
 🏦 {bank_details}
 
-🔗 *View Invoice:* {invoice_link}
+🔗 *View & Download Invoice:*
+{invoice_link}
 
 Thank you for choosing {company_name}!
 📞 {company_phone} | ✉ {company_email}`,
 
     paid: `Hi {client_name}! ✅
 
-Payment received for *Invoice #{invoice_no}*
+Payment received for *Invoice #{invoice_no}*{settlement_discount_line}
 
-💰 Amount Received: *{currency}{amount}*{settlement_discount_line}
+💰 Amount Received: *{currency}{amount}*
 📅 Date: {issue_date}
 📋 Service: {service}
+
+🔗 *View Receipt:*
+{invoice_link}
 
 Your account is now clear. Thank you! 🙏
 We look forward to serving you again.
 
-— {company_name}
+— *{company_name}*
 📞 {company_phone}`,
 
     remind: `Hi {client_name}! 🔔 *Payment Reminder*
 
-*Invoice #{invoice_no}* is due on *{due_date}*
+*Invoice #{invoice_no}* for *{currency}{amount}* is due on *{due_date}*
 
 📋 Service: {service}
-💰 Amount Due: *{currency}{amount}*
 
 Please arrange payment at your earliest convenience.
 
 💳 *UPI:* {upi}
 🏦 {bank_details}
 
-🔗 *View Invoice:* {invoice_link}
+🔗 *View Invoice:*
+{invoice_link}
 
-{company_name} | 📞 {company_phone}`,
+— {company_name} | 📞 {company_phone}`,
 
     overdue: `Hi {client_name}! ⚠️ *Overdue Notice*
 
-*Invoice #{invoice_no}* was due on *{due_date}*
+*Invoice #{invoice_no}* for *{currency}{amount}* was due on *{due_date}*
 Overdue by: *{days_overdue} days*
 
 📋 Service: {service}
-💰 Outstanding: *{currency}{amount}*
 
-Please clear this payment immediately to avoid any inconvenience.
+Please clear this immediately to avoid any inconvenience.
 
 💳 *UPI:* {upi}
 🏦 {bank_details}
 
-🔗 *View Invoice:* {invoice_link}
+🔗 *View Invoice:*
+{invoice_link}
 
-{company_name} | 📞 {company_phone}`,
+— {company_name} | 📞 {company_phone}`,
 
     followup: `Hi {client_name},
 
-This is a follow-up regarding *Invoice #{invoice_no}* ({currency}{amount}).
-
+This is a follow-up for *Invoice #{invoice_no}* (*{currency}{amount}*).
 ⚠️ Still overdue by *{days_overdue} days*
+
 📋 Service: {service}
 
-Kindly process the payment immediately or contact us to discuss.
+Kindly process payment immediately or contact us to discuss.
 
 💳 *UPI:* {upi}
 
-🔗 *View Invoice:* {invoice_link}
+🔗 *View Invoice:*
+{invoice_link}
 
-{company_name} | 📞 {company_phone} | ✉ {company_email}`,
+— {company_name} | 📞 {company_phone} | ✉ {company_email}`,
 
     partial_receipt: `Hi {client_name}! 💚
 
@@ -8257,7 +8367,7 @@ Kindly process the payment immediately or contact us to discuss.
 
 ✅ Paid: *{paid_amount}*
 ⏳ Remaining: *{remaining_amount}*
-📋 Invoice Total: {amount}
+📋 Invoice Total: {currency}{amount}
 📅 Date: {issue_date}
 📋 Service: {service}
 
@@ -8265,7 +8375,10 @@ Please clear the remaining balance by *{due_date}*.
 💳 UPI: {upi}
 🏦 {bank_details}
 
-Thank you! — {company_name}
+🔗 *View Invoice:*
+{invoice_link}
+
+Thank you! — *{company_name}*
 📞 {company_phone}`,
 
     split_receipt: `Hi {client_name}! ⚡
@@ -8277,8 +8390,11 @@ Thank you! — {company_name}
 📅 Date: {issue_date}
 📋 Service: {service}
 
+🔗 *View Receipt:*
+{invoice_link}
+
 Your account is now clear. Thank you! 🙏
-— {company_name} | 📞 {company_phone}`,
+— *{company_name}* | 📞 {company_phone}`,
 
     festival: `Hi {client_name}! 🎉
 
@@ -8352,6 +8468,22 @@ function buildWATplParams(tplName, inv, client, settings) {
   })();
 
   // Common params used across most templates
+  const paidAmtStr = (() => {
+    const invId = String(inv.id || inv._dbId || '');
+    const fromInv = parseFloat(inv._paidAmt || 0);
+    if (fromInv > 0) return fmt_money(fromInv, inv.currency || '₹');
+    if (!invId || !STATE.payments) return '0';
+    return fmt_money(STATE.payments.filter(p=>p.invoice_id&&String(p.invoice_id)===invId).reduce((s,p)=>s+parseFloat(p.amount||0),0), inv.currency||'₹');
+  })();
+  const remAmtStr = (() => {
+    const fromInv = parseFloat(inv._remainingAmt !== undefined ? inv._remainingAmt : -1);
+    if (fromInv >= 0) return fmt_money(fromInv, inv.currency || '₹');
+    const grand = parseFloat(inv.amount||inv.grand_total||0);
+    const invId = String(inv.id || inv._dbId || '');
+    if (!invId || !STATE.payments) return fmt_money(grand, inv.currency||'₹');
+    const paid = STATE.payments.filter(p=>p.invoice_id&&String(p.invoice_id)===invId).reduce((s,p)=>s+parseFloat(p.amount||0),0);
+    return fmt_money(Math.max(0, grand - paid), inv.currency||'₹');
+  })();
   const common = {
     client_name:          c.name || inv.client_name || 'Valued Client',
     invoice_no:           inv.num || inv.invoice_number || '',
@@ -8366,6 +8498,8 @@ function buildWATplParams(tplName, inv, client, settings) {
     days_overdue:         daysOver,
     portal_link:          tplPortalLink,
     settlement_discount:  settleDiscStr,
+    paid_amount:          paidAmtStr,
+    remaining_amount:     remAmtStr,
   };
 
   // Map template name to ordered params list
@@ -8375,6 +8509,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     payment_overdue:   ['client_name','invoice_no','amount','days_overdue','upi','company_name','portal_link'],
     payment_received:  ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     invoice_followup:  ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
+    partial_payment:   ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     festival_greeting: ['client_name','company_name','company_phone'],
   };
 
