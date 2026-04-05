@@ -237,10 +237,21 @@ tr:last-child td{border:none}
 .footer{text-align:center;margin-top:24px;font-size:11px;color:var(--muted);line-height:1.9}
 .error-box{background:#fff;border-radius:14px;border:2px solid #FFCDD2;padding:48px 32px;text-align:center;max-width:460px;margin:80px auto;box-shadow:0 4px 24px rgba(0,0,0,.08)}
 
-@media(max-width:520px){
+@media(max-width:600px){
   .portal-header{flex-direction:column;align-items:flex-start}
   .info-grid{grid-template-columns:1fr}
   .amount-strip{grid-template-columns:1fr}
+  /* Line items table — scrollable on mobile */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:0 0 var(--r) var(--r)}
+  table{font-size:12px;min-width:480px}
+  th,td{padding:7px 8px}
+  /* Hide less important columns on very small screens */
+  .col-qty,.col-amount{display:none}
+  .col-qty-h,.col-amount-h{display:none}
+}
+@media(max-width:400px){
+  table{min-width:360px;font-size:11px}
+  th,td{padding:6px 6px}
 }
 </style>
 </head>
@@ -358,19 +369,26 @@ $iStmt->execute([':id' => $inv['invoice_id']]);
 $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($items):
 ?>
-<div class="card">
-  <div class="card-head"><i class="fas fa-list-ul"></i> Line Items</div>
+<div class="card" style="padding:0">
+  <div class="card-head" style="padding:14px 18px"><i class="fas fa-list-ul"></i> Line Items</div>
+  <div class="table-scroll">
   <table>
     <thead><tr>
-      <th>#</th><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th><th class="r">GST</th><th class="r">Total</th>
+      <th style="width:28px">#</th>
+      <th>Description</th>
+      <th class="r col-qty-h">Qty</th>
+      <th class="r">Rate</th>
+      <th class="r col-amount-h">Amount</th>
+      <th class="r">GST</th>
+      <th class="r">Total</th>
     </tr></thead>
     <tbody>
     <?php foreach ($items as $i => $item): ?>
     <tr>
-      <td style="color:var(--muted);font-size:12px"><?= $i+1 ?></td>
+      <td style="color:var(--muted);font-size:11px"><?= $i+1 ?></td>
       <td>
-        <strong><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
-        <?php if (!empty($item['type'])): ?><br><span style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
+        <strong style="font-size:13px"><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
+        <?php if (!empty($item['type'])): ?><br><span style="font-size:10px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
       </td>
       <?php
         $lineQty    = (float)($item['qty']  ?? 1);
@@ -380,11 +398,11 @@ if ($items):
         $lineGstAmt = $lineAmt * $lineGstPct / 100;
         $lineTotal  = $lineAmt + $lineGstAmt;
       ?>
-      <td class="r"><?= number_format($lineQty, 2) ?></td>
+      <td class="r col-qty"><?= number_format($lineQty, 2) ?></td>
       <td class="r" style="font-family:var(--mono)"><?= fmt_inr($lineRate, '') ?></td>
-      <td class="r" style="font-family:var(--mono)"><?= fmt_inr($lineAmt, '') ?></td>
-      <td class="r"><?= number_format($lineGstPct, 2) ?>%</td>
-      <td class="r" style="font-family:var(--mono);font-weight:700"><?= fmt_inr($lineTotal, $sym) ?></td>
+      <td class="r col-amount" style="font-family:var(--mono)"><?= fmt_inr($lineAmt, '') ?></td>
+      <td class="r" style="white-space:nowrap"><?= number_format($lineGstPct, 2) ?>%</td>
+      <td class="r" style="font-family:var(--mono);font-weight:700;white-space:nowrap"><?= fmt_inr($lineTotal, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
@@ -408,27 +426,42 @@ if ($items):
     ?>
     <tfoot>
       <tr>
-        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:8px 12px">Subtotal</td>
-        <td class="r" style="font-family:var(--mono);font-size:13px;padding:8px 12px"><?= fmt_inr($calcSubtotal, $sym) ?></td>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:8px 12px 4px">Subtotal</td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;padding:8px 12px 4px"><?= fmt_inr($calcSubtotal, $sym) ?></td>
       </tr>
-      <?php if ($discountAmt > 0): ?>
+      <?php if ($discountAmt > 0):
+        $amtAfterDisc = $calcSubtotal - $discountAmt;
+        $discFactor   = $calcSubtotal > 0 ? (1 - $discountAmt / $calcSubtotal) : 1;
+        $calcGstAfter = $calcGst * $discFactor;
+        $calcGrandTotal = $amtAfterDisc + $calcGstAfter;
+      ?>
       <tr>
         <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">
           Discount<?= $discountPct > 0 ? ' (' . number_format($discountPct, 2) . '%)' : '' ?>
         </td>
         <td class="r" style="font-family:var(--mono);font-size:13px;color:var(--red);padding:4px 12px">− <?= fmt_inr($discountAmt, $sym) ?></td>
       </tr>
-      <?php endif; ?>
+      <tr>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">Amount</td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;font-weight:600;padding:4px 12px"><?= fmt_inr($amtAfterDisc, $sym) ?></td>
+      </tr>
+      <tr>
+        <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">GST</td>
+        <td class="r" style="font-family:var(--mono);font-size:13px;padding:4px 12px"><?= fmt_inr($calcGstAfter, $sym) ?></td>
+      </tr>
+      <?php else: ?>
       <tr>
         <td colspan="6" style="text-align:right;color:var(--muted);font-size:12px;padding:4px 12px">GST</td>
         <td class="r" style="font-family:var(--mono);font-size:13px;padding:4px 12px"><?= fmt_inr($calcGst, $sym) ?></td>
       </tr>
+      <?php endif; ?>
       <tr style="background:var(--bg);border-top:2px solid var(--border)">
         <td colspan="6" style="text-align:right;font-weight:700;padding:11px 12px;font-size:13px">Grand Total</td>
         <td class="r" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:11px 12px"><?= fmt_inr($calcGrandTotal, $sym) ?></td>
       </tr>
     </tfoot>
   </table>
+  </div><!-- end table-scroll -->
 </div>
 <?php endif; ?>
 
