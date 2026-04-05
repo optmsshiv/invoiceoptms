@@ -1920,147 +1920,60 @@ const SERVER = {
 
     <!-- ─────────── WHATSAPP SETUP ─────────── -->
     <div id="page-whatsapp" class="page">
-    <style>
-      /* ── WA Page Layout ── */
-      .wa-page { display:flex; flex-direction:column; gap:16px; }
-      .wa-row   { display:grid; gap:16px; }
-      .wa-row-2 { grid-template-columns:1fr 1fr; }
-      .wa-row-3 { grid-template-columns:1fr 1fr 1fr; }
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
 
-      /* ── Template Tabs ── */
-      .wa-tab-bar { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:16px; overflow-x:auto; flex-wrap:nowrap; }
-      .wa-tab-btn {
-        padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer;
-        border:none; background:transparent; color:var(--muted); white-space:nowrap;
-        border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font);
-        transition:.2s;
-      }
-      .wa-tab-btn:hover { color:var(--teal); }
-      .wa-tab-btn.active { color:var(--teal); border-bottom-color:var(--teal); }
-      .wa-tab-pane { display:none; }
-      .wa-tab-pane.active { display:block; }
-
-      /* ── Variable chips ── */
-      .wa-vars { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
-      .wa-var-chip {
-        padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;
-        background:var(--teal-bg); color:var(--teal); cursor:pointer;
-        border:1px solid var(--teal-l); transition:.15s; font-family:var(--mono);
-      }
-      .wa-var-chip:hover { background:var(--teal); color:#fff; }
-
-      /* ── Char counter ── */
-      .wa-char-counter { font-size:10px; color:var(--muted); text-align:right; margin-top:3px; }
-      .wa-char-counter.warn { color:var(--amber); }
-      .wa-char-counter.over { color:var(--red); }
-
-      /* ── Preview bubble ── */
-      .wa-preview-wrap { background:#E5DDD5; border-radius:10px; padding:14px; margin-top:10px; display:none; }
-      .wa-preview-wrap.show { display:block; }
-      .wa-bubble {
-        background:#fff; border-radius:0 10px 10px 10px; padding:10px 14px;
-        font-size:12.5px; line-height:1.7; color:#111; max-width:320px;
-        box-shadow:0 1px 3px rgba(0,0,0,.12); white-space:pre-wrap; word-break:break-word;
-      }
-      .wa-bubble strong { font-weight:700; }
-      .wa-bubble-meta { font-size:10px; color:#888; text-align:right; margin-top:4px; }
-
-      /* ── Send mode badge ── */
-      .wa-mode-badge {
-        display:inline-flex; align-items:center; gap:5px;
-        padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700;
-      }
-      .wa-mode-badge.session  { background:var(--blue-bg); color:var(--blue); }
-      .wa-mode-badge.template { background:#E8F5E9; color:#2E7D32; }
-
-      /* ── Section divider label ── */
-      .wa-section-label {
-        font-size:10px; font-weight:800; text-transform:uppercase;
-        letter-spacing:1.2px; color:var(--muted); margin-bottom:12px;
-        display:flex; align-items:center; gap:8px;
-      }
-      .wa-section-label::after { content:''; flex:1; height:1px; background:var(--border); }
-
-      /* ── Quick reply chips ── */
-      .wa-quick-chip {
-        padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600;
-        background:var(--bg); border:1.5px solid var(--border); cursor:pointer;
-        color:var(--text2); transition:.15s; font-family:var(--font);
-      }
-      .wa-quick-chip:hover { border-color:var(--teal); color:var(--teal); background:var(--teal-bg); }
-    </style>
-
-      <div class="wa-page">
-
-        <!-- ── ROW 1: Connection + Automation ── -->
-        <div class="wa-row wa-row-2">
-
-          <!-- API Credentials -->
-          <div class="settings-block" style="margin:0">
-            <div class="sb-title"><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp Business API
-              <span id="wa-conn-status" style="margin-left:auto;font-size:11px;font-weight:600"></span>
-            </div>
-            <div class="form-grid g2">
-              <div class="field"><label>API Token</label><input type="password" id="wa-token" placeholder="Bearer token from Meta Developer Console" value="<?= htmlspecialchars($settings['wa_token']??'') ?>"></div>
-              <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345" value="<?= htmlspecialchars($settings['wa_pid']??'') ?>"></div>
-              <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID" value="<?= htmlspecialchars($settings['wa_bid']??'') ?>"></div>
-              <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-              <button class="btn btn-whatsapp" onclick="testWA()"><i class="fab fa-whatsapp"></i> Test &amp; Send</button>
-              <button class="btn btn-primary" onclick="saveWASettings()"><i class="fas fa-save"></i> Save</button>
-            </div>
+        <!-- API Credentials -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fab fa-whatsapp" style="color:#25D366"></i> WhatsApp Business API</div>
+          <div class="form-grid g2">
+            <div class="field"><label>API Token</label><input type="password" id="wa-token" placeholder="Bearer token from Meta Developer Console" value="<?= htmlspecialchars($settings['wa_token']??'') ?>"></div>
+            <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345" value="<?= htmlspecialchars($settings['wa_pid']??'') ?>"></div>
+            <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID" value="<?= htmlspecialchars($settings['wa_bid']??'') ?>"></div>
+            <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
           </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-whatsapp" onclick="testWA()"><i class="fab fa-whatsapp"></i> Send Test Message</button>
+            <button class="btn btn-primary" onclick="saveWASettings()"><i class="fas fa-save"></i> Save Credentials</button>
+          </div>
+        </div>
 
-          <!-- Automation Triggers -->
-          <div class="settings-block" style="margin:0">
-            <div class="sb-title"><i class="fas fa-robot"></i> Automation Triggers</div>
-            <div class="toggle-list" style="margin-top:0">
-              <div class="toggle-item" style="flex-wrap:wrap;gap:6px">
-                <span style="flex:1"><strong>New Invoice</strong> — auto-send when created</span>
-                <div class="tog <?= (($settings['wa_auto_inv']??'0')==='1')?'on':'' ?>" id="twa1" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_inv', this)"></div>
-              </div>
-              <div class="toggle-item"><span><strong>Payment Receipt</strong> — when fully paid</span><div class="tog <?= (($settings['wa_auto_paid']??'1')!=='0')?'on':'' ?>" id="twa2" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_paid', this)"></div></div>
-              <div class="toggle-item"><span><strong>Partial Payment</strong> — on partial receipt</span><div class="tog <?= (($settings['wa_auto_partial']??'1')!=='0')?'on':'' ?>" id="twa6" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_partial', this)"></div></div>
-              <div class="toggle-item"><span><strong>Due Soon Reminder</strong> — before due date</span><div class="tog <?= (($settings['wa_auto_remind']??'1')!=='0')?'on':'' ?>" id="twa3" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_remind', this)"></div></div>
-              <div class="toggle-item"><span><strong>Overdue Alert</strong> — on due date if unpaid</span><div class="tog <?= (($settings['wa_auto_overdue']??'1')!=='0')?'on':'' ?>" id="twa4" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_overdue', this)"></div></div>
-              <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every 7 days</span><div class="tog <?= (($settings['wa_auto_followup']??'0')==='1')?'on':'' ?>" id="twa5" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_followup', this)"></div></div>
+        <!-- Automation Triggers -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-robot"></i> Automation Triggers</div>
+          <div class="toggle-list">
+            <div class="toggle-item" style="flex-wrap:wrap;gap:6px">
+              <span style="flex:1"><strong>New Invoice</strong> — auto-send when invoice created</span>
+              <div class="tog <?= (($settings['wa_auto_inv']??'0')==='1')?'on':'' ?>" id="twa1" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_inv', this)"></div>
             </div>
-            <div class="form-grid g2" style="margin-top:12px">
-              <div class="field"><label>Reminder Days Before Due</label><input type="number" id="wa-remind-days" value="3" min="1" max="30"></div>
-              <div class="field"><label>Max Overdue Follow-ups</label><input type="number" id="wa-max-followup" value="3" min="1" max="10"></div>
+            <div style="padding:8px 12px;margin:-4px 0 8px;background:var(--teal-bg);border-radius:0 0 8px 8px;font-size:11px;color:var(--teal)" id="twa1-hint">
+              When ON: sends invoice details, amount, due date, UPI, and item list to client automatically
+            </div>
+            <div class="toggle-item"><span><strong>Payment Receipt</strong> — send when marked fully paid</span><div class="tog <?= (($settings['wa_auto_paid']??'1')!=='0')?'on':'' ?>" id="twa2" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_paid', this)"></div></div>
+            <div class="toggle-item"><span><strong>Partial Payment</strong> — send receipt when partial payment recorded</span><div class="tog <?= (($settings['wa_auto_partial']??'1')!=='0')?'on':'' ?>" id="twa6" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_partial', this)"></div></div>
+            <div class="toggle-item"><span><strong>Due Soon</strong> — reminder 3 days before due date</span><div class="tog <?= (($settings['wa_auto_remind']??'1')!=='0')?'on':'' ?>" id="twa3" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_remind', this)"></div></div>
+            <div class="toggle-item"><span><strong>Overdue Alert</strong> — send on due date if unpaid</span><div class="tog <?= (($settings['wa_auto_overdue']??'1')!=='0')?'on':'' ?>" id="twa4" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_overdue', this)"></div></div>
+            <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every 7 days while overdue</span><div class="tog <?= (($settings['wa_auto_followup']??'0')==='1')?'on':'' ?>" id="twa5" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_followup', this)"></div></div>
+          </div>
+          <div class="form-grid g2" style="margin-top:14px">
+            <div class="field"><label>Reminder Days Before Due</label>
+              <input type="number" id="wa-remind-days" value="3" min="1" max="30" placeholder="3">
+            </div>
+            <div class="field"><label>Max Overdue Follow-ups</label>
+              <input type="number" id="wa-max-followup" value="3" min="1" max="10" placeholder="3">
             </div>
           </div>
         </div>
 
-        <!-- ── ROW 2: Message Templates (full width, tabbed) ── -->
-        <div class="settings-block" style="margin:0">
-          <div class="sb-title"><i class="fas fa-comment-alt"></i> Message Templates
-            <span id="wa-mode-badge-tpl" style="margin-left:auto"></span>
+        <!-- Message Templates -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-comment-alt"></i> Message Templates</div>
+          <div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--teal);margin-bottom:16px">
+            <strong>Variables:</strong> {client_name} {invoice_no} {amount} {currency} {due_date} {issue_date} {service} {company_name} {company_phone} {company_email} {upi} {bank_details} {days_overdue} {item_list} {status} {paid_amount} {remaining_amount} {payment_method} {settlement_discount}
+            <span style="margin-left:6px;padding:2px 8px;background:#E0F2F1;border-radius:4px;color:var(--teal);font-weight:700">{invoice_link}</span> — portal &amp; PDF link
           </div>
-
-          <!-- Tab bar -->
-          <div class="wa-tab-bar">
-            <button class="wa-tab-btn active" onclick="waTab('inv',this)">📄 Invoice</button>
-            <button class="wa-tab-btn" onclick="waTab('paid',this)">✅ Receipt</button>
-            <button class="wa-tab-btn" onclick="waTab('partial',this)">💚 Partial</button>
-            <button class="wa-tab-btn" onclick="waTab('remind',this)">🔔 Reminder</button>
-            <button class="wa-tab-btn" onclick="waTab('overdue',this)">⚠️ Overdue</button>
-            <button class="wa-tab-btn" onclick="waTab('followup',this)">📋 Follow-up</button>
-          </div>
-
-          <!-- Variable inserter -->
-          <div class="wa-section-label">Click to insert variable</div>
-          <div class="wa-vars" id="wa-var-chips">
-            <?php foreach(['{client_name}','{invoice_no}','{amount}','{currency}','{due_date}','{issue_date}','{service}','{company_name}','{company_phone}','{company_email}','{upi}','{bank_details}','{days_overdue}','{item_list}','{paid_amount}','{remaining_amount}','{settlement_discount}','{invoice_link}'] as $v): ?>
-            <span class="wa-var-chip" onclick="waInsertVar('<?= $v ?>')"><?= $v ?></span>
-            <?php endforeach; ?>
-          </div>
-
-          <!-- Tab panes -->
-          <div class="wa-tab-pane active" id="watab-inv">
-            <div class="field">
-              <textarea id="wa-tpl-inv" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-inv','wa-cnt-inv');waUpdatePreview('wa-tpl-inv','wa-prev-inv')">Hi {client_name}! 👋
+          <div class="form-grid g1">
+            <div class="field"><label>📄 New Invoice Template</label>
+              <textarea id="wa-tpl-inv" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 👋
 
 *Invoice #{invoice_no}* from *{company_name}* is ready.
 
@@ -2071,20 +1984,14 @@ const SERVER = {
 💳 Pay via UPI: {upi}
 🏦 {bank_details}
 
-🔗 View &amp; Download Invoice:
+🔗 View & Download Invoice:
 {invoice_link}
 
 Thank you for choosing {company_name}!
 📞 {company_phone}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-inv"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-inv')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-inv"><div class="wa-bubble" id="wa-prev-inv-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-paid">
-            <div class="field">
-              <textarea id="wa-tpl-paid" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-paid','wa-cnt-paid');waUpdatePreview('wa-tpl-paid','wa-prev-paid')">Hi {client_name}! ✅
+            <div class="field"><label>✅ Payment Receipt Template</label>
+              <textarea id="wa-tpl-paid" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! ✅
 
 Payment received for *Invoice #{invoice_no}*{settlement_discount_line}
 
@@ -2097,15 +2004,9 @@ Payment received for *Invoice #{invoice_no}*{settlement_discount_line}
 
 Your account is now clear. Thank you! 🙏
 — *{company_name}* | 📞 {company_phone}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-paid"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-paid')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-paid"><div class="wa-bubble" id="wa-prev-paid-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-partial">
-            <div class="field">
-              <textarea id="wa-tpl-partial" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-partial','wa-cnt-partial');waUpdatePreview('wa-tpl-partial','wa-prev-partial')">Hi {client_name}! 💚
+            <div class="field"><label>💚 Partial Payment Template <span style="font-size:10px;color:var(--muted)">— sent when partial payment recorded</span></label>
+              <textarea id="wa-tpl-partial" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 💚
 
 *Partial Payment Received* for Invoice #{invoice_no}
 
@@ -2122,15 +2023,9 @@ Please clear the remaining balance by *{due_date}*.
 
 Thank you! — *{company_name}*
 📞 {company_phone}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-partial"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-partial')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-partial"><div class="wa-bubble" id="wa-prev-partial-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-remind">
-            <div class="field">
-              <textarea id="wa-tpl-remind" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-remind','wa-cnt-remind');waUpdatePreview('wa-tpl-remind','wa-prev-remind')">Hi {client_name}! 🔔 *Payment Reminder*
+            <div class="field"><label>⏰ Payment Reminder Template (before due)</label>
+              <textarea id="wa-tpl-remind" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! 🔔 *Payment Reminder*
 
 *Invoice #{invoice_no}* for *{currency}{amount}* is due on *{due_date}*.
 
@@ -2144,15 +2039,9 @@ Thank you! — *{company_name}*
 
 Please arrange payment at your earliest convenience.
 — {company_name} | 📞 {company_phone}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-remind"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-remind')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-remind"><div class="wa-bubble" id="wa-prev-remind-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-overdue">
-            <div class="field">
-              <textarea id="wa-tpl-overdue" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-overdue','wa-cnt-overdue');waUpdatePreview('wa-tpl-overdue','wa-prev-overdue')">Hi {client_name}! ⚠️ *Overdue Notice*
+            <div class="field"><label>🔴 Overdue Alert Template</label>
+              <textarea id="wa-tpl-overdue" style="min-height:120px" oninput="saveWASettings()">Hi {client_name}! ⚠️ *Overdue Notice*
 
 *Invoice #{invoice_no}* for *{currency}{amount}* was due on *{due_date}*.
 Overdue by: *{days_overdue} days*
@@ -2166,174 +2055,35 @@ Please clear this immediately to avoid any inconvenience.
 {invoice_link}
 
 — {company_name} | 📞 {company_phone}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-overdue"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-overdue')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-overdue"><div class="wa-bubble" id="wa-prev-overdue-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-followup">
-            <div class="field">
-              <textarea id="wa-tpl-followup" style="min-height:140px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings();waUpdateCounter('wa-tpl-followup','wa-cnt-followup');waUpdatePreview('wa-tpl-followup','wa-prev-followup')">Hi {client_name},
+            <div class="field"><label>📋 Overdue Follow-up Template</label>
+              <textarea id="wa-tpl-followup" style="min-height:120px" oninput="saveWASettings()">Hi {client_name},
 
 This is a follow-up for *Invoice #{invoice_no}* (*{currency}{amount}*).
 ⚠️ Still overdue by *{days_overdue} days*
 
 📋 Service: {service}
 
-Kindly process payment immediately or contact us to discuss.
+Kindly process the payment immediately or contact us to discuss.
 💳 UPI: {upi}
 
 🔗 View Invoice:
 {invoice_link}
 
 — {company_name} | 📞 {company_phone} | ✉ {company_email}</textarea>
-              <div class="wa-char-counter" id="wa-cnt-followup"></div>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-followup')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            <div class="wa-preview-wrap" id="wa-prev-followup"><div class="wa-bubble" id="wa-prev-followup-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
           </div>
-
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-primary" onclick="saveWASettings()"><i class="fas fa-save"></i> Save All Templates</button>
-            <button class="btn btn-outline" onclick="waResetCurrentTab()"><i class="fas fa-undo"></i> Reset to Default</button>
-          </div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save All Templates</button>
         </div>
 
-        <!-- ── ROW 3: Approved Templates + Manual Send ── -->
-        <div class="wa-row wa-row-2">
-
-          <!-- Approved Templates -->
-          <div class="settings-block" style="margin:0">
-            <div class="sb-title"><i class="fas fa-check-circle" style="color:#25D366"></i> Approved Templates (Meta)</div>
-            <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1B5E20;margin-bottom:14px;line-height:1.7">
-              <strong>Session mode</strong> — free-form text, 24h window only.<br>
-              <strong>Template mode</strong> — Meta-approved, works anytime for any number.
-            </div>
-            <div class="field" style="margin-bottom:14px">
-              <label>Sending Mode</label>
-              <div style="display:flex;gap:10px;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-session-lbl">
-                  <input type="radio" name="wa-msg-mode" value="session" id="mode-session" onchange="setWAMode('session')" style="accent-color:var(--teal)">
-                  <div><div style="font-weight:700;font-size:12px">💬 Session</div><div style="font-size:10px;color:var(--muted)">24h window</div></div>
-                </label>
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 14px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-template-lbl">
-                  <input type="radio" name="wa-msg-mode" value="template" id="mode-template" onchange="setWAMode('template')" style="accent-color:var(--teal)">
-                  <div><div style="font-weight:700;font-size:12px">✅ Templates</div><div style="font-size:10px;color:var(--muted)">Any time</div></div>
-                </label>
-              </div>
-            </div>
-            <div id="tpl-names-section" style="display:none">
-              <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-                Enter template names exactly as approved in <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" style="color:var(--teal)">Meta Business Manager</a>. Language: <code>en_US</code>
-              </div>
-              <div class="form-grid g1" style="gap:10px">
-                <div class="field"><label>📄 Invoice Created</label><div style="display:flex;gap:6px"><input id="tpl-name-invoice" placeholder="invoice_created" style="flex:1"><input id="tpl-lang-invoice" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
-                <div class="field"><label>🔔 Payment Reminder</label><div style="display:flex;gap:6px"><input id="tpl-name-reminder" placeholder="payment_reminder" style="flex:1"><input id="tpl-lang-reminder" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
-                <div class="field"><label>⚠️ Payment Overdue</label><div style="display:flex;gap:6px"><input id="tpl-name-overdue" placeholder="payment_overdue" style="flex:1"><input id="tpl-lang-overdue" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}company {{7}}link</div></div>
-                <div class="field"><label>✅ Payment Received</label><div style="display:flex;gap:6px"><input id="tpl-name-paid" placeholder="payment_received" style="flex:1"><input id="tpl-lang-paid" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}disc {{5}}date {{6}}company {{7}}link</div></div>
-                <div class="field"><label>📋 Invoice Follow-up</label><div style="display:flex;gap:6px"><input id="tpl-name-followup" placeholder="invoice_followup" style="flex:1"><input id="tpl-lang-followup" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link</div></div>
-                <div class="field"><label>💚 Partial Payment</label><div style="display:flex;gap:6px"><input id="tpl-name-partial" placeholder="partial_payment" style="flex:1"><input id="tpl-lang-partial" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}paid {{4}}remaining {{5}}due {{6}}link</div></div>
-                <div class="field"><label>🎉 Festival Greeting</label><div style="display:flex;gap:6px"><input id="tpl-name-festival" placeholder="festival_greeting" style="flex:1"><input id="tpl-lang-festival" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}company {{3}}phone</div></div>
-              </div>
-
-              <!-- Suggested template content — collapsible -->
-              <details style="margin-top:14px">
-                <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);list-style:none;display:flex;align-items:center;gap:6px"><i class="fas fa-file-alt"></i> Suggested content for Meta approval</summary>
-                <div style="margin-top:10px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)">
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Your invoice #{{2}} for ₹{{3}} is ready.
-Due Date: {{4}}
-Pay via UPI: {{5}}
-
-Thank you for choosing {{6}}!
-View Invoice: {{7}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Friendly reminder: Invoice #{{2}} for ₹{{3}} is due on {{4}}.
-Pay via UPI: {{5}}
-
-Thank you, {{6}}
-View Invoice: {{7}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--red)">payment_overdue — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Invoice #{{2}} for ₹{{3}} is overdue by {{4}} days.
-Please pay immediately via UPI: {{5}}
-
-Contact {{6}} for any queries.
-View Invoice: {{7}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--blue)">payment_received — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Payment received for Invoice #{{2}}!
-Amount: ₹{{3}} | Discount: {{4}}
-Date: {{5}}
-
-Thank you! — {{6}}
-View Receipt: {{7}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--orange)">invoice_followup — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Follow-up for Invoice #{{2}} (₹{{3}}).
-Overdue by {{4}} days. Pay via UPI: {{5}}
-
-Contact: {{6}}
-View Invoice: {{7}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--green)">partial_payment — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-Partial payment received for Invoice #{{2}}.
-Paid: ₹{{3}} | Remaining: ₹{{4}}
-Due by: {{5}}
-
-View Invoice: {{6}}</pre></details>
-                </div>
-              </details>
-              <button class="btn btn-primary" style="margin-top:12px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save Template Settings</button>
-            </div>
-          </div>
-
-          <!-- Manual Send + Quick Replies -->
-          <div class="settings-block" style="margin:0">
-            <div class="sb-title"><i class="fas fa-paper-plane"></i> Send Manual Message</div>
-            <div class="form-grid g2">
-              <div class="field"><label>Client</label>
-                <select id="wa-manual-client" onchange="fillWaManualPhone()">
-                  <option value="">-- Select Client --</option>
-                </select>
-              </div>
-              <div class="field"><label>WhatsApp Number</label>
-                <input id="wa-manual-phone" placeholder="+91 XXXXX XXXXX">
-              </div>
-            </div>
-
-            <!-- Quick Reply Templates -->
-            <div class="wa-section-label" style="margin-top:12px">Quick Replies — click to use</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-              <span class="wa-quick-chip" onclick="waQuickReply('payment')">💰 Payment request</span>
-              <span class="wa-quick-chip" onclick="waQuickReply('followup')">📋 Follow-up</span>
-              <span class="wa-quick-chip" onclick="waQuickReply('thankyou')">🙏 Thank you</span>
-              <span class="wa-quick-chip" onclick="waQuickReply('custom')">✏️ Custom…</span>
-            </div>
-
-            <div class="field">
-              <label>Message <span id="wa-manual-counter" style="float:right;font-size:10px;color:var(--muted)"></span></label>
-              <textarea id="wa-manual-msg" style="min-height:100px;font-family:var(--mono);font-size:12.5px" placeholder="Type your message here..." oninput="waUpdateCounter('wa-manual-msg','wa-manual-counter')"></textarea>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-              <button class="btn btn-whatsapp" style="flex:1" onclick="sendManualWA()"><i class="fab fa-whatsapp"></i> Send</button>
-              <button class="btn btn-outline" onclick="waTogglePreview('wa-prev-manual')"><i class="fas fa-mobile-alt"></i> Preview</button>
-            </div>
-            <div class="wa-preview-wrap" id="wa-prev-manual"><div class="wa-bubble" id="wa-prev-manual-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-        </div>
-
-        <!-- ── ROW 4: Festival / Bulk (full width) ── -->
-        <div class="settings-block" style="margin:0">
-          <div class="sb-title"><i class="fas fa-star" style="color:var(--amber)"></i> Festival &amp; Bulk Campaign</div>
-          <div style="background:var(--amber-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:14px">
+        <!-- Festival / Bulk Messaging -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-star"></i> Festival &amp; Bulk Messaging</div>
+          <div style="background:var(--amber-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:16px">
             ✨ Send personalised festival greetings to all or selected clients. Requires WhatsApp Business API.
           </div>
-          <div class="form-grid g2" style="gap:12px">
-            <div class="field"><label>Festival / Occasion</label>
+          <div class="form-grid g2">
+            <div class="field"><label>Festival / Occasion Name</label>
               <select id="wa-festival">
                 <option value="diwali">Diwali 🪔</option>
                 <option value="holi">Holi 🎨</option>
@@ -2349,7 +2099,7 @@ View Invoice: {{6}}</pre></details>
             </div>
             <div class="field"><label>Festival Image URL</label>
               <div style="display:flex;gap:6px">
-                <input id="wa-festival-img" placeholder="https://... (optional)" style="flex:1">
+                <input id="wa-festival-img" placeholder="https://... (optional image)" style="flex:1">
                 <label style="display:flex;align-items:center;gap:4px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:11px;color:var(--muted);white-space:nowrap;background:var(--bg)">
                   <i class="fas fa-upload"></i>
                   <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this,'wa-festival-img','wa-festival-img-preview')">
@@ -2361,34 +2111,207 @@ View Invoice: {{6}}</pre></details>
               <select id="wa-send-to">
                 <option value="all">All Active Clients</option>
                 <option value="paid">Clients with Paid Invoices</option>
-                <option value="active">Recent Activity (90 days)</option>
-              </select>
-            </div>
-            <div class="field"><label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(blank = send now)</span></label>
-              <input type="datetime-local" id="wa-festival-schedule" style="width:100%">
-            </div>
-            <div class="field"><label>Repeat</label>
-              <select id="wa-festival-repeat">
-                <option value="">No repeat (one-time)</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
+                <option value="active">Clients with Recent Activity (90 days)</option>
               </select>
             </div>
           </div>
           <div class="field" style="margin-top:12px"><label>Festival Message</label>
-            <textarea id="wa-tpl-festival" style="min-height:80px;font-family:var(--mono);font-size:12.5px" oninput="saveWASettings()">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
+            <textarea id="wa-tpl-festival" style="min-height:90px" oninput="saveWASettings()">Hi {client_name}! 🌟 Wishing you and your family a very Happy Diwali! 🪔✨ May this festival bring you joy, prosperity, and success. Thank you for your continued trust in {company_name}! 🙏</textarea>
           </div>
-          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <!-- Schedule options -->
+          <div class="form-grid g2" style="margin-top:12px">
+            <div class="field">
+              <label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(leave blank to send now)</span></label>
+              <input type="datetime-local" id="wa-festival-schedule" style="width:100%">
+            </div>
+            <div class="field">
+              <label>Repeat <span style="font-size:10px;color:var(--muted)">(for recurring campaigns)</span></label>
+              <select id="wa-festival-repeat">
+                <option value="">No repeat (one-time)</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly (annual festival)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="previewFestivalMsg()"><i class="fas fa-eye"></i> Preview</button>
             <button class="btn btn-primary" onclick="saveFestivalCampaign()"><i class="fas fa-save"></i> Save Campaign</button>
             <button class="btn btn-whatsapp" onclick="sendFestivalBulk()"><i class="fab fa-whatsapp"></i> Send Now</button>
           </div>
           <div id="wa-bulk-log" style="margin-top:14px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);display:none"></div>
+          <!-- Saved campaigns -->
           <div id="wa-campaigns-list" style="margin-top:12px"></div>
         </div>
 
-      </div><!-- end wa-page -->
+        <!-- Approved Template Configuration -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-check-circle" style="color:#25D366"></i> Approved Message Templates</div>
+          <div style="background:#E8F5E9;border-radius:8px;padding:12px 16px;font-size:13px;color:#1B5E20;margin-bottom:16px;line-height:1.7">
+            <strong>📋 How it works:</strong><br>
+            • <strong>Session mode</strong> (default) — sends free-form text. Works only within 24h of client messaging you.<br>
+            • <strong>Template mode</strong> — uses Meta-approved templates. Works anytime for any number. Requires template approval from Meta first.
+          </div>
+
+          <div class="field" style="margin-bottom:16px">
+            <label>Message Sending Mode</label>
+            <div style="display:flex;gap:12px;margin-top:6px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-session-lbl">
+                <input type="radio" name="wa-msg-mode" value="session" id="mode-session" onchange="setWAMode('session')" style="accent-color:var(--teal)">
+                <div><div style="font-weight:700;font-size:13px">💬 Session Messages</div><div style="font-size:11px;color:var(--muted)">Free-form text, 24h window</div></div>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:1.5px solid var(--border);border-radius:9px;flex:1;transition:.2s" id="mode-template-lbl">
+                <input type="radio" name="wa-msg-mode" value="template" id="mode-template" onchange="setWAMode('template')" style="accent-color:var(--teal)">
+                <div><div style="font-weight:700;font-size:13px">✅ Approved Templates</div><div style="font-size:11px;color:var(--muted)">Any time, any number</div></div>
+              </label>
+            </div>
+          </div>
+
+          <div id="tpl-names-section" style="display:none">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+              Enter the exact template names as approved in your <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" style="color:var(--teal)">Meta Business Manager</a>.
+              Language code is usually <code>en</code> or <code>en_US</code>.
+            </div>
+            <div class="form-grid g2">
+              <div class="field">
+                <label>New Invoice Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-invoice" placeholder="e.g. invoice_created" style="flex:1">
+                  <input id="tpl-lang-invoice" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company {{7}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Payment Reminder Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-reminder" placeholder="e.g. payment_reminder" style="flex:1">
+                  <input id="tpl-lang-reminder" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}due_date {{5}}upi {{6}}company {{7}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Overdue Alert Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-overdue" placeholder="e.g. payment_overdue" style="flex:1">
+                  <input id="tpl-lang-overdue" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}company {{7}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Payment Received Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-paid" placeholder="e.g. payment_received" style="flex:1">
+                  <input id="tpl-lang-paid" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}settlement_discount {{5}}date {{6}}company {{7}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Follow-up Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-followup" placeholder="e.g. invoice_followup" style="flex:1">
+                  <input id="tpl-lang-followup" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}amount {{4}}days_overdue {{5}}upi {{6}}phone {{7}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Partial Payment Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-partial" placeholder="e.g. partial_payment" style="flex:1">
+                  <input id="tpl-lang-partial" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}invoice# {{3}}paid_amount {{4}}remaining {{5}}due_date {{6}}portal_link</div>
+              </div>
+              <div class="field">
+                <label>Festival Greeting Template Name</label>
+                <div style="display:flex;gap:6px">
+                  <input id="tpl-name-festival" placeholder="e.g. festival_greeting" style="flex:1">
+                  <input id="tpl-lang-festival" placeholder="en" style="width:48px;text-align:center">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Params: {{1}}name {{2}}company {{3}}phone</div>
+              </div>
+            </div>
+
+            <!-- Template samples to submit to Meta -->
+            <div style="margin-top:16px;background:var(--bg);border-radius:8px;padding:14px;border:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📝 Suggested Template Content for Meta Approval</div>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Your invoice #{{2}} for ₹{{3}} is ready.
+Due Date: {{4}}
+Pay via UPI: {{5}}
+
+Thank you for choosing {{6}}!
+View Invoice: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Friendly reminder: Invoice #{{2}} for ₹{{3}} is due on {{4}}.
+Pay via UPI: {{5}}
+
+Thank you, {{6}}
+View Invoice: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--red)">payment_overdue — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Invoice #{{2}} for ₹{{3}} is overdue by {{4}} days.
+Please pay immediately via UPI: {{5}}
+
+Contact {{6}} for any queries.
+View Invoice: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--blue)">payment_received — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Payment received for Invoice #{{2}}!
+Amount: ₹{{3}}
+Settlement Discount: {{4}}
+Date: {{5}}
+
+Thank you for your prompt payment! — {{6}}
+View Receipt: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--orange)">invoice_followup — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Follow-up for Invoice #{{2}} (₹{{3}}).
+Overdue by {{4}} days.
+Pay via UPI: {{5}}
+
+Contact: {{6}}
+View Invoice: {{7}}</pre></details>
+              <details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--green)">partial_payment — UTILITY</summary>
+              <pre style="font-size:12px;background:#fff;padding:10px;border-radius:6px;margin-top:6px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+Partial payment received for Invoice #{{2}}.
+Paid: ₹{{3}}
+Remaining: ₹{{4}}
+Due by: {{5}}
+
+View Invoice: {{6}}</pre></details>
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px" onclick="saveWASettings()"><i class="fas fa-save"></i> Save Template Settings</button>
+          </div>
+        </div>
+
+        <!-- Send Manual Message -->
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-paper-plane"></i> Send Manual Message</div>
+          <div class="form-grid g2">
+            <div class="field"><label>Client</label>
+              <select id="wa-manual-client" onchange="fillWaManualPhone()">
+                <option value="">-- Select Client --</option>
+              </select>
+            </div>
+            <div class="field"><label>WhatsApp Number</label>
+              <input id="wa-manual-phone" placeholder="+91 XXXXX XXXXX">
+            </div>
+          </div>
+          <div class="field"><label>Message</label>
+            <textarea id="wa-manual-msg" style="min-height:80px" placeholder="Type your message here..."></textarea>
+          </div>
+          <button class="btn btn-whatsapp" style="margin-top:12px" onclick="sendManualWA()"><i class="fab fa-whatsapp"></i> Send Message</button>
+        </div>
+
+      </div>
     </div>
 
     <!-- ─────────── EMAIL SETUP ─────────── -->
@@ -10759,131 +10682,6 @@ if (typeof _origRenderDashboard === 'function') {
   };
 }
 
-
-
-// ── WA Page Tab System ───────────────────────────────────────
-function waTab(key, btn) {
-  document.querySelectorAll('.wa-tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.wa-tab-pane').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  const pane = document.getElementById('watab-' + key);
-  if (pane) pane.classList.add('active');
-  // Store active tab
-  window._waActiveTab = key;
-}
-
-// ── Insert variable at cursor ─────────────────────────────────
-function waInsertVar(varName) {
-  // Find the active tab's textarea
-  const key = window._waActiveTab || 'inv';
-  const idMap = { inv:'wa-tpl-inv', paid:'wa-tpl-paid', partial:'wa-tpl-partial',
-                  remind:'wa-tpl-remind', overdue:'wa-tpl-overdue', followup:'wa-tpl-followup' };
-  const tId = idMap[key] || 'wa-manual-msg';
-  // Also check if manual msg textarea is focused
-  const focused = document.activeElement;
-  const target = (focused && (focused.id === 'wa-manual-msg' || Object.values(idMap).includes(focused.id)))
-    ? focused : document.getElementById(tId);
-  if (!target) return;
-  const start = target.selectionStart, end = target.selectionEnd;
-  target.value = target.value.substring(0,start) + varName + target.value.substring(end);
-  target.selectionStart = target.selectionEnd = start + varName.length;
-  target.focus();
-  target.dispatchEvent(new Event('input'));
-}
-
-// ── Character counter ─────────────────────────────────────────
-function waUpdateCounter(textareaId, counterId) {
-  const ta = document.getElementById(textareaId);
-  const ct = document.getElementById(counterId);
-  if (!ta || !ct) return;
-  const len = ta.value.length;
-  const msgs = Math.ceil(len / 160) || 1;
-  ct.textContent = len + ' chars' + (msgs > 1 ? ' · ' + msgs + ' SMS segments' : '');
-  ct.className = 'wa-char-counter' + (len > 1600 ? ' over' : len > 1000 ? ' warn' : '');
-}
-
-// ── Preview toggle ────────────────────────────────────────────
-function waTogglePreview(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (!wrap) return;
-  const showing = wrap.classList.contains('show');
-  wrap.classList.toggle('show', !showing);
-  if (!showing) waUpdatePreview(null, wrapId.replace('wa-prev-','wa-tpl-') || null, wrapId);
-}
-function waUpdatePreview(textareaId, wrapId) {
-  // wrapId is like 'wa-prev-inv', bubble id is 'wa-prev-inv-bubble'
-  const wrap = document.getElementById(wrapId);
-  if (!wrap || !wrap.classList.contains('show')) return;
-  const ta = document.getElementById(textareaId);
-  if (!ta) return;
-  const bubble = document.getElementById(wrapId + '-bubble');
-  if (!bubble) return;
-  // Render *bold* and links
-  let txt = ta.value
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*(.*?)\*/g,'<strong>$1</strong>')
-    .replace(/(https?:\/\/\S+)/g,'<a href="$1" style="color:#00897B">$1</a>')
-    .replace(/\n/g,'<br>');
-  bubble.innerHTML = txt;
-}
-
-// ── Reset current tab template to default ────────────────────
-function waResetCurrentTab() {
-  const key = window._waActiveTab || 'inv';
-  const idMap = { inv:'wa-tpl-inv', paid:'wa-tpl-paid', partial:'wa-tpl-partial',
-                  remind:'wa-tpl-remind', overdue:'wa-tpl-overdue', followup:'wa-tpl-followup' };
-  const tplMap = { inv:'inv', paid:'paid', partial:'partial_receipt',
-                   remind:'remind', overdue:'overdue', followup:'followup' };
-  const tId = idMap[key];
-  const tKey = tplMap[key];
-  if (!tId || !tKey) return;
-  if (!confirm('Reset this template to the default? Your changes will be lost.')) return;
-  const ta = document.getElementById(tId);
-  if (ta) { ta.value = getDefaultWATpl(tKey); saveWASettings(); toast('↩ Template reset to default', 'info'); }
-}
-
-// ── Quick reply templates for manual send ────────────────────
-function waQuickReply(type) {
-  const wa = STATE.settings.wa || {};
-  const templates = {
-    payment:  'Hi {client_name}! 👋 This is a reminder that Invoice #{invoice_no} for {amount} is due on {due_date}. Please arrange payment via UPI: ' + (wa.upi||'{upi}') + '. Thank you! — ' + (STATE.settings.company||'{company_name}'),
-    followup: 'Hi {client_name}, just following up on the pending invoice. Kindly let us know when we can expect the payment. Thank you! — ' + (STATE.settings.company||'{company_name}'),
-    thankyou: 'Hi {client_name}! 🙏 Thank you so much for your payment. We really appreciate your trust in ' + (STATE.settings.company||'{company_name}') + '. Looking forward to serving you again!',
-    custom:   ''
-  };
-  const msg = document.getElementById('wa-manual-msg');
-  if (!msg) return;
-  if (type === 'custom') { msg.focus(); return; }
-  msg.value = templates[type] || '';
-  msg.focus();
-  waUpdateCounter('wa-manual-msg','wa-manual-counter');
-}
-
-// ── Init counters on WA page open ────────────────────────────
-const _origShowPageWA = window.showPage;
-if (typeof _origShowPageWA === 'function') {
-  window.showPage = function(name, el) {
-    _origShowPageWA.call(this, name, el);
-    if (name === 'whatsapp') {
-      setTimeout(() => {
-        ['inv','paid','partial','remind','overdue','followup'].forEach(k => {
-          waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
-        });
-        waUpdateCounter('wa-manual-msg','wa-manual-counter');
-        // Update mode badge
-        const wa = STATE.settings.wa || {};
-        const badge = document.getElementById('wa-mode-badge-tpl');
-        if (badge) {
-          const mode = wa.msg_mode || 'session';
-          badge.innerHTML = mode === 'template'
-            ? '<span class="wa-mode-badge template">✅ Template Mode</span>'
-            : '<span class="wa-mode-badge session">💬 Session Mode</span>';
-        }
-      }, 50);
-    }
-  };
-}
-window._waActiveTab = 'inv';
 
 </script>
 
