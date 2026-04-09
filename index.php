@@ -6677,7 +6677,17 @@ function filterProductPicker(val) {
 function pickProduct(id) {
   const p = STATE.products.find(x=>x.id===id);
   if (!p) return;
-  formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
+  const gst = (p.gst !== undefined && p.gst !== null && p.gst !== '') ? parseFloat(p.gst) : 18;
+  // If there is exactly one empty default row, fill it instead of adding a new row
+  if (formItems.length === 1 && !formItems[0].desc && !formItems[0].rate) {
+    formItems[0].desc     = p.name;
+    formItems[0].itemType = p.category || 'Service';
+    formItems[0].qty      = 1;
+    formItems[0].gst      = gst;
+    formItems[0].rate     = p.rate;
+  } else {
+    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate });
+  }
   renderFormItems();
   livePreview();
   closeModal('modal-products');
