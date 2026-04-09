@@ -5680,7 +5680,7 @@ async function saveInvoice() {
     invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
-    discount_pct: d.disc, discount_amt: d.discAmt, gst_amount: d.gstAmt, grand_total: d.grand,
+    discount_pct: d.disc, discount_amt: d.discAmt, discount_type: d.discType, discount_raw: d.discRaw, gst_amount: d.gstAmt, grand_total: d.grand,
     notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
     company_logo: d.companyLogo, client_logo: d.clientLogo,
     signature: d.signature, qr_code: d.qrUrl,
@@ -5845,7 +5845,14 @@ function loadInvoiceIntoForm(inv) {
   }
   document.getElementById('f-date').value     = inv.issued;
   document.getElementById('f-due').value      = inv.due;
-  document.getElementById('f-disc').value     = inv.disc||0;
+    // Restore discount: prefer raw value + type; fall back to discount_amt for legacy fixed invoices
+  const _discType = inv.discount_type || (parseFloat(inv.discount_amt) > 0 && !(parseFloat(inv.disc||0) > 0) ? 'fixed' : 'pct');
+  const _discRaw  = (inv.discount_raw !== undefined && inv.discount_raw !== null)
+    ? parseFloat(inv.discount_raw)
+    : (_discType === 'fixed' ? parseFloat(inv.discount_amt)||0 : parseFloat(inv.disc)||0);
+  document.getElementById('f-disc').value = _discRaw;
+  const _discTypeEl = document.getElementById('f-disc-type');
+  if (_discTypeEl) _discTypeEl.value = _discType;
   document.getElementById('f-notes').value    = (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim();
   const _bankEl = document.getElementById('f-bank'); if(_bankEl) _bankEl.value = inv.bank||inv.bank_details||STATE.settings.defaultBank||'';
   const _tncEl  = document.getElementById('f-tnc');  if(_tncEl)  _tncEl.value  = inv.tnc||inv.terms||STATE.settings.defaultTnC||'';
