@@ -5850,13 +5850,26 @@ function loadInvoiceIntoForm(inv) {
   const _discAmt   = parseFloat(inv.discount_amt) || 0;
   const _discPct   = parseFloat(inv.disc || inv.discount_pct) || 0;
   // Translate DB enum value → HTML select value
+  // Determine discount type. Priority:
+  // 1. DB says 'flat'                           → fixed ₹
+  // 2. discount_amt is a whole integer (e.g 7100)
+  //    AND discount_pct is non-integer (e.g 66.98) → was originally a fixed ₹ discount
+  //    saved incorrectly as percent in old records
+  // 3. DB says 'percent' and discount_amt is NOT a whole integer → genuine %
+  // 4. Fallback → pct
   const _dbDiscType = inv.discount_type || '';
+  const _amtIsWholeNumber = _discAmt > 0 && Number.isInteger(_discAmt);
+  const _pctIsNonInteger  = _discPct > 0 && !Number.isInteger(_discPct);
   let _discType;
-  if (_dbDiscType === 'flat')    { _discType = 'fixed'; }
-  else if (_dbDiscType === 'percent') { _discType = 'pct'; }
-  else {
-    // Legacy fallback: discount_amt is a whole integer → was fixed ₹
-    _discType = (_discAmt > 0 && Number.isInteger(_discAmt)) ? 'fixed' : 'pct';
+  if (_dbDiscType === 'flat') {
+    _discType = 'fixed';
+  } else if (_amtIsWholeNumber && _pctIsNonInteger) {
+    // Legacy record: fixed ₹ discount was saved incorrectly as percent
+    _discType = 'fixed';
+  } else if (_dbDiscType === 'percent' && !_amtIsWholeNumber) {
+    _discType = 'pct';
+  } else {
+    _discType = _amtIsWholeNumber ? 'fixed' : 'pct';
   }
   const _discRaw = _discType === 'fixed' ? _discAmt : _discPct;
   document.getElementById('f-disc').value = _discRaw;
@@ -7546,36 +7559,28 @@ function updateServiceDropdown() {
   }
 }
 
-<!---- When user selects a service from dropdown, auto-fill first line item if it's empty, and keep custom text input in sync. Called onChange of select and onInput of text input.
-// function onServiceSelect(val) {
-//   if (!val) return;
-   // Sync text input
-//   const customInp = document.getElementById('f-service-custom');
-//   if (customInp) customInp.value = val;
-   // Auto-fill first line item if it's empty
-//   if (formItems.length === 1 && !formItems[0].desc && !formItems[0].rate) {
-//     const sel = document.getElementById('f-service');
-//     const opt = sel ? Array.from(sel.options).find(o => o.value === val) : null;
-//     if (opt) {
-//       const rate    = parseFloat(opt.dataset.rate) || 0;
-//       const gst     = parseFloat(opt.dataset.gst)  || 0;
-//       const itype   = opt.dataset.type || 'Service';
-//       formItems[0].desc     = val;
-//       formItems[0].rate     = rate;
-//       formItems[0].gst      = gst;
-//       formItems[0].itemType = itype;
-//       renderFormItems();
-//       livePreview();
-//       if (rate > 0) toast(`✅ Auto-filled: ${val} @ ₹${rate.toLocaleString('en-IN')} | GST ${gst}%`, 'success');
-//     }
-//   }
-// }
-
-// only syncs the text input, nothing else
 function onServiceSelect(val) {
   if (!val) return;
+  // Sync text input
   const customInp = document.getElementById('f-service-custom');
   if (customInp) customInp.value = val;
+  // Auto-fill first line item if it's empty
+  if (formItems.length === 1 && !formItems[0].desc && !formItems[0].rate) {
+    const sel = document.getElementById('f-service');
+    const opt = sel ? Array.from(sel.options).find(o => o.value === val) : null;
+    if (opt) {
+      const rate    = parseFloat(opt.dataset.rate) || 0;
+      const gst     = parseFloat(opt.dataset.gst)  || 0;
+      const itype   = opt.dataset.type || 'Service';
+      formItems[0].desc     = val;
+      formItems[0].rate     = rate;
+      formItems[0].gst      = gst;
+      formItems[0].itemType = itype;
+      renderFormItems();
+      livePreview();
+      if (rate > 0) toast(`✅ Auto-filled: ${val} @ ₹${rate.toLocaleString('en-IN')} | GST ${gst}%`, 'success');
+    }
+  }
 }
 
 function syncServiceText(val) {
