@@ -2244,7 +2244,7 @@ Kindly process payment immediately or contact us to discuss.
                 <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);list-style:none;display:flex;align-items:center;gap:6px"><i class="fas fa-file-alt"></i> Suggested content for Meta approval</summary>
                 <div style="margin-top:10px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)">
                   <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">
-                    Hi {{1}},
+Hi {{1}},
 
  *Invoice -  #{{2}}* from {{6}}
  *Summary :*
