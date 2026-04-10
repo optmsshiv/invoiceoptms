@@ -2246,23 +2246,23 @@ Kindly process payment immediately or contact us to discuss.
                   <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">
                     Hi {{1}},
 
-                       *Invoice -  #{{2}}* from {{6}}
-                       *Summary :*
-                      - Service: {{3}}
-                      - *Issue Date:* {{4}}
-                      - *Due Date:* {{5}}
-                      - *Total Amount Due :* *{{7}}*
-                      *Breakdown*
-                      {{8}}
-                                  
-                      *Pay via UPI:* {{9}}
-                                  
-                      {{10}}
-                      *Invoice Link*
-                      {{11}}
-                                  
-                      Thank you for choosing {{6}}!
-                      {{12}} | ✉ {{13}}
+ *Invoice -  #{{2}}* from {{6}}
+ *Summary :*
+- Service: {{3}}
+- *Issue Date:* {{4}}
+- *Due Date:* {{5}}
+- *Total Amount Due :* *{{7}}*
+*Breakdown*
+{{8}}
+
+*Pay via UPI:* {{9}}
+
+{{10}}
+*Invoice Link*
+{{11}}
+
+Thank you for choosing {{6}}!
+{{12}} | ✉ {{13}}
                   </pre>
                 </details>
                   <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
