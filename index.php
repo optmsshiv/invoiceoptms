@@ -8816,7 +8816,7 @@ async function sendWAForInvoice(inv) {
     tplName = 'payment_overdue'; statusLabel = 'Overdue Alert';
   } else {
     tplKey = wa.tpl_inv; tplDefault = getDefaultWATpl('inv');
-    tplName = 'invoice_created'; statusLabel = 'Invoice';
+    tplName = 'invoic_created'; statusLabel = 'Invoice';
   }
   const tpl = tplKey || tplDefault;
   // Ensure portal link is cached before formatting message
