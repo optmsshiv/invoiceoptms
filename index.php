@@ -8720,11 +8720,16 @@ function buildWATplParams(tplName, inv, client, settings) {
     partial_payment:   ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     festival_greeting: ['client_name','company_name','company_phone'],
   };
+  
+  return paramKeys.map(k => String(common[k] || '')
+  .replace(/[\r\n\t]+/g, ' ')  // newlines/tabs → single space
+  .replace(/ {4,}/g, '   ')    // 4+ spaces → 3 spaces
+  .trim());
 
   const paramKeys = maps[tplName] || Object.keys(common);
-  return paramKeys.map(k => common[k] || '');
-}
-
+  }
+  
+// return paramKeys.map(k => common[k] || '');
 // ── Send WA (API first, wa.me fallback) ──────────────────────
 async function sendWA(phone, message, tplName, inv, client) {
   const wa    = STATE.settings.wa || {};
