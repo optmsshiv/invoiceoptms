@@ -105,17 +105,6 @@ if ($type === 'template' && $tplName) {
 $url      = "https://graph.facebook.com/v22.0/{$pid}/messages";
 $bodyJson = json_encode($msgBody, JSON_UNESCAPED_UNICODE);
 
-// DEBUG: Log exact payload sent to Meta (remove after fixing)
-error_log("=== WA SEND DEBUG ===");
-error_log("TEMPLATE: " . $tplName . " | LANG: " . $tplLangNorm . " | PHONE: +" . $phone);
-error_log("PARAMS COUNT: " . count($tplParams));
-foreach ($tplParams as $i => $p) {
-    $hex = bin2hex((string)$p);
-    error_log("  PARAM[" . ($i+1) . "]: " . json_encode((string)$p) . " | HEX: " . substr($hex, 0, 60));
-}
-error_log("FULL PAYLOAD: " . json_encode($msgBody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-error_log("=== END DEBUG ===");
-
 if (!function_exists('curl_init')) {
     jsonResponse(['error' => 'cURL is not enabled on this server'], 500);
 }
