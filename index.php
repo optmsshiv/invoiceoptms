@@ -8734,7 +8734,7 @@ async function sendWA(phone, message, tplName, inv, client) {
   if (token && pid) {
     // Map verbose tplName strings to STATE tpl_name_* keys
     const TPL_KEY_MAP = {
-      'invoice_created':  'invoice',
+      'invoic_created':  'invoice',
       'payment_received': 'paid',
       'partial_payment':  'partial',
       'split_payment':    'paid',
@@ -8816,7 +8816,7 @@ async function sendWAForInvoice(inv) {
     tplName = 'payment_overdue'; statusLabel = 'Overdue Alert';
   } else {
     tplKey = wa.tpl_inv; tplDefault = getDefaultWATpl('inv');
-    tplName = 'invoic_created'; statusLabel = 'Invoice';
+    tplName = 'invoice_created'; statusLabel = 'Invoice';
   }
   const tpl = tplKey || tplDefault;
   // Ensure portal link is cached before formatting message
