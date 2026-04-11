@@ -8734,7 +8734,7 @@ async function sendWA(phone, message, tplName, inv, client) {
   if (token && pid) {
     // Map verbose tplName strings to STATE tpl_name_* keys
     const TPL_KEY_MAP = {
-      'invoic_created':  'invoice',
+      'invoice_created':  'invoice',
       'payment_received': 'paid',
       'partial_payment':  'partial',
       'split_payment':    'paid',
