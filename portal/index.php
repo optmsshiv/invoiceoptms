@@ -244,6 +244,9 @@ tr:last-child td{border:none}
 .pmt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
 .tfoot-label{text-align:right;color:var(--muted);font-size:12px;padding:6px 12px}
 .tfoot-val{font-family:var(--mono);font-size:13px;padding:6px 12px;text-align:right}
+/* tfoot colspan hack: desktop=6 hidden cols, mobile=4 */
+.tfoot-spacer{display:table-cell}
+@media(max-width:600px){.tfoot-spacer{display:none}}
 .pmt-row:last-child{border:none}
 .pmt-ic{width:32px;height:32px;border-radius:8px;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .pmt-info{flex:1;min-width:0}
@@ -500,6 +503,7 @@ if ($items):
     <tfoot>
       <tr>
         <td colspan="4" class="tfoot-label">Subtotal</td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r tfoot-val"><?= fmt_inr($calcSubtotal, $sym) ?></td>
       </tr>
       <?php if ($discountAmt > 0):
@@ -512,24 +516,29 @@ if ($items):
         <td colspan="4" class="tfoot-label">
           Discount<?= $discountPct > 0 ? ' (' . number_format($discountPct, 2) . '%)' : '' ?>
         </td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r tfoot-val" style="color:var(--red)">− <?= fmt_inr($discountAmt, $sym) ?></td>
       </tr>
       <tr>
         <td colspan="4" class="tfoot-label">Amount after Discount</td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r tfoot-val" style="font-weight:600"><?= fmt_inr($amtAfterDisc, $sym) ?></td>
       </tr>
       <tr>
         <td colspan="4" class="tfoot-label">GST</td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r tfoot-val"><?= fmt_inr($calcGstAfter, $sym) ?></td>
       </tr>
       <?php else: ?>
       <tr>
         <td colspan="4" class="tfoot-label">GST</td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r tfoot-val"><?= fmt_inr($calcGst, $sym) ?></td>
       </tr>
       <?php endif; ?>
       <tr style="background:var(--bg);border-top:2px solid var(--border)">
         <td colspan="4" style="text-align:right;font-weight:700;padding:11px 12px;font-size:13px">Grand Total</td>
+        <td class="tfoot-spacer"></td><td class="tfoot-spacer"></td>
         <td class="r" style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--teal);padding:11px 12px"><?= fmt_inr($calcGrandTotal, $sym) ?></td>
       </tr>
     </tfoot>
