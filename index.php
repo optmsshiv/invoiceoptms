@@ -2499,7 +2499,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="OT-2025-"></div>
             <div class="field"><label>UPI ID</label><input id="sc-upi" value="optmstech@upi"></div>
             <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
-              <textarea id="sc-bank" style="min-height:64px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
+              <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
             </div>
             <div class="field"><label>Default Currency</label>
               <select id="sc-cur"><option value="₹">INR (₹)</option><option value="$">USD ($)</option></select>
