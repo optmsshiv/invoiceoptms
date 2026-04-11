@@ -8726,7 +8726,7 @@ function buildWATplParams(tplName, inv, client, settings) {
   // Map template key → ordered params (supports both short keys and verbose keys)
   const maps = {
     // Short keys (used after TPL_KEY_MAP lookup in sendWA)
-    invoice:          ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
+    invoice:          ['invoice_no','company_name','client_name','service','issue_date','due_date','amount','upi','portal_link'],
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
