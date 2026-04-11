@@ -2143,7 +2143,7 @@ Thank you! — *{company_name}*
 🔗 View Invoice:
 {invoice_link}
 
-Please arrange payment at your earliest convenience.
+Please make payment at your earliest convenience.
 — {company_name} | 📞 {company_phone}</textarea>
               <div class="wa-char-counter" id="wa-cnt-remind"></div>
             </div>
@@ -2230,7 +2230,7 @@ Kindly process payment immediately or contact us to discuss.
                 Enter template names exactly as approved in <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" style="color:var(--teal)">Meta Business Manager</a>. Language: <code>en_US</code>
               </div>
               <div class="form-grid g1" style="gap:10px">
-                <div class="field"><label>📄 Invoice Created</label><div style="display:flex;gap:6px"><input id="tpl-name-invoice" placeholder="invoice_created" style="flex:1"><input id="tpl-lang-invoice" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}inv# {{2}}company {{3}}client {{4}}service {{5}}issue_date {{6}}due {{7}}amount {{8}}upi {{9}}bank {{10}}link</div></div>
+                <div class="field"><label>📄 Invoice Created</label><div style="display:flex;gap:6px"><input id="tpl-name-invoice" placeholder="invoice_created" style="flex:1"><input id="tpl-lang-invoice" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
                 <div class="field"><label>🔔 Payment Reminder</label><div style="display:flex;gap:6px"><input id="tpl-name-reminder" placeholder="payment_reminder" style="flex:1"><input id="tpl-lang-reminder" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
                 <div class="field"><label>⚠️ Payment Overdue</label><div style="display:flex;gap:6px"><input id="tpl-name-overdue" placeholder="payment_overdue" style="flex:1"><input id="tpl-lang-overdue" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}company {{7}}link</div></div>
                 <div class="field"><label>✅ Payment Received</label><div style="display:flex;gap:6px"><input id="tpl-name-paid" placeholder="payment_received" style="flex:1"><input id="tpl-lang-paid" placeholder="en_US" style="width:60px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}disc {{5}}date {{6}}company {{7}}link</div></div>
@@ -2243,14 +2243,28 @@ Kindly process payment immediately or contact us to discuss.
               <details style="margin-top:14px">
                 <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);list-style:none;display:flex;align-items:center;gap:6px"><i class="fas fa-file-alt"></i> Suggested content for Meta approval</summary>
                 <div style="margin-top:10px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)">
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">
+Hi {{1}},
 
-Your invoice #{{2}} for ₹{{3}} is ready.
-Due Date: {{4}}
-Pay via UPI: {{5}}
+ *Invoice -  #{{2}}* from {{6}}
+ *Summary :*
+- Service: {{3}}
+- *Issue Date:* {{4}}
+- *Due Date:* {{5}}
+- *Total Amount Due :* *{{7}}*
+*Breakdown*
+{{8}}
+
+*Pay via UPI:* {{9}}
+
+{{10}}
+*Invoice Link*
+{{11}}
 
 Thank you for choosing {{6}}!
-View Invoice: {{7}}</pre></details>
+{{12}} | ✉ {{13}}
+                  </pre>
+                </details>
                   <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--amber)">payment_reminder — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
 
 Friendly reminder: Invoice #{{2}} for ₹{{3}} is due on {{4}}.
@@ -8687,7 +8701,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     company_phone:        sc.phone || '',
     company_email:        sc.email || '',
     bank_details:         sc.defaultBank || sc.bank || '',
-    item_list:            (inv.items||[]).map(i => `• ${i.desc||''}: ${(inv.currency||'₹')}${((i.qty||1)*(i.rate||0)).toLocaleString('en-IN')}`).join('\n') || '',
+    item_list:            (inv.items||[]).map(i => `• ${i.desc||''}: ${(inv.currency||'₹')}${((i.qty||1)*(i.rate||0)).toLocaleString('en-IN')}`).join('') || '',
     days_overdue:         daysOver,
     portal_link:          tplPortalLink,
     settlement_discount:  settleDiscStr,
@@ -8696,6 +8710,7 @@ function buildWATplParams(tplName, inv, client, settings) {
   };
 
   // Map template name to ordered params list
+  // invoice_created:   ['client_name','invoice_no','service','issue_date','due_date','amount','currency','item_list','upi','bank_details','portal_link','company_phone','company_email','company_name'],
   const maps = {
     invoice_created:   ['invoice_no','company_name','client_name','service','issue_date','due_date','amount','upi','bank_details','portal_link'],
     payment_reminder:  ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
@@ -8731,11 +8746,12 @@ async function sendWA(phone, message, tplName, inv, client) {
     };
     const tplKey = TPL_KEY_MAP[tplName] || tplName;
     // Use approved template if name configured AND mode is template
+    // params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
     const useTemplate = wa.msg_mode === 'template' && tplKey && wa['tpl_name_' + tplKey];
     const tplOpts = useTemplate ? {
       name:   wa['tpl_name_' + tplKey],
       lang:   wa['tpl_lang_' + tplKey] || 'en',
-      params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
+      params: inv ? buildWATplParams(tplName, inv, client, STATE.settings) : [],
     } : null;
     return await sendWABusinessMsg(clean, message, token, pid, tplOpts);
   }
