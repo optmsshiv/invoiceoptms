@@ -8720,15 +8720,14 @@ function buildWATplParams(tplName, inv, client, settings) {
     partial_payment:   ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     festival_greeting: ['client_name','company_name','company_phone'],
   };
-  
+
+  const paramKeys = maps[tplName] || Object.keys(common);
   return paramKeys.map(k => String(common[k] || '')
   .replace(/[\r\n\t]+/g, ' ')  // newlines/tabs → single space
   .replace(/ {4,}/g, '   ')    // 4+ spaces → 3 spaces
   .trim());
+}
 
-  const paramKeys = maps[tplName] || Object.keys(common);
-  }
-  
 // return paramKeys.map(k => common[k] || '');
 // ── Send WA (API first, wa.me fallback) ──────────────────────
 async function sendWA(phone, message, tplName, inv, client) {
@@ -8751,7 +8750,7 @@ async function sendWA(phone, message, tplName, inv, client) {
     };
     const tplKey = TPL_KEY_MAP[tplName] || tplName;
     // Use approved template if name configured AND mode is template
-    // params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
+    //params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
     const useTemplate = wa.msg_mode === 'template' && tplKey && wa['tpl_name_' + tplKey];
     const tplOpts = useTemplate ? {
       name:   wa['tpl_name_' + tplKey],
