@@ -305,9 +305,18 @@ tr:last-child td{border:none}
 .progress-meta .paid-label{font-weight:700;color:var(--green)}
 .progress-meta .bal-label{font-weight:700;color:var(--red)}
 
+/* Desktop: badge below invoice number, right aligned */
+.inv-right{text-align:right}
+.inv-num-row{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+
 @media(max-width:600px){
   body{padding:12px 10px 80px}
   .portal-header{flex-direction:column;align-items:flex-start}
+  /* Mobile: inv-right takes full width, badge inline at end */
+  .inv-right{width:100%}
+  .inv-num-row{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  /* On mobile: inv number row = flex with badge pushed to right end */
+  .inv-num-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
   .info-grid{grid-template-columns:1fr}
   .amount-strip{grid-template-columns:1fr 1fr}
   /* Line items table — scrollable on mobile */
@@ -360,8 +369,8 @@ tr:last-child td{border:none}
       <?php endif; ?>
     </div>
   </div>
-  <div style="text-align:right">
-    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+  <div class="inv-right">
+    <div class="inv-num-row">
       <div class="inv-num"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></div>
       <div class="status-pill" style="background:<?= status_bg($inv['status'] ?? '') ?>;border-color:<?= status_col($inv['status'] ?? '') ?>40;color:<?= status_col($inv['status'] ?? '') ?>">
         <?= status_label($inv['status'] ?? '') ?>
