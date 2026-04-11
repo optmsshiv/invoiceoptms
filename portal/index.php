@@ -246,7 +246,20 @@ tr:last-child td{border:none}
 .tfoot-val{font-family:var(--mono);font-size:13px;padding:6px 12px;text-align:right}
 .tfoot-spacer{padding:0;border:none}
 @media(max-width:600px){.tfoot-spacer{display:none}}
-/* Full-width tfoot row with flex label+val */
+/* Line item cards for mobile */
+.line-table{display:block}
+.line-cards{display:none}
+.line-card{padding:12px 16px;border-bottom:1px solid var(--border)}
+.line-card:last-child{border:none}
+.line-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.line-card-name{font-weight:700;font-size:13px;flex:1}
+.line-card-total{font-family:var(--mono);font-weight:800;font-size:14px;color:var(--teal);white-space:nowrap}
+.line-card-meta{display:flex;gap:12px;font-size:11px;color:var(--muted)}
+.line-card-meta span strong{color:var(--text);font-weight:600}
+.line-tfoot{padding:10px 16px;background:var(--bg);border-top:2px solid var(--border)}
+.line-tfoot-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 0}
+.line-tfoot-row.grand{font-size:15px;font-weight:800;color:var(--teal);padding-top:8px;margin-top:4px;border-top:1px dashed var(--border)}
+.line-tfoot-row.grand span:first-child{color:var(--text)}
 .tfoot-row td{padding:0;border:none}
 .tfoot-inner{display:flex;justify-content:flex-end;align-items:center;gap:0;padding:5px 12px}
 .tfoot-inner .lbl{color:var(--muted);font-size:12px;min-width:80px;text-align:right;padding-right:16px}
@@ -315,9 +328,11 @@ tr:last-child td{border:none}
   /* Mobile: inv-right takes full width, badge inline at end */
   .inv-right{width:100%}
   .inv-num-row{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
-  /* On mobile: inv number row = flex with badge pushed to right end */
   .inv-num-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
   .info-grid{grid-template-columns:1fr}
+  /* Hide table, show cards on mobile */
+  .line-table{display:none}
+  .line-cards{display:block}
   .amount-strip{grid-template-columns:1fr 1fr}
   /* Line items table — scrollable on mobile */
   .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:0 0 var(--r) var(--r)}
@@ -465,6 +480,9 @@ if ($items):
 ?>
 <div class="card" style="padding:0">
   <div class="card-head" style="padding:14px 18px"><i class="fas fa-list-ul"></i> Line Items</div>
+
+  <!-- Desktop table -->
+  <div class="line-table">
   <div class="table-scroll">
   <table>
     <thead><tr>
@@ -536,6 +554,48 @@ if ($items):
     </tfoot>
   </table>
   </div><!-- end table-scroll -->
+  </div><!-- end line-table -->
+
+  <!-- Mobile card view -->
+  <?php
+    // Re-compute totals for cards (already done above in tfoot php block)
+    $mc_subtotal = 0; $mc_gst = 0;
+    foreach ($items as $item) {
+      $q = (float)($item['qty'] ?? 1); $r = (float)($item['rate'] ?? 0); $g = (float)($item['gst'] ?? 0);
+      $mc_subtotal += $q * $r; $mc_gst += $q * $r * $g / 100;
+    }
+    $mc_discount = (float)($inv['discount_amt'] ?? 0);
+    if ($mc_discount == 0 && (float)($inv['discount_pct'] ?? 0) > 0)
+      $mc_discount = $mc_subtotal * (float)$inv['discount_pct'] / 100;
+    $mc_grand = $mc_subtotal - $mc_discount + $mc_gst;
+  ?>
+  <div class="line-cards">
+    <?php foreach ($items as $ci => $item):
+      $q = (float)($item['qty'] ?? 1); $r = (float)($item['rate'] ?? 0);
+      $g = (float)($item['gst'] ?? 0); $amt = $q * $r; $tot = $amt + $amt * $g / 100;
+    ?>
+    <div class="line-card">
+      <div class="line-card-top">
+        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?></div>
+        <div class="line-card-total"><?= fmt_inr($tot, $sym) ?></div>
+      </div>
+      <div class="line-card-meta">
+        <span>Qty: <strong><?= number_format($q, 2) ?></strong></span>
+        <span>Rate: <strong><?= fmt_inr($r, $sym) ?></strong></span>
+        <?php if ($g > 0): ?><span>GST: <strong><?= number_format($g,2) ?>%</strong></span><?php endif; ?>
+      </div>
+    </div>
+    <?php endforeach; ?>
+    <div class="line-tfoot">
+      <div class="line-tfoot-row"><span>Subtotal</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_subtotal, $sym) ?></span></div>
+      <?php if ($mc_discount > 0): ?>
+      <div class="line-tfoot-row" style="color:var(--red)"><span>Discount</span><span style="font-family:var(--mono)">− <?= fmt_inr($mc_discount, $sym) ?></span></div>
+      <?php endif; ?>
+      <div class="line-tfoot-row"><span>GST</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_gst, $sym) ?></span></div>
+      <div class="line-tfoot-row grand"><span>Grand Total</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_grand, $sym) ?></span></div>
+    </div>
+  </div><!-- end line-cards -->
+
 </div>
 <?php endif; ?>
 
