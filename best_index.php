@@ -1158,11 +1158,8 @@ const SERVER = {
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue + Outstanding Two-Column Row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-        <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-        <div id="s-outstanding-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-      </div>
+      <!-- Combined Outstanding Card -->
+      <div id="s-outstanding-card" style="margin-bottom:16px;background:var(--card);border:2px solid rgba(183,28,28,.18);border-radius:14px;padding:16px 20px;box-shadow:0 2px 12px rgba(183,28,28,.07)"></div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div>
@@ -3643,93 +3640,31 @@ function updateDashStats() {
   if(e('s-total'))   e('s-total').textContent   = STATE.invoices.length;
   if(e('s-clients')) e('s-clients').textContent = STATE.clients.length;
 
-  // Settlement discounts written off
-  const totalSettleDisc = STATE.payments.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-  // Collected = actual payments on Paid invoices
-  const collectedAmt = STATE.payments
-    .filter(p => { const inv = STATE.invoices.find(i=>String(i.id)===String(p.invoice_id)); return inv && inv.status === 'Paid'; })
-    .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const grossBilled = STATE.invoices.filter(i=>i.status!=='Draft'&&i.status!=='Cancelled').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const recoveryRate = grossBilled > 0 ? Math.round((totalRevenue / grossBilled) * 100) : 0;
-  const remainingDue = Math.max(0, grossBilled - totalRevenue - totalSettleDisc);
-
-  // Revenue card
-  const revEl = e('s-revenue-card');
-  if (revEl) {
-    const barPct = Math.min(100, recoveryRate);
-    revEl.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <div style="width:36px;height:36px;border-radius:9px;background:#C6EFCF;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <i class="fas fa-chart-line" style="color:#1B6B34;font-size:14px"></i>
-          </div>
-          <div>
-            <div style="font-size:11px;color:#5A7A62;margin-bottom:3px">Revenue</div>
-            <div style="font-size:22px;font-weight:800;color:#1B6B34;line-height:1;font-family:var(--mono)">${fmt_money(grossBilled)}</div>
-            <div style="font-size:11px;color:#7DA88A;margin-top:3px">gross billed</div>
-          </div>
-        </div>
-        <div style="font-size:11px;font-weight:700;background:#C6EFCF;color:#1B6B34;padding:3px 10px;border-radius:20px;white-space:nowrap;border:1px solid #A8DDB8">${recoveryRate}% collected</div>
-      </div>
-      <div style="background:#C6EFCF;border-radius:4px;height:7px;overflow:hidden;margin-bottom:5px">
-        <div style="height:100%;border-radius:4px;background:#2E9E54;border-right:2px solid #1B6B34;width:${barPct}%"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-        <span style="font-size:10px;color:#2E9E54">Collected — ${fmt_money(totalRevenue)}</span>
-        <span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>
-      </div>
-      <div style="border-top:1px solid #C6EFCF;padding-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
-        <div style="padding-right:8px;border-right:1px solid #C6EFCF">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Collected</div>
-          <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(totalRevenue)}</div>
-        </div>
-        <div style="padding:0 8px;border-right:1px solid #C6EFCF">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Settlement disc.</div>
-          <div style="font-size:13px;font-weight:700;color:#8B6914;font-family:var(--mono)">−${fmt_money(totalSettleDisc)}</div>
-        </div>
-        <div style="padding-left:8px">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Remaining due</div>
-          <div style="font-size:13px;font-weight:700;color:#B82929;font-family:var(--mono)">${fmt_money(remainingDue)}</div>
-        </div>
-      </div>`;
-  }
-
   // Combined outstanding card (pending + overdue + partial remaining)
   const combinedOutstanding = pend + over + partialRemaining;
   const combinedCount = pendCnt + overCnt + partialCnt;
   const outEl = e('s-outstanding-card');
   if (outEl) {
+    const urgColor = over > 0 ? '#B71C1C' : combinedOutstanding > 0 ? '#E65100' : '#388E3C';
     outEl.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px">
-        <div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#B85C0A;margin-bottom:5px">Total Outstanding</div>
-          <div style="font-size:22px;font-weight:800;color:#B85C0A;line-height:1;font-family:var(--mono)">${fmt_money(combinedOutstanding)}</div>
-          <div style="font-size:11px;color:#C8844A;margin-top:4px">${combinedCount} invoice${combinedCount!==1?'s':''} need attention</div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:${urgColor};opacity:.8;margin-bottom:2px">Total Outstanding</div>
+          <div style="font-size:26px;font-weight:900;color:${urgColor};font-family:var(--mono);line-height:1">${fmt_money(combinedOutstanding)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">${combinedCount} invoice${combinedCount!==1?'s':''} need attention</div>
         </div>
-        <div style="width:36px;height:36px;border-radius:9px;background:#FDDCB5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="fas fa-exclamation-circle" style="color:#B85C0A;font-size:14px"></i>
-        </div>
-      </div>
-      <div style="border-top:1px solid #F9C49A;padding-top:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-        <div style="text-align:center;padding:9px 6px;background:#FFF8E1;border:1.5px solid #F5D07A;border-radius:10px">
-          <div style="font-size:14px;font-weight:700;color:#7A5800;font-family:var(--mono);margin-bottom:4px">${fmt_money(pend)}</div>
-          <div style="font-size:10px;color:#8B6914;display:flex;align-items:center;justify-content:center;gap:4px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#F5D07A;border:1px solid #D4A817;display:inline-block"></span>
-            Pending (${pendCnt})
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="text-align:center;padding:8px 14px;background:rgba(230,81,0,.08);border:1.5px solid rgba(230,81,0,.2);border-radius:10px">
+            <div style="font-size:18px;font-weight:800;color:#E65100">${fmt_money(pend)}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700">🕐 Pending (${pendCnt})</div>
           </div>
-        </div>
-        <div style="text-align:center;padding:9px 6px;background:#FFEBEE;border:1.5px solid #F5ABAB;border-radius:10px">
-          <div style="font-size:14px;font-weight:700;color:#8B1A1A;font-family:var(--mono);margin-bottom:4px">${fmt_money(over)}</div>
-          <div style="font-size:10px;color:#B82929;display:flex;align-items:center;justify-content:center;gap:4px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#F5ABAB;border:1px solid #E05555;display:inline-block"></span>
-            Overdue (${overCnt})
+          <div style="text-align:center;padding:8px 14px;background:rgba(183,28,28,.08);border:1.5px solid rgba(183,28,28,.2);border-radius:10px">
+            <div style="font-size:18px;font-weight:800;color:#B71C1C">${fmt_money(over)}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700">🔴 Overdue (${overCnt})</div>
           </div>
-        </div>
-        <div style="text-align:center;padding:9px 6px;background:#F3EFFE;border:1.5px solid #C5B3F0;border-radius:10px">
-          <div style="font-size:14px;font-weight:700;color:#4A2A9E;font-family:var(--mono);margin-bottom:4px">${fmt_money(partialRemaining)}</div>
-          <div style="font-size:10px;color:#6B3FBF;display:flex;align-items:center;justify-content:center;gap:4px">
-            <span style="width:7px;height:7px;border-radius:50%;background:#C5B3F0;border:1px solid #8B6ADE;display:inline-block"></span>
-            Partial (${partialCnt})
+          <div style="text-align:center;padding:8px 14px;background:rgba(255,152,0,.08);border:1.5px solid rgba(255,152,0,.25);border-radius:10px">
+            <div style="font-size:18px;font-weight:800;color:#E65100">${fmt_money(partialRemaining)}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700">💛 Partial Due (${partialCnt})</div>
           </div>
         </div>
       </div>`;
