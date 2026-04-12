@@ -6863,15 +6863,19 @@ function _renderPmtPage(){
     const isMulti=invCount[p.inv]>1;
     const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
     const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
-    return `<tr style="${isMulti?'border-left:3px solid '+chipColor+';background:'+chipColor+'08':''}">
+    const isDeleted = p._invoiceDeleted || p.invoice_deleted;
+    return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : isMulti ? 'border-left:3px solid '+chipColor+';background:'+chipColor+'08' : ''}">
       <td style="font-size:12px">${df}</td>
       <td>${invChip}</td>
       <td><strong>${p.client}</strong></td>
       <td><span style="display:flex;align-items:center;gap:5px"><i class="fas ${mi}" style="color:var(--muted2);font-size:11px"></i>${p.method}</span></td>
       <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
-      <td><strong style="font-family:var(--mono);color:var(--green)">${fmt_money(p.amount)}</strong></td>
-      <td><span class="badge ${p._invoiceDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${p._invoiceDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${p._invoiceDeleted ? '🗑️ Deleted' : p.status}</span></td>
-      <td><button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-receipt"></i></button></td>
+      <td><strong style="font-family:var(--mono);color:${isDeleted?'var(--muted)':'var(--green)'}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
+      <td><span class="badge ${isDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${isDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${isDeleted ? '🗑️ Invoice Deleted' : p.status}</span></td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-receipt"></i></button>
+        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
+      </td>
     </tr>`;
   }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
@@ -6880,6 +6884,22 @@ function _renderPmtPage(){
   const inf=document.getElementById('pmtInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PMT.list.length)} of ${PMT.list.length}`;
 }
 function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)return;PMT.page=p;_renderPmtPage();}
+
+async function revertPaymentDelete(idx) {
+  const p = PMT.list[idx];
+  if (!p || !p.id) return;
+  if (!confirm('Revert "Invoice Deleted" flag for this payment?\nThis will mark the payment as active again.')) return;
+  try {
+    await api('api/payments.php?id=' + parseInt(p.id), 'PATCH', { invoice_deleted: false });
+    // Update in STATE
+    const sp = STATE.payments.find(x => String(x.id) === String(p.id));
+    if (sp) { sp._invoiceDeleted = false; sp.invoice_deleted = false; }
+    toast('↩ Payment flag reverted — now showing as active', 'success');
+    renderPayments();
+  } catch(e) {
+    toast('❌ Revert failed: ' + e.message, 'error');
+  }
+}
 function viewReceipt(i){
   const p=PMT.list[i]; if(!p) return;
   const sc=STATE.settings;
