@@ -3643,30 +3643,27 @@ function updateDashStats() {
   if(e('s-total'))   e('s-total').textContent   = STATE.invoices.length;
   if(e('s-clients')) e('s-clients').textContent = STATE.clients.length;
 
-  // --- Revenue card calculations (Paid invoices only) ---
-  // Total settlement discounts on Paid invoices only
-  const totalSettleDisc = STATE.payments
-    .filter(p => { const inv = STATE.invoices.find(i=>String(i.id)===String(p.invoice_id)); return inv && inv.status==='Paid'; })
-    .reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-  // Gross billed = sum of grand_total of Paid invoices only
-  const grossBilled = STATE.invoices
-    .filter(i => i.status === 'Paid')
+  // ── Revenue card calculations ─────────────────────────────────
+  // Gross Revenue = all invoices except Draft & Cancelled (total billed)
+  const grossRevenue = STATE.invoices
+    .filter(i => i.status !== 'Draft' && i.status !== 'Cancelled')
     .reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
-  // Recovery rate = collected / (collected + settlement discounts)
-  const totalBilledForRate = paid + totalSettleDisc;
-  const recoveryRate = totalBilledForRate > 0 ? Math.round((paid / totalBilledForRate) * 100) : 100;
-  // Remaining due on Partial invoices = already computed as partialRemaining (excludes settlement discounts)
-  const partialRemainingAfterDisc = STATE.invoices.filter(i=>i.status==='Partial').reduce((s,i)=>{
-    const pmts = STATE.payments.filter(p=>String(p.invoice_id)===String(i.id));
-    const alreadyPaid = pmts.reduce((a,p)=>a+parseFloat(p.amount||0),0);
-    const alreadyDisc = pmts.reduce((a,p)=>a+parseFloat(p.settlement_discount||0),0);
-    return s + Math.max(0, (parseFloat(i.amount)||0) - alreadyPaid - alreadyDisc);
-  },0);
+
+  // Settlement discounts written off (all payments across all invoices)
+  const totalSettleDisc = STATE.payments
+    .reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
+
+  // Net Revenue = actual cash collected from all payments (no discounts)
+  // = Gross Revenue – Settlement Discount – (Pending + Overdue + Partial remaining)
+  const netRevenue = paid + partialReceived; // real cash received
+
+  // Recovery rate = net collected vs gross billed
+  const recoveryRate = grossRevenue > 0 ? Math.round((netRevenue / grossRevenue) * 100) : 0;
+  const barPct = Math.min(100, recoveryRate);
 
   // Revenue card
   const revEl = e('s-revenue-card');
   if (revEl) {
-    const barPct = Math.min(100, recoveryRate);
     revEl.innerHTML = `
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:10px">
@@ -3674,37 +3671,44 @@ function updateDashStats() {
             <i class="fas fa-chart-line" style="color:#1B6B34;font-size:14px"></i>
           </div>
           <div>
-            <div style="font-size:11px;color:#5A7A62;margin-bottom:3px">Revenue</div>
-            <div style="font-size:22px;font-weight:800;color:#1B6B34;line-height:1;font-family:var(--mono)">${fmt_money(paid)}</div>
-            <div style="font-size:11px;color:#7DA88A;margin-top:3px">actually collected</div>
+            <div style="font-size:11px;color:#5A7A62;margin-bottom:2px">Gross Revenue</div>
+            <div style="font-size:22px;font-weight:800;color:#1B6B34;line-height:1;font-family:var(--mono)">${fmt_money(grossRevenue)}</div>
+            <div style="font-size:11px;color:#7DA88A;margin-top:3px">total billed (excl. draft &amp; cancelled)</div>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;background:#C6EFCF;color:#1B6B34;padding:3px 10px;border-radius:20px;white-space:nowrap;border:1px solid #A8DDB8">${recoveryRate}% of billed</div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Net Revenue</div>
+          <div style="font-size:15px;font-weight:800;color:#1B6B34;font-family:var(--mono)">${fmt_money(netRevenue)}</div>
+          <div style="font-size:10px;font-weight:700;background:#C6EFCF;color:#1B6B34;padding:2px 8px;border-radius:20px;border:1px solid #A8DDB8;margin-top:4px;display:inline-block">${recoveryRate}% collected</div>
+        </div>
       </div>
       <div style="background:#C6EFCF;border-radius:4px;height:7px;overflow:hidden;margin-bottom:5px">
-        <div style="height:100%;border-radius:4px;background:#2E9E54;border-right:${totalSettleDisc>0?'2px solid #1B6B34':'none'};width:${barPct}%"></div>
+        <div style="height:100%;border-radius:4px;background:#2E9E54;width:${barPct}%"></div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-        <span style="font-size:10px;color:#2E9E54">Collected — ${fmt_money(paid)}</span>
-        ${totalSettleDisc>0?`<span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>`:''}
+        <span style="font-size:10px;color:#2E9E54">Net collected — ${fmt_money(netRevenue)}</span>
+        ${totalSettleDisc > 0 ? `<span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>` : ''}
       </div>
       <div style="border-top:1px solid #C6EFCF;padding-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
         <div style="padding-right:8px;border-right:1px solid #C6EFCF">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Collected</div>
-          <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(paid)}</div>
+          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Net Revenue</div>
+          <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(netRevenue)}</div>
+          <div style="font-size:9px;color:#7DA88A;margin-top:2px">cash collected</div>
         </div>
         <div style="padding:0 8px;border-right:1px solid #C6EFCF">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Settlement disc.</div>
-          <div style="font-size:13px;font-weight:700;color:${totalSettleDisc>0?'#8B6914':'#5A7A62'};font-family:var(--mono)">${totalSettleDisc>0?'−'+fmt_money(totalSettleDisc):'—'}</div>
+          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Settlement Disc.</div>
+          <div style="font-size:13px;font-weight:700;color:${totalSettleDisc>0?'#8B6914':'var(--muted)'};font-family:var(--mono)">${totalSettleDisc>0?'−'+fmt_money(totalSettleDisc):'—'}</div>
+          <div style="font-size:9px;color:#7DA88A;margin-top:2px">written off</div>
         </div>
         <div style="padding-left:8px">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Partial remaining</div>
-          <div style="font-size:13px;font-weight:700;color:${partialRemainingAfterDisc>0?'#B82929':'#5A7A62'};font-family:var(--mono)">${partialRemainingAfterDisc>0?fmt_money(partialRemainingAfterDisc):'—'}</div>
+          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Still Pending</div>
+          <div style="font-size:13px;font-weight:700;color:${(pend+over+partialRemaining)>0?'#B85C0A':'var(--muted)'};font-family:var(--mono)">${(pend+over+partialRemaining)>0?fmt_money(pend+over+partialRemaining):'—'}</div>
+          <div style="font-size:9px;color:#7DA88A;margin-top:2px">yet to collect</div>
         </div>
       </div>`;
   }
 
-  // Combined outstanding card (pending + overdue + partial remaining)
+  // ── Outstanding card ──────────────────────────────────────────
   const combinedOutstanding = pend + over + partialRemaining;
   const combinedCount = pendCnt + overCnt + partialCnt;
   const outEl = e('s-outstanding-card');
