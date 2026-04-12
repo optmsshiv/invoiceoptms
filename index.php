@@ -6410,21 +6410,22 @@ function confirmDelete() {
       // Find payments linked to this invoice
       const linkedPayments = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === mid);
 
-      // Delete each linked payment from DB, then remove from state
-      const deletePromises = linkedPayments
+      // Soft-delete each payment in DB (marks invoice_deleted=1, keeps row visible)
+      linkedPayments
         .filter(p => p.id)
-        .map(p => api('api/payments.php?id=' + parseInt(p.id), 'DELETE').catch(() => {}));
+        .forEach(p => api('api/payments.php?id=' + parseInt(p.id), 'DELETE').catch(() => {}));
 
-      Promise.all(deletePromises).then(() => {
-        // Remove deleted payments from STATE entirely (not just mark as deleted)
-        STATE.payments = STATE.payments.filter(p => !p.invoice_id || String(p.invoice_id) !== mid);
-
-        // Update sidebar badge
-        const badge = document.getElementById('badge-invoices');
-        if (badge) badge.textContent = STATE.invoices.length;
-        toast('🗑️ Invoice ' + (inv.num || inv.invoice_number || '') + ' deleted', 'info');
-        renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats(); renderPayments();
+      // Mark in STATE so UI shows "Invoice Deleted" immediately without reload
+      STATE.payments.forEach(p => {
+        if (p.invoice_id && String(p.invoice_id) === mid) {
+          p._invoiceDeleted = true;
+        }
       });
+
+      const badge = document.getElementById('badge-invoices');
+      if (badge) badge.textContent = STATE.invoices.length;
+      toast('🗑️ Invoice ' + (inv.num || inv.invoice_number || '') + ' deleted', 'info');
+      renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats(); renderPayments();
     })
     .catch(e => toast('❌ Delete failed: ' + e.message, 'error'));
 }
