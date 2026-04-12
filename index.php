@@ -3643,15 +3643,25 @@ function updateDashStats() {
   if(e('s-total'))   e('s-total').textContent   = STATE.invoices.length;
   if(e('s-clients')) e('s-clients').textContent = STATE.clients.length;
 
-  // Settlement discounts written off
-  const totalSettleDisc = STATE.payments.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
-  // Collected = actual payments on Paid invoices
-  const collectedAmt = STATE.payments
-    .filter(p => { const inv = STATE.invoices.find(i=>String(i.id)===String(p.invoice_id)); return inv && inv.status === 'Paid'; })
-    .reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const grossBilled = STATE.invoices.filter(i=>i.status!=='Draft'&&i.status!=='Cancelled').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const recoveryRate = grossBilled > 0 ? Math.round((totalRevenue / grossBilled) * 100) : 0;
-  const remainingDue = Math.max(0, grossBilled - totalRevenue - totalSettleDisc);
+  // --- Revenue card calculations (Paid invoices only) ---
+  // Total settlement discounts on Paid invoices only
+  const totalSettleDisc = STATE.payments
+    .filter(p => { const inv = STATE.invoices.find(i=>String(i.id)===String(p.invoice_id)); return inv && inv.status==='Paid'; })
+    .reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
+  // Gross billed = sum of grand_total of Paid invoices only
+  const grossBilled = STATE.invoices
+    .filter(i => i.status === 'Paid')
+    .reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  // Recovery rate = collected / (collected + settlement discounts)
+  const totalBilledForRate = paid + totalSettleDisc;
+  const recoveryRate = totalBilledForRate > 0 ? Math.round((paid / totalBilledForRate) * 100) : 100;
+  // Remaining due on Partial invoices = already computed as partialRemaining (excludes settlement discounts)
+  const partialRemainingAfterDisc = STATE.invoices.filter(i=>i.status==='Partial').reduce((s,i)=>{
+    const pmts = STATE.payments.filter(p=>String(p.invoice_id)===String(i.id));
+    const alreadyPaid = pmts.reduce((a,p)=>a+parseFloat(p.amount||0),0);
+    const alreadyDisc = pmts.reduce((a,p)=>a+parseFloat(p.settlement_discount||0),0);
+    return s + Math.max(0, (parseFloat(i.amount)||0) - alreadyPaid - alreadyDisc);
+  },0);
 
   // Revenue card
   const revEl = e('s-revenue-card');
@@ -3665,31 +3675,31 @@ function updateDashStats() {
           </div>
           <div>
             <div style="font-size:11px;color:#5A7A62;margin-bottom:3px">Revenue</div>
-            <div style="font-size:22px;font-weight:800;color:#1B6B34;line-height:1;font-family:var(--mono)">${fmt_money(grossBilled)}</div>
-            <div style="font-size:11px;color:#7DA88A;margin-top:3px">gross billed</div>
+            <div style="font-size:22px;font-weight:800;color:#1B6B34;line-height:1;font-family:var(--mono)">${fmt_money(paid)}</div>
+            <div style="font-size:11px;color:#7DA88A;margin-top:3px">actually collected</div>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;background:#C6EFCF;color:#1B6B34;padding:3px 10px;border-radius:20px;white-space:nowrap;border:1px solid #A8DDB8">${recoveryRate}% collected</div>
+        <div style="font-size:11px;font-weight:700;background:#C6EFCF;color:#1B6B34;padding:3px 10px;border-radius:20px;white-space:nowrap;border:1px solid #A8DDB8">${recoveryRate}% of billed</div>
       </div>
       <div style="background:#C6EFCF;border-radius:4px;height:7px;overflow:hidden;margin-bottom:5px">
-        <div style="height:100%;border-radius:4px;background:#2E9E54;border-right:2px solid #1B6B34;width:${barPct}%"></div>
+        <div style="height:100%;border-radius:4px;background:#2E9E54;border-right:${totalSettleDisc>0?'2px solid #1B6B34':'none'};width:${barPct}%"></div>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-        <span style="font-size:10px;color:#2E9E54">Collected — ${fmt_money(totalRevenue)}</span>
-        <span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>
+        <span style="font-size:10px;color:#2E9E54">Collected — ${fmt_money(paid)}</span>
+        ${totalSettleDisc>0?`<span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>`:''}
       </div>
       <div style="border-top:1px solid #C6EFCF;padding-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
         <div style="padding-right:8px;border-right:1px solid #C6EFCF">
           <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Collected</div>
-          <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(totalRevenue)}</div>
+          <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(paid)}</div>
         </div>
         <div style="padding:0 8px;border-right:1px solid #C6EFCF">
           <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Settlement disc.</div>
-          <div style="font-size:13px;font-weight:700;color:#8B6914;font-family:var(--mono)">−${fmt_money(totalSettleDisc)}</div>
+          <div style="font-size:13px;font-weight:700;color:${totalSettleDisc>0?'#8B6914':'#5A7A62'};font-family:var(--mono)">${totalSettleDisc>0?'−'+fmt_money(totalSettleDisc):'—'}</div>
         </div>
         <div style="padding-left:8px">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Remaining due</div>
-          <div style="font-size:13px;font-weight:700;color:#B82929;font-family:var(--mono)">${fmt_money(remainingDue)}</div>
+          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Partial remaining</div>
+          <div style="font-size:13px;font-weight:700;color:${partialRemainingAfterDisc>0?'#B82929':'#5A7A62'};font-family:var(--mono)">${partialRemainingAfterDisc>0?fmt_money(partialRemainingAfterDisc):'—'}</div>
         </div>
       </div>`;
   }
