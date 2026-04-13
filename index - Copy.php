@@ -5806,18 +5806,8 @@ async function saveInvoice() {
     const badge = document.getElementById('badge-invoices');
     if (badge) badge.textContent = STATE.invoices.length;
     // Auto-generate portal link for new invoices (silent background)
-    if (d.id || d.invoice_id) {
-      const portalInvId = parseInt(d.id || d.invoice_id);
-      if (portalInvId) {
-        api('api/portal.php', 'POST', { invoice_id: portalInvId })
-          .then(res => { if (res && res.token) _portalTokenCache[String(portalInvId)] = res.token; })
-          .catch(() => {});
-      }
-    } else {
-      const savedInv = STATE.invoices.find(i =>
-        (i.num && d.num && i.num === d.num) ||
-        (i.invoice_number && d.invoice_number && i.invoice_number === d.invoice_number)
-      );
+    if (!STATE.editingInvoiceId) {
+      const savedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
       if (savedInv && savedInv.id) {
         api('api/portal.php', 'POST', { invoice_id: parseInt(savedInv.id) })
           .then(res => { if (res && res.token) _portalTokenCache[String(savedInv.id)] = res.token; })
@@ -8896,19 +8886,8 @@ async function sendWA(phone, message, tplName, inv, client) {
     };
     const tplKey = TPL_KEY_MAP[tplName] || tplName;
     // Use approved template if name configured AND mode is template
+    //params: inv ? buildWATplParams(wa['tpl_name_' + tplKey], inv, client, STATE.settings) : [],
     const useTemplate = wa.msg_mode === 'template' && tplKey && wa['tpl_name_' + tplKey];
-
-    // ── Fetch portal token BEFORE building params so portal_link is populated ──
-    if (inv) {
-      const _pid = String(inv.id || inv._dbId || '');
-      if (_pid && !_portalTokenCache[_pid]) {
-        try {
-          const _pr = await api('api/portal.php', 'POST', { invoice_id: parseInt(_pid) });
-          if (_pr && _pr.token) _portalTokenCache[_pid] = _pr.token;
-        } catch(e) { /* continue without portal link */ }
-      }
-    }
-
     const tplOpts = useTemplate ? {
       name:   wa['tpl_name_' + tplKey],
       lang:   wa['tpl_lang_' + tplKey] || 'en_US',
@@ -9914,13 +9893,12 @@ function _buildPortalURL(token) {
   return `${_portalBaseURL()}?t=${token}`;
 }
 
-async function renderPortalLink(invId) {
-  // Accept invId directly OR fall back to select element (if it exists)
-  const id = invId || document.getElementById('portal-inv-select')?.value;
+async function renderPortalLink() {
+  const id    = document.getElementById('portal-inv-select')?.value;
   const box   = document.getElementById('portal-link-box');
   const urlEl = document.getElementById('portal-link-url');
   const prev  = document.getElementById('portal-inv-preview');
-  if (!id) { if (box) box.style.display = 'none'; return; }
+  if (!id || !box) { if (box) box.style.display = 'none'; return; }
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
 
@@ -10059,7 +10037,7 @@ async function _renderPortalTable(search) {
           : `<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="white-space:nowrap">
-        <button onclick="(async()=>{ await renderPortalLink('${inv.id}'); })()"
+        <button onclick="(async()=>{document.getElementById('portal-inv-select').value='${inv.id}';await renderPortalLink();})()"
           title="${t ? 'Regenerate link' : 'Generate link'}"
           style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
           <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
