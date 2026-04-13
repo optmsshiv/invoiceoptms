@@ -133,6 +133,11 @@ if (!$error && $invoiceId > 0) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+function fmt_date($d) {
+    if (!$d || $d === '—') return '—';
+    $ts = strtotime($d);
+    return $ts ? date('d M Y', $ts) : htmlspecialchars($d);
+}
 function fmt_inr($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
@@ -329,7 +334,7 @@ tr:last-child td{border:none}
   .inv-right{width:100%}
   .inv-num-row{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
   .inv-num-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
-  .info-grid{grid-template-columns:1fr}
+  .info-grid{grid-template-columns:1fr 1fr}
   /* Hide table, show cards on mobile */
   .line-table{display:none}
   .line-cards{display:block}
@@ -439,10 +444,10 @@ tr:last-child td{border:none}
     <div class="info-grid">
       <div class="info-item"><label>Invoice #</label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span></div>
       <div class="info-item"><label>Service</label><span class="val"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></span></div>
-      <div class="info-item"><label>Issue Date</label><span class="val"><?= htmlspecialchars($inv['issue_date'] ?? '—') ?></span></div>
+      <div class="info-item"><label>Issue Date</label><span class="val"><?= fmt_date($inv['issue_date'] ?? '') ?></span></div>
       <div class="info-item"><label>Due Date</label>
         <span class="val" style="color:<?= $inv['status']==='Overdue' ? 'var(--red)' : 'inherit' ?>">
-          <?= htmlspecialchars($inv['due_date'] ?? '—') ?>
+          <?= fmt_date($inv['due_date'] ?? '') ?>
           <?php if ($inv['status']==='Overdue'): ?> <i class="fas fa-exclamation-triangle" style="color:var(--red);font-size:11px"></i><?php endif; ?>
         </span>
       </div>
@@ -609,7 +614,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= htmlspecialchars($p['payment_date'] ?? '') ?></div>
+        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>
