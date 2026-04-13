@@ -8042,33 +8042,7 @@ function normalizeInvoice(inv) {
   if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
   // Fall back to default notes if empty
   if (!inv.notes) inv.notes = 'Thank you for choosing OPTMS Tech. Payment is due within 15 days of invoice date. Late payments may incur a 2% monthly interest charge.';
-  // ── Auto-overdue: mark Pending invoices as Overdue if past due date ──
-  if (inv.status === 'Pending') {
-    const dueField = inv.due || inv.due_date;
-    if (dueField) {
-      const dueDate = new Date(dueField);
-      dueDate.setHours(23, 59, 59, 999); // count full due day
-      if (!isNaN(dueDate) && dueDate < new Date()) {
-        inv.status = 'Overdue';
-        inv._autoOverdue = true; // flag so we can persist to DB
-      }
-    }
-  }
   return inv;
-}
-
-// ── Persist auto-overdue status changes to DB (silent, best-effort) ──
-async function syncOverdueToDb(invoices) {
-  const toUpdate = invoices.filter(i => i._autoOverdue && i.id);
-  if (!toUpdate.length) return;
-  await Promise.allSettled(
-    toUpdate.map(inv =>
-      api('api/invoices.php?id=' + parseInt(inv.id), 'PATCH', { status: 'Overdue' })
-        .then(() => { delete inv._autoOverdue; })
-        .catch(() => {})
-    )
-  );
-  console.log('[AutoOverdue] Synced ' + toUpdate.length + ' invoice(s) to Overdue in DB');
 }
 
 // ── Load all data from API on page load ────────────────────────
@@ -8086,8 +8060,6 @@ async function loadAllData() {
     STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
-    // Silently persist any Pending→Overdue changes to the DB
-    syncOverdueToDb(STATE.invoices);
     // Merge latest server settings into STATE.settings
     if (cfg.data) {
       const s = cfg.data;
