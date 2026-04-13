@@ -662,21 +662,16 @@ if ($items):
       $upiEncoded = urlencode($companyUPI);
       $payeeName  = urlencode($companyName);
       $amtParam   = number_format($remaining, 2, '.', '');
-      // Standard upi:// intent works reliably across ALL UPI apps (GPay, PhonePe, Paytm)
-      // Proprietary schemes like phonepe:// and paytmmp:// break amount passing
       $upiBase    = "upi://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR";
-      $gpayLink   = "intent://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR&mode=00&purpose=00#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end";
-      $phonepeLink= "intent://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR#Intent;scheme=upi;package=com.phonepe.app;end";
-      $paytmLink  = "intent://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR#Intent;scheme=upi;package=net.one97.paytm;end";
     ?>
     <div class="upi-pay-btns">
-      <a href="<?= $gpayLink ?>" class="upi-pay-btn btn-gpay">
+      <a href="<?= $upiBase ?>&mode=00&purpose=00" class="upi-pay-btn btn-gpay">
         <i class="fas fa-wallet"></i> GPay
       </a>
-      <a href="<?= $phonepeLink ?>" class="upi-pay-btn btn-phonepe">
+      <a href="phonepe://pay?pa=<?= $upiEncoded ?>&pn=<?= $payeeName ?>&am=<?= $amtParam ?>&cu=INR" class="upi-pay-btn btn-phonepe">
         <i class="fas fa-bolt"></i> PhonePe
       </a>
-      <a href="<?= $paytmLink ?>" class="upi-pay-btn btn-paytm">
+      <a href="paytmmp://pay?pa=<?= $upiEncoded ?>&pn=<?= $payeeName ?>&am=<?= $amtParam ?>&cu=INR" class="upi-pay-btn btn-paytm">
         <i class="fas fa-mobile-alt"></i> Paytm
       </a>
     </div>
