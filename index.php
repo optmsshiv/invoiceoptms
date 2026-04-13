@@ -9071,6 +9071,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','company_name','portal_link'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
+    estimate:         ['company_name','client_name','invoice_no','issue_date','amount','due_date','service','portal_link','company_phone','email'],
     // Verbose aliases for backwards compatibility
     invoice_created:  ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     payment_reminder: ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
@@ -9079,6 +9080,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     invoice_followup: ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     partial_payment:  ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     festival_greeting:['client_name','company_name','company_phone'],
+    estimate_created: ['client_name','company_name','invoice_no','issue_date','amount','due_date','service','portal_link'],
   };
 
   const paramKeys = maps[tplName] || Object.keys(common);
@@ -9099,6 +9101,7 @@ async function sendWA(phone, message, tplName, inv, client) {
   if (token && pid) {
     // Map verbose tplName strings to STATE tpl_name_* keys
     const TPL_KEY_MAP = {
+      'estimate_created': 'estimate',
       'invoice_created':  'invoice',
       'payment_received': 'paid',
       'partial_payment':  'partial',
