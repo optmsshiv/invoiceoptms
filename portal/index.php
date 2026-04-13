@@ -170,7 +170,7 @@ function status_label($s) {
     };
 }
 
-$sym           = ($inv['currency'] ?? null) ?: '₹';
+$sym           = $inv['currency'] ?: '₹';
 $totalAmt      = (float)($inv['amount'] ?? 0);
 $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
@@ -327,8 +327,9 @@ tr:last-child td{border:none}
   .portal-header{flex-direction:column;align-items:flex-start}
   /* Mobile: inv-right takes full width, badge inline at end */
   .inv-right{width:100%}
-  .inv-num-row{display:flex;flex-direction:row;align-items:center;justify-content:space-between;width:100%;gap:8px}
-  .info-grid{grid-template-columns:1fr 1fr}
+  .inv-num-row{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  .inv-num-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
+  .info-grid{grid-template-columns:1fr}
   /* Hide table, show cards on mobile */
   .line-table{display:none}
   .line-cards{display:block}
@@ -432,29 +433,24 @@ tr:last-child td{border:none}
 </div>
 
 <!-- Invoice details -->
-<?php
-  $fmt_date = fn($d) => $d && $d !== '—' ? date('d M Y', strtotime($d)) : '—';
-?>
 <div class="card">
   <div class="card-head"><i class="fas fa-file-invoice"></i> Invoice Details</div>
   <div class="card-body">
     <div class="info-grid">
       <div class="info-item"><label>Invoice #</label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span></div>
       <div class="info-item"><label>Service</label><span class="val"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></span></div>
-      <div class="info-item"><label>Issue Date</label><span class="val"><?= $fmt_date($inv['issue_date'] ?? '') ?></span></div>
+      <div class="info-item"><label>Issue Date</label><span class="val"><?= htmlspecialchars($inv['issue_date'] ?? '—') ?></span></div>
       <div class="info-item"><label>Due Date</label>
         <span class="val" style="color:<?= $inv['status']==='Overdue' ? 'var(--red)' : 'inherit' ?>">
-          <?= $fmt_date($inv['due_date'] ?? '') ?>
+          <?= htmlspecialchars($inv['due_date'] ?? '—') ?>
           <?php if ($inv['status']==='Overdue'): ?> <i class="fas fa-exclamation-triangle" style="color:var(--red);font-size:11px"></i><?php endif; ?>
         </span>
       </div>
-      <?php if (!empty($inv['gst_amount']) && (float)$inv['gst_amount'] > 0): ?>
-      <div class="info-item"><label>GST Amount</label><span class="val"><?= fmt_inr($inv['gst_amount'], $sym) ?></span></div>
+      <?php if (!empty($inv['gst_rate'])): ?>
+      <div class="info-item"><label>GST Rate</label><span class="val"><?= htmlspecialchars($inv['gst_rate']) ?>%</span></div>
       <?php endif; ?>
-      <?php if (!empty($inv['discount_pct']) && (float)$inv['discount_pct'] > 0): ?>
-      <div class="info-item"><label>Discount</label><span class="val"><?= number_format((float)$inv['discount_pct'], 2) ?>%</span></div>
-      <?php elseif (!empty($inv['discount_amt']) && (float)$inv['discount_amt'] > 0): ?>
-      <div class="info-item"><label>Discount</label><span class="val"><?= fmt_inr($inv['discount_amt'], $sym) ?></span></div>
+      <?php if (!empty($inv['discount']) && $inv['discount'] != '0' && $inv['discount'] != '0.00'): ?>
+      <div class="info-item"><label>Discount</label><span class="val"><?= htmlspecialchars($inv['discount']) ?></span></div>
       <?php endif; ?>
     </div>
   </div>
@@ -477,13 +473,9 @@ tr:last-child td{border:none}
 
 <!-- Line items -->
 <?php
-if (!isset($db)) { try { $db = getDB(); } catch(Exception $e) { $db = null; } }
-$items = [];
-if ($db):
-$iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total, item_type AS type FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+$iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
 $iStmt->execute([':id' => $inv['invoice_id']]);
 $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
-endif;
 if ($items):
 ?>
 <div class="card" style="padding:0">
@@ -617,7 +609,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= $p['payment_date'] ? date('d M Y', strtotime($p['payment_date'])) : '' ?></div>
+        <div class="pmt-date"><?= htmlspecialchars($p['payment_date'] ?? '') ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>
