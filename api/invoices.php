@@ -8,21 +8,6 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Helper: convert empty string to null (prevents MySQL DATE/INT strict-mode errors)
 function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
-
-// Helper: resolve correct status — never allows blank/invalid, auto-corrects QT- estimates
-function resolveStatus($status, $invoiceNumber = '', $fallback = 'Draft') {
-  $allowed = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-  // If QT- prefix and status is blank/invalid, always force Estimate
-  if (str_starts_with((string)$invoiceNumber, 'QT-') && (empty($status) || !in_array($status, $allowed, true))) {
-    return 'Estimate';
-  }
-  // For other invoices: blank/invalid → fallback
-  if (empty($status) || !in_array($status, $allowed, true)) {
-    return $fallback;
-  }
-  return $status;
-}
-
 requireLogin();
 
 $db     = getDB();
@@ -120,26 +105,35 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input) { jsonResponse(['error'=>'Invalid JSON'], 400); }
     $userId = $_SESSION['user_id'];
-
-    // Auto-generate number if not provided (must happen before resolveStatus so prefix is known)
+    // Validate status against allowed values (guards against DB ENUM not yet migrated)
+    $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    $inputStatus = $input['status'] ?? 'Draft';
+    if (!in_array($inputStatus, $allowedStatuses, true)) $inputStatus = 'Draft';
+    $input['status'] = $inputStatus;
+    // Auto-generate number if not provided
     if (empty($input['invoice_number'])) {
       $status = $input['status'] ?? 'Draft';
       if ($status === 'Estimate') {
+        // Estimates use the configurable estimate prefix from settings (fallback: QT-YYYY-)
         $pfx = getSetting('estimate_prefix', 'QT-' . date('Y') . '-');
       } else {
         $pfx = getSetting('invoice_prefix', 'OT-' . date('Y') . '-');
       }
+      // Find the highest existing numeric suffix for this prefix to avoid collisions
       $like = $pfx . '%';
       $row  = $db->prepare("SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY id DESC LIMIT 1");
       $row->execute([$like]);
       $last = $row->fetchColumn();
       if ($last) {
+        // Extract trailing digits from last invoice number
         preg_match('/(\d+)$/', $last, $m);
         $cnt = isset($m[1]) ? ((int)$m[1] + 1) : 1;
       } else {
+        // No invoices with this prefix yet — start at 1
         $cnt = 1;
       }
       $input['invoice_number'] = $pfx . str_pad($cnt, 3, '0', STR_PAD_LEFT);
+      // Safety: if still collides (race condition), fall back to MAX id + 1
       try {
         $check = $db->prepare('SELECT id FROM invoices WHERE invoice_number = ?');
         $check->execute([$input['invoice_number']]);
@@ -149,10 +143,6 @@ switch ($method) {
         }
       } catch (\Exception $e) { /* ignore safety check errors */ }
     }
-
-    // ── FIX 1: resolve status — never blank, auto-correct QT- to Estimate ──
-    $input['status'] = resolveStatus($input['status'] ?? '', $input['invoice_number'], 'Draft');
-
     $stmt = $db->prepare('
       INSERT INTO invoices (invoice_number,client_id,client_name,service_type,issued_date,due_date,
         status,currency,subtotal,discount_pct,discount_type,discount_amt,gst_amount,grand_total,
@@ -163,7 +153,7 @@ switch ($method) {
       $stmt->execute([
         $input['invoice_number'], nullIfEmpty($input['client_id']??null), $input['client_name']??'',
         $input['service_type']??'', nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null),
-        $input['status'], $input['currency']??'₹',
+        $input['status']??'Draft', $input['currency']??'₹',
         $input['subtotal']??0, $input['discount_pct']??0,
         in_array($input['discount_type']??'percent', ['percent','flat']) ? $input['discount_type'] : 'percent',
         $input['discount_amt']??0,
@@ -181,6 +171,7 @@ switch ($method) {
       jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
     }
     $invId = (int)$db->lastInsertId();
+    // Insert items
     if (!empty($input['items'])) {
       $si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,sort_order) VALUES (?,?,?,?,?,?,?)');
       foreach ($input['items'] as $idx => $item) {
@@ -191,21 +182,21 @@ switch ($method) {
     logActivity((int)$userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
     jsonResponse(['success'=>true, 'id'=>$invId, 'invoice_number'=>$input['invoice_number']]);
 
-  // ── PATCH: partial update ───────────────────────────
+  // ── PUT: update ─────────────────────────────────────
   case 'PATCH':
+    // Partial update — only update supplied fields (notes/bank/terms auto-save)
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-
+    // Validate status if being updated edited here (guards against DB ENUM not yet migrated)
     $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
+      $input['status'] = 'Draft';
+    }
     $allowed = ['notes','bank_details','terms','status'];
     $sets=[]; $vals=[];
     foreach($allowed as $f) {
-      if (array_key_exists($f, $input)) {
-        // ── FIX 2: never write blank or invalid status via PATCH ──
-        if ($f === 'status' && (empty($input[$f]) || !in_array($input[$f], $allowedStatuses, true))) continue;
-        $sets[]='`'.$f.'`=?'; $vals[]=$input[$f];
-      }
+      if (array_key_exists($f, $input)) { $sets[]='`'.$f.'`=?'; $vals[]=$input[$f]; }
     }
     if (empty($sets)) { jsonResponse(['error'=>'Nothing to update'],400); }
     $vals[]=$id;
@@ -213,22 +204,15 @@ switch ($method) {
     jsonResponse(['success'=>true]);
     break;
 
-  // ── PUT: full update ────────────────────────────────
   case 'PUT':
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-
-    // ── FIX 3: fetch existing invoice_number if not supplied, so resolveStatus works for QT- ──
-    if (empty($input['invoice_number'])) {
-      $row = $db->prepare('SELECT invoice_number FROM invoices WHERE id = ?');
-      $row->execute([$id]);
-      $input['invoice_number'] = $row->fetchColumn() ?: '';
+    // Validate status
+    $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
+      $input['status'] = 'Draft';
     }
-
-    // ── FIX 3 cont: resolve status — never blank, auto-correct QT- to Estimate ──
-    $input['status'] = resolveStatus($input['status'] ?? '', $input['invoice_number'], 'Draft');
-
     $stmt = $db->prepare('
       UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
         status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
@@ -238,8 +222,7 @@ switch ($method) {
     try {
       $stmt->execute([
         nullIfEmpty($input['client_id']??null), $input['client_name']??'', $input['service_type']??'',
-        nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null),
-        $input['status'],  // always resolved above — never blank
+        nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null), $input['status']??'Draft',
         $input['currency']??'₹', $input['subtotal']??0, $input['discount_pct']??0,
         in_array($input['discount_type']??'percent', ['percent','flat']) ? $input['discount_type'] : 'percent',
         $input['discount_amt']??0, $input['gst_amount']??0, $input['grand_total']??0,
@@ -255,6 +238,7 @@ switch ($method) {
       error_log('Invoice UPDATE error: ' . $e->getMessage());
       jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
     }
+    // Re-insert items
     $db->prepare('DELETE FROM invoice_items WHERE invoice_id=?')->execute([$id]);
     if (!empty($input['items'])) {
       $si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,sort_order) VALUES (?,?,?,?,?,?,?)');
