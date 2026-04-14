@@ -196,14 +196,18 @@ switch ($method) {
 
     // edit put here
     $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-    if (empty($input['status']) || !in_array($input['status'], $allowedStatuses, true)) {
-        // Status is blank or invalid — restore from existing DB record
-        $numCheck = $db->prepare('SELECT invoice_number, status FROM invoices WHERE id = ?');
-        $numCheck->execute([$id]);
-        $existing = $numCheck->fetch();
+    $incomingStatus = $input['status'] ?? '';
+      
+    if (empty($incomingStatus) || !in_array($incomingStatus, $allowedStatuses, true)) {
+        // Frontend sent blank/invalid — NEVER overwrite DB, keep existing status
+        $existingRow = $db->prepare('SELECT status, invoice_number FROM invoices WHERE id = ?');
+        $existingRow->execute([$id]);
+        $existing = $existingRow->fetch();
+      
         if (!empty($existing['status']) && in_array($existing['status'], $allowedStatuses, true)) {
-            $input['status'] = $existing['status']; // keep whatever is already in DB
+            $input['status'] = $existing['status'];  // keep DB value unchanged
         } else {
+            // Last resort: detect from invoice number prefix
             $input['status'] = str_starts_with($existing['invoice_number'] ?? '', 'QT-') ? 'Estimate' : 'Draft';
         }
     }
