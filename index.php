@@ -10310,7 +10310,7 @@ async function _renderPortalTable(search) {
     return;
   }
 
-  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575'};
+  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
   tbody.innerHTML = rows.map(inv => {
     const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     const t   = _portalTokenMap[String(inv.id)];
@@ -10337,7 +10337,9 @@ async function _renderPortalTable(search) {
           : `<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="white-space:nowrap">
-        <button onclick="(async()=>{ await renderPortalLink('${inv.id}'); })()"
+        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>'; 
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; 
+          toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)"
           title="${t ? 'Regenerate link' : 'Generate link'}"
           style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
           <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
