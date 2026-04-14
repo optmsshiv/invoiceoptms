@@ -6089,19 +6089,8 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-cemail').value   = c ? c.email : '';
   document.getElementById('f-cgst').value     = c ? c.gst : '';
   document.getElementById('f-caddr').value    = c ? c.addr : '';
-
-
-  // const sr = document.querySelectorAll('input[name="inv-status"]');
-  // sr.forEach(r => r.checked = r.value === inv.status);
   const sr = document.querySelectorAll('input[name="inv-status"]');
-  const _invNum = inv.num || inv.invoice_number || '';
-  const _estPfx = (STATE.settings && STATE.settings.estPrefix) || 'QT-';
-  const _resolvedStatus = (inv.status && inv.status !== '' && inv.status !== 'Draft')
-    ? inv.status
-    : (_invNum.startsWith(_estPfx) || _invNum.startsWith('QT-') ? 'Estimate' : inv.status || 'Draft');
-  sr.forEach(r => r.checked = r.value === _resolvedStatus);
-
-
+  sr.forEach(r => r.checked = r.value === inv.status);
   // ── Restore PDF options checkboxes from saved pdf_options ──
   let _savedPopt = inv.pdf_options || inv.popt || null;
   if (_savedPopt && typeof _savedPopt === 'string') { try { _savedPopt = JSON.parse(_savedPopt); } catch(e) { _savedPopt = null; } }

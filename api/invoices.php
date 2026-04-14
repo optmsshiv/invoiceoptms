@@ -208,25 +208,11 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-
-
     // Validate status
-   // $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-   // if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
-   //   $input['status'] = 'Draft';
-   // }
-   // Validate status — never overwrite with Draft if not explicitly sent
     $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-    if (!isset($input['status']) || $input['status'] === '' || $input['status'] === null) {
-      $existingRow = $db->prepare('SELECT status FROM invoices WHERE id = ?');
-      $existingRow->execute([$id]);
-      $existingData = $existingRow->fetch();
-      $input['status'] = $existingData['status'] ?? 'Draft';
-    } elseif (!in_array($input['status'], $allowedStatuses, true)) {
+    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
       $input['status'] = 'Draft';
     }
-
-
     $stmt = $db->prepare('
       UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
         status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
