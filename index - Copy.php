@@ -8228,8 +8228,6 @@ function normalizeInvoice(inv) {
     const num = inv.num || inv.invoice_number || '';
     const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
     inv.status = num.startsWith(estPfx) || num.startsWith('QT-') ? 'Estimate' : 'Draft';
-    // Flag for DB sync — write correct status back so blank never persists after this refresh
-    inv._inferredEstimate = (inv.status === 'Estimate');
   }
   // Parse pdf_options JSON string from DB into object
   if (inv.pdf_options && typeof inv.pdf_options === 'string') {
@@ -8275,21 +8273,6 @@ async function syncOverdueToDb(invoices) {
   console.log('[AutoOverdue] Synced ' + toUpdate.length + ' invoice(s) to Overdue in DB');
 }
 
-// ── Persist inferred Estimate status back to DB (fixes ENUM mismatch blanks) ──
-async function syncEstimateToDb(invoices) {
-  // _inferredEstimate is set by normalizeInvoice when status was '' and number starts with QT-
-  const toUpdate = invoices.filter(i => i._inferredEstimate && i.id);
-  if (!toUpdate.length) return;
-  await Promise.allSettled(
-    toUpdate.map(inv =>
-      api('api/invoices.php?id=' + parseInt(inv.id), 'PATCH', { status: 'Estimate' })
-        .then(() => { delete inv._inferredEstimate; })
-        .catch(() => {})
-    )
-  );
-  console.log('[SyncEstimate] Patched ' + toUpdate.length + ' blank-status estimate(s) in DB');
-}
-
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
@@ -8307,8 +8290,6 @@ async function loadAllData() {
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
-    // Silently patch any blank-status estimates back to 'Estimate' in DB
-    syncEstimateToDb(STATE.invoices);
     // Merge latest server settings into STATE.settings
     if (cfg.data) {
       const s = cfg.data;
@@ -9144,7 +9125,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','company_name','portal_link'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
-    estimate:         ['company_name','client_name','invoice_no','issue_date','amount','due_date','service','portal_link','company_phone','email'],
+    estimate:         ['company_name','client_name','invoice_no','issue_date','amount','due_date','service','portal_link'],
     // Verbose aliases for backwards compatibility
     invoice_created:  ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     payment_reminder: ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
@@ -10329,7 +10310,7 @@ async function _renderPortalTable(search) {
     return;
   }
 
-  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575'};
+  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
   tbody.innerHTML = rows.map(inv => {
     const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     const t   = _portalTokenMap[String(inv.id)];
@@ -10356,7 +10337,9 @@ async function _renderPortalTable(search) {
           : `<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="white-space:nowrap">
-        <button onclick="(async()=>{ await renderPortalLink('${inv.id}'); })()"
+        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>'; 
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; 
+          toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)"
           title="${t ? 'Regenerate link' : 'Generate link'}"
           style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
           <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>

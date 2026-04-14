@@ -15,7 +15,7 @@ define('DB_CHARSET', 'utf8mb4');
 
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
 define('APP_VERSION', '1.0.0');
-define('APP_URL',     'http://invcs.optms.co.in');  // ← your live domain
+define('APP_URL',     'http://inv.optms.co.in');  // ← your live domain
 
 define('SESSION_LIFETIME', 7200);
 define('UPLOAD_MAX_SIZE',  3145728);
@@ -34,22 +34,41 @@ function getDB(): PDO {
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]
         );
-        // Auto-migrate: ensure 'Estimate' and 'Partial' are in the status ENUM (safe to run repeatedly)
-        try {
-            $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate') NOT NULL DEFAULT 'Draft'");
-        } catch (\Exception $e) {
-            // Ignore — may already include these values, or DB user may lack ALTER privilege
-            error_log('Auto-migrate status ENUM: ' . $e->getMessage());
-        }
-        // Secondary safety: verify 'Estimate' is accepted by attempting a dry-run SELECT
-        // (If ENUM is missing Estimate, rows with status=Estimate are stored as '' in MySQL strict mode)
-        // We expose this via a column check so devs can diagnose:
-        try {
-            $col = $pdo->query("SHOW COLUMNS FROM invoices LIKE 'status'")->fetch(\PDO::FETCH_ASSOC);
-            if ($col && strpos($col['Type'], 'Estimate') === false) {
-                error_log('WARNING: invoices.status ENUM is missing Estimate. Run: ALTER TABLE invoices MODIFY COLUMN status ENUM(\'Draft\',\'Pending\',\'Paid\',\'Overdue\',\'Partial\',\'Cancelled\',\'Estimate\') NOT NULL DEFAULT \'Draft\'');
+        // ── Auto-migrate: add 'Estimate' to status ENUM ─────────────────
+        // Strategy 1: temporarily disable strict mode so the ALTER always succeeds
+        // even if the user lacks full ALTER privilege on the column definition.
+        // Strategy 2: if ALTER still fails, patch any existing '' rows via UPDATE
+        // so they never show as blank again (PHP-level workaround).
+        static $enumChecked = false;
+        if (!$enumChecked) {
+            $enumChecked = true;
+            $enumOk = false;
+            try {
+                // Disable strict mode for this session so ALTER won't error on existing '' values
+                $pdo->exec("SET SESSION sql_mode = REPLACE(@@sql_mode, 'STRICT_TRANS_TABLES', '')");
+                $pdo->exec("SET SESSION sql_mode = REPLACE(@@sql_mode, 'STRICT_ALL_TABLES', '')");
+                $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate') NOT NULL DEFAULT 'Draft'");
+                $enumOk = true;
+            } catch (\Exception $e) {
+                error_log('Auto-migrate status ENUM failed (will use UPDATE fallback): ' . $e->getMessage());
             }
-        } catch (\Exception $e) { /* ignore */ }
+            if (!$enumOk) {
+                // Fallback: directly UPDATE any blank-status rows that look like estimates
+                // (invoice_number starts with QT-) and any other blanks → Draft
+                try {
+                    $pdo->exec("UPDATE invoices SET status = 'Estimate' WHERE (status = '' OR status IS NULL) AND invoice_number LIKE 'QT-%'");
+                    $pdo->exec("UPDATE invoices SET status = 'Draft'    WHERE (status = '' OR status IS NULL)");
+                } catch (\Exception $e2) {
+                    error_log('Status blank-row patch failed: ' . $e2->getMessage());
+                }
+            } else {
+                // ENUM was updated — patch any lingering '' rows from before the fix
+                try {
+                    $pdo->exec("UPDATE invoices SET status = 'Estimate' WHERE status = '' AND invoice_number LIKE 'QT-%'");
+                    $pdo->exec("UPDATE invoices SET status = 'Draft'    WHERE status = ''");
+                } catch (\Exception $e3) { /* ignore */ }
+            }
+        }
     } catch (PDOException $e) {
         error_log('DB connection failed: ' . $e->getMessage());
         while (ob_get_level()) ob_end_clean();

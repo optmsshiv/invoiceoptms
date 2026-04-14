@@ -8,23 +8,6 @@ require_once __DIR__ . '/../includes/auth.php';
 
 // Helper: convert empty string to null (prevents MySQL DATE/INT strict-mode errors)
 function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
-
-// Helper: fix blank status caused by ENUM missing 'Estimate' — infers from invoice number prefix
-function fixStatus(array &$inv): void {
-    if (($inv['status'] ?? '') === '' || $inv['status'] === null) {
-        $num = $inv['invoice_number'] ?? '';
-        // If the number starts with QT- it was an Estimate saved before the ENUM migration
-        $inv['status'] = (strncmp($num, 'QT-', 3) === 0) ? 'Estimate' : 'Draft';
-        // Best-effort: silently patch the DB row so the blank doesn't persist
-        try {
-            global $db;
-            if ($db && !empty($inv['id'])) {
-                $db->prepare('UPDATE invoices SET status = ? WHERE id = ? AND (status = \'\' OR status IS NULL)')
-                   ->execute([$inv['status'], (int)$inv['id']]);
-            }
-        } catch (\Exception $e) { /* non-fatal */ }
-    }
-}
 requireLogin();
 
 $db     = getDB();
@@ -46,8 +29,6 @@ switch ($method) {
       $stmt->execute([(int)$_GET['id']]);
       $inv = $stmt->fetch();
       if (!$inv) { jsonResponse(['error'=>'Not found'], 404); }
-      // Fix blank status (ENUM mismatch) before returning to frontend
-      fixStatus($inv);
       // Load items
       $si = $db->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order');
       $si->execute([$inv['id']]);
@@ -95,8 +76,6 @@ switch ($method) {
     $invoices = $stmt->fetchAll();
     // Load items for each
     foreach ($invoices as &$inv) {
-      // Fix blank status (ENUM mismatch) — patches DB row silently if needed
-      fixStatus($inv);
       $si = $db->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order');
       $si->execute([$inv['id']]);
       $rawItems = $si->fetchAll();
@@ -209,7 +188,7 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-    // Validate status if being updated
+    // Validate status if being updated edited here (guards against DB ENUM not yet migrated)
     $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
     if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
       $input['status'] = 'Draft';
