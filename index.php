@@ -1364,7 +1364,7 @@ const SERVER = {
             <div style="margin-top:14px">
               <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px">Payment Status</label>
               <div class="status-toggle-row">
-                <label class="status-radio"><input type="radio" name="inv-status" value="Draft" checked onchange="livePreview()"><span class="sr-pill draft">Draft</span></label>
+                <label class="status-radio"><input type="radio" name="inv-status" value="Draft" onchange="livePreview()"><span class="sr-pill draft">Draft</span></label>
                 <label class="status-radio"><input type="radio" name="inv-status" value="Estimate" onchange="onStatusChange('Estimate');livePreview()"><span class="sr-pill estimate">📋 Estimate</span></label>
                 <label class="status-radio"><input type="radio" name="inv-status" value="Pending" onchange="onStatusChange('Pending');livePreview()"><span class="sr-pill pending">Pending</span></label>
                 <label class="status-radio"><input type="radio" name="inv-status" value="Paid" onchange="livePreview()"><span class="sr-pill paid">Paid</span></label>

@@ -188,11 +188,26 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-    // Validate status if being updated
+    // Validate status if being updated edited here (guards against DB ENUM not yet migrated)
+    // $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    // if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
+    //   $input['status'] = 'Draft';
+    // }
+
+    // edit put here
     $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
-      $input['status'] = 'Draft';
+    if (empty($input['status']) || !in_array($input['status'], $allowedStatuses, true)) {
+        // Status is blank or invalid — restore from existing DB record
+        $numCheck = $db->prepare('SELECT invoice_number, status FROM invoices WHERE id = ?');
+        $numCheck->execute([$id]);
+        $existing = $numCheck->fetch();
+        if (!empty($existing['status']) && in_array($existing['status'], $allowedStatuses, true)) {
+            $input['status'] = $existing['status']; // keep whatever is already in DB
+        } else {
+            $input['status'] = str_starts_with($existing['invoice_number'] ?? '', 'QT-') ? 'Estimate' : 'Draft';
+        }
     }
+
     $allowed = ['notes','bank_details','terms','status'];
     $sets=[]; $vals=[];
     foreach($allowed as $f) {
