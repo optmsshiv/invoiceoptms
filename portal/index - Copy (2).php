@@ -39,7 +39,6 @@ if (!$rawToken) {
                 `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `invoice_id`  INT UNSIGNED NOT NULL,
                 `token`       VARCHAR(64)  NOT NULL,
-                `status`      VARCHAR(32)  NOT NULL DEFAULT '',
                 `views`       INT UNSIGNED NOT NULL DEFAULT 0,
                 `last_viewed` DATETIME     NULL,
                 `expires_at`  DATETIME     NULL,
@@ -60,8 +59,8 @@ if (!$rawToken) {
             if ($row) {
                 $invoiceId = (int)$row['invoice_id'];
                 // Bump view counter
-                $db->prepare('UPDATE portal_tokens SET views = views + 1, last_viewed = NOW(), status = (SELECT status FROM invoices WHERE id = :inv_id) WHERE token = :t')
-   ->execute([':inv_id' => $invoiceId, ':t' => $rawToken]);
+                $db->prepare('UPDATE portal_tokens SET views = views + 1, last_viewed = NOW() WHERE token = :t')
+                   ->execute([':t' => $rawToken]);
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
             }
