@@ -6554,7 +6554,6 @@ function confirmDelete() {
 async function changeInvoiceStatus(id, newStatus) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
-  const prevStatus = inv.status;
   const label = newStatus === 'Pending' ? '📤 Made Pending' : newStatus === 'Cancelled' ? '🚫 Cancelled' : newStatus;
   try {
     await api('api/invoices.php?id=' + parseInt(id), 'PATCH', { status: newStatus });
@@ -6562,10 +6561,6 @@ async function changeInvoiceStatus(id, newStatus) {
     STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     toast(`${label}: ${inv.num||inv.invoice_number}`, 'success');
-    // Auto-send WA when Estimate → Pending
-    if (newStatus === 'Pending' && prevStatus === 'Estimate') {
-      setTimeout(() => sendWAForInvoice(inv), 600);
-    }
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
 }
 
