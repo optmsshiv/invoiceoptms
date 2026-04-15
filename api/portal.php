@@ -40,20 +40,6 @@ if ($method === 'GET' && !empty($_GET['token'])) {
             echo json_encode(['success'=>false,'error'=>'Invalid or expired link']);
             exit;
         }
-
-        // ── Normalize blank status (MySQL ENUM missing 'Estimate') ──
-        // If DB stored '' instead of 'Estimate', restore from invoice number
-        // prefix and immediately persist fix to DB.
-        if (empty($row['status'])) {
-            $row['status'] = str_starts_with($row['invoice_number'] ?? '', 'QT-') ? 'Estimate' : 'Draft';
-            try {
-                $db->prepare("UPDATE invoices SET status = :s WHERE id = :id AND (status IS NULL OR status = '')")
-                   ->execute([':s' => $row['status'], ':id' => $row['invoice_id']]);
-            } catch (Exception $e) {
-                error_log('portal.php status fix: ' . $e->getMessage());
-            }
-        }
-
         // Update view counter
         $db->prepare('UPDATE portal_tokens SET views = views + 1, last_viewed = NOW() WHERE token = :t')
            ->execute([':t' => $token]);
