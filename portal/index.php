@@ -49,18 +49,10 @@ if (!$rawToken) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             $stmt = $db->prepare(
- //               'SELECT invoice_id FROM portal_tokens
- //                WHERE token = :token
- //                  AND (expires_at IS NULL OR expires_at > NOW())
- //                LIMIT 1'
-
-               "SELECT portal_tokens.*, invoices.status
-     FROM portal_tokens
-     JOIN invoices ON invoices.id = portal_tokens.invoice_id
-     WHERE portal_tokens.token = :token
-       AND (portal_tokens.expires_at IS NULL OR portal_tokens.expires_at > NOW())
-     LIMIT 1"
-
+                'SELECT invoice_id FROM portal_tokens
+                 WHERE token = :token
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 LIMIT 1'
             );
             $stmt->execute([':token' => $rawToken]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
