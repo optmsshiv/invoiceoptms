@@ -6626,20 +6626,16 @@ async function convertEstimateToInvoice(id) {
     toast(`✅ Estimate converted to Invoice ${newNum}!`, 'success');
 
     // Auto-send invoice created WhatsApp
-    // Auto-send invoice created WhatsApp
     const convertedInv = STATE.invoices.find(i =>
-      (i.num || i.invoice_number) === newNum ||
-      String(i.id || i._dbId) === String(dbId)
-    );
-    if (convertedInv) {
-      // Force status to Pending for WA send — auto-overdue may have mutated it
-      const invForWA = { ...convertedInv, status: 'Pending' };
-      setTimeout(() => sendWAForInvoice(invForWA), 600);
-    } else {
-      // Fallback: build minimal invoice object from what we know
-      const invForWA = { ...inv, invoice_number: newNum, num: newNum, status: 'Pending', id: dbId };
-      setTimeout(() => sendWAForInvoice(invForWA), 600);
-    }
+            (i.num || i.invoice_number) === newNum ||
+            String(i.id || i._dbId) === String(dbId)
+          );
+          if (convertedInv) {
+            setTimeout(() => sendWAForInvoice(convertedInv), 600);
+          } else {
+            const invForWA = { ...inv, invoice_number: newNum, num: newNum, status: 'Pending', id: dbId };
+            setTimeout(() => sendWAForInvoice(invForWA), 600);
+          }
    //const convertedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === newNum);
    //if (convertedInv) {
    //  setTimeout(() => sendWAForInvoice(convertedInv), 600);
