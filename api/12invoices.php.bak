@@ -105,9 +105,20 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input) { jsonResponse(['error'=>'Invalid JSON'], 400); }
     $userId = $_SESSION['user_id'];
+    // Validate status against allowed values (guards against DB ENUM not yet migrated)
+    $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    $inputStatus = $input['status'] ?? 'Draft';
+    if (!in_array($inputStatus, $allowedStatuses, true)) $inputStatus = 'Draft';
+    $input['status'] = $inputStatus;
     // Auto-generate number if not provided
     if (empty($input['invoice_number'])) {
-      $pfx = getSetting('invoice_prefix', 'OT-' . date('Y') . '-');
+      $status = $input['status'] ?? 'Draft';
+      if ($status === 'Estimate') {
+        // Estimates use the configurable estimate prefix from settings (fallback: QT-YYYY-)
+        $pfx = getSetting('estimate_prefix', 'QT-' . date('Y') . '-');
+      } else {
+        $pfx = getSetting('invoice_prefix', 'OT-' . date('Y') . '-');
+      }
       // Find the highest existing numeric suffix for this prefix to avoid collisions
       $like = $pfx . '%';
       $row  = $db->prepare("SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY id DESC LIMIT 1");
@@ -177,6 +188,11 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
+    // Validate status if being updated edited here (guards against DB ENUM not yet migrated)
+    $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
+      $input['status'] = 'Draft';
+    }
     $allowed = ['notes','bank_details','terms','status'];
     $sets=[]; $vals=[];
     foreach($allowed as $f) {
@@ -192,6 +208,11 @@ switch ($method) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
     if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
+    // Validate status
+    $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
+    if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
+      $input['status'] = 'Draft';
+    }
     $stmt = $db->prepare('
       UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
         status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
