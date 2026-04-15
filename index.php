@@ -6590,9 +6590,12 @@ async function convertEstimateToInvoice(id) {
   if (!confirm(`Convert Estimate ${inv.num||inv.invoice_number} to a Pending Invoice?\n\nThe status will change to Pending and a WhatsApp invoice notification will be sent to the client.`)) return;
 
   const dbId = inv._dbId || parseInt(inv.id) || 0;
-  // Replace QT- prefix with OT- prefix for the invoice number
-  const oldNum = inv.num || inv.invoice_number || '';
-  const newNum = oldNum.replace(/^QT-/, (STATE.settings.prefix || ('OT-' + new Date().getFullYear() + '-')));
+  // Replace estimate prefix with invoice prefix for the new invoice number
+  const oldNum   = inv.num || inv.invoice_number || '';
+  const estPfx   = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+  const invPfx   = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+  const escapedEstPfx = estPfx.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  const newNum   = oldNum.replace(new RegExp('^' + escapedEstPfx), invPfx);
 
   try {
     await api('api/invoices.php?id=' + dbId, 'PUT', {
@@ -6623,10 +6626,24 @@ async function convertEstimateToInvoice(id) {
     toast(`✅ Estimate converted to Invoice ${newNum}!`, 'success');
 
     // Auto-send invoice created WhatsApp
-    const convertedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === newNum);
+    // Auto-send invoice created WhatsApp
+    const convertedInv = STATE.invoices.find(i =>
+      (i.num || i.invoice_number) === newNum ||
+      String(i.id || i._dbId) === String(dbId)
+    );
     if (convertedInv) {
-      setTimeout(() => sendWAForInvoice(convertedInv), 600);
+      // Force status to Pending for WA send — auto-overdue may have mutated it
+      const invForWA = { ...convertedInv, status: 'Pending' };
+      setTimeout(() => sendWAForInvoice(invForWA), 600);
+    } else {
+      // Fallback: build minimal invoice object from what we know
+      const invForWA = { ...inv, invoice_number: newNum, num: newNum, status: 'Pending', id: dbId };
+      setTimeout(() => sendWAForInvoice(invForWA), 600);
     }
+   //const convertedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === newNum);
+   //if (convertedInv) {
+   //  setTimeout(() => sendWAForInvoice(convertedInv), 600);
+   //}
   } catch(e) {
     toast('❌ Conversion failed: ' + e.message, 'error');
   }
