@@ -9131,7 +9131,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     invoice:          ['invoice_no','company_name','client_name','service','issue_date','due_date','amount','upi','portal_link'],
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
-    reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
+    reminder:         ['client_name','invoice_no','amount','due_date','upi','portal_link','company_name'],
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
