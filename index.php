@@ -8293,13 +8293,13 @@ async function loadAllData() {
       api('api/payments.php'),
       api('api/settings.php'),
     ]);
-   // STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
+    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
-    // STATE.filteredInvoices = [...STATE.invoices];
+    STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
-    // syncOverdueToDb(STATE.invoices);
+    syncOverdueToDb(STATE.invoices);
     // Merge latest server settings into STATE.settings
     if (cfg.data) {
       const s = cfg.data;
@@ -8419,11 +8419,6 @@ async function loadAllData() {
       if (s.tpl_table_style)  TPL_CUSTOM.tableStyle     = s.tpl_table_style;
     if (s.tpl_color_theme)  TPL_CUSTOM.colorTheme     = parseInt(s.tpl_color_theme)||1;
     }
-    // added here this line
-    // ── NOW normalize invoices — estPrefix is ready ──
-      STATE.invoices = Array.isArray(inv.data) ? inv.data.map(normalizeInvoice) : [];
-      STATE.filteredInvoices = [...STATE.invoices];
-      syncOverdueToDb(STATE.invoices);
     console.log('Loaded:', STATE.invoices.length,'invoices,', STATE.clients.length,'clients');
     // Load new feature data
     await loadFeatureData();
