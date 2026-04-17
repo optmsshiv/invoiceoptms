@@ -9131,7 +9131,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     invoice:          ['invoice_no','company_name','client_name','service','issue_date','due_date','amount','upi','portal_link'],
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
-    reminder:         ['client_name','invoice_no','amount','due_date','upi','portal_link','company_name'],
+    reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
@@ -11302,12 +11302,35 @@ function updateRecurringBadge() {
   if (badge) { badge.textContent = due; badge.style.display = due ? '' : 'none'; }
 }
 
-// Hook into showPage to render recurring page when opened
+// FIX #1: Single unified showPage override — replaces two chained overrides below.
+// Merging here prevents the second override from silently dropping the first hook
+// if script execution order ever changes.
 const _origShowPage = window.showPage;
 if (typeof _origShowPage === 'function') {
   window.showPage = function(name, el) {
     _origShowPage.call(this, name, el);
+
+    // ── Recurring page ──
     if (name === 'recurring') renderRecurringPage();
+
+    // ── WhatsApp page ──
+    if (name === 'whatsapp') {
+      setTimeout(() => {
+        ['inv','estimate','paid','partial','remind','overdue','followup'].forEach(k => {
+          waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
+        });
+        waUpdateCounter('wa-manual-msg','wa-manual-counter');
+        // Update mode badge
+        const wa = STATE.settings.wa || {};
+        const badge = document.getElementById('wa-mode-badge-tpl');
+        if (badge) {
+          const mode = wa.msg_mode || 'session';
+          badge.innerHTML = mode === 'template'
+            ? '<span class="wa-mode-badge template">✅ Template Mode</span>'
+            : '<span class="wa-mode-badge session">💬 Session Mode</span>';
+        }
+      }, 50);
+    }
   };
 }
 
@@ -11330,16 +11353,34 @@ if (typeof _origRenderDashboard === 'function') {
   window.renderDashboard = function() {
     _origRenderDashboard.apply(this, arguments);
     // Update reminder badge
+    // FIX #4: Exclude invoices that have already received max_overdue reminders.
+    // Previously the badge counted all near-due invoices ignoring max_overdue,
+    // causing already-exhausted invoices to keep showing in the badge count.
     const today = new Date(); today.setHours(0,0,0,0);
     const cfg   = getReminderSettings();
+    const maxOv = cfg.maxOverdue || 3;
+
+    // Build a per-invoice overdue reminder count from the reminder log
+    const overdueCountByInv = {};
+    (STATE.reminderLog || []).forEach(entry => {
+      if (entry.type === 'overdue' && entry.invoice_id) {
+        overdueCountByInv[entry.invoice_id] = (overdueCountByInv[entry.invoice_id] || 0) + 1;
+      }
+    });
+
     const count = STATE.invoices.filter(inv => {
       if (['Paid','Cancelled','Draft'].includes(inv.status)) return false;
       const due = inv.due ? new Date(inv.due) : null;
       if (!due) return false; due.setHours(0,0,0,0);
-      return Math.floor((due-today)/864e5) <= (cfg.beforeDays||3);
+      const daysUntilDue = Math.floor((due - today) / 864e5);
+      if (daysUntilDue > (cfg.beforeDays || 3)) return false;
+      // FIX #4: Skip invoices already at or over the max overdue reminder count
+      if (daysUntilDue < 0 && (overdueCountByInv[inv.id] || 0) >= maxOv) return false;
+      return true;
     }).length;
+
     const badge = document.getElementById('badge-reminders');
-    if (badge) { badge.textContent=count; badge.style.display=count?'':'none'; }
+    if (badge) { badge.textContent = count; badge.style.display = count ? '' : 'none'; }
   };
 }
 
@@ -11444,29 +11485,8 @@ function waQuickReply(type) {
 }
 
 // ── Init counters on WA page open ────────────────────────────
-const _origShowPageWA = window.showPage;
-if (typeof _origShowPageWA === 'function') {
-  window.showPage = function(name, el) {
-    _origShowPageWA.call(this, name, el);
-    if (name === 'whatsapp') {
-      setTimeout(() => {
-        ['inv','estimate','paid','partial','remind','overdue','followup'].forEach(k => {
-          waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
-        });
-        waUpdateCounter('wa-manual-msg','wa-manual-counter');
-        // Update mode badge
-        const wa = STATE.settings.wa || {};
-        const badge = document.getElementById('wa-mode-badge-tpl');
-        if (badge) {
-          const mode = wa.msg_mode || 'session';
-          badge.innerHTML = mode === 'template'
-            ? '<span class="wa-mode-badge template">✅ Template Mode</span>'
-            : '<span class="wa-mode-badge session">💬 Session Mode</span>';
-        }
-      }, 50);
-    }
-  };
-}
+// FIX #1: WA init logic has been merged into the single unified showPage
+// override above (near the recurring page hook). No second override needed.
 window._waActiveTab = 'inv';
 
 </script>
