@@ -27,9 +27,23 @@ try {
     error_log('Settings load error: ' . $e->getMessage());
 }
 
-$companyName = $settings['company_name'] ?? 'OPTMS Tech';
-$prefix      = $settings['invoice_prefix'] ?? 'OT-' . date('Y') . '-';
-$estPrefix   = $settings['estimate_prefix'] ?? 'QT-' . date('Y') . '-';
+$companyName    = $settings['company_name']     ?? 'OPTMS Tech';
+$prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
+$estPrefix      = $settings['estimate_prefix']  ?? 'QT-' . date('Y') . '-';
+$companyGst     = $settings['company_gst']      ?? '';
+$companyPhone   = $settings['company_phone']    ?? '';
+$companyEmail   = $settings['company_email']    ?? '';
+$companyWebsite = $settings['company_website']  ?? '';
+$companyUpi     = $settings['company_upi']      ?? '';
+$companyAddress = $settings['company_address']  ?? '';
+$companyLogo    = $settings['company_logo']     ?? '';
+$companySign    = $settings['company_sign']     ?? '';
+$companyBank    = $settings['company_bank']     ?? '';
+$defaultGst     = $settings['default_gst']      ?? '18';
+$dueDays        = $settings['due_days']         ?? '15';
+$activeTemplate = $settings['active_template']  ?? '1';
+$defaultTnc     = $settings['default_tnc']      ?? '';
+$defaultCurrency= $settings['default_currency'] ?? '₹';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -2555,14 +2569,14 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-building"></i> Company Profile</div>
           <div class="form-grid g2">
-            <div class="field"><label>Company Name</label><input id="sc-name" value="OPTMS Tech"></div>
-            <div class="field"><label>GST Number</label><input id="sc-gst" value="22AAAAA0000A1Z5"></div>
-            <div class="field"><label>Phone</label><input id="sc-phone" value="+91 98765 43210"></div>
-            <div class="field"><label>Email</label><input id="sc-email" value="optmstech@gmail.com"></div>
-            <div class="field"><label>Website</label><input id="sc-web" value="www.optmstech.in"></div>
-            <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="OT-2025-"></div>
+            <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
+            <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
+            <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
+            <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
+            <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
+            <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
             <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
-            <div class="field"><label>UPI ID</label><input id="sc-upi" value="optmstech@upi"></div>
+            <div class="field"><label>UPI ID</label><input id="sc-upi" value="<?= htmlspecialchars($companyUpi) ?>"></div>
             <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
               <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
             </div>
@@ -8573,8 +8587,8 @@ window.saveInvoiceDefaults = async function() {
   STATE.settings.defaultGST     = parseInt(payload.default_gst ?? '0');
   STATE.settings.dueDays        = parseInt(payload.due_days);
   STATE.settings.activeTemplate = parseInt(payload.active_template);
-  if (payload.invoice_prefix) STATE.settings.prefix = payload.invoice_prefix;
-  if (payload.estimate_prefix) STATE.settings.estPrefix = payload.estimate_prefix;
+  if (payload.invoice_prefix)                       STATE.settings.prefix    = payload.invoice_prefix;
+  if (payload.estimate_prefix !== undefined && payload.estimate_prefix !== null) STATE.settings.estPrefix = payload.estimate_prefix;
   if (payload.default_tnc !== undefined) STATE.settings.defaultTnC = payload.default_tnc;
   try {
     await api('api/settings.php', 'POST', payload);
@@ -8685,7 +8699,6 @@ async function saveItemTypes() {
 function populateSettingsForm() {
   const s = STATE.settings;
   const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
-  // Company details
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
   set('sc-phone',   s.phone);
@@ -11781,7 +11794,7 @@ function waQuickReply(type) {
 }
 
 // ── Init counters on WA page open ────────────────────────────
-// FIX #1: WA init logic has been merged into the single unified showPage
+
 // override above (near the recurring page hook). No second override needed.
 window._waActiveTab = 'inv';
 

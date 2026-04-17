@@ -2561,7 +2561,7 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             <div class="field"><label>Email</label><input id="sc-email" value="optmstech@gmail.com"></div>
             <div class="field"><label>Website</label><input id="sc-web" value="www.optmstech.in"></div>
             <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="OT-2025-"></div>
-            <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="QT-<?= date('Y') ?>-"></div>
+            <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
             <div class="field"><label>UPI ID</label><input id="sc-upi" value="optmstech@upi"></div>
             <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
               <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
@@ -4206,6 +4206,7 @@ function openRowMenu(e, id) {
       <i class="fas fa-check-circle"></i> Mark as Paid ${isPaid?'(already paid)':isCancelled?'(cancelled)':isDraft?'(make pending first)':isEstimate?'(convert to invoice first)':''}
     </div>
     ${canCancel ? `<div class="rm-item" onclick="rowMenuAction('cancel')" style="color:#E65100"><i class="fas fa-ban"></i> Cancel Invoice</div>` : ''}
+    ${!isEstimate ? `<div class="rm-item" onclick="rowMenuAction('make-recurring')" style="color:var(--purple);font-weight:600"><i class="fas fa-sync-alt"></i> Make Recurring</div>` : ''}
     <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
   // Smart positioning: flip upward if near screen bottom
   menu.style.visibility = 'hidden';
@@ -4237,6 +4238,7 @@ function rowMenuAction(action) {
   if (action === 'make-pending') { changeInvoiceStatus(id, 'Pending'); return; }
   if (action === 'convert-estimate') { convertEstimateToInvoice(id); return; }
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
+  if (action === 'make-recurring') { openRecurringFromInvoice(inv); return; }
 }
 
 function closeAllDropdowns(e) {
@@ -8682,7 +8684,8 @@ async function saveItemTypes() {
 // ── populateSettingsForm: load saved settings into the form fields ──
 function populateSettingsForm() {
   const s = STATE.settings;
-  const set = (id, val) => { const e=document.getElementById(id); if(e && val) e.value=val; };
+  const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
+  // Company details
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
   set('sc-phone',   s.phone);
@@ -10903,50 +10906,136 @@ function _downloadCSV(rows, filename) {
 // ══════════════════════════════════════════════════════════════
 
 // Storage key for recurring schedules (localStorage - no backend needed)
-const REC_KEY = 'optms_recurring_schedules';
-const REC_LOG_KEY = 'optms_recurring_log';
+  // ══════════════════════════════════════════════════════════════
+//  RECURRING SCHEDULES — API-backed (replaces localStorage version)
+//  Drop this block in place of the old recurring JS section in index.php
+//  (from "// Storage key for recurring schedules" down to
+//   "// Run recurring check silently on app load")
+// ══════════════════════════════════════════════════════════════
 
-function recGetAll() {
-  try { return JSON.parse(localStorage.getItem(REC_KEY) || '[]'); } catch(e) { return []; }
-}
-function recSaveAll(arr) {
-  localStorage.setItem(REC_KEY, JSON.stringify(arr));
-}
-function recGetLog() {
-  try { return JSON.parse(localStorage.getItem(REC_LOG_KEY) || '[]'); } catch(e) { return []; }
-}
-function recAddLog(entry) {
-  const log = recGetLog();
-  log.unshift({ ...entry, at: new Date().toISOString() });
-  localStorage.setItem(REC_LOG_KEY, JSON.stringify(log.slice(0, 200)));
-}
+// ── In-memory cache (replaces localStorage) ───────────────────
+// STATE.recurring is the single source of truth while the page is open.
+// Every write goes to the DB first; on success the cache is updated.
+// Every read comes from the cache (loaded once on page-open / page-nav).
+if (!STATE.recurring) STATE.recurring = [];
 
+// ── Migrate any leftover localStorage data on first load ──────
+// If the user had old schedules saved locally, import them to the DB
+// automatically so nothing is lost during the transition.
+(async function migrateLocalStorage() {
+  const OLD_KEY = 'optms_recurring_schedules';
+  const raw = localStorage.getItem(OLD_KEY);
+  if (!raw) return;
+  try {
+    const old = JSON.parse(raw);
+    if (!Array.isArray(old) || old.length === 0) { localStorage.removeItem(OLD_KEY); return; }
+    console.log(`[Recurring] Migrating ${old.length} localStorage schedule(s) to DB…`);
+    for (const s of old) {
+      try {
+        await api('api/recurring.php', 'POST', {
+          clientId:    s.clientId    || s.client_id || 0,
+          clientName:  s.clientName  || s.client_name || '',
+          service:     s.service     || '',
+          amount:      s.amount      || 0,
+          discType:    s.discType    || 'pct',
+          discVal:     s.discVal     || 0,
+          discPct:     s.discPct     || s.discount_pct || 0,
+          discAmt:     s.discAmt     || s.discount_amt || 0,
+          gst:         s.gst         || 0,
+          gstAmt:      s.gstAmt      || s.gst_amt || 0,
+          grand:       s.grand       || s.grand_total || 0,
+          items:       s.items       || [],
+          freq:        s.freq        || 'monthly',
+          nextDate:    s.nextDate    || s.next_date || '',
+          endDate:     s.endDate     || s.end_date || '',
+          dueDays:     s.dueDays     || s.due_days || 15,
+          template:    s.template    || s.template_id || 2,
+          notes:       s.notes       || '',
+        });
+      } catch(e) {
+        console.warn('[Recurring] Migration failed for one schedule:', e.message);
+      }
+    }
+    localStorage.removeItem(OLD_KEY);
+    localStorage.removeItem('optms_recurring_log');
+    console.log('[Recurring] Migration complete. localStorage cleared.');
+  } catch(e) {
+    console.warn('[Recurring] Migration parse error:', e.message);
+  }
+})();
+
+// ── Pure utility — no DB, no cache ────────────────────────────
 function recNextDate(fromDate, freq) {
   const d = new Date(fromDate);
-  switch(freq) {
-    case 'weekly':      d.setDate(d.getDate() + 7);   break;
-    case 'biweekly':    d.setDate(d.getDate() + 14);  break;
-    case 'monthly':     d.setMonth(d.getMonth() + 1); break;
-    case 'quarterly':   d.setMonth(d.getMonth() + 3); break;
-    case 'halfyearly':  d.setMonth(d.getMonth() + 6); break;
-    case 'yearly':      d.setFullYear(d.getFullYear() + 1); break;
-    default:            d.setMonth(d.getMonth() + 1);
+  switch (freq) {
+    case 'weekly':     d.setDate(d.getDate() + 7);    break;
+    case 'biweekly':   d.setDate(d.getDate() + 14);   break;
+    case 'monthly':    d.setMonth(d.getMonth() + 1);  break;
+    case 'quarterly':  d.setMonth(d.getMonth() + 3);  break;
+    case 'halfyearly': d.setMonth(d.getMonth() + 6);  break;
+    case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+    default:           d.setMonth(d.getMonth() + 1);
   }
-  return d.toISOString().slice(0,10);
+  return d.toISOString().slice(0, 10);
 }
 
 function recFreqLabel(freq) {
-  return { weekly:'Weekly', biweekly:'Bi-Weekly', monthly:'Monthly', quarterly:'Quarterly', halfyearly:'Half-Yearly', yearly:'Yearly' }[freq] || freq;
+  return {
+    weekly: 'Weekly', biweekly: 'Bi-Weekly', monthly: 'Monthly',
+    quarterly: 'Quarterly', halfyearly: 'Half-Yearly', yearly: 'Yearly',
+  }[freq] || freq;
 }
 
-function recClientChange() {
-  // Nothing needed — just for future autocomplete hooks
+// ── Normalise a DB row to match what the old localStorage shape looked like ──
+// Keeps all downstream render code (renderRecurringPage, runRecurringCheck) working
+// without any further changes.
+function recNormalizeRow(r) {
+  return {
+    id:             r.id,                                   // numeric from DB
+    clientId:       r.client_id,
+    clientName:     r.client_name || r.client_name_joined || '',
+    service:        r.service     || '',
+    amount:         parseFloat(r.amount)       || 0,
+    discType:       r.disc_type   || 'pct',
+    discVal:        parseFloat(r.disc_val)     || 0,
+    discPct:        parseFloat(r.discount_pct) || 0,
+    discAmt:        parseFloat(r.discount_amt) || 0,
+    gst:            parseFloat(r.gst)          || 0,
+    gstAmt:         parseFloat(r.gst_amt)      || 0,
+    grand:          parseFloat(r.grand_total)  || 0,
+    items:          Array.isArray(r.items) ? r.items : [],
+    freq:           r.freq        || 'monthly',
+    nextDate:       r.next_date   || '',
+    endDate:        r.end_date    || '',
+    dueDays:        parseInt(r.due_days)       || 15,
+    template:       parseInt(r.template_id)    || 2,
+    notes:          r.notes       || '',
+    status:         r.status      || 'active',
+    generatedCount: parseInt(r.generated_count) || 0,
+    lastGenerated:  r.last_generated || null,
+    createdAt:      r.created_at  || '',
+  };
 }
+
+// ── Load all schedules from DB into cache ─────────────────────
+async function recLoadAll() {
+  try {
+    const r = await api('api/recurring.php');
+    STATE.recurring = Array.isArray(r.data) ? r.data.map(recNormalizeRow) : [];
+  } catch(e) {
+    console.error('[Recurring] recLoadAll error:', e.message);
+    STATE.recurring = STATE.recurring || [];
+  }
+  return STATE.recurring;
+}
+
+// ── Freq preview helper (no DB needed) ───────────────────────
+function recClientChange() { /* reserved for future autocomplete */ }
 
 function recFreqChange() {
-  const freq = document.getElementById('rec-freq')?.value || 'monthly';
+  const freq  = document.getElementById('rec-freq')?.value || 'monthly';
   const start = document.getElementById('rec-start')?.value;
-  const el = document.getElementById('rec-preview-text');
+  const el    = document.getElementById('rec-preview-text');
   if (!el) return;
   if (start) {
     const next = recNextDate(start, freq);
@@ -10956,68 +11045,81 @@ function recFreqChange() {
   }
 }
 
-function openRecurringModal(id) {
+// ── Open create / edit modal ──────────────────────────────────
+async function openRecurringModal(id) {
   // Populate client dropdown
   const sel = document.getElementById('rec-client');
   if (sel) {
     sel.innerHTML = '<option value="">— Select Client —</option>' +
       STATE.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   }
-  // Set default start date to today
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0, 10);
 
   if (id) {
-    // Edit mode
-    const schedules = recGetAll();
-    const s = schedules.find(x => x.id === id);
-    if (!s) return;
+    // ── Edit mode: fetch fresh from DB (or find in cache) ────
+    let s = STATE.recurring.find(x => String(x.id) === String(id));
+    if (!s) {
+      try {
+        const r = await api('api/recurring.php?id=' + encodeURIComponent(id));
+        s = recNormalizeRow(r.data);
+      } catch(e) {
+        toast('⚠️ Could not load schedule: ' + e.message, 'error');
+        return;
+      }
+    }
+
     document.getElementById('rec-modal-title').textContent = 'Edit Recurring Schedule';
-    document.getElementById('rec-edit-id').value = id;
-    document.getElementById('rec-client').value = s.clientId || '';
-    document.getElementById('rec-freq').value = s.freq || 'monthly';
-    document.getElementById('rec-start').value = s.nextDate || today;
-    document.getElementById('rec-end').value = s.endDate || '';
-    document.getElementById('rec-due-days').value = s.dueDays || 15;
-    document.getElementById('rec-template').value = s.template || 2;
-    document.getElementById('rec-notes').value = s.notes || '';
-    // Load items (support legacy single-item schedules)
+    document.getElementById('rec-edit-id').value           = s.id;
+    document.getElementById('rec-client').value            = s.clientId  || '';
+    document.getElementById('rec-freq').value              = s.freq      || 'monthly';
+    document.getElementById('rec-start').value             = s.nextDate  || today;
+    document.getElementById('rec-end').value               = s.endDate   || '';
+    document.getElementById('rec-due-days').value          = s.dueDays   || 15;
+    document.getElementById('rec-template').value          = s.template  || 2;
+    document.getElementById('rec-notes').value             = s.notes     || '';
+
+    // Items — support legacy single-item schedules
     if (s.items && s.items.length) {
-      recItems = s.items.map(i => ({...i, id: Date.now() + Math.random()}));
+      recItems = s.items.map(i => ({ ...i, id: Date.now() + Math.random() }));
     } else {
-      recItems = [{ id: Date.now(), desc: s.service||'', qty: 1, rate: s.amount||0, gst: s.gst!==undefined?s.gst:18 }];
+      recItems = [{ id: Date.now(), desc: s.service || '', qty: 1, rate: s.amount || 0, gst: s.gst !== undefined ? s.gst : 18 }];
     }
     recRenderItems();
-    // Load discount
+
+    // Discount
     const rdtEl = document.getElementById('rec-disc-type'); if (rdtEl) rdtEl.value = s.discType || 'pct';
     const rdEl  = document.getElementById('rec-disc');      if (rdEl)  rdEl.value  = s.discVal  || 0;
     recCalcTotals();
+
   } else {
+    // ── Create mode ──────────────────────────────────────────
     document.getElementById('rec-modal-title').textContent = 'New Recurring Schedule';
-    document.getElementById('rec-edit-id').value = '';
-    document.getElementById('rec-client').value = '';
-    document.getElementById('rec-freq').value = 'monthly';
-    document.getElementById('rec-start').value = today;
-    document.getElementById('rec-end').value = '';
-    document.getElementById('rec-due-days').value = '15';
-    document.getElementById('rec-template').value = '2';
-    document.getElementById('rec-notes').value = '';
-    // Reset items and discount
+    document.getElementById('rec-edit-id').value           = '';
+    document.getElementById('rec-client').value            = '';
+    document.getElementById('rec-freq').value              = 'monthly';
+    document.getElementById('rec-start').value             = today;
+    document.getElementById('rec-end').value               = '';
+    document.getElementById('rec-due-days').value          = '15';
+    document.getElementById('rec-template').value          = '2';
+    document.getElementById('rec-notes').value             = '';
+
     const rdtEl2 = document.getElementById('rec-disc-type'); if (rdtEl2) rdtEl2.value = 'pct';
     const rdEl2  = document.getElementById('rec-disc');      if (rdEl2)  rdEl2.value  = 0;
     recItems = [];
     recAddItem();
     recCalcTotals();
   }
+
   recFreqChange();
   openModal('modal-recurring');
 }
 
-// ── Recurring Items ──────────────────────────────────────────
+// ── Line-item helpers (pure UI — unchanged from original) ─────
 let recItems = [];
 
 function recAddItem(item) {
   const id = Date.now() + Math.random();
-  recItems.push({ id, desc: item?.desc||'', qty: item?.qty||1, rate: item?.rate||0, gst: item?.gst!==undefined?item.gst:18 });
+  recItems.push({ id, desc: item?.desc || '', qty: item?.qty || 1, rate: item?.rate || 0, gst: item?.gst !== undefined ? item.gst : 18 });
   recRenderItems();
   recCalcTotals();
 }
@@ -11033,34 +11135,39 @@ function recRenderItems() {
   if (!list) return;
   list.innerHTML = recItems.map(item => `
     <div style="display:grid;grid-template-columns:1fr 70px 100px 80px 30px;border-top:1px solid var(--border);align-items:center">
-      <input value="${item.desc}" placeholder="Description" style="border:none;background:transparent;padding:8px 10px;font-size:13px;outline:none;width:100%"
+      <input value="${item.desc}" placeholder="Description"
+        style="border:none;background:transparent;padding:8px 10px;font-size:13px;outline:none;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).desc=this.value">
-      <input type="number" value="${item.qty}" min="1" style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:center;width:100%"
+      <input type="number" value="${item.qty}" min="1"
+        style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:center;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).qty=parseFloat(this.value)||1;recCalcTotals()">
-      <input type="number" value="${item.rate}" min="0" step="0.01" style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:right;width:100%"
+      <input type="number" value="${item.rate}" min="0" step="0.01"
+        style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:right;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).rate=parseFloat(this.value)||0;recCalcTotals()">
       <select style="border:none;background:transparent;padding:8px 4px;font-size:12px;outline:none;width:100%"
         onchange="recItems.find(x=>x.id===${item.id}).gst=parseFloat(this.value);recCalcTotals()">
-        ${[0,5,12,18,28].map(g=>`<option value="${g}"${g===item.gst?' selected':''}>${g}%</option>`).join('')}
+        ${[0, 5, 12, 18, 28].map(g => `<option value="${g}"${g === item.gst ? ' selected' : ''}>${g}%</option>`).join('')}
       </select>
-      <button onclick="recRemoveItem(${item.id})" style="border:none;background:transparent;color:var(--red);cursor:pointer;padding:4px;font-size:14px" title="Remove">×</button>
+      <button onclick="recRemoveItem(${item.id})"
+        style="border:none;background:transparent;color:var(--red);cursor:pointer;padding:4px;font-size:14px"
+        title="Remove">×</button>
     </div>`).join('');
 }
 
 function recCalcTotals() {
   let sub = 0, gstTotal = 0;
   recItems.forEach(item => {
-    const line = (item.qty||1) * (item.rate||0);
-    sub += line;
-    gstTotal += line * (item.gst||0) / 100;
+    const line = (item.qty || 1) * (item.rate || 0);
+    sub      += line;
+    gstTotal += line * (item.gst || 0) / 100;
   });
-  const discType = document.getElementById('rec-disc-type')?.value || 'pct';
-  const discVal  = parseFloat(document.getElementById('rec-disc')?.value) || 0;
-  const discAmt  = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
-  const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
+  const discType    = document.getElementById('rec-disc-type')?.value || 'pct';
+  const discVal     = parseFloat(document.getElementById('rec-disc')?.value) || 0;
+  const discAmt     = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
+  const discFactor  = sub > 0 ? (1 - discAmt / sub) : 1;
   const gstAfterDisc = gstTotal * discFactor;
-  const grand = sub - discAmt + gstAfterDisc;
-  const fmt = v => '₹' + v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const grand       = sub - discAmt + gstAfterDisc;
+  const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('rec-tot-sub',   fmt(sub));
   set('rec-tot-disc',  fmt(discAmt));
@@ -11068,7 +11175,8 @@ function recCalcTotals() {
   set('rec-tot-grand', fmt(grand));
 }
 
-function saveRecurring() {
+// ── Save (create or update) ───────────────────────────────────
+async function saveRecurring() {
   const clientId  = document.getElementById('rec-client').value;
   const freq      = document.getElementById('rec-freq').value;
   const start     = document.getElementById('rec-start').value;
@@ -11080,186 +11188,365 @@ function saveRecurring() {
   const discType  = document.getElementById('rec-disc-type')?.value || 'pct';
   const discVal   = parseFloat(document.getElementById('rec-disc')?.value) || 0;
 
-  if (!clientId)         { toast('⚠️ Please select a client', 'warning'); return; }
-  if (!recItems.length)  { toast('⚠️ Add at least one line item', 'warning'); return; }
-  if (recItems.some(i => !i.desc.trim())) { toast('⚠️ All items need a description', 'warning'); return; }
-  if (!start)            { toast('⚠️ Please set a start date', 'warning'); return; }
+  // ── Validation ────────────────────────────────────────────
+  if (!clientId)                                    { toast('⚠️ Please select a client',           'warning'); return; }
+  if (!recItems.length)                             { toast('⚠️ Add at least one line item',        'warning'); return; }
+  if (recItems.some(i => !i.desc.trim()))           { toast('⚠️ All items need a description',      'warning'); return; }
+  if (!start)                                       { toast('⚠️ Please set a start date',           'warning'); return; }
 
   const client = STATE.clients.find(c => String(c.id) === String(clientId));
 
-  // Calculate totals
+  // ── Calculate totals ──────────────────────────────────────
   let sub = 0, gstTotal = 0;
   recItems.forEach(item => {
-    const line = (item.qty||1) * (item.rate||0);
-    sub += line;
-    gstTotal += line * (item.gst||0) / 100;
+    const line = (item.qty || 1) * (item.rate || 0);
+    sub      += line;
+    gstTotal += line * (item.gst || 0) / 100;
   });
-  const discAmt    = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
-  const discPct    = sub > 0 ? (discAmt / sub * 100) : 0;
-  const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
-  const gstAmt     = gstTotal * discFactor;
-  const grand      = sub - discAmt + gstAmt;
-  // Legacy single-item compat fields (use first item)
-  const service    = recItems.map(i => i.desc).join(', ');
-  const amount     = sub;
+  const discAmt   = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
+  const discPct   = sub > 0 ? (discAmt / sub * 100) : 0;
+  const discFactor = sub > 0 ? (1 - discAmt / sub) : 1;
+  const gstAmt    = gstTotal * discFactor;
+  const grand     = sub - discAmt + gstAmt;
+  const service   = recItems.map(i => i.desc).join(', ');
 
-  const schedules = recGetAll();
-  const schedData = {
-    clientId, clientName: client?.name || '',
-    service, amount, gst: 0, gstAmt, grand,
-    items: recItems.map(({id,...rest}) => rest),
-    discType, discVal, discAmt, discPct,
-    freq, nextDate: start, endDate, dueDays, template, notes,
+  const payload = {
+    clientId,
+    clientName: client?.name || '',
+    service,
+    amount:    sub,
+    discType,  discVal, discPct, discAmt,
+    gst:       0,       gstAmt,  grand,
+    items:     recItems.map(({ id, ...rest }) => rest),
+    freq,      nextDate: start, endDate, dueDays, template, notes,
   };
 
-  if (editId) {
-    const idx = schedules.findIndex(x => x.id === editId);
-    if (idx >= 0) {
-      schedules[idx] = { ...schedules[idx], ...schedData };
+  // ── Disable button to prevent double-submit ───────────────
+  const btn = document.querySelector('#modal-recurring .btn-primary');
+  if (btn) btn.disabled = true;
+
+  try {
+    if (editId) {
+      // PUT — full update
+      await api('api/recurring.php?id=' + encodeURIComponent(editId), 'PUT', payload);
       toast('✅ Schedule updated!', 'success');
+    } else {
+      // POST — new schedule
+      await api('api/recurring.php', 'POST', payload);
+      toast('✅ Recurring schedule created!', 'success');
     }
-  } else {
-    schedules.push({ id: 'rec_' + Date.now(), ...schedData, status: 'active', generatedCount: 0, createdAt: new Date().toISOString() });
-    toast('✅ Recurring schedule created!', 'success');
+
+    closeModal('modal-recurring');
+    await recLoadAll();          // refresh cache from DB
+    renderRecurringPage();
+    updateRecurringBadge();
+
+  } catch(e) {
+    toast('❌ Save failed: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
-  recSaveAll(schedules);
-  closeModal('modal-recurring');
-  renderRecurringPage();
-  updateRecurringBadge();
 }
 
-function recPause(id) {
-  const schedules = recGetAll();
-  const s = schedules.find(x => x.id === id);
+//  Place it right after saveRecurring() — around line 11129.
+ 
+async function openRecurringFromInvoice(inv) {
+  if (!inv) return;
+ 
+  // ── 1. Populate client dropdown (same as openRecurringModal) ─
+  const sel = document.getElementById('rec-client');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select Client —</option>' +
+      STATE.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+ 
+  // ── 2. Reset modal to "create" mode ──────────────────────────
+  document.getElementById('rec-modal-title').textContent = '🔁 New Recurring — from Invoice ' + (inv.num || inv.invoice_number || '');
+  document.getElementById('rec-edit-id').value           = '';   // always create, never edit
+  document.getElementById('rec-freq').value              = 'monthly';
+  document.getElementById('rec-end').value               = '';
+  document.getElementById('rec-notes').value             = inv.notes || '';
+ 
+  // ── 3. Set start date = today (not the original invoice date) ─
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('rec-start').value = today;
+ 
+  // ── 4. Pre-fill client ────────────────────────────────────────
+  const clientId = inv.client_id || inv.clientId || '';
+  document.getElementById('rec-client').value = String(clientId);
+ 
+  // ── 5. Pre-fill due days from invoice (issued → due gap) ─────
+  let dueDays = 15;
+  if (inv.issued && inv.due) {
+    const issued = new Date(inv.issued || inv.issued_date);
+    const due    = new Date(inv.due    || inv.due_date);
+    if (!isNaN(issued) && !isNaN(due)) {
+      const diff = Math.round((due - issued) / 864e5);
+      if (diff > 0) dueDays = diff;
+    }
+  }
+  document.getElementById('rec-due-days').value = dueDays;
+ 
+  // ── 6. Pre-fill template ──────────────────────────────────────
+  document.getElementById('rec-template').value = inv.template || STATE.settings.activeTemplate || 2;
+ 
+  // ── 7. Pre-fill discount ──────────────────────────────────────
+  // Detect discount type: if discount_type is 'fixed' OR (discAmt > 0 but discPct == 0) → fixed
+  const rawDiscPct  = parseFloat(inv.disc || inv.discount_pct) || 0;
+  const rawDiscAmt  = parseFloat(inv.discount_amt) || 0;
+  const rawDiscType = inv.discount_type || ((rawDiscAmt > 0 && rawDiscPct === 0) ? 'fixed' : 'pct');
+  // Map 'percent' → 'pct' to match the recurring modal's select values
+  const discType    = rawDiscType === 'percent' ? 'pct' : rawDiscType;
+  const discVal     = discType === 'fixed' ? rawDiscAmt : rawDiscPct;
+ 
+  const rdtEl = document.getElementById('rec-disc-type');
+  if (rdtEl) rdtEl.value = discType;
+  const rdEl = document.getElementById('rec-disc');
+  if (rdEl) rdEl.value = discVal || 0;
+ 
+  // ── 8. Pre-fill line items ─────────────────────────────────────
+  // Prefer the full items array; fall back to the single service string
+  const srcItems = Array.isArray(inv.items) && inv.items.length ? inv.items : [];
+ 
+  if (srcItems.length) {
+    recItems = srcItems.map(i => ({
+      id:   Date.now() + Math.random(),
+      desc: i.desc || i.description || '',
+      qty:  parseFloat(i.qty || i.quantity) || 1,
+      rate: parseFloat(i.rate) || 0,
+      gst:  i.gst !== undefined && i.gst !== null && i.gst !== ''
+              ? parseFloat(i.gst)
+              : i.gstRate !== undefined && i.gstRate !== ''
+                ? parseFloat(i.gstRate)
+                : 18,
+    }));
+  } else {
+    // Legacy / single-service invoice — use service_type + subtotal as one item
+    const desc = inv.service_type || inv.svc || inv.service || 'Service';
+    const rate = parseFloat(inv.subtotal || inv.amount || inv.grand_total) || 0;
+    recItems = [{ id: Date.now(), desc, qty: 1, rate, gst: 18 }];
+  }
+ 
+  recRenderItems();
+  recCalcTotals();
+ 
+  // ── 9. Update frequency preview text ─────────────────────────
+  recFreqChange();
+ 
+  // ── 10. Open modal ────────────────────────────────────────────
+  openModal('modal-recurring');
+ 
+  // ── 11. Show a helpful info banner inside the modal ──────────
+  // Inject a small notice so the user knows this is pre-filled
+  const titleEl = document.getElementById('rec-modal-title');
+  if (titleEl && !document.getElementById('rec-prefill-notice')) {
+    const notice = document.createElement('div');
+    notice.id = 'rec-prefill-notice';
+    notice.style.cssText = `
+      margin-top: 6px;
+      padding: 7px 12px;
+      background: var(--purple-bg, #F3E5F5);
+      color: var(--purple, #7B1FA2);
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    `;
+    notice.innerHTML = `<i class="fas fa-info-circle"></i>
+      Pre-filled from <strong>${inv.num || inv.invoice_number}</strong>.
+      Adjust frequency &amp; start date, then save.`;
+    titleEl.insertAdjacentElement('afterend', notice);
+  }
+}
+ 
+// ── Auto-remove the prefill notice when modal closes ─────────
+// Attach a MutationObserver once so the notice is cleaned up
+// each time the modal is closed (whether via ×, Cancel, or Save).
+(function watchRecurringModal() {
+  const mo = document.getElementById('modal-recurring');
+  if (!mo) return;
+  new MutationObserver(() => {
+    if (!mo.classList.contains('open') && !mo.style.display) {
+      const notice = document.getElementById('rec-prefill-notice');
+      if (notice) notice.remove();
+    }
+  }).observe(mo, { attributes: true, attributeFilter: ['class', 'style'] });
+})();
+
+// ── Pause / Resume ────────────────────────────────────────────
+async function recPause(id) {
+  const s = STATE.recurring.find(x => String(x.id) === String(id));
   if (!s) return;
-  s.status = s.status === 'paused' ? 'active' : 'paused';
-  recSaveAll(schedules);
-  renderRecurringPage();
-  updateRecurringBadge();
-  toast(s.status === 'paused' ? '⏸ Schedule paused' : '▶ Schedule resumed', 'info');
+  const newStatus = s.status === 'paused' ? 'active' : 'paused';
+  try {
+    await api('api/recurring.php?id=' + encodeURIComponent(id), 'PATCH', { status: newStatus });
+    s.status = newStatus;        // optimistic cache update
+    renderRecurringPage();
+    updateRecurringBadge();
+    toast(newStatus === 'paused' ? '⏸ Schedule paused' : '▶ Schedule resumed', 'info');
+  } catch(e) {
+    toast('❌ Could not update status: ' + e.message, 'error');
+  }
 }
 
-function recDelete(id) {
+// ── Delete ────────────────────────────────────────────────────
+async function recDelete(id) {
   if (!confirm('Delete this recurring schedule? This will not delete any already-generated invoices.')) return;
-  const schedules = recGetAll().filter(x => x.id !== id);
-  recSaveAll(schedules);
-  renderRecurringPage();
-  updateRecurringBadge();
-  toast('🗑 Schedule deleted', 'info');
+  try {
+    await api('api/recurring.php?id=' + encodeURIComponent(id), 'DELETE');
+    STATE.recurring = STATE.recurring.filter(x => String(x.id) !== String(id));
+    renderRecurringPage();
+    updateRecurringBadge();
+    toast('🗑 Schedule deleted', 'info');
+  } catch(e) {
+    toast('❌ Delete failed: ' + e.message, 'error');
+  }
 }
 
+// ── Run Due-Invoice Generation ────────────────────────────────
 async function runRecurringCheck() {
-  const schedules = recGetAll();
-  const today = new Date().toISOString().slice(0,10);
+  const schedules = STATE.recurring;
+  const today = new Date().toISOString().slice(0, 10);
   let generated = 0;
-  const toSave = [...schedules];
 
-  for (let i = 0; i < toSave.length; i++) {
-    const s = toSave[i];
+  for (const s of schedules) {
     if (s.status !== 'active') continue;
-    if (s.endDate && today > s.endDate) { toSave[i].status = 'completed'; continue; }
+
+    // Mark as completed if past end date
+    if (s.endDate && today > s.endDate) {
+      try {
+        await api('api/recurring.php?id=' + encodeURIComponent(s.id), 'PATCH', { status: 'completed' });
+        s.status = 'completed';
+      } catch(e) { console.warn('[Recurring] Could not mark completed:', e.message); }
+      continue;
+    }
+
     if (!s.nextDate || today < s.nextDate) continue;
 
-    // Generate invoice
+    // ── Generate invoice ──────────────────────────────────
     try {
-      const client = STATE.clients.find(c => String(c.id) === String(s.clientId));
-      const issueDate = s.nextDate;
-      const dueDate = (() => { const d = new Date(issueDate); d.setDate(d.getDate() + (s.dueDays||15)); return d.toISOString().slice(0,10); })();
-      const invoiceNum = (STATE.settings.invoice_prefix || STATE.settings.invoicePrefix || 'INV-') + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*900)+100);
+      const client     = STATE.clients.find(c => String(c.id) === String(s.clientId));
+      const issueDate  = s.nextDate;
+      const dueDate    = (() => {
+        const d = new Date(issueDate);
+        d.setDate(d.getDate() + (s.dueDays || 15));
+        return d.toISOString().slice(0, 10);
+      })();
+      const invoiceNum = (STATE.settings.invoice_prefix || STATE.settings.invoicePrefix || 'INV-') +
+                         new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 900) + 100);
 
-      // Build items from multi-item schedule or fall back to legacy single-item
+      // Build items — fall back to legacy single-item if needed
       const recInvItems = (s.items && s.items.length)
-        ? s.items.map(i => ({ desc: i.desc, itemType: 'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: parseFloat(i.gst)||0 }))
+        ? s.items.map(i => ({ desc: i.desc, itemType: 'Service', qty: parseFloat(i.qty) || 1, rate: parseFloat(i.rate) || 0, gst: parseFloat(i.gst) || 0 }))
         : [{ desc: s.service, itemType: 'Service', qty: 1, rate: s.amount, gst: s.gst || 0 }];
 
       // Recalculate totals from items + discount
       let recSub = 0, recGstRaw = 0;
       recInvItems.forEach(item => {
-        const line = item.qty * item.rate;
-        recSub    += line;
-        recGstRaw += line * item.gst / 100;
+        const line  = item.qty * item.rate;
+        recSub     += line;
+        recGstRaw  += line * item.gst / 100;
       });
-      const recDiscAmt    = s.discType === 'fixed' ? Math.min(s.discVal||0, recSub) : recSub * (s.discVal||0) / 100;
+      const recDiscAmt    = s.discType === 'fixed' ? Math.min(s.discVal || 0, recSub) : recSub * (s.discVal || 0) / 100;
       const recDiscPct    = recSub > 0 ? (recDiscAmt / recSub * 100) : 0;
-      const recDiscFactor = recSub > 0 ? (1 - recDiscAmt/recSub) : 1;
+      const recDiscFactor = recSub > 0 ? (1 - recDiscAmt / recSub) : 1;
       const recGstAmt     = recGstRaw * recDiscFactor;
       const recGrand      = recSub - recDiscAmt + recGstAmt;
 
-      // Use user's saved PDF preferences from settings
       const savedPopt = STATE.settings.popt_prefs || {};
-      const recPopt = Object.assign({ bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:false }, savedPopt);
+      const recPopt   = Object.assign(
+        { bank: true, qr: false, sign: true, logo: true, clientLogo: false, notes: true, tnc: true, gstCol: true, footer: true, watermark: false },
+        savedPopt
+      );
 
-      const payload = {
-        invoice_number: invoiceNum,
-        client_id: client ? parseInt(s.clientId) : null,
-        client_name: s.clientName || '',
-        service_type: recInvItems.map(i => i.desc).join(', '),
-        issued_date: issueDate,
-        due_date: dueDate,
-        status: 'Pending',
-        currency: '₹',
-        subtotal: recSub,
-        discount_pct: recDiscPct,
-        discount_amt: recDiscAmt,
-        gst_amount: recGstAmt,
-        grand_total: recGrand,
-        notes: s.notes || `Auto-generated recurring invoice (${recFreqLabel(s.freq)})`,
-        bank_details: STATE.settings.defaultBank || '',
-        terms: STATE.settings.defaultTnC || '',
-        company_logo: STATE.settings.logo || '',
-        client_logo: '',
-        signature: STATE.settings.signature || '',
-        qr_code: '',
-        template_id: s.template || STATE.settings.activeTemplate || 2,
-        generated_by: 'OPTMS Tech — Recurring',
-        show_generated: 1,
-        pdf_options: recPopt,
-        items: recInvItems
+      const invoicePayload = {
+        invoice_number:  invoiceNum,
+        client_id:       client ? parseInt(s.clientId) : null,
+        client_name:     s.clientName || '',
+        service_type:    recInvItems.map(i => i.desc).join(', '),
+        issued_date:     issueDate,
+        due_date:        dueDate,
+        status:          'Pending',
+        currency:        '₹',
+        subtotal:        recSub,
+        discount_pct:    recDiscPct,
+        discount_amt:    recDiscAmt,
+        gst_amount:      recGstAmt,
+        grand_total:     recGrand,
+        notes:           s.notes || `Auto-generated recurring invoice (${recFreqLabel(s.freq)})`,
+        bank_details:    STATE.settings.defaultBank  || '',
+        terms:           STATE.settings.defaultTnC   || '',
+        company_logo:    STATE.settings.logo         || '',
+        client_logo:     '',
+        signature:       STATE.settings.signature    || '',
+        qr_code:         '',
+        template_id:     s.template || STATE.settings.activeTemplate || 2,
+        generated_by:    'OPTMS Tech — Recurring',
+        show_generated:  1,
+        pdf_options:     recPopt,
+        items:           recInvItems,
       };
-      await api('api/invoices.php', 'POST', payload);
-      toSave[i].nextDate = recNextDate(s.nextDate, s.freq);
-      toSave[i].generatedCount = (s.generatedCount || 0) + 1;
-      toSave[i].lastGenerated = issueDate;
-      recAddLog({ scheduleId: s.id, clientName: s.clientName, service: s.service, amount: s.grand, invoiceNum, issueDate });
+
+      await api('api/invoices.php', 'POST', invoicePayload);
+
+      // ── Update schedule in DB (nextDate, generatedCount, lastGenerated) ──
+      const newNextDate      = recNextDate(s.nextDate, s.freq);
+      const newGeneratedCount = (s.generatedCount || 0) + 1;
+      await api('api/recurring.php?id=' + encodeURIComponent(s.id), 'PATCH', {
+        nextDate:        newNextDate,
+        generatedCount:  newGeneratedCount,
+        lastGenerated:   issueDate,
+      });
+
+      // Optimistic cache update
+      s.nextDate       = newNextDate;
+      s.generatedCount = newGeneratedCount;
+      s.lastGenerated  = issueDate;
+
       generated++;
+
     } catch(e) {
-      console.error('Recurring generation failed for', s.id, e.message);
+      console.error('[Recurring] Generation failed for schedule', s.id, e.message);
       toast('⚠️ Failed to generate for ' + s.clientName + ': ' + e.message, 'error');
     }
   }
-  recSaveAll(toSave);
 
   if (generated > 0) {
-    // Reload invoices
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.invoices         = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
-    renderInvoicesTable(); renderDashRecent(); updateDashStats();
-    toast(`✅ ${generated} invoice${generated>1?'s':''} generated!`, 'success');
+    renderInvoicesTable();
+    renderDashRecent();
+    updateDashStats();
+    toast(`✅ ${generated} invoice${generated > 1 ? 's' : ''} generated!`, 'success');
   } else {
     toast('ℹ️ No invoices due today', 'info');
   }
+
   renderRecurringPage();
   updateRecurringBadge();
 }
 
+// ── Render the Recurring page ─────────────────────────────────
 function renderRecurringPage() {
-  const schedules = recGetAll();
-  const today = new Date().toISOString().slice(0,10);
-  const tbody = document.getElementById('rec-table-body');
-  const empty = document.getElementById('rec-empty');
+  const schedules = STATE.recurring;
+  const today     = new Date().toISOString().slice(0, 10);
+  const tbody     = document.getElementById('rec-table-body');
+  const empty     = document.getElementById('rec-empty');
   if (!tbody) return;
 
   const active    = schedules.filter(s => s.status === 'active').length;
   const dueToday  = schedules.filter(s => s.status === 'active' && s.nextDate <= today).length;
   const paused    = schedules.filter(s => s.status === 'paused').length;
-  const generated = schedules.reduce((a,s) => a + (s.generatedCount||0), 0);
+  const generated = schedules.reduce((a, s) => a + (s.generatedCount || 0), 0);
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('rec-stat-active', active);
-  set('rec-stat-due', dueToday);
+  set('rec-stat-active',    active);
+  set('rec-stat-due',       dueToday);
   set('rec-stat-generated', generated);
-  set('rec-stat-paused', paused);
+  set('rec-stat-paused',    paused);
 
   if (!schedules.length) {
     tbody.innerHTML = '';
@@ -11269,59 +11556,64 @@ function renderRecurringPage() {
   if (empty) empty.style.display = 'none';
 
   const statusChip = s => {
-    if (s.status === 'paused')    return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E">Paused</span>`;
-    if (s.status === 'completed') return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E8F5E9;color:#388E3C">Completed</span>`;
-    if (s.nextDate <= today)      return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEE2E2;color:#C62828;animation:pulse 1.5s infinite">Due Today!</span>`;
+    if (s.status === 'paused')     return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E">Paused</span>`;
+    if (s.status === 'completed')  return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E8F5E9;color:#388E3C">Completed</span>`;
+    if (s.nextDate <= today)       return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEE2E2;color:#C62828;animation:pulse 1.5s infinite">Due Today!</span>`;
     return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E0F2F1;color:#00695C">Active</span>`;
   };
 
   tbody.innerHTML = schedules.map(s => `
     <tr>
-      <td style="font-weight:700">${s.clientName||'—'}</td>
+      <td style="font-weight:700">${s.clientName || '—'}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.service}">${s.service}</td>
-      <td style="font-family:var(--mono);font-weight:700">₹${parseFloat(s.grand||s.amount||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="font-family:var(--mono);font-weight:700">₹${parseFloat(s.grand || s.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       <td><span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:var(--blue-bg);color:var(--blue)">${recFreqLabel(s.freq)}</span></td>
-      <td style="font-family:var(--mono);${s.nextDate<=today&&s.status==='active'?'color:var(--red);font-weight:700':''}">${s.nextDate||'—'}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${s.lastGenerated||'Never'}</td>
+      <td style="font-family:var(--mono);${s.nextDate <= today && s.status === 'active' ? 'color:var(--red);font-weight:700' : ''}">${s.nextDate || '—'}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${s.lastGenerated || 'Never'}</td>
       <td>${statusChip(s)}</td>
-      <td style="text-align:center;font-weight:700;color:var(--teal)">${s.generatedCount||0}</td>
+      <td style="text-align:center;font-weight:700;color:var(--teal)">${s.generatedCount || 0}</td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="act-btn" title="Edit" onclick="openRecurringModal('${s.id}')"><i class="fas fa-edit"></i></button>
-          <button class="act-btn" title="${s.status==='paused'?'Resume':'Pause'}" onclick="recPause('${s.id}')"><i class="fas fa-${s.status==='paused'?'play':'pause'}"></i></button>
+          <button class="act-btn" title="Edit"   onclick="openRecurringModal('${s.id}')"><i class="fas fa-edit"></i></button>
+          <button class="act-btn" title="${s.status === 'paused' ? 'Resume' : 'Pause'}" onclick="recPause('${s.id}')">
+            <i class="fas fa-${s.status === 'paused' ? 'play' : 'pause'}"></i>
+          </button>
           <button class="act-btn" title="Delete" onclick="recDelete('${s.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
 }
 
+// ── Sidebar badge ──────────────────────────────────────────────
 function updateRecurringBadge() {
-  const today = new Date().toISOString().slice(0,10);
-  const due = recGetAll().filter(s => s.status === 'active' && s.nextDate <= today).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const due   = (STATE.recurring || []).filter(s => s.status === 'active' && s.nextDate <= today).length;
   const badge = document.getElementById('badge-recurring');
   if (badge) { badge.textContent = due; badge.style.display = due ? '' : 'none'; }
 }
 
-// FIX #1: Single unified showPage override — replaces two chained overrides below.
-// Merging here prevents the second override from silently dropping the first hook
-// if script execution order ever changes.
+// ── Hook into showPage (keep existing WA logic untouched) ──────
 const _origShowPage = window.showPage;
 if (typeof _origShowPage === 'function') {
   window.showPage = function(name, el) {
     _origShowPage.call(this, name, el);
 
-    // ── Recurring page ──
-    if (name === 'recurring') renderRecurringPage();
+    // ── Recurring page: reload from DB then render ──
+    if (name === 'recurring') {
+      recLoadAll().then(() => {
+        renderRecurringPage();
+        updateRecurringBadge();
+      });
+    }
 
-    // ── WhatsApp page ──
+    // ── WhatsApp page ───────────────────────────────
     if (name === 'whatsapp') {
       setTimeout(() => {
-        ['inv','estimate','paid','partial','remind','overdue','followup'].forEach(k => {
+        ['inv', 'estimate', 'paid', 'partial', 'remind', 'overdue', 'followup'].forEach(k => {
           waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
         });
-        waUpdateCounter('wa-manual-msg','wa-manual-counter');
-        // Update mode badge
-        const wa = STATE.settings.wa || {};
+        waUpdateCounter('wa-manual-msg', 'wa-manual-counter');
+        const wa    = STATE.settings.wa || {};
         const badge = document.getElementById('wa-mode-badge-tpl');
         if (badge) {
           const mode = wa.msg_mode || 'session';
@@ -11334,16 +11626,20 @@ if (typeof _origShowPage === 'function') {
   };
 }
 
-// Run recurring check silently on app load (after a short delay)
-setTimeout(() => {
+// ── App load: fetch schedules from DB, update badge & toast ───
+// Runs after the existing loadAllData() call completes.
+setTimeout(async () => {
+  await recLoadAll();
   updateRecurringBadge();
-  // Auto-run if any schedules are due
-  const today = new Date().toISOString().slice(0,10);
-  const due = recGetAll().filter(s => s.status === 'active' && s.nextDate <= today);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const due   = STATE.recurring.filter(s => s.status === 'active' && s.nextDate <= today);
   if (due.length > 0) {
-    toast(`⏰ ${due.length} recurring invoice${due.length>1?'s are':' is'} due — go to Recurring to generate`, 'warning');
+    toast(`⏰ ${due.length} recurring invoice${due.length > 1 ? 's are' : ' is'} due — go to Recurring to generate`, 'warning');
   }
 }, 3000);
+
+// ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
 
