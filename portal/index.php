@@ -892,10 +892,22 @@ if ($items):
     <?php endforeach; ?>
     <div class="line-tfoot">
       <div class="line-tfoot-row"><span>Subtotal</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_subtotal, $sym) ?></span></div>
-      <?php if ($mc_discount > 0): ?>
-      <div class="line-tfoot-row" style="color:var(--red)"><span>Discount</span><span style="font-family:var(--mono)">− <?= fmt_inr($mc_discount, $sym) ?></span></div>
-      <?php endif; ?>
+      <?php if ($mc_discount > 0):
+        $mc_after_disc  = $mc_subtotal - $mc_discount;
+        $mc_disc_factor = $mc_subtotal > 0 ? (1 - $mc_discount / $mc_subtotal) : 1;
+        $mc_gst_after   = $mc_gst * $mc_disc_factor;
+        $mc_grand       = $mc_after_disc + $mc_gst_after;
+        $mc_disc_pct    = (float)($inv['discount_pct'] ?? 0);
+      ?>
+      <div class="line-tfoot-row" style="color:var(--red)">
+        <span>Discount<?= $mc_disc_pct > 0 ? ' (' . (int)$mc_disc_pct . '%)' : '' ?></span>
+        <span style="font-family:var(--mono)">− <?= fmt_inr($mc_discount, $sym) ?></span>
+      </div>
+      <div class="line-tfoot-row"><span>After Discount</span><span style="font-family:var(--mono);font-weight:600"><?= fmt_inr($mc_after_disc, $sym) ?></span></div>
+      <div class="line-tfoot-row"><span>GST</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_gst_after, $sym) ?></span></div>
+      <?php else: ?>
       <div class="line-tfoot-row"><span>GST</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_gst, $sym) ?></span></div>
+      <?php endif; ?>
       <div class="line-tfoot-row grand"><span>Grand Total</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_grand, $sym) ?></span></div>
     </div>
   </div><!-- end line-cards -->
