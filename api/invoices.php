@@ -120,7 +120,6 @@ switch ($method) {
         $pfx = getSetting('invoice_prefix', 'OT-' . date('Y') . '-');
       }
       // Find the highest existing numeric suffix for THIS prefix only
-// Find the highest existing numeric suffix for THIS prefix only
       $like = $pfx . '%';
       $row  = $db->prepare("SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY LENGTH(invoice_number) DESC, invoice_number DESC LIMIT 1");
       $row->execute([$like]);
