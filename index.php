@@ -39,9 +39,9 @@ $companyAddress = $settings['company_address']  ?? '';
 $companyLogo    = $settings['company_logo']     ?? '';
 $companySign    = $settings['company_sign']     ?? '';
 $companyBank    = $settings['company_bank']     ?? '';
-$defaultGst     = $settings['default_gst']      ?? '18';
-$dueDays        = $settings['due_days']         ?? '15';
-$activeTemplate = $settings['active_template']  ?? '1';
+$defaultGst     = $settings['default_gst']      ?? '';
+$dueDays        = $settings['due_days']         ?? '';
+$activeTemplate = $settings['active_template']  ?? '';
 $defaultTnc     = $settings['default_tnc']      ?? '';
 $defaultCurrency= $settings['default_currency'] ?? '₹';
 ?>
