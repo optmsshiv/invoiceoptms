@@ -4474,7 +4474,8 @@ function fillClientForm(val) {
 // ══════════════════════════════════════════
 function getFormData() {
   const tpl     = parseInt(document.getElementById('f-template')?.value)||1;
-  const num     = document.getElementById('f-num')?.value||(STATE.settings.prefix||'INV-')+String(STATE.invoices.length+1).padStart(3,'0');
+  const num = document.getElementById('f-num')?.value || '';
+ // const num     = document.getElementById('f-num')?.value||(STATE.settings.prefix||'INV-')+String(STATE.invoices.length+1).padStart(3,'0');
   const date    = document.getElementById('f-date')?.value||'';
   const due     = document.getElementById('f-due')?.value||'';
   // Service type: read from custom text input (select just triggers autofill)
@@ -6662,28 +6663,49 @@ async function convertEstimateToInvoice(id) {
 }
 
 // ── onStatusChange: auto-update invoice number prefix when switching to/from Estimate
+//function onStatusChange(newStatus) {
+//  const numEl = document.getElementById('f-num');
+//  if (!numEl) return;
+//  const current = numEl.value || '';
+//  const pfx    = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+//  const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+//  if (newStatus === 'Estimate') {
+//    // Switch invoice prefix to estimate prefix
+//    if (current.startsWith(pfx)) {
+//      numEl.value = current.replace(pfx, estPfx);
+//    } else if (!current.startsWith(estPfx)) {
+//      numEl.value = estPfx + '001';
+//    }
+//  } else {
+//    // Switch estimate prefix back to invoice prefix when moving away from Estimate
+//    if (current.startsWith(estPfx)) {
+//      numEl.value = current.replace(estPfx, pfx);
+//    } else if (current.startsWith('QT-')) {
+//      // Legacy fallback for old QT- numbers
+//      numEl.value = pfx + '001';
+//    }
+//  }
+//}
+
 function onStatusChange(newStatus) {
-  const numEl = document.getElementById('f-num');
-  if (!numEl) return;
-  const current = numEl.value || '';
-  const pfx    = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
-  const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
-  if (newStatus === 'Estimate') {
-    // Switch invoice prefix to estimate prefix
-    if (current.startsWith(pfx)) {
-      numEl.value = current.replace(pfx, estPfx);
-    } else if (!current.startsWith(estPfx)) {
-      numEl.value = estPfx + '001';
+    const numEl = document.getElementById('f-num');
+    if (!numEl) return;
+
+    // ═══════════════════════════════════════════════════════
+    
+    // This forces the backend to query DB and generate the next QT- number.
+    // ═══════════════════════════════════════════════════════
+    if (newStatus === 'Estimate') {
+        numEl.value = '';  // Clear → backend will auto-generate correct QT-XXX
+        return;
     }
-  } else {
-    // Switch estimate prefix back to invoice prefix when moving away from Estimate
+    
+    // If switching back to normal Invoice, also clear so backend regenerates correct prefix
+    const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+    const current = numEl.value || '';
     if (current.startsWith(estPfx)) {
-      numEl.value = current.replace(estPfx, pfx);
-    } else if (current.startsWith('QT-')) {
-      // Legacy fallback for old QT- numbers
-      numEl.value = pfx + '001';
+        numEl.value = '';  // Clear → backend will auto-generate correct OT/INV-XXX
     }
-  }
 }
 
 // ══════════════════════════════════════════
