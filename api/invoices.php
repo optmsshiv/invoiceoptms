@@ -206,10 +206,15 @@ case 'PATCH':
 $input = json_decode(file_get_contents('php://input'), true);
 $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
 if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-// Validate status if being updated edited here (guards against DB ENUM not yet migrated)
+// Validate status — FIX: isset() returns FALSE for null values, so null slips through
+// and gets written to DB via array_key_exists. Use explicit in_array check and UNSET
+// invalid/null status so it is simply not updated rather than written as blank.
 $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
-$input['status'] = 'Draft';
+if (array_key_exists('status', $input)) {
+    if (!in_array($input['status'], $allowedStatuses, true)) {
+        // null, '', or invalid value — remove key so DB value is preserved
+        unset($input['status']);
+    }
 }
 $allowed = ['notes','bank_details','terms','status'];
 $sets=[]; $vals=[];
@@ -225,11 +230,19 @@ case 'PUT':
 $input = json_decode(file_get_contents('php://input'), true);
 $id    = (int)($_GET['id'] ?? $input['id'] ?? 0);
 if (!$id) { jsonResponse(['error'=>'ID required'], 400); }
-// Validate status
+// Validate status — FIX: '' ?? 'Draft' returns '' in PHP, so empty string slips through.
+// Use in_array check and fall back to prefix-based detection before defaulting to Draft.
 $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
-if (isset($input['status']) && !in_array($input['status'], $allowedStatuses, true)) {
-$input['status'] = 'Draft';
+$statusInput = $input['status'] ?? '';
+if (!in_array($statusInput, $allowedStatuses, true)) {
+    // Invalid or blank status — try to infer from invoice number prefix
+    $invNum    = $input['invoice_number'] ?? '';
+    $estPfx    = getSetting('estimate_prefix', 'QT-' . date('Y') . '-');
+    $statusInput = ($invNum !== '' && (strpos($invNum, $estPfx) === 0 || strpos($invNum, 'QT-') === 0))
+        ? 'Estimate'
+        : 'Draft';
 }
+$input['status'] = $statusInput;
 $stmt = $db->prepare('
 UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
 status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
@@ -239,7 +252,7 @@ WHERE id=?');
 try {
 $stmt->execute([
 nullIfEmpty($input['client_id']??null), $input['client_name']??'', $input['service_type']??'',
-nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null), $input['status']??'Draft',
+nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null), $input['status'],
 $input['currency']??'₹', $input['subtotal']??0, $input['discount_pct']??0,
 in_array($input['discount_type']??'percent', ['percent','flat']) ? $input['discount_type'] : 'percent',
 $input['discount_amt']??0, $input['gst_amount']??0, $input['grand_total']??0,
