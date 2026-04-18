@@ -1023,7 +1023,7 @@ const SERVER = {
     tpl_followup:  <?= json_encode($settings['wa_tpl_followup'] ?? '') ?>,
     tpl_festival:  <?= json_encode($settings['wa_tpl_festival'] ?? '') ?>,
     auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '0') ?>,
-    auto_estimate: <?= json_encode($settings['wa_auto_estimate']?? '0') ?>,
+    auto_estimate: <?= json_encode($settings['wa_auto_estimate']?? '1') ?>,
     auto_paid:     <?= json_encode($settings['wa_auto_paid']    ?? '1') ?>,
     auto_partial:  <?= json_encode($settings['wa_auto_partial'] ?? '1') ?>,
     auto_remind:   <?= json_encode($settings['wa_auto_remind']  ?? '1') ?>,
@@ -2048,7 +2048,7 @@ const SERVER = {
               </div>
               <div class="toggle-item" style="flex-wrap:wrap;gap:6px">
                 <span style="flex:1"><strong>New Estimate</strong> — auto-send when estimate is saved</span>
-                <div class="tog <?= (($settings['wa_auto_estimate']??'0')==='1')?'on':'' ?>" id="twa7" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_estimate', this)"></div>
+                <div class="tog <?= (($settings['wa_auto_estimate']??'1')==='1')?'on':'' ?>" id="twa7" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_estimate', this)"></div>
               </div>
               <div class="toggle-item"><span><strong>Payment Receipt</strong> — when fully paid</span><div class="tog <?= (($settings['wa_auto_paid']??'1')!=='0')?'on':'' ?>" id="twa2" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_paid', this)"></div></div>
               <div class="toggle-item"><span><strong>Partial Payment</strong> — on partial receipt</span><div class="tog <?= (($settings['wa_auto_partial']??'1')!=='0')?'on':'' ?>" id="twa6" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_partial', this)"></div></div>
@@ -5879,6 +5879,11 @@ async function saveInvoice() {
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
   const selVal = document.getElementById('f-client-select')?.value;
+  // ── FIX: capture before any reset so WA logic knows if this is a new save ──
+  const isNewSave = !STATE.editingInvoiceId;
+  // ── FIX: capture form WA/phone now, before form is reset after navigation ──
+  const formPhone = (document.getElementById('f-cwa')?.value || '').replace(/\D/g,'');
+
   const payload = {
     invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
@@ -5892,7 +5897,7 @@ async function saveInvoice() {
     items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
-    if (STATE.editingInvoiceId) {
+    if (!isNewSave) {
       const inv = STATE.invoices.find(i => String(i.id) === String(STATE.editingInvoiceId));
       const dbId = inv?._dbId || parseInt(inv?.id) || 0;
       await api('api/invoices.php?id=' + dbId, 'PUT', payload);
@@ -5929,39 +5934,64 @@ async function saveInvoice() {
           .catch(() => {});
       }
     }
-    // Auto-send WA if automation toggle is ON
+
+    // ── Auto-send WA — only on NEW save, never on edit ───────────────
+    if (!isNewSave) return; // ← FIX: skip WA entirely when editing
+
     const wa = STATE.settings.wa || {};
-    const saved = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
+    // ── FIX: robust invoice lookup — try .num, .invoice_number, or client_name match ──
+    const saved = STATE.invoices.find(i =>
+      (i.num && i.num === d.num) ||
+      (i.invoice_number && i.invoice_number === d.num)
+    );
     const savedStatus = saved?.status || d.status || '';
 
+    // ── Helper: resolve phone from client record OR form field ────────
+    const resolvePhone = (inv) => {
+      const c = STATE.clients.find(x => String(x.id) === String(inv?.client || inv?.client_id)) || {};
+      // FIX: also fall back to the WA number typed in the form (f-cwa)
+      return {
+        c,
+        phone: (c.wa || c.whatsapp || c.phone || formPhone || '').replace(/\D/g,'')
+      };
+    };
+
     if (savedStatus === 'Draft') {
-      // ❌ Never send WA for internal drafts
+      // ❌ Never send WA for drafts
+
     } else if (savedStatus === 'Estimate') {
-      // ✅ Send estimate-specific WA if the Estimate automation toggle is on
-      if (wa.auto_estimate === '1' && saved) {
-        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
+      // ✅ Estimate WA — respects auto_estimate toggle
+      // FIX: allow sending even if `saved` is undefined (use d as fallback for msg data)
+      const autoOn = wa.auto_estimate === '1';
+      if (autoOn) {
+        const invForWA = saved || { num: d.num, client: selVal, client_name: d.cname, amount: d.grand, due: d.due, service: d.svc, status: 'Estimate' };
+        const { c, phone } = resolvePhone(invForWA);
         if (phone) {
           const tpl = wa.tpl_estimate || getDefaultWATpl('estimate');
-          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
-          logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: 'sending' });
-          sendWA(phone, msg, 'estimate_created', saved, c)
-            .then(r => logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: r ? 'sent_api' : 'sent_web' }))
-            .catch(e => { logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message }); console.warn('WA estimate send failed:', e.message); });
+          const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
+          logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'sending' });
+          sendWA(phone, msg, 'estimate_created', invForWA, c)
+            .then(res => logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: res ? 'sent_api' : 'sent_web' }))
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message }); console.warn('WA estimate send failed:', e.message); });
+        } else {
+          console.warn('WA estimate: no phone found for client, skipping auto-send');
         }
       }
+
     } else {
-      // ✅ Send normal invoice WA for Pending / Paid / Overdue etc.
-      if (wa.auto_inv === '1' && saved) {
-        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
+      // ✅ Normal invoice WA for Pending / Paid / Overdue etc.
+      if (wa.auto_inv === '1') {
+        const invForWA = saved || { num: d.num, client: selVal, client_name: d.cname, amount: d.grand, due: d.due, service: d.svc, status: d.status };
+        const { c, phone } = resolvePhone(invForWA);
         if (phone) {
           const tpl = wa.tpl_inv || getDefaultWATpl('inv');
-          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
-          logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: 'sending' });
-          sendWA(phone, msg, 'invoice_created', saved, c)
-            .then(r => logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: r ? 'sent_api' : 'sent_web' }))
-            .catch(e => { logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message }); console.warn('WA send failed:', e.message); });
+          const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
+          logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'sending' });
+          sendWA(phone, msg, 'invoice_created', invForWA, c)
+            .then(res => logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: res ? 'sent_api' : 'sent_web' }))
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message }); console.warn('WA send failed:', e.message); });
+        } else {
+          console.warn('WA invoice: no phone found for client, skipping auto-send');
         }
       }
     }
@@ -8357,7 +8387,7 @@ async function loadAllData() {
         tpl_followup:  s.wa_tpl_followup || '',
         tpl_festival:  s.wa_tpl_festival || '',
         auto_inv:      s.wa_auto_inv      !== undefined ? s.wa_auto_inv      : '0',
-        auto_estimate: s.wa_auto_estimate !== undefined ? s.wa_auto_estimate : '0',
+        auto_estimate: s.wa_auto_estimate !== undefined ? s.wa_auto_estimate : '1',
         auto_paid:     s.wa_auto_paid     !== undefined ? s.wa_auto_paid     : '1',
         auto_partial:  s.wa_auto_partial  !== undefined ? s.wa_auto_partial  : '1',
         auto_remind:   s.wa_auto_remind   !== undefined ? s.wa_auto_remind   : '1',
