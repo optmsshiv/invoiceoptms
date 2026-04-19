@@ -35,21 +35,21 @@ function getDB(): PDO {
             ]
         );
         // Auto-migrate: ensure 'Estimate' and 'Partial' are in the status ENUM (safe to run repeatedly)
-        try {
-            $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate') NOT NULL DEFAULT 'Draft'");
-        } catch (\Exception $e) {
+       // try {
+       //     $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate') NOT NULL DEFAULT 'Draft'");
+       // } catch (\Exception $e) {
             // Ignore — may already include these values, or DB user may lack ALTER privilege
-            error_log('Auto-migrate status ENUM: ' . $e->getMessage());
-        }
+       //     error_log('Auto-migrate status ENUM: ' . $e->getMessage());
+       // }
         // Secondary safety: verify 'Estimate' is accepted by attempting a dry-run SELECT
         // (If ENUM is missing Estimate, rows with status=Estimate are stored as '' in MySQL strict mode)
         // We expose this via a column check so devs can diagnose:
-        try {
-            $col = $pdo->query("SHOW COLUMNS FROM invoices LIKE 'status'")->fetch(\PDO::FETCH_ASSOC);
-            if ($col && strpos($col['Type'], 'Estimate') === false) {
-                error_log('WARNING: invoices.status ENUM is missing Estimate. Run: ALTER TABLE invoices MODIFY COLUMN status ENUM(\'Draft\',\'Pending\',\'Paid\',\'Overdue\',\'Partial\',\'Cancelled\',\'Estimate\') NOT NULL DEFAULT \'Draft\'');
-            }
-        } catch (\Exception $e) { /* ignore */ }
+       // try {
+       //     $col = $pdo->query("SHOW COLUMNS FROM invoices LIKE 'status'")->fetch(\PDO::FETCH_ASSOC);
+       //     if ($col && strpos($col['Type'], 'Estimate') === false) {
+       //         error_log('WARNING: invoices.status ENUM is missing Estimate. Run: ALTER TABLE invoices MODIFY COLUMN status ENUM(\'Draft\',\'Pending\',\'Paid\',\'Overdue\',\'Partial\',\'Cancelled\',\'Estimate\') NOT NULL DEFAULT \'Draft\'');
+       //     }
+       // } catch (\Exception $e) { /* ignore */ }
     } catch (PDOException $e) {
         error_log('DB connection failed: ' . $e->getMessage());
         while (ob_get_level()) ob_end_clean();
