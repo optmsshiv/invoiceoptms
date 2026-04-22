@@ -648,10 +648,16 @@ $tlOverdue = ($tlStatus === 'Overdue');
         <div class="tl-date">Now</div>
       </div>
       <?php if ($tlStatus === 'Paid'): ?>
+      <?php
+        // FIX: if paid directly (no payment rows), fall back to issue_date
+        $paidDateStr = !empty($payments)
+            ? fmt_date(end($payments)['payment_date'])
+            : (!empty($inv['issue_date']) ? fmt_date($inv['issue_date']) : '—');
+      ?>
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
         <div class="tl-label">Paid</div>
-        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+        <div class="tl-date"><?= $paidDateStr ?></div>
       </div>
       <?php elseif ($tlStatus === 'Partial'): ?>
       <div class="tl-step">
