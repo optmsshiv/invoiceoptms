@@ -6,10 +6,10 @@ requireLogin();
 $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
 
 // ── Auto-migrate: add columns if not exist ─────────────────────
-// NOTE: The MODIFY COLUMN status ENUM was removed from here.
-// It was missing 'Estimate', so every page load rebuilt the ENUM
-// without it, blanking the status of all Estimate invoices in the DB.
-// The ENUM is now correct in the DB — no migration needed here.
+try {
+  $db->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('Draft','Pending','Partial','Paid','Overdue','Cancelled') DEFAULT 'Draft'");
+} catch(Exception $e) { /* already migrated */ }
+
 try {
   $db->exec("ALTER TABLE payments ADD COLUMN settlement_discount DECIMAL(10,2) NOT NULL DEFAULT 0");
 } catch(Exception $e) { /* already exists */ }
