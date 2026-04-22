@@ -34,19 +34,7 @@ function getDB(): PDO {
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]
         );
-        // NOTE: ALTER TABLE was removed from here — running ALTER TABLE on every DB
-        // connection caused MySQL to rebuild the ENUM column on each request, which
-        // intermittently converted status='Estimate' rows to '' (blank) under certain
-        // MySQL strict mode / locking conditions. Run the migration SQL once manually:
-        //
-        //   ALTER TABLE invoices
-        //     MODIFY COLUMN status
-        //     ENUM('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate')
-        //     NOT NULL DEFAULT 'Draft';
-        //
-        //   UPDATE invoices SET status='Estimate'
-        //     WHERE (status='' OR status IS NULL)
-        //     AND invoice_number LIKE 'QT-%';
+        
     } catch (PDOException $e) {
         error_log('DB connection failed: ' . $e->getMessage());
         while (ob_get_level()) ob_end_clean();
