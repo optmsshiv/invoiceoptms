@@ -185,6 +185,19 @@ $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
 $totalPaid     = $totalCash;                          // cash received (shown as "Amount Paid")
 $totalCovered  = $totalCash + $totalSettle;           // cash + settlement discount
+
+// FIX: invoice marked Paid directly (no payment rows recorded) —
+// treat full amount as paid so portal shows ₹0 balance, not full amount due
+if (($inv['status'] ?? '') === 'Paid' && $totalCovered < 0.01) {
+    $totalPaid    = $totalAmt;
+    $totalCovered = $totalAmt;
+}
+// FIX: invoice marked Partial directly — show what's been covered
+if (($inv['status'] ?? '') === 'Partial' && $totalCovered < 0.01) {
+    $totalPaid    = 0;
+    $totalCovered = 0;
+}
+
 $remaining     = max(0, $totalAmt - $totalCovered);
 $pct           = $totalAmt > 0 ? min(100, round($totalCovered / $totalAmt * 100)) : 0;
 

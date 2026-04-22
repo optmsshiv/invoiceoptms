@@ -149,6 +149,7 @@ function status_col($s) {
         'Partial'   => '#E65100',
         'Draft'     => '#9E9E9E',
         'Cancelled' => '#757575',
+        'Estimate'  => '#3949AB',
         default     => '#888'
     };
 }
@@ -160,6 +161,7 @@ function status_bg($s) {
         'Partial'   => '#FFF3E0',
         'Draft'     => '#F5F5F5',
         'Cancelled' => '#EEEEEE',
+        'Estimate'  => '#E8EAF6',
         default     => '#F5F5F5'
     };
 }
@@ -171,11 +173,13 @@ function status_label($s) {
         'Partial'   => '◑ Partially Paid',
         'Draft'     => '✎ Draft',
         'Cancelled' => '✕ Cancelled',
+        'Estimate'  => '📋 Estimate',
         default     => $s
     };
 }
 
 $sym           = $inv['currency'] ?: '₹';
+$isEstimate    = ($inv['status'] ?? '') === 'Estimate';
 $totalAmt      = (float)($inv['amount'] ?? 0);
 $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
@@ -197,10 +201,11 @@ $companyQR      = $settings['company_qr']      ?? '';
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Invoice <?= htmlspecialchars($inv['invoice_number'] ?? '') ?> — <?= htmlspecialchars($companyName) ?></title>
+<title><?= ($inv['status'] ?? '') === 'Estimate' ? 'Estimate' : 'Invoice' ?> <?= htmlspecialchars($inv['invoice_number'] ?? '') ?> — <?= htmlspecialchars($companyName) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -291,7 +296,8 @@ tr:last-child td{border:none}
 
 @media print{
   body{padding:0;background:#fff}
-  .sticky-bar,.upi-pay-btns,.wa-contact-btn,.pdf-btn{display:none!important}
+  .sticky-bar,.upi-pay-btns,.wa-contact-btn,.pdf-btn,.copy-btn{display:none!important}
+  .qr-section{display:block!important}
   .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
   .portal-header{border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
@@ -318,6 +324,19 @@ tr:last-child td{border:none}
 /* Download PDF btn */
 .pdf-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;background:var(--bg);color:var(--text);border:2px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;margin-top:8px;cursor:pointer;transition:.2s}
 .pdf-btn:active{background:var(--border)}
+
+/* Estimate banner */
+.estimate-banner{background:linear-gradient(135deg,#E8EAF6,#C5CAE9);border:1.5px solid #9FA8DA;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:14px}
+.estimate-banner-icon{width:42px;height:42px;background:#3949AB;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0}
+.estimate-banner-body{flex:1}
+.estimate-banner-title{font-size:15px;font-weight:800;color:#1A237E;margin-bottom:4px}
+.estimate-banner-sub{font-size:12px;color:#3949AB;line-height:1.6}
+.estimate-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.btn-approve{flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;background:#388E3C;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:.2s;text-decoration:none}
+.btn-approve:active{background:#2E7D32}
+.btn-reject{flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;background:#fff;color:#C62828;border:2px solid #FFCDD2;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:.2s;text-decoration:none}
+.btn-reject:active{background:#FFEBEE}
+.estimate-responded{display:none;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;margin-top:10px}
 
 /* Progress label improvement */
 .progress-meta .paid-label{font-weight:700;color:var(--green)}
@@ -352,6 +371,158 @@ tr:last-child td{border:none}
   .amount-strip{grid-template-columns:1fr}
   table{min-width:360px;font-size:11px}
   th,td{padding:6px 6px}
+}
+
+/* Dynamic UPI QR */
+.qr-section{text-align:center;margin-top:16px;padding-top:16px;border-top:1px dashed var(--border)}
+.qr-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
+.qr-wrap{display:inline-block;padding:10px;background:#fff;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.qr-wrap canvas,.qr-wrap img{display:block;border-radius:6px}
+.qr-hint{font-size:11px;color:var(--muted);margin-top:8px}
+.qr-amt{font-size:13px;font-weight:700;color:var(--teal);font-family:var(--mono);margin-top:4px}
+
+/* ── #5 Overdue urgency banner ── */
+.overdue-banner{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFEBEE,#FFCDD2);border:1.5px solid #EF9A9A;border-radius:12px;padding:14px 18px;margin-bottom:16px}
+.overdue-banner-icon{width:38px;height:38px;background:var(--red);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.overdue-banner-body{flex:1}
+.overdue-banner-title{font-size:14px;font-weight:800;color:#B71C1C}
+.overdue-banner-sub{font-size:12px;color:#C62828;margin-top:2px}
+
+/* ── #4 Invoice timeline ── */
+.timeline-card{margin-bottom:16px}
+.timeline{display:flex;align-items:flex-start;justify-content:space-between;position:relative;padding:8px 0 4px}
+.timeline::before{content:'';position:absolute;top:22px;left:20px;right:20px;height:2px;background:var(--border);z-index:0}
+.tl-step{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;position:relative;z-index:1}
+.tl-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px}
+.tl-dot.done{background:var(--green);border-color:var(--green);color:#fff}
+.tl-dot.active{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 0 0 3px var(--teal-bg)}
+.tl-dot.warn{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 0 0 3px #FFF3E0}
+.tl-dot.overdue{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 0 0 3px var(--red-bg)}
+.tl-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:center;line-height:1.3}
+.tl-date{font-size:9px;color:var(--muted);text-align:center;font-family:var(--mono)}
+
+/* ── #2 Payment Receipt ── */
+.receipt-card{border:2px dashed #A5D6A7!important;background:linear-gradient(135deg,#F9FFF9,#F1FFF3)!important}
+.receipt-head{background:linear-gradient(135deg,#388E3C,#2E7D32);color:#fff;border-radius:10px 10px 0 0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.receipt-stamp{width:52px;height:52px;border:3px solid rgba(255,255,255,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;text-transform:uppercase;color:#fff;text-align:center;line-height:1.2;flex-shrink:0}
+.receipt-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed #C8E6C9;font-size:12px}
+.receipt-row:last-child{border:none}
+.receipt-row .lbl{color:var(--muted);font-size:11px}
+.receipt-row .val{font-weight:700;font-family:var(--mono)}
+
+/* ── #9 Estimate → Invoice ref notice ── */
+.estimate-ref-notice{display:flex;align-items:center;gap:10px;background:#EDE7F6;border:1px solid #CE93D8;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#4A148C}
+.estimate-ref-notice i{color:#7B1FA2;font-size:14px;flex-shrink:0}
+
+/* ── #1 PDF download button ── */
+.pdf-dl-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:.2s;margin-top:8px}
+.pdf-dl-btn:hover{background:#00695C}
+.pdf-dl-btn:active{transform:scale(.98)}
+.pdf-dl-btn.loading{opacity:.7;pointer-events:none}
+
+/* ── #8 Dark mode ── */
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0F1117;--card:#1A1D27;--text:#E8EAF0;--border:#2A2D3A;
+    --muted:#8B92A5;--teal:#26A69A;--teal-bg:#1A2E2C;
+    --green:#4CAF50;--green-bg:#1A2E1B;--red-bg:#2E1A1A;
+  }
+  html{background:var(--bg)}
+  .portal-header{background:linear-gradient(135deg,#00695C,#004D40)}
+  .sticky-bar{background:rgba(15,17,23,.95)}
+  .qr-wrap{background:#fff}
+  .overdue-banner{background:linear-gradient(135deg,#2E1A1A,#3E1F1F);border-color:#6B2020}
+  .overdue-banner-title{color:#EF9A9A}
+  .overdue-banner-sub{color:#EF9A9A}
+  .receipt-card{background:linear-gradient(135deg,#0F1F12,#122016)!important;border-color:#2E5430!important}
+  .estimate-ref-notice{background:#1E1530;border-color:#4A2C6A;color:#CE93D8}
+  .btn-gpay{background:#1A1D27;color:var(--text);border-color:var(--border)}
+  .estimate-banner{background:linear-gradient(135deg,#1A1C30,#1E2040);border-color:#3949AB}
+  .error-box{background:var(--card);border-color:#6B2020}
+  table th{background:var(--bg)}
+  .line-tfoot{background:var(--bg)}
+  .progress-wrap{background:var(--bg)}
+  .upi-box{background:var(--teal-bg)}
+}
+
+@media print{
+  /* ── Reset & page setup ── */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  @page{margin:12mm 14mm;size:A4 portrait}
+  body{padding:0!important;background:#fff!important;font-size:13px!important;color:#111!important}
+  html{background:#fff!important;font-size:13px}
+
+  /* ── Hide interactive / screen-only elements ── */
+  .sticky-bar,.upi-pay-btns,.wa-contact-btn,.pdf-btn,.pdf-dl-btn,
+  .copy-btn,.overdue-banner,.qr-hint,.estimate-actions,
+  .btn-approve,.btn-reject{display:none!important}
+
+  /* ── Show things normally hidden on screen ── */
+  .qr-section,.receipt-card{display:block!important}
+
+  /* ── Flatten card chrome — no shadows, subtle borders ── */
+  .card{box-shadow:none!important;border:1px solid #ddd!important;border-radius:6px!important;margin-bottom:10px!important;break-inside:avoid}
+  .card-head{padding:9px 14px!important;font-size:11px!important;background:#f8f8f8!important;border-bottom:1px solid #ddd!important}
+  .card-body{padding:12px 14px!important}
+
+  /* ── Header — keep gradient, reduce padding ── */
+  .portal-header{border-radius:6px!important;padding:14px 18px!important;margin-bottom:10px!important;background:linear-gradient(135deg,#00897B,#00695C)!important;color:#fff!important}
+  .brand-name{font-size:14px!important}
+  .inv-num{font-size:16px!important}
+
+  /* ── Amount strip ── */
+  .amount-strip{border-radius:0 0 6px 6px!important}
+  .amt-cell{padding:10px!important}
+  .amt-cell .val{font-size:14px!important}
+
+  /* ── Progress bar ── */
+  .progress-wrap{padding:8px 14px 10px!important}
+  .progress-bar{height:5px!important}
+
+  /* ── Timeline compact ── */
+  .timeline-card{break-inside:avoid}
+  .tl-label{font-size:8px!important}
+  .tl-date{font-size:8px!important}
+
+  /* ── Tables ── */
+  table{font-size:12px!important;min-width:unset!important}
+  th{font-size:9px!important;padding:7px 10px!important}
+  td{padding:7px 10px!important}
+  .line-table{display:block!important}
+  .line-cards{display:none!important}
+  .col-qty,.col-amount,.col-qty-h,.col-amount-h{display:table-cell!important}
+
+  /* ── Receipt card ── */
+  .receipt-head{border-radius:4px 4px 0 0!important;padding:12px 16px!important}
+  .receipt-stamp{width:44px!important;height:44px!important;font-size:8px!important}
+  .receipt-row{padding:6px 0!important;font-size:11px!important}
+
+  /* ── Info grid ── */
+  .info-grid{gap:7px!important}
+  .info-item .val{font-size:12px!important}
+  .info-item label{font-size:9px!important}
+
+  /* ── Payment rows ── */
+  .pmt-row{padding:7px 0!important}
+  .pmt-method{font-size:11px!important}
+  .pmt-amt{font-size:12px!important}
+
+  /* ── QR section — center and compact ── */
+  .qr-section{margin-top:10px!important;padding-top:10px!important}
+  .qr-wrap{padding:7px!important}
+
+  /* ── Footer ── */
+  .footer{margin-top:14px!important;font-size:10px!important;border-top:1px solid #ddd;padding-top:8px}
+
+  /* ── Estimate banner ── */
+  .estimate-banner{padding:10px 14px!important;margin-bottom:10px!important}
+  .estimate-ref-notice{padding:7px 12px!important;margin-bottom:10px!important}
+
+  /* ── Thank you card ── */
+  .card[style*="linear-gradient(135deg, rgb(249"]{break-inside:avoid}
+
+  /* ── Wrap max width ── */
+  .wrap{max-width:100%!important}
 }
 </style>
 </head>
@@ -399,13 +570,122 @@ tr:last-child td{border:none}
   </div>
 </div>
 
+<!-- Estimate notice banner -->
+<?php if ($isEstimate): ?>
+<div class="estimate-banner">
+  <div class="estimate-banner-icon"><i class="fas fa-file-alt"></i></div>
+  <div class="estimate-banner-body">
+    <div class="estimate-banner-title">📋 This is an Estimate / Quotation</div>
+    <div class="estimate-banner-sub">
+      This is <strong>not a final invoice</strong>. Actual charges may vary based on the final scope of work.<br>
+      Valid until: <strong><?= fmt_date($inv['due_date'] ?? '') ?></strong>
+    </div>
+    <div class="estimate-actions">
+      <a href="<?= 'https://wa.me/' . (function() use ($companyPhone) { $w=preg_replace('/\D/','',$companyPhone); return strlen($w)===10?'91'.$w:$w; })() ?>?text=<?= urlencode('Hi, I APPROVE the Estimate '.$inv['invoice_number'].' for '.$companyName.'. Please proceed.') ?>" class="btn-approve" target="_blank">
+        <i class="fas fa-check-circle"></i> Approve via WhatsApp
+      </a>
+      <a href="<?= 'https://wa.me/' . (function() use ($companyPhone) { $w=preg_replace('/\D/','',$companyPhone); return strlen($w)===10?'91'.$w:$w; })() ?>?text=<?= urlencode('Hi, I have feedback on Estimate '.$inv['invoice_number'].' from '.$companyName.'. ') ?>" class="btn-reject" target="_blank">
+        <i class="fas fa-comment-dots"></i> Request Changes
+      </a>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php
+// ── #5 Overdue urgency banner ──────────────────────────────
+$daysOverdue = 0;
+if (($inv['status'] ?? '') === 'Overdue' && !empty($inv['due_date'])) {
+    $daysOverdue = (int)floor((time() - strtotime($inv['due_date'])) / 86400);
+}
+?>
+<?php if (($inv['status'] ?? '') === 'Overdue'): ?>
+<div class="overdue-banner">
+  <div class="overdue-banner-icon"><i class="fas fa-exclamation-triangle"></i></div>
+  <div class="overdue-banner-body">
+    <div class="overdue-banner-title">Payment Overdue<?= $daysOverdue > 0 ? ' by ' . $daysOverdue . ' day' . ($daysOverdue > 1 ? 's' : '') : '' ?></div>
+    <div class="overdue-banner-sub">This invoice was due on <strong><?= fmt_date($inv['due_date'] ?? '') ?></strong>. Please clear the balance at the earliest.</div>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php
+// ── #4 Invoice timeline ────────────────────────────────────
+// Steps: Issued → Viewed → Partial → Paid/Overdue
+$tlStatus  = $inv['status'] ?? '';
+$tlIssued  = !empty($inv['issue_date']);
+$tlViewed  = true; // they're viewing it right now
+$tlPartial = in_array($tlStatus, ['Partial','Paid']);
+$tlPaid    = ($tlStatus === 'Paid');
+$tlOverdue = ($tlStatus === 'Overdue');
+?>
+<?php if (!$isEstimate): ?>
+<div class="card timeline-card">
+  <div class="card-head"><i class="fas fa-stream"></i> Invoice Timeline</div>
+  <div class="card-body" style="padding:14px 18px 18px">
+    <div class="timeline">
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+        <div class="tl-label">Issued</div>
+        <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
+        <div class="tl-label">Viewed</div>
+        <div class="tl-date">Now</div>
+      </div>
+      <?php if ($tlStatus === 'Paid'): ?>
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+        <div class="tl-label">Paid</div>
+        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+      </div>
+      <?php elseif ($tlStatus === 'Partial'): ?>
+      <div class="tl-step">
+        <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
+        <div class="tl-label">Partial</div>
+        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+        <div class="tl-label">Balance</div>
+        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php elseif ($tlOverdue): ?>
+      <div class="tl-step">
+        <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
+        <div class="tl-label">Overdue</div>
+        <div class="tl-date">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php else: ?>
+      <div class="tl-step">
+        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+        <div class="tl-label">Pending</div>
+        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- Amount summary -->
 <div class="card">
   <div class="amount-strip" style="border-radius:12px 12px 0 0">
     <div class="amt-cell">
-      <div class="lbl">Invoice Total</div>
+      <div class="lbl"><?= $isEstimate ? 'Estimated Total' : 'Invoice Total' ?></div>
       <div class="val" style="color:var(--teal)"><?= fmt_inr($totalAmt, $sym) ?></div>
     </div>
+    <?php if ($isEstimate): ?>
+    <div class="amt-cell">
+      <div class="lbl">Valid Until</div>
+      <div class="val" style="color:#3949AB;font-size:13px"><?= fmt_date($inv['due_date'] ?? '') ?></div>
+    </div>
+    <div class="amt-cell">
+      <div class="lbl">Status</div>
+      <div class="val" style="color:#3949AB;font-size:13px">Awaiting Approval</div>
+    </div>
+    <?php else: ?>
     <div class="amt-cell">
       <div class="lbl">Amount Paid</div>
       <div class="val" style="color:var(--green)"><?= fmt_inr($totalCovered, $sym) ?></div>
@@ -421,14 +701,15 @@ tr:last-child td{border:none}
         <?= $remaining > 0 ? fmt_inr($remaining, $sym) : '✓ Cleared' ?>
       </div>
     </div>
+    <?php endif; ?>
   </div>
-  <?php if ($totalAmt > 0): ?>
+  <?php if ($totalAmt > 0 && !$isEstimate): ?>
   <div class="progress-wrap">
     <div class="progress-bar"><div class="progress-fill" style="width:<?= $pct ?>%"></div></div>
     <div class="progress-meta">
-      <span class="paid-label"><?= fmt_inr($totalCovered, $sym) ?> paid (<?= $pct ?>%)</span>
+      <span class="paid-label"><?= fmt_inr($totalCovered, $sym) ?> paid of <?= fmt_inr($totalAmt, $sym) ?> (<?= $pct ?>%)</span>
       <?php if ($remaining > 0.01): ?>
-      <span class="bal-label"><?= fmt_inr($remaining, $sym) ?> due</span>
+      <span class="bal-label"><?= fmt_inr($remaining, $sym) ?> remaining</span>
       <?php else: ?>
       <span style="color:var(--green);font-weight:700">✓ Fully Paid</span>
       <?php endif; ?>
@@ -437,18 +718,36 @@ tr:last-child td{border:none}
   <?php endif; ?>
 </div>
 
-<!-- Invoice details -->
+<!-- #9 Estimate → Invoice conversion notice -->
+<?php
+$estRef = $settings['estimate_ref_' . ($inv['invoice_id'] ?? '')] ?? '';
+// Also check if invoice_number suggests a converted estimate (e.g. service_type has "EST-" ref stored in notes)
+$estRefInNotes = '';
+if (!$isEstimate && !empty($inv['notes'])) {
+    if (preg_match('/(?:estimate|quote|quotation)[:\s#]+([A-Z0-9\-]+)/i', $inv['notes'], $m)) {
+        $estRefInNotes = $m[1];
+    }
+}
+?>
+<?php if (!$isEstimate && $estRefInNotes): ?>
+<div class="estimate-ref-notice">
+  <i class="fas fa-link"></i>
+  <span>Originally quoted as Estimate <strong><?= htmlspecialchars($estRefInNotes) ?></strong> — converted to this invoice.</span>
+</div>
+<?php endif; ?>
+
+<!-- Invoice / Estimate details -->
 <div class="card">
-  <div class="card-head"><i class="fas fa-file-invoice"></i> Invoice Details</div>
+  <div class="card-head"><i class="fas fa-file-invoice"></i> <?= $isEstimate ? 'Estimate Details' : 'Invoice Details' ?></div>
   <div class="card-body">
     <div class="info-grid">
-      <div class="info-item"><label>Invoice #</label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span></div>
+      <div class="info-item"><label><?= $isEstimate ? 'Quote #' : 'Invoice #' ?></label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span></div>
       <div class="info-item"><label>Service</label><span class="val"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></span></div>
-      <div class="info-item"><label>Issue Date</label><span class="val"><?= fmt_date($inv['issue_date'] ?? '') ?></span></div>
-      <div class="info-item"><label>Due Date</label>
-        <span class="val" style="color:<?= $inv['status']==='Overdue' ? 'var(--red)' : 'inherit' ?>">
+      <div class="info-item"><label><?= $isEstimate ? 'Date Issued' : 'Issue Date' ?></label><span class="val"><?= fmt_date($inv['issue_date'] ?? '') ?></span></div>
+      <div class="info-item"><label><?= $isEstimate ? 'Valid Until' : 'Due Date' ?></label>
+        <span class="val" style="color:<?= (!$isEstimate && $inv['status']==='Overdue') ? 'var(--red)' : 'inherit' ?>">
           <?= fmt_date($inv['due_date'] ?? '') ?>
-          <?php if ($inv['status']==='Overdue'): ?> <i class="fas fa-exclamation-triangle" style="color:var(--red);font-size:11px"></i><?php endif; ?>
+          <?php if (!$isEstimate && $inv['status']==='Overdue'): ?> <i class="fas fa-exclamation-triangle" style="color:var(--red);font-size:11px"></i><?php endif; ?>
         </span>
       </div>
       <?php if (!empty($inv['gst_rate'])): ?>
@@ -484,7 +783,7 @@ $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($items):
 ?>
 <div class="card" style="padding:0">
-  <div class="card-head" style="padding:14px 18px"><i class="fas fa-list-ul"></i> Line Items</div>
+  <div class="card-head" style="padding:14px 18px"><i class="fas fa-list-ul"></i> <?= $isEstimate ? 'Estimate Items' : 'Line Items' ?></div>
 
   <!-- Desktop table -->
   <div class="line-table">
@@ -593,10 +892,22 @@ if ($items):
     <?php endforeach; ?>
     <div class="line-tfoot">
       <div class="line-tfoot-row"><span>Subtotal</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_subtotal, $sym) ?></span></div>
-      <?php if ($mc_discount > 0): ?>
-      <div class="line-tfoot-row" style="color:var(--red)"><span>Discount</span><span style="font-family:var(--mono)">− <?= fmt_inr($mc_discount, $sym) ?></span></div>
-      <?php endif; ?>
+      <?php if ($mc_discount > 0):
+        $mc_after_disc  = $mc_subtotal - $mc_discount;
+        $mc_disc_factor = $mc_subtotal > 0 ? (1 - $mc_discount / $mc_subtotal) : 1;
+        $mc_gst_after   = $mc_gst * $mc_disc_factor;
+        $mc_grand       = $mc_after_disc + $mc_gst_after;
+        $mc_disc_pct    = (float)($inv['discount_pct'] ?? 0);
+      ?>
+      <div class="line-tfoot-row" style="color:var(--red)">
+        <span>Discount<?= $mc_disc_pct > 0 ? ' (' . (int)$mc_disc_pct . '%)' : '' ?></span>
+        <span style="font-family:var(--mono)">− <?= fmt_inr($mc_discount, $sym) ?></span>
+      </div>
+      <div class="line-tfoot-row"><span>After Discount</span><span style="font-family:var(--mono);font-weight:600"><?= fmt_inr($mc_after_disc, $sym) ?></span></div>
+      <div class="line-tfoot-row"><span>GST</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_gst_after, $sym) ?></span></div>
+      <?php else: ?>
       <div class="line-tfoot-row"><span>GST</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_gst, $sym) ?></span></div>
+      <?php endif; ?>
       <div class="line-tfoot-row grand"><span>Grand Total</span><span style="font-family:var(--mono)"><?= fmt_inr($mc_grand, $sym) ?></span></div>
     </div>
   </div><!-- end line-cards -->
@@ -604,8 +915,8 @@ if ($items):
 </div>
 <?php endif; ?>
 
-<!-- Payment history -->
-<?php if ($payments): ?>
+<!-- Payment history (not shown for estimates) -->
+<?php if ($payments && !$isEstimate): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-receipt"></i> Payment History</div>
   <div class="card-body" style="padding:0 18px">
@@ -640,8 +951,67 @@ if ($items):
 </div>
 <?php endif; ?>
 
-<!-- Pay now (only if balance due) -->
-<?php if ($remaining > 0.01 && $companyUPI): ?>
+<!-- #2 Payment Receipt (shown when fully Paid) -->
+<?php if (($inv['status'] ?? '') === 'Paid' && $payments): ?>
+<?php
+  $lastPmt    = end($payments);
+  $receiptNum = 'RCPT-' . strtoupper(substr(md5($inv['invoice_number'].$totalCash), 0, 8));
+?>
+<div class="card receipt-card">
+  <div class="receipt-head">
+    <div>
+      <div style="font-size:11px;opacity:.75;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px">Payment Receipt</div>
+      <div style="font-size:17px;font-weight:800;font-family:var(--mono)"><?= $receiptNum ?></div>
+    </div>
+    <div class="receipt-stamp">PAID<br>✓</div>
+  </div>
+  <div class="card-body">
+    <div class="receipt-row">
+      <span class="lbl">Invoice</span>
+      <span class="val"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span>
+    </div>
+    <div class="receipt-row">
+      <span class="lbl">Client</span>
+      <span class="val"><?= htmlspecialchars($client['name'] ?? '—') ?></span>
+    </div>
+    <div class="receipt-row">
+      <span class="lbl">Amount Paid</span>
+      <span class="val" style="color:var(--green);font-size:15px"><?= fmt_inr($totalCash, $sym) ?></span>
+    </div>
+    <?php if ($totalSettle > 0.01): ?>
+    <div class="receipt-row">
+      <span class="lbl">Settlement Discount</span>
+      <span class="val" style="color:var(--orange)">− <?= fmt_inr($totalSettle, $sym) ?></span>
+    </div>
+    <?php endif; ?>
+    <div class="receipt-row">
+      <span class="lbl">Payment Method</span>
+      <span class="val"><?= htmlspecialchars($lastPmt['method'] ?? 'UPI') ?></span>
+    </div>
+    <?php if (!empty($lastPmt['transaction_id'])): ?>
+    <div class="receipt-row">
+      <span class="lbl">Transaction Ref</span>
+      <span class="val"><?= htmlspecialchars($lastPmt['transaction_id']) ?></span>
+    </div>
+    <?php endif; ?>
+    <div class="receipt-row">
+      <span class="lbl">Payment Date</span>
+      <span class="val"><?= fmt_date($lastPmt['payment_date'] ?? '') ?></span>
+    </div>
+    <div class="receipt-row">
+      <span class="lbl">Issued By</span>
+      <span class="val"><?= htmlspecialchars($companyName) ?></span>
+    </div>
+    <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #C8E6C9">
+      <div style="font-size:11px;color:var(--muted)">This is an auto-generated payment receipt</div>
+      <button class="pdf-dl-btn" style="max-width:260px;margin:10px auto 0" onclick="downloadPDF()">
+        <i class="fas fa-file-download"></i> Download Receipt as PDF
+      </button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+<?php if ($remaining > 0.01 && $companyUPI && !$isEstimate): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-mobile-alt"></i> Pay Now</div>
   <div class="card-body">
@@ -675,18 +1045,77 @@ if ($items):
         <i class="fas fa-mobile-alt"></i> Paytm
       </a>
     </div>
+    <!-- Dynamic UPI QR Code — only for Pending, Overdue, Partial -->
+    <?php $invStatus = $inv['status'] ?? ''; ?>
+    <?php if (in_array($invStatus, ['Pending', 'Overdue', 'Partial'])): ?>
+    <div class="qr-section">
+      <div class="qr-label"><i class="fas fa-qrcode"></i> Scan to Pay</div>
+      <div class="qr-wrap">
+        <div id="upiQrCode"></div>
+      </div>
+      <div class="qr-amt"><?= fmt_inr($remaining, $sym) ?></div>
+      <div class="qr-hint">Open any UPI app &amp; scan — amount is pre-filled</div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($companyQR): ?>
     <div style="text-align:center;margin-top:14px">
-      <img src="<?= htmlspecialchars($companyQR) ?>" alt="QR Code" style="width:150px;height:150px;border-radius:10px;border:1px solid var(--border)">
-      <div style="font-size:11px;color:var(--muted);margin-top:6px">Scan & Pay</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">Or use saved QR</div>
+      <img src="<?= htmlspecialchars($companyQR) ?>" alt="QR Code" style="width:130px;height:130px;border-radius:10px;border:1px solid var(--border)">
     </div>
     <?php endif; ?>
   </div>
 </div>
 <?php endif; ?>
 
-<!-- Notes & T&C -->
-<?php if (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
+<script>
+// Generate dynamic UPI QR — only for Pending / Overdue / Partial
+<?php if (in_array($inv['status'] ?? '', ['Pending', 'Overdue', 'Partial'])): ?>
+(function() {
+  var upiString = <?= json_encode($upiBase) ?>;
+  function renderQR() {
+    var el = document.getElementById('upiQrCode');
+    if (!el || typeof QRCode === 'undefined') return;
+    new QRCode(el, {
+      text       : upiString,
+      width      : 160,
+      height     : 160,
+      colorDark  : '#00695C',
+      colorLight : '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderQR);
+  } else {
+    renderQR();
+  }
+})();
+<?php endif; ?>
+</script>
+
+<!-- Thank You (Paid) / Notes & T&C (others) -->
+<?php if (($inv['status'] ?? '') === 'Paid'): ?>
+<div class="card" style="border-color:#C8E6C9;background:linear-gradient(135deg,#F1FFF3,#E8F5E9)">
+  <div class="card-body" style="text-align:center;padding:32px 24px">
+    <div style="font-size:48px;margin-bottom:12px">🎉</div>
+    <div style="font-size:20px;font-weight:800;color:var(--green);margin-bottom:8px">Thank You!</div>
+    <div style="font-size:13px;color:#2E7D32;font-weight:500;margin-bottom:6px">
+      Payment received for invoice <strong><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></strong>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;max-width:320px;margin:0 auto">
+      We truly appreciate your prompt payment and your trust in <strong><?= htmlspecialchars($companyName) ?></strong>. Looking forward to serving you again!
+    </div>
+    <?php if ($companyPhone): ?>
+    <?php $waPhone = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone)===10) $waPhone='91'.$waPhone; ?>
+    <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi '.$companyName.', thank you for the service!') ?>" target="_blank"
+       style="display:inline-flex;align-items:center;gap:6px;margin-top:18px;padding:9px 20px;background:#25D366;color:#fff;border-radius:24px;font-size:12px;font-weight:700;text-decoration:none">
+      <i class="fab fa-whatsapp" style="font-size:15px"></i> Say Hi on WhatsApp
+    </a>
+    <?php endif; ?>
+  </div>
+</div>
+<?php elseif (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-sticky-note"></i> Notes & Terms</div>
   <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
@@ -725,18 +1154,21 @@ if ($items):
     </div>
     <?php if ($companyPhone): ?>
     <?php $waPhone = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone)===10) $waPhone='91'.$waPhone; ?>
-    <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi, I have a query regarding Invoice '.$inv['invoice_number']) ?>" class="wa-contact-btn" target="_blank">
+    <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi, I have a query regarding '.($isEstimate?'Estimate':'Invoice').' '.$inv['invoice_number']) ?>" class="wa-contact-btn" target="_blank">
       <i class="fab fa-whatsapp" style="font-size:16px"></i> Chat with us on WhatsApp
     </a>
     <?php endif; ?>
     <button class="pdf-btn" onclick="window.print()">
-      <i class="fas fa-download"></i> Download / Print Invoice
+      <i class="fas fa-print"></i> Print <?= $isEstimate ? 'Estimate' : 'Invoice' ?>
+    </button>
+    <button class="pdf-dl-btn" onclick="downloadPDF()">
+      <i class="fas fa-file-pdf"></i> Download as PDF
     </button>
   </div>
 </div>
 
 <div class="footer">
-  <div>This is a secure, read-only view of your invoice.</div>
+  <div>This is a secure, read-only view of your <?= $isEstimate ? 'estimate' : 'invoice' ?>.</div>
   <div>Generated by <strong><?= htmlspecialchars($companyName) ?></strong> · Powered by OPTMS Invoice Manager</div>
 </div>
 
@@ -744,7 +1176,7 @@ if ($items):
 </div>
 
 <script>
-// Sticky bar on scroll
+// ── Sticky bar on scroll ──────────────────────────────────────
 (function(){
   const bar = document.getElementById('stickyBar');
   const hdr = document.querySelector('.portal-header');
@@ -755,6 +1187,7 @@ if ($items):
   obs.observe(hdr);
 })();
 
+// ── Copy UPI ID ───────────────────────────────────────────────
 function copyUPI() {
   const id  = document.getElementById('upiId')?.textContent?.trim();
   const btn = document.getElementById('copyBtn');
@@ -772,6 +1205,60 @@ function fallback(text,cb) {
   document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand('copy');}catch(e){}
   document.body.removeChild(ta); cb();
 }
+
+// ── #1 Native print-to-PDF (vector quality) ───────────────────
+function downloadPDF() {
+  // Give the browser a hint about the filename via <title>
+  const origTitle = document.title;
+  document.title = <?= json_encode(($isEstimate ? 'Estimate' : 'Invoice') . '-' . ($inv['invoice_number'] ?? 'doc')) ?>;
+  window.print();
+  // Restore title after print dialog closes
+  setTimeout(() => { document.title = origTitle; }, 1000);
+}
+
+// ── Dynamic UPI QR (Pending / Overdue / Partial only) ─────────
+<?php if (in_array($inv['status'] ?? '', ['Pending', 'Overdue', 'Partial'])): ?>
+<?php
+  $upiEncoded = $upiEncoded ?? urlencode($companyUPI);
+  $payeeName  = $payeeName  ?? urlencode($companyName);
+  $amtParam   = $amtParam   ?? number_format($remaining, 2, '.', '');
+  $upiBase    = $upiBase    ?? "upi://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR";
+?>
+(function() {
+  var upiString = <?= json_encode($upiBase) ?>;
+  function renderQR() {
+    var el = document.getElementById('upiQrCode');
+    if (!el || typeof QRCode === 'undefined') return;
+    new QRCode(el, {
+      text        : upiString,
+      width       : 160,
+      height      : 160,
+      colorDark   : '#00695C',
+      colorLight  : '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderQR);
+  } else {
+    renderQR();
+  }
+})();
+<?php endif; ?>
+
+<?php if ($isEstimate): ?>
+// ── Estimate approve/reject toast ─────────────────────────────
+document.querySelectorAll('.btn-approve,.btn-reject').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const isApprove = this.classList.contains('btn-approve');
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:'+(isApprove?'#388E3C':'#3949AB')+';color:#fff;padding:10px 22px;border-radius:24px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:opacity .4s';
+    toast.textContent = isApprove ? '✅ Opening WhatsApp to approve…' : '💬 Opening WhatsApp for feedback…';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity='0'; setTimeout(()=>toast.remove(),400); }, 2800);
+  });
+});
+<?php endif; ?>
 </script>
 </body>
 </html>
