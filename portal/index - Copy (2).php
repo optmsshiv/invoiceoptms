@@ -185,6 +185,19 @@ $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
 $totalPaid     = $totalCash;                          // cash received (shown as "Amount Paid")
 $totalCovered  = $totalCash + $totalSettle;           // cash + settlement discount
+
+// FIX: invoice marked Paid directly (no payment rows recorded) —
+// treat full amount as paid so portal shows ₹0 balance, not full amount due
+if (($inv['status'] ?? '') === 'Paid' && $totalCovered < 0.01) {
+    $totalPaid    = $totalAmt;
+    $totalCovered = $totalAmt;
+}
+// FIX: invoice marked Partial directly — show what's been covered
+if (($inv['status'] ?? '') === 'Partial' && $totalCovered < 0.01) {
+    $totalPaid    = 0;
+    $totalCovered = 0;
+}
+
 $remaining     = max(0, $totalAmt - $totalCovered);
 $pct           = $totalAmt > 0 ? min(100, round($totalCovered / $totalAmt * 100)) : 0;
 
@@ -635,10 +648,16 @@ $tlOverdue = ($tlStatus === 'Overdue');
         <div class="tl-date">Now</div>
       </div>
       <?php if ($tlStatus === 'Paid'): ?>
+      <?php
+        // FIX: if paid directly (no payment rows), fall back to issue_date
+        $paidDateStr = !empty($payments)
+            ? fmt_date(end($payments)['payment_date'])
+            : (!empty($inv['issue_date']) ? fmt_date($inv['issue_date']) : '—');
+      ?>
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
         <div class="tl-label">Paid</div>
-        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+        <div class="tl-date"><?= $paidDateStr ?></div>
       </div>
       <?php elseif ($tlStatus === 'Partial'): ?>
       <div class="tl-step">
@@ -1216,7 +1235,35 @@ function downloadPDF() {
   setTimeout(() => { document.title = origTitle; }, 1000);
 }
 
-// QR rendering handled above
+// ── Dynamic UPI QR (Pending / Overdue / Partial only) ─────────
+<?php if (in_array($inv['status'] ?? '', ['Pending', 'Overdue', 'Partial'])): ?>
+<?php
+  $upiEncoded = $upiEncoded ?? urlencode($companyUPI);
+  $payeeName  = $payeeName  ?? urlencode($companyName);
+  $amtParam   = $amtParam   ?? number_format($remaining, 2, '.', '');
+  $upiBase    = $upiBase    ?? "upi://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR";
+?>
+(function() {
+  var upiString = <?= json_encode($upiBase) ?>;
+  function renderQR() {
+    var el = document.getElementById('upiQrCode');
+    if (!el || typeof QRCode === 'undefined') return;
+    new QRCode(el, {
+      text        : upiString,
+      width       : 160,
+      height      : 160,
+      colorDark   : '#00695C',
+      colorLight  : '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderQR);
+  } else {
+    renderQR();
+  }
+})();
+<?php endif; ?>
 
 <?php if ($isEstimate): ?>
 // ── Estimate approve/reject toast ─────────────────────────────
