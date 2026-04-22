@@ -1235,35 +1235,7 @@ function downloadPDF() {
   setTimeout(() => { document.title = origTitle; }, 1000);
 }
 
-// ── Dynamic UPI QR (Pending / Overdue / Partial only) ─────────
-<?php if (in_array($inv['status'] ?? '', ['Pending', 'Overdue', 'Partial'])): ?>
-<?php
-  $upiEncoded = $upiEncoded ?? urlencode($companyUPI);
-  $payeeName  = $payeeName  ?? urlencode($companyName);
-  $amtParam   = $amtParam   ?? number_format($remaining, 2, '.', '');
-  $upiBase    = $upiBase    ?? "upi://pay?pa={$upiEncoded}&pn={$payeeName}&am={$amtParam}&cu=INR";
-?>
-(function() {
-  var upiString = <?= json_encode($upiBase) ?>;
-  function renderQR() {
-    var el = document.getElementById('upiQrCode');
-    if (!el || typeof QRCode === 'undefined') return;
-    new QRCode(el, {
-      text        : upiString,
-      width       : 160,
-      height      : 160,
-      colorDark   : '#00695C',
-      colorLight  : '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderQR);
-  } else {
-    renderQR();
-  }
-})();
-<?php endif; ?>
+// QR rendering handled above
 
 <?php if ($isEstimate): ?>
 // ── Estimate approve/reject toast ─────────────────────────────
