@@ -1,4 +1,13 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+set_exception_handler(function($e) {
+    header('Content-Type: text/plain', true, 500);
+    echo get_class($e) . ": " . $e->getMessage() . "\n";
+    echo "File: " . $e->getFile() . " Line: " . $e->getLine() . "\n";
+    echo $e->getTraceAsString();
+    exit;
+});
 // ================================================================
 //  api/pdf.php  — Server-side PDF generation using mPDF
 //
