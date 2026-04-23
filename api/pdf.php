@@ -6,22 +6,22 @@
 //  GET /api/pdf.php?t=TOKEN&inline=1  → view in browser instead
 //
 //  No login required — uses same portal token as portal/index.php
-//  mPDF must be installed via composer in vendor/
 // ================================================================
 
-// Suppress all output until we are ready to stream PDF
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Never leak errors into PDF stream
+ini_set('display_errors', 0); // Never leak PHP errors into the PDF binary stream
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../config/db.php';
 
 // ── Locate mPDF via autoloader ────────────────────────────────
 $autoloadPaths = [
-    __DIR__ . '/vendor/autoload.php',                    // /api/vendor/autoload.php
-    dirname(__DIR__) . '/vendor/autoload.php',           // /invoiceoptms/vendor/autoload.php
-    dirname(dirname(__DIR__)) . '/vendor/autoload.php',  // /public_html/vendor/autoload.php
-    $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php',  // doc root/vendor/autoload.php
+    __DIR__ . '/vendor/autoload.php',                        // /api/vendor/autoload.php
+    dirname(__DIR__) . '/vendor/autoload.php',               // /invoiceoptms/vendor/autoload.php
+    dirname(dirname(__DIR__)) . '/vendor/autoload.php',      // /public_html/vendor/autoload.php
+    $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php',
+    $_SERVER['DOCUMENT_ROOT'] . '/invoiceoptms/api/vendor/autoload.php',
+    $_SERVER['DOCUMENT_ROOT'] . '/invoiceoptms/vendor/autoload.php',
 ];
 
 $loaded = false;
@@ -37,7 +37,7 @@ if (!$loaded || !class_exists('\Mpdf\Mpdf')) {
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode([
-        'error' => 'mPDF not found. Ensure vendor/autoload.php exists. Checked: ' . implode(', ', $autoloadPaths)
+        'error' => 'mPDF not found. Checked: ' . implode(', ', $autoloadPaths)
     ]);
     exit;
 }
@@ -101,7 +101,6 @@ if ($error || $invoiceId <= 0) {
 try {
     $db = getDB();
 
-    // Invoice
     $stmt = $db->prepare("
         SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                i.due_date, i.grand_total AS amount, i.subtotal,
@@ -121,22 +120,18 @@ try {
         exit;
     }
 
-    // Client
     $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Line items
     $iStmt = $db->prepare('SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
     $iStmt->execute([':id' => $inv['invoice_id']]);
     $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Payments
     $pStmt = $db->prepare('SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount, payment_date, method, transaction_id FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC');
     $pStmt->execute([':id' => $inv['invoice_id']]);
     $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Settings
     $settings = [];
     $sRows = $db->query("SELECT `key`, value FROM settings")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($sRows as $r) $settings[$r['key']] = $r['value'];
@@ -159,8 +154,8 @@ $totalCovered = $totalCash + $totalSettle;
 if ($inv['status'] === 'Paid' && $totalCovered < 0.01) $totalCovered = $totalAmt;
 $remaining = max(0, $totalAmt - $totalCovered);
 
-// Line item totals
-$calcSubtotal = 0; $calcGst = 0;
+$calcSubtotal = 0;
+$calcGst      = 0;
 foreach ($items as $item) {
     $a = (float)$item['qty'] * (float)$item['rate'];
     $calcSubtotal += $a;
@@ -173,7 +168,6 @@ $discFactor   = $calcSubtotal > 0 ? (1 - $discountAmt / $calcSubtotal) : 1;
 $calcGstFinal = $discountAmt > 0 ? $calcGst * $discFactor : $calcGst;
 $calcGrand    = $calcSubtotal - $discountAmt + $calcGstFinal;
 
-// Company info
 $companyName    = $settings['company_name']    ?? 'OPTMS Tech';
 $companyAddress = $settings['company_address'] ?? '';
 $companyGST     = $settings['company_gst']     ?? '';
@@ -206,8 +200,11 @@ $stLabel = match($inv['status']) {
     default     => strtoupper($inv['status'] ?? '')
 };
 
-// ── Build HTML for mPDF ───────────────────────────────────────
-// Use a variable — do NOT use ob_start() here to avoid buffer conflicts
+// ── Build HTML into a string — NO ob_start() to avoid buffer corruption ──
+$balanceBg     = $remaining > 0 ? '#FFEBEE' : '#E8F5E9';
+$balanceBorder = $remaining > 0 ? '#FFCDD2' : '#C8E6C9';
+$balanceColor  = $remaining > 0 ? '#C62828' : '#2E7D32';
+
 $html = '<!DOCTYPE html>
 <html>
 <head>
@@ -216,7 +213,6 @@ $html = '<!DOCTYPE html>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: dejavusans, Arial, sans-serif; font-size: 11px; color: #1A1A2E; background: #fff; }
 
-/* Header */
 .header { background: #00897B; padding: 20px 24px; color: #fff; margin-bottom: 0; }
 .company-name { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 3px; }
 .company-sub { font-size: 10px; color: #cceeec; line-height: 1.6; }
@@ -224,31 +220,25 @@ body { font-family: dejavusans, Arial, sans-serif; font-size: 11px; color: #1A1A
 .inv-num { font-size: 20px; font-weight: bold; color: #fff; font-family: dejavusansmono, monospace; }
 .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 9px; font-weight: bold; letter-spacing: .8px; margin-top: 6px; background: ' . $stBg . '; color: ' . $stFg . '; }
 
-/* Divider */
 .header-bar { height: 4px; background: #26A69A; margin-bottom: 16px; }
 
-/* Cards */
 .card { border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
 .card-head { padding: 9px 14px; background: #F8F9FA; border-bottom: 1px solid #E5E7EB; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #6B7280; }
 .card-body { padding: 12px 14px; }
 
-/* Two-column layout */
 .two-col { width: 100%; }
 .two-col td { vertical-align: top; width: 50%; padding: 0 8px 0 0; }
 .two-col td:last-child { padding-left: 16px; border-left: 1px solid #E5E7EB; }
 
-/* Info labels */
 .info-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; }
 .info-val { font-size: 11px; font-weight: 600; color: #1A1A2E; }
 
-/* Amount strip */
 .amt-strip { width: 100%; border-top: 2px solid #00897B; margin-bottom: 12px; }
 .amt-strip td { text-align: center; padding: 12px 8px; border-right: 1px solid #E5E7EB; }
 .amt-strip td:last-child { border-right: none; }
 .amt-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; margin-bottom: 4px; }
 .amt-val { font-size: 15px; font-weight: bold; }
 
-/* Line items table */
 .items-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .items-table th { padding: 8px 10px; background: #F8F9FA; border-bottom: 2px solid #E5E7EB; text-align: left; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #6B7280; }
 .items-table th.r, .items-table td.r { text-align: right; }
@@ -257,7 +247,6 @@ body { font-family: dejavusans, Arial, sans-serif; font-size: 11px; color: #1A1A
 .item-name { font-weight: 600; font-size: 12px; }
 .mono { font-family: dejavusansmono, monospace; }
 
-/* Totals footer */
 .tfoot-row td { padding: 4px 10px; text-align: right; }
 .tfoot-lbl { font-size: 10px; color: #6B7280; }
 .tfoot-val { font-size: 11px; font-family: dejavusansmono, monospace; min-width: 90px; }
@@ -266,43 +255,35 @@ body { font-family: dejavusans, Arial, sans-serif; font-size: 11px; color: #1A1A
 .tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #00897B; }
 .disc-val { color: #C62828; }
 
-/* Payment history */
 .pmt-method { font-weight: 600; font-size: 11px; }
 .pmt-date { font-size: 10px; color: #6B7280; }
 .pmt-txn { font-size: 9px; color: #9CA3AF; font-family: dejavusansmono, monospace; }
 .pmt-amt { font-weight: bold; color: #388E3C; font-family: dejavusansmono, monospace; }
 
-/* Notes / Terms */
 .notes-box { font-size: 11px; line-height: 1.6; color: #374151; }
 .section-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; margin-bottom: 5px; }
 
-/* Watermark */
-.watermark { position: fixed; top: 40%; left: 15%; font-size: 80px; font-weight: bold; color: #e0f0e0; z-index: -1; letter-spacing: 8px; transform: rotate(-30deg); }
+.watermark { position: fixed; top: 40%; left: 10%; font-size: 80px; font-weight: bold; color: #e0f0e0; z-index: -1; }
 
-/* Signature */
 .signature-block { text-align: right; padding-top: 16px; margin-top: 8px; border-top: 1px dashed #E5E7EB; }
 .sig-line { width: 160px; border-bottom: 1.5px solid #9CA3AF; margin-left: auto; margin-bottom: 5px; height: 40px; }
 .sig-label { font-size: 9px; color: #9CA3AF; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; }
 
-/* Footer */
 .pdf-footer { text-align: center; font-size: 9px; color: #9CA3AF; padding-top: 12px; margin-top: 8px; border-top: 1px solid #E5E7EB; line-height: 1.8; }
 
-/* Balance section */
-.balance-bar { background: ' . ($remaining > 0 ? '#FFEBEE' : '#E8F5E9') . '; border: 1px solid ' . ($remaining > 0 ? '#FFCDD2' : '#C8E6C9') . '; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
-.balance-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: ' . ($remaining > 0 ? '#C62828' : '#2E7D32') . '; margin-bottom: 4px; }
-.balance-val { font-size: 16px; font-weight: bold; color: ' . ($remaining > 0 ? '#C62828' : '#2E7D32') . '; font-family: dejavusansmono, monospace; }
+.balance-bar { background: ' . $balanceBg . '; border: 1px solid ' . $balanceBorder . '; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+.balance-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: ' . $balanceColor . '; margin-bottom: 4px; }
+.balance-val { font-size: 16px; font-weight: bold; color: ' . $balanceColor . '; font-family: dejavusansmono, monospace; }
 
-/* Logo */
 .logo-img { max-height: 48px; max-width: 140px; }
 
-/* Estimate banner */
 .estimate-banner { background: #E8EAF6; border: 1px solid #9FA8DA; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px; color: #3949AB; }
 .estimate-banner strong { color: #1A237E; }
 </style>
 </head>
 <body>';
 
-// Watermark for paid invoices
+// Watermark
 if ($inv['status'] === 'Paid') {
     $html .= '<div class="watermark">PAID</div>';
 }
@@ -320,9 +301,10 @@ if ($companyLogo) {
 $html .= '<div class="company-name">' . htmlspecialchars($companyName) . '</div>
         <div class="company-sub">';
 if ($companyAddress) $html .= nl2br(htmlspecialchars($companyAddress)) . '<br>';
-if ($companyPhone)   $html .= 'Tel: ' . htmlspecialchars($companyPhone);
+if ($companyPhone)   $html .= 'Mob: ' . htmlspecialchars($companyPhone);
 if ($companyEmail)   $html .= '  Email: ' . htmlspecialchars($companyEmail);
 if ($companyGST)     $html .= '<br>GSTIN: ' . htmlspecialchars($companyGST);
+
 $html .= '</div>
       </td>
       <td style="text-align:right;vertical-align:top">
@@ -335,7 +317,7 @@ $html .= '</div>
 </div>
 <div class="header-bar"></div>';
 
-// Estimate banner
+// Estimate banner (no emoji — not safe in mPDF)
 if ($isEstimate) {
     $html .= '<div class="estimate-banner">
   <strong>This is an Estimate / Quotation - not a final invoice.</strong>
@@ -344,35 +326,32 @@ if ($isEstimate) {
 }
 
 // ── Amount Summary Strip ───────────────────────────────────────
-$html .= '<table class="amt-strip" width="100%">
-  <tr>
-    <td>
-      <div class="amt-lbl">' . ($isEstimate ? 'Estimated Total' : 'Invoice Total') . '</div>
-      <div class="amt-val" style="color:#00897B">' . pdf_fmt_money($totalAmt, $sym) . '</div>
-    </td>';
+$html .= '<table class="amt-strip" width="100%"><tr>';
+$html .= '<td>
+    <div class="amt-lbl">' . ($isEstimate ? 'Estimated Total' : 'Invoice Total') . '</div>
+    <div class="amt-val" style="color:#00897B">' . pdf_fmt_money($totalAmt, $sym) . '</div>
+  </td>';
 
 if (!$isEstimate) {
     $html .= '<td>
-      <div class="amt-lbl">Amount Paid</div>
-      <div class="amt-val" style="color:#388E3C">' . pdf_fmt_money($totalCovered, $sym) . '</div>
-    </td>
-    <td>
-      <div class="amt-lbl">Balance Due</div>
-      <div class="amt-val" style="color:' . ($remaining > 0 ? '#C62828' : '#388E3C') . '">' . pdf_fmt_money($remaining, $sym) . '</div>
-    </td>';
+    <div class="amt-lbl">Amount Paid</div>
+    <div class="amt-val" style="color:#388E3C">' . pdf_fmt_money($totalCovered, $sym) . '</div>
+  </td>
+  <td>
+    <div class="amt-lbl">Balance Due</div>
+    <div class="amt-val" style="color:' . ($remaining > 0 ? '#C62828' : '#388E3C') . '">' . pdf_fmt_money($remaining, $sym) . '</div>
+  </td>';
 } else {
     $html .= '<td>
-      <div class="amt-lbl">Issue Date</div>
-      <div class="amt-val" style="font-size:12px;color:#374151">' . pdf_fmt_date($inv['issue_date']) . '</div>
-    </td>
-    <td>
-      <div class="amt-lbl">Valid Until</div>
-      <div class="amt-val" style="font-size:12px;color:#374151">' . pdf_fmt_date($inv['due_date']) . '</div>
-    </td>';
+    <div class="amt-lbl">Issue Date</div>
+    <div class="amt-val" style="font-size:12px;color:#374151">' . pdf_fmt_date($inv['issue_date']) . '</div>
+  </td>
+  <td>
+    <div class="amt-lbl">Valid Until</div>
+    <div class="amt-val" style="font-size:12px;color:#374151">' . pdf_fmt_date($inv['due_date']) . '</div>
+  </td>';
 }
-
-$html .= '</tr>
-</table>';
+$html .= '</tr></table>';
 
 // ── Billed To / Invoice Details ────────────────────────────────
 $html .= '<div class="card">
@@ -426,7 +405,6 @@ if ($items) {
         $g   = (float)$item['gst'];
         $amt = $q * $r;
         $tot = $amt + $amt * $g / 100;
-
         $html .= '<tr>
       <td style="color:#9CA3AF">' . ($idx + 1) . '</td>
       <td><div class="item-name">' . htmlspecialchars($item['description']) . '</div></td>
@@ -440,8 +418,6 @@ if ($items) {
 
     $html .= '</tbody>
   </table>
-
-  <!-- Totals -->
   <table width="100%" style="border-top:1px solid #E5E7EB">
     <tr class="tfoot-row">
       <td style="width:60%"></td>
@@ -480,32 +456,28 @@ if ($payments) {
     foreach ($payments as $pmt) {
         $pAmt  = (float)$pmt['amount'];
         $pDisc = (float)$pmt['settlement_discount'];
-
         $html .= '<table width="100%" style="margin-bottom:6px">
       <tr>
         <td>
           <div class="pmt-method">' . htmlspecialchars($pmt['method'] ?? 'Payment') . '</div>
           <div class="pmt-date">' . pdf_fmt_date($pmt['payment_date'] ?? '') . '</div>';
-
         if (!empty($pmt['transaction_id'])) {
             $html .= '<div class="pmt-txn">Ref: ' . htmlspecialchars($pmt['transaction_id']) . '</div>';
         }
-
         $html .= '</td>
         <td style="text-align:right">
           <div class="pmt-amt">' . pdf_fmt_money($pAmt, $sym) . '</div>';
-
         if ($pDisc > 0) {
             $html .= '<div style="font-size:9px;color:#6B7280">Settlement: ' . pdf_fmt_money($pDisc, $sym) . '</div>';
         }
-
         $html .= '</td>
       </tr>
     </table>';
     }
 
+    // FIX: was </td> — correctly closed as </div>
     $html .= '</div>
-</div>';  // FIX: was </td> — now correctly </div>
+</div>';
 }
 
 // ── Bank Details ───────────────────────────────────────────────
@@ -518,7 +490,7 @@ if (!empty($inv['bank_details'])) {
 </div>';
 }
 
-// ── Notes & Terms ──────────────────────────────────────────────
+// ── Notes & Terms (table layout — mPDF does not support flexbox) ──
 if (!empty($inv['notes']) || !empty($inv['terms'])) {
     $html .= '<div class="card">
   <div class="card-head">Notes &amp; Terms</div>
@@ -527,16 +499,16 @@ if (!empty($inv['notes']) || !empty($inv['terms'])) {
 
     if (!empty($inv['notes'])) {
         $html .= '<td style="vertical-align:top;padding-right:8px">
-      <div class="section-lbl">Notes</div>
-      <div class="notes-box">' . nl2br(htmlspecialchars($inv['notes'])) . '</div>
-    </td>';
+        <div class="section-lbl">Notes</div>
+        <div class="notes-box">' . nl2br(htmlspecialchars($inv['notes'])) . '</div>
+      </td>';
     }
-
     if (!empty($inv['terms'])) {
-        $html .= '<td style="vertical-align:top;padding-left:8px;border-left:1px solid #E5E7EB">
-      <div class="section-lbl">Terms &amp; Conditions</div>
-      <div class="notes-box" style="color:#6B7280">' . nl2br(htmlspecialchars($inv['terms'])) . '</div>
-    </td>';
+        $border = !empty($inv['notes']) ? 'border-left:1px solid #E5E7EB;padding-left:8px;' : '';
+        $html .= '<td style="vertical-align:top;' . $border . '">
+        <div class="section-lbl">Terms &amp; Conditions</div>
+        <div class="notes-box" style="color:#6B7280">' . nl2br(htmlspecialchars($inv['terms'])) . '</div>
+      </td>';
     }
 
     $html .= '</tr></table>
@@ -564,7 +536,7 @@ $html .= '<div class="pdf-footer">
 </html>';
 
 // ── Generate PDF with mPDF ─────────────────────────────────────
-// Clear any accidental output before streaming
+// Flush ALL output buffers — nothing must leak before the PDF binary stream
 while (ob_get_level() > 0) {
     ob_end_clean();
 }
