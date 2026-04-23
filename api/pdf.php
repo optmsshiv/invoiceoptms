@@ -18,13 +18,13 @@ require_once __DIR__ . '/../config/db.php';
 $mpdfPath = __DIR__ . '/../mpdf/src/mpdf.php';
 if (!file_exists($mpdfPath)) {
     // Try alternate path if vendor is inside public_html
-    $mpdfPath = $_SERVER['DOCUMENT_ROOT'] . '/vendor/mpdf/mpdf.php';
+    $mpdfPath = $_SERVER['DOCUMENT_ROOT'] . '/mpdf/src/mpdf.php';
 }
 if (!file_exists($mpdfPath)) {
     ob_end_clean();
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'mPDF library not found. Upload vendor/mpdf/ to server root.']);
+    echo json_encode(['error' => 'mPDF library not found. Upload /mpdf/ to server root.']);
     exit;
 }
 require_once $mpdfPath;

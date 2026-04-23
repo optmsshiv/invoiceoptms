@@ -54,8 +54,13 @@ if ($method === 'GET' && !empty($_GET['token'])) {
             }
         }
 
-        // Update view counter
-        $db->prepare('UPDATE portal_tokens SET views = views + 1, last_viewed = NOW() WHERE token = :t')
+        // Update view counter + first_viewed (for view tracking feature)
+        $db->prepare('UPDATE portal_tokens SET
+            views      = views + 1,
+            view_count = view_count + 1,
+            last_viewed  = NOW(),
+            first_viewed = COALESCE(first_viewed, NOW())
+            WHERE token = :t')
            ->execute([':t' => $token]);
 
         // Fetch client info
@@ -144,7 +149,8 @@ try {
         $stmt = $db->prepare(
             'INSERT INTO portal_tokens (invoice_id, token, expires_at)
              VALUES (:inv, :tok, :exp)
-             ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at), views = 0'
+             ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at),
+                views = 0, view_count = 0, first_viewed = NULL, last_viewed = NULL'
         );
         $stmt->execute([':inv'=>$invId,':tok'=>$token,':exp'=>$expires]);
 
