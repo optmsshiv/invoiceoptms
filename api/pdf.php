@@ -19,10 +19,10 @@ require_once __DIR__ . '/../config/db.php';
 // ── Locate mPDF via autoloader ────────────────────────────────
 // Try multiple possible locations for vendor/autoload.php
 $autoloadPaths = [
-    __DIR__ . '/vendor/autoload.php',          // public_html/vendor/autoload.php
+    __DIR__ . '/../../vendor/autoload.php',          // public_html/vendor/autoload.php
     $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php', // doc root/vendor/autoload.php
-    __DIR__ . '/vendor/autoload.php',             // one level up from api/
-    dirname(__DIR__) . '/vendor/autoload.php',       // same as above
+    __DIR__ . '/../vendor/autoload.php',             // one level up from api/
+    dirname(__DIR__) . '/../../vendor/autoload.php',       // same as above
 ];
 
 $loaded = false;
