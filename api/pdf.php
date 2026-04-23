@@ -9,10 +9,10 @@
 //  mPDF must be uploaded to: /vendor/mpdf/  (root of public_html)
 // ================================================================
 
-ob_start();
-// error_reporting(0);
+// Suppress display errors — any stray output before PDF headers will corrupt the binary
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../config/db.php';
 
@@ -567,7 +567,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 $html = ob_get_clean();
 
 // ── Generate PDF with mPDF ─────────────────────────────────────
-ob_end_clean();
+// Discard any stray output that might have accumulated (error messages, whitespace, etc.)
+// before sending the binary PDF stream
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
 
 try {
     $mpdf = new \Mpdf\Mpdf([
