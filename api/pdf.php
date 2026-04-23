@@ -14,20 +14,33 @@ error_reporting(0);
 
 require_once __DIR__ . '/../config/db.php';
 
-// ── Locate mPDF ───────────────────────────────────────────────
-$mpdfPath = __DIR__ . '/../mpdf/src/Mpdf.php';
-if (!file_exists($mpdfPath)) {
-    // Try alternate path if vendor is inside public_html
-    $mpdfPath = $_SERVER['DOCUMENT_ROOT'] . '/mpdf/src/Mpdf.php';
+// ── Locate mPDF via autoloader ────────────────────────────────
+// Try multiple possible locations for vendor/autoload.php
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php',          // public_html/vendor/autoload.php
+    $_SERVER['DOCUMENT_ROOT'] . '/vendor/autoload.php', // doc root/vendor/autoload.php
+    __DIR__ . '/../vendor/autoload.php',             // one level up from api/
+    dirname(__DIR__) . '/vendor/autoload.php',       // same as above
+];
+
+$loaded = false;
+foreach ($autoloadPaths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $loaded = true;
+        break;
+    }
 }
-if (!file_exists($mpdfPath)) {
+
+if (!$loaded || !class_exists('\mpdf\mpdf')) {
     ob_end_clean();
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'mPDF library not found. Upload /mpdf/ to server root.']);
+    echo json_encode([
+        'error' => 'mPDF not found. Ensure vendor/autoload.php exists at your server root. Checked: ' . implode(', ', $autoloadPaths)
+    ]);
     exit;
 }
-require_once $mpdfPath;
 
 // ── Helpers ───────────────────────────────────────────────────
 function pdf_fmt_date($d) {
@@ -543,7 +556,7 @@ $html = ob_get_clean();
 ob_end_clean();
 
 try {
-    $mpdf = new \mPDF([
+    $mpdf = new \Mpdf\Mpdf([
         'mode'          => 'utf-8',
         'format'        => 'A4',
         'margin_left'   => 12,
