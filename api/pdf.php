@@ -27,7 +27,7 @@ ini_set('memory_limit', '128M');
 require_once __DIR__ . '/../config/db.php';
 
 // ── Locate mPDF via autoloader ────────────────────────────────
-require_once __DIR__ . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 if (!class_exists('\Mpdf\Mpdf')) {
     http_response_code(500);
