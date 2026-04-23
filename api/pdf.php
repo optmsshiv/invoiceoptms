@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 while (ob_get_level() > 0) ob_end_clean();
 
 require '/home1/edrppymy/public_html/invoiceoptms/vendor/autoload.php';
@@ -9,10 +12,14 @@ try {
         'format'  => 'A4',
         'tempDir' => '/tmp',
     ]);
-    $mpdf->WriteHTML('<h1>mPDF Test</h1><p>Working!</p>');
+    $mpdf->WriteHTML('<h1>Test</h1>');
     $mpdf->Output('test.pdf', 'D');
-} catch (Exception $e) {
+} catch (\Throwable $e) {
+    // Show ALL errors including fatal ones
     header('Content-Type: text/plain', true, 500);
-    echo "Error: " . $e->getMessage() . "\n";
-    echo "File: " . $e->getFile() . " Line: " . $e->getLine();
+    echo get_class($e) . ": " . $e->getMessage() . "\n";
+    echo "File: " . $e->getFile() . "\n";
+    echo "Line: " . $e->getLine() . "\n\n";
+    echo $e->getTraceAsString();
+    exit;
 }
