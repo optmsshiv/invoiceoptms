@@ -1380,8 +1380,9 @@ document.querySelectorAll('.btn-approve,.btn-reject').forEach(btn => {
     // Show confirmation toast
     const toast = document.createElement('div');
     toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:'+(isApprove?'#2E7D32':'#3949AB')+';color:#fff;padding:12px 24px;border-radius:24px;font-size:13px;font-weight:700;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .4s;text-align:center;max-width:90vw';
+    const cName = '<?= htmlspecialchars(addslashes($companyName), ENT_QUOTES) ?>';
     toast.innerHTML = isApprove
-      ? '<i class="fas fa-check-circle"></i> ✅ Opening WhatsApp to approve…<br><small style="font-weight:400;opacity:.85">Your approval will be sent to ' + <?= json_encode($companyName) ?> + '</small>'
+      ? '<i class="fas fa-check-circle"></i> ✅ Opening WhatsApp to approve…<br><small style="font-weight:400;opacity:.85">Your approval will be sent to ' + cName + '</small>'
       : '<i class="fas fa-comment-dots"></i> 💬 Opening WhatsApp for feedback…';
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity='0'; setTimeout(()=>toast.remove(),400); }, 3000);
@@ -1392,8 +1393,8 @@ document.querySelectorAll('.btn-approve,.btn-reject').forEach(btn => {
 // ── Feature 5: Partial payment UPI link ──────────────────────
 function payPartial() {
   const amt  = parseFloat(document.getElementById('partialAmt')?.value || 0);
-  const upi  = <?= json_encode($companyUPI) ?>;
-  const name = <?= json_encode($companyName) ?>;
+  const upi  = '<?= htmlspecialchars(addslashes($companyUPI ?? ''), ENT_QUOTES) ?>';
+  const name = '<?= htmlspecialchars(addslashes($companyName ?? ''), ENT_QUOTES) ?>';
   if (!amt || amt <= 0) { alert('Please enter a valid amount'); return; }
   if (!upi) { alert('UPI ID not configured'); return; }
   const upiLink = 'upi://pay?pa=' + encodeURIComponent(upi) + '&pn=' + encodeURIComponent(name) + '&am=' + amt.toFixed(2) + '&cu=INR';
@@ -1433,7 +1434,7 @@ const HINDI = {
   'Discount':           'छूट',
   'GST':                'जीएसटी',
   'Grand Total':        'कुल योग',
-  'I've Paid — Notify': 'मैंने भुगतान किया — सूचित करें',
+  "I've Paid — Notify": 'मैंने भुगतान किया — सूचित करें',
   'Pay a different amount': 'अलग राशि का भुगतान करें',
 };
 
