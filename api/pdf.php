@@ -38,10 +38,8 @@ foreach ($autoloadPaths as $path) {
 if (!$loaded) {
     // TEMP DEBUG — remove after fixing
     ob_end_clean();
+    http_response_code(500);
     header('Content-Type: text/plain');
-    echo "__DIR__: " . __DIR__ . "\n";
-    echo "DOCUMENT_ROOT: " . $_SERVER['DOCUMENT_ROOT'] . "\n";
-    echo "dirname(__DIR__): " . dirname(__DIR__) . "\n";
     // Find vendor directories
     $out = shell_exec('find ' . escapeshellarg(dirname($_SERVER['DOCUMENT_ROOT'])) . ' -name "autoload.php" -path "*/vendor/*" 2>/dev/null');
     echo "Found autoloads:\n" . $out;
