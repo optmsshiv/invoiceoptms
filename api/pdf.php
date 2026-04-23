@@ -29,12 +29,6 @@ require_once __DIR__ . '/../config/db.php';
 // ── Locate mPDF via autoloader ────────────────────────────────
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-if (!class_exists('\Mpdf\Mpdf')) {
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'mPDF not found. Run: composer require mpdf/mpdf inside /api/']);
-    exit;
-}
 
 // ── Helpers ───────────────────────────────────────────────────
 function pdf_fmt_date($d) {
