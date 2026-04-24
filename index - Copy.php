@@ -27,8 +27,23 @@ try {
     error_log('Settings load error: ' . $e->getMessage());
 }
 
-$companyName = $settings['company_name'] ?? 'OPTMS Tech';
-$prefix      = $settings['invoice_prefix'] ?? 'OT-' . date('Y') . '-';
+$companyName    = $settings['company_name']     ?? 'OPTMS Tech';
+$prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
+$estPrefix      = $settings['estimate_prefix']  ?? 'QT-' . date('Y') . '-';
+$companyGst     = $settings['company_gst']      ?? '';
+$companyPhone   = $settings['company_phone']    ?? '';
+$companyEmail   = $settings['company_email']    ?? '';
+$companyWebsite = $settings['company_website']  ?? '';
+$companyUpi     = $settings['company_upi']      ?? '';
+$companyAddress = $settings['company_address']  ?? '';
+$companyLogo    = $settings['company_logo']     ?? '';
+$companySign    = $settings['company_sign']     ?? '';
+$companyBank    = $settings['company_bank']     ?? '';
+$defaultGst     = $settings['default_gst']      ?? '';
+$dueDays        = $settings['due_days']         ?? '';
+$activeTemplate = $settings['active_template']  ?? '';
+$defaultTnc     = $settings['default_tnc']      ?? '';
+$defaultCurrency= $settings['default_currency'] ?? '₹';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -988,6 +1003,7 @@ const SERVER = {
   user:     <?= json_encode(['id'=>(int)$user['id'],'name'=>$user['name'],'email'=>$user['email'],'role'=>$user['role'],'avatar'=>$user['avatar']??'']) ?>,
   settings: <?= json_encode($settings) ?>,
   prefix:   <?= json_encode($prefix) ?>,
+  estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
   // WA settings pre-loaded from DB for instant toggle restore
@@ -999,13 +1015,15 @@ const SERVER = {
     remind_days:   <?= json_encode($settings['wa_remind_days']  ?? '3') ?>,
     max_followup:  <?= json_encode($settings['wa_max_followup'] ?? '3') ?>,
     tpl_inv:       <?= json_encode($settings['wa_tpl_inv']      ?? '') ?>,
+    tpl_estimate:  <?= json_encode($settings['wa_tpl_estimate'] ?? '') ?>,
     tpl_paid:      <?= json_encode($settings['wa_tpl_paid']     ?? '') ?>,
     tpl_partial:   <?= json_encode($settings['wa_tpl_partial']  ?? '') ?>,
     tpl_remind:    <?= json_encode($settings['wa_tpl_remind']   ?? '') ?>,
     tpl_overdue:   <?= json_encode($settings['wa_tpl_overdue']  ?? '') ?>,
     tpl_followup:  <?= json_encode($settings['wa_tpl_followup'] ?? '') ?>,
     tpl_festival:  <?= json_encode($settings['wa_tpl_festival'] ?? '') ?>,
-    auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '0') ?>,
+    auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '1') ?>,
+    auto_estimate: <?= json_encode($settings['wa_auto_estimate']?? '1') ?>,
     auto_paid:     <?= json_encode($settings['wa_auto_paid']    ?? '1') ?>,
     auto_partial:  <?= json_encode($settings['wa_auto_partial'] ?? '1') ?>,
     auto_remind:   <?= json_encode($settings['wa_auto_remind']  ?? '1') ?>,
@@ -2023,10 +2041,14 @@ const SERVER = {
             <div class="toggle-list" style="margin-top:0">
               <div class="toggle-item" style="flex-wrap:wrap;gap:6px">
                 <span style="flex:1"><strong>New Invoice</strong> — auto-send when created</span>
-                <div class="tog <?= (($settings['wa_auto_inv']??'0')==='1')?'on':'' ?>" id="twa1" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_inv', this)"></div>
+                <div class="tog <?= (($settings['wa_auto_inv']??'1')==='1')?'on':'' ?>" id="twa1" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_inv', this)"></div>
               </div>
               <div style="padding:8px 12px;margin:-4px 0 8px;background:var(--teal-bg);border-radius:0 0 8px 8px;font-size:11px;color:var(--teal)" id="twa1-hint">
               When ON: sends invoice details, amount, due date, UPI, and item list to client automatically
+              </div>
+              <div class="toggle-item" style="flex-wrap:wrap;gap:6px">
+                <span style="flex:1"><strong>New Estimate</strong> — auto-send when estimate is saved</span>
+                <div class="tog <?= (($settings['wa_auto_estimate']??'1')==='1')?'on':'' ?>" id="twa7" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_estimate', this)"></div>
               </div>
               <div class="toggle-item"><span><strong>Payment Receipt</strong> — when fully paid</span><div class="tog <?= (($settings['wa_auto_paid']??'1')!=='0')?'on':'' ?>" id="twa2" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_paid', this)"></div></div>
               <div class="toggle-item"><span><strong>Partial Payment</strong> — on partial receipt</span><div class="tog <?= (($settings['wa_auto_partial']??'1')!=='0')?'on':'' ?>" id="twa6" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_partial', this)"></div></div>
@@ -2273,6 +2295,7 @@ Kindly process payment immediately or contact us to discuss.
               </div>
               <div class="form-grid g1" style="gap:10px">
                 <div class="field"><label>📄 Invoice Created</label><div style="display:flex;gap:6px"><input id="tpl-name-invoice" placeholder="invoice_created" style="flex:1"><input id="tpl-lang-invoice" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
+                <div class="field"><label>📋 Estimate / Quote</label><div style="display:flex;gap:6px"><input id="tpl-name-estimate" placeholder="estimate_created" style="flex:1"><input id="tpl-lang-estimate" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}quote# {{3}}amount {{4}}valid_until {{5}}service {{6}}company {{7}}link</div></div>
                 <div class="field"><label>🔔 Payment Reminder</label><div style="display:flex;gap:6px"><input id="tpl-name-reminder" placeholder="payment_reminder" style="flex:1"><input id="tpl-lang-reminder" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}company {{7}}link</div></div>
                 <div class="field"><label>⚠️ Payment Overdue</label><div style="display:flex;gap:6px"><input id="tpl-name-overdue" placeholder="payment_overdue" style="flex:1"><input id="tpl-lang-overdue" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}company {{7}}link</div></div>
                 <div class="field"><label>✅ Payment Received</label><div style="display:flex;gap:6px"><input id="tpl-name-paid" placeholder="payment_received" style="flex:1"><input id="tpl-lang-paid" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}disc {{5}}date {{6}}company {{7}}link</div></div>
@@ -2285,6 +2308,19 @@ Kindly process payment immediately or contact us to discuss.
               <details style="margin-top:14px">
                 <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);list-style:none;display:flex;align-items:center;gap:6px"><i class="fas fa-file-alt"></i> Suggested content for Meta approval</summary>
                 <div style="margin-top:10px;background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)">
+                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:#3949AB">estimate_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
+
+📋 *Estimate #{{2}}* from {{6}}
+
+💰 Estimated Amount: *{{3}}*
+⏳ Valid Until: *{{4}}*
+📋 Service: {{5}}
+
+⚠️ This is an ESTIMATE only, not a final invoice.
+
+👁️ View &amp; Review: {{7}}
+
+To accept, reply *APPROVED*. — {{6}}</pre></details>
                   <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--teal)">invoice_created — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">
 Hi {{1}},
 
@@ -2533,13 +2569,14 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-building"></i> Company Profile</div>
           <div class="form-grid g2">
-            <div class="field"><label>Company Name</label><input id="sc-name" value="OPTMS Tech"></div>
-            <div class="field"><label>GST Number</label><input id="sc-gst" value="22AAAAA0000A1Z5"></div>
-            <div class="field"><label>Phone</label><input id="sc-phone" value="+91 98765 43210"></div>
-            <div class="field"><label>Email</label><input id="sc-email" value="optmstech@gmail.com"></div>
-            <div class="field"><label>Website</label><input id="sc-web" value="www.optmstech.in"></div>
-            <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="OT-2025-"></div>
-            <div class="field"><label>UPI ID</label><input id="sc-upi" value="optmstech@upi"></div>
+            <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
+            <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
+            <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
+            <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
+            <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
+            <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
+            <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
+            <div class="field"><label>UPI ID</label><input id="sc-upi" value="<?= htmlspecialchars($companyUpi) ?>"></div>
             <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
               <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
             </div>
@@ -2596,6 +2633,9 @@ optmstech.in | +91 XXXXX XXXXX</textarea>
             </div>
             <div class="field"><label>Invoice Number Prefix</label>
               <input id="sd-prefix" placeholder="OT-2025-" value="">
+            </div>
+            <div class="field"><label>Estimate / Quote Prefix</label>
+              <input id="sd-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="">
             </div>
             <div class="field"><label>Default Currency</label>
               <select id="sd-currency">
@@ -4180,6 +4220,7 @@ function openRowMenu(e, id) {
       <i class="fas fa-check-circle"></i> Mark as Paid ${isPaid?'(already paid)':isCancelled?'(cancelled)':isDraft?'(make pending first)':isEstimate?'(convert to invoice first)':''}
     </div>
     ${canCancel ? `<div class="rm-item" onclick="rowMenuAction('cancel')" style="color:#E65100"><i class="fas fa-ban"></i> Cancel Invoice</div>` : ''}
+    ${!isEstimate ? `<div class="rm-item" onclick="rowMenuAction('make-recurring')" style="color:var(--purple);font-weight:600"><i class="fas fa-sync-alt"></i> Make Recurring</div>` : ''}
     <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
   // Smart positioning: flip upward if near screen bottom
   menu.style.visibility = 'hidden';
@@ -4211,6 +4252,7 @@ function rowMenuAction(action) {
   if (action === 'make-pending') { changeInvoiceStatus(id, 'Pending'); return; }
   if (action === 'convert-estimate') { convertEstimateToInvoice(id); return; }
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
+  if (action === 'make-recurring') { openRecurringFromInvoice(inv); return; }
 }
 
 function closeAllDropdowns(e) {
@@ -4432,7 +4474,23 @@ function fillClientForm(val) {
 // ══════════════════════════════════════════
 function getFormData() {
   const tpl     = parseInt(document.getElementById('f-template')?.value)||1;
-  const num     = document.getElementById('f-num')?.value||(STATE.settings.prefix||'INV-')+String(STATE.invoices.length+1).padStart(3,'0');
+  // FIX: never send blank invoice_number — auto-generate from prefix if field is empty
+  const _numRaw = document.getElementById('f-num')?.value || '';
+  const _status = document.querySelector('input[name="inv-status"]:checked')?.value || 'Draft';
+  const _estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+  const _invPfx = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+  let num = _numRaw;
+  if (!num) {
+    const _pfx = (_status === 'Estimate') ? _estPfx : _invPfx;
+    let _seq = 1;
+    STATE.invoices.forEach(inv => {
+      const n = inv.num || inv.invoice_number || '';
+      if (n.startsWith(_pfx)) { const s = parseInt(n.slice(_pfx.length), 10); if (!isNaN(s) && s >= _seq) _seq = s + 1; }
+    });
+    num = _pfx + String(_seq).padStart(3, '0');
+    const _fnEl = document.getElementById('f-num'); if (_fnEl) _fnEl.value = num;
+  }
+ // const num     = document.getElementById('f-num')?.value||(STATE.settings.prefix||'INV-')+String(STATE.invoices.length+1).padStart(3,'0');
   const date    = document.getElementById('f-date')?.value||'';
   const due     = document.getElementById('f-due')?.value||'';
   // Service type: read from custom text input (select just triggers autofill)
@@ -5836,6 +5894,12 @@ async function saveInvoice() {
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
   const selVal = document.getElementById('f-client-select')?.value;
+
+  // FIX: capture BEFORE any reset — tells WA block if this is new vs edit
+  const isNewSave = !STATE.editingInvoiceId;
+  // FIX: capture phone from form NOW before page navigates away and resets form
+  const formPhone = (document.getElementById('f-cwa')?.value || '').replace(/\D/g, '');
+
   const payload = {
     invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
@@ -5849,7 +5913,7 @@ async function saveInvoice() {
     items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
-    if (STATE.editingInvoiceId) {
+    if (!isNewSave) {
       const inv = STATE.invoices.find(i => String(i.id) === String(STATE.editingInvoiceId));
       const dbId = inv?._dbId || parseInt(inv?.id) || 0;
       await api('api/invoices.php?id=' + dbId, 'PUT', payload);
@@ -5886,39 +5950,64 @@ async function saveInvoice() {
           .catch(() => {});
       }
     }
-    // Auto-send WA if automation toggle is ON
+
+    // ── Auto-send WA: only on NEW save, never on edit ──────────────────
+    if (!isNewSave) return; // FIX: skip WA entirely for edits
+
     const wa = STATE.settings.wa || {};
-    const saved = STATE.invoices.find(i => (i.num||i.invoice_number) === d.num);
+
+    // FIX: robust lookup — match by .num or .invoice_number
+    const saved = STATE.invoices.find(i =>
+      (i.num && i.num === d.num) || (i.invoice_number && i.invoice_number === d.num)
+    );
     const savedStatus = saved?.status || d.status || '';
 
+    // FIX: helper that resolves phone from client record + form field fallback
+    const resolvePhone = (inv) => {
+      const c = STATE.clients.find(x => String(x.id) === String(inv?.client || inv?.client_id || selVal)) || {};
+      return { c, phone: (c.wa || c.whatsapp || c.phone || formPhone || '').replace(/\D/g, '') };
+    };
+
     if (savedStatus === 'Draft') {
-      // ❌ Never send WA for internal drafts
+      // Never send WA for drafts
+
     } else if (savedStatus === 'Estimate') {
-      // ✅ Send estimate-specific WA if toggle is on
-      if (wa.auto_inv === '1' && saved) {
-        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
+      // FIX: fire even if `saved` is undefined — use form data as fallback
+      if (wa.auto_estimate === '1') {
+        const invForWA = saved || { num: d.num, client: selVal, client_id: selVal, client_name: d.cname, amount: d.grand, due: d.due, service: d.svc, status: 'Estimate' };
+        const { c, phone } = resolvePhone(invForWA);
         if (phone) {
           const tpl = wa.tpl_estimate || getDefaultWATpl('estimate');
-          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
-          logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: 'sending' });
-          sendWA(phone, msg, 'estimate_created', saved, c)
-            .then(r => logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: r ? 'sent_api' : 'sent_web' }))
-            .catch(e => { logWAMessage({ inv: saved, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message }); console.warn('WA estimate send failed:', e.message); });
+          const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
+          logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'sending' });
+          sendWA(phone, msg, 'estimate_created', invForWA, c)
+            .then(res => {
+              logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: res ? 'sent_api' : 'sent_web' });
+              toast(res ? `✅ Estimate sent to ${c.name || 'client'} via WhatsApp!` : `📱 WhatsApp opened for ${c.name || 'client'}`, 'success');
+            })
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message }); toast('❌ WhatsApp failed: ' + e.message, 'error'); });
+        } else {
+          console.warn('WA estimate: no phone number found — add WhatsApp number to client profile');
         }
       }
+
     } else {
-      // ✅ Send normal invoice WA for Pending / Paid / Overdue etc.
-      if (wa.auto_inv === '1' && saved) {
-        const c = STATE.clients.find(x => String(x.id) === String(saved.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g,'');
+      // Normal invoice WA for Pending / Paid / Overdue etc.
+      if (wa.auto_inv === '1') {
+        const invForWA = saved || { num: d.num, client: selVal, client_id: selVal, client_name: d.cname, amount: d.grand, due: d.due, service: d.svc, status: d.status };
+        const { c, phone } = resolvePhone(invForWA);
         if (phone) {
           const tpl = wa.tpl_inv || getDefaultWATpl('inv');
-          const msg = formatWAMsg(tpl, saved, c, STATE.settings);
-          logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: 'sending' });
-          sendWA(phone, msg, 'invoice_created', saved, c)
-            .then(r => logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: r ? 'sent_api' : 'sent_web' }))
-            .catch(e => { logWAMessage({ inv: saved, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message }); console.warn('WA send failed:', e.message); });
+          const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
+          logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'sending' });
+          sendWA(phone, msg, 'invoice_created', invForWA, c)
+            .then(res => {
+              logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: res ? 'sent_api' : 'sent_web' });
+              toast(res ? `✅ Invoice sent to ${c.name || 'client'} via WhatsApp!` : `📱 WhatsApp opened for ${c.name || 'client'}`, 'success');
+            })
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message }); toast('❌ WhatsApp failed: ' + e.message, 'error'); });
+        } else {
+          console.warn('WA invoice: no phone number found — add WhatsApp number to client profile');
         }
       }
     }
@@ -6467,8 +6556,12 @@ function confirmPaid() {
             const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
             logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'sending' });
             sendWA(phoneP, msgP, tplName, invWithPmt, cP)
-              .then(r => logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: r ? 'sent_api' : 'sent_web' }))
-              .catch(e => { logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'failed', error: e.message }); console.warn('WA payment msg failed:', e.message); });
+              .then(r => {
+                logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: r ? 'sent_api' : 'sent_web' });
+                const lbl = tplName === 'payment_received' ? 'Payment receipt' : 'Partial receipt';
+                toast(r ? `✅ ${lbl} sent to ${cP.name || 'client'} via WhatsApp!` : `📱 WhatsApp opened for ${cP.name || 'client'}`, 'success');
+              })
+              .catch(e => { logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'failed', error: e.message }); toast('❌ WhatsApp failed: ' + e.message, 'error'); });
           }
         }
       }
@@ -6564,9 +6657,12 @@ async function convertEstimateToInvoice(id) {
   if (!confirm(`Convert Estimate ${inv.num||inv.invoice_number} to a Pending Invoice?\n\nThe status will change to Pending and a WhatsApp invoice notification will be sent to the client.`)) return;
 
   const dbId = inv._dbId || parseInt(inv.id) || 0;
-  // Replace QT- prefix with OT- prefix for the invoice number
-  const oldNum = inv.num || inv.invoice_number || '';
-  const newNum = oldNum.replace(/^QT-/, (STATE.settings.prefix || ('OT-' + new Date().getFullYear() + '-')));
+  // Replace estimate prefix with invoice prefix for the new invoice number
+  const oldNum   = inv.num || inv.invoice_number || '';
+  const estPfx   = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+  const invPfx   = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+  const escapedEstPfx = estPfx.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  const newNum   = oldNum.replace(new RegExp('^' + escapedEstPfx), invPfx);
 
   try {
     await api('api/invoices.php?id=' + dbId, 'PUT', {
@@ -6597,39 +6693,90 @@ async function convertEstimateToInvoice(id) {
     toast(`✅ Estimate converted to Invoice ${newNum}!`, 'success');
 
     // Auto-send invoice created WhatsApp
-    const convertedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === newNum);
-    if (convertedInv) {
-      setTimeout(() => sendWAForInvoice(convertedInv), 600);
-    }
+    const convertedInv = STATE.invoices.find(i =>
+            (i.num || i.invoice_number) === newNum ||
+            String(i.id || i._dbId) === String(dbId)
+          );
+          if (convertedInv) {
+            setTimeout(() => sendWAForInvoice(convertedInv), 600);
+          } else {
+            const invForWA = { ...inv, invoice_number: newNum, num: newNum, status: 'Pending', id: dbId };
+            setTimeout(() => sendWAForInvoice(invForWA), 600);
+          }
+   //const convertedInv = STATE.invoices.find(i => (i.num||i.invoice_number) === newNum);
+   //if (convertedInv) {
+   //  setTimeout(() => sendWAForInvoice(convertedInv), 600);
+   //}
   } catch(e) {
     toast('❌ Conversion failed: ' + e.message, 'error');
   }
 }
 
 // ── onStatusChange: auto-update invoice number prefix when switching to/from Estimate
-function onStatusChange(newStatus) {
-  const numEl = document.getElementById('f-num');
-  if (!numEl) return;
-  const current = numEl.value || '';
-  const pfx = STATE.settings.prefix || ('OT-' + new Date().getFullYear() + '-');
-  const qtPfx = 'QT-' + new Date().getFullYear() + '-';
-  if (newStatus === 'Estimate') {
-    // Switch OT- prefix to QT- for estimates
-    if (current.startsWith(pfx)) {
-      numEl.value = current.replace(pfx, qtPfx);
-    } else if (!current.startsWith('QT-')) {
-      numEl.value = qtPfx + '001';
-    }
-  } else {
-    // Switch QT- prefix back to OT- when moving away from Estimate
-    if (current.startsWith(qtPfx)) {
-      numEl.value = current.replace(qtPfx, pfx);
-    } else if (current.startsWith('QT-')) {
-      numEl.value = pfx + '001';
-    }
-  }
-}
+//function onStatusChange(newStatus) {
+//  const numEl = document.getElementById('f-num');
+//  if (!numEl) return;
+//  const current = numEl.value || '';
+//  const pfx    = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+//  const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+//  if (newStatus === 'Estimate') {
+//    // Switch invoice prefix to estimate prefix
+//    if (current.startsWith(pfx)) {
+//      numEl.value = current.replace(pfx, estPfx);
+//    } else if (!current.startsWith(estPfx)) {
+//      numEl.value = estPfx + '001';
+//    }
+//  } else {
+//    // Switch estimate prefix back to invoice prefix when moving away from Estimate
+//    if (current.startsWith(estPfx)) {
+//      numEl.value = current.replace(estPfx, pfx);
+//    } else if (current.startsWith('QT-')) {
+//      // Legacy fallback for old QT- numbers
+//      numEl.value = pfx + '001';
+//    }
+//  }
+//}
 
+function onStatusChange(newStatus) {
+    const numEl = document.getElementById('f-num');
+    if (!numEl) return;
+
+    const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+    const invPfx = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+
+    if (newStatus === 'Estimate') {
+        // FIX: auto-generate estimate number client-side (never leave blank)
+        let nextSeq = 1;
+        STATE.invoices.forEach(inv => {
+            const n = inv.num || inv.invoice_number || '';
+            if (n.startsWith(estPfx)) {
+                const seq = parseInt(n.slice(estPfx.length), 10);
+                if (!isNaN(seq) && seq >= nextSeq) nextSeq = seq + 1;
+            }
+        });
+        if (nextSeq === 1) {
+            const estCount = STATE.invoices.filter(i => i.status === 'Estimate').length;
+            if (estCount > 0) nextSeq = estCount + 1;
+        }
+        numEl.value = estPfx + String(nextSeq).padStart(3, '0');
+        return;
+    }
+
+    // Switching back to Invoice from Estimate: regenerate invoice number
+    const current = numEl.value || '';
+    if (current.startsWith(estPfx)) {
+        let nextInvSeq = 1;
+        STATE.invoices.forEach(inv => {
+            const n = inv.num || inv.invoice_number || '';
+            if (n.startsWith(invPfx)) {
+                const seq = parseInt(n.slice(invPfx.length), 10);
+                if (!isNaN(seq) && seq >= nextInvSeq) nextInvSeq = seq + 1;
+            }
+        });
+        if (nextInvSeq === 1 && STATE.invoices.length > 0) nextInvSeq = STATE.invoices.length + 1;
+        numEl.value = invPfx + String(nextInvSeq).padStart(3, '0');
+    }
+}
 // ══════════════════════════════════════════
 // CLIENTS
 // ══════════════════════════════════════════
@@ -7280,6 +7427,7 @@ async function saveCompanySettings() {
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
     invoice_prefix:  document.getElementById('sc-prefix')?.value  || '',
+    estimate_prefix: document.getElementById('sc-estimate-prefix')?.value || '',
     company_upi:     document.getElementById('sc-upi')?.value     || '',
     company_address: document.getElementById('sc-addr')?.value    || '',
     company_logo:    document.getElementById('sc-logo')?.value    || STATE.settings.logo || '',
@@ -7289,6 +7437,7 @@ async function saveCompanySettings() {
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
     email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
+    estPrefix: payload.estimate_prefix,
     upi: payload.company_upi, address: payload.company_address,
     logo: payload.company_logo || STATE.settings.logo,
     signature: payload.company_sign || STATE.settings.signature,
@@ -7352,6 +7501,7 @@ window.saveWASettings = async function() {
     wa_tpl_followup:  val('wa-tpl-followup'),
     wa_tpl_festival:  val('wa-tpl-festival'),
     wa_auto_inv:      tog('twa1'),
+    wa_auto_estimate: tog('twa7'),
     wa_auto_paid:     tog('twa2'),
     wa_auto_partial:  tog('twa6'),
     wa_auto_remind:   tog('twa3'),
@@ -7360,6 +7510,8 @@ window.saveWASettings = async function() {
     wa_msg_mode:           document.querySelector('input[name="wa-msg-mode"]:checked')?.value || 'session',
     wa_tpl_name_invoice:   val('tpl-name-invoice'),
     wa_tpl_lang_invoice:   val('tpl-lang-invoice')   || 'en_US',
+    wa_tpl_name_estimate:  val('tpl-name-estimate'),
+    wa_tpl_lang_estimate:  val('tpl-lang-estimate')  || 'en_US',
     wa_tpl_name_reminder:  val('tpl-name-reminder'),
     wa_tpl_lang_reminder:  val('tpl-lang-reminder')  || 'en_US',
     wa_tpl_name_overdue:   val('tpl-name-overdue'),
@@ -7383,13 +7535,16 @@ window.saveWASettings = async function() {
     tpl_partial: payload.wa_tpl_partial,
     tpl_remind: payload.wa_tpl_remind, tpl_overdue: payload.wa_tpl_overdue,
     tpl_followup: payload.wa_tpl_followup, tpl_festival: payload.wa_tpl_festival,
-    auto_inv: payload.wa_auto_inv, auto_paid: payload.wa_auto_paid,
+    auto_inv: payload.wa_auto_inv, auto_estimate: payload.wa_auto_estimate,
+    auto_paid: payload.wa_auto_paid,
     auto_partial: payload.wa_auto_partial,
     auto_remind: payload.wa_auto_remind, auto_overdue: payload.wa_auto_overdue,
     auto_followup: payload.wa_auto_followup,
     msg_mode: payload.wa_msg_mode,
     tpl_name_invoice:  payload.wa_tpl_name_invoice,
     tpl_lang_invoice:  payload.wa_tpl_lang_invoice,
+    tpl_name_estimate: payload.wa_tpl_name_estimate,
+    tpl_lang_estimate: payload.wa_tpl_lang_estimate,
     tpl_name_reminder: payload.wa_tpl_name_reminder,
     tpl_lang_reminder: payload.wa_tpl_lang_reminder,
     tpl_name_overdue:  payload.wa_tpl_name_overdue,
@@ -7962,7 +8117,7 @@ function renderDashKpis() {
   const wa     = STATE.settings.wa || {};
   const hasAPI = !!(wa.token && wa.pid);
   const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
-  const onCount = [wa.auto_inv==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
+  const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
 
   const pendWA   = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
   const overWA   = STATE.invoices.filter(i => i.status==='Overdue').length;
@@ -8166,6 +8321,7 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   STATE.settings.email     = s.company_email   || STATE.settings.email;
   STATE.settings.website   = s.company_website || STATE.settings.website;
   STATE.settings.prefix    = s.invoice_prefix  || STATE.settings.prefix;
+  STATE.settings.estPrefix = s.estimate_prefix || SERVER.estPrefix || STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
   STATE.settings.upi       = s.company_upi     || STATE.settings.upi;
   STATE.settings.address   = s.company_address || STATE.settings.address;
   STATE.settings.logo      = s.company_logo    || '';
@@ -8184,6 +8340,12 @@ document.addEventListener('click', e => closeAllDropdowns(e));
 // and unifies field aliases (bank_details→bank, terms→tnc, etc.)
 function normalizeInvoice(inv) {
   if (!inv || typeof inv !== 'object') return inv;
+  // Guard: if status came back empty (ENUM mismatch in DB), restore from invoice_number prefix
+  if (!inv.status || inv.status === '') {
+    const num = inv.num || inv.invoice_number || '';
+    const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+    inv.status = num.startsWith(estPfx) || num.startsWith('QT-') ? 'Estimate' : 'Draft';
+  }
   // Parse pdf_options JSON string from DB into object
   if (inv.pdf_options && typeof inv.pdf_options === 'string') {
     try { inv.pdf_options = JSON.parse(inv.pdf_options); } catch(e) { inv.pdf_options = null; }
@@ -8263,7 +8425,8 @@ async function loadAllData() {
         tpl_overdue:   s.wa_tpl_overdue  || '',
         tpl_followup:  s.wa_tpl_followup || '',
         tpl_festival:  s.wa_tpl_festival || '',
-        auto_inv:      s.wa_auto_inv      !== undefined ? s.wa_auto_inv      : '0',
+        auto_inv:      s.wa_auto_inv      !== undefined ? s.wa_auto_inv      : '1',
+        auto_estimate: s.wa_auto_estimate !== undefined ? s.wa_auto_estimate : '1',
         auto_paid:     s.wa_auto_paid     !== undefined ? s.wa_auto_paid     : '1',
         auto_partial:  s.wa_auto_partial  !== undefined ? s.wa_auto_partial  : '1',
         auto_remind:   s.wa_auto_remind   !== undefined ? s.wa_auto_remind   : '1',
@@ -8273,6 +8436,8 @@ async function loadAllData() {
         // Template names
         tpl_name_invoice:  s.wa_tpl_name_invoice  || '',
         tpl_lang_invoice:  s.wa_tpl_lang_invoice  || 'en_US',
+        tpl_name_estimate: s.wa_tpl_name_estimate || '',
+        tpl_lang_estimate: s.wa_tpl_lang_estimate || 'en_US',
         tpl_name_reminder: s.wa_tpl_name_reminder || '',
         tpl_lang_reminder: s.wa_tpl_lang_reminder || 'en_US',
         tpl_name_overdue:  s.wa_tpl_name_overdue  || '',
@@ -8328,6 +8493,7 @@ async function loadAllData() {
       STATE.settings.email     = s.company_email   || STATE.settings.email;
       STATE.settings.website   = s.company_website || STATE.settings.website;
       STATE.settings.prefix    = s.invoice_prefix  || STATE.settings.prefix;
+      STATE.settings.estPrefix = s.estimate_prefix || SERVER.estPrefix || STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
       STATE.settings.upi       = s.company_upi     || STATE.settings.upi;
       STATE.settings.address   = s.company_address || STATE.settings.address;
       STATE.settings.logo      = s.company_logo    || '';
@@ -8503,6 +8669,7 @@ window.saveInvoiceDefaults = async function() {
     due_days:        document.getElementById('sd-due')?.value     || '15',
     active_template: document.getElementById('sd-tpl')?.value     || '1',
     invoice_prefix:  document.getElementById('sd-prefix')?.value  || STATE.settings.prefix || 'OT-',
+    estimate_prefix: document.getElementById('sd-estimate-prefix')?.value || STATE.settings.estPrefix || 'QT-',
     default_currency:document.getElementById('sd-currency')?.value|| '₹',
     default_bank:    document.getElementById('sd-bank')?.value    || '',
     default_tnc:     document.getElementById('sd-tnc')?.value     || '',
@@ -8511,7 +8678,8 @@ window.saveInvoiceDefaults = async function() {
   STATE.settings.defaultGST     = parseInt(payload.default_gst ?? '0');
   STATE.settings.dueDays        = parseInt(payload.due_days);
   STATE.settings.activeTemplate = parseInt(payload.active_template);
-  if (payload.invoice_prefix) STATE.settings.prefix = payload.invoice_prefix;
+  if (payload.invoice_prefix)                       STATE.settings.prefix    = payload.invoice_prefix;
+  if (payload.estimate_prefix !== undefined && payload.estimate_prefix !== null) STATE.settings.estPrefix = payload.estimate_prefix;
   if (payload.default_tnc !== undefined) STATE.settings.defaultTnC = payload.default_tnc;
   try {
     await api('api/settings.php', 'POST', payload);
@@ -8621,7 +8789,7 @@ async function saveItemTypes() {
 // ── populateSettingsForm: load saved settings into the form fields ──
 function populateSettingsForm() {
   const s = STATE.settings;
-  const set = (id, val) => { const e=document.getElementById(id); if(e && val) e.value=val; };
+  const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
   set('sc-phone',   s.phone);
@@ -8629,6 +8797,7 @@ function populateSettingsForm() {
   renderCategoryList();
   renderItemTypeList();
   set('sc-prefix',  s.prefix);
+  set('sc-estimate-prefix', s.estPrefix || SERVER.estPrefix || '');
   set('sc-upi',     s.upi);
   set('sc-addr',    s.address);
   set('sc-logo',    s.logo);
@@ -8636,6 +8805,7 @@ function populateSettingsForm() {
   set('sc-bank',    s.defaultBank || STATE.settings.defaultBank || '');
   // Invoice defaults
   set('sd-prefix',  s.prefix);
+  set('sd-estimate-prefix', s.estPrefix || SERVER.estPrefix || '');
   set('sd-due',     s.dueDays);
   set('sd-bank',    s.defaultBank || '');
   set('sd-tnc',     s.defaultTnC  || '');
@@ -8770,6 +8940,7 @@ function populateWAPage() {
 
   // Toggles
   setTog('twa1', wa.auto_inv     === '1');
+  setTog('twa7', wa.auto_estimate === '1');
   setTog('twa2', wa.auto_paid    !== '0');
   setTog('twa6', wa.auto_partial !== '0');
   setTog('twa3', wa.auto_remind  !== '0');
@@ -8780,7 +8951,7 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','reminder','overdue','paid','followup','partial','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','partial','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
@@ -9068,9 +9239,10 @@ function buildWATplParams(tplName, inv, client, settings) {
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
-    overdue:          ['client_name','invoice_no','amount','days_overdue','upi','company_name','portal_link'],
+    overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
+    estimate:         ['company_name','client_name','invoice_no','issue_date','amount','due_date','service','portal_link'],
     // Verbose aliases for backwards compatibility
     invoice_created:  ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     payment_reminder: ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
@@ -9079,6 +9251,7 @@ function buildWATplParams(tplName, inv, client, settings) {
     invoice_followup: ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     partial_payment:  ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     festival_greeting:['client_name','company_name','company_phone'],
+    estimate_created: ['client_name','company_name','invoice_no','issue_date','amount','due_date','service','portal_link'],
   };
 
   const paramKeys = maps[tplName] || Object.keys(common);
@@ -9099,6 +9272,7 @@ async function sendWA(phone, message, tplName, inv, client) {
   if (token && pid) {
     // Map verbose tplName strings to STATE tpl_name_* keys
     const TPL_KEY_MAP = {
+      'estimate_created': 'estimate',
       'invoice_created':  'invoice',
       'payment_received': 'paid',
       'partial_payment':  'partial',
@@ -10253,7 +10427,7 @@ async function _renderPortalTable(search) {
     return;
   }
 
-  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575'};
+  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
   tbody.innerHTML = rows.map(inv => {
     const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     const t   = _portalTokenMap[String(inv.id)];
@@ -10280,7 +10454,9 @@ async function _renderPortalTable(search) {
           : `<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="white-space:nowrap">
-        <button onclick="(async()=>{ await renderPortalLink('${inv.id}'); })()"
+        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>'; 
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; 
+          toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)"
           title="${t ? 'Regenerate link' : 'Generate link'}"
           style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
           <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
@@ -10411,7 +10587,11 @@ function sendReminderNow(invId, channel) {
   if (channel === 'whatsapp') {
     const phone = (c.wa||c.whatsapp||c.phone||'').replace(/\D/g,'');
     const msg   = `Dear ${c.name||'Client'},\n\nThis is a reminder for Invoice *${inv.num||''}* of *${fmt_money(inv.amount||0)}* due on ${inv.due||'—'}.\n\nPlease make payment at your earliest convenience.\n\nThank you,\n${STATE.settings.company||'OPTMS Tech'}`;
-    if (phone) sendWA(phone, msg, 'payment_reminder', inv, c);
+    if (phone) {
+      sendWA(phone, msg, 'payment_reminder', inv, c)
+        .then(r => toast(r ? `✅ Reminder sent to ${c.name || 'client'} via WhatsApp!` : `📱 WhatsApp opened for ${c.name || 'client'}`, 'success'))
+        .catch(e => toast('❌ Reminder failed: ' + e.message, 'error'));
+    }
   }
   const entry = { id:Date.now()+'', ts:new Date().toISOString(), invNum:inv.num||inv.invoice_number||'', clientName:c.name||'', type:inv.status==='Overdue'?'Overdue Alert':'Due Reminder', channel, status: channel==='skip'?'skipped':'sent' };
   STATE.reminders.unshift(entry);
@@ -10834,50 +11014,136 @@ function _downloadCSV(rows, filename) {
 // ══════════════════════════════════════════════════════════════
 
 // Storage key for recurring schedules (localStorage - no backend needed)
-const REC_KEY = 'optms_recurring_schedules';
-const REC_LOG_KEY = 'optms_recurring_log';
+  // ══════════════════════════════════════════════════════════════
+//  RECURRING SCHEDULES — API-backed (replaces localStorage version)
+//  Drop this block in place of the old recurring JS section in index.php
+//  (from "// Storage key for recurring schedules" down to
+//   "// Run recurring check silently on app load")
+// ══════════════════════════════════════════════════════════════
 
-function recGetAll() {
-  try { return JSON.parse(localStorage.getItem(REC_KEY) || '[]'); } catch(e) { return []; }
-}
-function recSaveAll(arr) {
-  localStorage.setItem(REC_KEY, JSON.stringify(arr));
-}
-function recGetLog() {
-  try { return JSON.parse(localStorage.getItem(REC_LOG_KEY) || '[]'); } catch(e) { return []; }
-}
-function recAddLog(entry) {
-  const log = recGetLog();
-  log.unshift({ ...entry, at: new Date().toISOString() });
-  localStorage.setItem(REC_LOG_KEY, JSON.stringify(log.slice(0, 200)));
-}
+// ── In-memory cache (replaces localStorage) ───────────────────
+// STATE.recurring is the single source of truth while the page is open.
+// Every write goes to the DB first; on success the cache is updated.
+// Every read comes from the cache (loaded once on page-open / page-nav).
+if (!STATE.recurring) STATE.recurring = [];
 
+// ── Migrate any leftover localStorage data on first load ──────
+// If the user had old schedules saved locally, import them to the DB
+// automatically so nothing is lost during the transition.
+(async function migrateLocalStorage() {
+  const OLD_KEY = 'optms_recurring_schedules';
+  const raw = localStorage.getItem(OLD_KEY);
+  if (!raw) return;
+  try {
+    const old = JSON.parse(raw);
+    if (!Array.isArray(old) || old.length === 0) { localStorage.removeItem(OLD_KEY); return; }
+    console.log(`[Recurring] Migrating ${old.length} localStorage schedule(s) to DB…`);
+    for (const s of old) {
+      try {
+        await api('api/recurring.php', 'POST', {
+          clientId:    s.clientId    || s.client_id || 0,
+          clientName:  s.clientName  || s.client_name || '',
+          service:     s.service     || '',
+          amount:      s.amount      || 0,
+          discType:    s.discType    || 'pct',
+          discVal:     s.discVal     || 0,
+          discPct:     s.discPct     || s.discount_pct || 0,
+          discAmt:     s.discAmt     || s.discount_amt || 0,
+          gst:         s.gst         || 0,
+          gstAmt:      s.gstAmt      || s.gst_amt || 0,
+          grand:       s.grand       || s.grand_total || 0,
+          items:       s.items       || [],
+          freq:        s.freq        || 'monthly',
+          nextDate:    s.nextDate    || s.next_date || '',
+          endDate:     s.endDate     || s.end_date || '',
+          dueDays:     s.dueDays     || s.due_days || 15,
+          template:    s.template    || s.template_id || 2,
+          notes:       s.notes       || '',
+        });
+      } catch(e) {
+        console.warn('[Recurring] Migration failed for one schedule:', e.message);
+      }
+    }
+    localStorage.removeItem(OLD_KEY);
+    localStorage.removeItem('optms_recurring_log');
+    console.log('[Recurring] Migration complete. localStorage cleared.');
+  } catch(e) {
+    console.warn('[Recurring] Migration parse error:', e.message);
+  }
+})();
+
+// ── Pure utility — no DB, no cache ────────────────────────────
 function recNextDate(fromDate, freq) {
   const d = new Date(fromDate);
-  switch(freq) {
-    case 'weekly':      d.setDate(d.getDate() + 7);   break;
-    case 'biweekly':    d.setDate(d.getDate() + 14);  break;
-    case 'monthly':     d.setMonth(d.getMonth() + 1); break;
-    case 'quarterly':   d.setMonth(d.getMonth() + 3); break;
-    case 'halfyearly':  d.setMonth(d.getMonth() + 6); break;
-    case 'yearly':      d.setFullYear(d.getFullYear() + 1); break;
-    default:            d.setMonth(d.getMonth() + 1);
+  switch (freq) {
+    case 'weekly':     d.setDate(d.getDate() + 7);    break;
+    case 'biweekly':   d.setDate(d.getDate() + 14);   break;
+    case 'monthly':    d.setMonth(d.getMonth() + 1);  break;
+    case 'quarterly':  d.setMonth(d.getMonth() + 3);  break;
+    case 'halfyearly': d.setMonth(d.getMonth() + 6);  break;
+    case 'yearly':     d.setFullYear(d.getFullYear() + 1); break;
+    default:           d.setMonth(d.getMonth() + 1);
   }
-  return d.toISOString().slice(0,10);
+  return d.toISOString().slice(0, 10);
 }
 
 function recFreqLabel(freq) {
-  return { weekly:'Weekly', biweekly:'Bi-Weekly', monthly:'Monthly', quarterly:'Quarterly', halfyearly:'Half-Yearly', yearly:'Yearly' }[freq] || freq;
+  return {
+    weekly: 'Weekly', biweekly: 'Bi-Weekly', monthly: 'Monthly',
+    quarterly: 'Quarterly', halfyearly: 'Half-Yearly', yearly: 'Yearly',
+  }[freq] || freq;
 }
 
-function recClientChange() {
-  // Nothing needed — just for future autocomplete hooks
+// ── Normalise a DB row to match what the old localStorage shape looked like ──
+// Keeps all downstream render code (renderRecurringPage, runRecurringCheck) working
+// without any further changes.
+function recNormalizeRow(r) {
+  return {
+    id:             r.id,                                   // numeric from DB
+    clientId:       r.client_id,
+    clientName:     r.client_name || r.client_name_joined || '',
+    service:        r.service     || '',
+    amount:         parseFloat(r.amount)       || 0,
+    discType:       r.disc_type   || 'pct',
+    discVal:        parseFloat(r.disc_val)     || 0,
+    discPct:        parseFloat(r.discount_pct) || 0,
+    discAmt:        parseFloat(r.discount_amt) || 0,
+    gst:            parseFloat(r.gst)          || 0,
+    gstAmt:         parseFloat(r.gst_amt)      || 0,
+    grand:          parseFloat(r.grand_total)  || 0,
+    items:          Array.isArray(r.items) ? r.items : [],
+    freq:           r.freq        || 'monthly',
+    nextDate:       r.next_date   || '',
+    endDate:        r.end_date    || '',
+    dueDays:        parseInt(r.due_days)       || 15,
+    template:       parseInt(r.template_id)    || 2,
+    notes:          r.notes       || '',
+    status:         r.status      || 'active',
+    generatedCount: parseInt(r.generated_count) || 0,
+    lastGenerated:  r.last_generated || null,
+    createdAt:      r.created_at  || '',
+  };
 }
+
+// ── Load all schedules from DB into cache ─────────────────────
+async function recLoadAll() {
+  try {
+    const r = await api('api/recurring.php');
+    STATE.recurring = Array.isArray(r.data) ? r.data.map(recNormalizeRow) : [];
+  } catch(e) {
+    console.error('[Recurring] recLoadAll error:', e.message);
+    STATE.recurring = STATE.recurring || [];
+  }
+  return STATE.recurring;
+}
+
+// ── Freq preview helper (no DB needed) ───────────────────────
+function recClientChange() { /* reserved for future autocomplete */ }
 
 function recFreqChange() {
-  const freq = document.getElementById('rec-freq')?.value || 'monthly';
+  const freq  = document.getElementById('rec-freq')?.value || 'monthly';
   const start = document.getElementById('rec-start')?.value;
-  const el = document.getElementById('rec-preview-text');
+  const el    = document.getElementById('rec-preview-text');
   if (!el) return;
   if (start) {
     const next = recNextDate(start, freq);
@@ -10887,68 +11153,81 @@ function recFreqChange() {
   }
 }
 
-function openRecurringModal(id) {
+// ── Open create / edit modal ──────────────────────────────────
+async function openRecurringModal(id) {
   // Populate client dropdown
   const sel = document.getElementById('rec-client');
   if (sel) {
     sel.innerHTML = '<option value="">— Select Client —</option>' +
       STATE.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   }
-  // Set default start date to today
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0, 10);
 
   if (id) {
-    // Edit mode
-    const schedules = recGetAll();
-    const s = schedules.find(x => x.id === id);
-    if (!s) return;
+    // ── Edit mode: fetch fresh from DB (or find in cache) ────
+    let s = STATE.recurring.find(x => String(x.id) === String(id));
+    if (!s) {
+      try {
+        const r = await api('api/recurring.php?id=' + encodeURIComponent(id));
+        s = recNormalizeRow(r.data);
+      } catch(e) {
+        toast('⚠️ Could not load schedule: ' + e.message, 'error');
+        return;
+      }
+    }
+
     document.getElementById('rec-modal-title').textContent = 'Edit Recurring Schedule';
-    document.getElementById('rec-edit-id').value = id;
-    document.getElementById('rec-client').value = s.clientId || '';
-    document.getElementById('rec-freq').value = s.freq || 'monthly';
-    document.getElementById('rec-start').value = s.nextDate || today;
-    document.getElementById('rec-end').value = s.endDate || '';
-    document.getElementById('rec-due-days').value = s.dueDays || 15;
-    document.getElementById('rec-template').value = s.template || 2;
-    document.getElementById('rec-notes').value = s.notes || '';
-    // Load items (support legacy single-item schedules)
+    document.getElementById('rec-edit-id').value           = s.id;
+    document.getElementById('rec-client').value            = s.clientId  || '';
+    document.getElementById('rec-freq').value              = s.freq      || 'monthly';
+    document.getElementById('rec-start').value             = s.nextDate  || today;
+    document.getElementById('rec-end').value               = s.endDate   || '';
+    document.getElementById('rec-due-days').value          = s.dueDays   || 15;
+    document.getElementById('rec-template').value          = s.template  || 2;
+    document.getElementById('rec-notes').value             = s.notes     || '';
+
+    // Items — support legacy single-item schedules
     if (s.items && s.items.length) {
-      recItems = s.items.map(i => ({...i, id: Date.now() + Math.random()}));
+      recItems = s.items.map(i => ({ ...i, id: Date.now() + Math.random() }));
     } else {
-      recItems = [{ id: Date.now(), desc: s.service||'', qty: 1, rate: s.amount||0, gst: s.gst!==undefined?s.gst:18 }];
+      recItems = [{ id: Date.now(), desc: s.service || '', qty: 1, rate: s.amount || 0, gst: s.gst !== undefined ? s.gst : 18 }];
     }
     recRenderItems();
-    // Load discount
+
+    // Discount
     const rdtEl = document.getElementById('rec-disc-type'); if (rdtEl) rdtEl.value = s.discType || 'pct';
     const rdEl  = document.getElementById('rec-disc');      if (rdEl)  rdEl.value  = s.discVal  || 0;
     recCalcTotals();
+
   } else {
+    // ── Create mode ──────────────────────────────────────────
     document.getElementById('rec-modal-title').textContent = 'New Recurring Schedule';
-    document.getElementById('rec-edit-id').value = '';
-    document.getElementById('rec-client').value = '';
-    document.getElementById('rec-freq').value = 'monthly';
-    document.getElementById('rec-start').value = today;
-    document.getElementById('rec-end').value = '';
-    document.getElementById('rec-due-days').value = '15';
-    document.getElementById('rec-template').value = '2';
-    document.getElementById('rec-notes').value = '';
-    // Reset items and discount
+    document.getElementById('rec-edit-id').value           = '';
+    document.getElementById('rec-client').value            = '';
+    document.getElementById('rec-freq').value              = 'monthly';
+    document.getElementById('rec-start').value             = today;
+    document.getElementById('rec-end').value               = '';
+    document.getElementById('rec-due-days').value          = '15';
+    document.getElementById('rec-template').value          = '2';
+    document.getElementById('rec-notes').value             = '';
+
     const rdtEl2 = document.getElementById('rec-disc-type'); if (rdtEl2) rdtEl2.value = 'pct';
     const rdEl2  = document.getElementById('rec-disc');      if (rdEl2)  rdEl2.value  = 0;
     recItems = [];
     recAddItem();
     recCalcTotals();
   }
+
   recFreqChange();
   openModal('modal-recurring');
 }
 
-// ── Recurring Items ──────────────────────────────────────────
+// ── Line-item helpers (pure UI — unchanged from original) ─────
 let recItems = [];
 
 function recAddItem(item) {
   const id = Date.now() + Math.random();
-  recItems.push({ id, desc: item?.desc||'', qty: item?.qty||1, rate: item?.rate||0, gst: item?.gst!==undefined?item.gst:18 });
+  recItems.push({ id, desc: item?.desc || '', qty: item?.qty || 1, rate: item?.rate || 0, gst: item?.gst !== undefined ? item.gst : 18 });
   recRenderItems();
   recCalcTotals();
 }
@@ -10964,34 +11243,39 @@ function recRenderItems() {
   if (!list) return;
   list.innerHTML = recItems.map(item => `
     <div style="display:grid;grid-template-columns:1fr 70px 100px 80px 30px;border-top:1px solid var(--border);align-items:center">
-      <input value="${item.desc}" placeholder="Description" style="border:none;background:transparent;padding:8px 10px;font-size:13px;outline:none;width:100%"
+      <input value="${item.desc}" placeholder="Description"
+        style="border:none;background:transparent;padding:8px 10px;font-size:13px;outline:none;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).desc=this.value">
-      <input type="number" value="${item.qty}" min="1" style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:center;width:100%"
+      <input type="number" value="${item.qty}" min="1"
+        style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:center;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).qty=parseFloat(this.value)||1;recCalcTotals()">
-      <input type="number" value="${item.rate}" min="0" step="0.01" style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:right;width:100%"
+      <input type="number" value="${item.rate}" min="0" step="0.01"
+        style="border:none;background:transparent;padding:8px 6px;font-size:13px;outline:none;text-align:right;width:100%"
         oninput="recItems.find(x=>x.id===${item.id}).rate=parseFloat(this.value)||0;recCalcTotals()">
       <select style="border:none;background:transparent;padding:8px 4px;font-size:12px;outline:none;width:100%"
         onchange="recItems.find(x=>x.id===${item.id}).gst=parseFloat(this.value);recCalcTotals()">
-        ${[0,5,12,18,28].map(g=>`<option value="${g}"${g===item.gst?' selected':''}>${g}%</option>`).join('')}
+        ${[0, 5, 12, 18, 28].map(g => `<option value="${g}"${g === item.gst ? ' selected' : ''}>${g}%</option>`).join('')}
       </select>
-      <button onclick="recRemoveItem(${item.id})" style="border:none;background:transparent;color:var(--red);cursor:pointer;padding:4px;font-size:14px" title="Remove">×</button>
+      <button onclick="recRemoveItem(${item.id})"
+        style="border:none;background:transparent;color:var(--red);cursor:pointer;padding:4px;font-size:14px"
+        title="Remove">×</button>
     </div>`).join('');
 }
 
 function recCalcTotals() {
   let sub = 0, gstTotal = 0;
   recItems.forEach(item => {
-    const line = (item.qty||1) * (item.rate||0);
-    sub += line;
-    gstTotal += line * (item.gst||0) / 100;
+    const line = (item.qty || 1) * (item.rate || 0);
+    sub      += line;
+    gstTotal += line * (item.gst || 0) / 100;
   });
-  const discType = document.getElementById('rec-disc-type')?.value || 'pct';
-  const discVal  = parseFloat(document.getElementById('rec-disc')?.value) || 0;
-  const discAmt  = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
-  const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
+  const discType    = document.getElementById('rec-disc-type')?.value || 'pct';
+  const discVal     = parseFloat(document.getElementById('rec-disc')?.value) || 0;
+  const discAmt     = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
+  const discFactor  = sub > 0 ? (1 - discAmt / sub) : 1;
   const gstAfterDisc = gstTotal * discFactor;
-  const grand = sub - discAmt + gstAfterDisc;
-  const fmt = v => '₹' + v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const grand       = sub - discAmt + gstAfterDisc;
+  const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('rec-tot-sub',   fmt(sub));
   set('rec-tot-disc',  fmt(discAmt));
@@ -10999,7 +11283,8 @@ function recCalcTotals() {
   set('rec-tot-grand', fmt(grand));
 }
 
-function saveRecurring() {
+// ── Save (create or update) ───────────────────────────────────
+async function saveRecurring() {
   const clientId  = document.getElementById('rec-client').value;
   const freq      = document.getElementById('rec-freq').value;
   const start     = document.getElementById('rec-start').value;
@@ -11011,186 +11296,365 @@ function saveRecurring() {
   const discType  = document.getElementById('rec-disc-type')?.value || 'pct';
   const discVal   = parseFloat(document.getElementById('rec-disc')?.value) || 0;
 
-  if (!clientId)         { toast('⚠️ Please select a client', 'warning'); return; }
-  if (!recItems.length)  { toast('⚠️ Add at least one line item', 'warning'); return; }
-  if (recItems.some(i => !i.desc.trim())) { toast('⚠️ All items need a description', 'warning'); return; }
-  if (!start)            { toast('⚠️ Please set a start date', 'warning'); return; }
+  // ── Validation ────────────────────────────────────────────
+  if (!clientId)                                    { toast('⚠️ Please select a client',           'warning'); return; }
+  if (!recItems.length)                             { toast('⚠️ Add at least one line item',        'warning'); return; }
+  if (recItems.some(i => !i.desc.trim()))           { toast('⚠️ All items need a description',      'warning'); return; }
+  if (!start)                                       { toast('⚠️ Please set a start date',           'warning'); return; }
 
   const client = STATE.clients.find(c => String(c.id) === String(clientId));
 
-  // Calculate totals
+  // ── Calculate totals ──────────────────────────────────────
   let sub = 0, gstTotal = 0;
   recItems.forEach(item => {
-    const line = (item.qty||1) * (item.rate||0);
-    sub += line;
-    gstTotal += line * (item.gst||0) / 100;
+    const line = (item.qty || 1) * (item.rate || 0);
+    sub      += line;
+    gstTotal += line * (item.gst || 0) / 100;
   });
-  const discAmt    = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
-  const discPct    = sub > 0 ? (discAmt / sub * 100) : 0;
-  const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
-  const gstAmt     = gstTotal * discFactor;
-  const grand      = sub - discAmt + gstAmt;
-  // Legacy single-item compat fields (use first item)
-  const service    = recItems.map(i => i.desc).join(', ');
-  const amount     = sub;
+  const discAmt   = discType === 'fixed' ? Math.min(discVal, sub) : sub * discVal / 100;
+  const discPct   = sub > 0 ? (discAmt / sub * 100) : 0;
+  const discFactor = sub > 0 ? (1 - discAmt / sub) : 1;
+  const gstAmt    = gstTotal * discFactor;
+  const grand     = sub - discAmt + gstAmt;
+  const service   = recItems.map(i => i.desc).join(', ');
 
-  const schedules = recGetAll();
-  const schedData = {
-    clientId, clientName: client?.name || '',
-    service, amount, gst: 0, gstAmt, grand,
-    items: recItems.map(({id,...rest}) => rest),
-    discType, discVal, discAmt, discPct,
-    freq, nextDate: start, endDate, dueDays, template, notes,
+  const payload = {
+    clientId,
+    clientName: client?.name || '',
+    service,
+    amount:    sub,
+    discType,  discVal, discPct, discAmt,
+    gst:       0,       gstAmt,  grand,
+    items:     recItems.map(({ id, ...rest }) => rest),
+    freq,      nextDate: start, endDate, dueDays, template, notes,
   };
 
-  if (editId) {
-    const idx = schedules.findIndex(x => x.id === editId);
-    if (idx >= 0) {
-      schedules[idx] = { ...schedules[idx], ...schedData };
+  // ── Disable button to prevent double-submit ───────────────
+  const btn = document.querySelector('#modal-recurring .btn-primary');
+  if (btn) btn.disabled = true;
+
+  try {
+    if (editId) {
+      // PUT — full update
+      await api('api/recurring.php?id=' + encodeURIComponent(editId), 'PUT', payload);
       toast('✅ Schedule updated!', 'success');
+    } else {
+      // POST — new schedule
+      await api('api/recurring.php', 'POST', payload);
+      toast('✅ Recurring schedule created!', 'success');
     }
-  } else {
-    schedules.push({ id: 'rec_' + Date.now(), ...schedData, status: 'active', generatedCount: 0, createdAt: new Date().toISOString() });
-    toast('✅ Recurring schedule created!', 'success');
+
+    closeModal('modal-recurring');
+    await recLoadAll();          // refresh cache from DB
+    renderRecurringPage();
+    updateRecurringBadge();
+
+  } catch(e) {
+    toast('❌ Save failed: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
-  recSaveAll(schedules);
-  closeModal('modal-recurring');
-  renderRecurringPage();
-  updateRecurringBadge();
 }
 
-function recPause(id) {
-  const schedules = recGetAll();
-  const s = schedules.find(x => x.id === id);
+//  Place it right after saveRecurring() — around line 11129.
+ 
+async function openRecurringFromInvoice(inv) {
+  if (!inv) return;
+ 
+  // ── 1. Populate client dropdown (same as openRecurringModal) ─
+  const sel = document.getElementById('rec-client');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select Client —</option>' +
+      STATE.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+ 
+  // ── 2. Reset modal to "create" mode ──────────────────────────
+  document.getElementById('rec-modal-title').textContent = '🔁 New Recurring — from Invoice ' + (inv.num || inv.invoice_number || '');
+  document.getElementById('rec-edit-id').value           = '';   // always create, never edit
+  document.getElementById('rec-freq').value              = 'monthly';
+  document.getElementById('rec-end').value               = '';
+  document.getElementById('rec-notes').value             = inv.notes || '';
+ 
+  // ── 3. Set start date = today (not the original invoice date) ─
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('rec-start').value = today;
+ 
+  // ── 4. Pre-fill client ────────────────────────────────────────
+  const clientId = inv.client_id || inv.clientId || '';
+  document.getElementById('rec-client').value = String(clientId);
+ 
+  // ── 5. Pre-fill due days from invoice (issued → due gap) ─────
+  let dueDays = 15;
+  if (inv.issued && inv.due) {
+    const issued = new Date(inv.issued || inv.issued_date);
+    const due    = new Date(inv.due    || inv.due_date);
+    if (!isNaN(issued) && !isNaN(due)) {
+      const diff = Math.round((due - issued) / 864e5);
+      if (diff > 0) dueDays = diff;
+    }
+  }
+  document.getElementById('rec-due-days').value = dueDays;
+ 
+  // ── 6. Pre-fill template ──────────────────────────────────────
+  document.getElementById('rec-template').value = inv.template || STATE.settings.activeTemplate || 2;
+ 
+  // ── 7. Pre-fill discount ──────────────────────────────────────
+  // Detect discount type: if discount_type is 'fixed' OR (discAmt > 0 but discPct == 0) → fixed
+  const rawDiscPct  = parseFloat(inv.disc || inv.discount_pct) || 0;
+  const rawDiscAmt  = parseFloat(inv.discount_amt) || 0;
+  const rawDiscType = inv.discount_type || ((rawDiscAmt > 0 && rawDiscPct === 0) ? 'fixed' : 'pct');
+  // Map 'percent' → 'pct' to match the recurring modal's select values
+  const discType    = rawDiscType === 'percent' ? 'pct' : rawDiscType;
+  const discVal     = discType === 'fixed' ? rawDiscAmt : rawDiscPct;
+ 
+  const rdtEl = document.getElementById('rec-disc-type');
+  if (rdtEl) rdtEl.value = discType;
+  const rdEl = document.getElementById('rec-disc');
+  if (rdEl) rdEl.value = discVal || 0;
+ 
+  // ── 8. Pre-fill line items ─────────────────────────────────────
+  // Prefer the full items array; fall back to the single service string
+  const srcItems = Array.isArray(inv.items) && inv.items.length ? inv.items : [];
+ 
+  if (srcItems.length) {
+    recItems = srcItems.map(i => ({
+      id:   Date.now() + Math.random(),
+      desc: i.desc || i.description || '',
+      qty:  parseFloat(i.qty || i.quantity) || 1,
+      rate: parseFloat(i.rate) || 0,
+      gst:  i.gst !== undefined && i.gst !== null && i.gst !== ''
+              ? parseFloat(i.gst)
+              : i.gstRate !== undefined && i.gstRate !== ''
+                ? parseFloat(i.gstRate)
+                : 18,
+    }));
+  } else {
+    // Legacy / single-service invoice — use service_type + subtotal as one item
+    const desc = inv.service_type || inv.svc || inv.service || 'Service';
+    const rate = parseFloat(inv.subtotal || inv.amount || inv.grand_total) || 0;
+    recItems = [{ id: Date.now(), desc, qty: 1, rate, gst: 18 }];
+  }
+ 
+  recRenderItems();
+  recCalcTotals();
+ 
+  // ── 9. Update frequency preview text ─────────────────────────
+  recFreqChange();
+ 
+  // ── 10. Open modal ────────────────────────────────────────────
+  openModal('modal-recurring');
+ 
+  // ── 11. Show a helpful info banner inside the modal ──────────
+  // Inject a small notice so the user knows this is pre-filled
+  const titleEl = document.getElementById('rec-modal-title');
+  if (titleEl && !document.getElementById('rec-prefill-notice')) {
+    const notice = document.createElement('div');
+    notice.id = 'rec-prefill-notice';
+    notice.style.cssText = `
+      margin-top: 6px;
+      padding: 7px 12px;
+      background: var(--purple-bg, #F3E5F5);
+      color: var(--purple, #7B1FA2);
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    `;
+    notice.innerHTML = `<i class="fas fa-info-circle"></i>
+      Pre-filled from <strong>${inv.num || inv.invoice_number}</strong>.
+      Adjust frequency &amp; start date, then save.`;
+    titleEl.insertAdjacentElement('afterend', notice);
+  }
+}
+ 
+// ── Auto-remove the prefill notice when modal closes ─────────
+// Attach a MutationObserver once so the notice is cleaned up
+// each time the modal is closed (whether via ×, Cancel, or Save).
+(function watchRecurringModal() {
+  const mo = document.getElementById('modal-recurring');
+  if (!mo) return;
+  new MutationObserver(() => {
+    if (!mo.classList.contains('open') && !mo.style.display) {
+      const notice = document.getElementById('rec-prefill-notice');
+      if (notice) notice.remove();
+    }
+  }).observe(mo, { attributes: true, attributeFilter: ['class', 'style'] });
+})();
+
+// ── Pause / Resume ────────────────────────────────────────────
+async function recPause(id) {
+  const s = STATE.recurring.find(x => String(x.id) === String(id));
   if (!s) return;
-  s.status = s.status === 'paused' ? 'active' : 'paused';
-  recSaveAll(schedules);
-  renderRecurringPage();
-  updateRecurringBadge();
-  toast(s.status === 'paused' ? '⏸ Schedule paused' : '▶ Schedule resumed', 'info');
+  const newStatus = s.status === 'paused' ? 'active' : 'paused';
+  try {
+    await api('api/recurring.php?id=' + encodeURIComponent(id), 'PATCH', { status: newStatus });
+    s.status = newStatus;        // optimistic cache update
+    renderRecurringPage();
+    updateRecurringBadge();
+    toast(newStatus === 'paused' ? '⏸ Schedule paused' : '▶ Schedule resumed', 'info');
+  } catch(e) {
+    toast('❌ Could not update status: ' + e.message, 'error');
+  }
 }
 
-function recDelete(id) {
+// ── Delete ────────────────────────────────────────────────────
+async function recDelete(id) {
   if (!confirm('Delete this recurring schedule? This will not delete any already-generated invoices.')) return;
-  const schedules = recGetAll().filter(x => x.id !== id);
-  recSaveAll(schedules);
-  renderRecurringPage();
-  updateRecurringBadge();
-  toast('🗑 Schedule deleted', 'info');
+  try {
+    await api('api/recurring.php?id=' + encodeURIComponent(id), 'DELETE');
+    STATE.recurring = STATE.recurring.filter(x => String(x.id) !== String(id));
+    renderRecurringPage();
+    updateRecurringBadge();
+    toast('🗑 Schedule deleted', 'info');
+  } catch(e) {
+    toast('❌ Delete failed: ' + e.message, 'error');
+  }
 }
 
+// ── Run Due-Invoice Generation ────────────────────────────────
 async function runRecurringCheck() {
-  const schedules = recGetAll();
-  const today = new Date().toISOString().slice(0,10);
+  const schedules = STATE.recurring;
+  const today = new Date().toISOString().slice(0, 10);
   let generated = 0;
-  const toSave = [...schedules];
 
-  for (let i = 0; i < toSave.length; i++) {
-    const s = toSave[i];
+  for (const s of schedules) {
     if (s.status !== 'active') continue;
-    if (s.endDate && today > s.endDate) { toSave[i].status = 'completed'; continue; }
+
+    // Mark as completed if past end date
+    if (s.endDate && today > s.endDate) {
+      try {
+        await api('api/recurring.php?id=' + encodeURIComponent(s.id), 'PATCH', { status: 'completed' });
+        s.status = 'completed';
+      } catch(e) { console.warn('[Recurring] Could not mark completed:', e.message); }
+      continue;
+    }
+
     if (!s.nextDate || today < s.nextDate) continue;
 
-    // Generate invoice
+    // ── Generate invoice ──────────────────────────────────
     try {
-      const client = STATE.clients.find(c => String(c.id) === String(s.clientId));
-      const issueDate = s.nextDate;
-      const dueDate = (() => { const d = new Date(issueDate); d.setDate(d.getDate() + (s.dueDays||15)); return d.toISOString().slice(0,10); })();
-      const invoiceNum = (STATE.settings.invoice_prefix || STATE.settings.invoicePrefix || 'INV-') + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*900)+100);
+      const client     = STATE.clients.find(c => String(c.id) === String(s.clientId));
+      const issueDate  = s.nextDate;
+      const dueDate    = (() => {
+        const d = new Date(issueDate);
+        d.setDate(d.getDate() + (s.dueDays || 15));
+        return d.toISOString().slice(0, 10);
+      })();
+      const invoiceNum = (STATE.settings.invoice_prefix || STATE.settings.invoicePrefix || 'INV-') +
+                         new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 900) + 100);
 
-      // Build items from multi-item schedule or fall back to legacy single-item
+      // Build items — fall back to legacy single-item if needed
       const recInvItems = (s.items && s.items.length)
-        ? s.items.map(i => ({ desc: i.desc, itemType: 'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: parseFloat(i.gst)||0 }))
+        ? s.items.map(i => ({ desc: i.desc, itemType: 'Service', qty: parseFloat(i.qty) || 1, rate: parseFloat(i.rate) || 0, gst: parseFloat(i.gst) || 0 }))
         : [{ desc: s.service, itemType: 'Service', qty: 1, rate: s.amount, gst: s.gst || 0 }];
 
       // Recalculate totals from items + discount
       let recSub = 0, recGstRaw = 0;
       recInvItems.forEach(item => {
-        const line = item.qty * item.rate;
-        recSub    += line;
-        recGstRaw += line * item.gst / 100;
+        const line  = item.qty * item.rate;
+        recSub     += line;
+        recGstRaw  += line * item.gst / 100;
       });
-      const recDiscAmt    = s.discType === 'fixed' ? Math.min(s.discVal||0, recSub) : recSub * (s.discVal||0) / 100;
+      const recDiscAmt    = s.discType === 'fixed' ? Math.min(s.discVal || 0, recSub) : recSub * (s.discVal || 0) / 100;
       const recDiscPct    = recSub > 0 ? (recDiscAmt / recSub * 100) : 0;
-      const recDiscFactor = recSub > 0 ? (1 - recDiscAmt/recSub) : 1;
+      const recDiscFactor = recSub > 0 ? (1 - recDiscAmt / recSub) : 1;
       const recGstAmt     = recGstRaw * recDiscFactor;
       const recGrand      = recSub - recDiscAmt + recGstAmt;
 
-      // Use user's saved PDF preferences from settings
       const savedPopt = STATE.settings.popt_prefs || {};
-      const recPopt = Object.assign({ bank:true, qr:false, sign:true, logo:true, clientLogo:false, notes:true, tnc:true, gstCol:true, footer:true, watermark:false }, savedPopt);
+      const recPopt   = Object.assign(
+        { bank: true, qr: false, sign: true, logo: true, clientLogo: false, notes: true, tnc: true, gstCol: true, footer: true, watermark: false },
+        savedPopt
+      );
 
-      const payload = {
-        invoice_number: invoiceNum,
-        client_id: client ? parseInt(s.clientId) : null,
-        client_name: s.clientName || '',
-        service_type: recInvItems.map(i => i.desc).join(', '),
-        issued_date: issueDate,
-        due_date: dueDate,
-        status: 'Pending',
-        currency: '₹',
-        subtotal: recSub,
-        discount_pct: recDiscPct,
-        discount_amt: recDiscAmt,
-        gst_amount: recGstAmt,
-        grand_total: recGrand,
-        notes: s.notes || `Auto-generated recurring invoice (${recFreqLabel(s.freq)})`,
-        bank_details: STATE.settings.defaultBank || '',
-        terms: STATE.settings.defaultTnC || '',
-        company_logo: STATE.settings.logo || '',
-        client_logo: '',
-        signature: STATE.settings.signature || '',
-        qr_code: '',
-        template_id: s.template || STATE.settings.activeTemplate || 2,
-        generated_by: 'OPTMS Tech — Recurring',
-        show_generated: 1,
-        pdf_options: recPopt,
-        items: recInvItems
+      const invoicePayload = {
+        invoice_number:  invoiceNum,
+        client_id:       client ? parseInt(s.clientId) : null,
+        client_name:     s.clientName || '',
+        service_type:    recInvItems.map(i => i.desc).join(', '),
+        issued_date:     issueDate,
+        due_date:        dueDate,
+        status:          'Pending',
+        currency:        '₹',
+        subtotal:        recSub,
+        discount_pct:    recDiscPct,
+        discount_amt:    recDiscAmt,
+        gst_amount:      recGstAmt,
+        grand_total:     recGrand,
+        notes:           s.notes || `Auto-generated recurring invoice (${recFreqLabel(s.freq)})`,
+        bank_details:    STATE.settings.defaultBank  || '',
+        terms:           STATE.settings.defaultTnC   || '',
+        company_logo:    STATE.settings.logo         || '',
+        client_logo:     '',
+        signature:       STATE.settings.signature    || '',
+        qr_code:         '',
+        template_id:     s.template || STATE.settings.activeTemplate || 2,
+        generated_by:    'OPTMS Tech — Recurring',
+        show_generated:  1,
+        pdf_options:     recPopt,
+        items:           recInvItems,
       };
-      await api('api/invoices.php', 'POST', payload);
-      toSave[i].nextDate = recNextDate(s.nextDate, s.freq);
-      toSave[i].generatedCount = (s.generatedCount || 0) + 1;
-      toSave[i].lastGenerated = issueDate;
-      recAddLog({ scheduleId: s.id, clientName: s.clientName, service: s.service, amount: s.grand, invoiceNum, issueDate });
+
+      await api('api/invoices.php', 'POST', invoicePayload);
+
+      // ── Update schedule in DB (nextDate, generatedCount, lastGenerated) ──
+      const newNextDate      = recNextDate(s.nextDate, s.freq);
+      const newGeneratedCount = (s.generatedCount || 0) + 1;
+      await api('api/recurring.php?id=' + encodeURIComponent(s.id), 'PATCH', {
+        nextDate:        newNextDate,
+        generatedCount:  newGeneratedCount,
+        lastGenerated:   issueDate,
+      });
+
+      // Optimistic cache update
+      s.nextDate       = newNextDate;
+      s.generatedCount = newGeneratedCount;
+      s.lastGenerated  = issueDate;
+
       generated++;
+
     } catch(e) {
-      console.error('Recurring generation failed for', s.id, e.message);
+      console.error('[Recurring] Generation failed for schedule', s.id, e.message);
       toast('⚠️ Failed to generate for ' + s.clientName + ': ' + e.message, 'error');
     }
   }
-  recSaveAll(toSave);
 
   if (generated > 0) {
-    // Reload invoices
     const r = await api('api/invoices.php');
-    STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.invoices         = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
     STATE.filteredInvoices = [...STATE.invoices];
-    renderInvoicesTable(); renderDashRecent(); updateDashStats();
-    toast(`✅ ${generated} invoice${generated>1?'s':''} generated!`, 'success');
+    renderInvoicesTable();
+    renderDashRecent();
+    updateDashStats();
+    toast(`✅ ${generated} invoice${generated > 1 ? 's' : ''} generated!`, 'success');
   } else {
     toast('ℹ️ No invoices due today', 'info');
   }
+
   renderRecurringPage();
   updateRecurringBadge();
 }
 
+// ── Render the Recurring page ─────────────────────────────────
 function renderRecurringPage() {
-  const schedules = recGetAll();
-  const today = new Date().toISOString().slice(0,10);
-  const tbody = document.getElementById('rec-table-body');
-  const empty = document.getElementById('rec-empty');
+  const schedules = STATE.recurring;
+  const today     = new Date().toISOString().slice(0, 10);
+  const tbody     = document.getElementById('rec-table-body');
+  const empty     = document.getElementById('rec-empty');
   if (!tbody) return;
 
   const active    = schedules.filter(s => s.status === 'active').length;
   const dueToday  = schedules.filter(s => s.status === 'active' && s.nextDate <= today).length;
   const paused    = schedules.filter(s => s.status === 'paused').length;
-  const generated = schedules.reduce((a,s) => a + (s.generatedCount||0), 0);
+  const generated = schedules.reduce((a, s) => a + (s.generatedCount || 0), 0);
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('rec-stat-active', active);
-  set('rec-stat-due', dueToday);
+  set('rec-stat-active',    active);
+  set('rec-stat-due',       dueToday);
   set('rec-stat-generated', generated);
-  set('rec-stat-paused', paused);
+  set('rec-stat-paused',    paused);
 
   if (!schedules.length) {
     tbody.innerHTML = '';
@@ -11200,58 +11664,90 @@ function renderRecurringPage() {
   if (empty) empty.style.display = 'none';
 
   const statusChip = s => {
-    if (s.status === 'paused')    return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E">Paused</span>`;
-    if (s.status === 'completed') return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E8F5E9;color:#388E3C">Completed</span>`;
-    if (s.nextDate <= today)      return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEE2E2;color:#C62828;animation:pulse 1.5s infinite">Due Today!</span>`;
+    if (s.status === 'paused')     return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E">Paused</span>`;
+    if (s.status === 'completed')  return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E8F5E9;color:#388E3C">Completed</span>`;
+    if (s.nextDate <= today)       return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#FEE2E2;color:#C62828;animation:pulse 1.5s infinite">Due Today!</span>`;
     return `<span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:#E0F2F1;color:#00695C">Active</span>`;
   };
 
   tbody.innerHTML = schedules.map(s => `
     <tr>
-      <td style="font-weight:700">${s.clientName||'—'}</td>
+      <td style="font-weight:700">${s.clientName || '—'}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.service}">${s.service}</td>
-      <td style="font-family:var(--mono);font-weight:700">₹${parseFloat(s.grand||s.amount||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="font-family:var(--mono);font-weight:700">₹${parseFloat(s.grand || s.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       <td><span style="padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;background:var(--blue-bg);color:var(--blue)">${recFreqLabel(s.freq)}</span></td>
-      <td style="font-family:var(--mono);${s.nextDate<=today&&s.status==='active'?'color:var(--red);font-weight:700':''}">${s.nextDate||'—'}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${s.lastGenerated||'Never'}</td>
+      <td style="font-family:var(--mono);${s.nextDate <= today && s.status === 'active' ? 'color:var(--red);font-weight:700' : ''}">${s.nextDate || '—'}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${s.lastGenerated || 'Never'}</td>
       <td>${statusChip(s)}</td>
-      <td style="text-align:center;font-weight:700;color:var(--teal)">${s.generatedCount||0}</td>
+      <td style="text-align:center;font-weight:700;color:var(--teal)">${s.generatedCount || 0}</td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="act-btn" title="Edit" onclick="openRecurringModal('${s.id}')"><i class="fas fa-edit"></i></button>
-          <button class="act-btn" title="${s.status==='paused'?'Resume':'Pause'}" onclick="recPause('${s.id}')"><i class="fas fa-${s.status==='paused'?'play':'pause'}"></i></button>
+          <button class="act-btn" title="Edit"   onclick="openRecurringModal('${s.id}')"><i class="fas fa-edit"></i></button>
+          <button class="act-btn" title="${s.status === 'paused' ? 'Resume' : 'Pause'}" onclick="recPause('${s.id}')">
+            <i class="fas fa-${s.status === 'paused' ? 'play' : 'pause'}"></i>
+          </button>
           <button class="act-btn" title="Delete" onclick="recDelete('${s.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
 }
 
+// ── Sidebar badge ──────────────────────────────────────────────
 function updateRecurringBadge() {
-  const today = new Date().toISOString().slice(0,10);
-  const due = recGetAll().filter(s => s.status === 'active' && s.nextDate <= today).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const due   = (STATE.recurring || []).filter(s => s.status === 'active' && s.nextDate <= today).length;
   const badge = document.getElementById('badge-recurring');
   if (badge) { badge.textContent = due; badge.style.display = due ? '' : 'none'; }
 }
 
-// Hook into showPage to render recurring page when opened
+// ── Hook into showPage (keep existing WA logic untouched) ──────
 const _origShowPage = window.showPage;
 if (typeof _origShowPage === 'function') {
   window.showPage = function(name, el) {
     _origShowPage.call(this, name, el);
-    if (name === 'recurring') renderRecurringPage();
+
+    // ── Recurring page: reload from DB then render ──
+    if (name === 'recurring') {
+      recLoadAll().then(() => {
+        renderRecurringPage();
+        updateRecurringBadge();
+      });
+    }
+
+    // ── WhatsApp page ───────────────────────────────
+    if (name === 'whatsapp') {
+      setTimeout(() => {
+        ['inv', 'estimate', 'paid', 'partial', 'remind', 'overdue', 'followup'].forEach(k => {
+          waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
+        });
+        waUpdateCounter('wa-manual-msg', 'wa-manual-counter');
+        const wa    = STATE.settings.wa || {};
+        const badge = document.getElementById('wa-mode-badge-tpl');
+        if (badge) {
+          const mode = wa.msg_mode || 'session';
+          badge.innerHTML = mode === 'template'
+            ? '<span class="wa-mode-badge template">✅ Template Mode</span>'
+            : '<span class="wa-mode-badge session">💬 Session Mode</span>';
+        }
+      }, 50);
+    }
   };
 }
 
-// Run recurring check silently on app load (after a short delay)
-setTimeout(() => {
+// ── App load: fetch schedules from DB, update badge & toast ───
+// Runs after the existing loadAllData() call completes.
+setTimeout(async () => {
+  await recLoadAll();
   updateRecurringBadge();
-  // Auto-run if any schedules are due
-  const today = new Date().toISOString().slice(0,10);
-  const due = recGetAll().filter(s => s.status === 'active' && s.nextDate <= today);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const due   = STATE.recurring.filter(s => s.status === 'active' && s.nextDate <= today);
   if (due.length > 0) {
-    toast(`⏰ ${due.length} recurring invoice${due.length>1?'s are':' is'} due — go to Recurring to generate`, 'warning');
+    toast(`⏰ ${due.length} recurring invoice${due.length > 1 ? 's are' : ' is'} due — go to Recurring to generate`, 'warning');
   }
 }, 3000);
+
+// ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
 
@@ -11261,16 +11757,34 @@ if (typeof _origRenderDashboard === 'function') {
   window.renderDashboard = function() {
     _origRenderDashboard.apply(this, arguments);
     // Update reminder badge
+    // FIX #4: Exclude invoices that have already received max_overdue reminders.
+    // Previously the badge counted all near-due invoices ignoring max_overdue,
+    // causing already-exhausted invoices to keep showing in the badge count.
     const today = new Date(); today.setHours(0,0,0,0);
     const cfg   = getReminderSettings();
+    const maxOv = cfg.maxOverdue || 3;
+
+    // Build a per-invoice overdue reminder count from the reminder log
+    const overdueCountByInv = {};
+    (STATE.reminderLog || []).forEach(entry => {
+      if (entry.type === 'overdue' && entry.invoice_id) {
+        overdueCountByInv[entry.invoice_id] = (overdueCountByInv[entry.invoice_id] || 0) + 1;
+      }
+    });
+
     const count = STATE.invoices.filter(inv => {
       if (['Paid','Cancelled','Draft'].includes(inv.status)) return false;
       const due = inv.due ? new Date(inv.due) : null;
       if (!due) return false; due.setHours(0,0,0,0);
-      return Math.floor((due-today)/864e5) <= (cfg.beforeDays||3);
+      const daysUntilDue = Math.floor((due - today) / 864e5);
+      if (daysUntilDue > (cfg.beforeDays || 3)) return false;
+      // FIX #4: Skip invoices already at or over the max overdue reminder count
+      if (daysUntilDue < 0 && (overdueCountByInv[inv.id] || 0) >= maxOv) return false;
+      return true;
     }).length;
+
     const badge = document.getElementById('badge-reminders');
-    if (badge) { badge.textContent=count; badge.style.display=count?'':'none'; }
+    if (badge) { badge.textContent = count; badge.style.display = count ? '' : 'none'; }
   };
 }
 
@@ -11375,29 +11889,8 @@ function waQuickReply(type) {
 }
 
 // ── Init counters on WA page open ────────────────────────────
-const _origShowPageWA = window.showPage;
-if (typeof _origShowPageWA === 'function') {
-  window.showPage = function(name, el) {
-    _origShowPageWA.call(this, name, el);
-    if (name === 'whatsapp') {
-      setTimeout(() => {
-        ['inv','estimate','paid','partial','remind','overdue','followup'].forEach(k => {
-          waUpdateCounter('wa-tpl-' + k, 'wa-cnt-' + k);
-        });
-        waUpdateCounter('wa-manual-msg','wa-manual-counter');
-        // Update mode badge
-        const wa = STATE.settings.wa || {};
-        const badge = document.getElementById('wa-mode-badge-tpl');
-        if (badge) {
-          const mode = wa.msg_mode || 'session';
-          badge.innerHTML = mode === 'template'
-            ? '<span class="wa-mode-badge template">✅ Template Mode</span>'
-            : '<span class="wa-mode-badge session">💬 Session Mode</span>';
-        }
-      }, 50);
-    }
-  };
-}
+
+// override above (near the recurring page hook). No second override needed.
 window._waActiveTab = 'inv';
 
 </script>

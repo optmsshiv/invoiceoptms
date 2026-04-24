@@ -139,22 +139,35 @@ try {
             exit;
         }
         $invStatus = $invRow['status'] ?? '';
-        // Generate cryptographically random token
-        $token   = bin2hex(random_bytes(16)); // 32 hex chars
-        $expires = !empty($body['expires_at']) ? $body['expires_at'] : null;
+        $expires   = !empty($body['expires_at']) ? $body['expires_at'] : null;
+        $forceNew  = !empty($body['regenerate']); // explicit regenerate flag
 
-        $stmt = $db->prepare(
-            'INSERT INTO portal_tokens (invoice_id, token, status, expires_at)
-             VALUES (:inv, :tok, :status, :exp)
-             ON DUPLICATE KEY UPDATE
-               token = VALUES(token),
-               status = VALUES(status),
-               expires_at = VALUES(expires_at),
-               views = 0,
-               view_count = 0,
-               first_viewed = NULL'
-        );
-        $stmt->execute([':inv'=>$invId,':tok'=>$token,':status'=>$invStatus,':exp'=>$expires]);
+        // FIX: Check if a valid token already exists — reuse it instead of replacing
+        $existing = $db->prepare('SELECT token FROM portal_tokens WHERE invoice_id = :id AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1');
+        $existing->execute([':id' => $invId]);
+        $existingRow = $existing->fetch();
+
+        if ($existingRow && !$forceNew) {
+            // Reuse existing token — just update status in case it changed
+            $token = $existingRow['token'];
+            $db->prepare('UPDATE portal_tokens SET status = :s WHERE invoice_id = :id')
+               ->execute([':s' => $invStatus, ':id' => $invId]);
+        } else {
+            // Generate new token (first time or explicit regenerate)
+            $token = bin2hex(random_bytes(16));
+            $stmt  = $db->prepare(
+                'INSERT INTO portal_tokens (invoice_id, token, status, expires_at)
+                 VALUES (:inv, :tok, :status, :exp)
+                 ON DUPLICATE KEY UPDATE
+                   token = VALUES(token),
+                   status = VALUES(status),
+                   expires_at = VALUES(expires_at),
+                   views = 0,
+                   view_count = 0,
+                   first_viewed = NULL'
+            );
+            $stmt->execute([':inv'=>$invId,':tok'=>$token,':status'=>$invStatus,':exp'=>$expires]);
+        }
 
         echo json_encode(['success'=>true,'token'=>$token,'invoice_id'=>$invId]);
         exit;
