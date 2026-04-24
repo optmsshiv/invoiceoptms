@@ -1413,7 +1413,7 @@ const HINDI = {
   'Discount':           'छूट',
   'GST':                'जीएसटी',
   'Grand Total':        'कुल योग',
-  'I've Paid — Notify': 'मैंने भुगतान किया — सूचित करें',
+  "I've Paid — Notify": 'मैंने भुगतान किया — सूचित करें',
   'Pay a different amount': 'अलग राशि का भुगतान करें',
 };
 
