@@ -64,13 +64,9 @@ if (!$rawToken) {
                 $firstViewed = $row['first_viewed'];
                 $viewCount   = (int)($row['view_count'] ?? $row['views'] ?? 0) + 1;
                 // Set first_viewed on first visit, always bump counters
-                $db->prepare('UPDATE portal_tokens SET
-                    views = views + 1,
-                    view_count = view_count + 1,
-                    last_viewed = NOW(),
-                    first_viewed = COALESCE(first_viewed, NOW())
-                    WHERE token = :t')
-                   ->execute([':t' => $rawToken]);
+                $db->prepare(
+                    'UPDATE portal_tokens SET views = views + 1, view_count = view_count + 1, last_viewed = NOW(), first_viewed = COALESCE(first_viewed, NOW()) WHERE token = :t'
+                )->execute([':t' => $rawToken]);
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
             }
