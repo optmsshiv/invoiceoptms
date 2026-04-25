@@ -5,6 +5,7 @@
 //  POST  action=test   → Send test email to verify SMTP config
 //  POST  action=send   → Send invoice email to client
 // ================================================================
+
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../config/db.php';
