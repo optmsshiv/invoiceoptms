@@ -3645,8 +3645,7 @@ function showPage(name, el) {
   if (name === 'dashboard') renderDashboard();
   if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
-  if (name === 'settings')    populateSettingsForm();
-  if (name === 'email-setup') populateSettingsForm();
+  if (name === 'settings')  populateSettingsForm();
   if (name === 'msglog')    renderMsgLog();
   if (name === 'aging')     renderAgingReport();
   if (name === 'expenses')  renderExpenses();
@@ -6259,17 +6258,15 @@ function sendEmailForInvoice(inv) {
   sendEmailForClient(c.email||'', c.name||'Client', num, amt, due, svc, d);
 }
 
-async function sendEmailForClient(email, name, num, amount, due, service, d) {
+function sendEmailForClient(email, name, num, amount, due, service, d) {
   if (!email) { toast('⚠️ No email address for this client', 'warning'); return; }
   const sc      = STATE.settings;
-  const ec      = sc.email_cfg || {};
   const company = sc.company || '';
   const phone   = sc.phone   || '';
   const upi     = sc.upi     || '';
   const bank    = (d && d.bank) || sc.defaultBank || '';
-  const invId   = d?.invId || d?.id || '';
-  const subjTpl = ec.email_subject || document.getElementById('em-subj')?.value || 'Invoice #{invoice_no} from {company_name}';
-  const bodyTpl = ec.email_body    || document.getElementById('em-body')?.value ||
+  const subjTpl = document.getElementById('em-subj')?.value || 'Invoice #{invoice_no} from {company_name}';
+  const bodyTpl = document.getElementById('em-body')?.value ||
     'Dear {client_name},\n\nPlease find Invoice #{invoice_no} for {amount} due on {due_date}.\n\nService: {service}\n\nPay via UPI: {upi}\n{bank_details}\n\nThank you!\n{company_name}\n{company_phone}';
   const subj = subjTpl
     .replace(/{invoice_no}/g, num).replace(/{amount}/g, amount)
@@ -6281,22 +6278,9 @@ async function sendEmailForClient(email, name, num, amount, due, service, d) {
     .replace(/{due_date}/g, due).replace(/{service}/g, service)
     .replace(/{upi}/g, upi).replace(/{bank_details}/g, bank)
     .replace(/{company_phone}/g, phone);
-  // If SMTP is configured — send directly via server
-  if (ec.smtp_host && ec.smtp_user) {
-    toast('📧 Sending email to ' + name + '…', 'info');
-    try {
-      const r = await api('api/email.php', 'POST', { action:'send', to:email, to_name:name, subject:subj, body, invoice_id:invId });
-      if (r.success) { toast('✅ Email sent to ' + name + '!', 'success'); }
-      else {
-        toast('⚠️ SMTP failed — opening email client instead', 'warning');
-        window.open(`mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`, '_blank');
-      }
-    } catch(e) { toast('❌ Email error: ' + e.message, 'error'); }
-  } else {
-    // No SMTP — fallback to mailto
-    window.open(`mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`, '_blank');
-    toast('📧 Email client opened. Configure SMTP in Email Setup for direct sending.', 'info');
-  }
+  const mailto = `mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+  window.open(mailto, '_blank');
+  toast('📧 Email client opened for ' + name, 'success');
 }
 
 // ══════════════════════════════════════════
@@ -7574,33 +7558,8 @@ window.saveWASettings = async function() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
-async function saveEmailSettings() {
-  const payload = {
-    smtp_host:     document.getElementById('em-host')?.value.trim() || '',
-    smtp_port:     document.getElementById('em-port')?.value.trim() || '587',
-    smtp_user:     document.getElementById('em-user')?.value.trim() || '',
-    smtp_pass:     document.getElementById('em-pass')?.value.trim() || '',
-    smtp_from:     document.getElementById('em-from')?.value.trim() || '',
-    smtp_name:     document.getElementById('em-name')?.value.trim() || '',
-    email_subject: document.getElementById('em-subj')?.value.trim() || '',
-    email_body:    document.getElementById('em-body')?.value.trim() || '',
-    email_attach_pdf: document.querySelector('#page-email-setup .tog:first-of-type')?.classList.contains('on') ? '1' : '0',
-    email_cc_self:    document.querySelector('#page-email-setup .tog:last-of-type')?.classList.contains('on') ? '1' : '0',
-  };
-  // Validate required fields
-  if (!payload.smtp_host) { toast('⚠️ SMTP Host is required', 'warning'); return; }
-  if (!payload.smtp_user) { toast('⚠️ Username is required', 'warning'); return; }
-  if (!payload.smtp_pass) { toast('⚠️ App Password is required', 'warning'); return; }
-  if (!payload.smtp_from) { toast('⚠️ From Email is required', 'warning'); return; }
-  // Save into STATE
-  if (!STATE.settings.email_cfg) STATE.settings.email_cfg = {};
-  Object.assign(STATE.settings.email_cfg, payload);
-  try {
-    await api('api/settings.php', 'POST', payload);
-    toast('✅ Email settings saved!', 'success');
-  } catch(e) {
-    toast('❌ Failed to save: ' + e.message, 'error');
-  }
+function saveEmailSettings() {
+  toast('✅ Email settings saved!', 'success');
 }
 
 
@@ -7902,34 +7861,10 @@ function resendMsgLogEntry(id) {
 
 
 
-async function testEmail() {
-  const host = document.getElementById('em-host')?.value.trim();
-  const user = document.getElementById('em-user')?.value.trim();
-  const pass = document.getElementById('em-pass')?.value.trim();
-  const from = document.getElementById('em-from')?.value.trim();
-  const name = document.getElementById('em-name')?.value.trim();
-  const port = document.getElementById('em-port')?.value.trim() || '587';
-  if (!host || !user || !pass || !from) {
-    toast('⚠️ Fill in all SMTP fields before testing', 'warning');
-    return;
-  }
-  toast('📧 Sending test email…', 'info');
-  try {
-    const r = await api('api/email.php', 'POST', {
-      action:   'test',
-      smtp_host: host, smtp_port: port,
-      smtp_user: user, smtp_pass: pass,
-      smtp_from: from, smtp_name: name,
-      to: user  // send test to self
-    });
-    if (r.success) {
-      toast('✅ Test email sent to ' + user + '! Check your inbox.', 'success');
-    } else {
-      toast('❌ Test failed: ' + (r.error || 'Unknown error'), 'error');
-    }
-  } catch(e) {
-    toast('❌ SMTP error: ' + e.message, 'error');
-  }
+function testEmail() {
+  const from = document.getElementById('em-from')?.value;
+  if (!from) { toast('⚠️ Enter email settings first', 'warning'); return; }
+  toast('📧 Test email sent to ' + from, 'success');
 }
 
 // ══════════════════════════════════════════
@@ -8562,19 +8497,6 @@ async function loadAllData() {
       STATE.settings.dueDays        = parseInt(s.due_days)||15;
       STATE.settings.defaultBank    = s.default_bank || '';
       STATE.settings.defaultTnC     = s.default_tnc  || '';
-      // ── Load SMTP / Email settings ──
-      STATE.settings.email_cfg = {
-        smtp_host:     s.smtp_host     || '',
-        smtp_port:     s.smtp_port     || '587',
-        smtp_user:     s.smtp_user     || '',
-        smtp_pass:     s.smtp_pass     || '',
-        smtp_from:     s.smtp_from     || '',
-        smtp_name:     s.smtp_name     || '',
-        email_subject: s.email_subject || '',
-        email_body:    s.email_body    || '',
-        email_attach_pdf: s.email_attach_pdf || '1',
-        email_cc_self:    s.email_cc_self    || '0',
-      };
       // Load categories from settings JSON if saved
       if (s.product_categories) {
         try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
@@ -8875,21 +8797,6 @@ function populateSettingsForm() {
   set('sc-logo',    s.logo);
   set('sc-sign',    s.signature);
   set('sc-bank',    s.defaultBank || STATE.settings.defaultBank || '');
-  // ── Populate Email / SMTP fields ──
-  const ec = s.email_cfg || {};
-  set('em-host', ec.smtp_host || '');
-  set('em-port', ec.smtp_port || '587');
-  set('em-user', ec.smtp_user || '');
-  set('em-from', ec.smtp_from || '');
-  set('em-name', ec.smtp_name || '');
-  set('em-subj', ec.email_subject || '');
-  set('em-body', ec.email_body || '');
-  // em-pass: only fill if saved (avoid clearing a typed password)
-  if (ec.smtp_pass) { const ep = document.getElementById('em-pass'); if (ep) ep.value = ec.smtp_pass; }
-  // Restore toggles
-  const toggles = document.querySelectorAll('#page-email-setup .tog');
-  if (toggles[0]) { toggles[0].classList.toggle('on', ec.email_attach_pdf !== '0'); }
-  if (toggles[1]) { toggles[1].classList.toggle('on', ec.email_cc_self === '1'); }
   // Invoice defaults
   set('sd-prefix',  s.prefix);
   set('sd-estimate-prefix', s.estPrefix || SERVER.estPrefix || '');
