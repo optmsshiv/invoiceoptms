@@ -218,67 +218,256 @@ function buildItemList(array $items): string {
     return implode("\n", $lines);
 }
 
-// ── Build branded HTML email ─────────────────────────────────────
+// ── Build branded HTML email — OPTMS Design (matches brand screenshot) ──
 function buildEmailHTML(string $body, array $data, ?string $trackToken, string $appUrl): string {
-    $company    = htmlspecialchars($data['company_name'] ?? 'OPTMS Tech');
-    $logo       = $data['company_logo'] ?? '';
-    $color      = '#00897B';
-    $bodyHtml   = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
-    $logoHtml   = $logo ? "<img src='$logo' style='max-height:48px;max-width:180px;object-fit:contain' alt='$company'>" : "<span style='font-size:20px;font-weight:800;color:#fff'>$company</span>";
-    $trackImg   = $trackToken ? "<img src='{$appUrl}/api/email.php?track={$trackToken}' width='1' height='1' style='display:none' alt=''>" : '';
+    $company   = htmlspecialchars($data['company_name']   ?? 'OPTMS Tech');
+    $phone     = htmlspecialchars($data['company_phone']  ?? '');
+    $email     = htmlspecialchars($data['company_email']  ?? '');
+    $gst       = htmlspecialchars($data['company_gst']    ?? '');
+    $logo      = $data['company_logo'] ?? '';
+    $signature = $data['company_sign'] ?? $data['signature'] ?? '';
+    $teal      = '#0D7A6A';
+    $tealDark  = '#0A5C4E';
+    $tealLight = '#E8F5F2';
+    $trackImg  = $trackToken ? "<img src='{$appUrl}/api/email.php?track={$trackToken}' width='1' height='1' style='display:none' alt=''>" : '';
+    $year      = date('Y');
+    $type      = $data['type'] ?? 'invoice';
+    $isEst     = $type === 'estimate';
 
-    // Invoice summary table if items exist
-    $itemsTable = '';
-    if (!empty($data['items'])) {
-        $rows = '';
-        foreach ($data['items'] as $it) {
-            $total = number_format((float)($it['line_total'] ?? ((float)$it['quantity'] * (float)$it['rate'])), 2);
-            $rows .= "<tr><td style='padding:8px 12px;border-bottom:1px solid #f0f0f0'>" . htmlspecialchars($it['description']) . "</td><td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center'>" . $it['quantity'] . "</td><td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right'>₹" . number_format((float)$it['rate'], 2) . "</td><td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600'>₹$total</td></tr>";
-        }
-        $itemsTable = "<div style='margin:20px 0'><table style='width:100%;border-collapse:collapse;font-size:13px'><thead><tr style='background:#f5f5f5'><th style='padding:8px 12px;text-align:left;color:#555'>Description</th><th style='padding:8px 12px;text-align:center;color:#555'>Qty</th><th style='padding:8px 12px;text-align:right;color:#555'>Rate</th><th style='padding:8px 12px;text-align:right;color:#555'>Total</th></tr></thead><tbody>$rows</tbody></table></div>";
+    // ── Header ─────────────────────────────────────────────────
+    if ($logo) {
+        $logoBlock = "<img src='{$logo}' alt='{$company}' style='max-height:52px;max-width:170px;object-fit:contain'>";
+    } else {
+        $initial  = mb_strtoupper(mb_substr($company, 0, 1));
+        $logoBlock = "<table cellpadding='0' cellspacing='0' border='0'><tr>
+          <td style='padding-right:12px;vertical-align:middle'>
+            <div style='width:48px;height:48px;background:rgba(255,255,255,.18);border-radius:12px;text-align:center;line-height:48px;font-size:22px;font-weight:900;color:#fff'>{$initial}</div>
+          </td>
+          <td style='vertical-align:middle'>
+            <div style='font-size:21px;font-weight:900;color:#fff;letter-spacing:.8px;line-height:1.1'>" . strtoupper($company) . "</div>
+            <div style='font-size:11.5px;color:rgba(255,255,255,.72);margin-top:2px'>Code your way to progress</div>
+          </td>
+        </tr></table>";
     }
 
-    // CTA button
+    // ── Invoice info card ──────────────────────────────────────
+    $invNum  = htmlspecialchars($data['invoice_number'] ?? '');
+    $rawDue  = $data['due_date'] ?? '';
+    $amount  = htmlspecialchars($data['currency'] ?? '₹') . htmlspecialchars($data['amount'] ?? '');
+    $service = htmlspecialchars($data['service_type'] ?? '');
+    try { $dueFormatted = $rawDue ? (new DateTime($rawDue))->format('d F Y') : ''; } catch (Exception $e) { $dueFormatted = $rawDue; }
+    $dueLabel = $isEst ? 'Valid Until' : 'Due Date';
+    $invLabel = $isEst ? 'Estimate No.' : 'Invoice No.';
+
+    $infoCard = $invNum ? "
+    <table cellpadding='0' cellspacing='0' border='0' width='100%' style='background:#f7faf9;border:1.5px solid #daeee9;border-radius:14px;margin:22px 0;overflow:hidden'>
+      <tr>
+        <td style='padding:20px 20px;width:80px;vertical-align:middle;border-right:1px solid #e8f2ef'>
+          <div style='width:62px;height:62px;background:#e2f0ec;border-radius:50%;text-align:center;line-height:62px;font-size:26px'>📄</div>
+        </td>
+        <td style='padding:18px 22px;vertical-align:middle'>
+          <table cellpadding='0' cellspacing='0' border='0' width='100%'>
+            <tr>
+              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>#&nbsp; {$invLabel}</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$invNum}</div>
+              </td>
+              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>📅&nbsp; {$dueLabel}</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$dueFormatted}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style='vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>₹&nbsp; Amount Due</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$amount}</div>
+              </td>
+              <td style='vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>🌐&nbsp; Service</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$service}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>" : '';
+
+    // ── Payment details ────────────────────────────────────────
+    $upi     = htmlspecialchars($data['upi'] ?? $data['company_upi'] ?? '');
+    $bankRaw = $data['bank_details'] ?? $data['default_bank'] ?? '';
+    $payRows = '';
+    if ($upi) {
+        $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
+          <td style='padding:11px 16px;width:44px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>🔗</span></td>
+          <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600;width:130px'>UPI</td>
+          <td style='padding:11px 4px;font-size:13px;color:#aaa;width:12px'>:</td>
+          <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>{$upi}</td>
+        </tr>";
+    }
+    $iconMap = ['bank'=>'🏦','account name'=>'👤','account no'=>'💳','account number'=>'💳','ifsc'=>'🏠','branch'=>'📍'];
+    foreach (array_filter(array_map('trim', explode("\n", $bankRaw))) as $line) {
+        if (strpos($line, ':') !== false) {
+            [$k, $v] = array_map('trim', explode(':', $line, 2));
+            $ico = '📋';
+            foreach ($iconMap as $kw => $ic) { if (stripos($k, $kw) !== false) { $ico = $ic; break; } }
+            $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
+              <td style='padding:11px 16px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>{$ico}</span></td>
+              <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600'>" . htmlspecialchars($k) . "</td>
+              <td style='padding:11px 4px;font-size:13px;color:#aaa'>:</td>
+              <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>" . htmlspecialchars($v) . "</td>
+            </tr>";
+        }
+    }
+    $paySection = $payRows ? "
+    <div style='margin:22px 0'>
+      <div style='font-size:17px;font-weight:800;color:#111;margin-bottom:5px'>Payment Details</div>
+      <div style='width:36px;height:3px;background:{$teal};border-radius:3px;margin-bottom:14px'></div>
+      <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;background:#fff'>
+        {$payRows}
+      </table>
+    </div>" : '';
+
+    // ── Line items ─────────────────────────────────────────────
+    $itemsSection = '';
+    if (!empty($data['items'])) {
+        $irows = '';
+        foreach ($data['items'] as $it) {
+            $tot = number_format((float)($it['line_total'] ?? ((float)($it['quantity']??1) * (float)($it['rate']??0))), 2);
+            $irows .= "<tr style='border-bottom:1px solid #eef3f2'>
+              <td style='padding:10px 16px;font-size:13px;color:#333'>" . htmlspecialchars($it['description']??'') . "</td>
+              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:center'>" . ($it['quantity']??1) . "</td>
+              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:right'>₹" . number_format((float)($it['rate']??0), 2) . "</td>
+              <td style='padding:10px 16px;font-size:13px;font-weight:700;color:#111;text-align:right'>₹{$tot}</td>
+            </tr>";
+        }
+        $itemsSection = "
+        <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;margin-bottom:20px'>
+          <thead><tr style='background:#f7faf9'>
+            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.4px'>Description</th>
+            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
+            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Rate</th>
+            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Total</th>
+          </tr></thead>
+          <tbody>{$irows}</tbody>
+        </table>";
+    }
+
+    // ── CTA button ─────────────────────────────────────────────
     $ctaBtn = '';
     if (!empty($data['invoice_link'])) {
-        $ctaLink = htmlspecialchars($data['invoice_link']);
-        $ctaLabel = ($data['type'] ?? '') === 'estimate' ? '📋 View Estimate' : '📄 View Invoice';
-        $ctaBtn  = "<div style='text-align:center;margin:28px 0'><a href='$ctaLink' style='background:{$color};color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block'>{$ctaLabel}</a></div>";
+        $ctaLink  = htmlspecialchars($data['invoice_link']);
+        $ctaLabel = $isEst ? '📋 &nbsp;View Estimate' : '📄 &nbsp;View Invoice';
+        $ctaBtn = "
+        <div style='text-align:center;margin:26px 0 18px'>
+          <a href='{$ctaLink}' style='display:inline-block;background:{$teal};color:#fff;text-decoration:none;padding:15px 52px;border-radius:10px;font-size:15px;font-weight:800;letter-spacing:.3px'>{$ctaLabel}</a>
+        </div>";
     }
 
-    // UPI button
-    $upiBtn = '';
-    if (!empty($data['upi'])) {
-        $upi    = htmlspecialchars($data['upi']);
-        $amount = urlencode($data['amount'] ?? '');
-        $upiBtn = "<div style='text-align:center;margin:16px 0'><a href='upi://pay?pa={$upi}&am={$amount}&cu=INR' style='background:#F57F17;color:#fff;padding:11px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block'>💳 Pay via UPI</a></div>";
-    }
+    // ── Email body text ────────────────────────────────────────
+    $clientName = htmlspecialchars($data['client_name'] ?? '');
+    $bodyText   = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
 
-    $year = date('Y');
+    // ── Signature block ────────────────────────────────────────
+    $initial2 = mb_strtoupper(mb_substr($company, 0, 1));
+    $sigImgHtml = $signature ? "<img src='{$signature}' alt='Signature' style='max-height:44px;max-width:140px;object-fit:contain;margin-top:6px;display:block'>" : '';
+    if ($logo) {
+        $sigLogo = "<img src='{$logo}' alt='{$company}' style='max-height:44px;max-width:130px;object-fit:contain'>";
+    } else {
+        $sigLogo = "<div style='width:48px;height:48px;background:{$tealLight};border-radius:50%;text-align:center;line-height:48px;font-size:20px;font-weight:900;color:{$teal}'>{$initial2}</div>";
+    }
+    $phHtml = $phone ? "<span>📞 &nbsp;{$phone}</span>&nbsp;&nbsp;" : '';
+    $emHtml = $email ? "<span>✉️ &nbsp;{$email}</span>" : '';
+
+    // ── Social footer icons ────────────────────────────────────
+    $socials = "
+    <table cellpadding='0' cellspacing='0' border='0' align='center' style='margin:14px auto 0'>
+      <tr>
+        <td style='padding:0 5px'><a href='https://linkedin.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:13px;color:#fff;text-decoration:none;font-weight:700'>in</a></td>
+        <td style='padding:0 5px'><a href='https://twitter.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>𝕏</a></td>
+        <td style='padding:0 5px'><a href='mailto:{$email}' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>✉</a></td>
+      </tr>
+    </table>";
+
+    $gstLine = $gst ? "<br><span style='font-size:11px;color:#bbb'>GST: {$gst}</span>" : '';
+
     return <<<HTML
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-  body{margin:0;padding:0;background:#f0f2f5;font-family:'Segoe UI',Arial,sans-serif}
-  a{color:#00897B}
-</style>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email from {$company}</title>
 </head>
-<body>
-<div style="max-width:620px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.10)">
-  <div style="background:{$color};padding:24px 32px;display:flex;align-items:center;gap:16px">
-    {$logoHtml}
-  </div>
-  <div style="padding:28px 32px;color:#333;font-size:15px;line-height:1.8">
-    {$bodyHtml}
-    {$itemsTable}
-    {$ctaBtn}
-    {$upiBtn}
-  </div>
-  <div style="background:#f9f9f9;padding:16px 32px;font-size:11px;color:#aaa;border-top:1px solid #eee;text-align:center">
-    Sent via <strong>OPTMS Tech Invoice Manager</strong> &nbsp;·&nbsp; <a href="https://optmstech.in" style="color:#aaa">optmstech.in</a> &nbsp;·&nbsp; © {$year}
-  </div>
-</div>
+<body style="margin:0;padding:0;background:#EDF2F0;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#EDF2F0;padding:28px 0">
+<tr><td align="center">
+<table cellpadding="0" cellspacing="0" border="0" width="600" style="background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 32px rgba(0,0,0,.09)">
+
+  <!-- ── HEADER ── -->
+  <tr>
+    <td style="background:linear-gradient(135deg,{$teal} 0%,{$tealDark} 100%);padding:26px 32px">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td style="vertical-align:middle">{$logoBlock}</td>
+        <td align="right" style="vertical-align:middle">
+          <div style="display:inline-block;border:1.5px solid rgba(255,255,255,.35);border-radius:22px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff;letter-spacing:.3px;white-space:nowrap">🛡 Trusted. Reliable. Professional.</div>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- ── BODY ── -->
+  <tr>
+    <td style="padding:32px 32px 24px">
+
+      <!-- Greeting -->
+      <p style="font-size:19px;font-weight:800;color:#111;margin:0 0 10px;line-height:1.3">Dear <span style="color:{$teal}">{$clientName},</span></p>
+      <p style="font-size:14px;color:#666;margin:0 0 8px;line-height:1.75">{$bodyText}</p>
+
+      <!-- Invoice card -->
+      {$infoCard}
+
+      <!-- Line items -->
+      {$itemsSection}
+
+      <!-- Payment details -->
+      {$paySection}
+
+      <!-- CTA button -->
+      {$ctaBtn}
+
+      <!-- Appreciation note -->
+      <div style="text-align:center;margin:8px 0 28px">
+        <p style="font-size:13px;color:#999;margin:0 0 5px">If you have any questions, feel free to reach out.</p>
+        <p style="font-size:13.5px;font-weight:800;color:{$teal};margin:0">We appreciate your business!</p>
+      </div>
+
+      <!-- Signature -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #edf2f0;padding-top:22px;margin-top:24px">
+        <tr>
+          <td style="width:58px;vertical-align:top;padding-right:14px">{$sigLogo}</td>
+          <td style="vertical-align:top">
+            <div style="font-size:13px;color:#aaa;margin-bottom:3px">Best regards,</div>
+            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px">{$company}</div>
+            {$sigImgHtml}
+            <div style="font-size:13px;color:#666;margin-top:6px">{$phHtml}{$emHtml}</div>
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+
+  <!-- ── FOOTER ── -->
+  <tr>
+    <td style="background:#F7FAF9;border-top:1px solid #E8F0EE;padding:18px 32px 22px;text-align:center">
+      <p style="font-size:12px;color:#bbb;margin:0">© {$year} {$company}. All rights reserved.{$gstLine}</p>
+      {$socials}
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
 {$trackImg}
 </body>
 </html>
