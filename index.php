@@ -1392,11 +1392,21 @@ const SERVER = {
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-user"></i> Client Information</div>
             <div class="form-grid g1" style="margin-bottom:12px">
-              <div class="field"><label>Quick Select Client</label>
-                <select id="f-client-select" onchange="fillClientForm(this.value)">
-                  <option value="">-- Quick Select Client --</option>
-                </select>
+              <div class="field" style="position:relative">
+                <label>Quick Select Client</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="f-client-select" onchange="fillClientForm(this.value)" style="flex:1">
+                    <option value="">-- Quick Select Client --</option>
+                    <option value="__onetime__" style="color:#E65100;font-weight:600">👤 One-Time / Walk-in Client (not saved)</option>
+                  </select>
+                  <span id="onetime-badge" style="display:none;background:#FBE9E7;border:1.5px solid #E65100;color:#E65100;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0"><i class="fas fa-user-clock"></i> One-Time</span>
+                </div>
               </div>
+            </div>
+            <div id="onetime-notice" style="display:none;background:#FFF3E0;border:1.5px solid #FFB300;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;color:#795548;display:none">
+              <i class="fas fa-info-circle" style="color:#F9A825;margin-right:6px"></i>
+              <strong>One-Time Client</strong> — details below are for this invoice only and will <strong>not</strong> be saved to your client list.
+              <span onclick="switchToSaveClient()" style="margin-left:8px;color:#1976D2;cursor:pointer;font-weight:600;text-decoration:underline">Save this client instead →</span>
             </div>
             <div class="form-grid g2">
               <div class="field g-full"><label>Organization / Client Name *</label><input id="f-cname" placeholder="Organization / Client Name" oninput="livePreview()"></div>
@@ -4541,6 +4551,9 @@ function resetCreateForm() {
   const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = '₹';
   const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || 1);
   const clientSelEl = document.getElementById('f-client-select'); if (clientSelEl) clientSelEl.value = '';
+  // Hide one-time client indicators
+  const _otNotice = document.getElementById('onetime-notice'); if (_otNotice) _otNotice.style.display = 'none';
+  const _otBadge  = document.getElementById('onetime-badge');  if (_otBadge)  _otBadge.style.display  = 'none';
   // Reset company logo, qr to defaults
   const qrEl = document.getElementById('f-qr'); if (qrEl) qrEl.value = '';
   const _radios = document.querySelectorAll('input[name="inv-status"]');
@@ -4658,6 +4671,22 @@ function calcTotals() {
 }
 
 function fillClientForm(val) {
+  const notice  = document.getElementById('onetime-notice');
+  const badge   = document.getElementById('onetime-badge');
+  if (val === '__onetime__') {
+    // Clear all client fields for manual entry
+    ['f-cname','f-cperson','f-cwa','f-cemail','f-cgst','f-caddr'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.value = '';
+    });
+    if (notice) notice.style.display = 'block';
+    if (badge)  badge.style.display  = 'inline-flex';
+    document.getElementById('f-cname')?.focus();
+    livePreview();
+    return;
+  }
+  // Hide one-time indicators when a saved client is selected or cleared
+  if (notice) notice.style.display = 'none';
+  if (badge)  badge.style.display  = 'none';
   const c = STATE.clients.find(x => x.id === val);
   if (!c) return;
   document.getElementById('f-cname').value   = c.name;
@@ -4667,6 +4696,30 @@ function fillClientForm(val) {
   document.getElementById('f-cgst').value    = c.gst;
   document.getElementById('f-caddr').value   = c.addr;
   livePreview();
+}
+
+function switchToSaveClient() {
+  // Pre-fill the Add Client modal with values already typed in the invoice form
+  const get = id => document.getElementById(id)?.value || '';
+  const nc = {
+    'nc-name':     get('f-cname'),
+    'nc-person':   get('f-cperson'),
+    'nc-wa':       get('f-cwa'),
+    'nc-email':    get('f-cemail'),
+    'nc-gst':      get('f-cgst'),
+    'nc-addr':     get('f-caddr'),
+  };
+  Object.entries(nc).forEach(([id, val]) => {
+    const e = document.getElementById(id); if (e) e.value = val;
+  });
+  // Reset one-time mode
+  const s = document.getElementById('f-client-select');
+  if (s) s.value = '';
+  const notice = document.getElementById('onetime-notice');
+  const badge  = document.getElementById('onetime-badge');
+  if (notice) notice.style.display = 'none';
+  if (badge)  badge.style.display  = 'none';
+  openModal('modal-addclient');
 }
 
 // ══════════════════════════════════════════
@@ -6094,6 +6147,7 @@ async function saveInvoice() {
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
   const selVal = document.getElementById('f-client-select')?.value;
+  const _clientId = (selVal && selVal !== '__onetime__') ? parseInt(selVal) : null;
 
   // FIX: capture BEFORE any reset — tells WA block if this is new vs edit
   const isNewSave = !STATE.editingInvoiceId;
@@ -6101,7 +6155,7 @@ async function saveInvoice() {
   const formPhone = (document.getElementById('f-cwa')?.value || '').replace(/\D/g, '');
 
   const payload = {
-    invoice_number: d.num, client_id: selVal ? parseInt(selVal) : null,
+    invoice_number: d.num, client_id: _clientId,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
     discount_pct: d.disc, discount_amt: d.discAmt, discount_type: (d.discType==='fixed'?'flat':'percent'), gst_amount: d.gstAmt, grand_total: d.grand,
@@ -8656,7 +8710,9 @@ function syncServiceText(val) {
 
 function updateClientDropdown() {
   const s=document.getElementById('f-client-select'); if(!s) return;
-  s.innerHTML='<option value="">-- Quick Select Client --</option>'+STATE.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  s.innerHTML='<option value="">-- Quick Select Client --</option>'
+    +'<option value="__onetime__" style="color:#E65100;font-weight:600">👤 One-Time / Walk-in Client (not saved)</option>'
+    +STATE.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 function editInvoice(id) {
