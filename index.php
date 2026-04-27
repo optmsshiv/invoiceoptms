@@ -6125,6 +6125,8 @@ async function saveInvoice() {
       } else {
         logActivity('invoice_edited', `Invoice edited: ${_editedNum}`, payload.client_name || '', dbId);
       }
+      // Navigate back to invoices list after editing
+      showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
     } else {
       const _res = await api('api/invoices.php', 'POST', payload);
       toast('✅ Invoice ' + d.num + ' saved!', 'success');
