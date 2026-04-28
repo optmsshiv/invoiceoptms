@@ -4950,7 +4950,7 @@ function tplLogoHTML(d, sc) {
 
   if (showLogo && logo) {
     return `<div>
-      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block;border-radius:12px;border:2px solid rgba(0,0,0,0.12);padding:4px;background:#fff" onerror="this.style.display='none'">
+      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block" onerror="this.style.display='none'">
       ${tagDiv}
     </div>`;
   }
