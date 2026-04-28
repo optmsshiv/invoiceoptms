@@ -7240,6 +7240,8 @@ function isValidImg(src) {
   const s = src.trim();
   return s.startsWith('data:image') || s.startsWith('http://') || s.startsWith('https://');
 }
+
+function updateClientLogoInitials() {
   const name  = document.getElementById('nc-name')?.value || '';
   const color = document.getElementById('nc-color')?.value || '#00897B';
   const preview = document.getElementById('nc-logo-preview');
