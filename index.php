@@ -771,11 +771,13 @@ select { cursor: pointer; }
 .client-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 .cc-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cc-big-avatar {
-  width: 48px; height: 48px; border-radius: 12px;
+  width: 52px; height: 52px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 800; color: #fff; overflow: hidden; flex-shrink: 0;
+  border: 3px solid transparent; transition: border-color .3s, box-shadow .3s;
 }
 .cc-big-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cc-big-avatar.has-logo { border-color: #00897B; box-shadow: 0 0 0 3px rgba(0,137,123,.2), 0 2px 8px rgba(0,137,123,.3); }
 .cc-org { font-weight: 700; font-size: 15px; color: var(--text); }
 .cc-contact { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .cc-stats { display: flex; gap: 0; background: var(--bg); border-radius: 8px; overflow: hidden; }
@@ -3554,9 +3556,11 @@ View Invoice: {{6}}</pre></details>
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--text)">Client Logo <span style="font-size:10px;color:var(--muted);font-weight:400">(optional)</span></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600">
-              <i class="fas fa-upload"></i> Upload
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label id="nc-logo-upload-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;position:relative;overflow:hidden;transition:background .2s">
+              <i class="fas fa-upload" id="nc-logo-upload-icon"></i>
+              <span id="nc-logo-upload-text">Upload</span>
+              <div id="nc-logo-progress-bar" style="position:absolute;left:0;bottom:0;height:3px;width:0%;background:rgba(255,255,255,.7);transition:width .05s linear;border-radius:0 0 6px 6px"></div>
               <input type="file" id="nc-logo-file" accept="image/*" style="display:none" onchange="handleClientLogoUpload(this)">
             </label>
             <button class="btn btn-outline" style="font-size:12px;padding:5px 10px" onclick="document.getElementById('nc-logo-url-wrap').style.display=document.getElementById('nc-logo-url-wrap').style.display==='none'?'flex':'none'"><i class="fas fa-link"></i> URL</button>
@@ -7160,7 +7164,7 @@ function renderClients() {
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${isInactive?'#F9A825':c.color}"></div>
       ${isInactive ? `<div style="position:absolute;top:8px;right:8px;background:#FFF3CD;border:1.5px solid #F9A825;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;color:#856404;z-index:2"><i class="fas fa-pause-circle"></i> Inactive</div>` : ''}
       <div class="cc-head">
-        <div class="cc-big-avatar" style="background:${isInactive?'#F9A825':c.color};${isInactive?'opacity:.7':''}">
+        <div class="cc-big-avatar ${isValidImg(c.image)?'has-logo':''}" style="background:${isInactive?'#9E9E9E':c.color};${isInactive?'opacity:.7':''}">
           ${isValidImg(c.image) ? `<img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'">` : initials}
         </div>
         <div style="flex:1;min-width:0">
@@ -7220,11 +7224,28 @@ let _ncLogoBase64 = ''; // stores base64 or URL of logo
 function handleClientLogoUpload(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 5 * 1024 * 1024) { toast('⚠️ Image must be under 5MB', 'warning'); return; }
+
+  // --- Button loading state ---
+  const btn  = document.getElementById('nc-logo-upload-btn');
+  const icon = document.getElementById('nc-logo-upload-icon');
+  const text = document.getElementById('nc-logo-upload-text');
+  const bar  = document.getElementById('nc-logo-progress-bar');
+  if (btn)  btn.style.background  = '#00695C';
+  if (icon) icon.className = 'fas fa-spinner fa-spin';
+  if (text) text.textContent = 'Processing…';
+  if (bar)  { bar.style.width = '0%'; bar.style.transition = 'none'; }
+
+  // Animate progress bar: fake progress to 85% while processing
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct = pct < 85 ? pct + (85 - pct) * 0.08 : pct;
+    if (bar) bar.style.width = pct + '%';
+  }, 50);
+
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      // Resize to max 200×200 preserving aspect ratio, then compress
       const MAX = 200;
       let w = img.width, h = img.height;
       if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
@@ -7232,16 +7253,30 @@ function handleClientLogoUpload(input) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      // Start at quality 0.85, step down until output < 50 KB
       let quality = 0.85, dataUrl;
       do {
         dataUrl = canvas.toDataURL('image/jpeg', quality);
         quality -= 0.1;
       } while (dataUrl.length > 50 * 1024 * 1.37 && quality > 0.1);
-      // 50KB * 1.37 ≈ base64 overhead factor
-      _ncLogoBase64 = dataUrl;
-      _applyClientLogoPreview(_ncLogoBase64);
-      toast('✅ Logo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+
+      // Complete progress bar to 100%
+      clearInterval(tick);
+      if (bar) { bar.style.transition = 'width .2s ease'; bar.style.width = '100%'; }
+
+      setTimeout(() => {
+        _ncLogoBase64 = dataUrl;
+        _applyClientLogoPreview(_ncLogoBase64);
+        // Reset button
+        if (btn)  btn.style.background  = 'var(--teal)';
+        if (icon) icon.className = 'fas fa-check';
+        if (text) text.textContent = 'Uploaded!';
+        if (bar)  { bar.style.transition = 'width .4s ease'; bar.style.width = '0%'; }
+        setTimeout(() => {
+          if (icon) icon.className = 'fas fa-upload';
+          if (text) text.textContent = 'Upload';
+        }, 2000);
+        toast('✅ Logo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+      }, 250);
     };
     img.src = e.target.result;
   };
