@@ -191,7 +191,7 @@ function replaceVars(string $tpl, array $data): string {
         '{amount}'               => $data['amount']                ?? '',
         '{currency}'             => $data['currency']              ?? '₹',
         '{due_date}'             => $data['due_date']              ?? '',
-        '{issue_date}'           => $data['issued_date']           ?? '',
+        '{issue_date}'           => $data['issued_date']           ?? $data['issue_date'] ?? '',
         '{service}'              => $data['service_type']          ?? '',
         '{company_name}'         => $data['company_name']          ?? 'OPTMS Tech',
         '{company_phone}'        => $data['company_phone']         ?? '',
@@ -199,7 +199,7 @@ function replaceVars(string $tpl, array $data): string {
         '{upi}'                  => $data['upi']                   ?? '',
         '{bank_details}'         => $data['bank_details']          ?? '',
         '{days_overdue}'         => $data['days_overdue']          ?? '0',
-        '{item_list}'            => $data['item_list']             ?? '',
+        '{item_list}'            => '',   // rendered as HTML table — strip from body text
         '{paid_amount}'          => $data['paid_amount']           ?? '',
         '{remaining_amount}'     => $data['remaining_amount']      ?? '',
         '{settlement_discount}'  => $data['settlement_discount']   ?? '',
@@ -208,14 +208,24 @@ function replaceVars(string $tpl, array $data): string {
     return str_replace(array_keys($map), array_values($map), $tpl);
 }
 
-// ── Build item list text ─────────────────────────────────────────
+// ── Build item list — returns HTML <tr> rows for email template ──
 function buildItemList(array $items): string {
     if (empty($items)) return '';
-    $lines = ["Items:"];
-    foreach ($items as $item) {
-        $lines[] = "  • " . $item['description'] . " — Qty: " . $item['quantity'] . " × ₹" . number_format((float)$item['rate'], 2);
+    $rows = '';
+    foreach ($items as $i => $item) {
+        $tot   = number_format((float)($item['line_total'] ?? ((float)($item['quantity'] ?? 1) * (float)($item['rate'] ?? 0))), 2);
+        $rate  = number_format((float)($item['rate'] ?? 0), 2);
+        $qty   = htmlspecialchars((string)($item['quantity'] ?? 1));
+        $desc  = htmlspecialchars($item['description'] ?? '');
+        $rows .= "<tr style='border-bottom:1px solid #e5e7eb'>
+          <td style='padding:12px 14px;font-size:13px;color:#6b7280;text-align:center'>" . ($i + 1) . "</td>
+          <td style='padding:12px 16px;font-size:13.5px;color:#111827'>{$desc}</td>
+          <td style='padding:12px 8px;font-size:13px;color:#555;text-align:center'>{$qty}</td>
+          <td style='padding:12px 8px;font-size:13px;color:#555;text-align:right'>&#8377;{$rate}</td>
+          <td style='padding:12px 16px;font-size:13px;font-weight:700;color:#111827;text-align:right'>&#8377;{$tot}</td>
+        </tr>";
     }
-    return implode("\n", $lines);
+    return $rows;
 }
 
 // ── Build branded HTML email — OPTMS Design ─────────────────────
@@ -270,6 +280,11 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
     $dueLabel = $isEst ? 'Valid Until' : 'Due Date';
     $invLabel = $isEst ? 'Estimate No.' : 'Invoice No.';
 
+    // Issue date formatted
+    $rawIssue     = $data['issued_date'] ?? $data['issue_date'] ?? '';
+    $issueLabel   = $isEst ? 'Date' : 'Issue Date';
+    try { $issueFormatted = $rawIssue ? (new DateTime($rawIssue))->format('d F Y') : ''; } catch (Exception $e) { $issueFormatted = $rawIssue; }
+
     $infoCard = $invNum ? "
     <table cellpadding='0' cellspacing='0' border='0' width='100%'
       style='border:1.8px solid {$tealBorder};border-radius:12px;overflow:hidden;margin:20px 0;background:#ffffff'>
@@ -290,9 +305,15 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
           <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>Amount Due</div>
           <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$amount}</div>
         </td>
-        <!-- due date -->
+        <!-- issue date -->
         <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
           <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>&#128197;</div>
+          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$issueLabel}</div>
+          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$issueFormatted}</div>
+        </td>
+        <!-- due date -->
+        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
+          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>&#128198;</div>
           <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$dueLabel}</div>
           <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$dueFormatted}</div>
         </td>
@@ -362,29 +383,34 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
     </div>" : '';
 
     // ── Line items ─────────────────────────────────────────────
+    $itemRows    = $data['item_list'] ?? '';  // already HTML <tr> rows from buildItemList()
+    $totalAmount = $cur . htmlspecialchars($data['amount'] ?? '');
     $itemsSection = '';
-    if (!empty($data['items'])) {
-        $irows = '';
-        foreach ($data['items'] as $it) {
-            $tot = number_format((float)($it['line_total'] ?? ((float)($it['quantity']??1) * (float)($it['rate']??0))), 2);
-            $irows .= "<tr style='border-bottom:1px solid #eef3f2'>
-              <td style='padding:10px 16px;font-size:13px;color:#333'>" . htmlspecialchars($it['description']??'') . "</td>
-              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:center'>" . ($it['quantity']??1) . "</td>
-              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:right'>&#8377;" . number_format((float)($it['rate']??0), 2) . "</td>
-              <td style='padding:10px 16px;font-size:13px;font-weight:700;color:#111;text-align:right'>&#8377;{$tot}</td>
-            </tr>";
-        }
+    if ($itemRows) {
         $itemsSection = "
-        <table cellpadding='0' cellspacing='0' border='0' width='100%'
-          style='border:1.5px solid {$tealBorder};border-radius:12px;overflow:hidden;margin-bottom:20px'>
-          <thead><tr style='background:#f7faf9'>
-            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.4px'>Description</th>
-            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
-            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Rate</th>
-            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Total</th>
-          </tr></thead>
-          <tbody>{$irows}</tbody>
-        </table>";
+        <div style='margin:0 0 24px'>
+          <div style='font-size:13px;font-weight:800;color:#1a1a2e;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px'>Invoice Items</div>
+          <div style='width:36px;height:3px;background:#e74c3c;border-radius:2px;margin-bottom:16px'></div>
+          <table cellpadding='0' cellspacing='0' border='0' width='100%'
+            style='border:1.8px solid {$tealBorder};border-radius:12px;overflow:hidden;background:#ffffff'>
+            <thead>
+              <tr style='background:{$teal}'>
+                <th style='padding:11px 14px;font-size:10px;color:#7ecfc4;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:36px'>#</th>
+                <th style='padding:11px 16px;font-size:10px;color:#7ecfc4;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.6px'>Description</th>
+                <th style='padding:11px 8px;font-size:10px;color:#7ecfc4;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
+                <th style='padding:11px 8px;font-size:10px;color:#7ecfc4;text-align:right;font-weight:700;text-transform:uppercase'>Unit Price</th>
+                <th style='padding:11px 16px;font-size:10px;color:#7ecfc4;text-align:right;font-weight:700;text-transform:uppercase'>Total</th>
+              </tr>
+            </thead>
+            <tbody>{$itemRows}</tbody>
+            <tfoot>
+              <tr style='background:{$tealLight};border-top:2px solid {$tealBorder}'>
+                <td colspan='4' style='padding:13px 16px;font-size:14px;font-weight:800;color:{$teal}'>Total Amount Due</td>
+                <td style='padding:13px 16px;font-size:14px;font-weight:800;color:{$teal};text-align:right'>{$totalAmount}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>";
     }
 
     // ── CTA button ─────────────────────────────────────────────
@@ -513,7 +539,7 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
 
       <!-- Greeting -->
       <div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px">
-        <span style="color:{$tealBorder}">{$clientName},</span>
+        Hello <span style="color:{$tealBorder}">{$clientName},</span>
       </div>
       <div style="font-size:14px;color:#6b7280;line-height:1.75;margin-bottom:8px">{$bodyText}</div>
 
