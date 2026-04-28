@@ -234,19 +234,22 @@ function handleSend($db, $input) {
             $invChk->execute([$invId]);
             $invStatus = $invChk->fetchColumn();
             if ($invStatus !== false) {
-                // Receipt is the only type allowed to go to a Paid invoice
-                // (it IS the paid confirmation). Everything else is blocked.
-                $blockedForPaid       = ['reminder','overdue','followup','invoice','estimate'];
-                $blockedForCancelled  = ['reminder','overdue','followup','invoice','estimate','receipt'];
-                $blockedForDraft      = ['reminder','overdue','followup'];
-
-                if (in_array($invStatus, ['Paid','Cancelled']) && in_array($type, $blockedForCancelled)) {
+                // Paid   → only receipt is allowed (it IS the payment confirmation)
+                // Cancelled → nothing is allowed
+                // Draft  → only invoice/estimate allowed; no reminders/overdue/followup
+                if ($invStatus === 'Paid' && !in_array($type, ['receipt','test'])) {
                     jsonResponse([
                         'success' => false,
-                        'error'   => "Cannot send a {$type} email — invoice is {$invStatus}.",
+                        'error'   => "Cannot send a {$type} email — invoice is already Paid. Only a receipt can be sent.",
                     ], 422);
                 }
-                if ($invStatus === 'Draft' && in_array($type, $blockedForDraft)) {
+                if ($invStatus === 'Cancelled') {
+                    jsonResponse([
+                        'success' => false,
+                        'error'   => "Cannot email a Cancelled invoice.",
+                    ], 422);
+                }
+                if ($invStatus === 'Draft' && in_array($type, ['reminder','overdue','followup'])) {
                     jsonResponse([
                         'success' => false,
                         'error'   => "Cannot send a {$type} email — invoice is still a Draft.",
