@@ -970,4 +970,4 @@ Thank you for your attention to this matter.
 }
 
 // ================================================================
-ob_end_clean();
+ob_end_flush();
