@@ -218,7 +218,7 @@ function buildItemList(array $items): string {
     return implode("\n", $lines);
 }
 
-// ── Build branded HTML email — OPTMS Design ─────────────────────
+// ── Build branded HTML email — OPTMS Design (matches brand screenshot) ──
 function buildEmailHTML(string $body, array $data, ?string $trackToken, string $appUrl): string {
     $company   = htmlspecialchars($data['company_name']   ?? 'OPTMS Tech');
     $phone     = htmlspecialchars($data['company_phone']  ?? '');
@@ -226,81 +226,68 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
     $gst       = htmlspecialchars($data['company_gst']    ?? '');
     $logo      = $data['company_logo'] ?? '';
     $signature = $data['company_sign'] ?? $data['signature'] ?? '';
+    $teal      = '#0D7A6A';
+    $tealDark  = '#0A5C4E';
+    $tealLight = '#E8F5F2';
     $trackImg  = $trackToken ? "<img src='{$appUrl}/api/email.php?track={$trackToken}' width='1' height='1' style='display:none' alt=''>" : '';
     $year      = date('Y');
     $type      = $data['type'] ?? 'invoice';
     $isEst     = $type === 'estimate';
 
-    // colours
-    $teal      = '#0b3d35';
-    $tealMid   = '#0f5a47';
-    $tealAccent= '#4ecdc4';
-    $tealLight = '#ddf0ec';
-    $tealBorder= '#0f7a5f';
-
-    // ── Logo block ─────────────────────────────────────────────
+    // ── Header ─────────────────────────────────────────────────
     if ($logo) {
-        $logoBlock = "<img src='{$logo}' alt='{$company}' style='max-height:52px;max-width:170px;object-fit:contain;border-radius:8px'>";
+        $logoBlock = "<img src='{$logo}' alt='{$company}' style='max-height:52px;max-width:170px;object-fit:contain'>";
     } else {
-        $logoBlock = "
-        <table cellpadding='0' cellspacing='0' border='0'>
-          <tr>
-            <td style='padding-right:14px;vertical-align:middle'>
-              <svg width='52' height='52' viewBox='0 0 52 52' xmlns='http://www.w3.org/2000/svg'>
-                <polygon points='26,2 48,14 48,38 26,50 4,38 4,14' fill='#1a7a65' stroke='{$tealAccent}' stroke-width='2'/>
-                <polygon points='26,8 43,18 43,36 26,46 9,36 9,18' fill='none' stroke='{$tealAccent}' stroke-width='1' opacity='0.5'/>
-                <text x='15' y='33' font-family='Arial Black,Arial' font-weight='900' font-size='22' fill='{$tealAccent}'>P</text>
-              </svg>
-            </td>
-            <td style='vertical-align:middle'>
-              <div style='font-size:22px;font-weight:900;color:#ffffff;letter-spacing:1px;line-height:1'>" . strtoupper($company) . "</div>
-              <div style='font-size:12px;color:#7ecfc4;margin-top:4px'>Code your way to progress</div>
-            </td>
-          </tr>
-        </table>";
+        $initial  = mb_strtoupper(mb_substr($company, 0, 1));
+        $logoBlock = "<table cellpadding='0' cellspacing='0' border='0'><tr>
+          <td style='padding-right:12px;vertical-align:middle'>
+            <div style='width:48px;height:48px;background:rgba(255,255,255,.18);border-radius:12px;text-align:center;line-height:48px;font-size:22px;font-weight:900;color:#fff'>{$initial}</div>
+          </td>
+          <td style='vertical-align:middle'>
+            <div style='font-size:21px;font-weight:900;color:#fff;letter-spacing:.8px;line-height:1.1'>" . strtoupper($company) . "</div>
+            <div style='font-size:11.5px;color:rgba(255,255,255,.72);margin-top:2px'>Code your way to progress</div>
+          </td>
+        </tr></table>";
     }
 
-    // ── Invoice info card — 5 column with teal border ──────────
+    // ── Invoice info card ──────────────────────────────────────
     $invNum  = htmlspecialchars($data['invoice_number'] ?? '');
     $rawDue  = $data['due_date'] ?? '';
-    $cur     = htmlspecialchars($data['currency'] ?? '&#8377;');
-    $amount  = $cur . htmlspecialchars($data['amount'] ?? '');
+    $amount  = htmlspecialchars($data['currency'] ?? '₹') . htmlspecialchars($data['amount'] ?? '');
     $service = htmlspecialchars($data['service_type'] ?? '');
     try { $dueFormatted = $rawDue ? (new DateTime($rawDue))->format('d F Y') : ''; } catch (Exception $e) { $dueFormatted = $rawDue; }
     $dueLabel = $isEst ? 'Valid Until' : 'Due Date';
     $invLabel = $isEst ? 'Estimate No.' : 'Invoice No.';
 
     $infoCard = $invNum ? "
-    <table cellpadding='0' cellspacing='0' border='0' width='100%'
-      style='border:1.8px solid {$tealBorder};border-radius:12px;overflow:hidden;margin:20px 0;background:#ffffff'>
+    <table cellpadding='0' cellspacing='0' border='0' width='100%' style='background:#f7faf9;border:1.5px solid #daeee9;border-radius:14px;margin:22px 0;overflow:hidden'>
       <tr>
-        <!-- receipt icon -->
-        <td width='90' style='border-right:1px solid #c4e8e0;background:#f9fefd;text-align:center;padding:22px 8px;vertical-align:middle'>
-          <div style='width:62px;height:62px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:62px;font-size:28px'>&#128196;</div>
+        <td style='padding:20px 20px;width:80px;vertical-align:middle;border-right:1px solid #e8f2ef'>
+          <div style='width:62px;height:62px;background:#e2f0ec;border-radius:50%;text-align:center;line-height:62px;font-size:26px'>📄</div>
         </td>
-        <!-- invoice no -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>#</div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$invLabel}</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$invNum}</div>
-        </td>
-        <!-- amount -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>&#8377;</div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>Amount Due</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$amount}</div>
-        </td>
-        <!-- due date -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>&#128197;</div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$dueLabel}</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$dueFormatted}</div>
-        </td>
-        <!-- service -->
-        <td style='text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;margin-bottom:6px'>&#127760;</div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>Service</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$service}</div>
+        <td style='padding:18px 22px;vertical-align:middle'>
+          <table cellpadding='0' cellspacing='0' border='0' width='100%'>
+            <tr>
+              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>#&nbsp; {$invLabel}</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$invNum}</div>
+              </td>
+              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>📅&nbsp; {$dueLabel}</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$dueFormatted}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style='vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>₹&nbsp; Amount Due</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$amount}</div>
+              </td>
+              <td style='vertical-align:top'>
+                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>🌐&nbsp; Service</div>
+                <div style='font-size:16px;font-weight:800;color:#111'>{$service}</div>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>" : '';
@@ -310,53 +297,32 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
     $bankRaw = $data['bank_details'] ?? $data['default_bank'] ?? '';
     $payRows = '';
     if ($upi) {
-        $payRows .= "
-        <tr>
-          <td style='background:{$tealLight};padding:14px 0;text-align:center;width:54px;border-bottom:1px solid #c4e8e0;border-right:1px solid #c4e8e0'>
-            <span style='font-size:18px'>&#128241;</span>
-          </td>
-          <td style='padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;font-size:13.5px;width:130px'>UPI</td>
-          <td style='padding:14px 4px;border-bottom:1px solid #e5e7eb;color:#6b7280;width:10px'>:</td>
-          <td style='padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:13.5px'>{$upi}</td>
+        $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
+          <td style='padding:11px 16px;width:44px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>🔗</span></td>
+          <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600;width:130px'>UPI</td>
+          <td style='padding:11px 4px;font-size:13px;color:#aaa;width:12px'>:</td>
+          <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>{$upi}</td>
         </tr>";
     }
-    // Map bank detail labels to icons
-    $iconMap = [
-        'bank'           => '&#127970;',
-        'account name'   => '&#128100;',
-        'account no'     => '&#128179;',
-        'account number' => '&#128179;',
-        'ifsc'           => '&#127758;',
-        'branch'         => '&#128205;',
-    ];
-    $bankLines = array_filter(array_map('trim', explode("\n", $bankRaw)));
-    $lastBankLine = end($bankLines);
-    foreach ($bankLines as $line) {
-        if (strpos($line, ':') === false) continue;
-        [$k, $v] = array_map('trim', explode(':', $line, 2));
-        $ico = '&#128203;';
-        foreach ($iconMap as $kw => $ic) {
-            if (stripos($k, $kw) !== false) { $ico = $ic; break; }
+    $iconMap = ['bank'=>'🏦','account name'=>'👤','account no'=>'💳','account number'=>'💳','ifsc'=>'🏠','branch'=>'📍'];
+    foreach (array_filter(array_map('trim', explode("\n", $bankRaw))) as $line) {
+        if (strpos($line, ':') !== false) {
+            [$k, $v] = array_map('trim', explode(':', $line, 2));
+            $ico = '📋';
+            foreach ($iconMap as $kw => $ic) { if (stripos($k, $kw) !== false) { $ico = $ic; break; } }
+            $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
+              <td style='padding:11px 16px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>{$ico}</span></td>
+              <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600'>" . htmlspecialchars($k) . "</td>
+              <td style='padding:11px 4px;font-size:13px;color:#aaa'>:</td>
+              <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>" . htmlspecialchars($v) . "</td>
+            </tr>";
         }
-        $isLast = ($line === $lastBankLine);
-        $borderB = $isLast ? '' : 'border-bottom:1px solid #e5e7eb';
-        $borderBi = $isLast ? '' : 'border-bottom:1px solid #c4e8e0';
-        $payRows .= "
-        <tr>
-          <td style='background:{$tealLight};padding:14px 0;text-align:center;width:54px;{$borderBi};border-right:1px solid #c4e8e0'>
-            <span style='font-size:18px'>{$ico}</span>
-          </td>
-          <td style='padding:14px 18px;{$borderB};font-weight:600;color:#111827;font-size:13.5px;width:130px'>" . htmlspecialchars($k) . "</td>
-          <td style='padding:14px 4px;{$borderB};color:#6b7280;width:10px'>:</td>
-          <td style='padding:14px 16px;{$borderB};color:#111827;font-size:13.5px'>" . htmlspecialchars($v) . "</td>
-        </tr>";
     }
     $paySection = $payRows ? "
-    <div style='margin:20px 0 24px'>
-      <div style='font-size:13px;font-weight:800;color:#1a1a2e;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px'>Payment Details</div>
-      <div style='width:36px;height:3px;background:#e74c3c;border-radius:2px;margin-bottom:16px'></div>
-      <table cellpadding='0' cellspacing='0' border='0' width='100%'
-        style='border:1.8px solid {$tealBorder};border-radius:10px;overflow:hidden;background:#ffffff'>
+    <div style='margin:22px 0'>
+      <div style='font-size:17px;font-weight:800;color:#111;margin-bottom:5px'>Payment Details</div>
+      <div style='width:36px;height:3px;background:{$teal};border-radius:3px;margin-bottom:14px'></div>
+      <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;background:#fff'>
         {$payRows}
       </table>
     </div>" : '';
@@ -370,13 +336,12 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
             $irows .= "<tr style='border-bottom:1px solid #eef3f2'>
               <td style='padding:10px 16px;font-size:13px;color:#333'>" . htmlspecialchars($it['description']??'') . "</td>
               <td style='padding:10px 8px;font-size:13px;color:#666;text-align:center'>" . ($it['quantity']??1) . "</td>
-              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:right'>&#8377;" . number_format((float)($it['rate']??0), 2) . "</td>
-              <td style='padding:10px 16px;font-size:13px;font-weight:700;color:#111;text-align:right'>&#8377;{$tot}</td>
+              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:right'>₹" . number_format((float)($it['rate']??0), 2) . "</td>
+              <td style='padding:10px 16px;font-size:13px;font-weight:700;color:#111;text-align:right'>₹{$tot}</td>
             </tr>";
         }
         $itemsSection = "
-        <table cellpadding='0' cellspacing='0' border='0' width='100%'
-          style='border:1.5px solid {$tealBorder};border-radius:12px;overflow:hidden;margin-bottom:20px'>
+        <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;margin-bottom:20px'>
           <thead><tr style='background:#f7faf9'>
             <th style='padding:10px 16px;font-size:11px;color:#888;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.4px'>Description</th>
             <th style='padding:10px 8px;font-size:11px;color:#888;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
@@ -391,65 +356,39 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
     $ctaBtn = '';
     if (!empty($data['invoice_link'])) {
         $ctaLink  = htmlspecialchars($data['invoice_link']);
-        $ctaLabel = $isEst ? '&#128203;&nbsp; View Estimate' : '&#128196;&nbsp; VIEW INVOICE';
+        $ctaLabel = $isEst ? '📋 &nbsp;View Estimate' : '📄 &nbsp;View Invoice';
         $ctaBtn = "
-        <div style='text-align:center;margin:24px 0 28px'>
-          <a href='{$ctaLink}'
-            style='display:inline-block;background:{$teal};color:#ffffff;text-decoration:none;
-                   padding:14px 52px;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:.5px'>
-            {$ctaLabel}
-          </a>
+        <div style='text-align:center;margin:26px 0 18px'>
+          <a href='{$ctaLink}' style='display:inline-block;background:{$teal};color:#fff;text-decoration:none;padding:15px 52px;border-radius:10px;font-size:15px;font-weight:800;letter-spacing:.3px'>{$ctaLabel}</a>
         </div>";
     }
 
-    // ── Divider — dotted line + email icon ─────────────────────
-    $divider = "
-    <table cellpadding='0' cellspacing='0' border='0' width='100%' style='margin:0 0 24px'>
-      <tr valign='middle'>
-        <td style='border-top:2.5px dashed #a8ddd5'></td>
-        <td width='70' style='text-align:center;padding:0 11px'>
-          <div style='width:48px;height:48px;border-radius:50%;background:{$tealLight};border:2px solid {$tealBorder};
-                      display:inline-block;text-align:center;line-height:48px;font-size:22px'>&#128140;</div>
-        </td>
-        <td style='border-top:2.5px dashed #a8ddd5'></td>
-      </tr>
-    </table>";
-
-    // ── Greeting / body ────────────────────────────────────────
+    // ── Email body text ────────────────────────────────────────
     $clientName = htmlspecialchars($data['client_name'] ?? '');
     $bodyText   = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
 
-    // ── Signature / footer card ────────────────────────────────
-    $sigImgHtml = $signature ? "<img src='{$signature}' alt='Signature' style='max-height:40px;max-width:130px;object-fit:contain;margin-top:6px;display:block'>" : '';
+    // ── Signature block ────────────────────────────────────────
+    $initial2 = mb_strtoupper(mb_substr($company, 0, 1));
+    $sigImgHtml = $signature ? "<img src='{$signature}' alt='Signature' style='max-height:44px;max-width:140px;object-fit:contain;margin-top:6px;display:block'>" : '';
     if ($logo) {
-        $sigLogoImg = "<img src='{$logo}' alt='{$company}' style='max-height:44px;max-width:130px;object-fit:contain'>";
+        $sigLogo = "<img src='{$logo}' alt='{$company}' style='max-height:44px;max-width:130px;object-fit:contain'>";
     } else {
-        $sigLogoImg = "
-        <svg width='44' height='44' viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg'>
-          <circle cx='22' cy='22' r='22' fill='{$teal}'/>
-          <polygon points='22,6 36,14 36,30 22,38 8,30 8,14' fill='#1a7a65' stroke='{$tealAccent}' stroke-width='1.5'/>
-          <text x='13' y='29' font-family='Arial Black,Arial' font-weight='900' font-size='16' fill='{$tealAccent}'>P</text>
-        </svg>";
+        $sigLogo = "<div style='width:48px;height:48px;background:{$tealLight};border-radius:50%;text-align:center;line-height:48px;font-size:20px;font-weight:900;color:{$teal}'>{$initial2}</div>";
     }
-    $phHtml  = $phone ? "<span style='font-size:12.5px;color:#374151'>&#128222;&nbsp;{$phone}</span>" : '';
-    $emHtml  = $email ? "<span style='font-size:12.5px;color:#374151'>&#9993;&nbsp;{$email}</span>" : '';
-    $gstLine = $gst ? "<div style='font-size:11px;color:#9ca3af;margin-top:4px'>GST: {$gst}</div>" : '';
+    $phHtml = $phone ? "<span>📞 &nbsp;{$phone}</span>&nbsp;&nbsp;" : '';
+    $emHtml = $email ? "<span>✉️ &nbsp;{$email}</span>" : '';
 
-    // Social icons in bottom bar
+    // ── Social footer icons ────────────────────────────────────
     $socials = "
-    <table cellpadding='0' cellspacing='0' border='0'>
+    <table cellpadding='0' cellspacing='0' border='0' align='center' style='margin:14px auto 0'>
       <tr>
-        <td style='padding-right:8px'>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:12px;font-weight:700'>f</div>
-        </td>
-        <td style='padding-right:8px'>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:10px;font-weight:700'>in</div>
-        </td>
-        <td>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:12px;font-weight:700'>&#10005;</div>
-        </td>
+        <td style='padding:0 5px'><a href='https://linkedin.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:13px;color:#fff;text-decoration:none;font-weight:700'>in</a></td>
+        <td style='padding:0 5px'><a href='https://twitter.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>𝕏</a></td>
+        <td style='padding:0 5px'><a href='mailto:{$email}' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>✉</a></td>
       </tr>
     </table>";
+
+    $gstLine = $gst ? "<br><span style='font-size:11px;color:#bbb'>GST: {$gst}</span>" : '';
 
     return <<<HTML
 <!DOCTYPE html>
@@ -458,67 +397,31 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Email from {$company}</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0" rel="stylesheet"/>
-<style>
-.ico{font-family:'Material Symbols Outlined';font-style:normal;font-weight:300;font-size:20px;
-     line-height:1;display:inline-block;vertical-align:middle;
-     font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;color:{$teal}}
-</style>
 </head>
-<body style="margin:0;padding:0;background:#f0f4f4;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
-<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0f4f4;padding:24px 0">
+<body style="margin:0;padding:0;background:#EDF2F0;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#EDF2F0;padding:28px 0">
 <tr><td align="center">
-<table cellpadding="0" cellspacing="0" border="0" width="600"
-  style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)">
+<table cellpadding="0" cellspacing="0" border="0" width="600" style="background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 32px rgba(0,0,0,.09)">
 
-  <!-- ══ HEADER ══ -->
+  <!-- ── HEADER ── -->
   <tr>
-    <td style="background:linear-gradient(135deg,{$teal} 0%,{$tealMid} 50%,#0d4a3a 100%);padding:0;overflow:hidden">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>
-          <td style="padding:28px 32px 0;position:relative">
-            <div style="position:absolute;top:0;right:0;bottom:0;width:55%;opacity:.10;
-                        background-image:repeating-linear-gradient(45deg,{$tealAccent} 0px,{$tealAccent} 1px,transparent 0px,transparent 50%);
-                        background-size:12px 12px;pointer-events:none"></div>
-            <table cellpadding="0" cellspacing="0" border="0" width="100%">
-              <tr>
-                <td style="vertical-align:middle">{$logoBlock}</td>
-                <td align="right" style="vertical-align:middle">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="padding-right:8px;vertical-align:middle">
-                        <span class="ico" style="color:{$tealAccent};font-size:22px">verified_user</span>
-                      </td>
-                      <td style="vertical-align:middle">
-                        <div style="color:#7ecfc4;font-size:12px;font-weight:600;letter-spacing:.3px">Trusted. Reliable. Professional.</div>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="line-height:0;padding:0">
-            <svg viewBox="0 0 600 40" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%">
-              <path d="M0,20 Q75,40 150,20 Q225,0 300,20 Q375,40 450,20 Q525,0 600,20 L600,40 L0,40 Z" fill="#ffffff"/>
-            </svg>
-          </td>
-        </tr>
-      </table>
+    <td style="background:linear-gradient(135deg,{$teal} 0%,{$tealDark} 100%);padding:26px 32px">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td style="vertical-align:middle">{$logoBlock}</td>
+        <td align="right" style="vertical-align:middle">
+          <div style="display:inline-block;border:1.5px solid rgba(255,255,255,.35);border-radius:22px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff;letter-spacing:.3px;white-space:nowrap">🛡 Trusted. Reliable. Professional.</div>
+        </td>
+      </tr></table>
     </td>
   </tr>
 
-  <!-- ══ BODY ══ -->
+  <!-- ── BODY ── -->
   <tr>
-    <td style="padding:28px 36px 8px">
+    <td style="padding:32px 32px 24px">
 
       <!-- Greeting -->
-      <div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px">
-        Hello <span style="color:{$tealBorder}">{$clientName},</span>
-      </div>
-      <div style="font-size:14px;color:#6b7280;line-height:1.75;margin-bottom:8px">{$bodyText}</div>
+      <p style="font-size:19px;font-weight:800;color:#111;margin:0 0 10px;line-height:1.3">Dear <span style="color:{$teal}">{$clientName},</span></p>
+      <p style="font-size:14px;color:#666;margin:0 0 8px;line-height:1.75">{$bodyText}</p>
 
       <!-- Invoice card -->
       {$infoCard}
@@ -529,114 +432,36 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
       <!-- Payment details -->
       {$paySection}
 
-    </td>
-  </tr>
-
-  <!-- ══ CTA BUTTON ══ -->
-  <tr>
-    <td align="center" style="padding:0 36px 28px">
+      <!-- CTA button -->
       {$ctaBtn}
-    </td>
-  </tr>
 
-  <!-- ══ DOTTED DIVIDER + EMAIL ICON ══ -->
-  <tr>
-    <td style="padding:0 36px 20px">
-      {$divider}
-    </td>
-  </tr>
+      <!-- Appreciation note -->
+      <div style="text-align:center;margin:8px 0 28px">
+        <p style="font-size:13px;color:#999;margin:0 0 5px">If you have any questions, feel free to reach out.</p>
+        <p style="font-size:13.5px;font-weight:800;color:{$teal};margin:0">We appreciate your business!</p>
+      </div>
 
-  <!-- ══ SUPPORT NOTE ══ -->
-  <tr>
-    <td align="center" style="padding:0 36px 28px">
-      <div style="font-size:13px;color:#6b7280;margin-bottom:6px">If you have any questions, feel free to reach out.</div>
-      <div style="font-size:14px;font-weight:700;color:{$tealBorder}">Thank you for your business!</div>
-    </td>
-  </tr>
-
-  <!-- ══ FOOTER CARD ══ -->
-  <tr>
-    <td style="padding:0 36px 28px">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%"
-        style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden">
+      <!-- Signature -->
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #edf2f0;padding-top:22px;margin-top:24px">
         <tr>
-          <!-- Company info -->
-          <td width="50%" valign="top" style="padding:20px;border-right:1px solid #e5e7eb">
-            <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Best regards,</div>
-            <table cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="padding-right:12px;vertical-align:middle">{$sigLogoImg}</td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:800;font-size:15px;color:#111827">{$company}</div>
-                  {$sigImgHtml}
-                </td>
-              </tr>
-            </table>
-            <div style="margin-top:12px">{$phHtml}</div>
-            <div style="margin-top:6px">{$emHtml}</div>
-            {$gstLine}
-          </td>
-          <!-- Trust badges -->
-          <td width="50%" valign="top" style="padding:20px">
-            <!-- Secure Payments -->
-            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <span class="ico" style="font-size:17px;line-height:34px">lock</span>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">Secure Payments</div>
-                  <div style="font-size:11.5px;color:#9ca3af">Your payments are safe with us.</div>
-                </td>
-              </tr>
-            </table>
-            <!-- 24/7 Support -->
-            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <span class="ico" style="font-size:17px;line-height:34px">headset_mic</span>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">24/7 Support</div>
-                  <div style="font-size:11.5px;color:#9ca3af">We&apos;re here to help anytime.</div>
-                </td>
-              </tr>
-            </table>
-            <!-- Fast & Reliable -->
-            <table cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <span class="ico" style="font-size:17px;line-height:34px">verified</span>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">Fast &amp; Reliable</div>
-                  <div style="font-size:11.5px;color:#9ca3af">Timely service, always.</div>
-                </td>
-              </tr>
-            </table>
+          <td style="width:58px;vertical-align:top;padding-right:14px">{$sigLogo}</td>
+          <td style="vertical-align:top">
+            <div style="font-size:13px;color:#aaa;margin-bottom:3px">Best regards,</div>
+            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px">{$company}</div>
+            {$sigImgHtml}
+            <div style="font-size:13px;color:#666;margin-top:6px">{$phHtml}{$emHtml}</div>
           </td>
         </tr>
       </table>
+
     </td>
   </tr>
 
-  <!-- ══ BOTTOM BAR ══ -->
+  <!-- ── FOOTER ── -->
   <tr>
-    <td style="background:{$teal};padding:16px 36px;border-radius:0 0 16px 16px">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>
-          <td style="vertical-align:middle">{$socials}</td>
-          <td align="right" style="vertical-align:middle">
-            <div style="color:#7ecfc4;font-size:11px">&#169; {$year} {$company}. All rights reserved.</div>
-          </td>
-        </tr>
-      </table>
+    <td style="background:#F7FAF9;border-top:1px solid #E8F0EE;padding:18px 32px 22px;text-align:center">
+      <p style="font-size:12px;color:#bbb;margin:0">© {$year} {$company}. All rights reserved.{$gstLine}</p>
+      {$socials}
     </td>
   </tr>
 
