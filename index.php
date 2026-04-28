@@ -56,6 +56,15 @@ $defaultCurrency= $settings['default_currency'] ?? '₹';
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+<style>
+/* ── SweetAlert2 compact theme ── */
+.swal-compact { font-family:'Public Sans',sans-serif !important; border-radius:14px !important; max-width:360px !important; }
+.swal-compact .swal2-title { font-size:16px !important; font-weight:700 !important; padding-top:16px !important; }
+.swal-compact .swal2-html-container { font-size:13px !important; margin:8px 16px !important; }
+.swal-compact .swal2-actions { gap:10px !important; margin-top:16px !important; }
+.swal-compact .swal2-confirm, .swal-compact .swal2-cancel { font-size:13px !important; padding:8px 20px !important; border-radius:8px !important; font-weight:600 !important; }
+</style>
 <style>
 
 /* ══════════════════════════════════════════
@@ -3539,7 +3548,7 @@ View Invoice: {{6}}</pre></details>
     <div class="modal-body" style="padding:24px">
       <!-- Logo Upload -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
-        <div id="nc-logo-preview" style="width:64px;height:64px;border-radius:50%;background:#00897B;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;border:2px solid var(--border)">
+        <div id="nc-logo-preview" style="width:64px;height:64px;border-radius:50%;background:#00897B;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;border:3px solid var(--border);transition:border-color .3s,box-shadow .3s">
           <span id="nc-logo-initials">?</span>
           <img id="nc-logo-img" src="" style="width:100%;height:100%;object-fit:cover;display:none">
         </div>
@@ -7246,14 +7255,23 @@ function previewClientLogoUrl(url) {
 }
 
 function _applyClientLogoPreview(src) {
-  const img = document.getElementById('nc-logo-img');
+  const img      = document.getElementById('nc-logo-img');
   const initials = document.getElementById('nc-logo-initials');
+  const preview  = document.getElementById('nc-logo-preview');
   if (src) {
     img.src = src; img.style.display = 'block';
     if (initials) initials.style.display = 'none';
+    if (preview) {
+      preview.style.border      = '3px solid #00897B';
+      preview.style.boxShadow   = '0 0 0 3px rgba(0,137,123,.25), 0 2px 8px rgba(0,137,123,.35)';
+    }
   } else {
     img.src = ''; img.style.display = 'none';
     if (initials) initials.style.display = '';
+    if (preview) {
+      preview.style.border    = '3px solid var(--border)';
+      preview.style.boxShadow = 'none';
+    }
   }
 }
 
@@ -7364,8 +7382,28 @@ async function deleteClient(id) {
 async function toggleClientActive(id, makeActive) {
   const c = STATE.clients.find(x => String(x.id) === String(id));
   if (!c) return;
-  const label = makeActive ? 'Activate' : 'Set Inactive';
-  if (!confirm(`${makeActive ? '✅ Activate' : '⏸ Set Inactive'}: "${c.name}"?`)) return;
+
+  const result = await Swal.fire({
+    title: makeActive ? 'Activate Client?' : 'Set Client Inactive?',
+    html: `<div style="font-size:14px;color:#555">
+             ${makeActive
+               ? `<i class="fas fa-user-check" style="color:#00897B;font-size:28px;display:block;margin-bottom:10px"></i>
+                  <strong>${c.name}</strong> will be marked as <span style="color:#00897B;font-weight:700">Active</span> and visible in invoices.`
+               : `<i class="fas fa-user-slash" style="color:#F9A825;font-size:28px;display:block;margin-bottom:10px"></i>
+                  <strong>${c.name}</strong> will be marked as <span style="color:#F9A825;font-weight:700">Inactive</span> and hidden from invoice selection.`
+             }
+           </div>`,
+    icon: makeActive ? 'question' : 'warning',
+    showCancelButton: true,
+    confirmButtonText: makeActive ? '✅ Yes, Activate' : '⏸ Yes, Set Inactive',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: makeActive ? '#00897B' : '#F9A825',
+    cancelButtonColor: '#aaa',
+    reverseButtons: true,
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+
   try {
     const dbId = parseInt(c._dbId || c.id) || 0;
     const res = await api('api/clients.php?id=' + dbId, 'PUT', {
@@ -7374,15 +7412,18 @@ async function toggleClientActive(id, makeActive) {
       landmark: c.landmark||'', active: makeActive ? 1 : 0
     });
     if (!res || res.success === false) throw new Error(res?.error || 'API returned failure');
-    // Refresh from server to get accurate active field
     const r = await api('api/clients.php');
     STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
     renderClients(); updateClientDropdown(); populateWAClientDropdown();
     logActivity(makeActive ? 'client_activated' : 'client_deactivated',
       `Client ${makeActive ? 'activated' : 'deactivated'}: ${c.name}`, c.email || '');
-    toast(makeActive ? '✅ Client activated' : '⏸ Client set to inactive', makeActive ? 'success' : 'info');
+    Swal.fire({
+      toast: true, position: 'top-end', timer: 2500, timerProgressBar: true,
+      showConfirmButton: false, icon: makeActive ? 'success' : 'info',
+      title: makeActive ? `✅ ${c.name} activated` : `⏸ ${c.name} set to inactive`
+    });
   } catch(e) {
-    toast('❌ Failed to update client status: ' + e.message, 'error');
+    Swal.fire({ icon: 'error', title: 'Failed', text: e.message, confirmButtonColor: '#e53935' });
   }
 }
 
