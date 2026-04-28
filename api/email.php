@@ -1,485 +1,491 @@
 <?php
 // ================================================================
-//  api/email.php — Full Email System for OPTMS Invoice Manager
+//  api/email.php — Send emails via SMTP (PHPMailer or mail())
 //
-//  POST action=test          → Test SMTP connection
-//  POST action=send          → Send invoice/estimate email
-//  POST action=send_receipt  → Send payment receipt
-//  POST action=send_reminder → Send overdue/due reminder
-//  POST action=preview       → Return rendered HTML preview
-//  GET  action=logs          → List email logs
-//  GET  action=logs&invoice_id=X → Logs for one invoice
-//  GET  action=templates     → List email templates
-//  POST action=save_template → Save/update an email template
-//  GET  action=smtp_profiles → List SMTP profiles
-//  POST action=save_profile  → Save SMTP profile
-//  DELETE action=del_profile → Delete SMTP profile
+//  GET  action=templates        → List all email templates
+//  GET  action=logs             → Email send log
+//  GET  action=smtp_profiles    → List SMTP profiles
+//  POST action=test             → Send test email to verify SMTP
+//  POST action=send             → Send typed email to client
+//  POST action=save_template    → Save/update an email template
+//  POST action=save_profile     → Save/update an SMTP profile
+//  POST action=preview          → Return rendered HTML preview
+//  DELETE action=del_profile    → Delete an SMTP profile
 // ================================================================
+
 ob_start();
 error_reporting(0);
-
-// Public tracking pixel — no auth required
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['track'])) {
-    require_once __DIR__ . '/../config/db.php';
-    $token = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['track']);
-    try {
-        $db = getDB();
-        $db->prepare("UPDATE email_logs SET opened_at = IF(opened_at IS NULL, NOW(), opened_at), open_count = open_count + 1 WHERE track_token = ? LIMIT 1")->execute([$token]);
-    } catch (Exception $e) {}
-    // Return 1x1 transparent GIF
-    header('Content-Type: image/gif');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    exit;
-}
-
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-
-// Allow unauthenticated tracking pixel only (handled above)
 requireLogin();
 
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$action = $_GET['action'] ?? ($method === 'GET' ? 'logs' : '');
-if ($method === 'POST') {
-    $input  = json_decode(file_get_contents('php://input'), true) ?? [];
-    $action = $input['action'] ?? 'send';
+$action = $_GET['action'] ?? '';
+
+// ── Parse body for POST/DELETE ───────────────────────────────────
+$input = [];
+if (in_array($method, ['POST', 'PUT', 'PATCH'])) {
+    $raw = file_get_contents('php://input');
+    $input = json_decode($raw, true) ?: [];
+    $action = $input['action'] ?? $action;
+}
+if ($method === 'DELETE') {
+    $action = $_GET['action'] ?? 'del_profile';
 }
 
-$db = getDB();
-
-// ── Auto-create tables if not exist ─────────────────────────────
-function ensureEmailTables($db) {
-    $db->exec("CREATE TABLE IF NOT EXISTS email_logs (
-        id            INT AUTO_INCREMENT PRIMARY KEY,
-        invoice_id    INT DEFAULT NULL,
-        invoice_number VARCHAR(50) DEFAULT NULL,
-        client_name   VARCHAR(200) DEFAULT NULL,
-        to_email      VARCHAR(200) NOT NULL,
-        subject       VARCHAR(500) NOT NULL,
-        body_html     MEDIUMTEXT,
-        status        ENUM('sent','failed','pending') NOT NULL DEFAULT 'pending',
-        error_msg     TEXT DEFAULT NULL,
-        smtp_profile  VARCHAR(100) DEFAULT 'default',
-        type          VARCHAR(60) NOT NULL DEFAULT 'invoice' COMMENT 'invoice|estimate|receipt|reminder|overdue|followup|test',
-        track_token   VARCHAR(64) DEFAULT NULL,
-        opened_at     DATETIME DEFAULT NULL,
-        open_count    INT UNSIGNED NOT NULL DEFAULT 0,
-        sent_at       DATETIME DEFAULT NULL,
-        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_el_invoice (invoice_id),
-        INDEX idx_el_status (status),
-        INDEX idx_el_track (track_token)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS email_templates (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        type        VARCHAR(60) NOT NULL UNIQUE COMMENT 'invoice|estimate|receipt|reminder|overdue|followup',
-        name        VARCHAR(150) NOT NULL,
-        subject     VARCHAR(500) NOT NULL,
-        body        MEDIUMTEXT NOT NULL,
-        is_active   TINYINT(1) NOT NULL DEFAULT 1,
-        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS smtp_profiles (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        name        VARCHAR(100) NOT NULL,
-        host        VARCHAR(200) NOT NULL,
-        port        SMALLINT NOT NULL DEFAULT 587,
-        username    VARCHAR(200) NOT NULL,
-        password    VARCHAR(500) NOT NULL,
-        from_email  VARCHAR(200) NOT NULL,
-        from_name   VARCHAR(200) NOT NULL DEFAULT 'OPTMS Tech',
-        encryption  VARCHAR(10) NOT NULL DEFAULT 'tls' COMMENT 'tls|ssl|none',
-        provider    VARCHAR(30) NOT NULL DEFAULT 'smtp' COMMENT 'smtp|gmail|sendgrid|mailgun',
-        api_key     VARCHAR(500) DEFAULT NULL,
-        is_default  TINYINT(1) NOT NULL DEFAULT 0,
-        is_active   TINYINT(1) NOT NULL DEFAULT 1,
-        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
-ensureEmailTables($db);
-
-// ── Default templates ────────────────────────────────────────────
-function getDefaultTemplates(): array {
-    return [
-        'invoice' => [
-            'name'    => 'New Invoice',
-            'subject' => 'Invoice #{invoice_no} from {company_name} – {currency}{amount}',
-            'body'    => "Dear {client_name},\n\nPlease find your invoice details below.\n\n📄 Invoice No: #{invoice_no}\n📅 Issue Date: {issue_date}\n⏰ Due Date: {due_date}\n💰 Amount Due: {currency}{amount}\n📋 Service: {service}\n\n{item_list}\n\nPayment Options:\n🏦 {bank_details}\n💳 UPI: {upi}\n\n🔗 View Invoice Online:\n{invoice_link}\n\nThank you for your business!\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'estimate' => [
-            'name'    => 'New Estimate / Quotation',
-            'subject' => 'Estimate #{invoice_no} from {company_name} – {currency}{amount}',
-            'body'    => "Dear {client_name},\n\nThank you for your inquiry. Please find our estimate below.\n\n📋 Estimate No: #{invoice_no}\n📅 Date: {issue_date}\n✅ Valid Until: {due_date}\n💰 Estimated Amount: {currency}{amount}\n📋 Service: {service}\n\n{item_list}\n\n⚠️ Note: This is an ESTIMATE only, not a final invoice. Actual charges may vary.\n\n🔗 View & Approve Estimate Online:\n{invoice_link}\n\nPlease reply to this email to approve or request changes.\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'receipt' => [
-            'name'    => 'Payment Receipt',
-            'subject' => 'Payment Received – Invoice #{invoice_no} | {company_name}',
-            'body'    => "Dear {client_name},\n\nWe have received your payment. Thank you!\n\n✅ Payment Confirmed\n📄 Invoice No: #{invoice_no}\n💰 Amount Paid: {currency}{paid_amount}\n📅 Payment Date: {issue_date}\n\n{remaining_amount}\n\nThank you for your prompt payment!\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'reminder' => [
-            'name'    => 'Payment Due Reminder',
-            'subject' => 'Payment Reminder – Invoice #{invoice_no} Due on {due_date}',
-            'body'    => "Dear {client_name},\n\nThis is a friendly reminder that your invoice is due soon.\n\n📄 Invoice No: #{invoice_no}\n⏰ Due Date: {due_date}\n💰 Amount Due: {currency}{amount}\n📋 Service: {service}\n\n🔗 View Invoice:\n{invoice_link}\n\nPlease ensure payment is made by the due date.\n\nBest regards,\n{company_name}\n{company_phone}",
-        ],
-        'overdue' => [
-            'name'    => 'Overdue Notice',
-            'subject' => '⚠️ Overdue Invoice #{invoice_no} – Action Required',
-            'body'    => "Dear {client_name},\n\nYour invoice is now overdue. Please arrange payment immediately.\n\n📄 Invoice No: #{invoice_no}\n⏰ Was Due: {due_date}\n📅 Days Overdue: {days_overdue}\n💰 Amount Due: {currency}{amount}\n\n🔗 Pay Now:\n{invoice_link}\n\nIf you have already made the payment, please ignore this message or send us the transaction details.\n\n{company_name}\n{company_phone}",
-        ],
-        'followup' => [
-            'name'    => 'Overdue Follow-up',
-            'subject' => 'Follow-up: Invoice #{invoice_no} Still Unpaid – {days_overdue} Days Overdue',
-            'body'    => "Dear {client_name},\n\nWe are writing to follow up on the outstanding invoice #{invoice_no}.\n\nDespite our previous reminder, we have not yet received your payment.\n\n📄 Invoice: #{invoice_no}\n💰 Amount: {currency}{amount}\n📅 Days Overdue: {days_overdue}\n\nPlease contact us immediately to arrange payment or discuss any concerns.\n\n🔗 View Invoice:\n{invoice_link}\n\n{company_name}\n{company_phone}",
-        ],
-    ];
+// ── DB ───────────────────────────────────────────────────────────
+try { $db = getDB(); } catch (\Exception $e) {
+    jsonResponse(['success'=>false,'error'=>'DB error: '.$e->getMessage()], 500);
 }
 
-// ── Get SMTP config ──────────────────────────────────────────────
-function getSmtpConfig($db, ?string $profileName = null): array {
-    // Try named profile first
-    if ($profileName) {
-        $stmt = $db->prepare("SELECT * FROM smtp_profiles WHERE name = ? AND is_active = 1 LIMIT 1");
-        $stmt->execute([$profileName]);
-        $p = $stmt->fetch();
-        if ($p) return mapProfile($p);
+// ================================================================
+//  ROUTE
+// ================================================================
+switch ($action) {
+
+    case 'templates':     handleGetTemplates($db);   break;
+    case 'save_template': handleSaveTemplate($db, $input); break;
+    case 'preview':       handlePreview($db, $input); break;
+    case 'logs':          handleLogs($db);            break;
+    case 'smtp_profiles': handleGetProfiles($db);     break;
+    case 'save_profile':  handleSaveProfile($db, $input); break;
+    case 'del_profile':   handleDelProfile($db);      break;
+    case 'test':          handleTest($db, $input);    break;
+    case 'send':          handleSend($db, $input);    break;
+    default:
+        if ($method === 'GET') { handleGetTemplates($db); break; }
+        jsonResponse(['success'=>false,'error'=>'Unknown action: '.$action], 400);
+}
+
+// ================================================================
+//  HANDLERS
+// ================================================================
+
+// ── GET /api/email.php?action=templates ─────────────────────────
+function handleGetTemplates($db) {
+    ensureEmailTables($db);
+    $rows = $db->query("SELECT * FROM email_templates ORDER BY FIELD(type,'invoice','estimate','receipt','reminder','overdue','followup')")->fetchAll();
+    $defaults = getDefaultTemplates();
+    // Merge: return DB rows, fill missing types with defaults
+    $byType = [];
+    foreach ($rows as $r) $byType[$r['type']] = $r;
+    $result = [];
+    foreach ($defaults as $type => $d) {
+        $result[] = $byType[$type] ?? array_merge(['id'=>null,'type'=>$type,'enabled'=>1], $d);
     }
-    // Try default profile
-    $stmt = $db->query("SELECT * FROM smtp_profiles WHERE is_default = 1 AND is_active = 1 LIMIT 1");
-    $p = $stmt->fetch();
-    if ($p) return mapProfile($p);
-    // Fall back to settings table
-    $stmt = $db->query("SELECT `key`, `value` FROM settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_name')");
+    jsonResponse(['success'=>true,'data'=>$result]);
+}
+
+// ── POST action=save_template ────────────────────────────────────
+function handleSaveTemplate($db, $input) {
+    ensureEmailTables($db);
+    $type    = trim($input['type']    ?? '');
+    $subject = trim($input['subject'] ?? '');
+    $body    = trim($input['body']    ?? '');
+    $enabled = isset($input['enabled']) ? (int)$input['enabled'] : 1;
+    if (!$type || !$subject || !$body) {
+        jsonResponse(['success'=>false,'error'=>'type, subject and body are required'], 422);
+    }
+    $allowed = ['invoice','estimate','receipt','reminder','overdue','followup'];
+    if (!in_array($type, $allowed)) {
+        jsonResponse(['success'=>false,'error'=>'Invalid template type'], 422);
+    }
+    $exists = $db->prepare("SELECT id FROM email_templates WHERE type=?")->execute([$type]);
+    $row    = $db->prepare("SELECT id FROM email_templates WHERE type=?");
+    $row->execute([$type]);
+    $existing = $row->fetch();
+    if ($existing) {
+        $db->prepare("UPDATE email_templates SET subject=?,body=?,enabled=?,updated_at=NOW() WHERE type=?")->execute([$subject,$body,$enabled,$type]);
+    } else {
+        $db->prepare("INSERT INTO email_templates (type,subject,body,enabled,created_at,updated_at) VALUES (?,?,?,?,NOW(),NOW())")->execute([$type,$subject,$body,$enabled]);
+    }
+    jsonResponse(['success'=>true]);
+}
+
+// ── POST action=preview ─────────────────────────────────────────
+function handlePreview($db, $input) {
+    ensureEmailTables($db);
+    $type  = $input['type']       ?? 'invoice';
+    $invId = (int)($input['invoice_id'] ?? 0);
+
+    $tpl  = getTemplate($db, $type);
+    $vars = buildTemplateVars($db, $invId, $type);
+
+    $subject = replacePlaceholders($tpl['subject'], $vars);
+    $html    = buildEmailHTML(replacePlaceholders($tpl['body'], $vars), $type);
+
+    jsonResponse(['success'=>true,'subject'=>$subject,'html'=>$html]);
+}
+
+// ── GET action=logs ─────────────────────────────────────────────
+function handleLogs($db) {
+    ensureEmailTables($db);
+    $invId  = (int)($_GET['invoice_id'] ?? 0);
+    $type   = $_GET['type']   ?? '';
+    $status = $_GET['status'] ?? '';
+    $sql    = "SELECT * FROM email_logs WHERE 1";
+    $params = [];
+    if ($invId)  { $sql .= " AND invoice_id=?";  $params[] = $invId; }
+    if ($type)   { $sql .= " AND type=?";         $params[] = $type; }
+    if ($status) { $sql .= " AND status=?";       $params[] = $status; }
+    $sql .= " ORDER BY created_at DESC LIMIT 200";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    jsonResponse(['success'=>true,'data'=>$stmt->fetchAll()]);
+}
+
+// ── GET action=smtp_profiles ────────────────────────────────────
+function handleGetProfiles($db) {
+    ensureEmailTables($db);
+    $rows = $db->query("SELECT id,name,host,port,username,from_email,from_name,provider,is_default FROM smtp_profiles ORDER BY is_default DESC,name ASC")->fetchAll();
+    jsonResponse(['success'=>true,'data'=>$rows]);
+}
+
+// ── POST action=save_profile ────────────────────────────────────
+function handleSaveProfile($db, $input) {
+    ensureEmailTables($db);
+    $id       = (int)($input['id'] ?? 0);
+    $name     = trim($input['name']       ?? '');
+    $host     = trim($input['host']       ?? '');
+    $port     = (int)($input['port']      ?? 587);
+    $user     = trim($input['username']   ?? '');
+    $pass     = trim($input['password']   ?? '');
+    $from     = trim($input['from_email'] ?? '');
+    $fname    = trim($input['from_name']  ?? '');
+    $provider = trim($input['provider']   ?? 'smtp');
+    $isDefault= (int)($input['is_default']?? 0);
+    $apikey   = trim($input['api_key']    ?? '');
+    if (!$name || !$host || !$user) {
+        jsonResponse(['success'=>false,'error'=>'Name, host and username are required'], 422);
+    }
+    if ($isDefault) $db->exec("UPDATE smtp_profiles SET is_default=0");
+    if ($id) {
+        $sql = "UPDATE smtp_profiles SET name=?,host=?,port=?,username=?,from_email=?,from_name=?,provider=?,is_default=?,api_key=?,updated_at=NOW()";
+        $params = [$name,$host,$port,$user,$from,$fname,$provider,$isDefault,$apikey];
+        if ($pass) { $sql .= ",password=?"; $params[] = $pass; }
+        $sql .= " WHERE id=?"; $params[] = $id;
+        $db->prepare($sql)->execute($params);
+    } else {
+        $db->prepare("INSERT INTO smtp_profiles (name,host,port,username,password,from_email,from_name,provider,is_default,api_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),NOW())")
+           ->execute([$name,$host,$port,$user,$pass,$from,$fname,$provider,$isDefault,$apikey]);
+    }
+    jsonResponse(['success'=>true]);
+}
+
+// ── DELETE action=del_profile ───────────────────────────────────
+function handleDelProfile($db) {
+    ensureEmailTables($db);
+    $id = (int)($_GET['id'] ?? 0);
+    if (!$id) jsonResponse(['success'=>false,'error'=>'ID required'], 422);
+    $db->prepare("DELETE FROM smtp_profiles WHERE id=?")->execute([$id]);
+    jsonResponse(['success'=>true]);
+}
+
+// ── POST action=test ────────────────────────────────────────────
+function handleTest($db, $input) {
+    $smtp = getSmtpConfig($input, $db);
+    if (empty($smtp['host'])) jsonResponse(['success'=>false,'error'=>'SMTP Host required'], 422);
+    $to      = $input['to'] ?? $smtp['user'];
+    $subject = 'SMTP Test — OPTMS Tech Invoice Manager';
+    $body    = "Test email from OPTMS Tech Invoice Manager.\n\nSMTP is working!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
+    $result  = sendSmtpEmail($smtp, $to, 'Test', $subject, buildEmailHTML($body, 'test'));
+    if ($result['success']) {
+        try { logEmailSent($db, 0, 'test', $to, $subject, 'sent'); } catch(\Exception $e){}
+    }
+    jsonResponse($result);
+}
+
+// ── POST action=send ────────────────────────────────────────────
+function handleSend($db, $input) {
+    ensureEmailTables($db);
+
+    $to     = trim($input['to']         ?? '');
+    $toName = trim($input['to_name']    ?? 'Client');
+    $invId  = (int)($input['invoice_id']?? 0);
+    $type   = trim($input['type']       ?? 'invoice');   // ← KEY FIX: honour type
+
+    // Map legacy/alias type names
+    $typeMap = [
+        'pending'      => 'invoice',
+        'paid_receipt' => 'receipt',
+        'paid'         => 'receipt',
+        'partial'      => 'receipt',
+        'remind'       => 'reminder',
+        'payment_reminder' => 'reminder',
+        'payment_overdue'  => 'overdue',
+        'invoice_followup' => 'followup',
+        'invoice_created'  => 'invoice',
+        'estimate_created' => 'estimate',
+        'payment_received' => 'receipt',
+        'partial_payment'  => 'receipt',
+    ];
+    $type = $typeMap[$type] ?? $type;
+    $allowed = ['invoice','estimate','receipt','reminder','overdue','followup','test'];
+    if (!in_array($type, $allowed)) $type = 'invoice';
+
+    if (!$to) jsonResponse(['success'=>false,'error'=>'Recipient email required'], 422);
+
+    // ── Load template (DB first, then defaults) ──────────────────
+    $tpl  = getTemplate($db, $type);
+
+    // ── Build variable map for this invoice ──────────────────────
+    $vars = buildTemplateVars($db, $invId, $type);
+
+    // ── Allow caller to override individual vars ─────────────────
+    // (e.g. sendEmailForClient passes subject/body directly)
+    if (!empty($input['subject']) && empty($input['use_template'])) {
+        $subject = $input['subject'];
+    } else {
+        $subject = replacePlaceholders($tpl['subject'], $vars);
+    }
+    if (!empty($input['body']) && empty($input['use_template'])) {
+        $rawBody = $input['body'];
+    } else {
+        $rawBody = replacePlaceholders($tpl['body'], $vars);
+    }
+
+    // ── Always inject portal link if available and placeholder missing ──
+    if (!empty($vars['{invoice_link}']) && strpos($rawBody, '{invoice_link}') === false) {
+        $rawBody .= "\n\nView your invoice online: " . $vars['{invoice_link}'];
+    }
+
+    $smtp   = getSmtpConfig($input, $db);
+    $html   = buildEmailHTML($rawBody, $type);
+    $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html);
+
+    $status = $result['success'] ? 'sent' : 'failed';
+    $errMsg = $result['error']   ?? '';
+    try { logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg); } catch(\Exception $e){}
+
+    if ($result['success'] && $invId && isset($_SESSION['user_id'])) {
+        try { logActivity($_SESSION['user_id'], 'email_sent', 'invoice', $invId, "Email ($type) sent to $to"); } catch(\Exception $e){}
+    }
+    jsonResponse($result);
+}
+
+// ================================================================
+//  HELPERS
+// ================================================================
+
+// ── Load SMTP config (input override → DB settings) ─────────────
+function getSmtpConfig(array $input, $db): array {
+    if (!empty($input['smtp_host'])) {
+        return [
+            'host' => $input['smtp_host'],
+            'port' => (int)($input['smtp_port'] ?? 587),
+            'user' => $input['smtp_user'] ?? '',
+            'pass' => $input['smtp_pass'] ?? '',
+            'from' => $input['smtp_from'] ?? $input['smtp_user'] ?? '',
+            'name' => $input['smtp_name'] ?? 'Invoice',
+        ];
+    }
+    // Try default SMTP profile first
+    try {
+        $prof = $db->query("SELECT * FROM smtp_profiles WHERE is_default=1 LIMIT 1")->fetch();
+        if ($prof && $prof['host']) {
+            return [
+                'host' => $prof['host'],
+                'port' => (int)$prof['port'],
+                'user' => $prof['username'],
+                'pass' => $prof['password'],
+                'from' => $prof['from_email'] ?: $prof['username'],
+                'name' => $prof['from_name']  ?: 'Invoice',
+            ];
+        }
+    } catch(\Exception $e){}
+    // Fallback: settings table
     $cfg  = [];
-    foreach ($stmt->fetchAll() as $r) $cfg[$r['key']] = $r['value'];
+    $stmt = $db->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_name')");
+    $stmt->execute();
+    foreach ($stmt->fetchAll() as $row) { $cfg[$row['key']] = $row['value']; }
     return [
-        'host'       => $cfg['smtp_host'] ?? '',
-        'port'       => (int)($cfg['smtp_port'] ?? 587),
-        'user'       => $cfg['smtp_user'] ?? '',
-        'pass'       => $cfg['smtp_pass'] ?? '',
-        'from'       => $cfg['smtp_from'] ?? $cfg['smtp_user'] ?? '',
-        'name'       => $cfg['smtp_name'] ?? 'OPTMS Tech',
-        'encryption' => 'tls',
-        'provider'   => 'smtp',
-        'api_key'    => '',
-    ];
-}
-function mapProfile(array $p): array {
-    return [
-        'host'       => $p['host'],
-        'port'       => (int)$p['port'],
-        'user'       => $p['username'],
-        'pass'       => $p['password'],
-        'from'       => $p['from_email'],
-        'name'       => $p['from_name'],
-        'encryption' => $p['encryption'] ?? 'tls',
-        'provider'   => $p['provider']   ?? 'smtp',
-        'api_key'    => $p['api_key']    ?? '',
+        'host' => $cfg['smtp_host'] ?? '',
+        'port' => (int)($cfg['smtp_port'] ?? 587),
+        'user' => $cfg['smtp_user'] ?? '',
+        'pass' => $cfg['smtp_pass'] ?? '',
+        'from' => $cfg['smtp_from'] ?? $cfg['smtp_user'] ?? '',
+        'name' => $cfg['smtp_name'] ?? 'Invoice',
     ];
 }
 
-// ── Replace template variables ───────────────────────────────────
-function replaceVars(string $tpl, array $data): string {
-    $map = [
-        '{client_name}'          => $data['client_name']          ?? '',
-        '{invoice_no}'           => $data['invoice_number']        ?? '',
-        '{amount}'               => $data['amount']                ?? '',
-        '{currency}'             => $data['currency']              ?? '₹',
-        '{due_date}'             => $data['due_date']              ?? '',
-        '{issue_date}'           => $data['issued_date']           ?? '',
-        '{service}'              => $data['service_type']          ?? '',
-        '{company_name}'         => $data['company_name']          ?? 'OPTMS Tech',
-        '{company_phone}'        => $data['company_phone']         ?? '',
-        '{company_email}'        => $data['company_email']         ?? '',
-        '{upi}'                  => $data['upi']                   ?? '',
-        '{bank_details}'         => $data['bank_details']          ?? '',
-        '{days_overdue}'         => $data['days_overdue']          ?? '0',
-        '{item_list}'            => $data['item_list']             ?? '',
-        '{paid_amount}'          => $data['paid_amount']           ?? '',
-        '{remaining_amount}'     => $data['remaining_amount']      ?? '',
-        '{settlement_discount}'  => $data['settlement_discount']   ?? '',
-        '{invoice_link}'         => $data['invoice_link']          ?? '',
+// ── Fetch template from DB, fall back to defaults ────────────────
+function getTemplate($db, string $type): array {
+    try {
+        $stmt = $db->prepare("SELECT subject,body FROM email_templates WHERE type=? AND enabled=1 LIMIT 1");
+        $stmt->execute([$type]);
+        $row = $stmt->fetch();
+        if ($row && $row['subject'] && $row['body']) return $row;
+    } catch(\Exception $e){}
+    $defaults = getDefaultTemplates();
+    return $defaults[$type] ?? $defaults['invoice'];
+}
+
+// ── Build all placeholder vars for an invoice ───────────────────
+function buildTemplateVars($db, int $invId, string $type): array {
+    // Load company settings
+    $cfg = [];
+    try {
+        $rows = $db->query("SELECT `key`,`value` FROM settings")->fetchAll();
+        foreach ($rows as $r) $cfg[$r['key']] = $r['value'];
+    } catch(\Exception $e){}
+
+    $company = $cfg['company_name']    ?? 'OPTMS Tech';
+    $phone   = $cfg['company_phone']   ?? '';
+    $email   = $cfg['company_email']   ?? '';
+    $upi     = $cfg['company_upi']     ?? '';
+    $bank    = $cfg['company_bank']    ?? '';
+    $website = $cfg['company_website'] ?? '';
+    $portalBase = rtrim($cfg['portal_base_url'] ?? 'https://invcs.optms.co.in/portal', '/') . '/';
+
+    $vars = [
+        '{company_name}'   => $company,
+        '{company_phone}'  => $phone,
+        '{company_email}'  => $email,
+        '{upi}'            => $upi,
+        '{bank_details}'   => $bank,
+        '{company_website}'=> $website,
+        '{client_name}'    => 'Valued Client',
+        '{invoice_no}'     => '',
+        '{amount}'         => '',
+        '{due_date}'       => '',
+        '{issue_date}'     => date('d M Y'),
+        '{service}'        => '',
+        '{status}'         => '',
+        '{days_overdue}'   => '0',
+        '{paid_amount}'    => '',
+        '{remaining_amount}' => '',
+        '{settlement_discount}' => '',
+        '{invoice_link}'   => '',
+        '{payment_method}' => '',
     ];
-    return str_replace(array_keys($map), array_values($map), $tpl);
-}
 
-// ── Build item list text ─────────────────────────────────────────
-function buildItemList(array $items): string {
-    if (empty($items)) return '';
-    $lines = ["Items:"];
-    foreach ($items as $item) {
-        $lines[] = "  • " . $item['description'] . " — Qty: " . $item['quantity'] . " × ₹" . number_format((float)$item['rate'], 2);
-    }
-    return implode("\n", $lines);
-}
+    if (!$invId) return $vars;
 
-// ── Build branded HTML email — OPTMS Design (matches brand screenshot) ──
-function buildEmailHTML(string $body, array $data, ?string $trackToken, string $appUrl): string {
-    $company   = htmlspecialchars($data['company_name']   ?? 'OPTMS Tech');
-    $phone     = htmlspecialchars($data['company_phone']  ?? '');
-    $email     = htmlspecialchars($data['company_email']  ?? '');
-    $gst       = htmlspecialchars($data['company_gst']    ?? '');
-    $logo      = $data['company_logo'] ?? '';
-    $signature = $data['company_sign'] ?? $data['signature'] ?? '';
-    $teal      = '#0D7A6A';
-    $tealDark  = '#0A5C4E';
-    $tealLight = '#E8F5F2';
-    $trackImg  = $trackToken ? "<img src='{$appUrl}/api/email.php?track={$trackToken}' width='1' height='1' style='display:none' alt=''>" : '';
-    $year      = date('Y');
-    $type      = $data['type'] ?? 'invoice';
-    $isEst     = $type === 'estimate';
+    // Load invoice
+    try {
+        $stmt = $db->prepare("SELECT * FROM invoices WHERE id=? LIMIT 1");
+        $stmt->execute([$invId]);
+        $inv = $stmt->fetch();
+    } catch(\Exception $e) { $inv = null; }
+    if (!$inv) return $vars;
 
-    // ── Header ─────────────────────────────────────────────────
-    if ($logo) {
-        $logoBlock = "<img src='{$logo}' alt='{$company}' style='max-height:52px;max-width:170px;object-fit:contain'>";
-    } else {
-        $initial  = mb_strtoupper(mb_substr($company, 0, 1));
-        $logoBlock = "<table cellpadding='0' cellspacing='0' border='0'><tr>
-          <td style='padding-right:12px;vertical-align:middle'>
-            <div style='width:48px;height:48px;background:rgba(255,255,255,.18);border-radius:12px;text-align:center;line-height:48px;font-size:22px;font-weight:900;color:#fff'>{$initial}</div>
-          </td>
-          <td style='vertical-align:middle'>
-            <div style='font-size:21px;font-weight:900;color:#fff;letter-spacing:.8px;line-height:1.1'>" . strtoupper($company) . "</div>
-            <div style='font-size:11.5px;color:rgba(255,255,255,.72);margin-top:2px'>Code your way to progress</div>
-          </td>
-        </tr></table>";
-    }
+    // Load client
+    $client = [];
+    try {
+        $cs = $db->prepare("SELECT * FROM clients WHERE id=? LIMIT 1");
+        $cs->execute([$inv['client_id'] ?? $inv['client'] ?? 0]);
+        $client = $cs->fetch() ?: [];
+    } catch(\Exception $e){}
 
-    // ── Invoice info card ──────────────────────────────────────
-    $invNum  = htmlspecialchars($data['invoice_number'] ?? '');
-    $rawDue  = $data['due_date'] ?? '';
-    $amount  = htmlspecialchars($data['currency'] ?? '₹') . htmlspecialchars($data['amount'] ?? '');
-    $service = htmlspecialchars($data['service_type'] ?? '');
-    try { $dueFormatted = $rawDue ? (new DateTime($rawDue))->format('d F Y') : ''; } catch (Exception $e) { $dueFormatted = $rawDue; }
-    $dueLabel = $isEst ? 'Valid Until' : 'Due Date';
-    $invLabel = $isEst ? 'Estimate No.' : 'Invoice No.';
+    $sym      = $inv['currency'] ?? '₹';
+    $grand    = (float)($inv['grand_total'] ?? $inv['amount'] ?? 0);
+    $due      = $inv['due_date'] ?? $inv['due'] ?? '';
+    $issued   = $inv['issued_date'] ?? $inv['issued'] ?? date('Y-m-d');
+    $dueFmt   = $due    ? date('d M Y', strtotime($due))    : '';
+    $issFmt   = $issued ? date('d M Y', strtotime($issued)) : '';
+    $daysOver = $due    ? max(0, (int)floor((time() - strtotime($due)) / 86400)) : 0;
+    $num      = $inv['invoice_number'] ?? $inv['num'] ?? '';
+    $service  = $inv['service_type']   ?? $inv['service'] ?? '';
+    $status   = $inv['status'] ?? '';
 
-    $infoCard = $invNum ? "
-    <table cellpadding='0' cellspacing='0' border='0' width='100%' style='background:#f7faf9;border:1.5px solid #daeee9;border-radius:14px;margin:22px 0;overflow:hidden'>
-      <tr>
-        <td style='padding:20px 20px;width:80px;vertical-align:middle;border-right:1px solid #e8f2ef'>
-          <div style='width:62px;height:62px;background:#e2f0ec;border-radius:50%;text-align:center;line-height:62px;font-size:26px'>📄</div>
-        </td>
-        <td style='padding:18px 22px;vertical-align:middle'>
-          <table cellpadding='0' cellspacing='0' border='0' width='100%'>
-            <tr>
-              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
-                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>#&nbsp; {$invLabel}</div>
-                <div style='font-size:16px;font-weight:800;color:#111'>{$invNum}</div>
-              </td>
-              <td style='padding-bottom:14px;width:50%;vertical-align:top'>
-                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>📅&nbsp; {$dueLabel}</div>
-                <div style='font-size:16px;font-weight:800;color:#111'>{$dueFormatted}</div>
-              </td>
-            </tr>
-            <tr>
-              <td style='vertical-align:top'>
-                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>₹&nbsp; Amount Due</div>
-                <div style='font-size:16px;font-weight:800;color:#111'>{$amount}</div>
-              </td>
-              <td style='vertical-align:top'>
-                <div style='font-size:11px;color:#90A8A3;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px'>🌐&nbsp; Service</div>
-                <div style='font-size:16px;font-weight:800;color:#111'>{$service}</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>" : '';
+    // Payments
+    $totalPaid = 0;
+    $settleDisc = 0;
+    try {
+        $ps = $db->prepare("SELECT SUM(amount) as paid, SUM(settlement_discount) as disc FROM payments WHERE invoice_id=?");
+        $ps->execute([$invId]);
+        $pr = $ps->fetch();
+        $totalPaid  = (float)($pr['paid']  ?? 0);
+        $settleDisc = (float)($pr['disc']  ?? 0);
+    } catch(\Exception $e){}
+    $remaining = max(0, $grand - $totalPaid);
 
-    // ── Payment details ────────────────────────────────────────
-    $upi     = htmlspecialchars($data['upi'] ?? $data['company_upi'] ?? '');
-    $bankRaw = $data['bank_details'] ?? $data['default_bank'] ?? '';
-    $payRows = '';
-    if ($upi) {
-        $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
-          <td style='padding:11px 16px;width:44px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>🔗</span></td>
-          <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600;width:130px'>UPI</td>
-          <td style='padding:11px 4px;font-size:13px;color:#aaa;width:12px'>:</td>
-          <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>{$upi}</td>
-        </tr>";
-    }
-    $iconMap = ['bank'=>'🏦','account name'=>'👤','account no'=>'💳','account number'=>'💳','ifsc'=>'🏠','branch'=>'📍'];
-    foreach (array_filter(array_map('trim', explode("\n", $bankRaw))) as $line) {
-        if (strpos($line, ':') !== false) {
-            [$k, $v] = array_map('trim', explode(':', $line, 2));
-            $ico = '📋';
-            foreach ($iconMap as $kw => $ic) { if (stripos($k, $kw) !== false) { $ico = $ic; break; } }
-            $payRows .= "<tr style='border-bottom:1px solid #eef3f2'>
-              <td style='padding:11px 16px'><span style='display:inline-block;width:32px;height:32px;background:{$tealLight};border-radius:8px;text-align:center;line-height:32px;font-size:15px'>{$ico}</span></td>
-              <td style='padding:11px 8px;font-size:13px;color:#666;font-weight:600'>" . htmlspecialchars($k) . "</td>
-              <td style='padding:11px 4px;font-size:13px;color:#aaa'>:</td>
-              <td style='padding:11px 16px 11px 8px;font-size:13px;color:#111;font-weight:700'>" . htmlspecialchars($v) . "</td>
-            </tr>";
+    // Portal link
+    $portalLink = '';
+    try {
+        $pt = $db->prepare("SELECT token FROM invoice_portal_tokens WHERE invoice_id=? ORDER BY id DESC LIMIT 1");
+        $pt->execute([$invId]);
+        $tok = $pt->fetchColumn();
+        if ($tok) $portalLink = $portalBase . '?t=' . $tok;
+        else {
+            // Auto-generate token if missing
+            $newToken = bin2hex(random_bytes(24));
+            $db->prepare("INSERT INTO invoice_portal_tokens (invoice_id,token,created_at) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE token=VALUES(token)")
+               ->execute([$invId, $newToken]);
+            $portalLink = $portalBase . '?t=' . $newToken;
         }
-    }
-    $paySection = $payRows ? "
-    <div style='margin:22px 0'>
-      <div style='font-size:17px;font-weight:800;color:#111;margin-bottom:5px'>Payment Details</div>
-      <div style='width:36px;height:3px;background:{$teal};border-radius:3px;margin-bottom:14px'></div>
-      <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;background:#fff'>
-        {$payRows}
-      </table>
-    </div>" : '';
+    } catch(\Exception $e){}
 
-    // ── Line items ─────────────────────────────────────────────
-    $itemsSection = '';
-    if (!empty($data['items'])) {
-        $irows = '';
-        foreach ($data['items'] as $it) {
-            $tot = number_format((float)($it['line_total'] ?? ((float)($it['quantity']??1) * (float)($it['rate']??0))), 2);
-            $irows .= "<tr style='border-bottom:1px solid #eef3f2'>
-              <td style='padding:10px 16px;font-size:13px;color:#333'>" . htmlspecialchars($it['description']??'') . "</td>
-              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:center'>" . ($it['quantity']??1) . "</td>
-              <td style='padding:10px 8px;font-size:13px;color:#666;text-align:right'>₹" . number_format((float)($it['rate']??0), 2) . "</td>
-              <td style='padding:10px 16px;font-size:13px;font-weight:700;color:#111;text-align:right'>₹{$tot}</td>
-            </tr>";
-        }
-        $itemsSection = "
-        <table cellpadding='0' cellspacing='0' border='0' width='100%' style='border:1.5px solid #daeee9;border-radius:12px;overflow:hidden;margin-bottom:20px'>
-          <thead><tr style='background:#f7faf9'>
-            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.4px'>Description</th>
-            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
-            <th style='padding:10px 8px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Rate</th>
-            <th style='padding:10px 16px;font-size:11px;color:#888;text-align:right;font-weight:700;text-transform:uppercase'>Total</th>
-          </tr></thead>
-          <tbody>{$irows}</tbody>
-        </table>";
-    }
+    $vars['{client_name}']          = $client['name'] ?? $client['client_name'] ?? 'Valued Client';
+    $vars['{invoice_no}']           = $num;
+    $vars['{amount}']               = $sym . number_format($grand, 2);
+    $vars['{due_date}']             = $dueFmt;
+    $vars['{issue_date}']           = $issFmt;
+    $vars['{service}']              = $service;
+    $vars['{status}']               = $status;
+    $vars['{days_overdue}']         = (string)$daysOver;
+    $vars['{paid_amount}']          = $sym . number_format($totalPaid, 2);
+    $vars['{remaining_amount}']     = $sym . number_format($remaining, 2);
+    $vars['{settlement_discount}']  = $settleDisc > 0 ? $sym . number_format($settleDisc, 2) : '';
+    $vars['{invoice_link}']         = $portalLink;
 
-    // ── CTA button ─────────────────────────────────────────────
-    $ctaBtn = '';
-    if (!empty($data['invoice_link'])) {
-        $ctaLink  = htmlspecialchars($data['invoice_link']);
-        $ctaLabel = $isEst ? '📋 &nbsp;View Estimate' : '📄 &nbsp;View Invoice';
-        $ctaBtn = "
-        <div style='text-align:center;margin:26px 0 18px'>
-          <a href='{$ctaLink}' style='display:inline-block;background:{$teal};color:#fff;text-decoration:none;padding:15px 52px;border-radius:10px;font-size:15px;font-weight:800;letter-spacing:.3px'>{$ctaLabel}</a>
-        </div>";
-    }
+    return $vars;
+}
 
-    // ── Email body text ────────────────────────────────────────
-    $clientName = htmlspecialchars($data['client_name'] ?? '');
-    $bodyText   = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
+function replacePlaceholders(string $tpl, array $vars): string {
+    return str_replace(array_keys($vars), array_values($vars), $tpl);
+}
 
-    // ── Signature block ────────────────────────────────────────
-    $initial2 = mb_strtoupper(mb_substr($company, 0, 1));
-    $sigImgHtml = $signature ? "<img src='{$signature}' alt='Signature' style='max-height:44px;max-width:140px;object-fit:contain;margin-top:6px;display:block'>" : '';
-    if ($logo) {
-        $sigLogo = "<img src='{$logo}' alt='{$company}' style='max-height:44px;max-width:130px;object-fit:contain'>";
-    } else {
-        $sigLogo = "<div style='width:48px;height:48px;background:{$tealLight};border-radius:50%;text-align:center;line-height:48px;font-size:20px;font-weight:900;color:{$teal}'>{$initial2}</div>";
-    }
-    $phHtml = $phone ? "<span>📞 &nbsp;{$phone}</span>&nbsp;&nbsp;" : '';
-    $emHtml = $email ? "<span>✉️ &nbsp;{$email}</span>" : '';
-
-    // ── Social footer icons ────────────────────────────────────
-    $socials = "
-    <table cellpadding='0' cellspacing='0' border='0' align='center' style='margin:14px auto 0'>
-      <tr>
-        <td style='padding:0 5px'><a href='https://linkedin.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:13px;color:#fff;text-decoration:none;font-weight:700'>in</a></td>
-        <td style='padding:0 5px'><a href='https://twitter.com' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>𝕏</a></td>
-        <td style='padding:0 5px'><a href='mailto:{$email}' style='display:inline-block;width:34px;height:34px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:34px;font-size:14px;color:#fff;text-decoration:none'>✉</a></td>
-      </tr>
-    </table>";
-
-    $gstLine = $gst ? "<br><span style='font-size:11px;color:#bbb'>GST: {$gst}</span>" : '';
-
+// ── Styled HTML email wrapper (type-aware accent colour) ─────────
+function buildEmailHTML(string $body, string $type = 'invoice'): string {
+    $accents = [
+        'invoice'  => ['#00897B', '📄 Invoice from OPTMS Tech'],
+        'estimate' => ['#1976D2', '📋 Estimate from OPTMS Tech'],
+        'receipt'  => ['#388E3C', '✅ Payment Receipt — OPTMS Tech'],
+        'reminder' => ['#F9A825', '🔔 Payment Reminder — OPTMS Tech'],
+        'overdue'  => ['#E53935', '⚠️ Invoice Overdue — OPTMS Tech'],
+        'followup' => ['#7B1FA2', '📞 Follow-up — OPTMS Tech'],
+        'test'     => ['#00897B', '🧪 SMTP Test — OPTMS Tech'],
+    ];
+    [$color, $heading] = $accents[$type] ?? $accents['invoice'];
+    $b = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
+    // Make portal link clickable
+    $b = preg_replace(
+        '/(https?:\/\/[^\s<]+)/i',
+        '<a href="$1" style="color:'.$color.';word-break:break-all">$1</a>',
+        $b
+    );
     return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Email from {$company}</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;margin:0}
+  .wrap{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.10)}
+  .hdr{background:{$color};color:#fff;padding:24px 32px;font-size:18px;font-weight:700;line-height:1.3}
+  .bdy{padding:28px 32px;color:#333;font-size:15px;line-height:1.85}
+  .ftr{background:#f9f9f9;padding:14px 32px;font-size:12px;color:#999;border-top:1px solid #eee;text-align:center}
+  a{color:{$color}}
+</style>
 </head>
-<body style="margin:0;padding:0;background:#EDF2F0;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
-<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#EDF2F0;padding:28px 0">
-<tr><td align="center">
-<table cellpadding="0" cellspacing="0" border="0" width="600" style="background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 32px rgba(0,0,0,.09)">
-
-  <!-- ── HEADER ── -->
-  <tr>
-    <td style="background:linear-gradient(135deg,{$teal} 0%,{$tealDark} 100%);padding:26px 32px">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-        <td style="vertical-align:middle">{$logoBlock}</td>
-        <td align="right" style="vertical-align:middle">
-          <div style="display:inline-block;border:1.5px solid rgba(255,255,255,.35);border-radius:22px;padding:6px 14px;font-size:11px;font-weight:700;color:#fff;letter-spacing:.3px;white-space:nowrap">🛡 Trusted. Reliable. Professional.</div>
-        </td>
-      </tr></table>
-    </td>
-  </tr>
-
-  <!-- ── BODY ── -->
-  <tr>
-    <td style="padding:32px 32px 24px">
-
-      <!-- Greeting -->
-      <p style="font-size:19px;font-weight:800;color:#111;margin:0 0 10px;line-height:1.3">Dear <span style="color:{$teal}">{$clientName},</span></p>
-      <p style="font-size:14px;color:#666;margin:0 0 8px;line-height:1.75">{$bodyText}</p>
-
-      <!-- Invoice card -->
-      {$infoCard}
-
-      <!-- Line items -->
-      {$itemsSection}
-
-      <!-- Payment details -->
-      {$paySection}
-
-      <!-- CTA button -->
-      {$ctaBtn}
-
-      <!-- Appreciation note -->
-      <div style="text-align:center;margin:8px 0 28px">
-        <p style="font-size:13px;color:#999;margin:0 0 5px">If you have any questions, feel free to reach out.</p>
-        <p style="font-size:13.5px;font-weight:800;color:{$teal};margin:0">We appreciate your business!</p>
-      </div>
-
-      <!-- Signature -->
-      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-top:1px solid #edf2f0;padding-top:22px;margin-top:24px">
-        <tr>
-          <td style="width:58px;vertical-align:top;padding-right:14px">{$sigLogo}</td>
-          <td style="vertical-align:top">
-            <div style="font-size:13px;color:#aaa;margin-bottom:3px">Best regards,</div>
-            <div style="font-size:15px;font-weight:800;color:#111;margin-bottom:6px">{$company}</div>
-            {$sigImgHtml}
-            <div style="font-size:13px;color:#666;margin-top:6px">{$phHtml}{$emHtml}</div>
-          </td>
-        </tr>
-      </table>
-
-    </td>
-  </tr>
-
-  <!-- ── FOOTER ── -->
-  <tr>
-    <td style="background:#F7FAF9;border-top:1px solid #E8F0EE;padding:18px 32px 22px;text-align:center">
-      <p style="font-size:12px;color:#bbb;margin:0">© {$year} {$company}. All rights reserved.{$gstLine}</p>
-      {$socials}
-    </td>
-  </tr>
-
-</table>
-</td></tr>
-</table>
-{$trackImg}
+<body>
+  <div class="wrap">
+    <div class="hdr">{$heading}</div>
+    <div class="bdy">{$b}</div>
+    <div class="ftr">Sent via OPTMS Tech Invoice Manager &middot; <a href="https://optmstech.in">optmstech.in</a></div>
+  </div>
 </body>
 </html>
 HTML;
 }
 
-// ── Core SMTP sender (PHPMailer / mail() fallback) ───────────────
-function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $html, array $opts = []): array {
+// ── PHPMailer / mail() sender ────────────────────────────────────
+function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $htmlBody): array {
     if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
-        return ['success' => false, 'error' => 'SMTP not configured. Fill all fields and Save first.'];
+        return ['success'=>false,'error'=>'SMTP not configured. Fill all fields and Save first.'];
     }
-    foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../vendor/autoload.php'] as $p) {
+    foreach ([__DIR__.'/../vendor/autoload.php', __DIR__.'/../../vendor/autoload.php'] as $p) {
         if (file_exists($p)) { require_once $p; break; }
     }
     if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
@@ -490,330 +496,240 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
             $mail->SMTPAuth   = true;
             $mail->Username   = $smtp['user'];
             $mail->Password   = $smtp['pass'];
-            $enc = $smtp['encryption'] ?? 'tls';
-            $mail->SMTPSecure = ($enc === 'ssl' || (int)$smtp['port'] === 465)
+            $mail->SMTPSecure = ($smtp['port'] == 465)
                 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
                 : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = (int)$smtp['port'];
+            $mail->Port       = $smtp['port'];
             $mail->setFrom($smtp['from'], $smtp['name']);
             $mail->addAddress($to, $toName);
-            // CC self
-            if (!empty($opts['cc_self'])) $mail->addCC($smtp['from'], $smtp['name']);
-            // Extra CC/BCC
-            if (!empty($opts['cc']))  foreach ((array)$opts['cc']  as $cc)  $mail->addCC($cc);
-            if (!empty($opts['bcc'])) foreach ((array)$opts['bcc'] as $bcc) $mail->addBCC($bcc);
             $mail->isHTML(true);
-            $mail->Subject  = $subject;
-            $mail->Body     = $html;
-            $mail->AltBody  = strip_tags(str_replace(['<br>','<br/>','<br />','</p>'], "\n", $html));
-            $mail->CharSet  = 'UTF-8';
+            $mail->Subject = $subject;
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = strip_tags(str_replace(['<br>','<br/>','</p>'],"\n",$htmlBody));
             $mail->send();
-            return ['success' => true];
+            return ['success'=>true];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $mail->ErrorInfo ?: $e->getMessage()];
+            return ['success'=>false,'error'=>$mail->ErrorInfo ?: $e->getMessage()];
         }
     }
-    // Fallback native mail()
+    // Fallback: native PHP mail()
     $headers  = "MIME-Version: 1.0\r\nContent-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$smtp['name']} <{$smtp['from']}>\r\nReply-To: {$smtp['from']}\r\n";
-    $sent = @mail($to, $subject, $html, $headers);
-    if ($sent) return ['success' => true];
-    return ['success' => false, 'error' => 'PHPMailer not installed. Run: composer require phpmailer/phpmailer'];
+    $sent = @mail($to, $subject, $htmlBody, $headers);
+    if ($sent) return ['success'=>true];
+    return ['success'=>false,'error'=>'PHPMailer not found & PHP mail() failed. Run: composer require phpmailer/phpmailer'];
 }
 
-// ── Log an email ─────────────────────────────────────────────────
-function logEmail($db, array $data): int {
-    $stmt = $db->prepare("INSERT INTO email_logs (invoice_id, invoice_number, client_name, to_email, subject, body_html, status, error_msg, smtp_profile, type, track_token, sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->execute([
-        $data['invoice_id']    ?? null,
-        $data['invoice_number'] ?? null,
-        $data['client_name']   ?? null,
-        $data['to_email'],
-        $data['subject'],
-        $data['body_html']     ?? null,
-        $data['status'],
-        $data['error_msg']     ?? null,
-        $data['smtp_profile']  ?? 'default',
-        $data['type']          ?? 'invoice',
-        $data['track_token']   ?? null,
-        $data['status'] === 'sent' ? date('Y-m-d H:i:s') : null,
-    ]);
-    return (int)$db->lastInsertId();
-}
-
-// ── Fetch invoice data for email ─────────────────────────────────
-function getInvoiceData($db, int $invId): array {
-    $stmt = $db->prepare("SELECT i.*, c.email as c_email, c.phone as c_phone, c.whatsapp as c_wa FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?");
-    $stmt->execute([$invId]);
-    $inv = $stmt->fetch() ?: [];
-    if ($inv) {
-        $si = $db->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order");
-        $si->execute([$invId]);
-        $inv['items'] = $si->fetchAll();
-    }
-    return $inv;
-}
-
-// ── Get company settings ─────────────────────────────────────────
-function getCompanySettings($db): array {
-    $stmt = $db->query("SELECT `key`, `value` FROM settings WHERE `key` IN ('company_name','company_phone','company_email','company_upi','company_logo','default_bank')");
-    $s = [];
-    foreach ($stmt->fetchAll() as $r) $s[$r['key']] = $r['value'];
-    return $s;
-}
-
-// ── Get portal link for invoice ──────────────────────────────────
-function getPortalLink($db, int $invId, string $appUrl): string {
-    $stmt = $db->prepare("SELECT token FROM portal_tokens WHERE invoice_id = ? LIMIT 1");
-    $stmt->execute([$invId]);
-    $row = $stmt->fetch();
-    if ($row) return $appUrl . '/portal?token=' . $row['token'];
-    // Auto-generate token
+// ── Log sent email ───────────────────────────────────────────────
+function logEmailSent($db, int $invId, string $type, string $to, string $subject, string $status, string $error=''): void {
     try {
-        $token = bin2hex(random_bytes(16));
-        $db->prepare("INSERT INTO portal_tokens (invoice_id, token) VALUES (?,?) ON DUPLICATE KEY UPDATE token=VALUES(token)")->execute([$invId, $token]);
-        return $appUrl . '/portal?token=' . $token;
-    } catch (Exception $e) {
-        return $appUrl;
-    }
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,subject,status,error_msg,created_at) VALUES (?,?,?,?,?,?,NOW())")
+           ->execute([$invId ?: null, $type, $to, $subject, $status, $error ?: null]);
+    } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
 
-// ── Get email template ───────────────────────────────────────────
-function getEmailTemplate($db, string $type): array {
-    $stmt = $db->prepare("SELECT * FROM email_templates WHERE type = ? AND is_active = 1 LIMIT 1");
-    $stmt->execute([$type]);
-    $tpl = $stmt->fetch();
-    if ($tpl) return $tpl;
-    $defaults = getDefaultTemplates();
-    return $defaults[$type] ?? $defaults['invoice'];
+// ── Ensure required tables exist ─────────────────────────────────
+function ensureEmailTables($db): void {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS email_templates (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            type       VARCHAR(32) NOT NULL UNIQUE,
+            subject    TEXT NOT NULL,
+            body       TEXT NOT NULL,
+            enabled    TINYINT(1) DEFAULT 1,
+            created_at DATETIME,
+            updated_at DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS email_logs (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            invoice_id INT DEFAULT NULL,
+            type       VARCHAR(32),
+            to_email   VARCHAR(255),
+            subject    VARCHAR(500),
+            status     VARCHAR(20) DEFAULT 'sent',
+            error_msg  TEXT,
+            opened_at  DATETIME DEFAULT NULL,
+            open_count INT DEFAULT 0,
+            sent_at    DATETIME DEFAULT NULL,
+            created_at DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS smtp_profiles (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            name        VARCHAR(100) NOT NULL,
+            host        VARCHAR(255) NOT NULL,
+            port        SMALLINT DEFAULT 587,
+            username    VARCHAR(255) NOT NULL,
+            password    VARCHAR(255),
+            from_email  VARCHAR(255),
+            from_name   VARCHAR(100),
+            provider    VARCHAR(50) DEFAULT 'smtp',
+            is_default  TINYINT(1) DEFAULT 0,
+            api_key     VARCHAR(500),
+            created_at  DATETIME,
+            updated_at  DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    // Portal tokens table (if not exists — portal.php may create it too)
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS invoice_portal_tokens (
+            id         INT AUTO_INCREMENT PRIMARY KEY,
+            invoice_id INT NOT NULL,
+            token      VARCHAR(64) NOT NULL UNIQUE,
+            created_at DATETIME,
+            KEY idx_invoice (invoice_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
 }
 
-$appUrl = defined('APP_URL') ? APP_URL : 'http://invcs.optms.co.in';
+// ── Default built-in templates (used when DB has none) ───────────
+function getDefaultTemplates(): array {
+    return [
 
-// ════════════════════════════════════════════════════════════════
-//  GET ACTIONS
-// ════════════════════════════════════════════════════════════════
-if ($method === 'GET') {
+        // ── Pending Invoice ──────────────────────────────────────
+        'invoice' => [
+            'subject' => 'Invoice #{invoice_no} from {company_name} – {amount}',
+            'body'    =>
+"Dear {client_name},
 
-    // ── Email logs ──────────────────────────────────────────────
-    if ($action === 'logs') {
-        $where = ['1=1']; $params = [];
-        if (!empty($_GET['invoice_id'])) { $where[] = 'invoice_id = ?'; $params[] = (int)$_GET['invoice_id']; }
-        if (!empty($_GET['type']))       { $where[] = 'type = ?';       $params[] = $_GET['type']; }
-        if (!empty($_GET['status']))     { $where[] = 'status = ?';     $params[] = $_GET['status']; }
-        $sql  = 'SELECT id,invoice_id,invoice_number,client_name,to_email,subject,status,error_msg,type,opened_at,open_count,sent_at,created_at FROM email_logs WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT 200';
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
-    }
+Please find attached your invoice from {company_name}.
 
-    // ── Email templates ─────────────────────────────────────────
-    if ($action === 'templates') {
-        $rows = $db->query("SELECT * FROM email_templates ORDER BY type")->fetchAll();
-        $defaults = getDefaultTemplates();
-        // Merge defaults for any missing types
-        $found = array_column($rows, 'type');
-        foreach ($defaults as $type => $d) {
-            if (!in_array($type, $found)) {
-                $rows[] = array_merge($d, ['id' => null, 'type' => $type, 'is_active' => 1]);
-            }
-        }
-        jsonResponse(['success' => true, 'data' => $rows]);
-    }
+  Invoice No : #{invoice_no}
+  Service    : {service}
+  Amount Due : {amount}
+  Issue Date : {issue_date}
+  Due Date   : {due_date}
 
-    // ── SMTP profiles ───────────────────────────────────────────
-    if ($action === 'smtp_profiles') {
-        $rows = $db->query("SELECT id,name,host,port,username,from_email,from_name,encryption,provider,is_default,is_active FROM smtp_profiles ORDER BY is_default DESC, name")->fetchAll();
-        jsonResponse(['success' => true, 'data' => $rows]);
-    }
+To pay via UPI, use: {upi}
 
-    jsonResponse(['success' => false, 'error' => 'Unknown GET action'], 400);
-}
+You can also view, download, and pay your invoice online:
+{invoice_link}
 
-// ════════════════════════════════════════════════════════════════
-//  DELETE ACTIONS
-// ════════════════════════════════════════════════════════════════
-if ($method === 'DELETE') {
-    if ($action === 'del_profile') {
-        $id = (int)($_GET['id'] ?? 0);
-        if (!$id) jsonResponse(['success' => false, 'error' => 'ID required'], 422);
-        $db->prepare("DELETE FROM smtp_profiles WHERE id = ?")->execute([$id]);
-        jsonResponse(['success' => true]);
-    }
-    jsonResponse(['success' => false, 'error' => 'Unknown DELETE action'], 400);
-}
+If you have any questions, feel free to contact us at {company_email} or {company_phone}.
 
-// ════════════════════════════════════════════════════════════════
-//  POST ACTIONS
-// ════════════════════════════════════════════════════════════════
+Thank you for your business!
+Warm regards,
+{company_name}",
+        ],
 
-// ── Save email template ─────────────────────────────────────────
-if ($action === 'save_template') {
-    $type    = $input['type']    ?? '';
-    $subject = $input['subject'] ?? '';
-    $body    = $input['body']    ?? '';
-    if (!$type || !$subject || !$body) jsonResponse(['success' => false, 'error' => 'type, subject and body required'], 422);
-    $validTypes = ['invoice','estimate','receipt','reminder','overdue','followup'];
-    if (!in_array($type, $validTypes)) jsonResponse(['success' => false, 'error' => 'Invalid type'], 422);
-    $name = $input['name'] ?? ucfirst($type);
-    $db->prepare("INSERT INTO email_templates (type,name,subject,body) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),subject=VALUES(subject),body=VALUES(body),is_active=1")->execute([$type, $name, $subject, $body]);
-    jsonResponse(['success' => true]);
-}
+        // ── Estimate / Quotation ─────────────────────────────────
+        'estimate' => [
+            'subject' => 'Estimate #{invoice_no} from {company_name} – {amount}',
+            'body'    =>
+"Dear {client_name},
 
-// ── Save SMTP profile ───────────────────────────────────────────
-if ($action === 'save_profile') {
-    $name      = trim($input['name']       ?? '');
-    $host      = trim($input['host']       ?? '');
-    $port      = (int)($input['port']      ?? 587);
-    $username  = trim($input['username']   ?? '');
-    $password  = trim($input['password']   ?? '');
-    $fromEmail = trim($input['from_email'] ?? '');
-    $fromName  = trim($input['from_name']  ?? 'OPTMS Tech');
-    $enc       = in_array($input['encryption'] ?? 'tls', ['tls','ssl','none']) ? $input['encryption'] : 'tls';
-    $provider  = in_array($input['provider'] ?? 'smtp', ['smtp','gmail','sendgrid','mailgun']) ? $input['provider'] : 'smtp';
-    $apiKey    = trim($input['api_key']    ?? '');
-    $isDefault = (int)($input['is_default'] ?? 0);
-    if (!$name || !$host || !$username) jsonResponse(['success' => false, 'error' => 'name, host and username required'], 422);
-    if ($isDefault) $db->exec("UPDATE smtp_profiles SET is_default = 0");
-    $id = (int)($input['id'] ?? 0);
-    if ($id) {
-        $db->prepare("UPDATE smtp_profiles SET name=?,host=?,port=?,username=?,password=?,from_email=?,from_name=?,encryption=?,provider=?,api_key=?,is_default=? WHERE id=?")->execute([$name,$host,$port,$username,$password,$fromEmail,$fromName,$enc,$provider,$apiKey,$isDefault,$id]);
-    } else {
-        $db->prepare("INSERT INTO smtp_profiles (name,host,port,username,password,from_email,from_name,encryption,provider,api_key,is_default) VALUES (?,?,?,?,?,?,?,?,?,?,?)")->execute([$name,$host,$port,$username,$password,$fromEmail,$fromName,$enc,$provider,$apiKey,$isDefault]);
-        $id = (int)$db->lastInsertId();
-    }
-    jsonResponse(['success' => true, 'id' => $id]);
-}
+Thank you for your enquiry. Please find our estimate below.
 
-// ── Preview ─────────────────────────────────────────────────────
-if ($action === 'preview') {
-    $type   = $input['type']       ?? 'invoice';
-    $invId  = (int)($input['invoice_id'] ?? 0);
-    $tpl    = getEmailTemplate($db, $type);
-    $cs     = getCompanySettings($db);
-    $inv    = $invId ? getInvoiceData($db, $invId) : [];
-    $link   = $invId ? getPortalLink($db, $invId, $appUrl) : $appUrl;
-    $data   = array_merge($cs, $inv, [
-        'company_name'  => $cs['company_name']  ?? 'OPTMS Tech',
-        'company_phone' => $cs['company_phone']  ?? '',
-        'company_email' => $cs['company_email']  ?? '',
-        'upi'           => $cs['company_upi']    ?? '',
-        'bank_details'  => $inv['bank_details']  ?? $cs['default_bank'] ?? '',
-        'invoice_link'  => $link,
-        'item_list'     => buildItemList($inv['items'] ?? []),
-        'amount'        => number_format((float)($inv['grand_total'] ?? 0), 2),
-        'type'          => $type,
-    ]);
-    $subject = replaceVars($tpl['subject'], $data);
-    $body    = replaceVars($tpl['body'],    $data);
-    $html    = buildEmailHTML($body, $data, null, $appUrl);
-    jsonResponse(['success' => true, 'subject' => $subject, 'html' => $html]);
-}
+  Estimate No : #{invoice_no}
+  Service     : {service}
+  Total       : {amount}
+  Valid Until : {due_date}
 
-// ── Test ────────────────────────────────────────────────────────
-if ($action === 'test') {
-    $smtp = $input['smtp_host'] ? [
-        'host' => $input['smtp_host'], 'port' => (int)($input['smtp_port'] ?? 587),
-        'user' => $input['smtp_user'] ?? '', 'pass' => $input['smtp_pass'] ?? '',
-        'from' => $input['smtp_from'] ?? $input['smtp_user'] ?? '',
-        'name' => $input['smtp_name'] ?? 'OPTMS Tech', 'encryption' => 'tls',
-    ] : getSmtpConfig($db, $input['profile'] ?? null);
-    if (empty($smtp['host'])) jsonResponse(['success' => false, 'error' => 'SMTP Host required. Fill and save settings first.'], 422);
-    $to      = $input['to'] ?? $smtp['user'];
-    $subject = '✅ SMTP Test — OPTMS Invoice Manager';
-    $body    = "This is a test email from your OPTMS Tech Invoice Manager.\n\nSMTP is working correctly!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
-    $html    = buildEmailHTML($body, ['company_name' => $smtp['name'], 'type' => 'test'], null, $appUrl);
-    $result  = sendSmtpEmail($smtp, $to, 'Test Recipient', $subject, $html);
-    logEmail($db, ['to_email' => $to, 'subject' => $subject, 'status' => $result['success'] ? 'sent' : 'failed', 'error_msg' => $result['error'] ?? null, 'type' => 'test']);
-    jsonResponse($result);
-}
+This is an estimate only and is subject to change upon your approval.
 
-// ── Main send (invoice/estimate/receipt/reminder) ────────────────
-if (in_array($action, ['send', 'send_receipt', 'send_reminder'])) {
-    $type   = $input['type'] ?? ($action === 'send_receipt' ? 'receipt' : ($action === 'send_reminder' ? 'reminder' : 'invoice'));
-    $invId  = (int)($input['invoice_id'] ?? 0);
-    $to     = trim($input['to'] ?? '');
-    $toName = trim($input['to_name'] ?? 'Client');
+To review, approve, or request changes, please visit:
+{invoice_link}
 
-    if (!$to && $invId) {
-        $inv = getInvoiceData($db, $invId);
-        $to  = $inv['c_email'] ?? $inv['client_email'] ?? '';
-        $toName = $inv['client_name'] ?? 'Client';
-    }
-    if (!$to) jsonResponse(['success' => false, 'error' => 'Recipient email not found. Please add email to client profile.'], 422);
+We look forward to working with you!
+Warm regards,
+{company_name}
+{company_phone}",
+        ],
 
-    // Get template
-    $tpl = getEmailTemplate($db, $type);
+        // ── Payment Receipt (Paid / Partial) ─────────────────────
+        'receipt' => [
+            'subject' => 'Payment Receipt for Invoice #{invoice_no} – {company_name}',
+            'body'    =>
+"Dear {client_name},
 
-    // Override subject/body if passed directly
-    $subjOverride = trim($input['subject'] ?? '');
-    $bodyOverride = trim($input['body']    ?? '');
+Thank you! We have received your payment.
 
-    // Load invoice data
-    $inv = $invId ? getInvoiceData($db, $invId) : [];
-    $cs  = getCompanySettings($db);
-    $link = $invId ? getPortalLink($db, $invId, $appUrl) : $appUrl;
+  Invoice No  : #{invoice_no}
+  Amount Paid : {paid_amount}
+  Balance Due : {remaining_amount}
+  Service     : {service}
 
-    // Days overdue
-    $daysOverdue = 0;
-    if (!empty($inv['due_date'])) {
-        $due = new DateTime($inv['due_date']);
-        $now = new DateTime();
-        if ($now > $due) $daysOverdue = (int)$now->diff($due)->days;
-    }
+You can view your updated invoice and download the receipt here:
+{invoice_link}
 
-    $data = array_merge($cs, $inv, [
-        'company_name'  => $cs['company_name']  ?? 'OPTMS Tech',
-        'company_phone' => $cs['company_phone']  ?? '',
-        'company_email' => $cs['company_email']  ?? '',
-        'upi'           => $cs['company_upi']    ?? '',
-        'bank_details'  => $inv['bank_details']  ?? $cs['default_bank'] ?? '',
-        'invoice_link'  => $link,
-        'item_list'     => buildItemList($inv['items'] ?? []),
-        'amount'        => number_format((float)($inv['grand_total']  ?? 0), 2),
-        'paid_amount'   => number_format((float)($input['paid_amount'] ?? 0), 2),
-        'remaining_amount' => (float)($input['remaining'] ?? 0) > 0 ? "Remaining: ₹" . number_format((float)$input['remaining'], 2) : '',
-        'days_overdue'  => $daysOverdue,
-        'type'          => $type,
-    ]);
+We truly appreciate your prompt payment. Looking forward to serving you again!
 
-    $subject  = replaceVars($bodyOverride ? $subjOverride : $tpl['subject'], $data);
-    $bodyText = replaceVars($bodyOverride ?: $tpl['body'],    $data);
+Warm regards,
+{company_name}
+{company_phone}",
+        ],
 
-    // Track token
-    $trackToken = bin2hex(random_bytes(8));
+        // ── Payment Reminder ─────────────────────────────────────
+        'reminder' => [
+            'subject' => 'Friendly Reminder: Invoice #{invoice_no} due on {due_date}',
+            'body'    =>
+"Dear {client_name},
 
-    $html = buildEmailHTML($bodyText, $data, $trackToken, $appUrl);
+This is a friendly reminder that Invoice #{invoice_no} for {amount} is due on {due_date}.
 
-    $smtp = getSmtpConfig($db, $input['profile'] ?? null);
-    $opts = [
-        'cc_self' => !empty($input['cc_self']),
-        'cc'      => $input['cc']  ?? [],
-        'bcc'     => $input['bcc'] ?? [],
+If you have already made the payment, please ignore this message.
+
+To pay via UPI, use: {upi}
+
+Or view and pay your invoice online:
+{invoice_link}
+
+Please feel free to reach us at {company_phone} if you have any questions.
+
+Thank you,
+{company_name}",
+        ],
+
+        // ── Overdue Notice ───────────────────────────────────────
+        'overdue' => [
+            'subject' => 'OVERDUE: Invoice #{invoice_no} — {days_overdue} day(s) past due',
+            'body'    =>
+"Dear {client_name},
+
+⚠️ Your invoice is now {days_overdue} day(s) overdue.
+
+  Invoice No : #{invoice_no}
+  Amount Due : {amount}
+  Due Date   : {due_date}
+
+Immediate payment is requested to avoid any disruption to services.
+
+Pay via UPI: {upi}
+
+View and pay online:
+{invoice_link}
+
+If you are facing difficulties, please contact us immediately at {company_phone}.
+
+Regards,
+{company_name}",
+        ],
+
+        // ── Follow-up ────────────────────────────────────────────
+        'followup' => [
+            'subject' => 'Follow-up: Invoice #{invoice_no} still outstanding',
+            'body'    =>
+"Dear {client_name},
+
+We are following up on Invoice #{invoice_no} for {amount}, which remains outstanding for {days_overdue} day(s).
+
+We kindly request you to settle the amount at your earliest convenience.
+
+Pay via UPI: {upi}
+
+View your invoice here:
+{invoice_link}
+
+If you have any concerns or wish to discuss a payment arrangement, please call us at {company_phone}.
+
+Thank you for your attention to this matter.
+{company_name}",
+        ],
     ];
-
-    $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html, $opts);
-
-    // Log
-    $logId = logEmail($db, [
-        'invoice_id'     => $invId ?: null,
-        'invoice_number' => $inv['invoice_number'] ?? null,
-        'client_name'    => $toName,
-        'to_email'       => $to,
-        'subject'        => $subject,
-        'body_html'      => $html,
-        'status'         => $result['success'] ? 'sent' : 'failed',
-        'error_msg'      => $result['error'] ?? null,
-        'type'           => $type,
-        'track_token'    => $result['success'] ? $trackToken : null,
-    ]);
-
-    // Activity log
-    if ($result['success'] && $invId) {
-        try { logActivity($_SESSION['user_id'], 'email_sent', 'invoice', $invId, "Email ({$type}) sent to {$to}"); } catch(Exception $e) {}
-    }
-
-    jsonResponse(array_merge($result, ['log_id' => $logId]));
 }
 
-jsonResponse(['success' => false, 'error' => 'Unknown action'], 400);
+// ================================================================
+ob_end_clean();
