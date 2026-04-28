@@ -227,6 +227,35 @@ function handleSend($db, $input) {
 
     if (!$to) jsonResponse(['success'=>false,'error'=>'Recipient email required'], 422);
 
+    // ── Status guard: fetch invoice and block invalid sends ───────
+    if ($invId) {
+        try {
+            $invChk = $db->prepare("SELECT status FROM invoices WHERE id=? LIMIT 1");
+            $invChk->execute([$invId]);
+            $invStatus = $invChk->fetchColumn();
+            if ($invStatus !== false) {
+                // Receipt is the only type allowed to go to a Paid invoice
+                // (it IS the paid confirmation). Everything else is blocked.
+                $blockedForPaid       = ['reminder','overdue','followup','invoice','estimate'];
+                $blockedForCancelled  = ['reminder','overdue','followup','invoice','estimate','receipt'];
+                $blockedForDraft      = ['reminder','overdue','followup'];
+
+                if (in_array($invStatus, ['Paid','Cancelled']) && in_array($type, $blockedForCancelled)) {
+                    jsonResponse([
+                        'success' => false,
+                        'error'   => "Cannot send a {$type} email — invoice is {$invStatus}.",
+                    ], 422);
+                }
+                if ($invStatus === 'Draft' && in_array($type, $blockedForDraft)) {
+                    jsonResponse([
+                        'success' => false,
+                        'error'   => "Cannot send a {$type} email — invoice is still a Draft.",
+                    ], 422);
+                }
+            }
+        } catch (\Exception $e) { /* non-fatal — proceed */ }
+    }
+
     // ── Load template (DB first, then defaults) ──────────────────
     $tpl  = getTemplate($db, $type);
 
