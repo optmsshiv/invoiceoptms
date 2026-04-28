@@ -463,12 +463,6 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
 .ico{font-family:'Material Symbols Outlined';font-style:normal;font-weight:300;font-size:20px;
      line-height:1;display:inline-block;vertical-align:middle;
      font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;color:{$teal}}
-     /* Greeting */
-.greeting { padding: 28px 36px 16px; }
-.greeting h2 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-.greeting h2 em { color: #0f7a5f; font-style: normal; }
-.greeting p { color: #6b7280; font-size: 14px; margin-top: 8px; }
-
 </style>
 </head>
 <body style="margin:0;padding:0;background:#f0f4f4;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
@@ -521,12 +515,6 @@ function buildEmailHTML(string $body, array $data, ?string $trackToken, string $
       <div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px">
         <span style="color:{$tealBorder}">{$clientName},</span>
       </div>
-          <div class="greeting">
-            <h2>Hello <em>{$clientName},</em></h2>
-            <p>We hope you are doing well. Please find your invoice details below.</p>
-       </div>
-
-
       <div style="font-size:14px;color:#6b7280;line-height:1.75;margin-bottom:8px">{$bodyText}</div>
 
       <!-- Invoice card -->
