@@ -429,7 +429,9 @@ canvas { max-width: 100% !important; }
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
-  overflow: hidden;
+  overflow: hidden; border: 2px solid #00897B;
+  box-shadow: 0 0 6px rgba(0,137,123,0.6), 0 0 12px rgba(0,137,123,0.3);
+  transition: border-color .3s, box-shadow .3s;
 }
 .cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .cc-name { font-weight: 600; }
@@ -4328,7 +4330,7 @@ function applyFiltersAndRender() {
     const avatarColor = isClientInactive ? '#9E9E9E' : c.color;
     const initials = getInitials(c.name);
     const avatar = isValidImg(c.image)
-      ? `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'"></div>`
+      ? `<div class="cc-avatar" id="cca-${c.id}" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onload="applyAvatarGlow(this)" onerror="this.style.display='none'"></div>`
       : `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
     const inactivePill = isClientInactive
       ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:#F9A825;border:1px solid #F9A825;border-radius:8px;padding:1px 5px;margin-left:4px;vertical-align:middle;white-space:nowrap"><i class="fas fa-pause-circle" style="font-size:8px"></i> Inactive</span>`
@@ -4950,7 +4952,7 @@ function tplLogoHTML(d, sc) {
 
   if (showLogo && logo) {
     return `<div>
-      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block" onerror="this.style.display='none'">
+      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block;border-radius:12px;border:2px solid rgba(0,0,0,0.12);padding:4px;background:#fff" onerror="this.style.display='none'">
       ${tagDiv}
     </div>`;
   }
@@ -12890,6 +12892,32 @@ function waQuickReply(type) {
 
 // override above (near the recurring page hook). No second override needed.
 window._waActiveTab = 'inv';
+
+// ── Dynamic avatar glow: extract dominant color from logo ────
+function applyAvatarGlow(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16; canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, 16, 16);
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    let r=0, g=0, b=0, count=0;
+    for (let i=0; i<data.length; i+=4) {
+      const a = data[i+3];
+      if (a < 30) continue; // skip transparent pixels
+      // skip near-white pixels (background)
+      if (data[i]>230 && data[i+1]>230 && data[i+2]>230) continue;
+      r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+    }
+    if (count === 0) return;
+    r = Math.round(r/count); g = Math.round(g/count); b = Math.round(b/count);
+    const wrap = img.closest('.cc-avatar');
+    if (wrap) {
+      wrap.style.borderColor = `rgb(${r},${g},${b})`;
+      wrap.style.boxShadow = `0 0 6px rgba(${r},${g},${b},0.7), 0 0 14px rgba(${r},${g},${b},0.35)`;
+    }
+  } catch(e) { /* cross-origin fallback: keeps default teal */ }
+}
 
 </script>
 
