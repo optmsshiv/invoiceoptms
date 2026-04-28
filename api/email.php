@@ -487,8 +487,6 @@ function buildEmailHTML(string $body, string $type = 'invoice'): string {
     $upiLine       = '';
 
     $lines = explode("\n", $body);
-    $phase = 'header'; // header → fields → after_fields
-    $afterFields = false;
 
     foreach ($lines as $line) {
         $trimmed = trim($line);
@@ -508,21 +506,22 @@ function buildEmailHTML(string $body, string $type = 'invoice'): string {
         }
 
         // Structured field: "  Invoice No : #123" or "Amount Due: ₹12,500"
+        $matched = false;
         if (preg_match('/^\s*([\w\s#]+?)\s*:\s*(.+)$/', $trimmed, $m)) {
             $label = trim($m[1]);
             $value = trim($m[2]);
-            // Only pick up known invoice-style labels
             $knownLabels = ['Invoice No','Estimate No','Service','Amount Due','Amount Paid','Balance Due',
                             'Issue Date','Due Date','Valid Until','Total','Status','Days Overdue',
                             'Settlement Discount','Payment Method'];
             foreach ($knownLabels as $kl) {
                 if (stripos($label, $kl) !== false) {
                     $fields[$kl] = $value;
-                    $afterFields = false; // reset, we're in fields
-                    goto nextLine;
+                    $matched = true;
+                    break;
                 }
             }
         }
+        if ($matched) continue;
 
         // Greeting line
         if (!$greeting && preg_match('/^Dear\s/i', $trimmed)) {
@@ -540,8 +539,6 @@ function buildEmailHTML(string $body, string $type = 'invoice'): string {
         if (!empty($fields)) {
             $closingLines[] = $trimmed;
         }
-
-        nextLine:
     }
 
     // ── Determine invoice number / status for hero section ───────
@@ -636,6 +633,7 @@ CTA;
     $safeOpening  = htmlspecialchars($openingLine ?: 'Please find your invoice below.', ENT_QUOTES, 'UTF-8');
 
     // ── Invoice number hero ───────────────────────────────────────
+    $dueDateSuffix = $dueDate ? ' &middot; Due ' . $dueDate : '';
     $heroHtml = '';
     if ($invoiceNo) {
         $heroHtml = <<<HERO
@@ -646,12 +644,15 @@ CTA;
       <p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#111827">#{$invoiceNo}</p>
       <span style="display:inline-block;background:{$badgeBg};border:1px solid {$badgeBorder};
                    color:{$badgeText};font-size:12px;font-weight:600;padding:4px 14px;border-radius:20px">
-        ⏳ {$defaultBadge}
-        {$dueDate ? " &middot; Due {$dueDate}" : ""}
+        ⏳ {$defaultBadge}{$dueDateSuffix}
       </span>
     </div>
 HERO;
     }
+
+    // ── Pre-compute heredoc vars ─────────────────────────────────
+    $cardHtml = $tableRows ? '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:6px 20px 2px;margin:0 0 4px"><table style="width:100%;border-collapse:collapse">' . $tableRows . '</table></div>' : '';
+    $closingBlock = $closingHtml ? '<div style="margin-top:20px">' . $closingHtml . '</div>' : '';
 
     return <<<HTML
 <!DOCTYPE html>
@@ -692,19 +693,13 @@ HERO;
       <p style="margin:0 0 20px;font-size:14px;color:#6b7280">{$safeOpening}</p>
 
       <!-- Invoice details card -->
-      {$tableRows ? <<<CARD
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:6px 20px 2px;margin:0 0 4px">
-        <table style="width:100%;border-collapse:collapse">
-          {$tableRows}
-        </table>
-      </div>
-CARD : ''}
+      {$cardHtml}
 
       {$upiHtml}
       {$ctaHtml}
 
       <!-- Closing lines -->
-      {$closingHtml ? "<div style='margin-top:20px'>{$closingHtml}</div>" : ''}
+      {$closingBlock}
 
     </div>
 
