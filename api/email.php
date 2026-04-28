@@ -1,708 +1,60 @@
 <?php
 // ================================================================
-//  api/email.php — Full Email System for OPTMS Invoice Manager
+//  api/email.php — Send emails via SMTP (PHPMailer or mail())
 //
-//  POST action=test          → Test SMTP connection
-//  POST action=send          → Send invoice/estimate email
-//  POST action=send_receipt  → Send payment receipt
-//  POST action=send_reminder → Send overdue/due reminder
-//  POST action=preview       → Return rendered HTML preview
-//  GET  action=logs          → List email logs
-//  GET  action=logs&invoice_id=X → Logs for one invoice
-//  GET  action=templates     → List email templates
-//  POST action=save_template → Save/update an email template
-//  GET  action=smtp_profiles → List SMTP profiles
-//  POST action=save_profile  → Save SMTP profile
-//  DELETE action=del_profile → Delete SMTP profile
+//  POST  action=test   → Send test email to verify SMTP config
+//  POST  action=send   → Send invoice email to client
 // ================================================================
+
 ob_start();
 error_reporting(0);
-
-// Public tracking pixel — no auth required
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['track'])) {
-    require_once __DIR__ . '/../config/db.php';
-    $token = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['track']);
-    try {
-        $db = getDB();
-        $db->prepare("UPDATE email_logs SET opened_at = IF(opened_at IS NULL, NOW(), opened_at), open_count = open_count + 1 WHERE track_token = ? LIMIT 1")->execute([$token]);
-    } catch (Exception $e) {}
-    // Return 1x1 transparent GIF
-    header('Content-Type: image/gif');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    exit;
-}
-
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-
-// Allow unauthenticated tracking pixel only (handled above)
 requireLogin();
 
 header('Content-Type: application/json');
 
-$method = $_SERVER['REQUEST_METHOD'];
-$action = $_GET['action'] ?? ($method === 'GET' ? 'logs' : '');
-if ($method === 'POST') {
-    $input  = json_decode(file_get_contents('php://input'), true) ?? [];
-    $action = $input['action'] ?? 'send';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
 }
 
-$db = getDB();
+$input = json_decode(file_get_contents('php://input'), true);
+if (!$input) { jsonResponse(['success' => false, 'error' => 'Invalid JSON'], 400); }
 
-// ── Auto-create tables if not exist ─────────────────────────────
-function ensureEmailTables($db) {
-    $db->exec("CREATE TABLE IF NOT EXISTS email_logs (
-        id            INT AUTO_INCREMENT PRIMARY KEY,
-        invoice_id    INT DEFAULT NULL,
-        invoice_number VARCHAR(50) DEFAULT NULL,
-        client_name   VARCHAR(200) DEFAULT NULL,
-        to_email      VARCHAR(200) NOT NULL,
-        subject       VARCHAR(500) NOT NULL,
-        body_html     MEDIUMTEXT,
-        status        ENUM('sent','failed','pending') NOT NULL DEFAULT 'pending',
-        error_msg     TEXT DEFAULT NULL,
-        smtp_profile  VARCHAR(100) DEFAULT 'default',
-        type          VARCHAR(60) NOT NULL DEFAULT 'invoice' COMMENT 'invoice|estimate|receipt|reminder|overdue|followup|test',
-        track_token   VARCHAR(64) DEFAULT NULL,
-        opened_at     DATETIME DEFAULT NULL,
-        open_count    INT UNSIGNED NOT NULL DEFAULT 0,
-        sent_at       DATETIME DEFAULT NULL,
-        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_el_invoice (invoice_id),
-        INDEX idx_el_status (status),
-        INDEX idx_el_track (track_token)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$action = $input['action'] ?? 'send';
 
-    $db->exec("CREATE TABLE IF NOT EXISTS email_templates (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        type        VARCHAR(60) NOT NULL UNIQUE COMMENT 'invoice|estimate|receipt|reminder|overdue|followup',
-        name        VARCHAR(150) NOT NULL,
-        subject     VARCHAR(500) NOT NULL,
-        body        MEDIUMTEXT NOT NULL,
-        is_active   TINYINT(1) NOT NULL DEFAULT 1,
-        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS smtp_profiles (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
-        name        VARCHAR(100) NOT NULL,
-        host        VARCHAR(200) NOT NULL,
-        port        SMALLINT NOT NULL DEFAULT 587,
-        username    VARCHAR(200) NOT NULL,
-        password    VARCHAR(500) NOT NULL,
-        from_email  VARCHAR(200) NOT NULL,
-        from_name   VARCHAR(200) NOT NULL DEFAULT 'OPTMS Tech',
-        encryption  VARCHAR(10) NOT NULL DEFAULT 'tls' COMMENT 'tls|ssl|none',
-        provider    VARCHAR(30) NOT NULL DEFAULT 'smtp' COMMENT 'smtp|gmail|sendgrid|mailgun',
-        api_key     VARCHAR(500) DEFAULT NULL,
-        is_default  TINYINT(1) NOT NULL DEFAULT 0,
-        is_active   TINYINT(1) NOT NULL DEFAULT 1,
-        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
-ensureEmailTables($db);
-
-// ── Default templates ────────────────────────────────────────────
-function getDefaultTemplates(): array {
-    return [
-        'invoice' => [
-            'name'    => 'New Invoice',
-            'subject' => 'Invoice #{invoice_no} from {company_name} – {currency}{amount}',
-            'body'    => "Dear {client_name},\n\nPlease find your invoice details below.\n\n📄 Invoice No: #{invoice_no}\n📅 Issue Date: {issue_date}\n⏰ Due Date: {due_date}\n💰 Amount Due: {currency}{amount}\n📋 Service: {service}\n\n{item_list}\n\nPayment Options:\n🏦 {bank_details}\n💳 UPI: {upi}\n\n🔗 View Invoice Online:\n{invoice_link}\n\nThank you for your business!\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'estimate' => [
-            'name'    => 'New Estimate / Quotation',
-            'subject' => 'Estimate #{invoice_no} from {company_name} – {currency}{amount}',
-            'body'    => "Dear {client_name},\n\nThank you for your inquiry. Please find our estimate below.\n\n📋 Estimate No: #{invoice_no}\n📅 Date: {issue_date}\n✅ Valid Until: {due_date}\n💰 Estimated Amount: {currency}{amount}\n📋 Service: {service}\n\n{item_list}\n\n⚠️ Note: This is an ESTIMATE only, not a final invoice. Actual charges may vary.\n\n🔗 View & Approve Estimate Online:\n{invoice_link}\n\nPlease reply to this email to approve or request changes.\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'receipt' => [
-            'name'    => 'Payment Receipt',
-            'subject' => 'Payment Received – Invoice #{invoice_no} | {company_name}',
-            'body'    => "Dear {client_name},\n\nWe have received your payment. Thank you!\n\n✅ Payment Confirmed\n📄 Invoice No: #{invoice_no}\n💰 Amount Paid: {currency}{paid_amount}\n📅 Payment Date: {issue_date}\n\n{remaining_amount}\n\nThank you for your prompt payment!\n\n{company_name}\n{company_phone} | {company_email}",
-        ],
-        'reminder' => [
-            'name'    => 'Payment Due Reminder',
-            'subject' => 'Payment Reminder – Invoice #{invoice_no} Due on {due_date}',
-            'body'    => "Dear {client_name},\n\nThis is a friendly reminder that your invoice is due soon.\n\n📄 Invoice No: #{invoice_no}\n⏰ Due Date: {due_date}\n💰 Amount Due: {currency}{amount}\n📋 Service: {service}\n\n🔗 View Invoice:\n{invoice_link}\n\nPlease ensure payment is made by the due date.\n\nBest regards,\n{company_name}\n{company_phone}",
-        ],
-        'overdue' => [
-            'name'    => 'Overdue Notice',
-            'subject' => '⚠️ Overdue Invoice #{invoice_no} – Action Required',
-            'body'    => "Dear {client_name},\n\nYour invoice is now overdue. Please arrange payment immediately.\n\n📄 Invoice No: #{invoice_no}\n⏰ Was Due: {due_date}\n📅 Days Overdue: {days_overdue}\n💰 Amount Due: {currency}{amount}\n\n🔗 Pay Now:\n{invoice_link}\n\nIf you have already made the payment, please ignore this message or send us the transaction details.\n\n{company_name}\n{company_phone}",
-        ],
-        'followup' => [
-            'name'    => 'Overdue Follow-up',
-            'subject' => 'Follow-up: Invoice #{invoice_no} Still Unpaid – {days_overdue} Days Overdue',
-            'body'    => "Dear {client_name},\n\nWe are writing to follow up on the outstanding invoice #{invoice_no}.\n\nDespite our previous reminder, we have not yet received your payment.\n\n📄 Invoice: #{invoice_no}\n💰 Amount: {currency}{amount}\n📅 Days Overdue: {days_overdue}\n\nPlease contact us immediately to arrange payment or discuss any concerns.\n\n🔗 View Invoice:\n{invoice_link}\n\n{company_name}\n{company_phone}",
-        ],
-    ];
-}
-
-// ── Get SMTP config ──────────────────────────────────────────────
-function getSmtpConfig($db, ?string $profileName = null): array {
-    // Try named profile first
-    if ($profileName) {
-        $stmt = $db->prepare("SELECT * FROM smtp_profiles WHERE name = ? AND is_active = 1 LIMIT 1");
-        $stmt->execute([$profileName]);
-        $p = $stmt->fetch();
-        if ($p) return mapProfile($p);
+// ── Load SMTP config ─────────────────────────────────────────────
+function getSmtpConfig(array $input, $db): array {
+    if (!empty($input['smtp_host'])) {
+        return [
+            'host' => $input['smtp_host'],
+            'port' => (int)($input['smtp_port'] ?? 587),
+            'user' => $input['smtp_user'] ?? '',
+            'pass' => $input['smtp_pass'] ?? '',
+            'from' => $input['smtp_from'] ?? $input['smtp_user'] ?? '',
+            'name' => $input['smtp_name'] ?? 'Invoice',
+        ];
     }
-    // Try default profile
-    $stmt = $db->query("SELECT * FROM smtp_profiles WHERE is_default = 1 AND is_active = 1 LIMIT 1");
-    $p = $stmt->fetch();
-    if ($p) return mapProfile($p);
-    // Fall back to settings table
-    $stmt = $db->query("SELECT `key`, `value` FROM settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_name')");
     $cfg  = [];
-    foreach ($stmt->fetchAll() as $r) $cfg[$r['key']] = $r['value'];
+    $stmt = $db->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ('smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_name')");
+    $stmt->execute();
+    foreach ($stmt->fetchAll() as $row) { $cfg[$row['key']] = $row['value']; }
     return [
-        'host'       => $cfg['smtp_host'] ?? '',
-        'port'       => (int)($cfg['smtp_port'] ?? 587),
-        'user'       => $cfg['smtp_user'] ?? '',
-        'pass'       => $cfg['smtp_pass'] ?? '',
-        'from'       => $cfg['smtp_from'] ?? $cfg['smtp_user'] ?? '',
-        'name'       => $cfg['smtp_name'] ?? 'OPTMS Tech',
-        'encryption' => 'tls',
-        'provider'   => 'smtp',
-        'api_key'    => '',
-    ];
-}
-function mapProfile(array $p): array {
-    return [
-        'host'       => $p['host'],
-        'port'       => (int)$p['port'],
-        'user'       => $p['username'],
-        'pass'       => $p['password'],
-        'from'       => $p['from_email'],
-        'name'       => $p['from_name'],
-        'encryption' => $p['encryption'] ?? 'tls',
-        'provider'   => $p['provider']   ?? 'smtp',
-        'api_key'    => $p['api_key']    ?? '',
+        'host' => $cfg['smtp_host'] ?? '',
+        'port' => (int)($cfg['smtp_port'] ?? 587),
+        'user' => $cfg['smtp_user'] ?? '',
+        'pass' => $cfg['smtp_pass'] ?? '',
+        'from' => $cfg['smtp_from'] ?? $cfg['smtp_user'] ?? '',
+        'name' => $cfg['smtp_name'] ?? 'Invoice',
     ];
 }
 
-// ── Replace template variables ───────────────────────────────────
-function replaceVars(string $tpl, array $data): string {
-    $map = [
-        '{client_name}'          => $data['client_name']          ?? '',
-        '{invoice_no}'           => $data['invoice_number']        ?? '',
-        '{amount}'               => $data['amount']                ?? '',
-        '{currency}'             => $data['currency']              ?? '₹',
-        '{due_date}'             => $data['due_date']              ?? '',
-        '{issue_date}'           => $data['issued_date']           ?? $data['issue_date'] ?? '',
-        '{service}'              => $data['service_type']          ?? '',
-        '{company_name}'         => $data['company_name']          ?? 'OPTMS Tech',
-        '{company_phone}'        => $data['company_phone']         ?? '',
-        '{company_email}'        => $data['company_email']         ?? '',
-        '{upi}'                  => $data['upi']                   ?? '',
-        '{bank_details}'         => $data['bank_details']          ?? '',
-        '{days_overdue}'         => $data['days_overdue']          ?? '0',
-        '{item_list}'            => '',   // rendered as HTML table — strip from body text
-        '{paid_amount}'          => $data['paid_amount']           ?? '',
-        '{remaining_amount}'     => $data['remaining_amount']      ?? '',
-        '{settlement_discount}'  => $data['settlement_discount']   ?? '',
-        '{invoice_link}'         => $data['invoice_link']          ?? '',
-    ];
-    return str_replace(array_keys($map), array_values($map), $tpl);
-}
-
-// ── Build item list — returns HTML <tr> rows for email template ──
-function buildItemList(array $items): string {
-    if (empty($items)) return '';
-    $rows = '';
-    foreach ($items as $i => $item) {
-        $tot   = number_format((float)($item['line_total'] ?? ((float)($item['quantity'] ?? 1) * (float)($item['rate'] ?? 0))), 2);
-        $rate  = number_format((float)($item['rate'] ?? 0), 2);
-        $qty   = htmlspecialchars((string)($item['quantity'] ?? 1));
-        $desc  = htmlspecialchars($item['description'] ?? '');
-        $rows .= "<tr style='border-bottom:1px solid #e5e7eb'>
-          <td style='padding:12px 14px;font-size:13px;color:#6b7280;text-align:center'>" . ($i + 1) . "</td>
-          <td style='padding:12px 16px;font-size:13.5px;color:#111827'>{$desc}</td>
-          <td style='padding:12px 8px;font-size:13px;color:#555;text-align:center'>{$qty}</td>
-          <td style='padding:12px 8px;font-size:13px;color:#555;text-align:right'>&#8377;{$rate}</td>
-          <td style='padding:12px 16px;font-size:13px;font-weight:700;color:#111827;text-align:right'>&#8377;{$tot}</td>
-        </tr>";
-    }
-    return $rows;
-}
-
-// ── Build branded HTML email — OPTMS Design ─────────────────────
-function buildEmailHTML(string $body, array $data, ?string $trackToken, string $appUrl): string {
-    $company   = htmlspecialchars($data['company_name']   ?? 'OPTMS Tech');
-    $phone     = htmlspecialchars($data['company_phone']  ?? '');
-    $email     = htmlspecialchars($data['company_email']  ?? '');
-    $gst       = htmlspecialchars($data['company_gst']    ?? '');
-    $logo      = $data['company_logo'] ?? '';
-    $signature = $data['company_sign'] ?? $data['signature'] ?? '';
-    $trackImg  = $trackToken ? "<img src='{$appUrl}/api/email.php?track={$trackToken}' width='1' height='1' style='display:none' alt=''>" : '';
-    $year      = date('Y');
-    $type      = $data['type'] ?? 'invoice';
-    $isEst     = $type === 'estimate';
-
-    // colours
-    $teal      = '#0b3d35';
-    $tealMid   = '#0f5a47';
-    $tealAccent= '#4ecdc4';
-    $tealLight = '#ddf0ec';
-    $tealBorder= '#0f7a5f';
-
-    // ── Logo block ─────────────────────────────────────────────
-    if ($logo) {
-        $logoBlock = "<img src='{$logo}' alt='{$company}' style='max-height:52px;max-width:170px;object-fit:contain;border-radius:8px'>";
-    } else {
-        $logoBlock = "
-        <table cellpadding='0' cellspacing='0' border='0'>
-          <tr>
-            <td style='padding-right:14px;vertical-align:middle'>
-              <svg width='52' height='52' viewBox='0 0 52 52' xmlns='http://www.w3.org/2000/svg'>
-                <polygon points='26,2 48,14 48,38 26,50 4,38 4,14' fill='#1a7a65' stroke='{$tealAccent}' stroke-width='2'/>
-                <polygon points='26,8 43,18 43,36 26,46 9,36 9,18' fill='none' stroke='{$tealAccent}' stroke-width='1' opacity='0.5'/>
-                <text x='15' y='33' font-family='Arial Black,Arial' font-weight='900' font-size='22' fill='{$tealAccent}'>P</text>
-              </svg>
-            </td>
-            <td style='vertical-align:middle'>
-              <div style='font-size:22px;font-weight:900;color:#ffffff;letter-spacing:1px;line-height:1'>" . strtoupper($company) . "</div>
-              <div style='font-size:12px;color:#7ecfc4;margin-top:4px'>Code your way to progress</div>
-            </td>
-          </tr>
-        </table>";
-    }
-
-    // ── Invoice info card — 5 column with teal border ──────────
-    $invNum  = htmlspecialchars($data['invoice_number'] ?? '');
-    $rawDue  = $data['due_date'] ?? '';
-    $cur     = htmlspecialchars($data['currency'] ?? '&#8377;');
-    $amount  = $cur . htmlspecialchars($data['amount'] ?? '');
-    $service = htmlspecialchars($data['service_type'] ?? '');
-    try { $dueFormatted = $rawDue ? (new DateTime($rawDue))->format('d F Y') : ''; } catch (Exception $e) { $dueFormatted = $rawDue; }
-    $dueLabel = $isEst ? 'Valid Until' : 'Due Date';
-    $invLabel = $isEst ? 'Estimate No.' : 'Invoice No.';
-
-    // Issue date formatted
-    $rawIssue     = $data['issued_date'] ?? $data['issue_date'] ?? '';
-    $issueLabel   = $isEst ? 'Date' : 'Issue Date';
-    try { $issueFormatted = $rawIssue ? (new DateTime($rawIssue))->format('d F Y') : ''; } catch (Exception $e) { $issueFormatted = $rawIssue; }
-
-    $infoCard = $invNum ? "
-    <table cellpadding='0' cellspacing='0' border='0' width='100%'
-      style='border:1.8px solid {$tealBorder};border-radius:12px;overflow:hidden;margin:20px 0;background:#ffffff'>
-      <tr>
-        <!-- receipt icon -->
-        <td width='90' style='border-right:1px solid #c4e8e0;background:#f9fefd;text-align:center;padding:22px 8px;vertical-align:middle'>
-          <div style='width:62px;height:62px;border-radius:50%;background:{$tealLight};display:inline-table;text-align:center;line-height:62px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/><line x1='16' y1='13' x2='8' y2='13'/><line x1='16' y1='17' x2='8' y2='17'/><polyline points='10 9 9 9 8 9'/></svg>
-          </div>
-        </td>
-        <!-- invoice no -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-block;text-align:center;line-height:36px;font-size:14px;font-weight:800;color:#0b3d35;margin-bottom:6px'>#</div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$invLabel}</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$invNum}</div>
-        </td>
-        <!-- amount -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-table;text-align:center;line-height:36px;margin-bottom:6px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><line x1='12' y1='1' x2='12' y2='23'/><path d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>
-          </div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>Amount Due</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$amount}</div>
-        </td>
-        <!-- issue date -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-table;text-align:center;line-height:36px;margin-bottom:6px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><rect x='3' y='4' width='18' height='18' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>
-          </div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$issueLabel}</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$issueFormatted}</div>
-        </td>
-        <!-- due date -->
-        <td style='border-right:1px solid #e5e7eb;text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-table;text-align:center;line-height:36px;margin-bottom:6px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>
-          </div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>{$dueLabel}</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$dueFormatted}</div>
-        </td>
-        <!-- service -->
-        <td style='text-align:center;padding:18px 8px;vertical-align:middle'>
-          <div style='width:36px;height:36px;border-radius:50%;background:{$tealLight};display:inline-table;text-align:center;line-height:36px;margin-bottom:6px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg>
-          </div>
-          <div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px'>Service</div>
-          <div style='font-size:13px;font-weight:700;color:#111827;margin-top:3px'>{$service}</div>
-        </td>
-      </tr>
-    </table>" : '';
-
-    // ── Payment details ────────────────────────────────────────
-    $upi     = htmlspecialchars($data['upi'] ?? $data['company_upi'] ?? '');
-    $bankRaw = $data['bank_details'] ?? $data['default_bank'] ?? '';
-    $payRows = '';
-    if ($upi) {
-        $upiSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='5' y='2' width='14' height='20' rx='2' ry='2'/><line x1='12' y1='18' x2='12' y2='18'/></svg>";
-        $payRows .= "
-        <tr>
-          <td style='background:{$tealLight};padding:14px 0;text-align:center;width:54px;border-bottom:1px solid #c4e8e0;border-right:1px solid #c4e8e0'>{$upiSvg}</td>
-          <td style='padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#111827;font-size:13.5px;width:130px'>UPI</td>
-          <td style='padding:14px 4px;border-bottom:1px solid #e5e7eb;color:#6b7280;width:10px'>:</td>
-          <td style='padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:13.5px'>{$upi}</td>
-        </tr>";
-    }
-    // Map bank detail labels to inline SVG icons (Gmail-safe)
-    $iconSvgMap = [
-        'bank'           => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='3' y1='22' x2='21' y2='22'/><line x1='6' y1='18' x2='6' y2='11'/><line x1='10' y1='18' x2='10' y2='11'/><line x1='14' y1='18' x2='14' y2='11'/><line x1='18' y1='18' x2='18' y2='11'/><polygon points='12 2 20 7 4 7'/></svg>",
-        'account name'   => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>",
-        'account no'     => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='5' width='20' height='14' rx='2'/><line x1='2' y1='10' x2='22' y2='10'/></svg>",
-        'account number' => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='5' width='20' height='14' rx='2'/><line x1='2' y1='10' x2='22' y2='10'/></svg>",
-        'ifsc'           => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg>",
-        'branch'         => "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>",
-    ];
-    $defaultSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg>";
-    $bankLines = array_filter(array_map('trim', explode("\n", $bankRaw)));
-    $lastBankLine = end($bankLines);
-    foreach ($bankLines as $line) {
-        if (strpos($line, ':') === false) continue;
-        [$k, $v] = array_map('trim', explode(':', $line, 2));
-        $icoSvg = $defaultSvg;
-        foreach ($iconSvgMap as $kw => $svgIco) {
-            if (stripos($k, $kw) !== false) { $icoSvg = $svgIco; break; }
-        }
-        $isLast   = ($line === $lastBankLine);
-        $borderB  = $isLast ? '' : 'border-bottom:1px solid #e5e7eb';
-        $borderBi = $isLast ? '' : 'border-bottom:1px solid #c4e8e0';
-        $payRows .= "
-        <tr>
-          <td style='background:{$tealLight};padding:14px 0;text-align:center;width:54px;{$borderBi};border-right:1px solid #c4e8e0'>{$icoSvg}</td>
-          <td style='padding:14px 18px;{$borderB};font-weight:600;color:#111827;font-size:13.5px;width:130px'>" . htmlspecialchars($k) . "</td>
-          <td style='padding:14px 4px;{$borderB};color:#6b7280;width:10px'>:</td>
-          <td style='padding:14px 16px;{$borderB};color:#111827;font-size:13.5px'>" . htmlspecialchars($v) . "</td>
-        </tr>";
-    }
-    $paySection = $payRows ? "
-    <div style='margin:20px 0 24px'>
-      <div style='font-size:13px;font-weight:800;color:#1a1a2e;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px'>Payment Details</div>
-      <div style='width:36px;height:3px;background:#e74c3c;border-radius:2px;margin-bottom:16px'></div>
-      <table cellpadding='0' cellspacing='0' border='0' width='100%'
-        style='border:1.8px solid {$tealBorder};border-radius:10px;overflow:hidden;background:#ffffff'>
-        {$payRows}
-      </table>
-    </div>" : '';
-
-    // ── Line items ─────────────────────────────────────────────
-    $itemRows    = $data['item_list'] ?? '';  // already HTML <tr> rows from buildItemList()
-    $totalAmount = $cur . htmlspecialchars($data['amount'] ?? '');
-    $itemsSection = '';
-    if ($itemRows) {
-        $itemsSection = "
-        <div style='margin:0 0 24px'>
-          <div style='font-size:13px;font-weight:800;color:#1a1a2e;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px'>Invoice Items</div>
-          <div style='width:36px;height:3px;background:#e74c3c;border-radius:2px;margin-bottom:16px'></div>
-          <table cellpadding='0' cellspacing='0' border='0' width='100%'
-            style='border:1.8px solid {$tealBorder};border-radius:12px;overflow:hidden;background:#ffffff'>
-            <thead>
-              <tr style='background:{$teal}'>
-                <th style='padding:11px 14px;font-size:10px;color:#7ecfc4;text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.6px;width:36px'>#</th>
-                <th style='padding:11px 16px;font-size:10px;color:#7ecfc4;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.6px'>Description</th>
-                <th style='padding:11px 8px;font-size:10px;color:#7ecfc4;text-align:center;font-weight:700;text-transform:uppercase'>Qty</th>
-                <th style='padding:11px 8px;font-size:10px;color:#7ecfc4;text-align:right;font-weight:700;text-transform:uppercase'>Unit Price</th>
-                <th style='padding:11px 16px;font-size:10px;color:#7ecfc4;text-align:right;font-weight:700;text-transform:uppercase'>Total</th>
-              </tr>
-            </thead>
-            <tbody>{$itemRows}</tbody>
-            <tfoot>
-              <tr style='background:{$tealLight};border-top:2px solid {$tealBorder}'>
-                <td colspan='4' style='padding:13px 16px;font-size:14px;font-weight:800;color:{$teal}'>Total Amount Due</td>
-                <td style='padding:13px 16px;font-size:14px;font-weight:800;color:{$teal};text-align:right'>{$totalAmount}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>";
-    }
-
-    // ── CTA button ─────────────────────────────────────────────
-    $ctaBtn = '';
-    if (!empty($data['invoice_link'])) {
-        $ctaLink  = htmlspecialchars($data['invoice_link']);
-        $ctaLabel = $isEst ? 'View Estimate' : 'VIEW INVOICE';
-        $ctaBtn = "
-        <div style='text-align:center;margin:24px 0 28px'>
-          <a href='{$ctaLink}'
-            style='display:inline-block;background:{$teal};color:#ffffff;text-decoration:none;
-                   padding:14px 52px;border-radius:8px;font-size:14px;font-weight:700;letter-spacing:.5px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle;margin-right:8px'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg>{$ctaLabel}
-          </a>
-        </div>";
-    }
-
-    // ── Divider — dotted line + email icon ─────────────────────
-    $divider = "
-    <table cellpadding='0' cellspacing='0' border='0' width='100%' style='margin:0 0 24px'>
-      <tr valign='middle'>
-        <td style='border-top:2.5px dashed #a8ddd5'></td>
-        <td width='70' style='text-align:center;padding:0 11px'>
-          <div style='width:48px;height:48px;border-radius:50%;background:{$tealLight};border:2px solid {$tealBorder};display:inline-table;text-align:center;line-height:48px'>
-            <svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='#0b3d35' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' style='display:inline-block;vertical-align:middle'><path d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/><polyline points='22,6 12,13 2,6'/></svg>
-          </div>
-        </td>
-        <td style='border-top:2.5px dashed #a8ddd5'></td>
-      </tr>
-    </table>";
-
-    // ── Greeting / body ────────────────────────────────────────
-    // Strip lines that are rendered as dedicated HTML sections (invoice card,
-    // payment table, CTA link) so they don't duplicate as plain text.
-    $clientName = htmlspecialchars($data['client_name'] ?? '');
-    $bodyLines  = explode("\n", $body);
-    $skipPrefixes = [
-        'Dear ', 'Invoice No', 'Issue Date', 'Due Date', 'Amount Due', 'Service:',
-        'Pay via', 'Payment Options', 'Bank ', 'Bank:', 'Account', 'IFSC', 'UPI',
-        'View Invoice', 'View & Approve', 'Thank you for', 'Best regards',
-        '{company_name}', '{company_phone}', '{company_email}',
-        '📄', '📅', '⏰', '💰', '📋', '🏦', '💳', '🔗', '✅', '⚠️',
-    ];
-    $filteredLines = [];
-    foreach ($bodyLines as $line) {
-        $trimmed = ltrim($line);
-        $skip = false;
-        foreach ($skipPrefixes as $prefix) {
-            if (stripos($trimmed, $prefix) === 0) { $skip = true; break; }
-        }
-        // Also skip lines that are just placeholder tokens
-        if (preg_match('/^\{[a-z_]+\}$/', $trimmed)) $skip = true;
-        if (!$skip) $filteredLines[] = $line;
-    }
-    // Collapse 3+ blank lines into 1
-    $bodyClean = preg_replace('/(\r?\n\s*){3,}/', "\n\n", implode("\n", $filteredLines));
-    $bodyText  = nl2br(htmlspecialchars(trim($bodyClean), ENT_QUOTES, 'UTF-8'));
-
-    // ── Signature / footer card ────────────────────────────────
-    $sigImgHtml = $signature ? "<img src='{$signature}' alt='Signature' style='max-height:40px;max-width:130px;object-fit:contain;margin-top:6px;display:block'>" : '';
-    if ($logo) {
-        $sigLogoImg = "<img src='{$logo}' alt='{$company}' style='max-height:44px;max-width:130px;object-fit:contain'>";
-    } else {
-        $sigLogoImg = "
-        <svg width='44' height='44' viewBox='0 0 44 44' xmlns='http://www.w3.org/2000/svg'>
-          <circle cx='22' cy='22' r='22' fill='{$teal}'/>
-          <polygon points='22,6 36,14 36,30 22,38 8,30 8,14' fill='#1a7a65' stroke='{$tealAccent}' stroke-width='1.5'/>
-          <text x='13' y='29' font-family='Arial Black,Arial' font-weight='900' font-size='16' fill='{$tealAccent}'>P</text>
-        </svg>";
-    }
-    $phHtml  = $phone ? "<span style='font-size:12.5px;color:#374151'>&#128222;&nbsp;{$phone}</span>" : '';
-    $emHtml  = $email ? "<span style='font-size:12.5px;color:#374151'>&#9993;&nbsp;{$email}</span>" : '';
-    $gstLine = $gst ? "<div style='font-size:11px;color:#9ca3af;margin-top:4px'>GST: {$gst}</div>" : '';
-
-    // Social icons in bottom bar
-    $socials = "
-    <table cellpadding='0' cellspacing='0' border='0'>
-      <tr>
-        <td style='padding-right:8px'>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:12px;font-weight:700'>f</div>
-        </td>
-        <td style='padding-right:8px'>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:10px;font-weight:700'>in</div>
-        </td>
-        <td>
-          <div style='width:28px;height:28px;border:1.5px solid {$tealAccent};border-radius:50%;text-align:center;line-height:26px;color:{$tealAccent};font-size:12px;font-weight:700'>&#10005;</div>
-        </td>
-      </tr>
-    </table>";
-
-    return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Email from {$company}</title>
-</head>
-<body style="margin:0;padding:0;background:#f0f4f4;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
-<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0f4f4;padding:24px 0">
-<tr><td align="center">
-<table cellpadding="0" cellspacing="0" border="0" width="600"
-  style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)">
-
-  <!-- ══ HEADER ══ -->
-  <tr>
-    <td style="background:linear-gradient(135deg,{$teal} 0%,{$tealMid} 50%,#0d4a3a 100%);padding:0;overflow:hidden">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>
-          <td style="padding:28px 32px 0;position:relative">
-            <div style="position:absolute;top:0;right:0;bottom:0;width:55%;opacity:.10;
-                        background-image:repeating-linear-gradient(45deg,{$tealAccent} 0px,{$tealAccent} 1px,transparent 0px,transparent 50%);
-                        background-size:12px 12px;pointer-events:none"></div>
-            <table cellpadding="0" cellspacing="0" border="0" width="100%">
-              <tr>
-                <td style="vertical-align:middle">{$logoBlock}</td>
-                <td align="right" style="vertical-align:middle">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="vertical-align:middle">
-                        <div style="color:#7ecfc4;font-size:12px;font-weight:600;letter-spacing:.3px">Trusted. Reliable. Professional.</div>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="line-height:0;padding:0">
-            <svg viewBox="0 0 600 40" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%">
-              <path d="M0,20 Q75,40 150,20 Q225,0 300,20 Q375,40 450,20 Q525,0 600,20 L600,40 L0,40 Z" fill="#ffffff"/>
-            </svg>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-
-  <!-- ══ BODY ══ -->
-  <tr>
-    <td style="padding:28px 36px 8px">
-
-      <!-- Greeting -->
-      <div style="font-size:22px;font-weight:700;color:#1a1a2e;margin-bottom:8px">
-        Hello <span style="color:{$tealBorder}">{$clientName},</span>
-      </div>
-      <div style="font-size:14px;color:#6b7280;line-height:1.75;margin-bottom:8px">{$bodyText}</div>
-
-      <!-- Invoice card -->
-      {$infoCard}
-
-      <!-- Line items -->
-      {$itemsSection}
-
-      <!-- Payment details -->
-      {$paySection}
-
-    </td>
-  </tr>
-
-  <!-- ══ CTA BUTTON ══ -->
-  <tr>
-    <td align="center" style="padding:0 36px 28px">
-      {$ctaBtn}
-    </td>
-  </tr>
-
-  <!-- ══ DOTTED DIVIDER + EMAIL ICON ══ -->
-  <tr>
-    <td style="padding:0 36px 20px">
-      {$divider}
-    </td>
-  </tr>
-
-  <!-- ══ SUPPORT NOTE ══ -->
-  <tr>
-    <td align="center" style="padding:0 36px 28px">
-      <div style="font-size:13px;color:#6b7280;margin-bottom:6px">If you have any questions, feel free to reach out.</div>
-      <div style="font-size:14px;font-weight:700;color:{$tealBorder}">Thank you for your business!</div>
-    </td>
-  </tr>
-
-  <!-- ══ FOOTER CARD ══ -->
-  <tr>
-    <td style="padding:0 36px 28px">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%"
-        style="border:1.5px solid #e5e7eb;border-radius:12px;overflow:hidden">
-        <tr>
-          <!-- Company info -->
-          <td width="50%" valign="top" style="padding:20px;border-right:1px solid #e5e7eb">
-            <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Best regards,</div>
-            <table cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="padding-right:12px;vertical-align:middle">{$sigLogoImg}</td>
-                <td style="vertical-align:middle">
-                  <div style="font-size:13px;font-weight:700;color:#111827">{$company}</div>
-                  <div style="font-size:11px;color:#9ca3af">Code your way to progress</div>
-                </td>
-              </tr>
-            </table>
-            <div style="margin-top:12px">{$phHtml}</div>
-            <div style="margin-top:6px">{$emHtml}</div>
-            {$gstLine}
-          </td>
-          <!-- Trust badges -->
-          <td width="50%" valign="top" style="padding:20px">
-            <!-- Secure Payments -->
-            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0b3d35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">Secure Payments</div>
-                  <div style="font-size:11.5px;color:#9ca3af">Your payments are safe with us.</div>
-                </td>
-              </tr>
-            </table>
-            <!-- 24/7 Support -->
-            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0b3d35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">24/7 Support</div>
-                  <div style="font-size:11.5px;color:#9ca3af">We&apos;re here to help anytime.</div>
-                </td>
-              </tr>
-            </table>
-            <!-- Fast & Reliable -->
-            <table cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="padding-right:10px;vertical-align:middle">
-                  <div style="width:34px;height:34px;border-radius:50%;background:{$tealLight};text-align:center;line-height:34px">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0b3d35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg>
-                  </div>
-                </td>
-                <td style="vertical-align:middle">
-                  <div style="font-weight:700;font-size:13px;color:#111827">Fast &amp; Reliable</div>
-                  <div style="font-size:11.5px;color:#9ca3af">Timely service, always.</div>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-
-  <!-- ══ BOTTOM BAR ══ -->
-  <tr>
-    <td style="background:{$teal};padding:16px 36px;border-radius:0 0 16px 16px">
-      <table cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr>
-          <td style="vertical-align:middle">{$socials}</td>
-          <td align="right" style="vertical-align:middle">
-            <div style="color:#7ecfc4;font-size:11px">&#169; {$year} {$company}. All rights reserved.</div>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-
-</table>
-</td></tr>
-</table>
-{$trackImg}
-</body>
-</html>
-HTML;
-}
-
-// ── Core SMTP sender (PHPMailer / mail() fallback) ───────────────
-function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $html, array $opts = []): array {
+// ── SMTP sender ──────────────────────────────────────────────────
+function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $htmlBody): array {
     if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
         return ['success' => false, 'error' => 'SMTP not configured. Fill all fields and Save first.'];
     }
+    // Try PHPMailer if installed via Composer
     foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../vendor/autoload.php'] as $p) {
         if (file_exists($p)) { require_once $p; break; }
     }
@@ -714,330 +66,67 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
             $mail->SMTPAuth   = true;
             $mail->Username   = $smtp['user'];
             $mail->Password   = $smtp['pass'];
-            $enc = $smtp['encryption'] ?? 'tls';
-            $mail->SMTPSecure = ($enc === 'ssl' || (int)$smtp['port'] === 465)
+            $mail->SMTPSecure = ($smtp['port'] == 465)
                 ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
                 : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = (int)$smtp['port'];
+            $mail->Port       = $smtp['port'];
             $mail->setFrom($smtp['from'], $smtp['name']);
             $mail->addAddress($to, $toName);
-            // CC self
-            if (!empty($opts['cc_self'])) $mail->addCC($smtp['from'], $smtp['name']);
-            // Extra CC/BCC
-            if (!empty($opts['cc']))  foreach ((array)$opts['cc']  as $cc)  $mail->addCC($cc);
-            if (!empty($opts['bcc'])) foreach ((array)$opts['bcc'] as $bcc) $mail->addBCC($bcc);
             $mail->isHTML(true);
-            $mail->Subject  = $subject;
-            $mail->Body     = $html;
-            $mail->AltBody  = strip_tags(str_replace(['<br>','<br/>','<br />','</p>'], "\n", $html));
-            $mail->CharSet  = 'UTF-8';
+            $mail->Subject = $subject;
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = strip_tags($htmlBody);
             $mail->send();
             return ['success' => true];
         } catch (\Exception $e) {
             return ['success' => false, 'error' => $mail->ErrorInfo ?: $e->getMessage()];
         }
     }
-    // Fallback native mail()
+    // Fallback: native PHP mail()
     $headers  = "MIME-Version: 1.0\r\nContent-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$smtp['name']} <{$smtp['from']}>\r\nReply-To: {$smtp['from']}\r\n";
-    $sent = @mail($to, $subject, $html, $headers);
+    $sent = @mail($to, $subject, $htmlBody, $headers);
     if ($sent) return ['success' => true];
-    return ['success' => false, 'error' => 'PHPMailer not installed. Run: composer require phpmailer/phpmailer'];
+    return ['success' => false, 'error' => 'PHPMailer not found & PHP mail() failed. Run: composer require phpmailer/phpmailer'];
 }
 
-// ── Log an email ─────────────────────────────────────────────────
-function logEmail($db, array $data): int {
-    $stmt = $db->prepare("INSERT INTO email_logs (invoice_id, invoice_number, client_name, to_email, subject, body_html, status, error_msg, smtp_profile, type, track_token, sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->execute([
-        $data['invoice_id']    ?? null,
-        $data['invoice_number'] ?? null,
-        $data['client_name']   ?? null,
-        $data['to_email'],
-        $data['subject'],
-        $data['body_html']     ?? null,
-        $data['status'],
-        $data['error_msg']     ?? null,
-        $data['smtp_profile']  ?? 'default',
-        $data['type']          ?? 'invoice',
-        $data['track_token']   ?? null,
-        $data['status'] === 'sent' ? date('Y-m-d H:i:s') : null,
-    ]);
-    return (int)$db->lastInsertId();
+// ── HTML wrapper ─────────────────────────────────────────────────
+function buildEmailHTML(string $body): string {
+    $b = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
+    return "<html><head><style>body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px}.wrap{max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)}.hdr{background:#00897B;color:#fff;padding:22px 30px;font-size:18px;font-weight:700}.bdy{padding:26px 30px;color:#333;font-size:15px;line-height:1.8}.ftr{background:#f9f9f9;padding:14px 30px;font-size:12px;color:#999;border-top:1px solid #eee}</style></head><body><div class='wrap'><div class='hdr'>📄 Invoice from OPTMS Tech</div><div class='bdy'>$b</div><div class='ftr'>Sent via OPTMS Tech Invoice Manager · optmstech.in</div></div></body></html>";
 }
 
-// ── Fetch invoice data for email ─────────────────────────────────
-function getInvoiceData($db, int $invId): array {
-    $stmt = $db->prepare("SELECT i.*, c.email as c_email, c.phone as c_phone, c.whatsapp as c_wa FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?");
-    $stmt->execute([$invId]);
-    $inv = $stmt->fetch() ?: [];
-    if ($inv) {
-        $si = $db->prepare("SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order");
-        $si->execute([$invId]);
-        $inv['items'] = $si->fetchAll();
-    }
-    return $inv;
-}
+// ── Main ─────────────────────────────────────────────────────────
+try {
+    $db   = getDB();
+    $smtp = getSmtpConfig($input, $db);
 
-// ── Get company settings ─────────────────────────────────────────
-function getCompanySettings($db): array {
-    $stmt = $db->query("SELECT `key`, `value` FROM settings WHERE `key` IN ('company_name','company_phone','company_email','company_upi','company_logo','default_bank')");
-    $s = [];
-    foreach ($stmt->fetchAll() as $r) $s[$r['key']] = $r['value'];
-    return $s;
-}
-
-// ── Get portal link for invoice ──────────────────────────────────
-function getPortalLink($db, int $invId, string $appUrl): string {
-    $stmt = $db->prepare("SELECT token FROM portal_tokens WHERE invoice_id = ? LIMIT 1");
-    $stmt->execute([$invId]);
-    $row = $stmt->fetch();
-    if ($row) return $appUrl . '/portal?token=' . $row['token'];
-    // Auto-generate token
-    try {
-        $token = bin2hex(random_bytes(16));
-        $db->prepare("INSERT INTO portal_tokens (invoice_id, token) VALUES (?,?) ON DUPLICATE KEY UPDATE token=VALUES(token)")->execute([$invId, $token]);
-        return $appUrl . '/portal?token=' . $token;
-    } catch (Exception $e) {
-        return $appUrl;
-    }
-}
-
-// ── Get email template ───────────────────────────────────────────
-function getEmailTemplate($db, string $type): array {
-    $stmt = $db->prepare("SELECT * FROM email_templates WHERE type = ? AND is_active = 1 LIMIT 1");
-    $stmt->execute([$type]);
-    $tpl = $stmt->fetch();
-    if ($tpl) return $tpl;
-    $defaults = getDefaultTemplates();
-    return $defaults[$type] ?? $defaults['invoice'];
-}
-
-$appUrl = defined('APP_URL') ? APP_URL : 'http://invcs.optms.co.in';
-
-// ════════════════════════════════════════════════════════════════
-//  GET ACTIONS
-// ════════════════════════════════════════════════════════════════
-if ($method === 'GET') {
-
-    // ── Email logs ──────────────────────────────────────────────
-    if ($action === 'logs') {
-        $where = ['1=1']; $params = [];
-        if (!empty($_GET['invoice_id'])) { $where[] = 'invoice_id = ?'; $params[] = (int)$_GET['invoice_id']; }
-        if (!empty($_GET['type']))       { $where[] = 'type = ?';       $params[] = $_GET['type']; }
-        if (!empty($_GET['status']))     { $where[] = 'status = ?';     $params[] = $_GET['status']; }
-        $sql  = 'SELECT id,invoice_id,invoice_number,client_name,to_email,subject,status,error_msg,type,opened_at,open_count,sent_at,created_at FROM email_logs WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT 200';
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
+    if ($action === 'test') {
+        if (empty($smtp['host'])) jsonResponse(['success'=>false,'error'=>'SMTP Host required'], 422);
+        $to      = $input['to'] ?? $smtp['user'];
+        $subject = 'SMTP Test — OPTMS Tech Invoice Manager';
+        $body    = "Test email from OPTMS Tech Invoice Manager.\n\nSMTP is working!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
+        jsonResponse(sendSmtpEmail($smtp, $to, 'Test', $subject, buildEmailHTML($body)));
     }
 
-    // ── Email templates ─────────────────────────────────────────
-    if ($action === 'templates') {
-        $rows = $db->query("SELECT * FROM email_templates ORDER BY type")->fetchAll();
-        $defaults = getDefaultTemplates();
-        // Merge defaults for any missing types
-        $found = array_column($rows, 'type');
-        foreach ($defaults as $type => $d) {
-            if (!in_array($type, $found)) {
-                $rows[] = array_merge($d, ['id' => null, 'type' => $type, 'is_active' => 1]);
-            }
+    if ($action === 'send') {
+        $to     = $input['to']      ?? '';
+        $toName = $input['to_name'] ?? 'Client';
+        $subj   = $input['subject'] ?? 'Invoice from OPTMS Tech';
+        $body   = $input['body']    ?? '';
+        $invId  = (int)($input['invoice_id'] ?? 0);
+        if (!$to)   jsonResponse(['success'=>false,'error'=>'Recipient email required'], 422);
+        if (!$body) jsonResponse(['success'=>false,'error'=>'Email body required'], 422);
+        $result = sendSmtpEmail($smtp, $to, $toName, $subj, buildEmailHTML($body));
+        if ($result['success'] && $invId) {
+            try { logActivity($_SESSION['user_id'], 'email_sent', 'invoice', $invId, "Email sent to $to"); } catch(\Exception $e){}
         }
-        jsonResponse(['success' => true, 'data' => $rows]);
+        jsonResponse($result);
     }
 
-    // ── SMTP profiles ───────────────────────────────────────────
-    if ($action === 'smtp_profiles') {
-        $rows = $db->query("SELECT id,name,host,port,username,from_email,from_name,encryption,provider,is_default,is_active FROM smtp_profiles ORDER BY is_default DESC, name")->fetchAll();
-        jsonResponse(['success' => true, 'data' => $rows]);
-    }
+    jsonResponse(['success'=>false,'error'=>'Unknown action'], 400);
 
-    jsonResponse(['success' => false, 'error' => 'Unknown GET action'], 400);
+} catch (\Exception $e) {
+    error_log('email.php: ' . $e->getMessage());
+    jsonResponse(['success'=>false,'error'=>'Server error: '.$e->getMessage()], 500);
 }
-
-// ════════════════════════════════════════════════════════════════
-//  DELETE ACTIONS
-// ════════════════════════════════════════════════════════════════
-if ($method === 'DELETE') {
-    if ($action === 'del_profile') {
-        $id = (int)($_GET['id'] ?? 0);
-        if (!$id) jsonResponse(['success' => false, 'error' => 'ID required'], 422);
-        $db->prepare("DELETE FROM smtp_profiles WHERE id = ?")->execute([$id]);
-        jsonResponse(['success' => true]);
-    }
-    jsonResponse(['success' => false, 'error' => 'Unknown DELETE action'], 400);
-}
-
-// ════════════════════════════════════════════════════════════════
-//  POST ACTIONS
-// ════════════════════════════════════════════════════════════════
-
-// ── Save email template ─────────────────────────────────────────
-if ($action === 'save_template') {
-    $type    = $input['type']    ?? '';
-    $subject = $input['subject'] ?? '';
-    $body    = $input['body']    ?? '';
-    if (!$type || !$subject || !$body) jsonResponse(['success' => false, 'error' => 'type, subject and body required'], 422);
-    $validTypes = ['invoice','estimate','receipt','reminder','overdue','followup'];
-    if (!in_array($type, $validTypes)) jsonResponse(['success' => false, 'error' => 'Invalid type'], 422);
-    $name = $input['name'] ?? ucfirst($type);
-    $db->prepare("INSERT INTO email_templates (type,name,subject,body) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),subject=VALUES(subject),body=VALUES(body),is_active=1")->execute([$type, $name, $subject, $body]);
-    jsonResponse(['success' => true]);
-}
-
-// ── Save SMTP profile ───────────────────────────────────────────
-if ($action === 'save_profile') {
-    $name      = trim($input['name']       ?? '');
-    $host      = trim($input['host']       ?? '');
-    $port      = (int)($input['port']      ?? 587);
-    $username  = trim($input['username']   ?? '');
-    $password  = trim($input['password']   ?? '');
-    $fromEmail = trim($input['from_email'] ?? '');
-    $fromName  = trim($input['from_name']  ?? 'OPTMS Tech');
-    $enc       = in_array($input['encryption'] ?? 'tls', ['tls','ssl','none']) ? $input['encryption'] : 'tls';
-    $provider  = in_array($input['provider'] ?? 'smtp', ['smtp','gmail','sendgrid','mailgun']) ? $input['provider'] : 'smtp';
-    $apiKey    = trim($input['api_key']    ?? '');
-    $isDefault = (int)($input['is_default'] ?? 0);
-    if (!$name || !$host || !$username) jsonResponse(['success' => false, 'error' => 'name, host and username required'], 422);
-    if ($isDefault) $db->exec("UPDATE smtp_profiles SET is_default = 0");
-    $id = (int)($input['id'] ?? 0);
-    if ($id) {
-        $db->prepare("UPDATE smtp_profiles SET name=?,host=?,port=?,username=?,password=?,from_email=?,from_name=?,encryption=?,provider=?,api_key=?,is_default=? WHERE id=?")->execute([$name,$host,$port,$username,$password,$fromEmail,$fromName,$enc,$provider,$apiKey,$isDefault,$id]);
-    } else {
-        $db->prepare("INSERT INTO smtp_profiles (name,host,port,username,password,from_email,from_name,encryption,provider,api_key,is_default) VALUES (?,?,?,?,?,?,?,?,?,?,?)")->execute([$name,$host,$port,$username,$password,$fromEmail,$fromName,$enc,$provider,$apiKey,$isDefault]);
-        $id = (int)$db->lastInsertId();
-    }
-    jsonResponse(['success' => true, 'id' => $id]);
-}
-
-// ── Preview ─────────────────────────────────────────────────────
-if ($action === 'preview') {
-    $type   = $input['type']       ?? 'invoice';
-    $invId  = (int)($input['invoice_id'] ?? 0);
-    $tpl    = getEmailTemplate($db, $type);
-    $cs     = getCompanySettings($db);
-    $inv    = $invId ? getInvoiceData($db, $invId) : [];
-    $link   = $invId ? getPortalLink($db, $invId, $appUrl) : $appUrl;
-    $data   = array_merge($cs, $inv, [
-        'company_name'  => $cs['company_name']  ?? 'OPTMS Tech',
-        'company_phone' => $cs['company_phone']  ?? '',
-        'company_email' => $cs['company_email']  ?? '',
-        'upi'           => $cs['company_upi']    ?? '',
-        'bank_details'  => $inv['bank_details']  ?? $cs['default_bank'] ?? '',
-        'invoice_link'  => $link,
-        'item_list'     => buildItemList($inv['items'] ?? []),
-        'amount'        => number_format((float)($inv['grand_total'] ?? 0), 2),
-        'type'          => $type,
-    ]);
-    $subject = replaceVars($tpl['subject'], $data);
-    $body    = replaceVars($tpl['body'],    $data);
-    $html    = buildEmailHTML($body, $data, null, $appUrl);
-    jsonResponse(['success' => true, 'subject' => $subject, 'html' => $html]);
-}
-
-// ── Test ────────────────────────────────────────────────────────
-if ($action === 'test') {
-    $smtp = $input['smtp_host'] ? [
-        'host' => $input['smtp_host'], 'port' => (int)($input['smtp_port'] ?? 587),
-        'user' => $input['smtp_user'] ?? '', 'pass' => $input['smtp_pass'] ?? '',
-        'from' => $input['smtp_from'] ?? $input['smtp_user'] ?? '',
-        'name' => $input['smtp_name'] ?? 'OPTMS Tech', 'encryption' => 'tls',
-    ] : getSmtpConfig($db, $input['profile'] ?? null);
-    if (empty($smtp['host'])) jsonResponse(['success' => false, 'error' => 'SMTP Host required. Fill and save settings first.'], 422);
-    $to      = $input['to'] ?? $smtp['user'];
-    $subject = '✅ SMTP Test — OPTMS Invoice Manager';
-    $body    = "This is a test email from your OPTMS Tech Invoice Manager.\n\nSMTP is working correctly!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
-    $html    = buildEmailHTML($body, ['company_name' => $smtp['name'], 'type' => 'test'], null, $appUrl);
-    $result  = sendSmtpEmail($smtp, $to, 'Test Recipient', $subject, $html);
-    logEmail($db, ['to_email' => $to, 'subject' => $subject, 'status' => $result['success'] ? 'sent' : 'failed', 'error_msg' => $result['error'] ?? null, 'type' => 'test']);
-    jsonResponse($result);
-}
-
-// ── Main send (invoice/estimate/receipt/reminder) ────────────────
-if (in_array($action, ['send', 'send_receipt', 'send_reminder'])) {
-    $type   = $input['type'] ?? ($action === 'send_receipt' ? 'receipt' : ($action === 'send_reminder' ? 'reminder' : 'invoice'));
-    $invId  = (int)($input['invoice_id'] ?? 0);
-    $to     = trim($input['to'] ?? '');
-    $toName = trim($input['to_name'] ?? 'Client');
-
-    if (!$to && $invId) {
-        $inv = getInvoiceData($db, $invId);
-        $to  = $inv['c_email'] ?? $inv['client_email'] ?? '';
-        $toName = $inv['client_name'] ?? 'Client';
-    }
-    if (!$to) jsonResponse(['success' => false, 'error' => 'Recipient email not found. Please add email to client profile.'], 422);
-
-    // Get template
-    $tpl = getEmailTemplate($db, $type);
-
-    // Override subject/body if passed directly
-    $subjOverride = trim($input['subject'] ?? '');
-    $bodyOverride = trim($input['body']    ?? '');
-
-    // Load invoice data
-    $inv = $invId ? getInvoiceData($db, $invId) : [];
-    $cs  = getCompanySettings($db);
-    $link = $invId ? getPortalLink($db, $invId, $appUrl) : $appUrl;
-
-    // Days overdue
-    $daysOverdue = 0;
-    if (!empty($inv['due_date'])) {
-        $due = new DateTime($inv['due_date']);
-        $now = new DateTime();
-        if ($now > $due) $daysOverdue = (int)$now->diff($due)->days;
-    }
-
-    $data = array_merge($cs, $inv, [
-        'company_name'  => $cs['company_name']  ?? 'OPTMS Tech',
-        'company_phone' => $cs['company_phone']  ?? '',
-        'company_email' => $cs['company_email']  ?? '',
-        'upi'           => $cs['company_upi']    ?? '',
-        'bank_details'  => $inv['bank_details']  ?? $cs['default_bank'] ?? '',
-        'invoice_link'  => $link,
-        'item_list'     => buildItemList($inv['items'] ?? []),
-        'amount'        => number_format((float)($inv['grand_total']  ?? 0), 2),
-        'paid_amount'   => number_format((float)($input['paid_amount'] ?? 0), 2),
-        'remaining_amount' => (float)($input['remaining'] ?? 0) > 0 ? "Remaining: ₹" . number_format((float)$input['remaining'], 2) : '',
-        'days_overdue'  => $daysOverdue,
-        'type'          => $type,
-    ]);
-
-    $subject  = replaceVars($bodyOverride ? $subjOverride : $tpl['subject'], $data);
-    $bodyText = replaceVars($bodyOverride ?: $tpl['body'],    $data);
-
-    // Track token
-    $trackToken = bin2hex(random_bytes(8));
-
-    $html = buildEmailHTML($bodyText, $data, $trackToken, $appUrl);
-
-    $smtp = getSmtpConfig($db, $input['profile'] ?? null);
-    $opts = [
-        'cc_self' => !empty($input['cc_self']),
-        'cc'      => $input['cc']  ?? [],
-        'bcc'     => $input['bcc'] ?? [],
-    ];
-
-    $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html, $opts);
-
-    // Log
-    $logId = logEmail($db, [
-        'invoice_id'     => $invId ?: null,
-        'invoice_number' => $inv['invoice_number'] ?? null,
-        'client_name'    => $toName,
-        'to_email'       => $to,
-        'subject'        => $subject,
-        'body_html'      => $html,
-        'status'         => $result['success'] ? 'sent' : 'failed',
-        'error_msg'      => $result['error'] ?? null,
-        'type'           => $type,
-        'track_token'    => $result['success'] ? $trackToken : null,
-    ]);
-
-    // Activity log
-    if ($result['success'] && $invId) {
-        try { logActivity($_SESSION['user_id'], 'email_sent', 'invoice', $invId, "Email ({$type}) sent to {$to}"); } catch(Exception $e) {}
-    }
-
-    jsonResponse(array_merge($result, ['log_id' => $logId]));
-}
-
-jsonResponse(['success' => false, 'error' => 'Unknown action'], 400);
