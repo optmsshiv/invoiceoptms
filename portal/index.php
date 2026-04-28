@@ -13,8 +13,6 @@
 require_once __DIR__ . '/../config/db.php';
 
 $rawToken = $_GET['t'] ?? '';
-$src      = $_GET['src'] ?? 'wa';   // 'email' = email portal, 'wa' = WhatsApp portal (default)
-$isEmailPortal = ($src === 'email');
 $error    = '';
 $inv      = null;
 $client   = [];
@@ -603,47 +601,9 @@ tr:last-child td{border:none}
   /* ── Wrap max width ── */
   .wrap{max-width:100%!important}
 }
-
-/* ================================================================
-   EMAIL PORTAL THEME  (body.src-email)
-   Clean, formal, print-ready — no UPI buttons, no WA, no Hindi toggle
-   ================================================================ */
-body.src-email{background:#f0f2f5}
-body.src-email .portal-header{background:linear-gradient(135deg,#1A237E,#283593)}
-body.src-email .brand-name{letter-spacing:.3px}
-body.src-email .card{border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-
-/* Hide interactive / WA-only elements */
-body.src-email .sticky-bar,
-body.src-email .upi-pay-btns,
-body.src-email .wa-contact-btn,
-body.src-email .lang-toggle,
-body.src-email .ive-paid-btn,
-body.src-email .partial-pay-box,
-body.src-email .upi-box,
-body.src-email .qr-section,
-body.src-email .wa-dot { display:none !important }
-
-/* Prominent Download PDF button for email */
-body.src-email .pdf-btn{
-  background:#1A237E;color:#fff;border-color:#1A237E;
-  font-size:14px;padding:14px;border-radius:10px;
-  display:flex!important;margin-bottom:4px
-}
-body.src-email .pdf-btn:hover{background:#283593}
-body.src-email .pdf-btn i{color:#fff}
-
-/* Email portal notice badge in header */
-.email-portal-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
-  border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;
-  color:rgba(255,255,255,.95);margin-top:8px
-}
-body.src-email .view-badge{display:none}
 </style>
 </head>
-<body class="<?= $isEmailPortal ? 'src-email' : 'src-wa' ?>">
+<body>
 <div class="wrap">
 
 <!-- Sticky bar (shown on scroll) -->
@@ -654,19 +614,6 @@ body.src-email .view-badge{display:none}
     <?= status_label($inv['status'] ?? '') ?>
   </span>
 </div>
-
-<?php if ($isEmailPortal): ?>
-<!-- Email portal: top download bar -->
-<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-  <div style="font-size:13px;color:var(--muted)">
-    <i class="fas fa-envelope" style="color:#1A237E;margin-right:6px"></i>
-    You received this <?= $isEstimate ? 'estimate' : 'invoice' ?> via email
-  </div>
-  <button onclick="downloadPDF()" style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;background:#1A237E;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">
-    <i class="fas fa-download"></i> Download PDF
-  </button>
-</div>
-<?php endif; ?>
 <?php endif; ?>
 <?php if ($error): ?>
 <div class="error-box">
@@ -687,9 +634,6 @@ body.src-email .view-badge{display:none}
       <div class="brand-name"><?= htmlspecialchars($companyName) ?></div>
       <?php if ($companyAddress): ?>
       <div class="brand-sub"><?= htmlspecialchars($companyAddress) ?></div>
-      <?php endif; ?>
-      <?php if ($isEmailPortal): ?>
-      <div class="email-portal-badge"><i class="fas fa-envelope"></i> Sent via Email</div>
       <?php endif; ?>
     </div>
   </div>
