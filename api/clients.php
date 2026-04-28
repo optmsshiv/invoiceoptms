@@ -24,7 +24,7 @@ switch ($method) {
       $c['gst']      = $c['gst_number'] ?? '';
       $c['addr']     = $c['address']    ?? '';
       $c['landmark'] = $c['landmark']   ?? '';
-      $c['image']    = $c['logo']       ?? '';
+      $c['image']    = !empty($c['logo']) ? $c['logo'] : '';
       $c['color']    = $c['color']      ?? '#00897B';
       $c['active']   = isset($c['is_active']) ? (int)$c['is_active'] : 1;
     }
