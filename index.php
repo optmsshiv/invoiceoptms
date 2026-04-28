@@ -7210,9 +7210,32 @@ let _ncLogoBase64 = ''; // stores base64 or URL of logo
 
 function handleClientLogoUpload(input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { toast('⚠️ Image must be under 2MB', 'warning'); return; }
+  if (file.size > 5 * 1024 * 1024) { toast('⚠️ Image must be under 5MB', 'warning'); return; }
   const reader = new FileReader();
-  reader.onload = e => { _ncLogoBase64 = e.target.result; _applyClientLogoPreview(_ncLogoBase64); };
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // Resize to max 200×200 preserving aspect ratio, then compress
+      const MAX = 200;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      // Start at quality 0.85, step down until output < 50 KB
+      let quality = 0.85, dataUrl;
+      do {
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+        quality -= 0.1;
+      } while (dataUrl.length > 50 * 1024 * 1.37 && quality > 0.1);
+      // 50KB * 1.37 ≈ base64 overhead factor
+      _ncLogoBase64 = dataUrl;
+      _applyClientLogoPreview(_ncLogoBase64);
+      toast('✅ Logo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+    };
+    img.src = e.target.result;
+  };
   reader.readAsDataURL(file);
 }
 
