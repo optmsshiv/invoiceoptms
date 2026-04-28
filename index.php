@@ -4200,7 +4200,7 @@ function renderDashRecent() {
     const pmtTag = pmt ? `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:var(--teal-bg);color:var(--teal);font-weight:700;margin-left:4px">${pmt.method.split(' ')[0]}</span>` : '';
     const df = d => d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '';
     return `<div class="dash-recent-item">
-      <div class="dri-avatar" style="background:${c.color}">${(c.image&&c.image.length>5)?`<img src="${c.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`:initials}</div>
+      <div class="dri-avatar" style="background:${c.color}">${isValidImg(c.image)?`<img src="${c.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`:initials}</div>
       <div class="dri-info">
         <div class="dri-name">${inv.num}${pmtTag}</div>
         <div class="dri-meta">${c.name} · ${inv.service}</div>
@@ -4314,7 +4314,7 @@ function applyFiltersAndRender() {
     const isClientInactive = c.id && (parseInt(c.active) === 0 || c.status === 'inactive');
     const avatarColor = isClientInactive ? '#9E9E9E' : c.color;
     const initials = getInitials(c.name);
-    const avatar = (c.image && c.image.length > 5)
+    const avatar = isValidImg(c.image)
       ? `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'"></div>`
       : `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
     const inactivePill = isClientInactive
@@ -7152,7 +7152,7 @@ function renderClients() {
       ${isInactive ? `<div style="position:absolute;top:8px;right:8px;background:#FFF3CD;border:1.5px solid #F9A825;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;color:#856404;z-index:2"><i class="fas fa-pause-circle"></i> Inactive</div>` : ''}
       <div class="cc-head">
         <div class="cc-big-avatar" style="background:${isInactive?'#F9A825':c.color};${isInactive?'opacity:.7':''}">
-          ${(c.image && c.image.length > 5) ? `<img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'">` : initials}
+          ${isValidImg(c.image) ? `<img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'">` : initials}
         </div>
         <div style="flex:1;min-width:0">
           <div class="cc-org">${c.name}${inactiveBadge}</div>
@@ -7234,7 +7234,12 @@ function _applyClientLogoPreview(src) {
   }
 }
 
-function updateClientLogoInitials() {
+// ── Image validity guard — prevents ERR_INVALID_URL from partial/empty base64 ──
+function isValidImg(src) {
+  if (!src || typeof src !== 'string') return false;
+  const s = src.trim();
+  return s.startsWith('data:image') || s.startsWith('http://') || s.startsWith('https://');
+}
   const name  = document.getElementById('nc-name')?.value || '';
   const color = document.getElementById('nc-color')?.value || '#00897B';
   const preview = document.getElementById('nc-logo-preview');
