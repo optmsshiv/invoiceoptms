@@ -429,7 +429,7 @@ canvas { max-width: 100% !important; }
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
-  overflow: hidden;
+  overflow: hidden; border: 1.5px solid transparent;
 }
 .cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .cc-name { font-weight: 600; }
@@ -3852,6 +3852,13 @@ function updateDueFromIssue() {
 }
 function fmt_date(d) { return d.toISOString().split('T')[0]; }
 function fmt_money(n, sym='₹') { return sym + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#','');
+  const r = parseInt(h.length===3 ? h[0]+h[0] : h.slice(0,2),16);
+  const g = parseInt(h.length===3 ? h[1]+h[1] : h.slice(2,4),16);
+  const b = parseInt(h.length===3 ? h[2]+h[2] : h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // ══════════════════════════════════════════
 // SIDEBAR & PAGE NAVIGATION
@@ -4328,8 +4335,8 @@ function applyFiltersAndRender() {
     const avatarColor = isClientInactive ? '#9E9E9E' : c.color;
     const initials = getInitials(c.name);
     const avatar = isValidImg(c.image)
-      ? `<div class="cc-avatar" id="cca-${c.id}" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onerror="this.style.display='none'"></div>`
-      : `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
+      ? `<div class="cc-avatar" id="cca-${c.id}" style="background:${avatarColor};border-color:${hexToRgba(avatarColor,0.45)};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onerror="this.style.display='none'"></div>`
+      : `<div class="cc-avatar" style="background:${avatarColor};border-color:${hexToRgba(avatarColor,0.45)};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
     const inactivePill = isClientInactive
       ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:#F9A825;border:1px solid #F9A825;border-radius:8px;padding:1px 5px;margin-left:4px;vertical-align:middle;white-space:nowrap"><i class="fas fa-pause-circle" style="font-size:8px"></i> Inactive</span>`
       : '';
