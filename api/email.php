@@ -555,14 +555,12 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     <p style='text-align:center;font-size:11px;color:#aaa;margin:0 0 8px'>Button not working? <a href='{$portalLink}' style='color:{$accent}'>Click here</a></p>
     " : '';
 
-    // Contact footer line
-    $contactLine = '';
-    if ($compPhone || $compEmail) {
-        $parts = [];
-        if ($compPhone) $parts[] = $compPhone;
-        if ($compEmail) $parts[] = "<a href='mailto:{$compEmail}' style='color:{$accent}'>{$compEmail}</a>";
-        $contactLine = "<p style='font-size:12px;color:#777;margin:12px 0 0'>Questions? Contact us: " . implode(' &middot; ', $parts) . "</p>";
-    }
+    // Contact details — merged into navy closer below
+    $contactParts = [];
+    if ($compPhone) $contactParts[] = $compPhone;
+    if ($compEmail) $contactParts[] = "<a href='mailto:{$compEmail}' style='color:rgba(255,255,255,.75)'>{$compEmail}</a>";
+    $contactCloser = !empty($contactParts) ? implode(' &nbsp;&middot;&nbsp; ', $contactParts) : '';
+    $contactLine = ''; // removed from body — now in navy closer
 
     // Hero section (only when we have invoice data)
     $heroSection = '';
@@ -625,13 +623,22 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
         {$contactLine}
       </div>
 
-      <!-- Warm regards section -->
-      <div style="padding:16px 28px 20px;border-top:1px solid #f0f0f0;color:#555;font-size:13px;line-height:1.7">
-        We look forward to working with you!<br>
-        <strong>Warm regards,</strong><br>
-        {$company}<br>
-        {$compPhone}
-      </div>
+      <!-- Navy closer (Option B) — mirrors header, Gmail-safe table -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:{$hdrBg}">
+        <tr>
+          <td style="padding:18px 24px;text-align:center">
+            <div style="font-size:13px;color:rgba(255,255,255,.8);line-height:1.8">
+              We look forward to working with you!
+            </div>
+            <div style="font-size:14px;font-weight:700;color:#fff;margin-top:4px">
+              Warm regards, {$company}
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:5px">
+              {$contactCloser}
+            </div>
+          </td>
+        </tr>
+      </table>
 
     </div>
 
