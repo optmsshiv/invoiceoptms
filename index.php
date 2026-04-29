@@ -429,11 +429,14 @@ canvas { max-width: 100% !important; }
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
-  overflow: hidden; border: 2px solid #00897B;
-  box-shadow: 0 0 6px rgba(0,137,123,0.6), 0 0 12px rgba(0,137,123,0.3);
+  overflow: hidden; border: 2px solid transparent;
   transition: border-color .3s, box-shadow .3s;
 }
 .cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cc-avatar.has-logo {
+  border-color: #00897B;
+  box-shadow: 0 0 6px rgba(0,137,123,0.5), 0 0 12px rgba(0,137,123,0.25);
+}
 .cc-name { font-weight: 600; }
 .cc-sub { font-size: 11px; color: var(--muted); }
 
@@ -4330,7 +4333,7 @@ function applyFiltersAndRender() {
     const avatarColor = isClientInactive ? '#9E9E9E' : c.color;
     const initials = getInitials(c.name);
     const avatar = isValidImg(c.image)
-      ? `<div class="cc-avatar" id="cca-${c.id}" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onload="applyAvatarGlow(this)" onerror="this.style.display='none'"></div>`
+      ? `<div class="cc-avatar has-logo" id="cca-${c.id}" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onload="applyAvatarGlow(this)" onerror="this.style.display='none'"></div>`
       : `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
     const inactivePill = isClientInactive
       ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:#F9A825;border:1px solid #F9A825;border-radius:8px;padding:1px 5px;margin-left:4px;vertical-align:middle;white-space:nowrap"><i class="fas fa-pause-circle" style="font-size:8px"></i> Inactive</span>`
@@ -7034,10 +7037,23 @@ async function changeInvoiceStatus(id, newStatus) {
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
 }
 
-function confirmCancelInvoice(id) {
+async function confirmCancelInvoice(id) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
-  if (!confirm(`Cancel invoice ${inv.num||inv.invoice_number}?\n\nThis will mark the invoice as Cancelled and add a CANCELLED watermark. This action cannot be undone easily.`)) return;
+  const result = await Swal.fire({
+    title: 'Cancel Invoice?',
+    html: `<div style="font-size:13px;color:#555">
+             <i class="fas fa-ban" style="color:#E65100;font-size:28px;display:block;margin-bottom:10px"></i>
+             Invoice <strong>${inv.num||inv.invoice_number}</strong> will be marked as
+             <span style="color:#E65100;font-weight:700">Cancelled</span> with a watermark.<br>
+             <span style="color:#999;font-size:12px;margin-top:6px;display:block">This action cannot be easily undone.</span>
+           </div>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Yes, Cancel Invoice', cancelButtonText: 'Go Back',
+    confirmButtonColor: '#E65100', cancelButtonColor: '#aaa',
+    reverseButtons: true, customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   changeInvoiceStatus(id, 'Cancelled');
 }
 function duplicateInvoice(id) {
@@ -7057,7 +7073,20 @@ function duplicateInvoice(id) {
 async function convertEstimateToInvoice(id) {
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
-  if (!confirm(`Convert Estimate ${inv.num||inv.invoice_number} to a Pending Invoice?\n\nThe status will change to Pending and a WhatsApp invoice notification will be sent to the client.`)) return;
+  const result = await Swal.fire({
+    title: 'Convert to Invoice?',
+    html: `<div style="font-size:13px;color:#555">
+             <i class="fas fa-file-invoice" style="color:#3949AB;font-size:28px;display:block;margin-bottom:10px"></i>
+             Estimate <strong>${inv.num||inv.invoice_number}</strong> will become a
+             <span style="color:#3949AB;font-weight:700">Pending Invoice</span>.<br>
+             <span style="color:#999;font-size:12px;margin-top:6px;display:block">A WhatsApp notification will be sent to the client.</span>
+           </div>`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: '✅ Yes, Convert', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#3949AB', cancelButtonColor: '#aaa',
+    reverseButtons: true, customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
 
   const dbId = inv._dbId || parseInt(inv.id) || 0;
   // Replace estimate prefix with invoice prefix for the new invoice number
@@ -7451,10 +7480,23 @@ async function deleteClient(id) {
   const c = STATE.clients.find(x => String(x.id) === String(id));
   if (!c) return;
   const hasInvoices = STATE.invoices.some(i => String(i.client) === String(id));
-  const msg = hasInvoices
-    ? `⚠️ "${c.name}" has existing invoices. Deleting the client will NOT delete their invoices.\n\nAre you sure you want to delete this client?`
-    : `Are you sure you want to delete "${c.name}"? This cannot be undone.`;
-  if (!confirm(msg)) return;
+  const result = await Swal.fire({
+    title: 'Delete Client?',
+    html: `<div style="font-size:13px;color:#555">
+             <i class="fas fa-user-slash" style="color:#e53935;font-size:28px;display:block;margin-bottom:10px"></i>
+             ${hasInvoices
+               ? `<strong>${c.name}</strong> has existing invoices.<br>
+                  <span style="color:#e53935">Deleting the client will <u>not</u> delete their invoices.</span>`
+               : `Delete <strong>${c.name}</strong>?`
+             }
+             <span style="color:#999;font-size:12px;margin-top:6px;display:block">This cannot be undone.</span>
+           </div>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: '🗑 Yes, Delete', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#e53935', cancelButtonColor: '#aaa',
+    reverseButtons: true, customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   try {
     const dbId = parseInt(c._dbId || c.id) || 0;
     await api('api/clients.php?id=' + dbId, 'DELETE');
@@ -7775,7 +7817,18 @@ function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)retur
 async function revertPaymentDelete(idx) {
   const p = PMT.list[idx];
   if (!p || !p.id) return;
-  if (!confirm('Revert "Invoice Deleted" flag for this payment?\nThis will mark the payment as active again.')) return;
+  const result = await Swal.fire({
+    title: 'Revert Payment Flag?',
+    html: `<div style="font-size:13px;color:#555">
+             <i class="fas fa-undo" style="color:#1976D2;font-size:26px;display:block;margin-bottom:10px"></i>
+             The <strong>Invoice Deleted</strong> flag will be cleared and this payment will show as active again.
+           </div>`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: '↩ Yes, Revert', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#1976D2', cancelButtonColor: '#aaa',
+    reverseButtons: true, customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   try {
     await api('api/payments.php?id=' + parseInt(p.id), 'PATCH', { invoice_deleted: false });
     // Update in STATE
@@ -8419,7 +8472,18 @@ async function saveSmtpProfile() {
 }
 
 async function delSmtpProfile(id) {
-  if (!confirm('Delete this SMTP profile?')) return;
+  const result = await Swal.fire({
+    title: 'Delete SMTP Profile?',
+    html: `<div style="font-size:13px;color:#555">
+             <i class="fas fa-server" style="color:#e53935;font-size:26px;display:block;margin-bottom:10px"></i>
+             This SMTP profile will be permanently deleted.
+           </div>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: '🗑 Delete', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#e53935', cancelButtonColor: '#aaa',
+    reverseButtons: true, customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   try {
     await fetch('api/email.php?action=del_profile&id=' + id, { method:'DELETE', headers:{ 'X-Requested-With':'XMLHttpRequest' } });
     loadSmtpProfiles();
@@ -8720,8 +8784,9 @@ function renderMsgLog() {
   }).join('');
 }
 
-function clearMsgLog() {
-  if (!confirm('Clear all message log entries? This cannot be undone.')) return;
+async function clearMsgLog() {
+  const r = await Swal.fire({ title:'Clear Message Log?', text:'All entries will be permanently removed.', icon:'warning', showCancelButton:true, confirmButtonText:'🗑 Clear All', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r.isConfirmed) return;
   localStorage.removeItem(MSG_LOG_KEY);
   renderMsgLog();
   const badge = document.getElementById('badge-msglog');
@@ -11224,8 +11289,9 @@ function saveExpense() {
   }
 }
 
-function deleteExpense(id) {
-  if (!confirm('Delete this expense?')) return;
+async function deleteExpense(id) {
+  const r = await Swal.fire({ title:'Delete Expense?', text:'This expense will be permanently deleted.', icon:'warning', showCancelButton:true, confirmButtonText:'🗑 Delete', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r.isConfirmed) return;
   api('api/expenses.php?id='+id,'DELETE').then(()=>{
     STATE.expenses = STATE.expenses.filter(e=>String(e.id)!==String(id));
     renderExpenses(); toast('🗑️ Expense deleted','info');
@@ -11355,7 +11421,8 @@ function sharePortalWA() {
 }
 
 async function revokePortalLink(invId) {
-  if (!confirm('Revoke this portal link? The client will no longer be able to access it.')) return;
+  const r2 = await Swal.fire({ title:'Revoke Portal Link?', text:'The client will no longer be able to access this portal.', icon:'warning', showCancelButton:true, confirmButtonText:'Revoke', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r2.isConfirmed) return;
   try {
     await api('api/portal.php?invoice_id=' + invId, 'DELETE');
     delete _portalTokenCache[String(invId)];
@@ -11616,7 +11683,8 @@ function _renderReminderHistory() {
 }
 
 function clearReminderHistory() {
-  if (!confirm('Clear all reminder history?')) return;
+  const r3 = await Swal.fire({ title:'Clear Reminder History?', text:'All reminder history will be permanently removed.', icon:'warning', showCancelButton:true, confirmButtonText:'🗑 Clear', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r3.isConfirmed) return;
   api('api/reminders.php?log=1','DELETE').then(()=>{
     STATE.reminders=[]; renderReminders(); toast('🗑️ History cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
@@ -11778,7 +11846,8 @@ function exportActivityCSV() {
 }
 
 function clearActivityLog() {
-  if (!confirm('Clear entire activity log?')) return;
+  const r4 = await Swal.fire({ title:'Clear Activity Log?', text:'All activity log entries will be permanently deleted.', icon:'warning', showCancelButton:true, confirmButtonText:'🗑 Clear All', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r4.isConfirmed) return;
   api('api/activity.php','DELETE').then(()=>{
     STATE.activity=[]; renderActivityLog(); toast('🗑️ Activity log cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
@@ -12501,7 +12570,8 @@ async function recPause(id) {
 
 // ── Delete ────────────────────────────────────────────────────
 async function recDelete(id) {
-  if (!confirm('Delete this recurring schedule? This will not delete any already-generated invoices.')) return;
+  const r5 = await Swal.fire({ title:'Delete Recurring Schedule?', text:'Already-generated invoices will not be affected.', icon:'warning', showCancelButton:true, confirmButtonText:'🗑 Delete', cancelButtonText:'Cancel', confirmButtonColor:'#e53935', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r5.isConfirmed) return;
   try {
     await api('api/recurring.php?id=' + encodeURIComponent(id), 'DELETE');
     STATE.recurring = STATE.recurring.filter(x => String(x.id) !== String(id));
@@ -12866,7 +12936,8 @@ function waResetCurrentTab() {
   const tId = idMap[key];
   const tKey = tplMap[key];
   if (!tId || !tKey) return;
-  if (!confirm('Reset this template to the default? Your changes will be lost.')) return;
+  const r6 = await Swal.fire({ title:'Reset Template?', text:'Your customizations will be lost and the default template will be restored.', icon:'warning', showCancelButton:true, confirmButtonText:'Reset', cancelButtonText:'Cancel', confirmButtonColor:'#E65100', cancelButtonColor:'#aaa', reverseButtons:true, customClass:{popup:'swal-compact'} });
+  if (!r6.isConfirmed) return;
   const ta = document.getElementById(tId);
   if (ta) { ta.value = getDefaultWATpl(tKey); saveWASettings(); toast('↩ Template reset to default', 'info'); }
 }
