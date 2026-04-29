@@ -497,18 +497,20 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     [$hdrBg, $accent, $emoji, $typeLabel] = $types[$type] ?? $types['invoice'];
 
     // Pull structured vars if available
-    $company   = $vars['{company_name}']  ?? 'OPTMS Tech';
-    $clientName= $vars['{client_name}']   ?? '';
-    $invoiceNo = $vars['{invoice_no}']    ?? '';
-    $amount    = $vars['{amount}']        ?? '';
-    $dueDate   = $vars['{due_date}']      ?? '';
-    $issueDate = $vars['{issue_date}']    ?? '';
-    $service   = $vars['{service}']       ?? '';
-    $status    = $vars['{status}']        ?? '';
-    $remaining = $vars['{remaining_amount}'] ?? '';
-    $portalLink= $vars['{invoice_link}']  ?? '';
-    $compPhone = $vars['{company_phone}'] ?? '';
-    $compEmail = $vars['{company_email}'] ?? '';
+    $company    = $vars['{company_name}']    ?? 'OPTMS Tech';
+    $clientName = $vars['{client_name}']     ?? '';
+    $invoiceNo  = $vars['{invoice_no}']      ?? '';
+    $amount     = $vars['{amount}']          ?? '';
+    $dueDate    = $vars['{due_date}']        ?? '';
+    $issueDate  = $vars['{issue_date}']      ?? '';
+    $service    = $vars['{service}']         ?? '';
+    $status     = $vars['{status}']          ?? '';
+    $remaining  = $vars['{remaining_amount}']?? '';
+    $paidAmount = $vars['{paid_amount}']     ?? '';
+    $daysOver   = (int)($vars['{days_overdue}'] ?? 0);
+    $portalLink = $vars['{invoice_link}']    ?? '';
+    $compPhone  = $vars['{company_phone}']   ?? '';
+    $compEmail  = $vars['{company_email}']   ?? '';
 
     // Status badge colours
     $statusColours = [
@@ -519,7 +521,19 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     ];
     [$sBg, $sCol] = $statusColours[$status] ?? ['#FFF8E1','#E65100'];
 
-    // Build the plain-text message body (strip portal link raw URLs — shown as button)
+    // ── #4 Hero strip light bg per type (Gmail-safe solid hex, no gradient) ──
+    $heroBgMap = [
+        '#1A237E' => ['#E8EAF6','#5C6BC0','#1A237E'],  // invoice  — indigo tint
+        '#1565C0' => ['#E3F2FD','#1565C0','#0D47A1'],  // estimate — blue tint
+        '#1B5E20' => ['#E8F5E9','#388E3C','#1B5E20'],  // receipt  — green tint
+        '#E65100' => ['#FFF3E0','#E65100','#BF360C'],  // reminder — orange tint
+        '#B71C1C' => ['#FFEBEE','#C62828','#B71C1C'],  // overdue  — red tint
+        '#4A148C' => ['#F3E5F5','#7B1FA2','#4A148C'],  // followup — purple tint
+        '#004D40' => ['#E0F2F1','#00897B','#004D40'],  // test     — teal tint
+    ];
+    [$heroBg, $heroLabel, $heroNum] = $heroBgMap[$hdrBg] ?? ['#E8EAF6','#5C6BC0','#1A237E'];
+
+    // Build the plain-text message body
     $cleanBody = $body;
     if ($portalLink) {
         $cleanBody = str_replace($portalLink, '', $cleanBody);
@@ -527,18 +541,27 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     $cleanBody = trim(preg_replace('/\n{3,}/', "\n\n", $cleanBody));
     $cleanBody = nl2br(htmlspecialchars($cleanBody, ENT_QUOTES, 'UTF-8'));
 
-    // Summary rows — labels change based on type
-    $isEstimate   = ($type === 'estimate');
+    // ── #3 Summary rows — per-type labels ─────────────────────────
+    $isEstimate = ($type === 'estimate');
+    $isReceipt  = ($type === 'receipt');
     $invoiceLabel = $isEstimate ? 'Estimate No' : 'Invoice No';
     $dueDateLabel = $isEstimate ? 'Valid Until'  : 'Due Date';
-    $amountLabel  = ($type === 'receipt') ? 'Amount Paid' : ($isEstimate ? 'Total' : 'Amount Due');
 
     $summaryRows = '';
-    if ($invoiceNo) $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>{$invoiceLabel}</td><td style='padding:6px 0;text-align:right;font-size:13px;font-weight:600;color:#1A237E;border-bottom:1px solid #eee'>{$invoiceNo}</td></tr>";
+    if ($invoiceNo) $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>{$invoiceLabel}</td><td style='padding:6px 0;text-align:right;font-size:13px;font-weight:600;color:{$accent};border-bottom:1px solid #eee'>{$invoiceNo}</td></tr>";
     if ($service)   $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Service</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>" . htmlspecialchars($service) . "</td></tr>";
     if ($issueDate) $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Issue Date</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>{$issueDate}</td></tr>";
     if ($dueDate)   $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>{$dueDateLabel}</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>{$dueDate}</td></tr>";
-    if ($amount)    $summaryRows .= "<tr><td style='padding:8px 0 0;color:#333;font-size:14px;font-weight:700'>{$amountLabel}</td><td style='padding:8px 0 0;text-align:right;font-size:15px;font-weight:700;color:{$accent}'>{$amount}</td></tr>";
+
+    // ── #5 Receipt: green paid + orange balance; others: amount due ─
+    if ($isReceipt) {
+        if ($paidAmount) $summaryRows .= "<tr><td style='padding:8px 0 4px;color:#1B5E20;font-size:14px;font-weight:700'>&#10003; Amount Paid</td><td style='padding:8px 0 4px;text-align:right;font-size:15px;font-weight:700;color:#1B5E20'>{$paidAmount}</td></tr>";
+        if ($remaining && $remaining !== '&#8377;0.00' && $remaining !== '₹0.00') {
+            $summaryRows .= "<tr><td style='padding:4px 0 0;color:#E65100;font-size:13px;font-weight:700'>Balance Due</td><td style='padding:4px 0 0;text-align:right;font-size:13px;font-weight:700;color:#E65100'>{$remaining}</td></tr>";
+        }
+    } else {
+        if ($amount) $summaryRows .= "<tr><td style='padding:8px 0 0;color:#333;font-size:14px;font-weight:700'>" . ($isEstimate ? 'Total' : 'Amount Due') . "</td><td style='padding:8px 0 0;text-align:right;font-size:15px;font-weight:700;color:{$accent}'>{$amount}</td></tr>";
+    }
 
     // CTA button label based on type
     $ctaLabel = match($type) {
@@ -547,7 +570,7 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
         default    => 'View &amp; Download Invoice',
     };
 
-    // CTA button (only if portal link exists)
+    // CTA button
     $ctaBtn = $portalLink ? "
     <div style='text-align:center;margin:24px 0 8px'>
       <a href='{$portalLink}' style='display:inline-block;background:{$hdrBg};color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;font-family:Arial,sans-serif;letter-spacing:.3px'>{$emoji} {$ctaLabel}</a>
@@ -555,26 +578,58 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     <p style='text-align:center;font-size:11px;color:#aaa;margin:0 0 8px'>Button not working? <a href='{$portalLink}' style='color:{$accent}'>Click here</a></p>
     " : '';
 
-    // Contact details — merged into navy closer below
+    // Contact details for closer
     $contactParts = [];
     if ($compPhone) $contactParts[] = $compPhone;
-    if ($compEmail) $contactParts[] = "<a href='mailto:{$compEmail}' style='color:rgba(255,255,255,.75)'>{$compEmail}</a>";
+    if ($compEmail) $contactParts[] = "<a href='mailto:{$compEmail}' style='color:#c5cae9'>{$compEmail}</a>";
     $contactCloser = !empty($contactParts) ? implode(' &nbsp;&middot;&nbsp; ', $contactParts) : '';
-    $contactLine = ''; // removed from body — now in navy closer
+    $contactLine = '';
 
-    // Hero section (only when we have invoice data)
+    // ── #2 Urgency bar — overdue & reminder ───────────────────────
+    $urgencyBar = '';
+    if ($type === 'overdue' && $daysOver > 0 && $amount) {
+        $urgencyBar = "
+    <table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin-bottom:4px'>
+      <tr>
+        <td bgcolor='#FFEBEE' style='background:#FFEBEE;border-left:4px solid #B71C1C;padding:12px 20px'>
+          <table width='100%' cellpadding='0' cellspacing='0'>
+            <tr>
+              <td style='font-size:13px;font-weight:700;color:#B71C1C;font-family:Arial,sans-serif'>&#9888; {$daysOver} day(s) overdue</td>
+              <td style='text-align:right;font-size:13px;font-weight:700;color:#B71C1C;font-family:Arial,sans-serif'>{$amount} unpaid</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>";
+    } elseif ($type === 'reminder' && $dueDate && $amount) {
+        $urgencyBar = "
+    <table width='100%' cellpadding='0' cellspacing='0' border='0' style='margin-bottom:4px'>
+      <tr>
+        <td bgcolor='#FFF3E0' style='background:#FFF3E0;border-left:4px solid #E65100;padding:12px 20px'>
+          <table width='100%' cellpadding='0' cellspacing='0'>
+            <tr>
+              <td style='font-size:13px;font-weight:700;color:#E65100;font-family:Arial,sans-serif'>&#128276; Payment due {$dueDate}</td>
+              <td style='text-align:right;font-size:13px;font-weight:700;color:#E65100;font-family:Arial,sans-serif'>{$amount} due</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>";
+    }
+
+    // ── #4 Hero strip with type-matched colours ────────────────────
     $heroSection = '';
     if ($invoiceNo || $amount) {
         $statusBadge = $status ? "<span style='display:inline-block;background:{$sBg};color:{$sCol};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:8px'>{$status}</span>" : '';
         $heroSection = "
-    <div style='background:linear-gradient(135deg,#E8EAF6,#EDE7F6);padding:18px 32px;text-align:center;border-bottom:1px solid #e0e0e0'>
-      <div style='font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#5C6BC0;margin-bottom:4px'>{$typeLabel}</div>
-      <div style='font-size:20px;font-weight:700;color:#1A237E;font-family:Courier New,monospace'>{$invoiceNo}</div>
+    <div style='background:{$heroBg};padding:18px 32px;text-align:center;border-bottom:1px solid #e0e0e0'>
+      <div style='font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:{$heroLabel};margin-bottom:4px'>{$typeLabel}</div>
+      <div style='font-size:20px;font-weight:700;color:{$heroNum};font-family:Courier New,monospace'>{$invoiceNo}</div>
       {$statusBadge}
     </div>";
     }
 
-    // Summary card (only when rows exist)
+    // Summary card
     $summaryCard = $summaryRows ? "
     <div style='background:#F8F9FF;border-radius:8px;padding:14px 16px;margin:16px 0;border:1px solid #E0E4FF'>
       <table style='width:100%;border-collapse:collapse'>{$summaryRows}</table>
@@ -582,7 +637,17 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
 
     $compInitials = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $company), 0, 2));
 
-    // Build header and closer as PHP strings — ensures bgcolor="#hex" is literal in HTML
+    // ── #6 Type-specific header badge ─────────────────────────────
+    $badgeLabels = [
+        'invoice'  => '&#9993; Invoice',
+        'estimate' => '&#9993; Estimate',
+        'receipt'  => '&#10003; Receipt',
+        'reminder' => '&#128276; Reminder',
+        'overdue'  => '&#9888; Overdue',
+        'followup' => '&#128222; Follow-up',
+        'test'     => '&#9881; Test',
+    ];
+    $badgeText = $badgeLabels[$type] ?? '&#9993; Email';
     // Using solid hex for inner elements — Gmail strips rgba()
     // Semi-transparent white overlay approximated as solid lighter shade of hdrBg
     $logoBox  = 'background:#ffffff;opacity:0.15'; // fallback — overridden per-type below
@@ -613,18 +678,29 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
           <td bgcolor="' . $hdrBg . '" style="background:' . $hdrBg . ';padding:16px 20px;vertical-align:middle;text-align:right;white-space:nowrap">
             <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;margin-left:auto">
               <tr>
-                <td bgcolor="' . $logoBg . '" style="background:' . $logoBg . ';border-radius:12px;padding:4px 11px;font-size:10px;font-weight:700;color:#ffffff;font-family:Arial,sans-serif;white-space:nowrap">&#9993; Email</td>
+                <td bgcolor="' . $logoBg . '" style="background:' . $logoBg . ';border-radius:12px;padding:4px 11px;font-size:10px;font-weight:700;color:#ffffff;font-family:Arial,sans-serif;white-space:nowrap">' . $badgeText . '</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>';
 
+    $closingMessages = [
+        'invoice'  => 'Thank you for your business!',
+        'estimate' => 'We look forward to working with you!',
+        'receipt'  => 'We truly appreciate your prompt payment!',
+        'reminder' => 'Please settle at your earliest convenience.',
+        'overdue'  => 'Immediate payment is appreciated.',
+        'followup' => 'We hope to resolve this matter soon.',
+        'test'     => 'SMTP is working correctly.',
+    ];
+    $closingMsg = $closingMessages[$type] ?? 'Thank you for your business!';
+
     $emailCloser = '
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td bgcolor="' . $hdrBg . '" style="background:' . $hdrBg . ';padding:18px 24px;text-align:center">
-            <div style="font-size:13px;color:#c5cae9;line-height:1.8;font-family:Arial,sans-serif">We look forward to working with you!</div>
+            <div style="font-size:13px;color:#c5cae9;line-height:1.8;font-family:Arial,sans-serif">' . $closingMsg . '</div>
             <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:4px;font-family:Arial,sans-serif">Warm regards, ' . htmlspecialchars($company) . '</div>
             <div style="font-size:11px;color:#9fa8da;margin-top:5px;font-family:Arial,sans-serif">' . $contactCloser . '</div>
           </td>
@@ -650,6 +726,9 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
 
       <!-- Hero (invoice number + status) -->
       {$heroSection}
+
+      <!-- Urgency bar (overdue/reminder only) -->
+      {$urgencyBar}
 
       <!-- Body -->
       <div style="padding:24px 28px;color:#333;font-size:14px;line-height:1.85">
@@ -813,22 +892,7 @@ This is an estimate only and is subject to change upon your approval.",
             'body'    =>
 "Dear {client_name},
 
-Thank you! We have received your payment.
-
-  Invoice No  : #{invoice_no}
-  Amount Paid : {paid_amount}
-  Balance Due : {remaining_amount}
-  Service     : {service}
-
-You can view your updated invoice and download the receipt here:
-{invoice_link}
-
-We truly appreciate your prompt payment. Looking forward to serving you again!
-
-Warm regards,
-{company_name}
-{company_phone}",
-        ],
+Thank you! We have received your payment for Invoice #{invoice_no}.",
 
         // ── Payment Reminder ─────────────────────────────────────
         'reminder' => [
@@ -836,20 +900,7 @@ Warm regards,
             'body'    =>
 "Dear {client_name},
 
-This is a friendly reminder that Invoice #{invoice_no} for {amount} is due on {due_date}.
-
-If you have already made the payment, please ignore this message.
-
-To pay via UPI, use: {upi}
-
-Or view and pay your invoice online:
-{invoice_link}
-
-Please feel free to reach us at {company_phone} if you have any questions.
-
-Thank you,
-{company_name}",
-        ],
+This is a friendly reminder that Invoice #{invoice_no} is due on {due_date}. If you have already made the payment, please ignore this message.",
 
         // ── Overdue Notice ───────────────────────────────────────
         'overdue' => [
@@ -857,24 +908,7 @@ Thank you,
             'body'    =>
 "Dear {client_name},
 
-⚠️ Your invoice is now {days_overdue} day(s) overdue.
-
-  Invoice No : #{invoice_no}
-  Amount Due : {amount}
-  Due Date   : {due_date}
-
-Immediate payment is requested to avoid any disruption to services.
-
-Pay via UPI: {upi}
-
-View and pay online:
-{invoice_link}
-
-If you are facing difficulties, please contact us immediately at {company_phone}.
-
-Regards,
-{company_name}",
-        ],
+Your Invoice #{invoice_no} is now {days_overdue} day(s) overdue. Immediate payment is requested to avoid any disruption to services.",
 
         // ── Follow-up ────────────────────────────────────────────
         'followup' => [
@@ -882,22 +916,14 @@ Regards,
             'body'    =>
 "Dear {client_name},
 
-We are following up on Invoice #{invoice_no} for {amount}, which remains outstanding for {days_overdue} day(s).
-
-We kindly request you to settle the amount at your earliest convenience.
-
-Pay via UPI: {upi}
-
-View your invoice here:
-{invoice_link}
-
-If you have any concerns or wish to discuss a payment arrangement, please call us at {company_phone}.
-
-Thank you for your attention to this matter.
-{company_name}",
+We are following up on Invoice #{invoice_no} which remains outstanding for {days_overdue} day(s).
+ We kindly request you to settle the amount at your earliest convenience. 
+ If you have any concerns or wish to discuss a payment arrangement, please do not hesitate to contact us.",
+        ],
+        ],
+        ],
         ],
     ];
 }
-
 // ================================================================
 ob_end_clean();
