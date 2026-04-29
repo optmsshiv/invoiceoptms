@@ -23,7 +23,6 @@ $settings = [];
 $invoiceId = 0;
 
 $firstViewed = null;
-$lastViewed  = null;
 $viewCount   = null;
 
 if (!$rawToken) {
@@ -74,11 +73,10 @@ if (!$rawToken) {
                      WHERE token = :t'
                 )->execute([':t' => $rawToken]);
                 // Re-fetch after update so counts are accurate
-                $fresh = $db->prepare('SELECT view_count, first_viewed, last_viewed FROM portal_tokens WHERE token = :t LIMIT 1');
+                $fresh = $db->prepare('SELECT view_count, first_viewed FROM portal_tokens WHERE token = :t LIMIT 1');
                 $fresh->execute([':t' => $rawToken]);
                 $freshRow    = $fresh->fetch(PDO::FETCH_ASSOC);
                 $firstViewed = $freshRow['first_viewed'] ?? null;
-                $lastViewed  = $freshRow['last_viewed']  ?? null;
                 $viewCount   = (int)($freshRow['view_count'] ?? 1);
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
@@ -727,12 +725,6 @@ body.src-email .view-badge{display:none}
       <i class="fas fa-eye"></i>
       <?= $viewCount ?> view<?= $viewCount != 1 ? 's' : '' ?>
       <?php if ($firstViewed): ?> · First seen <?= htmlspecialchars(fmt_rel($firstViewed)) ?><?php endif; ?>
-      <?php
-        // Show "Last seen" only when last_viewed is on a different day than first_viewed
-        $showLast = $lastViewed && $firstViewed &&
-                    date('Y-m-d', strtotime($lastViewed)) !== date('Y-m-d', strtotime($firstViewed));
-      ?>
-      <?php if ($showLast): ?> · Last seen <?= htmlspecialchars(fmt_rel($lastViewed)) ?><?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
