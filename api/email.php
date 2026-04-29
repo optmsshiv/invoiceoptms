@@ -114,7 +114,7 @@ function handlePreview($db, $input) {
     $vars = buildTemplateVars($db, $invId, $type);
 
     $subject = replacePlaceholders($tpl['subject'], $vars);
-    $html    = buildEmailHTML(replacePlaceholders($tpl['body'], $vars), $type);
+    $html    = buildEmailHTML(replacePlaceholders($tpl['body'], $vars), $type, $vars);
 
     jsonResponse(['success'=>true,'subject'=>$subject,'html'=>$html]);
 }
@@ -190,7 +190,7 @@ function handleTest($db, $input) {
     $to      = $input['to'] ?? $smtp['user'];
     $subject = 'SMTP Test — OPTMS Tech Invoice Manager';
     $body    = "Test email from OPTMS Tech Invoice Manager.\n\nSMTP is working!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
-    $result  = sendSmtpEmail($smtp, $to, 'Test', $subject, buildEmailHTML($body, 'test'));
+    $result  = sendSmtpEmail($smtp, $to, 'Test', $subject, buildEmailHTML($body, 'test', []));
     if ($result['success']) {
         try { logEmailSent($db, 0, 'test', $to, $subject, 'sent'); } catch(\Exception $e){}
     }
@@ -278,13 +278,15 @@ function handleSend($db, $input) {
         $rawBody = replacePlaceholders($tpl['body'], $vars);
     }
 
-    // ── Always inject portal link if available and placeholder missing ──
-    if (!empty($vars['{invoice_link}']) && strpos($rawBody, '{invoice_link}') === false) {
-        $rawBody .= "\n\nView your invoice online: " . $vars['{invoice_link}'];
+    // ── Strip raw portal link from body — it's shown as a CTA button in the template ──
+    // Also prevents the double-link issue where auto-inject added a 2nd raw URL.
+    if (!empty($vars['{invoice_link}'])) {
+        $rawBody = str_replace($vars['{invoice_link}'], '', $rawBody);
+        $rawBody = trim(preg_replace('/View your invoice online:\s*/i', '', $rawBody));
     }
 
     $smtp   = getSmtpConfig($input, $db);
-    $html   = buildEmailHTML($rawBody, $type);
+    $html   = buildEmailHTML($rawBody, $type, $vars);   // pass $vars for structured template
     $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html);
 
     $status = $result['success'] ? 'sent' : 'failed';
@@ -465,251 +467,137 @@ function replacePlaceholders(string $tpl, array $vars): string {
 }
 
 // ── Styled HTML email wrapper (type-aware accent colour) ─────────
-function buildEmailHTML(string $body, string $type = 'invoice'): string {
-    $accents = [
-        'invoice'  => ['#1e2a5e', '#f59e0b', 'Invoice',         'Pending'],
-        'estimate' => ['#1976D2', '#60a5fa', 'Estimate',        'Pending'],
-        'receipt'  => ['#1e5e2a', '#34d399', 'Payment Receipt', 'Paid'],
-        'reminder' => ['#7c4700', '#f9a825', 'Payment Reminder','Due Soon'],
-        'overdue'  => ['#5e1e1e', '#ef4444', 'Invoice Overdue', 'Overdue'],
-        'followup' => ['#3b1e5e', '#a78bfa', 'Follow-up',       'Outstanding'],
-        'test'     => ['#1e2a5e', '#f59e0b', 'SMTP Test',       'Test'],
+function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []): string {
+
+    // Type config: [headerBg, accentColor, badgeEmoji, label]
+    $types = [
+        'invoice'  => ['#1A237E', '#3949AB', '📄', 'Invoice'],
+        'estimate' => ['#1565C0', '#1976D2', '📋', 'Estimate'],
+        'receipt'  => ['#1B5E20', '#388E3C', '✅', 'Payment Receipt'],
+        'reminder' => ['#E65100', '#F57C00', '🔔', 'Payment Reminder'],
+        'overdue'  => ['#B71C1C', '#E53935', '⚠️', 'Invoice Overdue'],
+        'followup' => ['#4A148C', '#7B1FA2', '📞', 'Follow-up'],
+        'test'     => ['#004D40', '#00897B', '🧪', 'SMTP Test'],
     ];
-    [$headerBg, $accentColor, $typeLabel, $defaultBadge] = $accents[$type] ?? $accents['invoice'];
+    [$hdrBg, $accent, $emoji, $typeLabel] = $types[$type] ?? $types['invoice'];
 
-    // ── Extract structured data from body text ────────────────────
-    // Patterns: "  Label      : value" or "Label: value"
-    $fields        = [];
-    $portalUrl     = '';
-    $greeting      = '';
-    $openingLine   = '';
-    $closingLines  = [];
-    $upiLine       = '';
+    // Pull structured vars if available
+    $company   = $vars['{company_name}']  ?? 'OPTMS Tech';
+    $clientName= $vars['{client_name}']   ?? '';
+    $invoiceNo = $vars['{invoice_no}']    ?? '';
+    $amount    = $vars['{amount}']        ?? '';
+    $dueDate   = $vars['{due_date}']      ?? '';
+    $issueDate = $vars['{issue_date}']    ?? '';
+    $service   = $vars['{service}']       ?? '';
+    $status    = $vars['{status}']        ?? '';
+    $remaining = $vars['{remaining_amount}'] ?? '';
+    $portalLink= $vars['{invoice_link}']  ?? '';
+    $compPhone = $vars['{company_phone}'] ?? '';
+    $compEmail = $vars['{company_email}'] ?? '';
 
-    $lines = explode("\n", $body);
-
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '') continue;
-
-        // Portal URL detection
-        if (preg_match('/https?:\/\/\S+/i', $trimmed, $m)) {
-            $portalUrl = $m[0];
-            continue;
-        }
-
-        // UPI line
-        if (stripos($trimmed, 'upi') !== false && strpos($trimmed, ':') !== false) {
-            $parts = explode(':', $trimmed, 2);
-            $upiLine = trim($parts[1] ?? '');
-            continue;
-        }
-
-        // Structured field: "  Invoice No : #123" or "Amount Due: ₹12,500"
-        $matched = false;
-        if (preg_match('/^\s*([\w\s#]+?)\s*:\s*(.+)$/', $trimmed, $m)) {
-            $label = trim($m[1]);
-            $value = trim($m[2]);
-            $knownLabels = ['Invoice No','Estimate No','Service','Amount Due','Amount Paid','Balance Due',
-                            'Issue Date','Due Date','Valid Until','Total','Status','Days Overdue',
-                            'Settlement Discount','Payment Method'];
-            foreach ($knownLabels as $kl) {
-                if (stripos($label, $kl) !== false) {
-                    $fields[$kl] = $value;
-                    $matched = true;
-                    break;
-                }
-            }
-        }
-        if ($matched) continue;
-
-        // Greeting line
-        if (!$greeting && preg_match('/^Dear\s/i', $trimmed)) {
-            $greeting = $trimmed;
-            continue;
-        }
-
-        // Opening line (first non-greeting, non-field sentence before fields appear)
-        if (!$openingLine && empty($fields) && !preg_match('/^Dear\s/i', $trimmed)) {
-            $openingLine = $trimmed;
-            continue;
-        }
-
-        // Closing lines (after fields section)
-        if (!empty($fields)) {
-            $closingLines[] = $trimmed;
-        }
-    }
-
-    // ── Determine invoice number / status for hero section ───────
-    $invoiceNo  = $fields['Invoice No'] ?? $fields['Estimate No'] ?? '';
-    $amountDue  = $fields['Amount Due'] ?? $fields['Total'] ?? $fields['Amount Paid'] ?? '';
-    $dueDate    = $fields['Due Date'] ?? $fields['Valid Until'] ?? '';
-
-    // Badge colour based on type
-    $badgeColors = [
-        'invoice'  => ['#fff7ed','#f59e0b','#92400e'],
-        'estimate' => ['#eff6ff','#3b82f6','#1e40af'],
-        'receipt'  => ['#f0fdf4','#22c55e','#166534'],
-        'reminder' => ['#fffbeb','#f59e0b','#92400e'],
-        'overdue'  => ['#fef2f2','#ef4444','#991b1b'],
-        'followup' => ['#faf5ff','#a855f7','#581c87'],
-        'test'     => ['#f0f9ff','#0ea5e9','#0c4a6e'],
+    // Status badge colours
+    $statusColours = [
+        'Paid'      => ['#E8F5E9','#1B5E20'],
+        'Partial'   => ['#FFF3E0','#E65100'],
+        'Overdue'   => ['#FFEBEE','#B71C1C'],
+        'Cancelled' => ['#F5F5F5','#616161'],
     ];
-    [$badgeBg, $badgeBorder, $badgeText] = $badgeColors[$type] ?? $badgeColors['invoice'];
+    [$sBg, $sCol] = $statusColours[$status] ?? ['#FFF8E1','#E65100'];
 
-    // ── Build table rows HTML ─────────────────────────────────────
-    $tableRows = '';
-    $rowData = [];
-    $labelOrder = ['Service','Issue Date','Due Date','Valid Until','Amount Due','Total',
-                   'Amount Paid','Balance Due','Settlement Discount','Payment Method','Status'];
-    foreach ($labelOrder as $lbl) {
-        if (isset($fields[$lbl])) {
-            $rowData[$lbl] = $fields[$lbl];
-        }
+    // Build the plain-text message body (strip portal link raw URLs — shown as button)
+    $cleanBody = $body;
+    if ($portalLink) {
+        $cleanBody = str_replace($portalLink, '', $cleanBody);
     }
-    // Also include any extra fields not in the order list
-    foreach ($fields as $lbl => $val) {
-        if (!isset($rowData[$lbl])) $rowData[$lbl] = $val;
-    }
+    $cleanBody = trim(preg_replace('/\n{3,}/', "\n\n", $cleanBody));
+    $cleanBody = nl2br(htmlspecialchars($cleanBody, ENT_QUOTES, 'UTF-8'));
 
-    $isLast = count($rowData);
-    $i = 0;
-    foreach ($rowData as $lbl => $val) {
-        $i++;
-        $isAmountRow = in_array($lbl, ['Amount Due','Total','Balance Due']);
-        $valStyle    = $isAmountRow
-            ? "font-size:15px;font-weight:700;color:{$accentColor}"
-            : 'font-size:14px;color:#374151';
-        $borderBottom = ($i < $isLast) ? '1px solid #f3f4f6' : 'none';
-        $tableRows .= <<<ROW
-        <tr>
-          <td style="padding:11px 0;font-size:13px;color:#6b7280;border-bottom:{$borderBottom};width:50%">{$lbl}</td>
-          <td style="padding:11px 0;{$valStyle};border-bottom:{$borderBottom};text-align:right">{$val}</td>
-        </tr>
-ROW;
-    }
+    // Summary rows
+    $summaryRows = '';
+    if ($invoiceNo) $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Invoice No</td><td style='padding:6px 0;text-align:right;font-size:13px;font-weight:600;color:#1A237E;border-bottom:1px solid #eee'>{$invoiceNo}</td></tr>";
+    if ($service)   $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Service</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>" . htmlspecialchars($service) . "</td></tr>";
+    if ($issueDate) $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Issue Date</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>{$issueDate}</td></tr>";
+    if ($dueDate)   $summaryRows .= "<tr><td style='padding:6px 0;color:#666;font-size:13px;border-bottom:1px solid #eee'>Due Date</td><td style='padding:6px 0;text-align:right;font-size:13px;border-bottom:1px solid #eee'>{$dueDate}</td></tr>";
+    if ($amount)    $summaryRows .= "<tr><td style='padding:8px 0 0;color:#333;font-size:14px;font-weight:700'>Amount Due</td><td style='padding:8px 0 0;text-align:right;font-size:15px;font-weight:700;color:{$accent}'>{$amount}</td></tr>";
 
-    // ── Closing text (contact info etc.) ─────────────────────────
-    $closingHtml = '';
-    foreach ($closingLines as $cl) {
-        $safe = htmlspecialchars($cl, ENT_QUOTES, 'UTF-8');
-        // linkify emails and phones
-        $safe = preg_replace('/[\w.\-]+@[\w.\-]+\.\w+/', '<a href="mailto:$0" style="color:'.$accentColor.';text-decoration:none">$0</a>', $safe);
-        $safe = preg_replace('/\+?\d[\d\s\-]{8,}/', '<a href="tel:$0" style="color:'.$accentColor.';text-decoration:none">$0</a>', $safe);
-        $closingHtml .= "<p style='margin:4px 0;font-size:13px;color:#6b7280'>{$safe}</p>";
-    }
-
-    // ── UPI block ─────────────────────────────────────────────────
-    $upiHtml = '';
-    if ($upiLine) {
-        $upiHtml = <<<UPI
-    <div style="background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:12px 16px;margin:20px 0;text-align:center">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8">Pay via UPI</p>
-      <p style="margin:0;font-size:15px;font-weight:700;color:#1e293b;letter-spacing:.03em">{$upiLine}</p>
+    // CTA button (only if portal link exists)
+    $ctaBtn = $portalLink ? "
+    <div style='text-align:center;margin:24px 0 8px'>
+      <a href='{$portalLink}' style='display:inline-block;background:{$hdrBg};color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;font-family:Arial,sans-serif;letter-spacing:.3px'>{$emoji} View &amp; Download {$typeLabel}</a>
     </div>
-UPI;
+    <p style='text-align:center;font-size:11px;color:#aaa;margin:0 0 8px'>Button not working? <a href='{$portalLink}' style='color:{$accent}'>Click here</a></p>
+    " : '';
+
+    // Contact footer line
+    $contactLine = '';
+    if ($compPhone || $compEmail) {
+        $parts = [];
+        if ($compPhone) $parts[] = $compPhone;
+        if ($compEmail) $parts[] = "<a href='mailto:{$compEmail}' style='color:{$accent}'>{$compEmail}</a>";
+        $contactLine = "<p style='font-size:12px;color:#777;margin:12px 0 0'>Questions? Contact us: " . implode(' &middot; ', $parts) . "</p>";
     }
 
-    // ── CTA Button ───────────────────────────────────────────────
-    $ctaHtml = '';
-    if ($portalUrl) {
-        $safeUrl = htmlspecialchars($portalUrl, ENT_QUOTES, 'UTF-8');
-        $ctaHtml = <<<CTA
-    <div style="text-align:center;margin:28px 0 8px">
-      <a href="{$safeUrl}"
-         style="display:inline-block;background:{$headerBg};color:#fff;text-decoration:none;
-                font-size:15px;font-weight:600;padding:14px 36px;border-radius:8px;
-                letter-spacing:.02em">
-        View &amp; Download Invoice &rarr;
-      </a>
-      <p style="margin:10px 0 0;font-size:11px;color:#94a3b8">Single clean button — no raw URL shown</p>
-    </div>
-CTA;
+    // Hero section (only when we have invoice data)
+    $heroSection = '';
+    if ($invoiceNo || $amount) {
+        $statusBadge = $status ? "<span style='display:inline-block;background:{$sBg};color:{$sCol};border-radius:12px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:8px'>{$status}</span>" : '';
+        $heroSection = "
+    <div style='background:linear-gradient(135deg,#E8EAF6,#EDE7F6);padding:18px 32px;text-align:center;border-bottom:1px solid #e0e0e0'>
+      <div style='font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#5C6BC0;margin-bottom:4px'>{$typeLabel}</div>
+      <div style='font-size:20px;font-weight:700;color:#1A237E;font-family:Courier New,monospace'>{$invoiceNo}</div>
+      {$statusBadge}
+    </div>";
     }
 
-    // ── Safe greeting / opening ───────────────────────────────────
-    $safeGreeting = htmlspecialchars($greeting ?: '', ENT_QUOTES, 'UTF-8');
-    $safeOpening  = htmlspecialchars($openingLine ?: 'Please find your invoice below.', ENT_QUOTES, 'UTF-8');
+    // Summary card (only when rows exist)
+    $summaryCard = $summaryRows ? "
+    <div style='background:#F8F9FF;border-radius:8px;padding:14px 16px;margin:16px 0;border:1px solid #E0E4FF'>
+      <table style='width:100%;border-collapse:collapse'>{$summaryRows}</table>
+    </div>" : '';
 
-    // ── Invoice number hero ───────────────────────────────────────
-    $dueDateSuffix = $dueDate ? ' &middot; Due ' . $dueDate : '';
-    $heroHtml = '';
-    if ($invoiceNo) {
-        $heroHtml = <<<HERO
-    <div style="text-align:center;padding:24px 0 0">
-      <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:{$accentColor}">
-        {$typeLabel}
-      </p>
-      <p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#111827">#{$invoiceNo}</p>
-      <span style="display:inline-block;background:{$badgeBg};border:1px solid {$badgeBorder};
-                   color:{$badgeText};font-size:12px;font-weight:600;padding:4px 14px;border-radius:20px">
-        ⏳ {$defaultBadge}{$dueDateSuffix}
-      </span>
-    </div>
-HERO;
-    }
-
-    // ── Pre-compute heredoc vars ─────────────────────────────────
-    $cardHtml = $tableRows ? '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:6px 20px 2px;margin:0 0 4px"><table style="width:100%;border-collapse:collapse">' . $tableRows . '</table></div>' : '';
-    $closingBlock = $closingHtml ? '<div style="margin-top:20px">' . $closingHtml . '</div>' : '';
+    $compInitials = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $company), 0, 2));
 
     return <<<HTML
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OPTMS Tech Invoice</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{$typeLabel} from {$company}</title>
 </head>
-<body style="margin:0;padding:0;background:#eef2f7;font-family:'Segoe UI',Arial,sans-serif">
-  <div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)">
+<body style="font-family:Arial,sans-serif;background:#f0f2f5;padding:20px;margin:0">
+  <div style="max-width:600px;margin:0 auto">
 
-    <!-- ── Header ── -->
-    <div style="background:{$headerBg};padding:20px 28px;display:flex;align-items:center">
-      <div style="width:40px;height:40px;background:rgba(255,255,255,.18);border-radius:10px;
-                  display:inline-flex;align-items:center;justify-content:center;
-                  font-size:16px;font-weight:800;color:#fff;margin-right:12px;
-                  vertical-align:middle">OT</div>
-      <div style="display:inline-block;vertical-align:middle">
-        <p style="margin:0;font-size:15px;font-weight:700;color:#fff">OPTMS Tech</p>
-        <p style="margin:0;font-size:12px;color:rgba(255,255,255,.65)">Invoice Manager</p>
+    <!-- Card -->
+    <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08)">
+
+      <!-- Header -->
+      <div style="background:{$hdrBg};padding:18px 28px;display:flex;align-items:center;gap:14px">
+        <div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;text-align:center;line-height:40px">{$compInitials}</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff">{$company}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">Invoice Manager</div>
+        </div>
+        <div style="margin-left:auto;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff">&#9993; Email</div>
       </div>
-      <div style="margin-left:auto">
-        <span style="background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:600;
-                     padding:4px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.25)">
-          ✉ Email
-        </span>
+
+      <!-- Hero (invoice number + status) -->
+      {$heroSection}
+
+      <!-- Body -->
+      <div style="padding:24px 28px;color:#333;font-size:14px;line-height:1.85">
+        {$cleanBody}
+        {$summaryCard}
+        {$ctaBtn}
+        {$contactLine}
       </div>
-    </div>
-
-    <!-- ── Body ── -->
-    <div style="padding:28px 32px">
-
-      {$heroHtml}
-
-      <!-- Greeting -->
-      <p style="margin:20px 0 4px;font-size:15px;color:#111827;font-weight:500">{$safeGreeting}</p>
-      <p style="margin:0 0 20px;font-size:14px;color:#6b7280">{$safeOpening}</p>
-
-      <!-- Invoice details card -->
-      {$cardHtml}
-
-      {$upiHtml}
-      {$ctaHtml}
-
-      <!-- Closing lines -->
-      {$closingBlock}
 
     </div>
 
-    <!-- ── Footer ── -->
-    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:14px 32px;text-align:center">
-      <p style="margin:0;font-size:11px;color:#9ca3af">
-        Sent via <strong style="color:#374151">OPTMS Tech Invoice Manager</strong>
-        &middot;
-        <a href="https://optmstech.in" style="color:{$accentColor};text-decoration:none">optmstech.in</a>
-      </p>
+    <!-- Footer -->
+    <div style="text-align:center;padding:14px;font-size:11px;color:#aaa">
+      Sent via <a href="https://optms.co.in" style="color:#777">OPTMS Tech Invoice Manager</a>
+      &middot; <a href="https://optms.co.in" style="color:#777">optms.co.in</a>
     </div>
 
   </div>
