@@ -24,7 +24,6 @@ $invoiceId = 0;
 
 $firstViewed = null;
 $lastViewed  = null;
-$viewSrc     = null;
 $viewCount   = null;
 
 if (!$rawToken) {
@@ -41,31 +40,19 @@ if (!$rawToken) {
         try {
             $db = getDB();
 
-            // Auto-create table with all columns (no manual ALTER needed on fresh installs)
+            // Auto-create table if needed
             $db->exec("CREATE TABLE IF NOT EXISTS `portal_tokens` (
-                `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                `invoice_id`   INT UNSIGNED NOT NULL,
-                `token`        VARCHAR(64)  NOT NULL,
-                `views`        INT UNSIGNED NOT NULL DEFAULT 0,
-                `view_count`   INT UNSIGNED NOT NULL DEFAULT 0,
-                `first_viewed` DATETIME     NULL,
-                `last_viewed`  DATETIME     NULL,
-                `src`          VARCHAR(16)  NULL COMMENT 'wa or email',
-                `expires_at`   DATETIME     NULL,
-                `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `invoice_id`  INT UNSIGNED NOT NULL,
+                `token`       VARCHAR(64)  NOT NULL,
+                `views`       INT UNSIGNED NOT NULL DEFAULT 0,
+                `last_viewed` DATETIME     NULL,
+                `expires_at`  DATETIME     NULL,
+                `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (`id`),
                 UNIQUE KEY `uk_portal_invoice` (`invoice_id`),
                 UNIQUE KEY `uk_portal_token`   (`token`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-            // Migrate existing tables missing new columns — silently skips if already present
-            foreach ([
-                'view_count'   => 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `views`',
-                'first_viewed' => 'DATETIME NULL AFTER `view_count`',
-                'src'          => "VARCHAR(16) NULL COMMENT 'wa or email' AFTER `last_viewed`",
-            ] as $col => $def) {
-                try { $db->exec("ALTER TABLE portal_tokens ADD COLUMN `$col` $def"); }
-                catch (Exception $e) { /* already exists */ }
-            }
 
             $stmt = $db->prepare(
                 'SELECT invoice_id, first_viewed, view_count, views FROM portal_tokens
@@ -77,23 +64,21 @@ if (!$rawToken) {
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row) {
                 $invoiceId = (int)$row['invoice_id'];
-                // UPDATE first — set first_viewed + src only on very first open
+                // UPDATE first, then re-read — so displayed count is always the true DB value
                 $db->prepare(
                     'UPDATE portal_tokens
                      SET views        = views + 1,
                          view_count   = view_count + 1,
                          last_viewed  = NOW(),
-                         first_viewed = COALESCE(first_viewed, NOW()),
-                         src          = COALESCE(src, :src)
+                         first_viewed = COALESCE(first_viewed, NOW())
                      WHERE token = :t'
-                )->execute([':src' => ($isEmailPortal ? 'email' : 'wa'), ':t' => $rawToken]);
-                // Re-fetch after update so all displayed values are accurate
-                $fresh = $db->prepare('SELECT view_count, first_viewed, last_viewed, src FROM portal_tokens WHERE token = :t LIMIT 1');
+                )->execute([':t' => $rawToken]);
+                // Re-fetch after update so counts are accurate
+                $fresh = $db->prepare('SELECT view_count, first_viewed, last_viewed FROM portal_tokens WHERE token = :t LIMIT 1');
                 $fresh->execute([':t' => $rawToken]);
                 $freshRow    = $fresh->fetch(PDO::FETCH_ASSOC);
                 $firstViewed = $freshRow['first_viewed'] ?? null;
                 $lastViewed  = $freshRow['last_viewed']  ?? null;
-                $viewSrc     = $freshRow['src']          ?? null;
                 $viewCount   = (int)($freshRow['view_count'] ?? 1);
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
@@ -115,38 +100,9 @@ if (!$rawToken) {
             if ($invoiceId <= 0) {
                 $error = 'Invalid link. Invoice ID could not be determined.';
             }
-            // Format B: track views in portal_views (keyed by invoice_id)
-            if ($invoiceId > 0) {
-                try {
-                    $db2 = getDB();
-                    $db2->exec("CREATE TABLE IF NOT EXISTS `portal_views` (
-                        `invoice_id`   INT UNSIGNED NOT NULL,
-                        `view_count`   INT UNSIGNED NOT NULL DEFAULT 1,
-                        `first_viewed` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        `last_viewed`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        `src`          VARCHAR(16)  NULL,
-                        PRIMARY KEY (`invoice_id`)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                    $db2->prepare(
-                        "INSERT INTO portal_views (invoice_id, view_count, first_viewed, last_viewed, src)
-                         VALUES (:id, 1, NOW(), NOW(), :src)
-                         ON DUPLICATE KEY UPDATE
-                             view_count   = view_count + 1,
-                             last_viewed  = NOW(),
-                             src          = COALESCE(src, VALUES(src))"
-                    )->execute([':id' => $invoiceId, ':src' => ($isEmailPortal ? 'email' : 'wa')]);
-                    $fv = $db2->prepare('SELECT view_count, first_viewed, last_viewed, src FROM portal_views WHERE invoice_id = :id');
-                    $fv->execute([':id' => $invoiceId]);
-                    $fvRow       = $fv->fetch(PDO::FETCH_ASSOC);
-                    $firstViewed = $fvRow['first_viewed'] ?? null;
-                    $lastViewed  = $fvRow['last_viewed']  ?? null;
-                    $viewSrc     = $fvRow['src']          ?? null;
-                    $viewCount   = (int)($fvRow['view_count'] ?? 1);
-                } catch (Exception $e) {
-                    error_log('portal_views track error: ' . $e->getMessage());
-                    $firstViewed = null; $lastViewed = null; $viewSrc = null; $viewCount = null;
-                }
-            }
+            // Format B has no portal_tokens row — view tracking unavailable
+            $firstViewed = null;
+            $viewCount   = null;
         }
     }
 }
@@ -772,11 +728,11 @@ body.src-email .view-badge{display:none}
       <?= $viewCount ?> view<?= $viewCount != 1 ? 's' : '' ?>
       <?php if ($firstViewed): ?> · First seen <?= htmlspecialchars(fmt_rel($firstViewed)) ?><?php endif; ?>
       <?php
+        // Show "Last seen" only when last_viewed is on a different day than first_viewed
         $showLast = $lastViewed && $firstViewed &&
                     date('Y-m-d', strtotime($lastViewed)) !== date('Y-m-d', strtotime($firstViewed));
       ?>
       <?php if ($showLast): ?> · Last seen <?= htmlspecialchars(fmt_rel($lastViewed)) ?><?php endif; ?>
-      <?php if ($viewSrc === 'email'): ?> · <i class="fas fa-envelope" style="font-size:9px;opacity:.7"></i><?php elseif ($viewSrc === 'wa'): ?> · <i class="fab fa-whatsapp" style="font-size:9px;opacity:.7"></i><?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
@@ -852,10 +808,8 @@ $contactMsg  = urlencode('Hi ' . $companyName . ', I viewed Estimate ' . ($inv['
 // Option D: notify company when expired estimate viewed (once per session)
 (function() {
   var flagKey = 'notified_<?= preg_replace("/[^a-z0-9]/i", "", $inv["invoice_number"] ?? "x") ?>';
-  // Rate-limit: only fire once per 24h per invoice, not every new tab
-  var stored = localStorage.getItem(flagKey);
-  if (stored && (Date.now() - parseInt(stored, 10)) < 86400000) return;
-  localStorage.setItem(flagKey, String(Date.now()));
+  if (sessionStorage.getItem(flagKey)) return;
+  sessionStorage.setItem(flagKey, '1');
   setTimeout(function() {
     var msg = encodeURIComponent(
       '🔔 *Expired Estimate Viewed*\n\n' +
@@ -1365,23 +1319,12 @@ if ($items):
     </div>
     <?php endif; ?>
 
-  </div>
-</div>
-<?php endif; ?>
-
-<!-- #5 FIX: I've Paid — shown whenever there's a balance + phone, regardless of UPI -->
-<?php
-  $waNum = preg_replace('/\D/', '', $companyPhone);
-  if (strlen($waNum) === 10) $waNum = '91' . $waNum;
-  $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining > 0 ? $remaining : $totalAmt, $sym) . '*. Please confirm receipt. Thank you!');
-?>
-<?php if ($remaining > 0.01 && $companyPhone && !$isEstimate): ?>
-<div class="card" style="border-color:#C8E6C9">
-  <div class="card-body" style="padding:14px 18px">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      <i class="fas fa-info-circle" style="color:var(--teal)"></i>
-      Already paid via bank transfer, cash, or cheque? Let us know instantly.
-    </div>
+    <!-- Feature 3: I've Paid button -->
+    <?php
+      $waNum = preg_replace('/\D/', '', $companyPhone);
+      if (strlen($waNum) === 10) $waNum = '91' . $waNum;
+      $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining > 0 ? $remaining : $totalAmt, $sym) . '*. Please confirm receipt. Thank you!');
+    ?>
     <a href="https://wa.me/<?= $waNum ?>?text=<?= $ivePaidMsg ?>" class="ive-paid-btn" target="_blank">
       <i class="fab fa-whatsapp" style="font-size:16px"></i> I've Paid — Notify <?= htmlspecialchars($companyName) ?>
     </a>
@@ -1436,7 +1379,7 @@ if ($items):
     <?php endif; ?>
   </div>
 </div>
-<?php if (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
+<?php elseif (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-sticky-note"></i> <span data-t="Notes &amp; Terms">Notes &amp; Terms</span></div>
   <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
@@ -1478,31 +1421,6 @@ if ($items):
     <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi, I have a query regarding '.($isEstimate?'Estimate':'Invoice').' '.$inv['invoice_number']) ?>" class="wa-contact-btn" target="_blank">
       <i class="fab fa-whatsapp" style="font-size:16px"></i> <span data-t="Chat with us on WhatsApp">Chat with us on WhatsApp</span>
       <?php if (($inv['status'] ?? '') === 'Overdue'): ?><span class="wa-dot"></span><?php endif; ?>
-    </a>
-    <?php endif; ?>
-    <?php if ($remaining > 0.01 && !$isEstimate && $companyPhone): ?>
-    <?php
-      $selfRemindMsg = urlencode(
-        '🔔 *Payment Reminder*' . "
-
-" .
-        'Client: *' . ($client['name'] ?? 'Client') . '*' . "
-" .
-        'Invoice: *' . ($inv['invoice_number'] ?? '') . '*' . "
-" .
-        'Balance Due: *' . fmt_inr($remaining, $sym) . '*' . "
-" .
-        'Due Date: ' . fmt_date($inv['due_date'] ?? '') . "
-
-" .
-        'Please follow up on this payment.'
-      );
-      $selfWaNum = preg_replace('/\D/', '', $companyPhone);
-      if (strlen($selfWaNum) === 10) $selfWaNum = '91' . $selfWaNum;
-    ?>
-    <a href="https://wa.me/<?= $selfWaNum ?>?text=<?= $selfRemindMsg ?>" target="_blank"
-       style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;background:#FFF8E1;color:#E65100;border:2px solid #FFCC02;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;margin-top:8px">
-      <i class="fas fa-bell"></i> Send Myself a Reminder
     </a>
     <?php endif; ?>
     <button class="pdf-btn" onclick="window.print()">
@@ -1586,58 +1504,15 @@ document.querySelectorAll('.btn-approve,.btn-reject').forEach(btn => {
 });
 <?php endif; ?>
 
-// ── Feature 5: Partial payment UPI link — with desktop fallback ──────────
+// ── Feature 5: Partial payment UPI link ──────────────────────
 function payPartial() {
   const amt  = parseFloat(document.getElementById('partialAmt')?.value || 0);
   const upi  = <?= json_encode($companyUPI) ?>;
   const name = <?= json_encode($companyName) ?>;
-  const invNum = <?= json_encode($inv['invoice_number'] ?? '') ?>;
-  if (!amt || amt <= 0) {
-    document.getElementById('partialAmt').style.borderColor = '#C62828';
-    setTimeout(() => { document.getElementById('partialAmt').style.borderColor = ''; }, 1500);
-    return;
-  }
+  if (!amt || amt <= 0) { alert('Please enter a valid amount'); return; }
   if (!upi) { alert('UPI ID not configured'); return; }
   const upiLink = 'upi://pay?pa=' + encodeURIComponent(upi) + '&pn=' + encodeURIComponent(name) + '&am=' + amt.toFixed(2) + '&cu=INR';
-
-  // Mobile: try deep link. Desktop: show QR + copy sheet
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.location.href = upiLink;
-    return;
-  }
-
-  // Desktop fallback: modal with QR code + copy button
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
-  const modal = document.createElement('div');
-  modal.style.cssText = 'background:var(--card);border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.25)';
-  modal.innerHTML = `
-    <div style="font-size:13px;font-weight:800;margin-bottom:4px">Scan to Pay</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">₹${amt.toFixed(2)} · ${invNum}</div>
-    <div id="partialQrWrap" style="display:inline-block;padding:10px;background:#fff;border-radius:12px;border:1px solid var(--border);margin-bottom:14px"></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Open any UPI app and scan</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="navigator.clipboard.writeText('${upi}').then(()=>{this.textContent='✓ Copied!';setTimeout(()=>{this.textContent='Copy UPI ID'},2000)})"
-        style="flex:1;padding:10px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">
-        Copy UPI ID
-      </button>
-      <button onclick="this.closest('[style*=fixed]').remove()"
-        style="flex:1;padding:10px;background:var(--bg);color:var(--text);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">
-        Close
-      </button>
-    </div>`;
-  overlay.appendChild(modal);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-  // Render QR inside modal
-  if (typeof QRCode !== 'undefined') {
-    new QRCode(document.getElementById('partialQrWrap'), {
-      text: upiLink, width: 160, height: 160,
-      colorDark: '#00695C', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  }
+  window.location.href = upiLink;
 }
 
 // ── Feature 8: Hindi / English toggle ────────────────────────
