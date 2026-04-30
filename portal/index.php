@@ -147,6 +147,24 @@ if (!$error && $invoiceId > 0) {
                 $sRows = $db->query("SELECT `key`, value FROM settings")->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($sRows as $r) $settings[$r['key']] = $r['value'];
             } catch (Exception $e) { /* settings table might differ */ }
+
+            // ── Other outstanding invoices for this client ─────────
+            $otherDues = [];
+            try {
+                $odStmt = $db->prepare("
+                    SELECT id, invoice_number, due_date, grand_total AS amount,
+                           status, service_type, issued_date
+                    FROM invoices
+                    WHERE client_id = :cid
+                      AND id != :iid
+                      AND status IN ('Pending','Overdue','Partial')
+                    ORDER BY
+                      CASE status WHEN 'Overdue' THEN 0 WHEN 'Partial' THEN 1 ELSE 2 END ASC,
+                      due_date ASC
+                ");
+                $odStmt->execute([':cid' => $inv['client_id'], ':iid' => $invoiceId]);
+                $otherDues = $odStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { /* non-fatal */ }
         }
     } catch (Exception $e) {
         error_log('portal/index.php error: ' . $e->getMessage());
@@ -506,7 +524,36 @@ tr:last-child td{border:none}
   .upi-box{background:var(--teal-bg)}
 }
 
-/* ── Feature 1: View tracking badge ── */
+/* ── Outstanding dues banner ── */
+.dues-banner{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1.5px solid #FFAB40;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:flex-start;gap:14px}
+.dues-banner-icon{width:40px;height:40px;background:#E65100;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;flex-shrink:0;margin-top:2px}
+.dues-banner-body{flex:1}
+.dues-banner-title{font-size:14px;font-weight:800;color:#BF360C;margin-bottom:3px}
+.dues-banner-sub{font-size:12px;color:#E65100;line-height:1.5}
+.dues-banner-total{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#E65100;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.dues-banner-total:hover{background:#BF360C}
+
+/* ── Other dues card ── */
+.dues-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dues-row:last-child{border:none}
+.dues-inv-num{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--teal);flex:1;min-width:0}
+.dues-service{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dues-due-date{font-size:11px;color:var(--muted);text-align:center;min-width:70px}
+.dues-age{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-top:2px}
+.dues-age.overdue{background:#FFEBEE;color:#C62828}
+.dues-age.pending{background:#FFF8E1;color:#F9A825}
+.dues-age.partial{background:#FFF3E0;color:#E65100}
+.dues-amount{font-family:var(--mono);font-weight:800;font-size:13px;text-align:right;min-width:80px}
+.dues-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+@media(prefers-color-scheme:dark){
+  .dues-banner{background:linear-gradient(135deg,#2A1F10,#321A08);border-color:#8D4E00}
+  .dues-banner-title{color:#FFAB40}
+  .dues-banner-sub{color:#FFB74D}
+}
+@media print{.dues-banner,.dues-card{display:none!important}}
+
+/* ── Outstanding dues banner ── */
 .view-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);margin-top:6px}
 .view-badge i{font-size:10px}
 .viewed-first{font-size:10px;color:var(--muted);text-align:center;margin-top:4px}
@@ -672,9 +719,18 @@ body.src-email .view-badge{display:none}
 <?php if (!$error && $inv): ?>
 <div class="sticky-bar" id="stickyBar">
   <span class="sticky-inv"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span>
-  <span class="sticky-status" style="background:<?= status_bg($inv['status'] ?? '') ?>;color:<?= status_col($inv['status'] ?? '') ?>">
-    <?= status_label($inv['status'] ?? '') ?>
-  </span>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="sticky-status" style="background:<?= status_bg($inv['status'] ?? '') ?>;color:<?= status_col($inv['status'] ?? '') ?>">
+      <?= status_label($inv['status'] ?? '') ?>
+    </span>
+    <?php if (!empty($otherDues)): ?>
+    <span onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})"
+          style="background:#FFF3E0;color:#E65100;border:1px solid #FFAB40;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+      <i class="fas fa-exclamation-circle" style="font-size:10px"></i>
+      <?= $dueCount ?> more due
+    </span>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if ($isEmailPortal): ?>
@@ -822,6 +878,39 @@ $contactMsg  = urlencode('Hi ' . $companyName . ', I viewed Estimate ' . ($inv['
   }, 2500);
 })();
 </script>
+<?php endif; ?>
+
+<?php
+// ── Outstanding dues summary ───────────────────────────────
+$hasDues        = !empty($otherDues);
+$dueCount       = count($otherDues ?? []);
+$dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
+$overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
+$today_ts       = strtotime('today');
+?>
+<?php if ($hasDues): ?>
+<div class="dues-banner" id="duesBanner">
+  <div class="dues-banner-icon">
+    <i class="fas fa-exclamation-circle"></i>
+  </div>
+  <div class="dues-banner-body">
+    <div class="dues-banner-title">
+      <?= $overdueCount > 0
+          ? '⚠️ You have ' . $overdueCount . ' overdue invoice' . ($overdueCount > 1 ? 's' : '') . ' + ' . ($dueCount - $overdueCount) . ' pending'
+          : '📋 You have ' . $dueCount . ' other pending invoice' . ($dueCount > 1 ? 's' : '') ?>
+    </div>
+    <div class="dues-banner-sub">
+      Total outstanding across all invoices:
+      <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
+      <?php if ($overdueCount > 0): ?>
+      — please clear overdue amounts at the earliest.
+      <?php endif; ?>
+    </div>
+    <button class="dues-banner-total" onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})">
+      <i class="fas fa-arrow-down"></i> View all <?= $dueCount ?> outstanding invoice<?= $dueCount > 1 ? 's' : '' ?>
+    </button>
+  </div>
+</div>
 <?php endif; ?>
 
 <?php
@@ -1401,6 +1490,70 @@ if ($items):
       <div style="font-size:12px;color:var(--muted);line-height:1.7"><?= nl2br(htmlspecialchars($inv['terms'])) ?></div>
     </div>
     <?php endif; ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($hasDues): ?>
+<!-- ── Other Outstanding Invoices ── -->
+<div class="card dues-card" id="otherDuesCard">
+  <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
+    <i class="fas fa-file-invoice" style="color:#E65100"></i>
+    <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
+    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?></span>
+  </div>
+  <div class="card-body" style="padding:0 18px">
+
+    <?php foreach ($otherDues as $od):
+      $odDays     = 0;
+      $odOverdue  = ($od['status'] === 'Overdue');
+      $odPending  = ($od['status'] === 'Pending');
+      $odPartial  = ($od['status'] === 'Partial');
+      if (!empty($od['due_date'])) {
+        $odDuets  = strtotime($od['due_date']);
+        $odDays   = (int)floor(($today_ts - $odDuets) / 86400);
+      }
+      $dotColor = $odOverdue ? '#C62828' : ($odPartial ? '#E65100' : '#F9A825');
+    ?>
+    <div class="dues-row">
+      <div class="dues-status-dot" style="background:<?= $dotColor ?>"></div>
+      <div style="flex:1;min-width:0">
+        <div class="dues-inv-num"><?= htmlspecialchars($od['invoice_number']) ?></div>
+        <div class="dues-service"><?= htmlspecialchars($od['service_type'] ?? '—') ?></div>
+      </div>
+      <div class="dues-due-date">
+        <div style="font-size:11px;color:var(--muted)">Due</div>
+        <div style="font-size:12px;font-weight:600;color:<?= $odOverdue ? 'var(--red)' : 'inherit' ?>"><?= fmt_date($od['due_date'] ?? '') ?></div>
+        <?php if ($odOverdue && $odDays > 0): ?>
+        <div class="dues-age overdue">+<?= $odDays ?>d overdue</div>
+        <?php elseif ($odPartial): ?>
+        <div class="dues-age partial">Partial</div>
+        <?php elseif ($odPending && $odDays > 0): ?>
+        <div class="dues-age pending">Due <?= $odDays ?>d ago</div>
+        <?php endif; ?>
+      </div>
+      <div class="dues-amount" style="color:<?= $odOverdue ? 'var(--red)' : 'var(--text)' ?>">
+        <?= fmt_inr($od['amount'], $sym) ?>
+      </div>
+    </div>
+    <?php endforeach; ?>
+
+    <?php if ($dueTotal > 0): ?>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
+      <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
+      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($companyPhone): ?>
+    <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $dueCount . ' other outstanding invoice' . ($dueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal, $sym) . '. Can you help me clear these?'); ?>
+    <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+      <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
+    </a>
+    <?php endif; ?>
+
   </div>
 </div>
 <?php endif; ?>

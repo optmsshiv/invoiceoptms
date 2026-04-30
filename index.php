@@ -781,10 +781,10 @@ select { cursor: pointer; }
 .cc-org { font-weight: 700; font-size: 15px; color: var(--text); }
 .cc-contact { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .cc-stats { display: flex; gap: 0; background: var(--bg); border-radius: 8px; overflow: hidden; }
-.cc-stat { flex: 1; padding: 10px; text-align: center; border-right: 1px solid var(--border); }
+.cc-stat { flex: 1; padding: 8px 6px; text-align: center; border-right: 1px solid var(--border); }
 .cc-stat:last-child { border: none; }
-.cc-stat-val { font-weight: 800; font-size: 16px; }
-.cc-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.cc-stat-val { font-weight: 800; font-size: 13px; }
+.cc-stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
 .cc-footer { margin-top: 12px; display: flex; gap: 8px; }
 .client-card.inactive-card {
   background: #FFF8E1 !important;
@@ -4490,6 +4490,8 @@ function filterByDate() {
 
 function filterByClient(val) {
   STATE._clientFilter = val;
+  const sel = document.getElementById('clientFilter');
+  if (sel) sel.value = val || '';
   _applyAllFilters();
 }
 
@@ -7415,6 +7417,17 @@ function renderClients() {
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
     const isInactive = parseInt(c.active) === 0 || c.status === 'inactive';
 
+    // Outstanding dues
+    const overdueInvs  = STATE.invoices.filter(i=>i.client===c.id && i.status==='Overdue');
+    const pendingInvs  = STATE.invoices.filter(i=>i.client===c.id && (i.status==='Pending'||i.status==='Partial'));
+    const outstandingAmt = [...overdueInvs, ...pendingInvs].reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const hasOverdue   = overdueInvs.length > 0;
+    const hasPending   = pendingInvs.length > 0;
+    const outColor     = hasOverdue ? 'var(--red)' : hasPending ? 'var(--amber)' : 'var(--muted)';
+    const outLabel     = hasOverdue ? `<span style="font-size:9px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;margin-left:3px">${overdueInvs.length} overdue</span>`
+                       : hasPending ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:var(--amber);border-radius:10px;padding:1px 5px;margin-left:3px;border:1px solid var(--amber)">${pendingInvs.length} pending</span>`
+                       : '';
+
     const cardStyle = isInactive
       ? `background:#FFF8E1;border:2px solid #F9A825;box-shadow:0 0 0 1px #F9A82555;opacity:.85;`
       : '';
@@ -7439,7 +7452,15 @@ function renderClients() {
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+        <div class="cc-stat" style="cursor:${outstandingAmt>0?'pointer':'default'}" onclick="${outstandingAmt>0?`filterByClient('${c.id}');showPage('invoices')`:''}">
+          <div class="cc-stat-val" style="color:${isInactive?'#9E9E9E':outstandingAmt>0?outColor:'var(--muted)'}">
+            ${outstandingAmt > 0 ? fmt_money(outstandingAmt) : '—'}
+          </div>
+          <div class="cc-stat-lbl" style="display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap">
+            Outstanding${outLabel}
+          </div>
+        </div>
       </div>
       <div class="cc-footer" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         ${!isInactive ? `<button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>` : ''}
