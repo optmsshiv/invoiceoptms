@@ -1302,12 +1302,23 @@ const SERVER = {
 
     <!-- ─────────── INVOICES LIST ─────────── -->
     <div id="page-invoices" class="page">
+      <!-- Bulk action bar (shown when rows are selected) -->
+      <div id="bulkBar" style="display:none;align-items:center;gap:10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:10px;padding:10px 16px;margin-bottom:12px">
+        <span id="bulkCount" style="font-size:13px;font-weight:700;color:var(--teal)">0 selected</span>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;color:#25D366;border-color:#25D366" onclick="bulkSendWA()"><i class="fab fa-whatsapp"></i> Send WhatsApp</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="bulkExportCSV()"><i class="fas fa-download"></i> Export Selected</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;color:var(--red);border-color:var(--red)" onclick="bulkDelete()"><i class="fas fa-trash"></i> Delete Selected</button>
+        <button onclick="clearBulkSelection()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px" title="Clear selection">×</button>
+      </div>
       <div class="page-toolbar">
         <div class="toolbar-left">
           <input type="text" class="table-search" placeholder="Search invoices…" oninput="filterInvoices(this.value)" id="invSearch">
           <select class="table-filter" onchange="filterByStatus(this.value)" id="statusFilter">
             <option value="">All Status</option>
             <option>Paid</option><option>Pending</option><option>Partial</option><option>Overdue</option><option>Draft</option><option>Estimate</option><option>Cancelled</option>
+          </select>
+          <select class="table-filter" onchange="filterByClient(this.value)" id="clientFilter">
+            <option value="">All Clients</option>
           </select>
           <select class="table-filter" onchange="filterByService(this.value)" id="serviceFilter">
             <option value="">All Services</option>
@@ -3682,6 +3693,9 @@ View Invoice: {{6}}</pre></details>
 
 <!-- Row context menu -->
 <div class="row-menu" id="rowMenu"></div>
+<div id="quickStatusMenu" style="display:none;position:fixed;z-index:9999;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:150px">
+  <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>
+</div>
 
 <!-- ══ MAIN APP JS (embedded) ══ -->
 <script>
@@ -4347,6 +4361,7 @@ function renderInvoicesTable() {
   // Always keep the sidebar invoice badge in sync
   const _badgeInv = document.getElementById('badge-invoices');
   if (_badgeInv) _badgeInv.textContent = STATE.invoices.length;
+  populateClientFilter();
   applyFiltersAndRender();
 }
 
@@ -4386,16 +4401,44 @@ function applyFiltersAndRender() {
       paidCell = `<span style="color:var(--muted2);font-size:12px">—</span>`;
     }
 
+    // ── Due date coloring + overdue age badge ──
+    const today       = new Date(); today.setHours(0,0,0,0);
+    const dueDate     = inv.due  ? new Date(inv.due)    : null;
+    const issuedDate  = inv.issued ? new Date(inv.issued) : null;
+    const isPaidOrCancelled = inv.status === 'Paid' || inv.status === 'Cancelled';
+    let dueCellStyle = '', overdueBadge = '';
+    if (dueDate && !isPaidOrCancelled) {
+      const diffDays = Math.round((dueDate - today) / 86400000);
+      if (diffDays < 0) {
+        dueCellStyle = 'color:var(--red);font-weight:700';
+        overdueBadge = `<span style="display:inline-block;margin-left:4px;font-size:9px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px">+${Math.abs(diffDays)}d</span>`;
+      } else if (diffDays <= 7) {
+        dueCellStyle = 'color:#F9A825;font-weight:700';
+      }
+    } else if (isPaidOrCancelled) {
+      dueCellStyle = 'color:var(--muted2)';
+    }
+    // ── Days since issued tooltip ──
+    const daysSinceIssued = issuedDate ? Math.round((today - issuedDate) / 86400000) : null;
+    const issuedTooltip   = daysSinceIssued !== null ? `title="Issued ${daysSinceIssued === 0 ? 'today' : daysSinceIssued + ' day' + (daysSinceIssued===1?'':'s') + ' ago'}"` : '';
+    // ── Payment progress bar (Partial only) ──
+    let progressBar = '';
+    if (inv.status === 'Partial' && totalPaid > 0 && inv.amount > 0) {
+      const pct = Math.min(100, Math.round(totalPaid / inv.amount * 100));
+      progressBar = `<div style="margin-top:4px;height:3px;background:var(--border);border-radius:4px;overflow:hidden;width:80px;margin-inline:auto">
+        <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px;transition:width .4s"></div>
+      </div>`;
+    }
     return `<tr data-id="${inv.id}">
-      <td><input type="checkbox" class="inv-check" value="${inv.id}"></td>
-      <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600">${inv.num}</code></td>
+      <td><input type="checkbox" class="inv-check" value="${inv.id}" onchange="updateBulkBar()"></td>
+      <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600;cursor:default" ${issuedTooltip}>${inv.num}</code></td>
       <td><div class="client-cell">${avatar}<div><div class="cc-name" style="${isClientInactive?'color:var(--muted)':''}">${c.name}${inactivePill}</div><div class="cc-sub">${c.person||''}</div></div></div></td>
       <td>${inv.service}</td>
       <td>${inv.issued}</td>
-      <td>${inv.due}</td>
+      <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
-      <td style="text-align:center">${paidCell}</td>
-      <td><span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span></td>
+      <td style="text-align:center">${paidCell}${progressBar}</td>
+      <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer" title="Click to change status" onclick="openQuickStatus(event,'${inv.id}')">${inv.status}</span></td>
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Preview" onclick="openPreviewModal('${inv.id}')"><i class="fas fa-eye"></i></button>
@@ -4430,47 +4473,178 @@ function gotoPage(p) {
 }
 
 function filterInvoices(val) {
-  const v = val.toLowerCase();
-  STATE.filteredInvoices = STATE.invoices.filter(inv => {
-    const c = STATE.clients.find(x=>x.id===inv.client);
-    return inv.num.toLowerCase().includes(v) ||
-      (c && c.name.toLowerCase().includes(v)) ||
-      inv.service.toLowerCase().includes(v) ||
-      inv.status.toLowerCase().includes(v);
-  });
-  const sf = document.getElementById('statusFilter');
-  const sv = sf ? sf.value : '';
-  if (sv) STATE.filteredInvoices = STATE.filteredInvoices.filter(i => i.status === sv);
-  STATE.currentPage = 1;
-  applyFiltersAndRender();
+  _applyAllFilters();
 }
 
 function filterByStatus(val) {
-  STATE.filteredInvoices = val
-    ? STATE.invoices.filter(i => i.status === val)
-    : [...STATE.invoices];
-  const sv = document.getElementById('invSearch')?.value;
-  if (sv) filterInvoices(sv); else { STATE.currentPage=1; applyFiltersAndRender(); }
+  _applyAllFilters();
 }
 
 function filterByService(val) {
-  STATE.filteredInvoices = val
-    ? STATE.invoices.filter(i => i.service === val)
-    : [...STATE.invoices];
+  _applyAllFilters();
+}
+
+function filterByDate() {
+  _applyAllFilters();
+}
+
+function filterByClient(val) {
+  STATE._clientFilter = val;
+  _applyAllFilters();
+}
+
+function _applyAllFilters() {
+  let list = [...STATE.invoices];
+  const sv  = document.getElementById('invSearch')?.value?.toLowerCase() || '';
+  const stv = document.getElementById('statusFilter')?.value || '';
+  const srv = document.getElementById('serviceFilter')?.value || '';
+  const clf = STATE._clientFilter || '';
+  const df  = document.getElementById('dateFrom')?.value || '';
+  const dt  = document.getElementById('dateTo')?.value || '';
+  if (sv)  list = list.filter(i => { const c = STATE.clients.find(x=>x.id===i.client); return i.num.toLowerCase().includes(sv)||(c&&c.name.toLowerCase().includes(sv))||i.service.toLowerCase().includes(sv)||i.status.toLowerCase().includes(sv); });
+  if (stv) list = list.filter(i => i.status === stv);
+  if (srv) list = list.filter(i => i.service === srv);
+  if (clf) list = list.filter(i => String(i.client) === String(clf));
+  if (df)  list = list.filter(i => i.issued >= df);
+  if (dt)  list = list.filter(i => i.issued <= dt);
+  STATE.filteredInvoices = list;
   STATE.currentPage = 1;
   applyFiltersAndRender();
 }
 
-function filterByDate() {
-  const from = document.getElementById('dateFrom')?.value;
-  const to   = document.getElementById('dateTo')?.value;
-  STATE.filteredInvoices = STATE.invoices.filter(i => {
-    if (from && i.issued < from) return false;
-    if (to && i.issued > to) return false;
-    return true;
+function populateClientFilter() {
+  const sel = document.getElementById('clientFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Clients</option>';
+  const sorted = [...STATE.clients].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  sorted.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name;
+    if (String(c.id) === String(cur)) o.selected = true;
+    sel.appendChild(o);
   });
-  STATE.currentPage = 1;
-  applyFiltersAndRender();
+}
+
+// ── Quick inline status change ────────────────────────────────
+const QS_STATUSES = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
+function openQuickStatus(e, id) {
+  e.stopPropagation();
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv) return;
+  const menu = document.getElementById('quickStatusMenu');
+  menu.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>`
+    + QS_STATUSES.map(s => {
+        const active = s === inv.status;
+        return `<div onclick="applyQuickStatus('${id}','${s}')" style="padding:7px 12px;border-radius:7px;cursor:${active?'default':'pointer'};font-size:12.5px;font-weight:${active?'700':'500'};background:${active?'var(--teal-bg)':'none'};color:${active?'var(--teal)':'var(--text)'};display:flex;align-items:center;gap:8px;opacity:${active?.6:1}">
+          <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>${active?'<i class="fas fa-check" style="margin-left:auto;font-size:10px;color:var(--teal)"></i>':''}
+        </div>`;
+      }).join('');
+  menu.style.display = 'block';
+  const r = e.target.getBoundingClientRect();
+  const mh = 280;
+  const top = (window.innerHeight - r.bottom < mh) ? Math.max(4, r.top - mh) : r.bottom + 4;
+  menu.style.top  = top + 'px';
+  menu.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
+  menu._invId = id;
+}
+
+function applyQuickStatus(id, status) {
+  document.getElementById('quickStatusMenu').style.display = 'none';
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv || inv.status === status) return;
+  changeInvoiceStatus(id, status);
+}
+
+document.addEventListener('click', e => {
+  const qs = document.getElementById('quickStatusMenu');
+  if (qs && !qs.contains(e.target) && !e.target.classList.contains('inv-status-badge')) qs.style.display = 'none';
+});
+
+// ── Bulk action bar ───────────────────────────────────────────
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.inv-check:checked');
+  const bar = document.getElementById('bulkBar');
+  const cnt = document.getElementById('bulkCount');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    cnt.textContent = checked.length + ' selected';
+  } else {
+    bar.style.display = 'none';
+  }
+  // sync selectAll checkbox
+  const all = document.querySelectorAll('.inv-check');
+  const selAll = document.getElementById('selectAll');
+  if (selAll) selAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+function clearBulkSelection() {
+  document.querySelectorAll('.inv-check').forEach(c => c.checked = false);
+  const selAll = document.getElementById('selectAll');
+  if (selAll) selAll.checked = false;
+  updateBulkBar();
+}
+
+function getCheckedInvoices() {
+  return [...document.querySelectorAll('.inv-check:checked')]
+    .map(c => STATE.invoices.find(i => String(i.id) === String(c.value)))
+    .filter(Boolean);
+}
+
+async function bulkSendWA() {
+  const invs = getCheckedInvoices().filter(i => i.status !== 'Draft' && i.status !== 'Cancelled');
+  if (!invs.length) { toast('⚠️ No eligible invoices selected (Draft/Cancelled excluded)', 'warning'); return; }
+  const result = await Swal.fire({
+    title: `Send WhatsApp to ${invs.length} client${invs.length>1?'s':''}?`,
+    html: `Messages will be sent for <b>${invs.length}</b> invoice${invs.length>1?'s':''} based on each invoice's status template.<br><br><span style="font-size:12px;color:var(--muted)">Draft & Cancelled invoices are excluded.</span>`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: 'Send All', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#25D366', customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  let sent = 0;
+  for (const inv of invs) {
+    try { await sendWAForInvoice(inv); sent++; } catch(e) { /* individual errors already toasted */ }
+    await new Promise(r => setTimeout(r, 600)); // small delay between sends
+  }
+  toast(`✅ Sent WhatsApp for ${sent} invoice${sent>1?'s':''}`, 'success');
+  clearBulkSelection();
+}
+
+function bulkExportCSV() {
+  const invs = getCheckedInvoices();
+  if (!invs.length) { toast('⚠️ No invoices selected', 'warning'); return; }
+  const rows = [['Invoice #','Client','Service','Issued','Due','Amount','Status']];
+  invs.forEach(inv => {
+    const c = STATE.clients.find(x=>x.id===inv.client)||{name:inv.client_name||'One-Time'};
+    rows.push([inv.num, c.name, inv.service, inv.issued, inv.due, inv.amount, inv.status]);
+  });
+  _downloadCSV(rows, 'invoices_selected.csv');
+  clearBulkSelection();
+}
+
+async function bulkDelete() {
+  const invs = getCheckedInvoices();
+  if (!invs.length) { toast('⚠️ No invoices selected', 'warning'); return; }
+  const result = await Swal.fire({
+    title: `Delete ${invs.length} invoice${invs.length>1?'s':''}?`,
+    html: `This will permanently delete <b>${invs.length}</b> invoice${invs.length>1?'s':''}. This cannot be undone.`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Delete All', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  for (const inv of invs) {
+    try {
+      await api('api/invoices.php?id=' + inv.id, 'DELETE');
+      STATE.invoices = STATE.invoices.filter(i => String(i.id) !== String(inv.id));
+    } catch(e) { toast('❌ Failed to delete ' + inv.num + ': ' + e.message, 'error'); }
+  }
+  STATE.filteredInvoices = [...STATE.invoices];
+  renderInvoicesTable();
+  toast(`🗑️ Deleted ${invs.length} invoice${invs.length>1?'s':''}`, 'info');
+  clearBulkSelection();
 }
 
 function sortTable(field) {
@@ -4492,6 +4666,7 @@ function sortTable(field) {
 
 function selectAllInv(cb) {
   document.querySelectorAll('.inv-check').forEach(c => c.checked = cb.checked);
+  updateBulkBar();
 }
 
 // ══════════════════════════════════════════
