@@ -4438,7 +4438,9 @@ function applyFiltersAndRender() {
       <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
       <td style="text-align:center">${paidCell}${progressBar}</td>
-      <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer" title="Click to change status" onclick="openQuickStatus(event,'${inv.id}')">${inv.status}</span></td>
+      <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer"
+        title="${inv.status === 'Cancelled' && inv.cancel_reason ? '🚫 Reason: ' + inv.cancel_reason : 'Click to change status'}"
+        onclick="openQuickStatus(event,'${inv.id}')">${inv.status}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}</td>
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Preview" onclick="openPreviewModal('${inv.id}')"><i class="fas fa-eye"></i></button>
@@ -4635,16 +4637,12 @@ async function applyQuickStatus(id, status) {
     return;
   }
 
-  // Guard: Cancellation needs confirmation
+  // Guard: Cancellation needs reason
   if (status === 'Cancelled') {
-    const res = await Swal.fire({
-      title: 'Cancel Invoice?',
-      html: `Invoice <b>${inv.num || inv.invoice_number}</b> will be marked <b>Cancelled</b>.<br>This is hard to undo.`,
-      icon: 'warning', showCancelButton: true,
-      confirmButtonText: 'Yes, Cancel It', cancelButtonText: 'Go Back',
-      confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
-    });
-    if (!res.isConfirmed) return;
+    const reason = await promptCancelReason(inv);
+    if (reason === null) return;
+    changeInvoiceStatus(id, 'Cancelled', reason);
+    return;
   }
 
   changeInvoiceStatus(id, status);
@@ -7325,29 +7323,67 @@ function confirmDelete() {
 // ══════════════════════════════════════════
 // STATUS CHANGE (Make Pending / Cancel)
 // ══════════════════════════════════════════
-async function changeInvoiceStatus(id, newStatus) {
+async function changeInvoiceStatus(id, newStatus, cancelReason = '') {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
   const label = newStatus === 'Pending' ? '📤 Made Pending' : newStatus === 'Cancelled' ? '🚫 Cancelled' : newStatus;
+  const payload = { status: newStatus };
+  if (newStatus === 'Cancelled' && cancelReason) payload.cancel_reason = cancelReason;
   try {
-    await api('api/invoices.php?id=' + parseInt(id), 'PATCH', { status: newStatus });
+    await api('api/invoices.php?id=' + parseInt(id), 'PATCH', payload);
     inv.status = newStatus;
+    if (newStatus === 'Cancelled' && cancelReason) inv.cancel_reason = cancelReason;
     // Re-apply existing filters instead of resetting to all invoices,
     // so the user's active search/filter is preserved after a status change.
     if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
     else STATE.filteredInvoices = [...STATE.invoices];
-    logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}`, inv.client_name||'', id);
+    logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}${cancelReason ? ' — ' + cancelReason : ''}`, inv.client_name||'', id);
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     toast(`${label}: ${inv.num||inv.invoice_number}`, 'success');
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
 }
 
+// ── Shared cancel reason prompt used by both quick-status and row-menu ──
+async function promptCancelReason(inv) {
+  const { value: reason, isConfirmed } = await Swal.fire({
+    title: `Cancel Invoice ${inv.num || inv.invoice_number}?`,
+    html: `
+      <div style="text-align:left;margin-bottom:8px;font-size:13px;color:var(--text2)">
+        This will mark the invoice as <b>Cancelled</b>.<br>
+        <span style="font-size:12px;color:var(--muted)">Reason is saved for your records.</span>
+      </div>
+      <textarea id="swal-cancel-reason" placeholder="Reason for cancellation (required)…"
+        style="width:100%;min-height:80px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;
+               font-family:var(--font);font-size:13px;resize:vertical;margin-top:4px;box-sizing:border-box"
+        oninput="document.getElementById('swal-cancel-reason').style.borderColor=this.value.trim()?'var(--border2)':'#E53935'"
+      ></textarea>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Cancel It',
+    cancelButtonText: 'Go Back',
+    confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' },
+    didOpen: () => document.getElementById('swal-cancel-reason').focus(),
+    preConfirm: () => {
+      const r = document.getElementById('swal-cancel-reason').value.trim();
+      if (!r) {
+        document.getElementById('swal-cancel-reason').style.borderColor = '#E53935';
+        Swal.showValidationMessage('Please enter a reason for cancellation');
+        return false;
+      }
+      return r;
+    }
+  });
+  if (!isConfirmed) return null;
+  return reason;
+}
+
 async function confirmCancelInvoice(id) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
-  const _cancelResult = await Swal.fire({ title: `Cancel Invoice ${inv.num||inv.invoice_number}?`, html: 'This will mark the invoice as <b>Cancelled</b> and add a CANCELLED watermark.<br>This action cannot be undone easily.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Cancel It', cancelButtonText: 'Go Back', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
-  if (!_cancelResult.isConfirmed) return;
-  changeInvoiceStatus(id, 'Cancelled');
+  const reason = await promptCancelReason(inv);
+  if (reason === null) return;
+  changeInvoiceStatus(id, 'Cancelled', reason);
 }
 function duplicateInvoice(id) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
@@ -9646,6 +9682,8 @@ function normalizeInvoice(inv) {
   if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
   // Unify tnc field aliases
   if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
+  // Preserve cancel reason
+  if (!inv.cancel_reason) inv.cancel_reason = inv.cancel_reason || '';
   // Fall back to default notes if empty
   if (!inv.notes) inv.notes = 'Thank you for choosing OPTMS Tech. Payment is due within 15 days of invoice date. Late payments may incur a 2% monthly interest charge.';
   // ── Auto-overdue: mark Pending invoices as Overdue if past due date ──

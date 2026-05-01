@@ -9,12 +9,6 @@ require_once __DIR__ . '/../includes/auth.php';
 function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 requireLogin();
 $db     = getDB();
-
-// ── Auto-migrate: add cancel_reason column if not yet present ──
-try {
-  $db->exec("ALTER TABLE invoices ADD COLUMN cancel_reason VARCHAR(500) NULL DEFAULT NULL AFTER status");
-} catch (Exception $e) { /* column already exists — safe to ignore */ }
-
 $method = $_SERVER['REQUEST_METHOD'];
 switch ($method) {
 // ── GET: list all or single ─────────────────────────
@@ -222,7 +216,7 @@ if (array_key_exists('status', $input)) {
         unset($input['status']);
     }
 }
-$allowed = ['notes','bank_details','terms','status','cancel_reason'];
+$allowed = ['notes','bank_details','terms','status'];
 $sets=[]; $vals=[];
 foreach($allowed as $f) {
 if (array_key_exists($f, $input)) { $sets[]='`'.$f.'`=?'; $vals[]=$input[$f]; }
