@@ -5524,16 +5524,19 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       </div>
       ${(()=>{
         const invId1 = d.invId ? String(d.invId) : '';
-        if (!invId1 || (d.status!=='Paid'&&d.status!=='Partial')) return '';
+        const showForStatus = d.status==='Paid' || d.status==='Partial' || d.status==='Cancelled';
+        if (!invId1 || !showForStatus) return '';
         const pmts1 = STATE.payments.filter(p=>p.invoice_id&&String(p.invoice_id)===invId1).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
         const totPaid1 = pmts1.reduce((s,p)=>s+parseFloat(p.amount||0),0);
         const totSettle1 = pmts1.reduce((s,p)=>s+parseFloat(p.settlement_discount||0),0);
         if (totPaid1 < 0.01) return '';
         const rem1 = Math.max(0,(d.grand||0)-totPaid1-totSettle1);
+        const isCancelled = d.status === 'Cancelled';
         return `<div style="padding:8px 22px;border-top:2px solid #eee">
+          ${isCancelled?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">⚠ Payment received before cancellation</div>`:''}
           ${totSettle1>0?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#E65100;font-weight:700">✂ Settlement Discount</span><span style="font-family:monospace;font-weight:700;color:#E65100">-${fmt_money(totSettle1,d.sym)}</span></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;${d.status==='Partial'?'border-bottom:1px solid #eee':''}"><span style="color:#388E3C;font-weight:700">${d.status==='Paid'?'✅ Paid in Full':'💚 Total Paid'}</span><span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totPaid1,d.sym)}</span></div>
-          ${rem1>0.01?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:#E65100;font-weight:700">⚠ Remaining Due</span><span style="font-family:monospace;font-weight:700;color:#E65100">${fmt_money(rem1,d.sym)}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;${(d.status==='Partial'||isCancelled)?'border-bottom:1px solid #eee':''}"><span style="color:#388E3C;font-weight:700">${d.status==='Paid'?'✅ Paid in Full':'💚 Total Paid'}</span><span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totPaid1,d.sym)}</span></div>
+          ${rem1>0.01?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:${isCancelled?'#B71C1C':'#E65100'};font-weight:700">${isCancelled?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span><span style="font-family:monospace;font-weight:700;color:${isCancelled?'#B71C1C':'#E65100'}">${fmt_money(rem1,d.sym)}</span></div>`:''}
         </div>`;
       })()}
     </div>
@@ -5559,7 +5562,8 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   const invId = d.invId ? String(d.invId) : '';
   const isPartialStatus = d.status === 'Partial';
   const isPaidStatus = d.status === 'Paid';
-  const showInstalmentsSection = isPartialStatus || isPaidStatus;
+  const isCancelledStatus = d.status === 'Cancelled';
+  const showInstalmentsSection = isPartialStatus || isPaidStatus || isCancelledStatus;
 
   let totalPaid = 0, paymentsForInv = [], remaining = 0;
   if (showInstalmentsSection && invId && invId !== '0' && invId !== '') {
@@ -5578,7 +5582,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   }
 
   const showPaidRow = showInstalmentsSection && totalPaid > 0.01;
-  const showRemRow  = isPartialStatus && remaining  > 0.01;
+  const showRemRow  = (isPartialStatus || isCancelledStatus) && remaining > 0.01;
 
   const discRow = d.disc > 0 || d.discAmt > 0 ? `
     <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
@@ -5621,6 +5625,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
 
   const paidRow = showPaidRow ? `
     <div style="margin-top:4px">
+      ${isCancelledStatus?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;padding:4px 0 2px">⚠ Payment received before cancellation</div>`:''}
       ${settleDiscRow}
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;${paymentsForInv.length>1?'border-bottom:2px solid #A5D6A7':'border-bottom:1px solid '+borderColor}">
         <span style="color:#388E3C;font-weight:700">${isPaidStatus?'✅':'💚'} ${isPaidStatus?'Paid in Full':'Total Paid'}${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
@@ -5631,9 +5636,10 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
 
   const remainRow = showRemRow ? `
     <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;padding:8px 10px;margin-top:6px;
-         background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
-      <span>⚠ Remaining Due</span>
+         background:${isCancelledStatus?'#FFEBEE':'#FFF8E1'};border-radius:7px;border:2px solid ${isCancelledStatus?'#FFCDD2':'#FFB300'};color:${isCancelledStatus?'#B71C1C':'#E65100'}">
+      <span>${isCancelledStatus?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span>
       <span style="font-family:monospace">${fmt_money(remaining,d.sym)}</span>
+    </div>` : '';
     </div>` : '';
 
   return `
