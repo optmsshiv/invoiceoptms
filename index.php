@@ -4556,7 +4556,19 @@ function openQuickStatus(e, id) {
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
 
-  const allowed  = QS_ALLOWED[inv.status] || [];
+  // Check if any payment is already recorded against this invoice
+  const hasExistingPayment = STATE.payments.some(
+    p => p.invoice_id && String(p.invoice_id) === String(inv.id)
+  );
+
+  let allowed = [...(QS_ALLOWED[inv.status] || [])];
+
+  // If payment already received (full or partial), lock 'Pending' so user
+  // cannot hide the fact that money was already collected.
+  if (hasExistingPayment) {
+    allowed = allowed.filter(s => s !== 'Pending');
+  }
+
   const allStatuses = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
 
   // If current status is Paid — show locked notice and bail
@@ -4581,7 +4593,9 @@ function openQuickStatus(e, id) {
     + allStatuses.map(s => {
         const active    = s === inv.status;
         const permitted = allowed.includes(s);
-        const hint      = QS_HINTS[s] || null;
+        const hint = hasExistingPayment && s === 'Pending'
+          ? 'Payment already recorded'
+          : (QS_HINTS[s] || null);
         const disabled  = !active && !permitted;
 
         if (disabled) {
