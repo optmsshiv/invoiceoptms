@@ -5301,6 +5301,8 @@ function tplWatermark(d) {
     wText = 'OVERDUE'; wColor = 'rgba(229,57,53,.12)';
   } else if (d.status === 'Draft') {
     wText = 'DRAFT'; wColor = 'rgba(0,0,0,.07)';
+  } else if (d.status === 'Estimate') {
+    wText = 'ESTIMATE'; wColor = 'rgba(57,73,171,.10)';
   } else {
     return '';
   }
@@ -5666,7 +5668,7 @@ function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
 }
 
 function statusColor(s) {
-  return { Paid:'#388E3C', Pending:'#F57F17', Overdue:'#C62828', Draft:'#757575', Partial:'#E65100', Cancelled:'#B71C1C' }[s] || '#757575';
+  return { Paid:'#388E3C', Pending:'#F57F17', Overdue:'#C62828', Draft:'#757575', Partial:'#E65100', Cancelled:'#B71C1C', Estimate:'#3949AB' }[s] || '#757575';
 }
 
 // ── Helper: resolve company settings (merge STATE if sc is sparse) ──
@@ -5704,7 +5706,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   const T = _MATTE_THEMES[tid] || _MATTE_THEMES[1];
 
   // Status pill colors
-  const pillMap = { Paid: T.pillpaid, Pending: T.pillpending, Overdue: T.pilloverdue, Draft: T.pilldraft, Partial: T.pillpending, Cancelled: '991B1B|FEE2E2' };
+  const pillMap = { Paid: T.pillpaid, Pending: T.pillpending, Overdue: T.pilloverdue, Draft: T.pilldraft, Partial: T.pillpending, Cancelled: '#fff|#991B1B', Estimate: '#fff|#3949AB' };
   const [ptxt, pbg] = (pillMap[d.status]||T.pilldraft).split('|');
 
   // Color band stripes at top — changes per invoice status
@@ -6474,7 +6476,7 @@ function printInvoiceById(inv) {
       // Parse pdf_options from DB (may be JSON string or already an object)
       let saved = inv.pdf_options || inv.popt || null;
       if (saved && typeof saved === 'string') { try { saved = JSON.parse(saved); } catch(e) { saved = null; } }
-      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:inv.status==='Paid'}, saved||{});
+      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:(inv.status==='Paid'||inv.status==='Cancelled')}, saved||{});
     })()
   };
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
@@ -7385,15 +7387,78 @@ async function confirmCancelInvoice(id) {
   if (reason === null) return;
   changeInvoiceStatus(id, 'Cancelled', reason);
 }
-function duplicateInvoice(id) {
-  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
+async function duplicateInvoice(id) {
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
-  const newNum = STATE.settings.prefix + (STATE.invoices.length + 1).toString().padStart(3,'0');
-  const dup = { ...inv, id:'i'+Date.now(), num:newNum, status:'Draft', issued:fmt_date(new Date()) };
-  STATE.invoices.push(dup);
-  STATE.filteredInvoices = [...STATE.invoices];
-  renderInvoicesTable();
-  toast(`📋 Duplicated as ${newNum}`, 'success');
+
+  const { isConfirmed } = await Swal.fire({
+    title: 'Duplicate Invoice?',
+    html: `A new <b>Draft</b> copy of <b>${inv.num || inv.invoice_number}</b> will be created.<br>
+           <span style="font-size:12px;color:var(--muted)">It will open immediately so you can adjust the due date and details.</span>`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Duplicate',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#00897B',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!isConfirmed) return;
+
+  // Build a clean copy — strip identity fields, reset status to Draft,
+  // clear cancel_reason, set today as issued date, clear due date
+  const today = fmt_date(new Date());
+  const payload = {
+    client_id:      inv.client      || inv.client_id      || null,
+    client_name:    inv.clientName  || inv.client_name    || '',
+    service_type:   inv.service     || inv.service_type   || '',
+    issued_date:    today,
+    due_date:       '',
+    status:         'Draft',
+    cancel_reason:  '',
+    currency:       inv.currency    || '₹',
+    subtotal:       inv.subtotal    || 0,
+    discount_pct:   inv.disc        || inv.discount_pct   || 0,
+    discount_type:  inv.discount_type || 'percent',
+    discount_amt:   inv.discount_amt  || 0,
+    gst_amount:     inv.gst_amount    || 0,
+    grand_total:    inv.amount      || inv.grand_total    || 0,
+    notes:          inv.notes       || '',
+    bank_details:   inv.bank        || inv.bank_details   || '',
+    terms:          inv.tnc         || inv.terms          || '',
+    company_logo:   inv.company_logo  || '',
+    client_logo:    inv.client_logo   || '',
+    signature:      inv.signature     || '',
+    qr_code:        inv.qr_code       || '',
+    template_id:    inv.template    || inv.template_id    || 1,
+    generated_by:   inv.generated_by  || 'OPTMS Tech Invoice Manager',
+    show_generated: inv.show_generated ?? 1,
+    pdf_options:    inv.pdf_options   || null,
+    items:          (inv.items || []).map(it => ({
+      desc: it.desc || it.description || '',
+      qty:  it.qty  || it.quantity    || 1,
+      rate: it.rate || 0,
+      gst:  it.gst  || it.gst_rate   || 0,
+    }))
+  };
+
+  try {
+    const res = await api('api/invoices.php', 'POST', payload);
+    if (!res.id) throw new Error('No ID returned');
+
+    // Fetch the newly created invoice from DB so we get the real number
+    const newInvRes = await api('api/invoices.php?id=' + res.id, 'GET');
+    const newInv = newInvRes.data;
+    if (newInv) {
+      STATE.invoices.unshift(newInv);
+      STATE.filteredInvoices = [...STATE.invoices];
+      renderInvoicesTable();
+      // Open it for editing immediately
+      editInvoice(String(newInv.id));
+      toast(`📋 Duplicated as ${res.invoice_number} — edit & save`, 'success');
+    }
+  } catch (e) {
+    toast('❌ Duplicate failed: ' + e.message, 'error');
+  }
 }
 
 // ══════════════════════════════════════════
