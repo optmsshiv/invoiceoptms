@@ -4529,32 +4529,107 @@ function populateClientFilter() {
 }
 
 // ── Quick inline status change ────────────────────────────────
-const QS_STATUSES = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
+
+// Allowed transitions per current status.
+// 'Paid' and 'Partial' are intentionally absent from every list —
+// they require the payment modal (openPaidModal) to record amounts.
+// 'Estimate' is absent — use the Convert flow instead.
+const QS_ALLOWED = {
+  Draft:     ['Pending', 'Cancelled'],
+  Estimate:  ['Cancelled'],
+  Pending:   ['Draft', 'Overdue', 'Cancelled'],
+  Partial:   ['Pending', 'Overdue', 'Cancelled'],
+  Overdue:   ['Pending', 'Cancelled'],
+  Paid:      [],          // locked — already paid, no quick changes
+  Cancelled: ['Pending'], // reopen only
+};
+
+// Hint shown next to disabled statuses so user knows where to go
+const QS_HINTS = {
+  Paid:     'Use Record Payment',
+  Partial:  'Use Record Payment',
+  Estimate: 'Use Convert flow',
+};
+
 function openQuickStatus(e, id) {
   e.stopPropagation();
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
+
+  const allowed  = QS_ALLOWED[inv.status] || [];
+  const allStatuses = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
+
+  // If current status is Paid — show locked notice and bail
+  if (inv.status === 'Paid') {
+    const menu = document.getElementById('quickStatusMenu');
+    menu.innerHTML = `
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 4px">Change Status</div>
+      <div style="padding:10px 12px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:8px">
+        <i class="fas fa-lock" style="font-size:11px"></i>
+        Invoice is <strong>Paid</strong> — no changes allowed
+      </div>`;
+    menu.style.display = 'block';
+    const r = e.target.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.min(r.left, window.innerWidth - 210) + 'px';
+    menu._invId = id;
+    return;
+  }
+
   const menu = document.getElementById('quickStatusMenu');
   menu.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>`
-    + QS_STATUSES.map(s => {
-        const active = s === inv.status;
-        return `<div onclick="applyQuickStatus('${id}','${s}')" style="padding:7px 12px;border-radius:7px;cursor:${active?'default':'pointer'};font-size:12.5px;font-weight:${active?'700':'500'};background:${active?'var(--teal-bg)':'none'};color:${active?'var(--teal)':'var(--text)'};display:flex;align-items:center;gap:8px;opacity:${active?.6:1}">
-          <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>${active?'<i class="fas fa-check" style="margin-left:auto;font-size:10px;color:var(--teal)"></i>':''}
+    + allStatuses.map(s => {
+        const active    = s === inv.status;
+        const permitted = allowed.includes(s);
+        const hint      = QS_HINTS[s] || null;
+        const disabled  = !active && !permitted;
+
+        if (disabled) {
+          return `<div style="padding:7px 12px;border-radius:7px;font-size:12.5px;display:flex;align-items:center;gap:8px;opacity:.35;cursor:not-allowed">
+            <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>
+            ${hint ? `<span style="font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap">${hint}</span>` : ''}
+          </div>`;
+        }
+
+        return `<div onclick="applyQuickStatus('${id}','${s}')"
+          style="padding:7px 12px;border-radius:7px;cursor:${active?'default':'pointer'};font-size:12.5px;font-weight:${active?'700':'500'};background:${active?'var(--teal-bg)':'none'};color:${active?'var(--teal)':'var(--text)'};display:flex;align-items:center;gap:8px;opacity:${active?.6:1}">
+          <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>
+          ${active ? '<i class="fas fa-check" style="margin-left:auto;font-size:10px;color:var(--teal)"></i>' : ''}
         </div>`;
       }).join('');
+
   menu.style.display = 'block';
   const r = e.target.getBoundingClientRect();
-  const mh = 280;
+  const mh = 320;
   const top = (window.innerHeight - r.bottom < mh) ? Math.max(4, r.top - mh) : r.bottom + 4;
   menu.style.top  = top + 'px';
-  menu.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
+  menu.style.left = Math.min(r.left, window.innerWidth - 210) + 'px';
   menu._invId = id;
 }
 
-function applyQuickStatus(id, status) {
+async function applyQuickStatus(id, status) {
   document.getElementById('quickStatusMenu').style.display = 'none';
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv || inv.status === status) return;
+
+  // Guard: Paid/Partial must go through payment modal
+  if (status === 'Paid' || status === 'Partial') {
+    openPaidModal(id);
+    return;
+  }
+
+  // Guard: Cancellation needs confirmation
+  if (status === 'Cancelled') {
+    const res = await Swal.fire({
+      title: 'Cancel Invoice?',
+      html: `Invoice <b>${inv.num || inv.invoice_number}</b> will be marked <b>Cancelled</b>.<br>This is hard to undo.`,
+      icon: 'warning', showCancelButton: true,
+      confirmButtonText: 'Yes, Cancel It', cancelButtonText: 'Go Back',
+      confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
+    });
+    if (!res.isConfirmed) return;
+  }
+
   changeInvoiceStatus(id, status);
 }
 
@@ -7237,7 +7312,10 @@ async function changeInvoiceStatus(id, newStatus) {
   try {
     await api('api/invoices.php?id=' + parseInt(id), 'PATCH', { status: newStatus });
     inv.status = newStatus;
-    STATE.filteredInvoices = [...STATE.invoices];
+    // Re-apply existing filters instead of resetting to all invoices,
+    // so the user's active search/filter is preserved after a status change.
+    if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+    else STATE.filteredInvoices = [...STATE.invoices];
     logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}`, inv.client_name||'', id);
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     toast(`${label}: ${inv.num||inv.invoice_number}`, 'success');
