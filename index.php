@@ -4539,7 +4539,7 @@ const QS_ALLOWED = {
   Estimate:  ['Cancelled'],
   Pending:   ['Draft', 'Overdue', 'Cancelled'],
   Partial:   ['Pending', 'Overdue', 'Cancelled'],
-  Overdue:   ['Pending', 'Cancelled'],
+  Overdue:   ['Draft', 'Cancelled'], // Draft only when no payment recorded (enforced dynamically)
   Paid:      [],          // locked — already paid, no quick changes
   Cancelled: ['Pending'], // reopen only
 };
@@ -4563,10 +4563,10 @@ function openQuickStatus(e, id) {
 
   let allowed = [...(QS_ALLOWED[inv.status] || [])];
 
-  // If payment already received (full or partial), lock 'Pending' so user
-  // cannot hide the fact that money was already collected.
+  // If payment already received (full or partial), lock 'Pending' and 'Draft'
+  // so user cannot hide the fact that money was already collected.
   if (hasExistingPayment) {
-    allowed = allowed.filter(s => s !== 'Pending');
+    allowed = allowed.filter(s => s !== 'Pending' && s !== 'Draft');
   }
 
   const allStatuses = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
@@ -4593,7 +4593,7 @@ function openQuickStatus(e, id) {
     + allStatuses.map(s => {
         const active    = s === inv.status;
         const permitted = allowed.includes(s);
-        const hint = hasExistingPayment && s === 'Pending'
+        const hint = hasExistingPayment && (s === 'Pending' || s === 'Draft')
           ? 'Payment already recorded'
           : (QS_HINTS[s] || null);
         const disabled  = !active && !permitted;
