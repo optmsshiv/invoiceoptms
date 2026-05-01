@@ -7666,7 +7666,14 @@ function renderClients() {
           <div style="font-size:14px;font-weight:800;font-family:var(--mono);color:${hasOverdue?'#C62828':'#E65100'}">${fmt_money(outstandingAmt)}</div>
           <i class="fas fa-chevron-right" style="font-size:10px;color:${hasOverdue?'#C62828':'#E65100'};opacity:.6"></i>
         </div>
-      </div>` : ''}
+      </div>` : `
+      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:7px">
+          <i class="fas fa-check-circle" style="font-size:12px;color:var(--muted)"></i>
+          <div style="font-size:11px;font-weight:600;color:var(--muted)">No Dues</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--border2);font-family:var(--mono)">—</div>
+      </div>`}
       <div class="cc-footer" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         ${!isInactive ? `<button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>` : ''}
         ${!isInactive ? `<button class="btn btn-whatsapp" style="flex:1;font-size:12px" onclick="sendWAMessage('${c.wa}','${c.name}','','','')"><i class="fab fa-whatsapp"></i> Msg</button>` : ''}
