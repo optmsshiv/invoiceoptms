@@ -4553,6 +4553,9 @@ const QS_HINTS = {
 
 function openQuickStatus(e, id) {
   e.stopPropagation();
+  // Close row action menu if open
+  const rm = document.getElementById('rowMenu');
+  if (rm) rm.classList.remove('open');
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
 
@@ -4765,6 +4768,9 @@ function selectAllInv(cb) {
 // ══════════════════════════════════════════
 function openRowMenu(e, id) {
   e.stopPropagation();
+  // Close quick-status menu if open
+  const qs = document.getElementById('quickStatusMenu');
+  if (qs) qs.style.display = 'none';
   STATE.activeMenuInvoiceId = id;
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   const st  = inv ? inv.status : '';
