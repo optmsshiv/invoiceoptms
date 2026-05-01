@@ -116,7 +116,7 @@ if (!$error && $invoiceId > 0) {
             SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                    i.due_date, i.grand_total AS amount, i.subtotal,
                    i.discount_pct, i.discount_amt, i.gst_amount,
-                   i.status, i.client_id, i.service_type,
+                   i.status, i.client_id, i.client_name, i.service_type,
                    i.notes, i.terms, i.bank_details, i.currency
             FROM invoices i WHERE i.id = :id LIMIT 1
           ");
@@ -132,6 +132,15 @@ if (!$error && $invoiceId > 0) {
             );
             $cStmt->execute([':id' => $inv['client_id']]);
             $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            // Walk-in / one-time clients have no client_id — fall back to
+            // the client_name stored directly on the invoice row
+            if (empty($client['name']) && !empty($inv['client_name'])) {
+                $client['name']    = $inv['client_name'];
+                $client['email']   = $client['email']   ?? '';
+                $client['phone']   = $client['phone']   ?? '';
+                $client['address'] = $client['address'] ?? '';
+            }
 
             // Payment history
             $pStmt = $db->prepare(
