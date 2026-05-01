@@ -11855,7 +11855,8 @@ async function _renderPortalTable(search) {
   const rows = STATE.invoices.filter(inv => {
     if (!s) return true;
     const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-    return (inv.num||'').toLowerCase().includes(s) || (c.name||'').toLowerCase().includes(s);
+    const name = c.name || inv.clientName || inv.client_name || '';
+    return (inv.num||'').toLowerCase().includes(s) || name.toLowerCase().includes(s);
   });
 
   if (!rows.length) {
@@ -11865,7 +11866,8 @@ async function _renderPortalTable(search) {
 
   const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
   tbody.innerHTML = rows.map(inv => {
-    const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const c    = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const cName = c.name || inv.clientName || inv.client_name || '—';
     const t   = _portalTokenMap[String(inv.id)];
     const url = t ? _buildPortalURL(t.token) : '';
     const sc  = statusColors[inv.status] || '#888';
@@ -11876,7 +11878,7 @@ async function _renderPortalTable(search) {
 
     return `<tr>
       <td><strong style="font-family:var(--mono);font-size:12px">${inv.num||inv.invoice_number||''}</strong></td>
-      <td style="font-size:13px">${c.name||'—'}</td>
+      <td style="font-size:13px">${cName}</td>
       <td style="font-family:var(--mono);font-size:13px">${fmt_money(inv.amount||0)}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span></td>
       <td style="max-width:220px">
