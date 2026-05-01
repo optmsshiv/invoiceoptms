@@ -5640,7 +5640,6 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
       <span>${isCancelledStatus?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span>
       <span style="font-family:monospace">${fmt_money(remaining,d.sym)}</span>
     </div>` : '';
-    </div>` : '';
 
   return `
     <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
