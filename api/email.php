@@ -853,11 +853,6 @@ function ensureEmailTables($db): void {
             updated_at  DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
-        // Migrate: add updated_at if table was created before this column existed
-        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL DEFAULT NULL",
-        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS created_at DATETIME NULL DEFAULT NULL",
-        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS api_key VARCHAR(500) NULL DEFAULT NULL",
-
         "CREATE TABLE IF NOT EXISTS invoice_portal_tokens (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             invoice_id INT NOT NULL,
@@ -870,7 +865,29 @@ function ensureEmailTables($db): void {
     foreach ($tables as $sql) {
         try { $db->exec($sql); } catch (\Exception $e) {
             error_log('ensureEmailTables: ' . $e->getMessage());
-            // Non-fatal — table may already exist with compatible schema
+        }
+    }
+
+    // ── MySQL 5.7 compatible column migrations ──────────────────
+    // ADD COLUMN IF NOT EXISTS is MySQL 8.0+ only.
+    // Use INFORMATION_SCHEMA to check before altering on 5.7.
+    $migrateColumns = [
+        ['smtp_profiles', 'updated_at', "ALTER TABLE smtp_profiles ADD COLUMN updated_at DATETIME NULL DEFAULT NULL"],
+        ['smtp_profiles', 'created_at', "ALTER TABLE smtp_profiles ADD COLUMN created_at DATETIME NULL DEFAULT NULL"],
+        ['smtp_profiles', 'api_key',    "ALTER TABLE smtp_profiles ADD COLUMN api_key VARCHAR(500) NULL DEFAULT NULL"],
+    ];
+    foreach ($migrateColumns as [$table, $column, $alterSql]) {
+        try {
+            $chk = $db->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?"
+            );
+            $chk->execute([$table, $column]);
+            if ((int)$chk->fetchColumn() === 0) {
+                $db->exec($alterSql);
+            }
+        } catch (\Exception $e) {
+            error_log("migrate {$table}.{$column}: " . $e->getMessage());
         }
     }
 }

@@ -8850,15 +8850,20 @@ async function loadSmtpProfiles() {
     const r = await api('api/email.php?action=smtp_profiles');
     if (!r.success || !r.data?.length) {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:32px">No profiles yet. Click Add Profile.</div>';
+      window._smtpProfileMap = {};
       return;
     }
+    // Store profiles in a map — avoids JSON.stringify in onclick (breaks on double quotes in HTML attrs)
+    window._smtpProfileMap = {};
+    r.data.forEach(p => { window._smtpProfileMap[p.id] = p; });
     const rows = r.data.map(p => `
       <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${p.name} ${p.is_default ? '<span style="background:var(--teal);color:#fff;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700">DEFAULT</span>' : ''}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">${p.host}:${p.port} · ${p.from_email}</div>
+          ${p.has_password ? '<div style="font-size:10px;color:var(--green);margin-top:2px">🔐 Password saved</div>' : ''}
         </div>
-        <button onclick="emEditProfile(${JSON.stringify(p).replace(/'/g,'&apos;')})" style="padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer"><i class="fas fa-edit"></i></button>
+        <button onclick="emEditProfile(${p.id})" style="padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer"><i class="fas fa-edit"></i></button>
         <button onclick="delSmtpProfile(${p.id})" style="padding:5px 12px;border-radius:8px;border:1.5px solid #FFCDD2;background:#FFEBEE;color:#C62828;font-size:12px;cursor:pointer"><i class="fas fa-trash"></i></button>
       </div>`).join('');
     container.innerHTML = rows;
@@ -8873,9 +8878,17 @@ function emNewProfile() {
     if (!el) return;
     el.value = '';
     el.style.borderColor = '';
-    // Reset placeholder to default — don't wipe it
-    if (id === 'ep-pass') el.placeholder = 'Enter password or app password';
-    else el.placeholder = '';
+    // Restore defaults — don't wipe placeholders
+    const defaults = {
+      'ep-name':  'e.g. Gmail SMTP',
+      'ep-host':  'smtp.gmail.com',
+      'ep-user':  'your@gmail.com',
+      'ep-pass':  'Enter password or app password',
+      'ep-from':  'noreply@yourdomain.com',
+      'ep-fname': 'Your Company',
+      'ep-apikey':'SG.xxxx or key-xxxx',
+    };
+    el.placeholder = defaults[id] || '';
   });
   document.getElementById('ep-port').value    = '587';
   document.getElementById('ep-default').checked = false;
@@ -8884,7 +8897,9 @@ function emNewProfile() {
   f.scrollIntoView({ behavior:'smooth' });
 }
 
-function emEditProfile(p) {
+function emEditProfile(idOrObj) {
+  const p = (typeof idOrObj === 'object') ? idOrObj : (window._smtpProfileMap?.[idOrObj] || null);
+  if (!p) { toast('Profile data not found — try refreshing', 'error'); return; }
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
   set('ep-id',    p.id);
   set('ep-name',  p.name);
