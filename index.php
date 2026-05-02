@@ -9568,14 +9568,26 @@ function updateClientDropdown() {
 
 function editInvoice(id) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id)); if(!inv) return;
-  STATE._editingNext = true;           // tell showPage not to resetCreateForm
+  STATE._editingNext = true;
   STATE.editingInvoiceId = id;
   showPage('create', null);
   setTimeout(() => {
     updateClientDropdown();
     loadInvoiceIntoForm(inv);
     const s = document.getElementById('f-client-select');
-    if (s) s.value = inv.client;
+    const isOneTime = !inv.client || inv.client === 'null' || inv.client === '0' || inv.client === 0;
+    if (s) {
+      if (isOneTime) {
+        // One-time client — select the one-time option and show the notice
+        s.value = '__onetime__';
+        const notice = document.getElementById('onetime-notice');
+        const badge  = document.getElementById('onetime-badge');
+        if (notice) notice.style.display = '';
+        if (badge)  badge.style.display  = '';
+      } else {
+        s.value = inv.client;
+      }
+    }
     livePreview();
     toast(`✏️ Editing ${inv.num||inv.invoice_number}`, 'info');
   }, 80);
@@ -10901,8 +10913,10 @@ async function sendWAForInvoice(inv) {
   const c = STATE.clients.find(x => String(x.id) === String(clientId)) || {};
   const cByName = !c.id ? (STATE.clients.find(x => x.name === (inv.clientName||inv.client_name)) || {}) : c;
   const client = c.id ? c : cByName;
-  const phone = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g, '');
-  if (!phone) { toast('⚠️ No WhatsApp number for client "' + (client.name||'Unknown') + '"', 'warning'); return; }
+  // For one-time clients: fall back to the wa/phone stored directly on the invoice
+  const phone = (client.wa || client.whatsapp || client.phone || inv.client_wa || inv.client_phone || '').replace(/\D/g, '');
+  const clientName = client.name || inv.clientName || inv.client_name || 'Client';
+  if (!phone) { toast('⚠️ No WhatsApp number for client "' + clientName + '"', 'warning'); return; }
   // Pick the correct template based on invoice status
   const wa = STATE.settings.wa || {};
   let tplKey, tplDefault, tplName, statusLabel;
