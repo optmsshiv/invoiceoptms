@@ -12191,6 +12191,8 @@ async function _setPortalExpiry(token, invNum) {
     _renderPortalTable();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
+
+async function _renderPortalTable(search) {
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
 
