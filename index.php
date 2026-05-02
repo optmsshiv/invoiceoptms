@@ -5181,6 +5181,7 @@ function getFormData() {
   const qrUpload  = document.getElementById('f-qr')?.value || '';
   // Build a dynamic UPI QR that always reflects the current invoice amount.
   // Falls back to the uploaded static QR if no UPI ID is configured.
+  const sc = STATE.settings;
   const _dynUpi   = sc.upi || '';
   const _dynAmt   = grand.toFixed(2);
   const _dynName  = encodeURIComponent(sc.company || 'Merchant');
