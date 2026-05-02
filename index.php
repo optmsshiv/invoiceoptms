@@ -10001,6 +10001,17 @@ async function loadAllData() {
         email_body:    s.email_body    || '',
         email_attach_pdf: s.email_attach_pdf || '1',
         email_cc_self:    s.email_cc_self    || '0',
+        // ── Automation toggles — must be loaded from DB not hardcoded ──
+        email_auto_inv:      s.email_auto_inv      ?? '0',
+        email_auto_est:      s.email_auto_est      ?? '0',
+        email_auto_paid:     s.email_auto_paid     ?? '1',
+        email_auto_partial:  s.email_auto_partial  ?? '1',
+        email_auto_remind:   s.email_auto_remind   ?? '1',
+        email_auto_overdue:  s.email_auto_overdue  ?? '1',
+        email_auto_followup: s.email_auto_followup ?? '0',
+        email_remind_days:   s.email_remind_days   || '3',
+        email_followup_days: s.email_followup_days || '7',
+        email_max_followup:  s.email_max_followup  || '3',
       };
       // Load categories from settings JSON if saved
       if (s.product_categories) {
