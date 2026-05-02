@@ -5179,18 +5179,7 @@ function getFormData() {
   const clientLogo  = document.getElementById('f-client-logo')?.value||'';
   const signature   = document.getElementById('f-signature')?.value || STATE.settings.signature || '';
   const qrUpload  = document.getElementById('f-qr')?.value || '';
-  // Build a dynamic UPI QR that always reflects the current invoice amount.
-  // Falls back to the uploaded static QR if no UPI ID is configured.
   const sc = STATE.settings;
-  const _dynUpi   = sc.upi || '';
-  const _dynAmt   = grand.toFixed(2);
-  const _dynName  = encodeURIComponent(sc.company || 'Merchant');
-  const _dynNum   = num || 'Invoice';
-  let qrUrl = qrUpload; // default: uploaded image
-  if (_dynUpi && _dynAmt > 0) {
-    const _upiString = `upi://pay?pa=${encodeURIComponent(_dynUpi)}&pn=${_dynName}&am=${_dynAmt}&cu=INR&tn=${encodeURIComponent(_dynNum)}`;
-    qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(_upiString)}`;
-  }
   // PDF options
   const popt = {
     bank:       document.getElementById('popt-bank')?.checked !== false,
@@ -5217,6 +5206,18 @@ function getFormData() {
   const discFactor   = sub > 0 ? (1 - discAmt/sub) : 1;
   const gstAfterDisc = gstAmt * discFactor;
   const grand        = sub - discAmt + gstAfterDisc;
+
+  // Build a dynamic UPI QR that always reflects the current invoice amount.
+  // Falls back to the uploaded static QR if no UPI ID is configured.
+  const _dynUpi   = sc.upi || '';
+  const _dynAmt   = grand.toFixed(2);
+  const _dynName  = encodeURIComponent(sc.company || 'Merchant');
+  const _dynNum   = num || 'Invoice';
+  let qrUrl = qrUpload; // default: uploaded image
+  if (_dynUpi && _dynAmt > 0) {
+    const _upiString = `upi://pay?pa=${encodeURIComponent(_dynUpi)}&pn=${_dynName}&am=${_dynAmt}&cu=INR&tn=${encodeURIComponent(_dynNum)}`;
+    qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(_upiString)}`;
+  }
 
   const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
   return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId };
