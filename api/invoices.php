@@ -10,10 +10,22 @@ function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 requireLogin();
 $db     = getDB();
 
-// ── Auto-migrate: add cancel_reason column if not yet present ──
-try {
-  $db->exec("ALTER TABLE invoices ADD COLUMN cancel_reason VARCHAR(500) NULL DEFAULT NULL AFTER status");
-} catch (Exception $e) { /* column already exists — safe to ignore */ }
+// ── Auto-migrate: one-time client fields + cancel_reason (MySQL 5.7 safe) ──
+$_migrateCols = [
+  'cancel_reason' => "ALTER TABLE invoices ADD COLUMN cancel_reason VARCHAR(500) NULL DEFAULT NULL",
+  'client_person' => "ALTER TABLE invoices ADD COLUMN client_person VARCHAR(200) NULL DEFAULT NULL",
+  'client_wa'     => "ALTER TABLE invoices ADD COLUMN client_wa     VARCHAR(50)  NULL DEFAULT NULL",
+  'client_email'  => "ALTER TABLE invoices ADD COLUMN client_email  VARCHAR(200) NULL DEFAULT NULL",
+  'client_gst'    => "ALTER TABLE invoices ADD COLUMN client_gst    VARCHAR(50)  NULL DEFAULT NULL",
+  'client_addr'   => "ALTER TABLE invoices ADD COLUMN client_addr   TEXT         NULL",
+];
+foreach ($_migrateCols as $_col => $_sql) {
+  try {
+    $_chk = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='invoices' AND COLUMN_NAME=?");
+    $_chk->execute([$_col]);
+    if ((int)$_chk->fetchColumn() === 0) $db->exec($_sql);
+  } catch (Exception $e) { error_log("migrate invoices.$_col: " . $e->getMessage()); }
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 switch ($method) {
@@ -172,8 +184,9 @@ $stmt = $db->prepare('
 INSERT INTO invoices (invoice_number,client_id,client_name,service_type,issued_date,due_date,
 status,currency,subtotal,discount_pct,discount_type,discount_amt,gst_amount,grand_total,
 notes,bank_details,terms,company_logo,client_logo,signature,qr_code,
-template_id,generated_by,show_generated,pdf_options,created_by)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+template_id,generated_by,show_generated,pdf_options,
+client_person,client_wa,client_email,client_gst,client_addr,created_by)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
 try {
 $stmt->execute([
 $input['invoice_number'], nullIfEmpty($input['client_id']??null), $input['client_name']??'',
@@ -189,6 +202,9 @@ $input['signature']??'', $input['qr_code']??'',
 $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
 $input['show_generated']??1,
 isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
+$input['client_person']??'', $input['client_wa']??'',
+$input['client_email']??'', $input['client_gst']??'',
+$input['client_addr']??'',
 (int)$userId
 ]);
 } catch (\PDOException $e) {
@@ -222,7 +238,7 @@ if (array_key_exists('status', $input)) {
         unset($input['status']);
     }
 }
-$allowed = ['notes','bank_details','terms','status','cancel_reason'];
+$allowed = ['notes','bank_details','terms','status','cancel_reason','client_person','client_wa','client_email','client_gst','client_addr'];
 $sets=[]; $vals=[];
 foreach($allowed as $f) {
 if (array_key_exists($f, $input)) { $sets[]='`'.$f.'`=?'; $vals[]=$input[$f]; }
@@ -253,7 +269,8 @@ $stmt = $db->prepare('
 UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
 status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
 notes=?,bank_details=?,terms=?,company_logo=?,client_logo=?,signature=?,qr_code=?,
-template_id=?,generated_by=?,show_generated=?,pdf_options=?
+template_id=?,generated_by=?,show_generated=?,pdf_options=?,
+client_person=?,client_wa=?,client_email=?,client_gst=?,client_addr=?
 WHERE id=?');
 try {
 $stmt->execute([
@@ -268,6 +285,9 @@ $input['signature']??'', $input['qr_code']??'',
 $input['template_id']??1, $input['generated_by']??'OPTMS Tech Invoice Manager',
 $input['show_generated']??1,
 isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
+$input['client_person']??'', $input['client_wa']??'',
+$input['client_email']??'', $input['client_gst']??'',
+$input['client_addr']??'',
 $id
 ]);
 } catch (\PDOException $e) {

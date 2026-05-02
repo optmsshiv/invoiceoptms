@@ -1642,6 +1642,7 @@ const SERVER = {
           </div>
           <div class="preview-actions">
             <button class="btn btn-success w100" onclick="saveInvoice()"><i class="fas fa-save"></i> Save Invoice</button>
+            <button class="btn btn-outline w100" onclick="cancelInvoiceForm()" style="margin-top:6px"><i class="fas fa-times"></i> Cancel</button>
             <div class="btn-row-2">
               <button class="btn btn-primary" onclick="printCurrentInvoice()"><i class="fas fa-print"></i> Print / PDF</button>
               <button class="btn btn-whatsapp" onclick="sendWAFromForm()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
@@ -6573,6 +6574,21 @@ function printInvoiceById(inv) {
 // ══════════════════════════════════════════
 // SAVE INVOICE
 // ══════════════════════════════════════════
+async function cancelInvoiceForm() {
+  const isEditing = !!STATE.editingInvoiceId;
+  const { isConfirmed } = await Swal.fire({
+    title: isEditing ? 'Discard Changes?' : 'Discard Invoice?',
+    text: isEditing ? 'Your unsaved changes will be lost.' : 'This draft will not be saved.',
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Yes, Discard', cancelButtonText: 'Keep Editing',
+    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
+  });
+  if (!isConfirmed) return;
+  STATE.editingInvoiceId = null;
+  STATE._editingNext     = false;
+  showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
+}
+
 async function saveInvoice() {
   const d = getFormData();
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
@@ -6595,6 +6611,12 @@ async function saveInvoice() {
     signature: d.signature, qr_code: d.qrUrl,
     template_id: d.tpl, generated_by: d.generatedBy, show_generated: d.showGeneratedBy ? 1 : 0,
     pdf_options: d.popt,
+    // One-time client fields — stored on invoice row so they survive edit/reload
+    client_person: d.cperson || '',
+    client_wa:     d.cwa     || '',
+    client_email:  d.cemail  || '',
+    client_gst:    d.cgst    || '',
+    client_addr:   d.caddr   || '',
     items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
@@ -6843,12 +6865,12 @@ function loadInvoiceIntoForm(inv) {
   // f-bank and f-tnc set above
   document.getElementById('f-template').value = inv.template||1;
   document.getElementById('f-currency').value = inv.currency||'₹';
-  document.getElementById('f-cname').value    = c ? c.name : (inv.clientName||'');
-  document.getElementById('f-cperson').value  = c ? c.person : '';
-  document.getElementById('f-cwa').value      = c ? c.wa : '';
-  document.getElementById('f-cemail').value   = c ? c.email : '';
-  document.getElementById('f-cgst').value     = c ? c.gst : '';
-  document.getElementById('f-caddr').value    = c ? c.addr : '';
+  document.getElementById('f-cname').value    = c ? c.name   : (inv.clientName || inv.client_name || '');
+  document.getElementById('f-cperson').value  = c ? c.person : (inv.client_person || '');
+  document.getElementById('f-cwa').value      = c ? c.wa     : (inv.client_wa    || inv.client_phone || '');
+  document.getElementById('f-cemail').value   = c ? c.email  : (inv.client_email || '');
+  document.getElementById('f-cgst').value     = c ? c.gst    : (inv.client_gst   || '');
+  document.getElementById('f-caddr').value    = c ? c.addr   : (inv.client_addr  || inv.client_address || '');
   const sr = document.querySelectorAll('input[name="inv-status"]');
   sr.forEach(r => r.checked = r.value === inv.status);
   // ── Restore PDF options checkboxes from saved pdf_options ──
