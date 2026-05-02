@@ -853,6 +853,11 @@ function ensureEmailTables($db): void {
             updated_at  DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
+        // Migrate: add updated_at if table was created before this column existed
+        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS updated_at DATETIME NULL DEFAULT NULL",
+        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS created_at DATETIME NULL DEFAULT NULL",
+        "ALTER TABLE smtp_profiles ADD COLUMN IF NOT EXISTS api_key VARCHAR(500) NULL DEFAULT NULL",
+
         "CREATE TABLE IF NOT EXISTS invoice_portal_tokens (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             invoice_id INT NOT NULL,

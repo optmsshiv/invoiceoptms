@@ -1083,7 +1083,7 @@ const SERVER = {
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
     <a class="nav-item" data-page="credit-notes" onclick="showPage('credit-notes',this)">
-      <i class="fas fa-file-minus"></i><span>Credit Notes</span>
+      <i class="fas fa-file-circle-minus"></i><span>Credit Notes</span>
       <span class="nav-badge" id="badge-credit-notes" style="display:none">0</span>
     </a>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
@@ -2728,7 +2728,7 @@ View Invoice: {{6}}</pre></details>
               <div class="field"><label>SMTP Host</label><input id="ep-host" placeholder="smtp.gmail.com"></div>
               <div class="field"><label>Port</label><input id="ep-port" value="587" type="number"></div>
               <div class="field"><label>Username</label><input id="ep-user" placeholder="your@gmail.com"></div>
-              <div class="field"><label>Password / App Password</label><input type="password" id="ep-pass"></div>
+              <div class="field"><label>Password / App Password</label><input type="password" id="ep-pass" placeholder="Enter password or app password"></div>
               <div class="field"><label>From Email</label><input id="ep-from" placeholder="noreply@optmstech.in"></div>
               <div class="field"><label>From Name</label><input id="ep-fname" placeholder="OPTMS Tech"></div>
               <div class="field"><label>API Key <span style="font-size:10px;color:var(--muted)">(SendGrid/Mailgun only)</span></label><input id="ep-apikey" placeholder="SG.xxxx or key-xxxx"></div>
@@ -4837,7 +4837,7 @@ function openRowMenu(e, id) {
       <i class="fas fa-check-circle"></i> Mark as Paid ${isPaid?'(already paid)':isCancelled?'(cancelled)':isDraft?'(make pending first)':isEstimate?'(convert to invoice first)':''}
     </div>
     ${canCancel ? `<div class="rm-item" onclick="rowMenuAction('cancel')" style="color:#E65100"><i class="fas fa-ban"></i> Cancel Invoice</div>` : ''}
-    ${(isPaid || st === 'Partial' || isCancelled) ? `<div class="rm-item" onclick="rowMenuAction('credit-note')" style="color:#6A1B9A;font-weight:600"><i class="fas fa-file-minus"></i> Issue Credit Note</div>` : ''}
+    ${(isPaid || st === 'Partial' || isCancelled) ? `<div class="rm-item" onclick="rowMenuAction('credit-note')" style="color:#6A1B9A;font-weight:600"><i class="fas fa-file-circle-minus"></i> Issue Credit Note</div>` : ''}
     ${!isEstimate ? `<div class="rm-item" onclick="rowMenuAction('make-recurring')" style="color:var(--purple);font-weight:600"><i class="fas fa-sync-alt"></i> Make Recurring</div>` : ''}
     <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
   // Smart positioning: flip upward if near screen bottom
@@ -8868,7 +8868,15 @@ async function loadSmtpProfiles() {
 function emNewProfile() {
   const f = document.getElementById('em-profile-form');
   if (!f) return;
-  ['ep-id','ep-name','ep-host','ep-user','ep-pass','ep-from','ep-fname','ep-apikey'].forEach(id => { const el = document.getElementById(id); if (el) { el.value = ''; el.placeholder = ''; el.style.borderColor = ''; } });
+  ['ep-id','ep-name','ep-host','ep-user','ep-pass','ep-from','ep-fname','ep-apikey'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    el.style.borderColor = '';
+    // Reset placeholder to default — don't wipe it
+    if (id === 'ep-pass') el.placeholder = 'Enter password or app password';
+    else el.placeholder = '';
+  });
   document.getElementById('ep-port').value    = '587';
   document.getElementById('ep-default').checked = false;
   document.getElementById('em-profile-form-title').textContent = 'New SMTP Profile';
@@ -11793,7 +11801,7 @@ function renderCreditNotes() {
   const statusColor = {Draft:'#9E9E9E', Issued:'#E65100', Applied:'#388E3C', Void:'#B71C1C'};
   const tbody = document.getElementById('cn-tbody');
   if (!cns.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-file-minus" style="font-size:24px;display:block;margin-bottom:8px"></i>No credit notes yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-file-circle-minus" style="font-size:24px;display:block;margin-bottom:8px"></i>No credit notes yet</td></tr>`;
     document.getElementById('cn-info').textContent = '';
     return;
   }
