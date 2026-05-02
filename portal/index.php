@@ -1407,7 +1407,7 @@ if ($items):
       <div class="qr-wrap">
         <div id="upiQrCode"></div>
       </div>
-      <div class="qr-amt"><?= fmt_inr($remaining, $sym) ?></div>
+      <div class="qr-amt" id="qrAmt"><?= fmt_inr($remaining, $sym) ?></div>
       <div class="qr-hint">Open any UPI app &amp; scan — amount is pre-filled</div>
     </div>
     <?php endif; ?>
@@ -1427,7 +1427,8 @@ if ($items):
         <input type="number" id="partialAmt" class="partial-amt-input"
           value="<?= number_format($remaining, 2, '.', '') ?>"
           min="1" max="<?= number_format($remaining, 2, '.', '') ?>"
-          placeholder="Enter amount">
+          placeholder="Enter amount"
+          oninput="updateQRForAmount(this.value)">
         <button class="partial-upi-btn" onclick="payPartial()">
           <i class="fas fa-qrcode"></i> Pay via UPI
         </button>
@@ -1451,26 +1452,51 @@ if ($items):
 <script>
 // Generate dynamic UPI QR — only for Pending / Overdue / Partial
 <?php if (in_array($inv['status'] ?? '', ['Pending', 'Overdue', 'Partial'])): ?>
-(function() {
-  var upiString = <?= json_encode($upiBase) ?>;
-  function renderQR() {
-    var el = document.getElementById('upiQrCode');
-    if (!el || typeof QRCode === 'undefined') return;
-    new QRCode(el, {
-      text       : upiString,
-      width      : 160,
-      height     : 160,
-      colorDark  : '#00695C',
-      colorLight : '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderQR);
-  } else {
-    renderQR();
-  }
-})();
+var _upiPA   = <?= json_encode($companyUPI) ?>;
+var _upiPN   = <?= json_encode($companyName) ?>;
+var _upiSym  = <?= json_encode($sym) ?>;
+var _qrInstance = null;
+
+function buildUpiString(amt) {
+  return 'upi://pay?pa=' + encodeURIComponent(_upiPA)
+       + '&pn=' + encodeURIComponent(_upiPN)
+       + '&am=' + parseFloat(amt).toFixed(2)
+       + '&cu=INR';
+}
+
+function renderQR(amt) {
+  var el = document.getElementById('upiQrCode');
+  if (!el || typeof QRCode === 'undefined') return;
+  // Clear previous QR
+  el.innerHTML = '';
+  _qrInstance = new QRCode(el, {
+    text        : buildUpiString(amt),
+    width       : 160,
+    height      : 160,
+    colorDark   : '#00695C',
+    colorLight  : '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function updateQRForAmount(val) {
+  var amt = parseFloat(val);
+  if (!amt || amt <= 0) return;
+  var maxAmt = <?= number_format($remaining, 2, '.', '') ?>;
+  if (amt > maxAmt) { amt = maxAmt; document.getElementById('partialAmt').value = maxAmt; }
+  renderQR(amt);
+  // Update the label below the QR
+  var label = document.getElementById('qrAmt');
+  if (label) label.textContent = _upiSym + amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// Initial render with full remaining amount
+var _initAmt = <?= number_format($remaining, 2, '.', '') ?>;
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() { renderQR(_initAmt); });
+} else {
+  renderQR(_initAmt);
+}
 <?php endif; ?>
 </script>
 
