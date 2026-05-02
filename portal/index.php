@@ -80,6 +80,24 @@ if (!$rawToken) {
                 $firstViewed = $freshRow['first_viewed'] ?? null;
                 $lastViewed  = $freshRow['last_viewed']  ?? null;
                 $viewCount   = (int)($freshRow['view_count'] ?? 1);
+
+                // ── View notification: send WA to company on first view & every 5th view ──
+                $waNotifyEnabled = ($settings['wa_portal_notify'] ?? '1') !== '0';
+                if ($waNotifyEnabled && ($viewCount === 1 || $viewCount % 5 === 0)) {
+                    $notifyPhone = preg_replace('/\D/', '', $settings['company_phone'] ?? '');
+                    if ($notifyPhone && strlen($notifyPhone) >= 10) {
+                        if (!str_starts_with($notifyPhone, '91')) $notifyPhone = '91' . $notifyPhone;
+                        $invNum   = $inv['invoice_number'] ?? '';
+                        $cliName  = $client['name'] ?? $inv['client_name'] ?? 'Client';
+                        $viewWord = $viewCount === 1 ? '1st time' : "view #{$viewCount}";
+                        $msgBody  = urlencode("🔔 *Portal Alert*\n\n*{$cliName}* just opened invoice *{$invNum}* ({$viewWord}).\n\nCheck your dashboard for details.");
+                        // Fire-and-forget via cURL — non-blocking (timeout 2s)
+                        $waUrl = "https://api.whatsapp.com/send?phone={$notifyPhone}&text={$msgBody}";
+                        // Only trigger server-side WA if using a WA API gateway (replace with your gateway if available)
+                        // For now, log so you can hook your own gateway
+                        error_log("PORTAL_VIEW_NOTIFY: phone={$notifyPhone} inv={$invNum} views={$viewCount}");
+                    }
+                }
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
             }

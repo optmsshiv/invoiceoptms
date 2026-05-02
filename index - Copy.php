@@ -429,7 +429,7 @@ canvas { max-width: 100% !important; }
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
-  overflow: hidden;
+  overflow: hidden; border: 1.5px solid transparent;
 }
 .cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .cc-name { font-weight: 600; }
@@ -783,7 +783,7 @@ select { cursor: pointer; }
 .cc-stats { display: flex; gap: 0; background: var(--bg); border-radius: 8px; overflow: hidden; }
 .cc-stat { flex: 1; padding: 10px; text-align: center; border-right: 1px solid var(--border); }
 .cc-stat:last-child { border: none; }
-.cc-stat-val { font-weight: 800; font-size: 16px; }
+.cc-stat-val { font-weight: 800; font-size: 15px; }
 .cc-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
 .cc-footer { margin-top: 12px; display: flex; gap: 8px; }
 .client-card.inactive-card {
@@ -1302,12 +1302,23 @@ const SERVER = {
 
     <!-- ─────────── INVOICES LIST ─────────── -->
     <div id="page-invoices" class="page">
+      <!-- Bulk action bar (shown when rows are selected) -->
+      <div id="bulkBar" style="display:none;align-items:center;gap:10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:10px;padding:10px 16px;margin-bottom:12px">
+        <span id="bulkCount" style="font-size:13px;font-weight:700;color:var(--teal)">0 selected</span>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;color:#25D366;border-color:#25D366" onclick="bulkSendWA()"><i class="fab fa-whatsapp"></i> Send WhatsApp</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="bulkExportCSV()"><i class="fas fa-download"></i> Export Selected</button>
+        <button class="btn btn-outline" style="font-size:12px;padding:5px 12px;color:var(--red);border-color:var(--red)" onclick="bulkDelete()"><i class="fas fa-trash"></i> Delete Selected</button>
+        <button onclick="clearBulkSelection()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px" title="Clear selection">×</button>
+      </div>
       <div class="page-toolbar">
         <div class="toolbar-left">
           <input type="text" class="table-search" placeholder="Search invoices…" oninput="filterInvoices(this.value)" id="invSearch">
           <select class="table-filter" onchange="filterByStatus(this.value)" id="statusFilter">
             <option value="">All Status</option>
             <option>Paid</option><option>Pending</option><option>Partial</option><option>Overdue</option><option>Draft</option><option>Estimate</option><option>Cancelled</option>
+          </select>
+          <select class="table-filter" onchange="filterByClient(this.value)" id="clientFilter">
+            <option value="">All Clients</option>
           </select>
           <select class="table-filter" onchange="filterByService(this.value)" id="serviceFilter">
             <option value="">All Services</option>
@@ -3682,6 +3693,9 @@ View Invoice: {{6}}</pre></details>
 
 <!-- Row context menu -->
 <div class="row-menu" id="rowMenu"></div>
+<div id="quickStatusMenu" style="display:none;position:fixed;z-index:9999;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:150px">
+  <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>
+</div>
 
 <!-- ══ MAIN APP JS (embedded) ══ -->
 <script>
@@ -3852,6 +3866,41 @@ function updateDueFromIssue() {
 }
 function fmt_date(d) { return d.toISOString().split('T')[0]; }
 function fmt_money(n, sym='₹') { return sym + parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#','');
+  const r = parseInt(h.length===3 ? h[0]+h[0] : h.slice(0,2),16);
+  const g = parseInt(h.length===3 ? h[1]+h[1] : h.slice(2,4),16);
+  const b = parseInt(h.length===3 ? h[2]+h[2] : h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function applyLogoBorderColor(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    const size = 24;
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size).data;
+    const freq = {};
+    let best = null, bestCount = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+      if (a < 80) continue; // skip transparent
+      // skip near-white and near-black
+      if (r > 230 && g > 230 && b > 230) continue;
+      if (r < 25  && g < 25  && b < 25)  continue;
+      // quantise to reduce noise
+      const key = `${Math.round(r/16)*16},${Math.round(g/16)*16},${Math.round(b/16)*16}`;
+      freq[key] = (freq[key] || 0) + 1;
+      if (freq[key] > bestCount) { bestCount = freq[key]; best = key; }
+    }
+    if (best) {
+      const [r,g,b] = best.split(',').map(Number);
+      const wrap = img.closest('.cc-avatar');
+      if (wrap) wrap.style.borderColor = `rgba(${r},${g},${b},0.7)`;
+    }
+  } catch(e) { /* cross-origin canvas taint — silently ignore */ }
+}
 
 // ══════════════════════════════════════════
 // SIDEBAR & PAGE NAVIGATION
@@ -4312,6 +4361,7 @@ function renderInvoicesTable() {
   // Always keep the sidebar invoice badge in sync
   const _badgeInv = document.getElementById('badge-invoices');
   if (_badgeInv) _badgeInv.textContent = STATE.invoices.length;
+  populateClientFilter();
   applyFiltersAndRender();
 }
 
@@ -4328,8 +4378,8 @@ function applyFiltersAndRender() {
     const avatarColor = isClientInactive ? '#9E9E9E' : c.color;
     const initials = getInitials(c.name);
     const avatar = isValidImg(c.image)
-      ? `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" onerror="this.style.display='none'"></div>`
-      : `<div class="cc-avatar" style="background:${avatarColor};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
+      ? `<div class="cc-avatar" id="cca-${c.id}" style="background:${avatarColor};border-color:${hexToRgba(avatarColor,0.45)};opacity:${isClientInactive?'.6':'1'}"><img src="${c.image}" alt="${c.name}" crossorigin="anonymous" onload="applyLogoBorderColor(this)" onerror="this.style.display='none'"></div>`
+      : `<div class="cc-avatar" style="background:${avatarColor};border-color:${hexToRgba(avatarColor,0.45)};opacity:${isClientInactive?'.6':'1'}">${initials}</div>`;
     const inactivePill = isClientInactive
       ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:#F9A825;border:1px solid #F9A825;border-radius:8px;padding:1px 5px;margin-left:4px;vertical-align:middle;white-space:nowrap"><i class="fas fa-pause-circle" style="font-size:8px"></i> Inactive</span>`
       : '';
@@ -4351,16 +4401,46 @@ function applyFiltersAndRender() {
       paidCell = `<span style="color:var(--muted2);font-size:12px">—</span>`;
     }
 
+    // ── Due date coloring + overdue age badge ──
+    const today       = new Date(); today.setHours(0,0,0,0);
+    const dueDate     = inv.due  ? new Date(inv.due)    : null;
+    const issuedDate  = inv.issued ? new Date(inv.issued) : null;
+    const isPaidOrCancelled = inv.status === 'Paid' || inv.status === 'Cancelled';
+    let dueCellStyle = '', overdueBadge = '';
+    if (dueDate && !isPaidOrCancelled) {
+      const diffDays = Math.round((dueDate - today) / 86400000);
+      if (diffDays < 0) {
+        dueCellStyle = 'color:var(--red);font-weight:700';
+        overdueBadge = `<span style="display:inline-block;margin-left:4px;font-size:9px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px">+${Math.abs(diffDays)}d</span>`;
+      } else if (diffDays <= 7) {
+        dueCellStyle = 'color:#F9A825;font-weight:700';
+      }
+    } else if (isPaidOrCancelled) {
+      dueCellStyle = 'color:var(--muted2)';
+    }
+    // ── Days since issued tooltip ──
+    const daysSinceIssued = issuedDate ? Math.round((today - issuedDate) / 86400000) : null;
+    const issuedTooltip   = daysSinceIssued !== null ? `title="Issued ${daysSinceIssued === 0 ? 'today' : daysSinceIssued + ' day' + (daysSinceIssued===1?'':'s') + ' ago'}"` : '';
+    // ── Payment progress bar (Partial only) ──
+    let progressBar = '';
+    if (inv.status === 'Partial' && totalPaid > 0 && inv.amount > 0) {
+      const pct = Math.min(100, Math.round(totalPaid / inv.amount * 100));
+      progressBar = `<div style="margin-top:4px;height:3px;background:var(--border);border-radius:4px;overflow:hidden;width:80px;margin-inline:auto">
+        <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px;transition:width .4s"></div>
+      </div>`;
+    }
     return `<tr data-id="${inv.id}">
-      <td><input type="checkbox" class="inv-check" value="${inv.id}"></td>
-      <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600">${inv.num}</code></td>
+      <td><input type="checkbox" class="inv-check" value="${inv.id}" onchange="updateBulkBar()"></td>
+      <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600;cursor:default" ${issuedTooltip}>${inv.num}</code></td>
       <td><div class="client-cell">${avatar}<div><div class="cc-name" style="${isClientInactive?'color:var(--muted)':''}">${c.name}${inactivePill}</div><div class="cc-sub">${c.person||''}</div></div></div></td>
       <td>${inv.service}</td>
       <td>${inv.issued}</td>
-      <td>${inv.due}</td>
+      <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
-      <td style="text-align:center">${paidCell}</td>
-      <td><span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span></td>
+      <td style="text-align:center">${paidCell}${progressBar}</td>
+      <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer"
+        title="${inv.status === 'Cancelled' && inv.cancel_reason ? '🚫 Reason: ' + inv.cancel_reason : 'Click to change status'}"
+        onclick="openQuickStatus(event,'${inv.id}')">${inv.status}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}</td>
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Preview" onclick="openPreviewModal('${inv.id}')"><i class="fas fa-eye"></i></button>
@@ -4395,47 +4475,268 @@ function gotoPage(p) {
 }
 
 function filterInvoices(val) {
-  const v = val.toLowerCase();
-  STATE.filteredInvoices = STATE.invoices.filter(inv => {
-    const c = STATE.clients.find(x=>x.id===inv.client);
-    return inv.num.toLowerCase().includes(v) ||
-      (c && c.name.toLowerCase().includes(v)) ||
-      inv.service.toLowerCase().includes(v) ||
-      inv.status.toLowerCase().includes(v);
-  });
-  const sf = document.getElementById('statusFilter');
-  const sv = sf ? sf.value : '';
-  if (sv) STATE.filteredInvoices = STATE.filteredInvoices.filter(i => i.status === sv);
-  STATE.currentPage = 1;
-  applyFiltersAndRender();
+  _applyAllFilters();
 }
 
 function filterByStatus(val) {
-  STATE.filteredInvoices = val
-    ? STATE.invoices.filter(i => i.status === val)
-    : [...STATE.invoices];
-  const sv = document.getElementById('invSearch')?.value;
-  if (sv) filterInvoices(sv); else { STATE.currentPage=1; applyFiltersAndRender(); }
+  _applyAllFilters();
 }
 
 function filterByService(val) {
-  STATE.filteredInvoices = val
-    ? STATE.invoices.filter(i => i.service === val)
-    : [...STATE.invoices];
+  _applyAllFilters();
+}
+
+function filterByDate() {
+  _applyAllFilters();
+}
+
+function filterByClient(val) {
+  STATE._clientFilter = val;
+  const sel = document.getElementById('clientFilter');
+  if (sel) sel.value = val || '';
+  _applyAllFilters();
+}
+
+function _applyAllFilters() {
+  let list = [...STATE.invoices];
+  const sv  = document.getElementById('invSearch')?.value?.toLowerCase() || '';
+  const stv = document.getElementById('statusFilter')?.value || '';
+  const srv = document.getElementById('serviceFilter')?.value || '';
+  const clf = STATE._clientFilter || '';
+  const df  = document.getElementById('dateFrom')?.value || '';
+  const dt  = document.getElementById('dateTo')?.value || '';
+  if (sv)  list = list.filter(i => { const c = STATE.clients.find(x=>x.id===i.client); return i.num.toLowerCase().includes(sv)||(c&&c.name.toLowerCase().includes(sv))||i.service.toLowerCase().includes(sv)||i.status.toLowerCase().includes(sv); });
+  if (stv) list = list.filter(i => i.status === stv);
+  if (srv) list = list.filter(i => i.service === srv);
+  if (clf) list = list.filter(i => String(i.client) === String(clf));
+  if (df)  list = list.filter(i => i.issued >= df);
+  if (dt)  list = list.filter(i => i.issued <= dt);
+  STATE.filteredInvoices = list;
   STATE.currentPage = 1;
   applyFiltersAndRender();
 }
 
-function filterByDate() {
-  const from = document.getElementById('dateFrom')?.value;
-  const to   = document.getElementById('dateTo')?.value;
-  STATE.filteredInvoices = STATE.invoices.filter(i => {
-    if (from && i.issued < from) return false;
-    if (to && i.issued > to) return false;
-    return true;
+function populateClientFilter() {
+  const sel = document.getElementById('clientFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Clients</option>';
+  const sorted = [...STATE.clients].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  sorted.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name;
+    if (String(c.id) === String(cur)) o.selected = true;
+    sel.appendChild(o);
   });
-  STATE.currentPage = 1;
-  applyFiltersAndRender();
+}
+
+// ── Quick inline status change ────────────────────────────────
+
+// Allowed transitions per current status.
+// 'Paid' and 'Partial' are intentionally absent from every list —
+// they require the payment modal (openPaidModal) to record amounts.
+// 'Estimate' is absent — use the Convert flow instead.
+const QS_ALLOWED = {
+  Draft:     ['Pending', 'Cancelled'],
+  Estimate:  ['Cancelled'],
+  Pending:   ['Draft', 'Overdue', 'Cancelled'],
+  Partial:   ['Pending', 'Overdue', 'Cancelled'],
+  Overdue:   ['Draft', 'Cancelled'], // Draft only when no payment recorded (enforced dynamically)
+  Paid:      [],          // locked — already paid, no quick changes
+  Cancelled: ['Pending'], // reopen only
+};
+
+// Hint shown next to disabled statuses so user knows where to go
+const QS_HINTS = {
+  Paid:     'Use Record Payment',
+  Partial:  'Use Record Payment',
+  Estimate: 'Use Convert flow',
+};
+
+function openQuickStatus(e, id) {
+  e.stopPropagation();
+  // Close row action menu if open
+  const rm = document.getElementById('rowMenu');
+  if (rm) rm.classList.remove('open');
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv) return;
+
+  // Check if any payment is already recorded against this invoice
+  const hasExistingPayment = STATE.payments.some(
+    p => p.invoice_id && String(p.invoice_id) === String(inv.id)
+  );
+
+  let allowed = [...(QS_ALLOWED[inv.status] || [])];
+
+  // If payment already received (full or partial), lock 'Pending' and 'Draft'
+  // so user cannot hide the fact that money was already collected.
+  if (hasExistingPayment) {
+    allowed = allowed.filter(s => s !== 'Pending' && s !== 'Draft');
+  }
+
+  const allStatuses = ['Draft','Estimate','Pending','Partial','Paid','Overdue','Cancelled'];
+
+  // If current status is Paid — show locked notice and bail
+  if (inv.status === 'Paid') {
+    const menu = document.getElementById('quickStatusMenu');
+    menu.innerHTML = `
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 4px">Change Status</div>
+      <div style="padding:10px 12px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:8px">
+        <i class="fas fa-lock" style="font-size:11px"></i>
+        Invoice is <strong>Paid</strong> — no changes allowed
+      </div>`;
+    menu.style.display = 'block';
+    const r = e.target.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.min(r.left, window.innerWidth - 210) + 'px';
+    menu._invId = id;
+    return;
+  }
+
+  const menu = document.getElementById('quickStatusMenu');
+  menu.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>`
+    + allStatuses.map(s => {
+        const active    = s === inv.status;
+        const permitted = allowed.includes(s);
+        const hint = hasExistingPayment && (s === 'Pending' || s === 'Draft')
+          ? 'Payment already recorded'
+          : (QS_HINTS[s] || null);
+        const disabled  = !active && !permitted;
+
+        if (disabled) {
+          return `<div style="padding:7px 12px;border-radius:7px;font-size:12.5px;display:flex;align-items:center;gap:8px;opacity:.35;cursor:not-allowed">
+            <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>
+            ${hint ? `<span style="font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap">${hint}</span>` : ''}
+          </div>`;
+        }
+
+        return `<div onclick="applyQuickStatus('${id}','${s}')"
+          style="padding:7px 12px;border-radius:7px;cursor:${active?'default':'pointer'};font-size:12.5px;font-weight:${active?'700':'500'};background:${active?'var(--teal-bg)':'none'};color:${active?'var(--teal)':'var(--text)'};display:flex;align-items:center;gap:8px;opacity:${active?.6:1}">
+          <span class="badge badge-${s.toLowerCase()}" style="font-size:10px;padding:2px 7px">${s}</span>
+          ${active ? '<i class="fas fa-check" style="margin-left:auto;font-size:10px;color:var(--teal)"></i>' : ''}
+        </div>`;
+      }).join('');
+
+  menu.style.display = 'block';
+  const r = e.target.getBoundingClientRect();
+  const mh = 320;
+  const top = (window.innerHeight - r.bottom < mh) ? Math.max(4, r.top - mh) : r.bottom + 4;
+  menu.style.top  = top + 'px';
+  menu.style.left = Math.min(r.left, window.innerWidth - 210) + 'px';
+  menu._invId = id;
+}
+
+async function applyQuickStatus(id, status) {
+  document.getElementById('quickStatusMenu').style.display = 'none';
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv || inv.status === status) return;
+
+  // Guard: Paid/Partial must go through payment modal
+  if (status === 'Paid' || status === 'Partial') {
+    openPaidModal(id);
+    return;
+  }
+
+  // Guard: Cancellation needs reason
+  if (status === 'Cancelled') {
+    const reason = await promptCancelReason(inv);
+    if (reason === null) return;
+    changeInvoiceStatus(id, 'Cancelled', reason);
+    return;
+  }
+
+  changeInvoiceStatus(id, status);
+}
+
+document.addEventListener('click', e => {
+  const qs = document.getElementById('quickStatusMenu');
+  if (qs && !qs.contains(e.target) && !e.target.classList.contains('inv-status-badge')) qs.style.display = 'none';
+});
+
+// ── Bulk action bar ───────────────────────────────────────────
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.inv-check:checked');
+  const bar = document.getElementById('bulkBar');
+  const cnt = document.getElementById('bulkCount');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    cnt.textContent = checked.length + ' selected';
+  } else {
+    bar.style.display = 'none';
+  }
+  // sync selectAll checkbox
+  const all = document.querySelectorAll('.inv-check');
+  const selAll = document.getElementById('selectAll');
+  if (selAll) selAll.checked = all.length > 0 && checked.length === all.length;
+}
+
+function clearBulkSelection() {
+  document.querySelectorAll('.inv-check').forEach(c => c.checked = false);
+  const selAll = document.getElementById('selectAll');
+  if (selAll) selAll.checked = false;
+  updateBulkBar();
+}
+
+function getCheckedInvoices() {
+  return [...document.querySelectorAll('.inv-check:checked')]
+    .map(c => STATE.invoices.find(i => String(i.id) === String(c.value)))
+    .filter(Boolean);
+}
+
+async function bulkSendWA() {
+  const invs = getCheckedInvoices().filter(i => i.status !== 'Draft' && i.status !== 'Cancelled');
+  if (!invs.length) { toast('⚠️ No eligible invoices selected (Draft/Cancelled excluded)', 'warning'); return; }
+  const result = await Swal.fire({
+    title: `Send WhatsApp to ${invs.length} client${invs.length>1?'s':''}?`,
+    html: `Messages will be sent for <b>${invs.length}</b> invoice${invs.length>1?'s':''} based on each invoice's status template.<br><br><span style="font-size:12px;color:var(--muted)">Draft & Cancelled invoices are excluded.</span>`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: 'Send All', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#25D366', customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  let sent = 0;
+  for (const inv of invs) {
+    try { await sendWAForInvoice(inv); sent++; } catch(e) { /* individual errors already toasted */ }
+    await new Promise(r => setTimeout(r, 600)); // small delay between sends
+  }
+  toast(`✅ Sent WhatsApp for ${sent} invoice${sent>1?'s':''}`, 'success');
+  clearBulkSelection();
+}
+
+function bulkExportCSV() {
+  const invs = getCheckedInvoices();
+  if (!invs.length) { toast('⚠️ No invoices selected', 'warning'); return; }
+  const rows = [['Invoice #','Client','Service','Issued','Due','Amount','Status']];
+  invs.forEach(inv => {
+    const c = STATE.clients.find(x=>x.id===inv.client)||{name:inv.client_name||'One-Time'};
+    rows.push([inv.num, c.name, inv.service, inv.issued, inv.due, inv.amount, inv.status]);
+  });
+  _downloadCSV(rows, 'invoices_selected.csv');
+  clearBulkSelection();
+}
+
+async function bulkDelete() {
+  const invs = getCheckedInvoices();
+  if (!invs.length) { toast('⚠️ No invoices selected', 'warning'); return; }
+  const result = await Swal.fire({
+    title: `Delete ${invs.length} invoice${invs.length>1?'s':''}?`,
+    html: `This will permanently delete <b>${invs.length}</b> invoice${invs.length>1?'s':''}. This cannot be undone.`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Delete All', cancelButtonText: 'Cancel',
+    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  for (const inv of invs) {
+    try {
+      await api('api/invoices.php?id=' + inv.id, 'DELETE');
+      STATE.invoices = STATE.invoices.filter(i => String(i.id) !== String(inv.id));
+    } catch(e) { toast('❌ Failed to delete ' + inv.num + ': ' + e.message, 'error'); }
+  }
+  STATE.filteredInvoices = [...STATE.invoices];
+  renderInvoicesTable();
+  toast(`🗑️ Deleted ${invs.length} invoice${invs.length>1?'s':''}`, 'info');
+  clearBulkSelection();
 }
 
 function sortTable(field) {
@@ -4457,6 +4758,7 @@ function sortTable(field) {
 
 function selectAllInv(cb) {
   document.querySelectorAll('.inv-check').forEach(c => c.checked = cb.checked);
+  updateBulkBar();
 }
 
 // ══════════════════════════════════════════
@@ -4464,6 +4766,9 @@ function selectAllInv(cb) {
 // ══════════════════════════════════════════
 function openRowMenu(e, id) {
   e.stopPropagation();
+  // Close quick-status menu if open
+  const qs = document.getElementById('quickStatusMenu');
+  if (qs) qs.style.display = 'none';
   STATE.activeMenuInvoiceId = id;
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   const st  = inv ? inv.status : '';
@@ -4950,7 +5255,7 @@ function tplLogoHTML(d, sc) {
 
   if (showLogo && logo) {
     return `<div>
-      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block" onerror="this.style.display='none'">
+      <img src="${logo}" style="height:52px;max-width:200px;object-fit:contain;display:block;border-radius:12px;border:2px solid rgba(0,0,0,0.12);padding:4px;background:#fff" onerror="this.style.display='none'">
       ${tagDiv}
     </div>`;
   }
@@ -4996,6 +5301,8 @@ function tplWatermark(d) {
     wText = 'OVERDUE'; wColor = 'rgba(229,57,53,.12)';
   } else if (d.status === 'Draft') {
     wText = 'DRAFT'; wColor = 'rgba(0,0,0,.07)';
+  } else if (d.status === 'Estimate') {
+    wText = 'ESTIMATE'; wColor = 'rgba(57,73,171,.10)';
   } else {
     return '';
   }
@@ -5217,16 +5524,19 @@ function buildTpl1(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       </div>
       ${(()=>{
         const invId1 = d.invId ? String(d.invId) : '';
-        if (!invId1 || (d.status!=='Paid'&&d.status!=='Partial')) return '';
+        const showForStatus = d.status==='Paid' || d.status==='Partial' || d.status==='Cancelled';
+        if (!invId1 || !showForStatus) return '';
         const pmts1 = STATE.payments.filter(p=>p.invoice_id&&String(p.invoice_id)===invId1).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
         const totPaid1 = pmts1.reduce((s,p)=>s+parseFloat(p.amount||0),0);
         const totSettle1 = pmts1.reduce((s,p)=>s+parseFloat(p.settlement_discount||0),0);
         if (totPaid1 < 0.01) return '';
         const rem1 = Math.max(0,(d.grand||0)-totPaid1-totSettle1);
+        const isCancelled = d.status === 'Cancelled';
         return `<div style="padding:8px 22px;border-top:2px solid #eee">
+          ${isCancelled?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">⚠ Payment received before cancellation</div>`:''}
           ${totSettle1>0?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #eee"><span style="color:#E65100;font-weight:700">✂ Settlement Discount</span><span style="font-family:monospace;font-weight:700;color:#E65100">-${fmt_money(totSettle1,d.sym)}</span></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;${d.status==='Partial'?'border-bottom:1px solid #eee':''}"><span style="color:#388E3C;font-weight:700">${d.status==='Paid'?'✅ Paid in Full':'💚 Total Paid'}</span><span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totPaid1,d.sym)}</span></div>
-          ${rem1>0.01?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:#E65100;font-weight:700">⚠ Remaining Due</span><span style="font-family:monospace;font-weight:700;color:#E65100">${fmt_money(rem1,d.sym)}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;${(d.status==='Partial'||isCancelled)?'border-bottom:1px solid #eee':''}"><span style="color:#388E3C;font-weight:700">${d.status==='Paid'?'✅ Paid in Full':'💚 Total Paid'}</span><span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totPaid1,d.sym)}</span></div>
+          ${rem1>0.01?`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0"><span style="color:${isCancelled?'#B71C1C':'#E65100'};font-weight:700">${isCancelled?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span><span style="font-family:monospace;font-weight:700;color:${isCancelled?'#B71C1C':'#E65100'}">${fmt_money(rem1,d.sym)}</span></div>`:''}
         </div>`;
       })()}
     </div>
@@ -5252,7 +5562,8 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   const invId = d.invId ? String(d.invId) : '';
   const isPartialStatus = d.status === 'Partial';
   const isPaidStatus = d.status === 'Paid';
-  const showInstalmentsSection = isPartialStatus || isPaidStatus;
+  const isCancelledStatus = d.status === 'Cancelled';
+  const showInstalmentsSection = isPartialStatus || isPaidStatus || isCancelledStatus;
 
   let totalPaid = 0, paymentsForInv = [], remaining = 0;
   if (showInstalmentsSection && invId && invId !== '0' && invId !== '') {
@@ -5271,7 +5582,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
   }
 
   const showPaidRow = showInstalmentsSection && totalPaid > 0.01;
-  const showRemRow  = isPartialStatus && remaining  > 0.01;
+  const showRemRow  = (isPartialStatus || isCancelledStatus) && remaining > 0.01;
 
   const discRow = d.disc > 0 || d.discAmt > 0 ? `
     <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid ${borderColor}">
@@ -5314,6 +5625,7 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
 
   const paidRow = showPaidRow ? `
     <div style="margin-top:4px">
+      ${isCancelledStatus?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;padding:4px 0 2px">⚠ Payment received before cancellation</div>`:''}
       ${settleDiscRow}
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;${paymentsForInv.length>1?'border-bottom:2px solid #A5D6A7':'border-bottom:1px solid '+borderColor}">
         <span style="color:#388E3C;font-weight:700">${isPaidStatus?'✅':'💚'} ${isPaidStatus?'Paid in Full':'Total Paid'}${paymentsForInv.length>1?' ('+paymentsForInv.length+' instalments)':''}</span>
@@ -5324,8 +5636,8 @@ function totalsRows(d, accentColor, borderColor='#eee', mainColor='#000', mutedC
 
   const remainRow = showRemRow ? `
     <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;padding:8px 10px;margin-top:6px;
-         background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
-      <span>⚠ Remaining Due</span>
+         background:${isCancelledStatus?'#FFEBEE':'#FFF8E1'};border-radius:7px;border:2px solid ${isCancelledStatus?'#FFCDD2':'#FFB300'};color:${isCancelledStatus?'#B71C1C':'#E65100'}">
+      <span>${isCancelledStatus?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span>
       <span style="font-family:monospace">${fmt_money(remaining,d.sym)}</span>
     </div>` : '';
 
@@ -5361,7 +5673,7 @@ function footerBar(d, sc, bg='#1A2332', col='rgba(255,255,255,.4)') {
 }
 
 function statusColor(s) {
-  return { Paid:'#388E3C', Pending:'#F57F17', Overdue:'#C62828', Draft:'#757575', Partial:'#E65100', Cancelled:'#B71C1C' }[s] || '#757575';
+  return { Paid:'#388E3C', Pending:'#F57F17', Overdue:'#C62828', Draft:'#757575', Partial:'#E65100', Cancelled:'#B71C1C', Estimate:'#3949AB' }[s] || '#757575';
 }
 
 // ── Helper: resolve company settings (merge STATE if sc is sparse) ──
@@ -5399,7 +5711,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   const T = _MATTE_THEMES[tid] || _MATTE_THEMES[1];
 
   // Status pill colors
-  const pillMap = { Paid: T.pillpaid, Pending: T.pillpending, Overdue: T.pilloverdue, Draft: T.pilldraft, Partial: T.pillpending, Cancelled: '991B1B|FEE2E2' };
+  const pillMap = { Paid: T.pillpaid, Pending: T.pillpending, Overdue: T.pilloverdue, Draft: T.pilldraft, Partial: T.pillpending, Cancelled: '#fff|#991B1B', Estimate: '#fff|#3949AB' };
   const [ptxt, pbg] = (pillMap[d.status]||T.pilldraft).split('|');
 
   // Color band stripes at top — changes per invoice status
@@ -5595,9 +5907,10 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <!-- Partial payment history + settlement discount (instalments + remaining due) -->
       ${(()=>{
         const invId2 = d.invId ? String(d.invId) : '';
-        const isPartial2 = d.status === 'Partial';
-        const isPaid2    = d.status === 'Paid';
-        if (!(isPartial2 || isPaid2) || !invId2 || invId2 === '0') return '';
+        const isPartial2   = d.status === 'Partial';
+        const isPaid2      = d.status === 'Paid';
+        const isCancelled2 = d.status === 'Cancelled';
+        if (!(isPartial2 || isPaid2 || isCancelled2) || !invId2 || invId2 === '0') return '';
         const pays2 = (typeof STATE !== 'undefined' ? STATE.payments : []).filter(p => p.invoice_id && String(p.invoice_id) === invId2)
           .sort((a,b) => {
             const da = new Date(a.date||a.payment_date||0);
@@ -5626,6 +5939,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
           : '';
         const paidLabel = isPaid2 ? '✅ Paid in Full' : `💚 Total Paid${pays2.length>1?' ('+pays2.length+' instalments)':''}`;
         const paidRow2 = `<div style="padding:8px 22px;border-top:1px solid ${T.totbr}">
+          ${isCancelled2?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;padding:4px 0 2px">⚠ Payment received before cancellation</div>`:''}
           ${settleRow2}
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;${pays2.length>1?'border-bottom:2px solid #A5D6A7':''}">
             <span style="color:#388E3C;font-weight:700">${paidLabel}</span>
@@ -5633,9 +5947,9 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
           </div>
           ${pays2.length>1?`<div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">${instalRows2}</div>`:''}
         </div>`;
-        const remRow2 = (isPartial2 && remaining2 > 0.01)
-          ? `<div style="margin:6px 14px 10px;display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:8px 10px;background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
-              <span>⚠ Remaining Due</span>
+        const remRow2 = ((isPartial2 || isCancelled2) && remaining2 > 0.01)
+          ? `<div style="margin:6px 14px 10px;display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:8px 10px;background:${isCancelled2?'#FFEBEE':'#FFF8E1'};border-radius:7px;border:2px solid ${isCancelled2?'#FFCDD2':'#FFB300'};color:${isCancelled2?'#B71C1C':'#E65100'}">
+              <span>${isCancelled2?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span>
               <span style="font-family:monospace">${fmt_money(remaining2,d.sym)}</span>
             </div>`
           : '';
@@ -6169,7 +6483,7 @@ function printInvoiceById(inv) {
       // Parse pdf_options from DB (may be JSON string or already an object)
       let saved = inv.pdf_options || inv.popt || null;
       if (saved && typeof saved === 'string') { try { saved = JSON.parse(saved); } catch(e) { saved = null; } }
-      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:inv.status==='Paid'}, saved||{});
+      return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:(inv.status==='Paid'||inv.status==='Cancelled')}, saved||{});
     })()
   };
   const tpls={1:buildTpl1,2:buildTpl2,3:buildTpl3,4:buildTpl4,5:buildTpl5,
@@ -6579,56 +6893,106 @@ ${sc.phone||''}`);
 }
 
 function sendEmailForInvoice(inv) {
-  const c = STATE.clients.find(x=>String(x.id)===String(inv.client)) || {};
-  const num = inv.num || inv.invoice_number || '';
-  const amt = fmt_money(inv.amount || inv.grand_total || 0, inv.currency||'₹');
-  const due = inv.due || inv.due_date || '';
-  const svc = inv.service || inv.service_type || '';
-  const d   = {
-    bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
-    notes: inv.notes || '', tnc: inv.tnc || inv.terms || '',
-    sym: inv.currency||'₹', grand: inv.amount||0,
-    companyLogo: STATE.settings.logo||''
-  };
-  sendEmailForClient(c.email||'', c.name||'Client', num, amt, due, svc, d);
+  const status = inv.status || '';
+
+  // ── Block sending reminder/overdue/followup-style emails to closed invoices ──
+  if (status === 'Cancelled') {
+    toast('⚠️ Cannot email a Cancelled invoice.', 'warning');
+    return;
+  }
+  if (status === 'Draft') {
+    toast('⚠️ Cannot email a Draft — please finalise the invoice first.', 'warning');
+    return;
+  }
+
+  // ── Pick the correct email type based on invoice status ──────────
+  // Paid   → receipt (payment confirmation)
+  // Overdue → overdue notice
+  // Partial → receipt (partial payment received)
+  // Pending / Estimate → invoice / estimate
+  let emailType = 'invoice';
+  if (status === 'Paid')     emailType = 'receipt';
+  else if (status === 'Partial')  emailType = 'receipt';
+  else if (status === 'Overdue')  emailType = 'overdue';
+  else if (status === 'Estimate') emailType = 'estimate';
+  else                            emailType = 'invoice';  // Pending
+
+  const c     = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+  const email = c.email || '';
+  if (!email) { toast('⚠️ No email address on file for this client', 'warning'); return; }
+
+  const ec    = STATE.settings.email_cfg || {};
+  if (!ec.smtp_host || !ec.smtp_user) {
+    // No SMTP — fall back to mailto with a sensible body
+    const num  = inv.num || inv.invoice_number || '';
+    const amt  = fmt_money(inv.amount || inv.grand_total || 0, inv.currency || '₹');
+    const due  = inv.due || inv.due_date || '';
+    const subj = encodeURIComponent(`Invoice #${num} from ${STATE.settings.company || 'OPTMS Tech'}`);
+    const body = encodeURIComponent(`Dear ${c.name || 'Client'},\n\nInvoice #${num} — ${amt}\nDue: ${due}\n\nThank you,\n${STATE.settings.company || ''}`);
+    window.open(`mailto:${email}?subject=${subj}&body=${body}`, '_blank');
+    toast('📧 Email client opened. Configure SMTP in Email Setup for direct sending.', 'info');
+    return;
+  }
+
+  // ── Send via server (let email.php resolve template + portal link) ──
+  const invId = inv.id || inv._dbId || '';
+  toast(`📧 Sending ${emailType} email to ${c.name || email}…`, 'info');
+  api('api/email.php', 'POST', {
+    action:     'send',
+    type:       emailType,
+    invoice_id: invId,
+    to:         email,
+    to_name:    c.name || 'Client',
+  }).then(r => {
+    if (r && r.success) {
+      toast(`✅ ${emailType.charAt(0).toUpperCase() + emailType.slice(1)} email sent to ${c.name || email}!`, 'success');
+    } else {
+      toast('❌ Send failed: ' + (r?.error || 'Unknown error'), 'error');
+    }
+  }).catch(e => toast('❌ Email error: ' + e.message, 'error'));
 }
 
+// sendEmailForClient — kept for legacy callers (new invoice form, modal)
+// Also now passes invoice_id + type so the backend uses the correct template
 async function sendEmailForClient(email, name, num, amount, due, service, d) {
   if (!email) { toast('⚠️ No email address for this client', 'warning'); return; }
-  const sc      = STATE.settings;
-  const ec      = sc.email_cfg || {};
-  const company = sc.company || '';
-  const phone   = sc.phone   || '';
-  const upi     = sc.upi     || '';
-  const bank    = (d && d.bank) || sc.defaultBank || '';
-  const invId   = d?.invId || d?.id || '';
-  const subjTpl = ec.email_subject || document.getElementById('em-subj')?.value || 'Invoice #{invoice_no} from {company_name}';
-  const bodyTpl = ec.email_body    || document.getElementById('em-body')?.value ||
-    'Dear {client_name},\n\nPlease find Invoice #{invoice_no} for {amount} due on {due_date}.\n\nService: {service}\n\nPay via UPI: {upi}\n{bank_details}\n\nThank you!\n{company_name}\n{company_phone}';
-  const subj = subjTpl
-    .replace(/{invoice_no}/g, num).replace(/{amount}/g, amount)
-    .replace(/{client_name}/g, name).replace(/{company_name}/g, company)
-    .replace(/{due_date}/g, due).replace(/{service}/g, service);
-  const body = bodyTpl
-    .replace(/{invoice_no}/g, num).replace(/{amount}/g, amount)
-    .replace(/{client_name}/g, name).replace(/{company_name}/g, company)
-    .replace(/{due_date}/g, due).replace(/{service}/g, service)
-    .replace(/{upi}/g, upi).replace(/{bank_details}/g, bank)
-    .replace(/{company_phone}/g, phone);
-  // If SMTP is configured — send directly via server
+  const sc    = STATE.settings;
+  const ec    = sc.email_cfg || {};
+  const invId = d?.invId || d?.id || d?.invoice_id || '';
+
+  // Derive type from status if available, default to invoice
+  const status   = d?.status || '';
+  let emailType  = 'invoice';
+  if      (status === 'Paid')     emailType = 'receipt';
+  else if (status === 'Partial')  emailType = 'receipt';
+  else if (status === 'Overdue')  emailType = 'overdue';
+  else if (status === 'Estimate') emailType = 'estimate';
+
+  // If SMTP configured — let the server resolve template + portal link
   if (ec.smtp_host && ec.smtp_user) {
     toast('📧 Sending email to ' + name + '…', 'info');
     try {
-      const r = await api('api/email.php', 'POST', { action:'send', to:email, to_name:name, subject:subj, body, invoice_id:invId });
-      if (r.success) { toast('✅ Email sent to ' + name + '!', 'success'); }
-      else {
+      const r = await api('api/email.php', 'POST', {
+        action:     'send',
+        type:       emailType,
+        invoice_id: invId,
+        to:         email,
+        to_name:    name,
+      });
+      if (r.success) {
+        toast('✅ Email sent to ' + name + '!', 'success');
+      } else {
         toast('⚠️ SMTP failed — opening email client instead', 'warning');
-        window.open(`mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`, '_blank');
+        const subj = encodeURIComponent(`Invoice #${num} from ${sc.company || 'OPTMS Tech'}`);
+        const body = encodeURIComponent(`Dear ${name},\n\nInvoice #${num} — ${amount}\nDue: ${due}\n\nThank you,\n${sc.company || ''}`);
+        window.open(`mailto:${email}?subject=${subj}&body=${body}`, '_blank');
       }
     } catch(e) { toast('❌ Email error: ' + e.message, 'error'); }
   } else {
-    // No SMTP — fallback to mailto
-    window.open(`mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`, '_blank');
+    // No SMTP — mailto fallback
+    const subj = encodeURIComponent(`Invoice #${num} from ${sc.company || 'OPTMS Tech'} – ${amount}`);
+    const body = encodeURIComponent(`Dear ${name},\n\nInvoice #${num} — ${amount}\nDue: ${due}\nService: ${service}\n\nPay via UPI: ${sc.upi||''}\n\nThank you,\n${sc.company||''}\n${sc.phone||''}`);
+    window.open(`mailto:${email}?subject=${subj}&body=${body}`, '_blank');
     toast('📧 Email client opened. Configure SMTP in Email Setup for direct sending.', 'info');
   }
 }
@@ -6968,35 +7332,140 @@ function confirmDelete() {
 // ══════════════════════════════════════════
 // STATUS CHANGE (Make Pending / Cancel)
 // ══════════════════════════════════════════
-async function changeInvoiceStatus(id, newStatus) {
+async function changeInvoiceStatus(id, newStatus, cancelReason = '') {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
   const label = newStatus === 'Pending' ? '📤 Made Pending' : newStatus === 'Cancelled' ? '🚫 Cancelled' : newStatus;
+  const payload = { status: newStatus };
+  if (newStatus === 'Cancelled' && cancelReason) payload.cancel_reason = cancelReason;
   try {
-    await api('api/invoices.php?id=' + parseInt(id), 'PATCH', { status: newStatus });
+    await api('api/invoices.php?id=' + parseInt(id), 'PATCH', payload);
     inv.status = newStatus;
-    STATE.filteredInvoices = [...STATE.invoices];
-    logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}`, inv.client_name||'', id);
+    if (newStatus === 'Cancelled' && cancelReason) inv.cancel_reason = cancelReason;
+    // Re-apply existing filters instead of resetting to all invoices,
+    // so the user's active search/filter is preserved after a status change.
+    if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+    else STATE.filteredInvoices = [...STATE.invoices];
+    logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}${cancelReason ? ' — ' + cancelReason : ''}`, inv.client_name||'', id);
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     toast(`${label}: ${inv.num||inv.invoice_number}`, 'success');
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
 }
 
-function confirmCancelInvoice(id) {
-  const inv = STATE.invoices.find(i=>String(i.id)===String(id));
-  if (!inv) return;
-  if (!confirm(`Cancel invoice ${inv.num||inv.invoice_number}?\n\nThis will mark the invoice as Cancelled and add a CANCELLED watermark. This action cannot be undone easily.`)) return;
-  changeInvoiceStatus(id, 'Cancelled');
+// ── Shared cancel reason prompt used by both quick-status and row-menu ──
+async function promptCancelReason(inv) {
+  const { value: reason, isConfirmed } = await Swal.fire({
+    title: `Cancel Invoice ${inv.num || inv.invoice_number}?`,
+    html: `
+      <div style="text-align:left;margin-bottom:8px;font-size:13px;color:var(--text2)">
+        This will mark the invoice as <b>Cancelled</b>.<br>
+        <span style="font-size:12px;color:var(--muted)">Reason is saved for your records.</span>
+      </div>
+      <textarea id="swal-cancel-reason" placeholder="Reason for cancellation (required)…"
+        style="width:100%;min-height:80px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;
+               font-family:var(--font);font-size:13px;resize:vertical;margin-top:4px;box-sizing:border-box"
+        oninput="document.getElementById('swal-cancel-reason').style.borderColor=this.value.trim()?'var(--border2)':'#E53935'"
+      ></textarea>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Cancel It',
+    cancelButtonText: 'Go Back',
+    confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' },
+    didOpen: () => document.getElementById('swal-cancel-reason').focus(),
+    preConfirm: () => {
+      const r = document.getElementById('swal-cancel-reason').value.trim();
+      if (!r) {
+        document.getElementById('swal-cancel-reason').style.borderColor = '#E53935';
+        Swal.showValidationMessage('Please enter a reason for cancellation');
+        return false;
+      }
+      return r;
+    }
+  });
+  if (!isConfirmed) return null;
+  return reason;
 }
-function duplicateInvoice(id) {
+
+async function confirmCancelInvoice(id) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   if (!inv) return;
-  const newNum = STATE.settings.prefix + (STATE.invoices.length + 1).toString().padStart(3,'0');
-  const dup = { ...inv, id:'i'+Date.now(), num:newNum, status:'Draft', issued:fmt_date(new Date()) };
-  STATE.invoices.push(dup);
-  STATE.filteredInvoices = [...STATE.invoices];
-  renderInvoicesTable();
-  toast(`📋 Duplicated as ${newNum}`, 'success');
+  const reason = await promptCancelReason(inv);
+  if (reason === null) return;
+  changeInvoiceStatus(id, 'Cancelled', reason);
+}
+async function duplicateInvoice(id) {
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv) return;
+
+  const { isConfirmed } = await Swal.fire({
+    title: 'Duplicate Invoice?',
+    html: `A new <b>Draft</b> copy of <b>${inv.num || inv.invoice_number}</b> will be created.<br>
+           <span style="font-size:12px;color:var(--muted)">It will open immediately so you can adjust the due date and details.</span>`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, Duplicate',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#00897B',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!isConfirmed) return;
+
+  // Build a clean copy — strip identity fields, reset status to Draft,
+  // clear cancel_reason, set today as issued date, clear due date
+  const today = fmt_date(new Date());
+  const payload = {
+    client_id:      inv.client      || inv.client_id      || null,
+    client_name:    inv.clientName  || inv.client_name    || '',
+    service_type:   inv.service     || inv.service_type   || '',
+    issued_date:    today,
+    due_date:       '',
+    status:         'Draft',
+    cancel_reason:  '',
+    currency:       inv.currency    || '₹',
+    subtotal:       inv.subtotal    || 0,
+    discount_pct:   inv.disc        || inv.discount_pct   || 0,
+    discount_type:  inv.discount_type || 'percent',
+    discount_amt:   inv.discount_amt  || 0,
+    gst_amount:     inv.gst_amount    || 0,
+    grand_total:    inv.amount      || inv.grand_total    || 0,
+    notes:          inv.notes       || '',
+    bank_details:   inv.bank        || inv.bank_details   || '',
+    terms:          inv.tnc         || inv.terms          || '',
+    company_logo:   inv.company_logo  || '',
+    client_logo:    inv.client_logo   || '',
+    signature:      inv.signature     || '',
+    qr_code:        inv.qr_code       || '',
+    template_id:    inv.template    || inv.template_id    || 1,
+    generated_by:   inv.generated_by  || 'OPTMS Tech Invoice Manager',
+    show_generated: inv.show_generated ?? 1,
+    pdf_options:    inv.pdf_options   || null,
+    items:          (inv.items || []).map(it => ({
+      desc: it.desc || it.description || '',
+      qty:  it.qty  || it.quantity    || 1,
+      rate: it.rate || 0,
+      gst:  it.gst  || it.gst_rate   || 0,
+    }))
+  };
+
+  try {
+    const res = await api('api/invoices.php', 'POST', payload);
+    if (!res.id) throw new Error('No ID returned');
+
+    // Fetch the newly created invoice from DB so we get the real number
+    const newInvRes = await api('api/invoices.php?id=' + res.id, 'GET');
+    const newInv = newInvRes.data;
+    if (newInv) {
+      STATE.invoices.unshift(newInv);
+      STATE.filteredInvoices = [...STATE.invoices];
+      renderInvoicesTable();
+      // Open it for editing immediately
+      editInvoice(String(newInv.id));
+      toast(`📋 Duplicated as ${res.invoice_number} — edit & save`, 'success');
+    }
+  } catch (e) {
+    toast('❌ Duplicate failed: ' + e.message, 'error');
+  }
 }
 
 // ══════════════════════════════════════════
@@ -7005,7 +7474,8 @@ function duplicateInvoice(id) {
 async function convertEstimateToInvoice(id) {
   const inv = STATE.invoices.find(i => String(i.id) === String(id));
   if (!inv) return;
-  if (!confirm(`Convert Estimate ${inv.num||inv.invoice_number} to a Pending Invoice?\n\nThe status will change to Pending and a WhatsApp invoice notification will be sent to the client.`)) return;
+  const _convResult = await Swal.fire({ title: `Convert Estimate to Invoice?`, html: `Estimate <b>${inv.num||inv.invoice_number}</b> will become a <b>Pending Invoice</b>.<br>A WhatsApp notification will be sent to the client.`, icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, Convert', cancelButtonText: 'Cancel', confirmButtonColor: '#00897B', customClass: { popup: 'swal-compact' } });
+  if (!_convResult.isConfirmed) return;
 
   const dbId = inv._dbId || parseInt(inv.id) || 0;
   // Replace estimate prefix with invoice prefix for the new invoice number
@@ -7153,6 +7623,17 @@ function renderClients() {
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
     const isInactive = parseInt(c.active) === 0 || c.status === 'inactive';
 
+    // Outstanding dues
+    const overdueInvs  = STATE.invoices.filter(i=>i.client===c.id && i.status==='Overdue');
+    const pendingInvs  = STATE.invoices.filter(i=>i.client===c.id && (i.status==='Pending'||i.status==='Partial'));
+    const outstandingAmt = [...overdueInvs, ...pendingInvs].reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const hasOverdue   = overdueInvs.length > 0;
+    const hasPending   = pendingInvs.length > 0;
+    const outColor     = hasOverdue ? 'var(--red)' : hasPending ? 'var(--amber)' : 'var(--muted)';
+    const outLabel     = hasOverdue ? `<span style="font-size:9px;font-weight:700;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;margin-left:3px">${overdueInvs.length} overdue</span>`
+                       : hasPending ? `<span style="font-size:9px;font-weight:700;background:#FFF8E1;color:var(--amber);border-radius:10px;padding:1px 5px;margin-left:3px;border:1px solid var(--amber)">${pendingInvs.length} pending</span>`
+                       : '';
+
     const cardStyle = isInactive
       ? `background:#FFF8E1;border:2px solid #F9A825;box-shadow:0 0 0 1px #F9A82555;opacity:.85;`
       : '';
@@ -7177,8 +7658,29 @@ function renderClients() {
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
       </div>
+      ${outstandingAmt > 0 ? `
+      <div onclick="filterByClient('${c.id}');showPage('invoices')" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue?'#FFEBEE':'#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue?'#FFCDD2':'#FFE082'}">
+        <div style="display:flex;align-items:center;gap:7px">
+          <i class="fas fa-exclamation-circle" style="font-size:12px;color:${hasOverdue?'#C62828':'#E65100'}"></i>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:${hasOverdue?'#B71C1C':'#BF360C'}">Outstanding Dues</div>
+            <div style="font-size:10px;color:${hasOverdue?'#C62828':'#E65100'};margin-top:1px">${hasOverdue ? overdueInvs.length+' overdue' : ''}${hasOverdue && pendingInvs.length ? ', ' : ''}${pendingInvs.length ? pendingInvs.length+' pending' : ''}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="font-size:14px;font-weight:800;font-family:var(--mono);color:${hasOverdue?'#C62828':'#E65100'}">${fmt_money(outstandingAmt)}</div>
+          <i class="fas fa-chevron-right" style="font-size:10px;color:${hasOverdue?'#C62828':'#E65100'};opacity:.6"></i>
+        </div>
+      </div>` : `
+      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:7px">
+          <i class="fas fa-check-circle" style="font-size:12px;color:var(--muted)"></i>
+          <div style="font-size:11px;font-weight:600;color:var(--muted)">No Dues</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--border2);font-family:var(--mono)">—</div>
+      </div>`}
       <div class="cc-footer" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         ${!isInactive ? `<button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>` : ''}
         ${!isInactive ? `<button class="btn btn-whatsapp" style="flex:1;font-size:12px" onclick="sendWAMessage('${c.wa}','${c.name}','','','')"><i class="fab fa-whatsapp"></i> Msg</button>` : ''}
@@ -7399,10 +7901,11 @@ async function deleteClient(id) {
   const c = STATE.clients.find(x => String(x.id) === String(id));
   if (!c) return;
   const hasInvoices = STATE.invoices.some(i => String(i.client) === String(id));
-  const msg = hasInvoices
-    ? `⚠️ "${c.name}" has existing invoices. Deleting the client will NOT delete their invoices.\n\nAre you sure you want to delete this client?`
-    : `Are you sure you want to delete "${c.name}"? This cannot be undone.`;
-  if (!confirm(msg)) return;
+  const _delClientHtml = hasInvoices
+    ? `<b>"${c.name}"</b> has existing invoices. Deleting the client will <b>not</b> delete their invoices.<br><br>Are you sure?`
+    : `Are you sure you want to delete <b>"${c.name}"</b>? This cannot be undone.`;
+  const _delClientResult = await Swal.fire({ title: 'Delete Client?', html: _delClientHtml, icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Delete', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_delClientResult.isConfirmed) return;
   try {
     const dbId = parseInt(c._dbId || c.id) || 0;
     await api('api/clients.php?id=' + dbId, 'DELETE');
@@ -7723,7 +8226,8 @@ function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)retur
 async function revertPaymentDelete(idx) {
   const p = PMT.list[idx];
   if (!p || !p.id) return;
-  if (!confirm('Revert "Invoice Deleted" flag for this payment?\nThis will mark the payment as active again.')) return;
+  const _revertResult = await Swal.fire({ title: 'Revert Payment Flag?', html: 'This will mark the payment as <b>active</b> again.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, Revert', cancelButtonText: 'Cancel', confirmButtonColor: '#00897B', customClass: { popup: 'swal-compact' } });
+  if (!_revertResult.isConfirmed) return;
   try {
     await api('api/payments.php?id=' + parseInt(p.id), 'PATCH', { invoice_deleted: false });
     // Update in STATE
@@ -8367,7 +8871,8 @@ async function saveSmtpProfile() {
 }
 
 async function delSmtpProfile(id) {
-  if (!confirm('Delete this SMTP profile?')) return;
+  const _smtpResult = await Swal.fire({ title: 'Delete SMTP Profile?', text: 'This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_smtpResult.isConfirmed) return;
   try {
     await fetch('api/email.php?action=del_profile&id=' + id, { method:'DELETE', headers:{ 'X-Requested-With':'XMLHttpRequest' } });
     loadSmtpProfiles();
@@ -8668,8 +9173,9 @@ function renderMsgLog() {
   }).join('');
 }
 
-function clearMsgLog() {
-  if (!confirm('Clear all message log entries? This cannot be undone.')) return;
+async function clearMsgLog() {
+  const _logResult = await Swal.fire({ title: 'Clear Message Log?', text: 'All log entries will be permanently deleted. This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Clear All', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_logResult.isConfirmed) return;
   localStorage.removeItem(MSG_LOG_KEY);
   renderMsgLog();
   const badge = document.getElementById('badge-msglog');
@@ -8778,8 +9284,9 @@ function importData() {
   toast('ℹ️ Import: paste JSON data or drag file. Feature coming soon!', 'info');
 }
 
-function clearAllData() {
-  if (confirm('Are you sure? This will delete ALL invoices, clients, and data.')) {
+async function clearAllData() {
+  const _wipeResult = await Swal.fire({ title: 'Delete ALL Data?', html: 'This will permanently delete <b>all invoices, clients, and payments</b>.<br>This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, Delete Everything', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (_wipeResult.isConfirmed) {
     STATE.invoices = [];
     STATE.clients  = [];
     STATE.payments = [];
@@ -9254,6 +9761,8 @@ function normalizeInvoice(inv) {
   if (!inv.bank && inv.bank_details) inv.bank = inv.bank_details;
   // Unify tnc field aliases
   if (!inv.tnc && inv.terms) inv.tnc = inv.terms;
+  // Preserve cancel reason
+  if (!inv.cancel_reason) inv.cancel_reason = inv.cancel_reason || '';
   // Fall back to default notes if empty
   if (!inv.notes) inv.notes = 'Thank you for choosing OPTMS Tech. Payment is due within 15 days of invoice date. Late payments may incur a 2% monthly interest charge.';
   // ── Auto-overdue: mark Pending invoices as Overdue if past due date ──
@@ -11172,8 +11681,9 @@ function saveExpense() {
   }
 }
 
-function deleteExpense(id) {
-  if (!confirm('Delete this expense?')) return;
+async function deleteExpense(id) {
+  const _expResult = await Swal.fire({ title: 'Delete Expense?', text: 'This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_expResult.isConfirmed) return;
   api('api/expenses.php?id='+id,'DELETE').then(()=>{
     STATE.expenses = STATE.expenses.filter(e=>String(e.id)!==String(id));
     renderExpenses(); toast('🗑️ Expense deleted','info');
@@ -11303,7 +11813,8 @@ function sharePortalWA() {
 }
 
 async function revokePortalLink(invId) {
-  if (!confirm('Revoke this portal link? The client will no longer be able to access it.')) return;
+  const _portalResult = await Swal.fire({ title: 'Revoke Portal Link?', text: 'The client will no longer be able to access this portal link.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Revoke', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_portalResult.isConfirmed) return;
   try {
     await api('api/portal.php?invoice_id=' + invId, 'DELETE');
     delete _portalTokenCache[String(invId)];
@@ -11344,7 +11855,8 @@ async function _renderPortalTable(search) {
   const rows = STATE.invoices.filter(inv => {
     if (!s) return true;
     const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-    return (inv.num||'').toLowerCase().includes(s) || (c.name||'').toLowerCase().includes(s);
+    const name = c.name || inv.clientName || inv.client_name || '';
+    return (inv.num||'').toLowerCase().includes(s) || name.toLowerCase().includes(s);
   });
 
   if (!rows.length) {
@@ -11354,7 +11866,8 @@ async function _renderPortalTable(search) {
 
   const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
   tbody.innerHTML = rows.map(inv => {
-    const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const c    = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const cName = c.name || inv.clientName || inv.client_name || '—';
     const t   = _portalTokenMap[String(inv.id)];
     const url = t ? _buildPortalURL(t.token) : '';
     const sc  = statusColors[inv.status] || '#888';
@@ -11365,7 +11878,7 @@ async function _renderPortalTable(search) {
 
     return `<tr>
       <td><strong style="font-family:var(--mono);font-size:12px">${inv.num||inv.invoice_number||''}</strong></td>
-      <td style="font-size:13px">${c.name||'—'}</td>
+      <td style="font-size:13px">${cName}</td>
       <td style="font-family:var(--mono);font-size:13px">${fmt_money(inv.amount||0)}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span></td>
       <td style="max-width:220px">
@@ -11563,8 +12076,9 @@ function _renderReminderHistory() {
   }).join('');
 }
 
-function clearReminderHistory() {
-  if (!confirm('Clear all reminder history?')) return;
+async function clearReminderHistory() {
+  const _remResult = await Swal.fire({ title: 'Clear Reminder History?', text: 'All reminder log entries will be permanently deleted.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Clear All', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_remResult.isConfirmed) return;
   api('api/reminders.php?log=1','DELETE').then(()=>{
     STATE.reminders=[]; renderReminders(); toast('🗑️ History cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
@@ -11725,8 +12239,9 @@ function exportActivityCSV() {
   _downloadCSV(rows, 'activitys_log.csv');
 }
 
-function clearActivityLog() {
-  if (!confirm('Clear entire activity log?')) return;
+async function clearActivityLog() {
+  const _actResult = await Swal.fire({ title: 'Clear Activity Log?', text: 'The entire activity log will be permanently deleted.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Clear All', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_actResult.isConfirmed) return;
   api('api/activity.php','DELETE').then(()=>{
     STATE.activity=[]; renderActivityLog(); toast('🗑️ Activity log cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
@@ -12449,7 +12964,8 @@ async function recPause(id) {
 
 // ── Delete ────────────────────────────────────────────────────
 async function recDelete(id) {
-  if (!confirm('Delete this recurring schedule? This will not delete any already-generated invoices.')) return;
+  const _recResult = await Swal.fire({ title: 'Delete Recurring Schedule?', text: 'Already-generated invoices will not be deleted.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_recResult.isConfirmed) return;
   try {
     await api('api/recurring.php?id=' + encodeURIComponent(id), 'DELETE');
     STATE.recurring = STATE.recurring.filter(x => String(x.id) !== String(id));
@@ -12805,7 +13321,7 @@ function waUpdatePreview(textareaId, wrapId) {
 }
 
 // ── Reset current tab template to default ────────────────────
-function waResetCurrentTab() {
+async function waResetCurrentTab() {
   const key = window._waActiveTab || 'inv';
   const idMap = { inv:'wa-tpl-inv', estimate:'wa-tpl-estimate', paid:'wa-tpl-paid', partial:'wa-tpl-partial',
                   remind:'wa-tpl-remind', overdue:'wa-tpl-overdue', followup:'wa-tpl-followup' };
@@ -12814,7 +13330,8 @@ function waResetCurrentTab() {
   const tId = idMap[key];
   const tKey = tplMap[key];
   if (!tId || !tKey) return;
-  if (!confirm('Reset this template to the default? Your changes will be lost.')) return;
+  const _waResult = await Swal.fire({ title: 'Reset Template?', text: 'Your changes will be lost and the template will revert to the default.', icon: 'question', showCancelButton: true, confirmButtonText: 'Reset', cancelButtonText: 'Cancel', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!_waResult.isConfirmed) return;
   const ta = document.getElementById(tId);
   if (ta) { ta.value = getDefaultWATpl(tKey); saveWASettings(); toast('↩ Template reset to default', 'info'); }
 }
@@ -12840,6 +13357,32 @@ function waQuickReply(type) {
 
 // override above (near the recurring page hook). No second override needed.
 window._waActiveTab = 'inv';
+
+// ── Dynamic avatar glow: extract dominant color from logo ────
+function applyAvatarGlow(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16; canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, 16, 16);
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    let r=0, g=0, b=0, count=0;
+    for (let i=0; i<data.length; i+=4) {
+      const a = data[i+3];
+      if (a < 30) continue; // skip transparent pixels
+      // skip near-white pixels (background)
+      if (data[i]>230 && data[i+1]>230 && data[i+2]>230) continue;
+      r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+    }
+    if (count === 0) return;
+    r = Math.round(r/count); g = Math.round(g/count); b = Math.round(b/count);
+    const wrap = img.closest('.cc-avatar');
+    if (wrap) {
+      wrap.style.borderColor = `rgb(${r},${g},${b})`;
+      wrap.style.boxShadow = `0 0 6px rgba(${r},${g},${b},0.7), 0 0 14px rgba(${r},${g},${b},0.35)`;
+    }
+  } catch(e) { /* cross-origin fallback: keeps default teal */ }
+}
 
 </script>
 

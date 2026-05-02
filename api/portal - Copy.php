@@ -93,8 +93,7 @@ try {
     if ($method === 'GET' && empty($_GET['invoice_id'])) {
         $stmt = $db->query(
             'SELECT pt.*, i.invoice_number, i.grand_total AS amount, i.status,
-                    COALESCE(c.name, i.client_name) AS client_name,
-                    pt.expires_at
+                    c.name AS client_name
              FROM portal_tokens pt
              JOIN invoices i ON i.id = pt.invoice_id
              LEFT JOIN clients c ON c.id = i.client_id
@@ -171,34 +170,6 @@ try {
         }
 
         echo json_encode(['success'=>true,'token'=>$token,'invoice_id'=>$invId]);
-        exit;
-    }
-
-    // ── PATCH: set or remove expiry on a token ────────────────────
-    if ($method === 'PATCH') {
-        $raw   = file_get_contents('php://input');
-        $body  = json_decode($raw, true) ?: [];
-        $token = trim($body['token'] ?? '');
-        $days  = isset($body['expiry_days']) ? (int)$body['expiry_days'] : -1;
-
-        if (!$token) {
-            http_response_code(422);
-            echo json_encode(['success' => false, 'error' => 'token required']);
-            exit;
-        }
-
-        if ($days <= 0) {
-            // Remove expiry — link lives forever
-            $db->prepare('UPDATE portal_tokens SET expires_at = NULL WHERE token = ?')
-               ->execute([$token]);
-            echo json_encode(['success' => true, 'expires_at' => null]);
-        } else {
-            // Set expiry N days from now
-            $expiresAt = (new DateTime())->modify("+{$days} days")->format('Y-m-d H:i:s');
-            $db->prepare('UPDATE portal_tokens SET expires_at = ? WHERE token = ?')
-               ->execute([$expiresAt, $token]);
-            echo json_encode(['success' => true, 'expires_at' => $expiresAt]);
-        }
         exit;
     }
 

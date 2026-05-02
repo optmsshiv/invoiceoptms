@@ -13,6 +13,8 @@
 require_once __DIR__ . '/../config/db.php';
 
 $rawToken = $_GET['t'] ?? '';
+$src      = $_GET['src'] ?? 'wa';   // 'email' = email portal, 'wa' = WhatsApp portal (default)
+$isEmailPortal = ($src === 'email');
 $error    = '';
 $inv      = null;
 $client   = [];
@@ -21,6 +23,7 @@ $settings = [];
 $invoiceId = 0;
 
 $firstViewed = null;
+$lastViewed  = null;
 $viewCount   = null;
 
 if (!$rawToken) {
@@ -60,13 +63,23 @@ if (!$rawToken) {
             $stmt->execute([':token' => $rawToken]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row) {
-                $invoiceId  = (int)$row['invoice_id'];
-                $firstViewed = $row['first_viewed'];
-                $viewCount   = (int)($row['view_count'] ?? $row['views'] ?? 0) + 1;
-                // Set first_viewed on first visit, always bump counters
+                $invoiceId = (int)$row['invoice_id'];
+                // UPDATE first, then re-read — so displayed count is always the true DB value
                 $db->prepare(
-                    'UPDATE portal_tokens SET views = views + 1, view_count = view_count + 1, last_viewed = NOW(), first_viewed = COALESCE(first_viewed, NOW()) WHERE token = :t'
+                    'UPDATE portal_tokens
+                     SET views        = views + 1,
+                         view_count   = view_count + 1,
+                         last_viewed  = NOW(),
+                         first_viewed = COALESCE(first_viewed, NOW())
+                     WHERE token = :t'
                 )->execute([':t' => $rawToken]);
+                // Re-fetch after update so counts are accurate
+                $fresh = $db->prepare('SELECT view_count, first_viewed, last_viewed FROM portal_tokens WHERE token = :t LIMIT 1');
+                $fresh->execute([':t' => $rawToken]);
+                $freshRow    = $fresh->fetch(PDO::FETCH_ASSOC);
+                $firstViewed = $freshRow['first_viewed'] ?? null;
+                $lastViewed  = $freshRow['last_viewed']  ?? null;
+                $viewCount   = (int)($freshRow['view_count'] ?? 1);
             } else {
                 $error = 'This link is invalid or has expired. Please contact your service provider.';
             }
@@ -103,7 +116,7 @@ if (!$error && $invoiceId > 0) {
             SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                    i.due_date, i.grand_total AS amount, i.subtotal,
                    i.discount_pct, i.discount_amt, i.gst_amount,
-                   i.status, i.client_id, i.service_type,
+                   i.status, i.client_id, i.client_name, i.service_type,
                    i.notes, i.terms, i.bank_details, i.currency
             FROM invoices i WHERE i.id = :id LIMIT 1
           ");
@@ -120,6 +133,15 @@ if (!$error && $invoiceId > 0) {
             $cStmt->execute([':id' => $inv['client_id']]);
             $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
+            // Walk-in / one-time clients have no client_id — fall back to
+            // the client_name stored directly on the invoice row
+            if (empty($client['name']) && !empty($inv['client_name'])) {
+                $client['name']    = $inv['client_name'];
+                $client['email']   = $client['email']   ?? '';
+                $client['phone']   = $client['phone']   ?? '';
+                $client['address'] = $client['address'] ?? '';
+            }
+
             // Payment history
             $pStmt = $db->prepare(
                 'SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount,
@@ -134,6 +156,24 @@ if (!$error && $invoiceId > 0) {
                 $sRows = $db->query("SELECT `key`, value FROM settings")->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($sRows as $r) $settings[$r['key']] = $r['value'];
             } catch (Exception $e) { /* settings table might differ */ }
+
+            // ── Other outstanding invoices for this client ─────────
+            $otherDues = [];
+            try {
+                $odStmt = $db->prepare("
+                    SELECT id, invoice_number, due_date, grand_total AS amount,
+                           status, service_type, issued_date
+                    FROM invoices
+                    WHERE client_id = :cid
+                      AND id != :iid
+                      AND status IN ('Pending','Overdue','Partial')
+                    ORDER BY
+                      CASE status WHEN 'Overdue' THEN 0 WHEN 'Partial' THEN 1 ELSE 2 END ASC,
+                      due_date ASC
+                ");
+                $odStmt->execute([':cid' => $inv['client_id'], ':iid' => $invoiceId]);
+                $otherDues = $odStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { /* non-fatal */ }
         }
     } catch (Exception $e) {
         error_log('portal/index.php error: ' . $e->getMessage());
@@ -146,6 +186,17 @@ function fmt_date($d) {
     if (!$d || $d === '—') return '—';
     $ts = strtotime($d);
     return $ts ? date('d M Y', $ts) : htmlspecialchars($d);
+}
+function fmt_rel($d) {
+    // Returns relative label for first_viewed: "Today", "Yesterday", "3 days ago", or "d M Y" for older
+    if (!$d) return '';
+    $ts   = strtotime($d);
+    if (!$ts) return '';
+    $days = (int)floor((strtotime('today') - strtotime(date('Y-m-d', $ts))) / 86400);
+    if ($days === 0)  return 'Today';
+    if ($days === 1)  return 'Yesterday';
+    if ($days <= 6)   return $days . ' days ago';
+    return date('d M Y', $ts);
 }
 function fmt_inr($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
@@ -482,7 +533,36 @@ tr:last-child td{border:none}
   .upi-box{background:var(--teal-bg)}
 }
 
-/* ── Feature 1: View tracking badge ── */
+/* ── Outstanding dues banner ── */
+.dues-banner{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1.5px solid #FFAB40;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:flex-start;gap:14px}
+.dues-banner-icon{width:40px;height:40px;background:#E65100;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;flex-shrink:0;margin-top:2px}
+.dues-banner-body{flex:1}
+.dues-banner-title{font-size:14px;font-weight:800;color:#BF360C;margin-bottom:3px}
+.dues-banner-sub{font-size:12px;color:#E65100;line-height:1.5}
+.dues-banner-total{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#E65100;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.dues-banner-total:hover{background:#BF360C}
+
+/* ── Other dues card ── */
+.dues-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dues-row:last-child{border:none}
+.dues-inv-num{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--teal);flex:1;min-width:0}
+.dues-service{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dues-due-date{font-size:11px;color:var(--muted);text-align:center;min-width:70px}
+.dues-age{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:800;margin-top:2px}
+.dues-age.overdue{background:#FFEBEE;color:#C62828}
+.dues-age.pending{background:#FFF8E1;color:#F9A825}
+.dues-age.partial{background:#FFF3E0;color:#E65100}
+.dues-amount{font-family:var(--mono);font-weight:800;font-size:13px;text-align:right;min-width:80px}
+.dues-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+@media(prefers-color-scheme:dark){
+  .dues-banner{background:linear-gradient(135deg,#2A1F10,#321A08);border-color:#8D4E00}
+  .dues-banner-title{color:#FFAB40}
+  .dues-banner-sub{color:#FFB74D}
+}
+@media print{.dues-banner,.dues-card{display:none!important}}
+
+/* ── Outstanding dues banner ── */
 .view-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);margin-top:6px}
 .view-badge i{font-size:10px}
 .viewed-first{font-size:10px;color:var(--muted);text-align:center;margin-top:4px}
@@ -601,19 +681,79 @@ tr:last-child td{border:none}
   /* ── Wrap max width ── */
   .wrap{max-width:100%!important}
 }
+
+/* ================================================================
+   EMAIL PORTAL THEME  (body.src-email)
+   Clean, formal, print-ready — no UPI buttons, no WA, no Hindi toggle
+   ================================================================ */
+body.src-email{background:#f0f2f5}
+body.src-email .portal-header{background:linear-gradient(135deg,#1A237E,#283593)}
+body.src-email .brand-name{letter-spacing:.3px}
+body.src-email .card{border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+
+/* Hide interactive / WA-only elements */
+body.src-email .sticky-bar,
+body.src-email .upi-pay-btns,
+body.src-email .wa-contact-btn,
+body.src-email .lang-toggle,
+body.src-email .ive-paid-btn,
+body.src-email .partial-pay-box,
+body.src-email .upi-box,
+body.src-email .qr-section,
+body.src-email .wa-dot { display:none !important }
+
+/* Prominent Download PDF button for email */
+body.src-email .pdf-btn{
+  background:#1A237E;color:#fff;border-color:#1A237E;
+  font-size:14px;padding:14px;border-radius:10px;
+  display:flex!important;margin-bottom:4px
+}
+body.src-email .pdf-btn:hover{background:#283593}
+body.src-email .pdf-btn i{color:#fff}
+
+/* Email portal notice badge in header */
+.email-portal-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;
+  color:rgba(255,255,255,.95);margin-top:8px
+}
+body.src-email .view-badge{display:none}
 </style>
 </head>
-<body>
+<body class="<?= $isEmailPortal ? 'src-email' : 'src-wa' ?>">
 <div class="wrap">
 
 <!-- Sticky bar (shown on scroll) -->
 <?php if (!$error && $inv): ?>
 <div class="sticky-bar" id="stickyBar">
   <span class="sticky-inv"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></span>
-  <span class="sticky-status" style="background:<?= status_bg($inv['status'] ?? '') ?>;color:<?= status_col($inv['status'] ?? '') ?>">
-    <?= status_label($inv['status'] ?? '') ?>
-  </span>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="sticky-status" style="background:<?= status_bg($inv['status'] ?? '') ?>;color:<?= status_col($inv['status'] ?? '') ?>">
+      <?= status_label($inv['status'] ?? '') ?>
+    </span>
+    <?php if (!empty($otherDues)): ?>
+    <span onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})"
+          style="background:#FFF3E0;color:#E65100;border:1px solid #FFAB40;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+      <i class="fas fa-exclamation-circle" style="font-size:10px"></i>
+      <?= $dueCount ?> more due
+    </span>
+    <?php endif; ?>
+  </div>
 </div>
+
+<?php if ($isEmailPortal): ?>
+<!-- Email portal: top download bar -->
+<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div style="font-size:13px;color:var(--muted)">
+    <i class="fas fa-envelope" style="color:#1A237E;margin-right:6px"></i>
+    You received this <?= $isEstimate ? 'estimate' : 'invoice' ?> via email
+  </div>
+  <button onclick="downloadPDF()" style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px;background:#1A237E;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">
+    <i class="fas fa-download"></i> Download PDF
+  </button>
+</div>
+<?php endif; ?>
 <?php endif; ?>
 <?php if ($error): ?>
 <div class="error-box">
@@ -635,6 +775,9 @@ tr:last-child td{border:none}
       <?php if ($companyAddress): ?>
       <div class="brand-sub"><?= htmlspecialchars($companyAddress) ?></div>
       <?php endif; ?>
+      <?php if ($isEmailPortal): ?>
+      <div class="email-portal-badge"><i class="fas fa-envelope"></i> Sent via Email</div>
+      <?php endif; ?>
     </div>
   </div>
   <div class="inv-right">
@@ -648,7 +791,13 @@ tr:last-child td{border:none}
     <div class="view-badge">
       <i class="fas fa-eye"></i>
       <?= $viewCount ?> view<?= $viewCount != 1 ? 's' : '' ?>
-      <?php if ($firstViewed): ?> · First seen <?= fmt_date($firstViewed) ?><?php endif; ?>
+      <?php if ($firstViewed): ?> · First seen <?= htmlspecialchars(fmt_rel($firstViewed)) ?><?php endif; ?>
+      <?php
+        // Show "Last seen" only when last_viewed is on a different day than first_viewed
+        $showLast = $lastViewed && $firstViewed &&
+                    date('Y-m-d', strtotime($lastViewed)) !== date('Y-m-d', strtotime($firstViewed));
+      ?>
+      <?php if ($showLast): ?> · Last seen <?= htmlspecialchars(fmt_rel($lastViewed)) ?><?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
@@ -738,6 +887,39 @@ $contactMsg  = urlencode('Hi ' . $companyName . ', I viewed Estimate ' . ($inv['
   }, 2500);
 })();
 </script>
+<?php endif; ?>
+
+<?php
+// ── Outstanding dues summary ───────────────────────────────
+$hasDues        = !empty($otherDues);
+$dueCount       = count($otherDues ?? []);
+$dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
+$overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
+$today_ts       = strtotime('today');
+?>
+<?php if ($hasDues): ?>
+<div class="dues-banner" id="duesBanner">
+  <div class="dues-banner-icon">
+    <i class="fas fa-exclamation-circle"></i>
+  </div>
+  <div class="dues-banner-body">
+    <div class="dues-banner-title">
+      <?= $overdueCount > 0
+          ? '⚠️ You have ' . $overdueCount . ' overdue invoice' . ($overdueCount > 1 ? 's' : '') . ' + ' . ($dueCount - $overdueCount) . ' pending'
+          : '📋 You have ' . $dueCount . ' other pending invoice' . ($dueCount > 1 ? 's' : '') ?>
+    </div>
+    <div class="dues-banner-sub">
+      Total outstanding across all invoices:
+      <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
+      <?php if ($overdueCount > 0): ?>
+      — please clear overdue amounts at the earliest.
+      <?php endif; ?>
+    </div>
+    <button class="dues-banner-total" onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})">
+      <i class="fas fa-arrow-down"></i> View all <?= $dueCount ?> outstanding invoice<?= $dueCount > 1 ? 's' : '' ?>
+    </button>
+  </div>
+</div>
 <?php endif; ?>
 
 <?php
@@ -1317,6 +1499,70 @@ if ($items):
       <div style="font-size:12px;color:var(--muted);line-height:1.7"><?= nl2br(htmlspecialchars($inv['terms'])) ?></div>
     </div>
     <?php endif; ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($hasDues): ?>
+<!-- ── Other Outstanding Invoices ── -->
+<div class="card dues-card" id="otherDuesCard">
+  <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
+    <i class="fas fa-file-invoice" style="color:#E65100"></i>
+    <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
+    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?></span>
+  </div>
+  <div class="card-body" style="padding:0 18px">
+
+    <?php foreach ($otherDues as $od):
+      $odDays     = 0;
+      $odOverdue  = ($od['status'] === 'Overdue');
+      $odPending  = ($od['status'] === 'Pending');
+      $odPartial  = ($od['status'] === 'Partial');
+      if (!empty($od['due_date'])) {
+        $odDuets  = strtotime($od['due_date']);
+        $odDays   = (int)floor(($today_ts - $odDuets) / 86400);
+      }
+      $dotColor = $odOverdue ? '#C62828' : ($odPartial ? '#E65100' : '#F9A825');
+    ?>
+    <div class="dues-row">
+      <div class="dues-status-dot" style="background:<?= $dotColor ?>"></div>
+      <div style="flex:1;min-width:0">
+        <div class="dues-inv-num"><?= htmlspecialchars($od['invoice_number']) ?></div>
+        <div class="dues-service"><?= htmlspecialchars($od['service_type'] ?? '—') ?></div>
+      </div>
+      <div class="dues-due-date">
+        <div style="font-size:11px;color:var(--muted)">Due</div>
+        <div style="font-size:12px;font-weight:600;color:<?= $odOverdue ? 'var(--red)' : 'inherit' ?>"><?= fmt_date($od['due_date'] ?? '') ?></div>
+        <?php if ($odOverdue && $odDays > 0): ?>
+        <div class="dues-age overdue">+<?= $odDays ?>d overdue</div>
+        <?php elseif ($odPartial): ?>
+        <div class="dues-age partial">Partial</div>
+        <?php elseif ($odPending && $odDays > 0): ?>
+        <div class="dues-age pending">Due <?= $odDays ?>d ago</div>
+        <?php endif; ?>
+      </div>
+      <div class="dues-amount" style="color:<?= $odOverdue ? 'var(--red)' : 'var(--text)' ?>">
+        <?= fmt_inr($od['amount'], $sym) ?>
+      </div>
+    </div>
+    <?php endforeach; ?>
+
+    <?php if ($dueTotal > 0): ?>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
+      <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
+      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($companyPhone): ?>
+    <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $dueCount . ' other outstanding invoice' . ($dueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal, $sym) . '. Can you help me clear these?'); ?>
+    <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+      <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
+    </a>
+    <?php endif; ?>
+
   </div>
 </div>
 <?php endif; ?>

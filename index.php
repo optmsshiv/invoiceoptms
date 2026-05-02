@@ -1082,6 +1082,10 @@ const SERVER = {
     <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
+    <a class="nav-item" data-page="credit-notes" onclick="showPage('credit-notes',this)">
+      <i class="fas fa-file-minus"></i><span>Credit Notes</span>
+      <span class="nav-badge" id="badge-credit-notes" style="display:none">0</span>
+    </a>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
       <i class="fas fa-chart-bar"></i><span>Reports</span>
     </a>
@@ -3035,6 +3039,32 @@ View Invoice: {{6}}</pre></details>
       </div>
     </div>
 
+    <!-- ─────────── CREDIT NOTES ─────────── -->
+    <div id="page-credit-notes" class="page">
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <input type="text" class="table-search" placeholder="Search credit notes…" oninput="filterCreditNotes(this.value)" id="cn-search">
+          <select class="table-filter" onchange="renderCreditNotes()" id="cn-status-filter">
+            <option value="">All Status</option>
+            <option>Draft</option><option>Issued</option><option>Applied</option><option>Void</option>
+          </select>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-outline" onclick="exportCreditNotesCSV()"><i class="fas fa-download"></i> Export</button>
+          <button class="btn btn-primary" onclick="openCreditNoteModal(null)"><i class="fas fa-plus"></i> New Credit Note</button>
+        </div>
+      </div>
+      <!-- Summary cards -->
+      <div id="cn-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
+      <!-- Table -->
+      <div class="table-card">
+        <table class="data-table"><thead><tr>
+          <th>CN #</th><th>Invoice #</th><th>Client</th><th>Date</th><th>Amount</th><th>Reason</th><th>Status</th><th>Actions</th>
+        </tr></thead><tbody id="cn-tbody"></tbody></table>
+        <div class="table-footer"><div class="tf-info" id="cn-info"></div></div>
+      </div>
+    </div>
+
     <!-- ─────────── CLIENT PORTAL ─────────── -->
     <div id="page-portal" class="page">
       <div style="max-width:860px">
@@ -3780,6 +3810,9 @@ STATE.filteredInvoices = [];
 // ── PAYMENTS (loaded from DB via API) ──
 STATE.payments = [];
 
+// ── CREDIT NOTES (loaded from DB via API) ──
+STATE.creditNotes = [];
+
 // ── CHART DATA ──
 const CHART_DATA = {
   monthly: {
@@ -3917,6 +3950,7 @@ function toggleSidebar() {
 const breadcrumbs = {
   dashboard:'Dashboard', invoices:'Invoices', create:'Create Invoice',
   clients:'Clients', products:'Services & Products', payments:'Payments',
+  'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
   'email-setup':'Email Setup', settings:'Settings', backup:'Backup & Export',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
@@ -3952,6 +3986,7 @@ function showPage(name, el) {
   if (name === 'reminders') renderReminders();
   if (name === 'portal')    renderPortal();
   if (name === 'activity')  renderActivityLog();
+  if (name === 'credit-notes') renderCreditNotes();
 }
 
 // ══════════════════════════════════════════
@@ -4802,6 +4837,7 @@ function openRowMenu(e, id) {
       <i class="fas fa-check-circle"></i> Mark as Paid ${isPaid?'(already paid)':isCancelled?'(cancelled)':isDraft?'(make pending first)':isEstimate?'(convert to invoice first)':''}
     </div>
     ${canCancel ? `<div class="rm-item" onclick="rowMenuAction('cancel')" style="color:#E65100"><i class="fas fa-ban"></i> Cancel Invoice</div>` : ''}
+    ${(isPaid || st === 'Partial' || isCancelled) ? `<div class="rm-item" onclick="rowMenuAction('credit-note')" style="color:#6A1B9A;font-weight:600"><i class="fas fa-file-minus"></i> Issue Credit Note</div>` : ''}
     ${!isEstimate ? `<div class="rm-item" onclick="rowMenuAction('make-recurring')" style="color:var(--purple);font-weight:600"><i class="fas fa-sync-alt"></i> Make Recurring</div>` : ''}
     <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
   // Smart positioning: flip upward if near screen bottom
@@ -4833,6 +4869,7 @@ function rowMenuAction(action) {
   if (action === 'delete')       { openDeleteModal(id); return; }
   if (action === 'make-pending') { changeInvoiceStatus(id, 'Pending'); return; }
   if (action === 'convert-estimate') { convertEstimateToInvoice(id); return; }
+  if (action === 'credit-note')  { openCreditNoteModal(inv); return; }
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
   if (action === 'make-recurring') { openRecurringFromInvoice(inv); return; }
 }
@@ -5141,7 +5178,18 @@ function getFormData() {
   if (companyLogo && !STATE.settings.logo) STATE.settings.logo = companyLogo;
   const clientLogo  = document.getElementById('f-client-logo')?.value||'';
   const signature   = document.getElementById('f-signature')?.value || STATE.settings.signature || '';
-  const qrUrl       = document.getElementById('f-qr')?.value||'';
+  const qrUpload  = document.getElementById('f-qr')?.value || '';
+  // Build a dynamic UPI QR that always reflects the current invoice amount.
+  // Falls back to the uploaded static QR if no UPI ID is configured.
+  const _dynUpi   = sc.upi || '';
+  const _dynAmt   = grand.toFixed(2);
+  const _dynName  = encodeURIComponent(sc.company || 'Merchant');
+  const _dynNum   = num || 'Invoice';
+  let qrUrl = qrUpload; // default: uploaded image
+  if (_dynUpi && _dynAmt > 0) {
+    const _upiString = `upi://pay?pa=${encodeURIComponent(_dynUpi)}&pn=${_dynName}&am=${_dynAmt}&cu=INR&tn=${encodeURIComponent(_dynNum)}`;
+    qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(_upiString)}`;
+  }
   // PDF options
   const popt = {
     bank:       document.getElementById('popt-bank')?.checked !== false,
@@ -8818,7 +8866,7 @@ async function loadSmtpProfiles() {
 function emNewProfile() {
   const f = document.getElementById('em-profile-form');
   if (!f) return;
-  ['ep-id','ep-name','ep-host','ep-user','ep-pass','ep-from','ep-fname','ep-apikey'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['ep-id','ep-name','ep-host','ep-user','ep-pass','ep-from','ep-fname','ep-apikey'].forEach(id => { const el = document.getElementById(id); if (el) { el.value = ''; el.placeholder = ''; el.style.borderColor = ''; } });
   document.getElementById('ep-port').value    = '587';
   document.getElementById('ep-default').checked = false;
   document.getElementById('em-profile-form-title').textContent = 'New SMTP Profile';
@@ -8833,7 +8881,14 @@ function emEditProfile(p) {
   set('ep-host',  p.host);
   set('ep-port',  p.port);
   set('ep-user',  p.username);
+  // Password is never returned from API for security.
+  // Leave blank — backend only updates it if a new value is entered.
   set('ep-pass',  '');
+  const passEl = document.getElementById('ep-pass');
+  if (passEl) {
+    passEl.placeholder = p.has_password ? '••••••  (saved — leave blank to keep)' : 'Enter password';
+    passEl.style.borderColor = p.has_password ? 'var(--green)' : '';
+  }
   set('ep-from',  p.from_email);
   set('ep-fname', p.from_name);
   set('ep-apikey',p.api_key || '');
@@ -9797,17 +9852,19 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
       api('api/payments.php'),
       api('api/settings.php'),
+      api('api/credit_notes.php').catch(() => ({ data: [] })),
     ]);
-    STATE.invoices  = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
-    STATE.clients   = Array.isArray(cls.data)  ? cls.data  : [];
-    STATE.products  = Array.isArray(prd.data)  ? prd.data  : [];
-    STATE.payments  = Array.isArray(pmt.data)  ? pmt.data  : [];
+    STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
+    STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
+    STATE.products    = Array.isArray(prd.data)  ? prd.data  : [];
+    STATE.payments    = Array.isArray(pmt.data)  ? pmt.data  : [];
+    STATE.creditNotes = Array.isArray(cn.data)   ? cn.data   : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
@@ -11703,6 +11760,276 @@ function exportExpensesCSV() {
 // In-memory cache: invoiceId (string) → token string
 const _portalTokenCache = {};
 
+// ══════════════════════════════════════════════════════════
+// CREDIT NOTES
+// ══════════════════════════════════════════════════════════
+
+function renderCreditNotes() {
+  const search = (document.getElementById('cn-search')?.value || '').toLowerCase();
+  const statusF = document.getElementById('cn-status-filter')?.value || '';
+
+  let cns = STATE.creditNotes.filter(cn => {
+    if (statusF && cn.status !== statusF) return false;
+    if (!search) return true;
+    return (cn.cn_number||'').toLowerCase().includes(search)
+        || (cn.client_name||'').toLowerCase().includes(search)
+        || (cn.invoice_number||'').toLowerCase().includes(search)
+        || (cn.reason||'').toLowerCase().includes(search);
+  });
+
+  // Summary cards
+  const total   = STATE.creditNotes.reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const issued  = STATE.creditNotes.filter(c=>c.status==='Issued').reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const applied = STATE.creditNotes.filter(c=>c.status==='Applied').reduce((s,c)=>s+(parseFloat(c.amount)||0),0);
+  const draft   = STATE.creditNotes.filter(c=>c.status==='Draft').length;
+  document.getElementById('cn-summary').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Credit Notes</div><div class="kpi-value">${STATE.creditNotes.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Value</div><div class="kpi-value" style="color:var(--purple)">${fmt_money(total)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Issued (pending apply)</div><div class="kpi-value" style="color:#E65100">${fmt_money(issued)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Applied</div><div class="kpi-value" style="color:var(--green)">${fmt_money(applied)}</div></div>`;
+
+  const statusColor = {Draft:'#9E9E9E', Issued:'#E65100', Applied:'#388E3C', Void:'#B71C1C'};
+  const tbody = document.getElementById('cn-tbody');
+  if (!cns.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-file-minus" style="font-size:24px;display:block;margin-bottom:8px"></i>No credit notes yet</td></tr>`;
+    document.getElementById('cn-info').textContent = '';
+    return;
+  }
+  tbody.innerHTML = cns.map(cn => {
+    const sc = statusColor[cn.status] || '#888';
+    return `<tr>
+      <td><strong style="font-family:var(--mono);font-size:12px;color:var(--purple)">${cn.cn_number||'—'}</strong></td>
+      <td style="font-size:12px;color:var(--muted)">${cn.invoice_number||'—'}</td>
+      <td style="font-size:13px">${cn.client_name||'—'}</td>
+      <td style="font-size:12px">${cn.issued_date ? fmt_date(new Date(cn.issued_date)) : '—'}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--purple)">${fmt_money(cn.amount||0)}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cn.reason||''}">${cn.reason||'—'}</td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${cn.status}</span></td>
+      <td style="white-space:nowrap">
+        <button onclick="previewCreditNote('${cn.id}')" title="Preview" style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px"><i class="fas fa-eye"></i></button>
+        <button onclick="openCreditNoteModal(null,'${cn.id}')" title="Edit" style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px"><i class="fas fa-edit"></i></button>
+        <button onclick="changeCNStatus('${cn.id}','${cn.status}')" title="Change status" style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px"><i class="fas fa-exchange-alt"></i></button>
+        <button onclick="deleteCreditNote('${cn.id}')" title="Delete" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #FFCDD2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cn-info').textContent = `${cns.length} credit note${cns.length!==1?'s':''}`;
+}
+
+function filterCreditNotes(v) { renderCreditNotes(); }
+
+async function openCreditNoteModal(inv, editId) {
+  // Pre-fill from invoice if triggered from row menu
+  const editCN = editId ? STATE.creditNotes.find(c=>String(c.id)===String(editId)) : null;
+  const defaultClient = inv ? (inv.clientName||inv.client_name||'') : (editCN?.client_name||'');
+  const defaultInvNum = inv ? (inv.num||inv.invoice_number||'') : (editCN?.invoice_number||'');
+  const defaultAmt    = inv ? (parseFloat(inv.amount)||0) : (parseFloat(editCN?.amount)||0);
+  const defaultReason = editCN?.reason || (inv?.cancel_reason ? `Invoice cancelled: ${inv.cancel_reason}` : '');
+
+  const clientOptions = STATE.clients.map(c=>`<option value="${c.name}"${c.name===defaultClient?'selected':''}>${c.name}</option>`).join('');
+
+  const { value: formData, isConfirmed } = await Swal.fire({
+    title: editCN ? `Edit Credit Note ${editCN.cn_number}` : '📄 New Credit Note',
+    width: 520,
+    html: `
+      <div style="text-align:left">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Client *</label>
+            <input id="cn-client" list="cn-client-list" value="${defaultClient}" placeholder="Client name"
+              style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;box-sizing:border-box;margin-top:3px">
+            <datalist id="cn-client-list">${clientOptions}</datalist>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Linked Invoice #</label>
+            <input id="cn-inv-num" value="${defaultInvNum}" placeholder="e.g. INV-2026-014 (optional)"
+              style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;box-sizing:border-box;margin-top:3px">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Credit Amount *</label>
+            <input id="cn-amount" type="number" min="0" step="0.01" value="${defaultAmt||''}" placeholder="0.00"
+              style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;box-sizing:border-box;margin-top:3px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Issue Date *</label>
+            <input id="cn-date" type="date" value="${editCN?.issued_date||new Date().toISOString().slice(0,10)}"
+              style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;box-sizing:border-box;margin-top:3px">
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Reason for Credit Note *</label>
+          <textarea id="cn-reason" placeholder="e.g. Service not delivered, overcharge, invoice cancelled…" rows="3"
+            style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:3px;font-family:var(--font)">${defaultReason}</textarea>
+        </div>
+        <div style="margin-bottom:4px">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Internal Notes</label>
+          <textarea id="cn-notes" placeholder="Optional internal notes…" rows="2"
+            style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;resize:vertical;box-sizing:border-box;margin-top:3px;font-family:var(--font)">${editCN?.notes||''}</textarea>
+        </div>
+        ${editCN ? `<div style="margin-top:8px">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase">Status</label>
+          <select id="cn-status" style="width:100%;padding:8px;border:1.5px solid var(--border2);border-radius:7px;font-size:13px;margin-top:3px">
+            ${['Draft','Issued','Applied','Void'].map(s=>`<option${s===editCN.status?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>` : ''}
+      </div>`,
+    showCancelButton: true,
+    confirmButtonText: editCN ? 'Save Changes' : 'Create Credit Note',
+    confirmButtonColor: '#6A1B9A',
+    customClass: { popup: 'swal-compact' },
+    preConfirm: () => {
+      const client = document.getElementById('cn-client').value.trim();
+      const amount = parseFloat(document.getElementById('cn-amount').value);
+      const reason = document.getElementById('cn-reason').value.trim();
+      const date   = document.getElementById('cn-date').value;
+      if (!client) { Swal.showValidationMessage('Client name is required'); return false; }
+      if (!amount || amount <= 0) { Swal.showValidationMessage('Amount must be greater than 0'); return false; }
+      if (!reason) { Swal.showValidationMessage('Reason is required'); return false; }
+      if (!date)   { Swal.showValidationMessage('Issue date is required'); return false; }
+      return {
+        client_name:     client,
+        invoice_number:  document.getElementById('cn-inv-num').value.trim(),
+        invoice_id:      inv?.id || editCN?.invoice_id || null,
+        amount,
+        issued_date:     date,
+        reason,
+        notes:           document.getElementById('cn-notes').value.trim(),
+        status:          document.getElementById('cn-status')?.value || 'Draft',
+      };
+    }
+  });
+  if (!isConfirmed) return;
+
+  try {
+    if (editCN) {
+      await api('api/credit_notes.php?id=' + editCN.id, 'PUT', formData);
+      const idx = STATE.creditNotes.findIndex(c=>String(c.id)===String(editCN.id));
+      if (idx !== -1) STATE.creditNotes[idx] = { ...STATE.creditNotes[idx], ...formData };
+      toast('✅ Credit note updated', 'success');
+    } else {
+      const res = await api('api/credit_notes.php', 'POST', formData);
+      if (res.id) {
+        STATE.creditNotes.unshift({ id: res.id, cn_number: res.cn_number, ...formData });
+        toast(`📄 Created ${res.cn_number}`, 'success');
+      }
+    }
+    logActivity('credit_note', editCN ? `Updated ${editCN.cn_number}` : `Created credit note`, formData.client_name);
+    renderCreditNotes();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function changeCNStatus(id, currentStatus) {
+  const statuses = ['Draft','Issued','Applied','Void'].filter(s=>s!==currentStatus);
+  const { value: newStatus, isConfirmed } = await Swal.fire({
+    title: 'Change CN Status',
+    input: 'select',
+    inputOptions: Object.fromEntries(statuses.map(s=>[s,s])),
+    showCancelButton: true,
+    confirmButtonText: 'Update',
+    confirmButtonColor: '#6A1B9A',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!isConfirmed || !newStatus) return;
+  try {
+    await api('api/credit_notes.php?id=' + id, 'PATCH', { status: newStatus });
+    const cn = STATE.creditNotes.find(c=>String(c.id)===String(id));
+    if (cn) cn.status = newStatus;
+    toast(`✅ Status → ${newStatus}`, 'success');
+    renderCreditNotes();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteCreditNote(id) {
+  const cn = STATE.creditNotes.find(c=>String(c.id)===String(id));
+  const { isConfirmed } = await Swal.fire({
+    title: `Delete ${cn?.cn_number||'Credit Note'}?`,
+    text: 'This cannot be undone.',
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!isConfirmed) return;
+  try {
+    await api('api/credit_notes.php?id=' + id, 'DELETE');
+    STATE.creditNotes = STATE.creditNotes.filter(c=>String(c.id)!==String(id));
+    toast('🗑 Deleted', 'success');
+    renderCreditNotes();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function previewCreditNote(id) {
+  const cn = STATE.creditNotes.find(c=>String(c.id)===String(id));
+  if (!cn) return;
+  const sc = STATE.settings;
+  const html = buildCreditNoteHTML(cn, sc);
+  const win = window.open('','_blank','width=860,height=1000');
+  win.document.write(`<!DOCTYPE html><html><head><title>${cn.cn_number}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>*{box-sizing:border-box}body{margin:0;font-family:'Public Sans',sans-serif;background:#f5f5f5}
+    @media print{body{background:#fff}.no-print{display:none}}</style></head>
+    <body><div class="no-print" style="padding:12px;background:#1a1a2e;display:flex;gap:10px;align-items:center">
+      <button onclick="window.print()" style="padding:7px 18px;background:#00897B;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">🖨 Print / Save PDF</button>
+      <button onclick="window.close()" style="padding:7px 18px;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">Close</button>
+    </div>${html}</body></html>`);
+  win.document.close();
+}
+
+function buildCreditNoteHTML(cn, sc) {
+  const logo = sc.logo ? `<img src="${sc.logo}" style="height:52px;object-fit:contain">` : `<div style="font-size:22px;font-weight:800;color:#fff">${sc.company||'Company'}</div>`;
+  return `<div style="max-width:794px;margin:20px auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:10px;overflow:hidden;font-family:'Public Sans',sans-serif">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#4A148C,#6A1B9A);padding:28px 32px;display:flex;justify-content:space-between;align-items:center">
+      <div>${logo}<div style="color:rgba(255,255,255,.7);font-size:11px;margin-top:6px">${sc.address||''}</div></div>
+      <div style="text-align:right">
+        <div style="border:1.5px solid rgba(255,255,255,.4);border-radius:5px;color:rgba(255,255,255,.8);font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;display:inline-block;margin-bottom:6px">CREDIT NOTE</div>
+        <div style="font-size:22px;font-weight:800;color:#fff;font-family:monospace">${cn.cn_number}</div>
+        <div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:4px">Date: ${cn.issued_date ? fmt_date(new Date(cn.issued_date)) : '—'}</div>
+        ${cn.invoice_number ? `<div style="color:rgba(255,255,255,.55);font-size:10px;margin-top:2px">Against: ${cn.invoice_number}</div>` : ''}
+      </div>
+    </div>
+    <!-- Client + Amount -->
+    <div style="padding:24px 32px;display:grid;grid-template-columns:1fr auto;gap:20px;border-bottom:1px solid #eee">
+      <div>
+        <div style="font-size:9px;font-weight:700;color:#9E9E9E;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Issued To</div>
+        <div style="font-size:15px;font-weight:700;color:#212121">${cn.client_name||'—'}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;font-weight:700;color:#9E9E9E;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Credit Amount</div>
+        <div style="font-size:28px;font-weight:800;color:#6A1B9A;font-family:monospace">${fmt_money(cn.amount||0)}</div>
+        <div style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-top:6px;
+          background:${{Draft:'#F5F5F5',Issued:'#FFF3E0',Applied:'#E8F5E9',Void:'#FFEBEE'}[cn.status]||'#F5F5F5'};
+          color:${{Draft:'#757575',Issued:'#E65100',Applied:'#388E3C',Void:'#C62828'}[cn.status]||'#757575'}">${cn.status}</div>
+      </div>
+    </div>
+    <!-- Reason -->
+    <div style="padding:20px 32px;border-bottom:1px solid #eee">
+      <div style="font-size:9px;font-weight:700;color:#9E9E9E;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Reason for Credit Note</div>
+      <div style="font-size:13px;color:#424242;line-height:1.6;background:#F8F4FF;border-left:3px solid #6A1B9A;padding:10px 14px;border-radius:0 6px 6px 0">${cn.reason||'—'}</div>
+    </div>
+    ${cn.notes ? `<div style="padding:16px 32px;border-bottom:1px solid #eee">
+      <div style="font-size:9px;font-weight:700;color:#9E9E9E;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Notes</div>
+      <div style="font-size:12px;color:#757575">${cn.notes}</div>
+    </div>` : ''}
+    <!-- Footer -->
+    <div style="padding:16px 32px;background:#FAFAFA;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;color:#9E9E9E">${sc.company||''} • ${sc.email||''} • ${sc.phone||''}</div>
+      <div style="font-size:10px;color:#BDBDBD">Generated by OPTMS Tech Invoice Manager</div>
+    </div>
+  </div>`;
+}
+
+function exportCreditNotesCSV() {
+  const rows = [['CN #','Invoice #','Client','Date','Amount','Reason','Status']];
+  STATE.creditNotes.forEach(cn => rows.push([cn.cn_number||'',cn.invoice_number||'',cn.client_name||'',cn.issued_date||'',cn.amount||0,cn.reason||'',cn.status||'']));
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'credit_notes_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
 function renderPortal() {
   _renderPortalTable();
   // Auto-generate links for any invoices that don't have one yet (background)
@@ -11835,7 +12162,35 @@ function filterPortalTable(val) {
 // Loaded token map from DB — refreshed each time portal page opens
 let _portalTokenMap = {};
 
-async function _renderPortalTable(search) {
+async function _setPortalExpiry(token, invNum) {
+  const { value: days, isConfirmed } = await Swal.fire({
+    title: `Set Link Expiry`,
+    html: `<div style="text-align:left;font-size:13px;color:var(--text2);margin-bottom:8px">
+             How many days should the link for <b>${invNum}</b> remain active?
+           </div>
+           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+             ${[3,7,14,30].map(d=>`<button type="button" onclick="document.getElementById('swal-expiry-days').value=${d};this.parentNode.querySelectorAll('button').forEach(b=>b.style.background='var(--bg)');this.style.background='var(--teal-bg)'"
+               style="padding:5px 14px;border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;color:var(--teal);background:var(--bg)">${d} days</button>`).join('')}
+             <button type="button" onclick="document.getElementById('swal-expiry-days').value='';document.getElementById('swal-expiry-days').focus()"
+               style="padding:5px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;color:var(--muted);background:var(--bg)">Custom</button>
+           </div>
+           <input id="swal-expiry-days" type="number" min="1" max="365" placeholder="Days from today…"
+             style="width:100%;padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;box-sizing:border-box">
+           <div style="margin-top:8px;font-size:11px;color:var(--muted)">Leave blank or set 0 to remove expiry (link never expires)</div>`,
+    showCancelButton: true,
+    confirmButtonText: 'Set Expiry',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#00897B',
+    customClass: { popup: 'swal-compact' },
+    preConfirm: () => parseInt(document.getElementById('swal-expiry-days').value) || 0
+  });
+  if (!isConfirmed) return;
+  try {
+    await api('api/portal.php', 'PATCH', { token, expiry_days: days });
+    toast(days > 0 ? `⏰ Link expires in ${days} days` : '♾ Expiry removed', 'success');
+    _renderPortalTable();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
 
@@ -11876,11 +12231,18 @@ async function _renderPortalTable(search) {
       ? new Date(t.last_viewed).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})
       : null;
 
-    return `<tr>
+    const expiresAt  = t && t.expires_at ? new Date(t.expires_at) : null;
+    const isExpired  = expiresAt && expiresAt < new Date();
+    const expiryFmt  = expiresAt ? expiresAt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : null;
+
+    return `<tr style="${isExpired?'opacity:.55':''}">
       <td><strong style="font-family:var(--mono);font-size:12px">${inv.num||inv.invoice_number||''}</strong></td>
       <td style="font-size:13px">${cName}</td>
       <td style="font-family:var(--mono);font-size:13px">${fmt_money(inv.amount||0)}</td>
-      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span></td>
+      <td>
+        <span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span>
+        ${isExpired ? `<br><span style="font-size:10px;color:var(--red);font-weight:600">⛔ Link expired</span>` : (expiryFmt ? `<br><span style="font-size:10px;color:var(--muted)">Expires ${expiryFmt}</span>` : '')}
+      </td>
       <td style="max-width:220px">
         ${url
           ? `<code style="font-size:11px;color:var(--teal);word-break:break-all">${url}</code>`
@@ -11892,14 +12254,18 @@ async function _renderPortalTable(search) {
           : `<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="white-space:nowrap">
-        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>'; 
-          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; 
+        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token;
           toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)"
           title="${t ? 'Regenerate link' : 'Generate link'}"
           style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
           <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
         </button>
         ${url ? `
+        <button onclick="_setPortalExpiry('${t.token}','${inv.num||inv.invoice_number||''}')" title="Set expiry date"
+          style="padding:4px 8px;background:${expiryFmt?'#FFF8E1':'var(--bg)'};color:${expiryFmt?'#E65100':'var(--text)'};border:1px solid ${expiryFmt?'#FFE082':'var(--border)'};border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
+          <i class="fas fa-clock"></i>
+        </button>
         <button onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))"
           title="Copy link"
           style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
