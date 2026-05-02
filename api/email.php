@@ -43,20 +43,24 @@ try { $db = getDB(); } catch (\Exception $e) {
 // ================================================================
 //  ROUTE
 // ================================================================
-switch ($action) {
-
-    case 'templates':     handleGetTemplates($db);   break;
-    case 'save_template': handleSaveTemplate($db, $input); break;
-    case 'preview':       handlePreview($db, $input); break;
-    case 'logs':          handleLogs($db);            break;
-    case 'smtp_profiles': handleGetProfiles($db);     break;
-    case 'save_profile':  handleSaveProfile($db, $input); break;
-    case 'del_profile':   handleDelProfile($db);      break;
-    case 'test':          handleTest($db, $input);    break;
-    case 'send':          handleSend($db, $input);    break;
-    default:
-        if ($method === 'GET') { handleGetTemplates($db); break; }
-        jsonResponse(['success'=>false,'error'=>'Unknown action: '.$action], 400);
+try {
+    switch ($action) {
+        case 'templates':     handleGetTemplates($db);        break;
+        case 'save_template': handleSaveTemplate($db, $input); break;
+        case 'preview':       handlePreview($db, $input);      break;
+        case 'logs':          handleLogs($db);                  break;
+        case 'smtp_profiles': handleGetProfiles($db);           break;
+        case 'save_profile':  handleSaveProfile($db, $input);   break;
+        case 'del_profile':   handleDelProfile($db);            break;
+        case 'test':          handleTest($db, $input);          break;
+        case 'send':          handleSend($db, $input);          break;
+        default:
+            if ($method === 'GET') { handleGetTemplates($db); break; }
+            jsonResponse(['success'=>false,'error'=>'Unknown action: '.$action], 400);
+    }
+} catch (\Throwable $e) {
+    error_log('email.php fatal [' . $action . ']: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    jsonResponse(['success'=>false,'error'=>'Server error: '.$e->getMessage()], 500);
 }
 
 // ================================================================
@@ -139,7 +143,10 @@ function handleLogs($db) {
 // ── GET action=smtp_profiles ────────────────────────────────────
 function handleGetProfiles($db) {
     ensureEmailTables($db);
-    $rows = $db->query("SELECT id,name,host,port,username,from_email,from_name,provider,is_default FROM smtp_profiles ORDER BY is_default DESC,name ASC")->fetchAll();
+    // Return has_password flag instead of actual password (never expose credentials to frontend)
+    $rows = $db->query("SELECT id, name, host, port, username, from_email, from_name, provider, is_default,
+                               CASE WHEN password IS NOT NULL AND password != '' THEN 1 ELSE 0 END AS has_password
+                        FROM smtp_profiles ORDER BY is_default DESC, name ASC")->fetchAll();
     jsonResponse(['success'=>true,'data'=>$rows]);
 }
 
@@ -805,8 +812,8 @@ function logEmailSent($db, int $invId, string $type, string $to, string $subject
 
 // ── Ensure required tables exist ─────────────────────────────────
 function ensureEmailTables($db): void {
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS email_templates (
+    $tables = [
+        "CREATE TABLE IF NOT EXISTS email_templates (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             type       VARCHAR(32) NOT NULL UNIQUE,
             subject    TEXT NOT NULL,
@@ -814,10 +821,9 @@ function ensureEmailTables($db): void {
             enabled    TINYINT(1) DEFAULT 1,
             created_at DATETIME,
             updated_at DATETIME
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS email_logs (
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+        "CREATE TABLE IF NOT EXISTS email_logs (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             invoice_id INT DEFAULT NULL,
             type       VARCHAR(32),
@@ -829,10 +835,9 @@ function ensureEmailTables($db): void {
             open_count INT DEFAULT 0,
             sent_at    DATETIME DEFAULT NULL,
             created_at DATETIME
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS smtp_profiles (
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+        "CREATE TABLE IF NOT EXISTS smtp_profiles (
             id          INT AUTO_INCREMENT PRIMARY KEY,
             name        VARCHAR(100) NOT NULL,
             host        VARCHAR(255) NOT NULL,
@@ -846,18 +851,23 @@ function ensureEmailTables($db): void {
             api_key     VARCHAR(500),
             created_at  DATETIME,
             updated_at  DATETIME
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    // Portal tokens table (if not exists — portal.php may create it too)
-    $db->exec("
-        CREATE TABLE IF NOT EXISTS invoice_portal_tokens (
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+
+        "CREATE TABLE IF NOT EXISTS invoice_portal_tokens (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             invoice_id INT NOT NULL,
             token      VARCHAR(64) NOT NULL UNIQUE,
             created_at DATETIME,
             KEY idx_invoice (invoice_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ];
+
+    foreach ($tables as $sql) {
+        try { $db->exec($sql); } catch (\Exception $e) {
+            error_log('ensureEmailTables: ' . $e->getMessage());
+            // Non-fatal — table may already exist with compatible schema
+        }
+    }
 }
 
 // ── Default built-in templates (used when DB has none) ───────────
@@ -893,6 +903,7 @@ This is an estimate only and is subject to change upon your approval.",
 "Dear {client_name},
 
 Thank you! We have received your payment for Invoice #{invoice_no}.",
+        ],
 
         // ── Payment Reminder ─────────────────────────────────────
         'reminder' => [
@@ -901,6 +912,7 @@ Thank you! We have received your payment for Invoice #{invoice_no}.",
 "Dear {client_name},
 
 This is a friendly reminder that Invoice #{invoice_no} is due on {due_date}. If you have already made the payment, please ignore this message.",
+        ],
 
         // ── Overdue Notice ───────────────────────────────────────
         'overdue' => [
@@ -909,6 +921,7 @@ This is a friendly reminder that Invoice #{invoice_no} is due on {due_date}. If 
 "Dear {client_name},
 
 Your Invoice #{invoice_no} is now {days_overdue} day(s) overdue. Immediate payment is requested to avoid any disruption to services.",
+        ],
 
         // ── Follow-up ────────────────────────────────────────────
         'followup' => [
@@ -919,9 +932,6 @@ Your Invoice #{invoice_no} is now {days_overdue} day(s) overdue. Immediate payme
 We are following up on Invoice #{invoice_no} which remains outstanding for {days_overdue} day(s).
  We kindly request you to settle the amount at your earliest convenience. 
  If you have any concerns or wish to discuss a payment arrangement, please do not hesitate to contact us.",
-        ],
-        ],
-        ],
         ],
     ];
 }
