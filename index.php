@@ -4946,7 +4946,11 @@ function resetCreateForm() {
   const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
   const _gstEl2 = document.getElementById('f-gst'); if (_gstEl2) _gstEl2.value = String(STATE.settings.defaultGST ?? 18);
   const DEFAULT_NOTES = STATE.settings.company ? `Thank you for choosing ${STATE.settings.company}. Payment is due within ${STATE.settings.dueDays || 15} days of invoice date.` : '';
-  const notesEl = document.getElementById('f-notes'); if (notesEl) notesEl.value = STATE.settings.defaultNotes || DEFAULT_NOTES;
+  const notesEl = document.getElementById('f-notes');
+  if (notesEl) {
+    const _rawNotes = STATE.settings.defaultNotes || DEFAULT_NOTES;
+    notesEl.value = _rawNotes.replace(/\{due_days\}/g, STATE.settings.dueDays || 15);
+  }
   const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
   const svcCustomEl = document.getElementById('f-service-custom'); if (svcCustomEl) svcCustomEl.value = '';
   const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = STATE.settings.currency || '₹';
@@ -9862,7 +9866,10 @@ function normalizeInvoice(inv) {
   // Preserve cancel reason
   if (!inv.cancel_reason) inv.cancel_reason = inv.cancel_reason || '';
   // Fall back to default notes if empty
-  if (!inv.notes) inv.notes = STATE.settings.defaultNotes || (STATE.settings.company ? `Thank you for choosing ${STATE.settings.company}.` : '');
+  if (!inv.notes) {
+    const _defNotes = STATE.settings.defaultNotes || (STATE.settings.company ? `Thank you for choosing ${STATE.settings.company}.` : '');
+    inv.notes = _defNotes.replace(/\{due_days\}/g, STATE.settings.dueDays || 15);
+  }
   // ── Auto-overdue: mark Pending invoices as Overdue if past due date ──
   if (inv.status === 'Pending') {
     const dueField = inv.due || inv.due_date;
