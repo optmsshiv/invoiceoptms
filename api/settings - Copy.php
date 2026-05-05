@@ -11,8 +11,8 @@ switch ($method) {
     // Define fallback defaults for keys that might not exist in DB yet
     $defaults = [
       'estimate_prefix'   => 'QT-' . date('Y') . '-',
-      'invoice_prefix'    => 'OT-' . date('Y') . '-',
-      'company_name'      => 'OPTMS Tech',
+      'invoice_prefix'    => 'INV-' . date('Y') . '-',
+      'company_name'      => '',
       'company_gst'       => '',
       'company_phone'     => '',
       'company_email'     => '',
@@ -26,7 +26,10 @@ switch ($method) {
       'due_days'          => '15',
       'active_template'   => '1',
       'default_tnc'       => '',
+      'default_notes'     => '',
+      'generated_by'      => '',
       'default_currency'  => '₹',
+      'wa_followup_days'  => '7',
     ];
     
     // Fetch existing settings from DB

@@ -30,6 +30,10 @@ switch ($method) {
       'generated_by'      => '',
       'default_currency'  => '₹',
       'wa_followup_days'  => '7',
+      'before_days'        => '3',
+      'on_due'             => '1',
+      'overdue_freq'       => '7',
+      'max_overdue'        => '3',
     ];
     
     // Fetch existing settings from DB

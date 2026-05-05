@@ -1026,7 +1026,6 @@ const SERVER = {
     test_phone:    <?= json_encode($settings['wa_test_phone']   ?? '') ?>,
     remind_days:   <?= json_encode($settings['wa_remind_days']  ?? '3') ?>,
     max_followup:  <?= json_encode($settings['wa_max_followup'] ?? '3') ?>,
-    followup_days: <?= json_encode($settings['wa_followup_days'] ?? '7') ?>,
     tpl_inv:       <?= json_encode($settings['wa_tpl_inv']      ?? '') ?>,
     tpl_estimate:  <?= json_encode($settings['wa_tpl_estimate'] ?? '') ?>,
     tpl_paid:      <?= json_encode($settings['wa_tpl_paid']     ?? '') ?>,
@@ -2099,11 +2098,12 @@ const SERVER = {
               <div class="toggle-item"><span><strong>Partial Payment</strong> — on partial receipt</span><div class="tog <?= (($settings['wa_auto_partial']??'1')!=='0')?'on':'' ?>" id="twa6" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_partial', this)"></div></div>
               <div class="toggle-item"><span><strong>Due Soon Reminder</strong> — before due date</span><div class="tog <?= (($settings['wa_auto_remind']??'1')!=='0')?'on':'' ?>" id="twa3" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_remind', this)"></div></div>
               <div class="toggle-item"><span><strong>Overdue Alert</strong> — on due date if unpaid</span><div class="tog <?= (($settings['wa_auto_overdue']??'1')!=='0')?'on':'' ?>" id="twa4" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_overdue', this)"></div></div>
-              <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every <span id="wa-followup-days-label"><?= htmlspecialchars($settings['wa_followup_days'] ?? $settings['overdue_freq'] ?? '7') ?></span> days</span><div class="tog <?= (($settings['wa_auto_followup']??'0')==='1')?'on':'' ?>" id="twa5" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_followup', this)"></div></div>
+              <div class="toggle-item"><span><strong>Overdue Follow-up</strong> — repeat every <span id="wa-followup-days-label"><?= htmlspecialchars($settings['wa_followup_days'] ?? '7') ?></span> days</span><div class="tog <?= (($settings['wa_auto_followup']??'0')==='1')?'on':'' ?>" id="twa5" onclick="this.classList.toggle('on'); saveWAToggle('wa_auto_followup', this)"></div></div>
             </div>
-            <div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--teal);margin-top:10px;line-height:1.7">
-              <i class="fas fa-info-circle"></i> <strong>Timing rules</strong> (days before due, follow-up interval, max follow-ups) are configured in the
-              <a href="#" onclick="showPage('reminders',document.querySelector('[data-page=reminders]'));return false;" style="color:var(--teal);font-weight:700;text-decoration:underline">Reminders page</a>.
+            <div class="form-grid g2" style="margin-top:12px">
+              <div class="field"><label>Reminder Days Before Due</label><input type="number" id="wa-remind-days" value="<?= htmlspecialchars($settings['wa_remind_days'] ?? '3') ?>" min="1" max="30"></div>
+              <div class="field"><label>Max Overdue Follow-ups</label><input type="number" id="wa-max-followup" value="<?= htmlspecialchars($settings['wa_max_followup'] ?? '3') ?>" min="1" max="10"></div>
+              <div class="field"><label>Follow-up Interval (days)</label><input type="number" id="wa-followup-days" value="<?= htmlspecialchars($settings['wa_followup_days'] ?? '7') ?>" min="1" max="30" oninput="const l=document.getElementById('wa-followup-days-label'); if(l) l.textContent=this.value||'7';"></div>
             </div>
           </div>
         </div>
@@ -2661,9 +2661,10 @@ View Invoice: {{6}}</pre></details>
                 <div class="tog" id="em-auto-followup" onclick="this.classList.toggle('on');saveEmailAuto()"></div>
               </div>
             </div>
-            <div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--teal);margin-top:12px;line-height:1.7">
-              <i class="fas fa-info-circle"></i> <strong>Timing rules</strong> (days before due, follow-up interval, max follow-ups) are configured in the
-              <a href="#" onclick="showPage('reminders',document.querySelector('[data-page=reminders]'));return false;" style="color:var(--teal);font-weight:700;text-decoration:underline">Reminders page</a>.
+            <div class="form-grid g2" style="margin-top:16px">
+              <div class="field"><label>Reminder — Days Before Due</label><input type="number" id="em-remind-days" value="3" min="1" max="30" onchange="saveEmailAuto()"></div>
+              <div class="field"><label>Follow-up — Every N Days</label><input type="number" id="em-followup-days" value="7" min="1" max="30" onchange="saveEmailAuto()"></div>
+              <div class="field"><label>Max Follow-up Emails</label><input type="number" id="em-max-followup" value="3" min="1" max="10" onchange="saveEmailAuto()"></div>
             </div>
             <div style="background:var(--teal-bg);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--teal);margin-top:8px;line-height:1.7">
               <strong>⚙️ How automation works:</strong> A cron job at <code>api/email_cron.php</code> runs daily and checks all invoices. Set it up in cPanel → Cron Jobs → <code>php /path/to/api/email_cron.php</code> → Every day at 9 AM.
@@ -2814,10 +2815,10 @@ View Invoice: {{6}}</pre></details>
             <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
             <div class="field"><label>UPI ID</label><input id="sc-upi" value="<?= htmlspecialchars($companyUpi) ?>"></div>
             <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
-              <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
+              <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
             </div>
             <div class="field"><label>Default Currency</label>
-              <select id="sc-cur"><option value="₹"<?= ($defaultCurrency==="₹")?" selected":"" ?>>INR (₹)</option><option value="$"<?= ($defaultCurrency==="$")?" selected":"" ?>>USD ($)</option></select>
+              <select id="sc-cur"><option value="₹">INR (₹)</option><option value="$">USD ($)</option></select>
             </div>
             <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
             <div class="field">
@@ -2856,7 +2857,7 @@ View Invoice: {{6}}</pre></details>
               </select>
             </div>
             <div class="field"><label>Payment Due (days)</label>
-              <input type="number" id="sd-due" value="<?= htmlspecialchars($dueDays ?: '15') ?>" min="1" max="365" oninput="STATE.settings.dueDays = parseInt(this.value) || 15;">
+              <input type="number" id="sd-due" value="<?= htmlspecialchars($dueDays ?: '15') ?>" min="1" max="365">
             </div>
             <div class="field"><label>Default Template</label>
               <select id="sd-tpl">
@@ -3109,16 +3110,16 @@ View Invoice: {{6}}</pre></details>
           <div class="card-header"><span class="card-title"><i class="fas fa-cog" style="color:var(--teal)"></i> Reminder Rules</span></div>
           <div style="display:flex;flex-direction:column;gap:10px">
             <div class="field"><label>Send reminder before due date (days)</label>
-              <input type="number" id="rem-before-days" value="<?= htmlspecialchars($settings['before_days'] ?? '3') ?>" min="1" max="30" style="width:100%">
+              <input type="number" id="rem-before-days" value="3" min="1" max="30" style="width:100%">
             </div>
             <div class="field"><label>Send reminder on due date</label>
-              <select id="rem-on-due" style="width:100%"><option value="1"<?= (($settings['on_due']??'1')==='1')?' selected':'' ?>>Yes</option><option value="0"<?= (($settings['on_due']??'1')==='0')?' selected':'' ?>>No</option></select>
+              <select id="rem-on-due" style="width:100%"><option value="1">Yes</option><option value="0">No</option></select>
             </div>
             <div class="field"><label>Send overdue reminder every (days)</label>
-              <input type="number" id="rem-overdue-freq" value="<?= htmlspecialchars($settings['overdue_freq'] ?? '7') ?>" min="1" max="30" style="width:100%">
+              <input type="number" id="rem-overdue-freq" value="7" min="1" max="30" style="width:100%">
             </div>
             <div class="field"><label>Max overdue reminders</label>
-              <input type="number" id="rem-max-overdue" value="<?= htmlspecialchars($settings['max_overdue'] ?? '3') ?>" min="1" max="10" style="width:100%">
+              <input type="number" id="rem-max-overdue" value="3" min="1" max="10" style="width:100%">
             </div>
             <div class="field"><label>Channel</label>
               <select id="rem-channel" style="width:100%">
@@ -4934,8 +4935,6 @@ function resetCreateForm() {
   if (gstEl) gstEl.value = String(STATE.settings.defaultGST ?? 18);
   const tncEl = document.getElementById('f-tnc');
   if (tncEl) tncEl.value = STATE.settings.defaultTnC || '1. All prices are inclusive of applicable taxes.\n2. Computer-generated invoice.';
-  const genEl = document.getElementById('f-generated-by');
-  if (genEl) genEl.value = STATE.settings.generatedBy || (STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager');
   setTodayDates();
   // Clear client fields
   const _sv = (id, val) => { const e = document.getElementById(id); if (e) e.value = val; };
@@ -8515,14 +8514,13 @@ async function saveCompanySettings() {
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
-    invoice_prefix:  document.getElementById('sc-prefix')?.value  || STATE.settings.prefix || '',
-    estimate_prefix: document.getElementById('sc-estimate-prefix')?.value || STATE.settings.estPrefix || '',
+    invoice_prefix:  document.getElementById('sc-prefix')?.value  || '',
+    estimate_prefix: document.getElementById('sc-estimate-prefix')?.value || '',
     company_upi:     document.getElementById('sc-upi')?.value     || '',
     company_address: document.getElementById('sc-addr')?.value    || '',
     company_logo:    document.getElementById('sc-logo')?.value    || STATE.settings.logo || '',
     company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
-    default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
@@ -8531,8 +8529,7 @@ async function saveCompanySettings() {
     upi: payload.company_upi, address: payload.company_address,
     logo: payload.company_logo || STATE.settings.logo,
     signature: payload.company_sign || STATE.settings.signature,
-    defaultBank: payload.company_bank || STATE.settings.defaultBank,
-    currency: payload.default_currency || STATE.settings.currency,
+    defaultBank: payload.company_bank || STATE.settings.defaultBank
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -8581,6 +8578,9 @@ window.saveWASettings = async function() {
     wa_pid:           val('wa-pid'),
     wa_bid:           val('wa-bid'),
     wa_test_phone:    val('wa-test-phone'),
+    wa_remind_days:   val('wa-remind-days')   || '3',
+    wa_max_followup:  val('wa-max-followup')  || '3',
+    wa_followup_days: val('wa-followup-days') || '7',
     wa_tpl_inv:       val('wa-tpl-inv'),
     wa_tpl_estimate:  val('wa-tpl-estimate'),
     wa_tpl_paid:      val('wa-tpl-paid'),
@@ -8619,6 +8619,7 @@ window.saveWASettings = async function() {
   Object.assign(STATE.settings.wa, {
     token: payload.wa_token, pid: payload.wa_pid, bid: payload.wa_bid,
     test_phone: payload.wa_test_phone,
+    remind_days: payload.wa_remind_days, max_followup: payload.wa_max_followup,
     tpl_inv: payload.wa_tpl_inv, tpl_estimate: payload.wa_tpl_estimate, tpl_paid: payload.wa_tpl_paid,
     tpl_partial: payload.wa_tpl_partial,
     tpl_remind: payload.wa_tpl_remind, tpl_overdue: payload.wa_tpl_overdue,
@@ -8779,6 +8780,9 @@ function loadEmailAutoSettings() {
   set('em-auto-remind',   ec.email_auto_remind  || '1');
   set('em-auto-overdue',  ec.email_auto_overdue || '1');
   set('em-auto-followup', ec.email_auto_followup|| '0');
+  const rd = document.getElementById('em-remind-days');   if (rd) rd.value = ec.email_remind_days   || '3';
+  const fd = document.getElementById('em-followup-days'); if (fd) fd.value = ec.email_followup_days || '7';
+  const mf = document.getElementById('em-max-followup');  if (mf) mf.value = ec.email_max_followup  || '3';
 }
 
 // ── Save automation settings ─────────────────────────────────────
@@ -8793,6 +8797,9 @@ async function saveEmailAuto() {
     email_auto_remind:  togVal('em-auto-remind'),
     email_auto_overdue: togVal('em-auto-overdue'),
     email_auto_followup:togVal('em-auto-followup'),
+    email_remind_days:  val('em-remind-days'),
+    email_followup_days:val('em-followup-days'),
+    email_max_followup: val('em-max-followup'),
   };
   if (!STATE.settings.email_cfg) STATE.settings.email_cfg = {};
   Object.assign(STATE.settings.email_cfg, payload);
@@ -10206,18 +10213,16 @@ window.saveInvoiceDefaults = async function() {
     default_bank:    document.getElementById('sd-bank')?.value    || '',
     default_notes:   document.getElementById('sd-notes')?.value   || '',
     default_tnc:     document.getElementById('sd-tnc')?.value     || '',
-    generated_by:    document.getElementById('f-generated-by')?.value || '',
   };
   // Also update STATE
   STATE.settings.defaultGST     = parseInt(payload.default_gst ?? '0');
   STATE.settings.dueDays        = parseInt(payload.due_days);
   STATE.settings.activeTemplate = parseInt(payload.active_template);
-  if (payload.invoice_prefix)                       STATE.settings.prefix      = payload.invoice_prefix;
+  if (payload.invoice_prefix)                       STATE.settings.prefix    = payload.invoice_prefix;
   if (payload.estimate_prefix !== undefined && payload.estimate_prefix !== null) STATE.settings.estPrefix = payload.estimate_prefix;
-  if (payload.default_notes  !== undefined) STATE.settings.defaultNotes  = payload.default_notes;
-  if (payload.default_tnc    !== undefined) STATE.settings.defaultTnC    = payload.default_tnc;
-  if (payload.default_currency)             STATE.settings.currency       = payload.default_currency;
-  if (payload.generated_by   !== undefined) STATE.settings.generatedBy   = payload.generated_by;
+  if (payload.default_notes  !== undefined) STATE.settings.defaultNotes = payload.default_notes;
+  if (payload.default_tnc    !== undefined) STATE.settings.defaultTnC   = payload.default_tnc;
+  if (payload.default_currency)             STATE.settings.currency      = payload.default_currency;
   try {
     await api('api/settings.php', 'POST', payload);
     toast('✅ Invoice defaults saved!', 'success');
@@ -10331,7 +10336,6 @@ function populateSettingsForm() {
   set('sc-gst',     s.gst);
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
-  set('sc-web',     s.website);
   renderCategoryList();
   renderItemTypeList();
   set('sc-prefix',  s.prefix);
@@ -10341,9 +10345,6 @@ function populateSettingsForm() {
   set('sc-logo',    s.logo);
   set('sc-sign',    s.signature);
   set('sc-bank',    s.defaultBank || STATE.settings.defaultBank || '');
-  // Restore currency dropdown
-  const _scCur = document.getElementById('sc-cur');
-  if (_scCur && s.currency) _scCur.value = s.currency;
   // ── Populate Email / SMTP fields ──
   const ec = s.email_cfg || {};
   set('em-host', ec.smtp_host || '');
@@ -10482,9 +10483,12 @@ function populateWAPage() {
   setV('wa-pid',         wa.pid   || '');
   setV('wa-bid',         wa.bid   || '');
   setV('wa-test-phone',  wa.test_phone || '');
-  // Update follow-up label from reminder settings (single source of truth)
+  setV('wa-remind-days',  wa.remind_days   || '3');
+  setV('wa-max-followup', wa.max_followup  || '3');
+  setV('wa-followup-days',wa.followup_days || '7');
+  // Update follow-up label
   const _wfl = document.getElementById('wa-followup-days-label');
-  if (_wfl) { const cfg = getReminderSettings(); _wfl.textContent = cfg.overdueFreq || 7; }
+  if (_wfl) _wfl.textContent = wa.followup_days || '7';
 
   // Templates
   setV('wa-tpl-inv',      wa.tpl_inv      || getDefaultWATpl('inv'));
@@ -11509,19 +11513,6 @@ async function loadFeatureData() {
   status:     r.status
 }));
     if (remR.value?.settings) STATE._remSettings = remR.value.settings;
-    // Also seed from settings table (before_days etc saved there by saveReminderSettings)
-    if (!STATE._remSettings || !STATE._remSettings.before_days) {
-      const cfg = STATE.settings || {};
-      if (cfg.before_days || cfg.overdue_freq || cfg.max_overdue) {
-        STATE._remSettings = Object.assign({}, STATE._remSettings || {}, {
-          before_days:  cfg.before_days  || '3',
-          on_due:       cfg.on_due       ?? '1',
-          overdue_freq: cfg.overdue_freq || '7',
-          max_overdue:  cfg.max_overdue  || '3',
-          channel:      cfg.channel      || 'whatsapp'
-        });
-      }
-    }
   } else {
     console.warn('reminders API unavailable (run migration?):', remR.reason?.message);
   }
@@ -12374,15 +12365,12 @@ async function _renderPortalTable(search) {
 // 4. PAYMENT REMINDERS
 // ══════════════════════════════════════════════════════════════
 function getReminderSettings() {
-  // Reminder page is the single source of truth for timing rules.
-  // Falls back to STATE.settings.wa for legacy data if reminder settings not saved yet.
-  const s  = STATE._remSettings || {};
-  const wa = STATE.settings.wa  || {};
+  const s = STATE._remSettings || {};
   return {
-    beforeDays:  parseInt(s.before_days  ?? s.beforeDays  ?? wa.remind_days   ?? 3),
+    beforeDays:  parseInt(s.before_days  ?? s.beforeDays  ?? 3),
     onDue:       (s.on_due ?? s.onDue ?? 1) == 1,
-    overdueFreq: parseInt(s.overdue_freq ?? s.overdueFreq ?? wa.followup_days  ?? 7),
-    maxOverdue:  parseInt(s.max_overdue  ?? s.maxOverdue  ?? wa.max_followup   ?? 3),
+    overdueFreq: parseInt(s.overdue_freq ?? s.overdueFreq ?? 7),
+    maxOverdue:  parseInt(s.max_overdue  ?? s.maxOverdue  ?? 3),
     channel:     s.channel || 'whatsapp'
   };
 }
@@ -12396,12 +12384,7 @@ async function saveReminderSettings() {
   };
   try {
     await api('api/reminders.php','POST',payload);
-    // Also persist to settings table so loadAllData picks them up on next page load
-    await api('api/settings.php','POST',payload);
     STATE._remSettings = payload;
-    // Sync wa-followup-days-label on WA page
-    const _wfl = document.getElementById('wa-followup-days-label');
-    if (_wfl) _wfl.textContent = payload.overdue_freq || 7;
     toast('✅ Reminder rules saved','success');
   } catch(e) { toast('❌ '+e.message,'error'); }
 }
@@ -12413,9 +12396,6 @@ function renderReminders() {
   if (document.getElementById('rem-overdue-freq')) document.getElementById('rem-overdue-freq').value = cfg.overdueFreq||7;
   if (document.getElementById('rem-max-overdue'))  document.getElementById('rem-max-overdue').value  = cfg.maxOverdue||3;
   if (document.getElementById('rem-channel'))      document.getElementById('rem-channel').value      = cfg.channel||'whatsapp';
-  // Keep WA page followup label in sync with Reminder page setting
-  const _wfl = document.getElementById('wa-followup-days-label');
-  if (_wfl) _wfl.textContent = cfg.overdueFreq || 7;
   _buildReminderQueue();
   _renderReminderHistory();
 }
@@ -13133,7 +13113,7 @@ async function openRecurringModal(id) {
     document.getElementById('rec-freq').value              = 'monthly';
     document.getElementById('rec-start').value             = today;
     document.getElementById('rec-end').value               = '';
-    document.getElementById('rec-due-days').value          = String(STATE.settings.dueDays || 15);
+    document.getElementById('rec-due-days').value          = '15';
     document.getElementById('rec-template').value          = '2';
     document.getElementById('rec-notes').value             = '';
 

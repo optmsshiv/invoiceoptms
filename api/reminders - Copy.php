@@ -19,7 +19,7 @@ $action = $_GET['action'] ?? '';
 $isLog  = isset($_GET['log']);
 
 // ── FIX #5: Allowed values for type and channel ──────────────────
-const ALLOWED_TYPES    = ['due_reminder', 'due_soon', 'due_today', 'overdue', 'followup', 'paid'];
+const ALLOWED_TYPES    = ['due_reminder', 'overdue', 'followup', 'paid'];
 const ALLOWED_CHANNELS = ['whatsapp', 'sms', 'email'];
 const ALLOWED_STATUSES = ['sent', 'failed', 'pending'];
 
@@ -64,11 +64,10 @@ try {
             // Return settings row + recent log
             $stmt     = $db->query('SELECT * FROM reminder_settings WHERE id=1');
             $settings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            if (empty($settings['channel'])) $settings['channel'] = 'whatsapp';
 
             // FIX #3: Cast on_due to a real boolean so JS receives true/false, not "0"/"1" string
             if (!empty($settings)) {
-                $settings['on_due']      = (int)$settings['on_due'];
+                $settings['on_due']      = (bool)(int)$settings['on_due'];
                 $settings['before_days'] = (int)$settings['before_days'];
                 $settings['overdue_freq']= (int)$settings['overdue_freq'];
                 $settings['max_overdue'] = (int)$settings['max_overdue'];

@@ -195,8 +195,8 @@ function handleTest($db, $input) {
     $smtp = getSmtpConfig($input, $db);
     if (empty($smtp['host'])) jsonResponse(['success'=>false,'error'=>'SMTP Host required'], 422);
     $to      = $input['to'] ?? $smtp['user'];
-    $subject = 'SMTP Test — Invoice Manager';
-    $body    = "Test email from Invoice Manager.\n\nSMTP is working!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
+    $subject = 'SMTP Test — OPTMS Tech Invoice Manager';
+    $body    = "Test email from OPTMS Tech Invoice Manager.\n\nSMTP is working!\n\nHost: {$smtp['host']}\nPort: {$smtp['port']}\nFrom: {$smtp['from']}";
     $result  = sendSmtpEmail($smtp, $to, 'Test', $subject, buildEmailHTML($body, 'test', []));
     if ($result['success']) {
         try { logEmailSent($db, 0, 'test', $to, $subject, 'sent'); } catch(\Exception $e){}
@@ -387,16 +387,13 @@ function buildTemplateVars($db, int $invId, string $type): array {
         foreach ($rows as $r) $cfg[$r['key']] = $r['value'];
     } catch(\Exception $e){}
 
-    $company = $cfg['company_name']    ?? '';
+    $company = $cfg['company_name']    ?? 'OPTMS Tech';
     $phone   = $cfg['company_phone']   ?? '';
     $email   = $cfg['company_email']   ?? '';
     $upi     = $cfg['company_upi']     ?? '';
     $bank    = $cfg['company_bank']    ?? '';
     $website = $cfg['company_website'] ?? '';
-    $portalBase = rtrim($cfg['portal_base_url'] ?? '', '/') . '/';
-    if (!$portalBase || $portalBase === '/') {
-        $portalBase = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/';
-    }
+    $portalBase = rtrim($cfg['portal_base_url'] ?? 'https://invcs.optms.co.in/portal', '/') . '/';
 
     $vars = [
         '{company_name}'   => $company,
@@ -507,7 +504,7 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     [$hdrBg, $accent, $emoji, $typeLabel] = $types[$type] ?? $types['invoice'];
 
     // Pull structured vars if available
-    $company    = $vars['{company_name}']    ?? '';
+    $company    = $vars['{company_name}']    ?? 'OPTMS Tech';
     $clientName = $vars['{client_name}']     ?? '';
     $invoiceNo  = $vars['{invoice_no}']      ?? '';
     $amount     = $vars['{amount}']          ?? '';
@@ -755,7 +752,8 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
 
     <!-- Footer -->
     <div style="text-align:center;padding:14px;font-size:11px;color:#aaa">
-      Sent via Invoice Manager
+      Sent via <a href="https://optmstech.in" style="color:#777">OPTMS Tech Invoice Manager</a>
+      &middot; <a href="https://optmstech.in" style="color:#777">optmstech.in</a>
     </div>
 
   </div>

@@ -36,17 +36,9 @@ foreach ($cfgRows as $r) $cfg[$r['key']] = $r['value'];
 $autoRemind   = ($cfg['email_auto_remind']   ?? '1') === '1';
 $autoOverdue  = ($cfg['email_auto_overdue']  ?? '1') === '1';
 $autoFollowup = ($cfg['email_auto_followup'] ?? '0') === '1';
-
-// ── Timing rules: read from reminder_settings (single source of truth) ──
-// Falls back to settings table keys for backward compat, then hardcoded defaults
-$remSettings = [];
-try {
-    $remRow = $db->query("SELECT * FROM reminder_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC);
-    if ($remRow) $remSettings = $remRow;
-} catch (Exception $e) {}
-$remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? $cfg['email_remind_days']   ?? 3));
-$followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? $cfg['email_followup_days'] ?? 7));
-$maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? $cfg['email_max_followup']  ?? 3));
+$remindDays   = max(1, (int)($cfg['email_remind_days']   ?? 3));
+$followupDays = max(1, (int)($cfg['email_followup_days'] ?? 7));
+$maxFollowup  = max(1, (int)($cfg['email_max_followup']  ?? 3));
 
 if (!$autoRemind && !$autoOverdue && !$autoFollowup) {
     echo "[" . date('Y-m-d H:i:s') . "] All email automation is OFF. Nothing to do.\n";
@@ -64,7 +56,7 @@ try {
             'user' => $prof['username'],
             'pass' => $prof['password'],
             'from' => $prof['from_email'] ?: $prof['username'],
-            'name' => $prof['from_name']  ?: ($cfg['company_name'] ?? ''),
+            'name' => $prof['from_name']  ?: ($cfg['company_name'] ?? 'OPTMS Tech'),
         ];
     }
 } catch (Exception $e) {}
@@ -76,7 +68,7 @@ if (empty($smtp['host'])) {
         'user' => $cfg['smtp_user'] ?? '',
         'pass' => $cfg['smtp_pass'] ?? '',
         'from' => $cfg['smtp_from'] ?? $cfg['smtp_user'] ?? '',
-        'name' => $cfg['smtp_name'] ?? ($cfg['company_name'] ?? ''),
+        'name' => $cfg['smtp_name'] ?? ($cfg['company_name'] ?? 'OPTMS Tech'),
     ];
 }
 
@@ -87,7 +79,7 @@ if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
 
 // ── Company info ─────────────────────────────────────────────────
 $company = [
-    'company_name'  => $cfg['company_name']    ?? '',
+    'company_name'  => $cfg['company_name']    ?? 'OPTMS Tech',
     'company_phone' => $cfg['company_phone']   ?? '',
     'company_email' => $cfg['company_email']   ?? '',
     'upi'           => $cfg['company_upi']     ?? '',
@@ -95,11 +87,7 @@ $company = [
 ];
 
 // Portal base URL (trailing slash)
-$portalBase = rtrim($cfg['portal_base_url'] ?? '', '/') . '/';
-if (!$portalBase || $portalBase === '/') {
-    // portal_base_url not configured — use server-relative fallback
-    $portalBase = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/';
-}
+$portalBase = rtrim($cfg['portal_base_url'] ?? 'https://invcs.optms.co.in/portal', '/') . '/';
 
 // ================================================================
 //  HELPERS
@@ -227,7 +215,7 @@ a{color:{$color}}
 <div class="wrap">
   <div class="hdr">{$heading}</div>
   <div class="bdy">{$b}</div>
-  <div class="ftr">Sent via Invoice Manager</div>
+  <div class="ftr">Sent via OPTMS Tech Invoice Manager &middot; optmstech.in</div>
 </div>
 </body></html>
 HTML;
