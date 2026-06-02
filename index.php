@@ -7504,14 +7504,19 @@ function confirmPaid() {
       renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
       const wasPartial = partialCheck && partialCheck.checked && payload.partial;
+
+      // ── Close modal FIRST so toast is visible ─────────────────
+      closeModal('modal-paid');
+
+      // ── Toast ─────────────────────────────────────────────────
       if (wasPartial) {
-        toast(`✅ Partial payment (${fmt_money(payload.amount,'₹')}) recorded! Invoice remains active for remaining ${fmt_money(payload.remaining_amt,'₹')}.`,'success');
+        toast(`✅ Partial payment (${fmt_money(payload.amount,'₹')}) recorded! Remaining: ${fmt_money(payload.remaining_amt,'₹')}.`,'success');
       } else {
         toast('✅ Invoice marked paid & payment recorded!','success');
       }
-      // Auto-send WA receipt if toggle ON
+
+      // ── Auto-send WA receipt if toggle ON ─────────────────────
       const waP = STATE.settings.wa || {};
-      // Determine if we should send: paid uses auto_paid, partial uses auto_partial
       const shouldSendWA = wasPartial ? (waP.auto_partial !== '0') : (waP.auto_paid !== '0');
       if (shouldSendWA) {
         const paidInv = STATE.invoices.find(i => String(i.id) === String(mid));
@@ -7519,7 +7524,6 @@ function confirmPaid() {
           const cP     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
           const phoneP = (cP.wa || cP.whatsapp || cP.phone || '').replace(/\D/g,'');
           if (phoneP) {
-            // Choose template based on payment type
             const isSplitPmt = payload.method && payload.method.startsWith('Split');
             let tplKey, tplDefault, tplName;
             if (wasPartial) {
@@ -7533,7 +7537,6 @@ function confirmPaid() {
               tplName = 'payment_received';
             }
             const tplP = tplKey || tplDefault;
-            // Enrich inv with payment-specific data for template variables
             const invWithPmt = Object.assign({}, paidInv, {
               _paidAmt:      payload.amount,
               _remainingAmt: payload.remaining_amt || 0,
@@ -7549,9 +7552,32 @@ function confirmPaid() {
           }
         }
       }
+
+      // ── Auto-send Email receipt if toggle ON ──────────────────
+      const ec = STATE.settings.email_cfg || STATE.settings || {};
+      const shouldSendEmail = wasPartial
+        ? (STATE.settings.email_auto_partial !== '0')
+        : (STATE.settings.email_auto_paid    !== '0');
+      if (shouldSendEmail) {
+        const paidInvE = STATE.invoices.find(i => String(i.id) === String(mid));
+        if (paidInvE) {
+          const cE = STATE.clients.find(x => String(x.id) === String(paidInvE.client)) || {};
+          if (cE.email) {
+            api('api/email.php','POST',{
+              action:     'send',
+              type:       'receipt',
+              invoice_id: mid,
+              to:         cE.email,
+              to_name:    cE.name || 'Client',
+            }).then(r => {
+              if (r?.success) toast(`📧 Receipt email sent to ${cE.name || cE.email}!`, 'success');
+              else            toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
+            }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
+          }
+        }
+      }
     })
     .catch(e => toast('❌ '+e.message,'error'));
-  closeModal('modal-paid');
 }
 
 // ══════════════════════════════════════════
