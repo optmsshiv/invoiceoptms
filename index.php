@@ -4,6 +4,9 @@
 //  Works at: http://invcs.optms.co.in/
 // ================================================================
 
+// ── Set timezone to India Standard Time (IST) ──────────────────
+date_default_timezone_set('Asia/Kolkata');
+
 // ── Error handling: suppress display, log to file ──────────────
 
 ini_set('display_errors', '0');
@@ -57,6 +60,8 @@ $defaultCurrency= $settings['default_currency'] ?? '₹';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+<!-- ✅ WhatsApp Message Log Helper (Fixed timezone, ordering, optimistic updates) -->
+<script src="/js/wa_log_helper.js"></script>
 <style>
 /* ── SweetAlert2 compact theme ── */
 .swal-compact { font-family:'Public Sans',sans-serif !important; border-radius:14px !important; max-width:360px !important; }
@@ -2880,53 +2885,162 @@ View Invoice: {{6}}</pre></details>
       </div>
     </div><!-- /page-backup -->
 
-    <!-- ─────────── MESSAGE LOG ─────────── -->
+    <!-- ─────────── MESSAGE LOG (Updated: IST timezone, proper ordering, optimistic updates) ─────────── -->
     <div id="page-msglog" class="page">
+    <style>
+      /* ── WhatsApp Log Table Styling ── */
+      .wa-log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .wa-log-table thead tr { background: var(--bg); border-bottom: 2px solid var(--border); }
+      .wa-log-table th {
+        padding: 10px 14px; text-align: left; font-weight: 700;
+        color: var(--muted); font-size: 11px; text-transform: uppercase;
+        letter-spacing: .5px;
+      }
+      .wa-log-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+      .wa-log-table tbody tr:hover { background: rgba(0,137,123,.02); }
+
+      /* ── Time column (monospace) ── */
+      .wa-log-ts {
+        font-family: var(--mono); font-size: 12px; color: var(--muted);
+        white-space: nowrap;
+      }
+
+      /* ── Message column ── */
+      .wa-log-msg {
+        font-size: 12px; color: var(--text2);
+        max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+
+      /* ── Status badges ── */
+      .wa-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      }
+      .wa-badge-sending {
+        background: var(--amber-bg); color: var(--amber);
+      }
+      .wa-badge-sent_web {
+        background: var(--blue-bg); color: var(--blue);
+      }
+      .wa-badge-sent_api {
+        background: var(--green-bg); color: var(--green);
+      }
+      .wa-badge-failed {
+        background: var(--red-bg); color: var(--red);
+      }
+
+      /* ── Stats cards ── */
+      .wa-stat-card {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 8px; padding: 12px 16px;
+        display: flex; align-items: center; gap: 10px; min-width: 160px;
+      }
+      .wa-stat-icon {
+        font-size: 20px; width: 40px; height: 40px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 8px;
+      }
+      .wa-stat-content { flex: 1; }
+      .wa-stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+      .wa-stat-value { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 2px; }
+    </style>
+
       <div class="page-toolbar">
         <div class="toolbar-left">
-          <input id="msglog-search" type="text" placeholder="Search by client, invoice, type…" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;width:260px;background:var(--card);color:var(--text)" oninput="renderMsgLog()">
-          <select id="msglog-filter-type" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)" onchange="renderMsgLog()">
-            <option value="">All Types</option>
+          <input
+            id="msglog-search"
+            type="text"
+            placeholder="Search by client, phone, invoice…"
+            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;width:260px;background:var(--card);color:var(--text)"
+            oninput="renderWALog()"
+          >
+          <select
+            id="msglog-filter-type"
+            style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)"
+            onchange="renderWALog()"
+          >
+            <option value="">📋 All Types</option>
             <option value="invoice_created">📄 New Invoice</option>
-            <option value="estimate_created">📋 Estimate Created</option>
+            <option value="estimate_created">📋 Estimate</option>
             <option value="payment_received">✅ Payment Receipt</option>
-            <option value="partial_payment">💛 Partial Receipt</option>
+            <option value="partial_payment">💛 Partial Payment</option>
             <option value="split_payment">⚡ Split Payment</option>
             <option value="payment_overdue">🔴 Overdue Alert</option>
             <option value="payment_reminder">🔔 Due Reminder</option>
-            <option value="invoice_followup">📋 Follow-up</option>
+            <option value="invoice_followup">📞 Follow-up</option>
           </select>
-          <select id="msglog-filter-status" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)" onchange="renderMsgLog()">
-            <option value="">All Status</option>
+          <select
+            id="msglog-filter-status"
+            style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text)"
+            onchange="renderWALog()"
+          >
+            <option value="">📊 All Status</option>
+            <option value="sending">⏳ Sending</option>
             <option value="sent_api">✅ Sent (API)</option>
             <option value="sent_web">📱 Opened (Manual)</option>
             <option value="failed">❌ Failed</option>
-            <option value="sending">⏳ Sending</option>
           </select>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-outline" onclick="clearMsgLog()"><i class="fas fa-trash"></i> Clear Log</button>
-          <button class="btn btn-outline" onclick="exportMsgLog()"><i class="fas fa-download"></i> Export CSV</button>
+          <button class="btn btn-outline" onclick="WA_LOG.refreshTable()" title="Refresh (auto-updates every 10s)"><i class="fas fa-sync-alt"></i> Refresh</button>
+          <button class="btn btn-outline" onclick="exportMsgLog()"><i class="fas fa-download"></i> Export</button>
+          <button class="btn btn-outline" style="color:#E53935;border-color:#E53935" onclick="WA_LOG.clearLogs()"><i class="fas fa-trash"></i> Clear Log</button>
         </div>
       </div>
-      <!-- Stats row -->
-      <div id="msglog-stats" style="display:flex;gap:12px;flex-wrap:wrap;padding:0 0 16px"></div>
+
+      <!-- Statistics Row -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 0 16px;margin-bottom:8px" id="wa-log-stats">
+        <div class="wa-stat-card">
+          <div class="wa-stat-icon" style="background:var(--blue-bg);color:var(--blue)"><i class="fas fa-envelope"></i></div>
+          <div class="wa-stat-content">
+            <div class="wa-stat-label">Total Messages</div>
+            <div class="wa-stat-value" id="wa-stat-total">0</div>
+          </div>
+        </div>
+        <div class="wa-stat-card">
+          <div class="wa-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check-circle"></i></div>
+          <div class="wa-stat-content">
+            <div class="wa-stat-label">Sent (API)</div>
+            <div class="wa-stat-value" id="wa-stat-sent">0</div>
+          </div>
+        </div>
+        <div class="wa-stat-card">
+          <div class="wa-stat-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="fas fa-hourglass-half"></i></div>
+          <div class="wa-stat-content">
+            <div class="wa-stat-label">Sending</div>
+            <div class="wa-stat-value" id="wa-stat-sending">0</div>
+          </div>
+        </div>
+        <div class="wa-stat-card">
+          <div class="wa-stat-icon" style="background:var(--red-bg);color:var(--red)"><i class="fas fa-times-circle"></i></div>
+          <div class="wa-stat-content">
+            <div class="wa-stat-label">Failed</div>
+            <div class="wa-stat-value" id="wa-stat-failed">0</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Log table -->
       <div style="background:var(--card);border-radius:12px;border:1px solid var(--border);overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table id="wa-log-table" class="wa-log-table">
           <thead>
-            <tr style="background:var(--bg);border-bottom:2px solid var(--border)">
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Time</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Type</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Client</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Invoice</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Status</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Message</th>
-              <th style="padding:10px 14px;text-align:center;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">Action</th>
+            <tr>
+              <th style="width:150px">Time (IST)</th>
+              <th style="width:120px">Type</th>
+              <th style="width:140px">Client</th>
+              <th style="width:100px">Phone</th>
+              <th style="width:110px">Invoice</th>
+              <th style="width:280px">Message</th>
+              <th style="width:90px">Status</th>
             </tr>
           </thead>
-          <tbody id="msglog-tbody">
-            <tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-comments" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>No messages logged yet</td></tr>
+          <tbody>
+            <tr>
+              <td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">
+                <i class="fas fa-whatsapp" style="font-size:40px;color:#25D366;opacity:0.3;display:block;margin-bottom:8px"></i>
+                <div>No messages logged yet</div>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -14953,7 +15067,137 @@ function applyAvatarGlow(img) {
   } catch(e) { /* cross-origin fallback: keeps default teal */ }
 }
 
-</script>
+// ═══════════════════════════════════════════════════════════════════
+// WhatsApp Message Log - Enhanced rendering with filtering & stats
+// ═══════════════════════════════════════════════════════════════════
 
+async function renderWALog() {
+  try {
+    // Fetch from API
+    const logs = await WA_LOG.fetchLog();
+
+    // Get filter values
+    const searchTerm = document.getElementById('msglog-search')?.value?.toLowerCase() || '';
+    const filterType = document.getElementById('msglog-filter-type')?.value || '';
+    const filterStatus = document.getElementById('msglog-filter-status')?.value || '';
+
+    // Filter logs
+    let filtered = logs.filter(log => {
+      const matchSearch = !searchTerm ||
+        (log.client && log.client.toLowerCase().includes(searchTerm)) ||
+        (log.phone && log.phone.includes(searchTerm)) ||
+        (log.inv_num && log.inv_num.toLowerCase().includes(searchTerm));
+
+      const matchType = !filterType || log.type === filterType;
+      const matchStatus = !filterStatus || log.status === filterStatus;
+
+      return matchSearch && matchType && matchStatus;
+    });
+
+    // Update statistics
+    const stats = {
+      total: logs.length,
+      sent: logs.filter(l => l.status === 'sent_api').length,
+      sending: logs.filter(l => l.status === 'sending').length,
+      failed: logs.filter(l => l.status === 'failed').length
+    };
+
+    document.getElementById('wa-stat-total').textContent = stats.total;
+    document.getElementById('wa-stat-sent').textContent = stats.sent;
+    document.getElementById('wa-stat-sending').textContent = stats.sending;
+    document.getElementById('wa-stat-failed').textContent = stats.failed;
+
+    // Render table
+    const tbody = document.querySelector('#wa-log-table tbody');
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">
+            <i class="fas fa-search" style="font-size:32px;opacity:.2"></i>
+            <div style="margin-top:8px">No messages match your filters</div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    // Build table rows
+    tbody.innerHTML = filtered.map(log => `
+      <tr>
+        <td class="wa-log-ts" title="${log.ts}">${WA_LOG.formatTimeRelative(log.ts)}</td>
+        <td>${WA_LOG.getTypeLabel(log.type)}</td>
+        <td>${log.client || '-'}</td>
+        <td style="font-family:var(--mono);font-size:11px">${log.phone || '-'}</td>
+        <td style="font-family:var(--mono)">${log.inv_num || '-'}</td>
+        <td class="wa-log-msg" title="${log.msg || ''}">${(log.msg || '').substring(0, 60)}${(log.msg || '').length > 60 ? '…' : ''}</td>
+        <td>
+          <span class="wa-badge wa-badge-${log.status}">${log.status}</span>
+          ${log.error ? `<div style="font-size:10px;color:var(--red);margin-top:4px;white-space:normal">${log.error}</div>` : ''}
+        </td>
+      </tr>
+    `).join('');
+
+  } catch(e) {
+    console.error('Error rendering WA log:', e);
+  }
+}
+
+// Override WA_LOG.refreshTable to include our rendering
+const _origRefreshTable = WA_LOG.refreshTable;
+WA_LOG.refreshTable = async function() {
+  await _origRefreshTable.call(this);
+  renderWALog();
+};
+
+// Export function for CSV
+async function exportMsgLog() {
+  try {
+    const logs = await WA_LOG.fetchLog();
+    if (logs.length === 0) {
+      toast('No messages to export', 'info');
+      return;
+    }
+
+    // Prepare CSV
+    const headers = ['Time', 'Type', 'Client', 'Phone', 'Invoice', 'Amount', 'Message', 'Status', 'Error'];
+    const rows = logs.map(log => [
+      log.ts,
+      log.type,
+      log.client || '',
+      log.phone || '',
+      log.inv_num || '',
+      log.inv_amt || '',
+      (log.msg || '').replace(/"/g, '""'),  // Escape quotes
+      log.status,
+      log.error || ''
+    ]);
+
+    // Generate CSV content
+    let csv = headers.map(h => `"${h}"`).join(',') + '\n';
+    csv += rows.map(row => row.map(val => `"${val}"`).join(',')).join('\n');
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('download', `wa_log_${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+
+    toast('✓ Log exported as CSV', 'success');
+  } catch(e) {
+    toast('✗ Export failed: ' + e.message, 'error');
+  }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+  // Initial load
+  renderWALog();
+});
+
+</script>
+<script src="/js/wa_log_helper.js"></script>
 </body>
 </html>
