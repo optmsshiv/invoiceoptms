@@ -15126,7 +15126,11 @@ async function renderWALog() {
     // Build table rows
     tbody.innerHTML = filtered.map(log => `
       <tr>
-        <td class="wa-log-ts" title="${log.ts}">${WA_LOG.formatTimeRelative(log.ts)}</td>
+        
+        <td class="wa-log-ts">
+         <div>${WA_LOG.formatTimeRelative(log.ts)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${log.ts}</div>
+        </td>
         <td>${WA_LOG.getTypeLabel(log.type)}</td>
         <td>${log.client || '-'}</td>
         <td style="font-family:var(--mono);font-size:11px">${log.phone || '-'}</td>
