@@ -3005,6 +3005,13 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
         <div class="wa-stat-card">
+          <div class="wa-stat-icon" style="background:var(--blue-bg);color:var(--blue)"><i class="fas fa-mobile-alt"></i></div>
+          <div class="wa-stat-content">
+            <div class="wa-stat-label">Manual</div>
+            <div class="wa-stat-value" id="wa-stat-manual">0</div>
+          </div>
+        </div>
+        <div class="wa-stat-card">
           <div class="wa-stat-icon" style="background:var(--amber-bg);color:var(--amber)"><i class="fas fa-hourglass-half"></i></div>
           <div class="wa-stat-content">
             <div class="wa-stat-label">Sending</div>
@@ -3025,13 +3032,13 @@ View Invoice: {{6}}</pre></details>
         <table id="wa-log-table" class="wa-log-table">
           <thead>
             <tr>
-              <th style="width:150px">Time (IST)</th>
+              <th style="width:130px">Time</th>
               <th style="width:120px">Type</th>
-              <th style="width:140px">Client</th>
-              <th style="width:100px">Phone</th>
-              <th style="width:110px">Invoice</th>
-              <th style="width:280px">Message</th>
-              <th style="width:90px">Status</th>
+              <th style="width:150px">Client</th>
+              <th style="width:120px">Invoice</th>
+              <th>Message</th>
+              <th style="width:100px">Status</th>
+              <th style="width:90px">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -15073,86 +15080,144 @@ function applyAvatarGlow(img) {
 
 async function renderWALog() {
   try {
-    // Fetch from API
     const logs = await WA_LOG.fetchLog();
-
-    // Get filter values
-    const searchTerm = document.getElementById('msglog-search')?.value?.toLowerCase() || '';
-    const filterType = document.getElementById('msglog-filter-type')?.value || '';
+    const searchTerm   = document.getElementById('msglog-search')?.value?.toLowerCase() || '';
+    const filterType   = document.getElementById('msglog-filter-type')?.value || '';
     const filterStatus = document.getElementById('msglog-filter-status')?.value || '';
 
-    // Filter logs
     let filtered = logs.filter(log => {
       const matchSearch = !searchTerm ||
-        (log.client && log.client.toLowerCase().includes(searchTerm)) ||
-        (log.phone && log.phone.includes(searchTerm)) ||
+        (log.client  && log.client.toLowerCase().includes(searchTerm)) ||
+        (log.phone   && log.phone.includes(searchTerm)) ||
         (log.inv_num && log.inv_num.toLowerCase().includes(searchTerm));
-
-      const matchType = !filterType || log.type === filterType;
+      const matchType   = !filterType   || log.type   === filterType;
       const matchStatus = !filterStatus || log.status === filterStatus;
-
       return matchSearch && matchType && matchStatus;
     });
 
+    // Guarantee newest first
+    filtered.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
     // Update statistics
     const stats = {
-      total: logs.length,
-      sent: logs.filter(l => l.status === 'sent_api').length,
+      total:   logs.length,
+      sent:    logs.filter(l => l.status === 'sent_api').length,
+      manual:  logs.filter(l => l.status === 'sent_web').length,
       sending: logs.filter(l => l.status === 'sending').length,
-      failed: logs.filter(l => l.status === 'failed').length
+      failed:  logs.filter(l => l.status === 'failed').length,
     };
+    ['total','sent','manual','sending','failed'].forEach(k => {
+      const el = document.getElementById('wa-stat-' + k);
+      if (el) el.textContent = stats[k];
+    });
 
-    document.getElementById('wa-stat-total').textContent = stats.total;
-    document.getElementById('wa-stat-sent').textContent = stats.sent;
-    document.getElementById('wa-stat-sending').textContent = stats.sending;
-    document.getElementById('wa-stat-failed').textContent = stats.failed;
-
-    // Render table
     const tbody = document.querySelector('#wa-log-table tbody');
     if (!tbody) return;
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">
-            <i class="fas fa-search" style="font-size:32px;opacity:.2"></i>
-            <div style="margin-top:8px">No messages match your filters</div>
-          </td>
-        </tr>
-      `;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">
+        <i class="fas fa-search" style="font-size:32px;opacity:.2;display:block;margin-bottom:8px"></i>
+        No messages match your filters</td></tr>`;
       return;
     }
 
-    // Build table rows
-    tbody.innerHTML = filtered.map(log => `
-      <tr>
-        <td class="wa-log-ts">
-    <div style="font-weight:600;color:var(--text)">${this.formatTimeRelative(log.ts)}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:2px">${log.ts}</div>
-        </td>
-        <td>${WA_LOG.getTypeLabel(log.type)}</td>
-        <td>${log.client || '-'}</td>
-        <td style="font-family:var(--mono);font-size:11px">${log.phone || '-'}</td>
-        <td style="font-family:var(--mono)">${log.inv_num || '-'}</td>
-        <td class="wa-log-msg" title="${log.msg || ''}">${(log.msg || '').substring(0, 60)}${(log.msg || '').length > 60 ? '…' : ''}</td>
+    const typeBadge = {
+      invoice_created:  { bg:'#EEEDFE', color:'#3C3489', icon:'fa-file',              label:'New Invoice'  },
+      estimate_created: { bg:'#E1F5EE', color:'#085041', icon:'fa-file-alt',          label:'Estimate'     },
+      payment_received: { bg:'#EAF3DE', color:'#27500A', icon:'fa-check-circle',      label:'Payment'      },
+      partial_payment:  { bg:'#FAEEDA', color:'#633806', icon:'fa-bolt',              label:'Partial Pay'  },
+      split_payment:    { bg:'#FAEEDA', color:'#633806', icon:'fa-random',            label:'Split Pay'    },
+      payment_overdue:  { bg:'#FCEBEB', color:'#791F1F', icon:'fa-exclamation-circle',label:'Overdue'      },
+      payment_reminder: { bg:'#E6F1FB', color:'#0C447C', icon:'fa-bell',             label:'Reminder'     },
+      invoice_followup: { bg:'#FBEAF0', color:'#72243E', icon:'fa-phone',            label:'Follow-up'    },
+      festival:         { bg:'#EEEDFE', color:'#3C3489', icon:'fa-star',             label:'Festival'     },
+      unknown:          { bg:'var(--bg2,#f5f5f5)', color:'var(--muted)', icon:'fa-question-circle', label:'Unknown' },
+    };
+    const statusBadge = {
+      sent_api: { bg:'#EAF3DE', color:'#27500A', icon:'fa-check',        label:'Sent (API)' },
+      sent_web: { bg:'#E6F1FB', color:'#0C447C', icon:'fa-mobile-alt',   label:'Manual'     },
+      sending:  { bg:'#FAEEDA', color:'#633806', icon:'fa-clock',        label:'Sending'    },
+      failed:   { bg:'#FCEBEB', color:'#791F1F', icon:'fa-times-circle', label:'Failed'     },
+    };
+
+    tbody.innerHTML = filtered.map(log => {
+      const tsDate  = log.ts ? new Date(log.ts) : null;
+      const timeStr = tsDate ? tsDate.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' }) : '—';
+      const dateStr = tsDate ? tsDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }) : '—';
+      const relStr  = WA_LOG.formatTimeRelative(log.ts);
+
+      const tb = typeBadge[log.type] || typeBadge.unknown;
+      const typePill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color}"><i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
+
+      const sb = statusBadge[log.status] || { bg:'var(--bg2,#f5f5f5)', color:'var(--muted)', icon:'fa-circle', label:log.status };
+      const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color}"><i class="fas ${sb.icon}" style="font-size:10px"></i>${sb.label}</span>`;
+
+      const msgText  = (log.status === 'failed' && log.error) ? log.error : (log.msg || '—');
+      const msgColor = log.status === 'failed' ? 'var(--red,#c0392b)' : 'var(--text2,var(--muted))';
+      const msgShort = msgText.length > 55 ? msgText.substring(0,55)+'…' : msgText;
+
+      const invBtn = log.inv_id
+        ? `<button class="btn-icon" title="View Invoice" onclick="openInvoice('${log.inv_id}')"><i class="fas fa-file-invoice" style="font-size:13px"></i></button>`
+        : '';
+
+      return `<tr>
         <td>
-          <span class="wa-badge wa-badge-${log.status}">${log.status}</span>
-          ${log.error ? `<div style="font-size:10px;color:var(--red);margin-top:4px;white-space:normal">${log.error}</div>` : ''}
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${relStr}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${timeStr} &nbsp;·&nbsp; ${dateStr}</div>
         </td>
-      </tr>
-    `).join('');
+        <td>${typePill}</td>
+        <td>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${log.client || '—'}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.phone || '—'}</div>
+        </td>
+        <td>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${log.inv_num || '—'}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.inv_amt || '—'}</div>
+        </td>
+        <td><div style="font-size:12px;color:${msgColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msgText.replace(/"/g,'&quot;')}">${msgShort}</div></td>
+        <td>${statusPill}</td>
+        <td>
+          <div style="display:flex;gap:4px;align-items:center">
+            ${invBtn}
+            <button class="btn-icon" title="Resend" onclick="resendWALog(this)" data-log='${JSON.stringify(log).replace(/'/g,"&#39;")}'><i class="fas fa-paper-plane" style="font-size:13px"></i></button>
+            <button class="btn-icon" title="Delete" style="color:var(--red,#c0392b)" onclick="deleteWALogEntry('${log.id}')"><i class="fas fa-trash" style="font-size:13px"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
 
   } catch(e) {
     console.error('Error rendering WA log:', e);
   }
 }
 
-// Override WA_LOG.refreshTable to include our rendering
-const _origRefreshTable = WA_LOG.refreshTable;
-WA_LOG.refreshTable = async function() {
-  await _origRefreshTable.call(this);
-  renderWALog();
-};
+// WA_LOG.refreshTable → renderWALog directly (removes external helper dependency)
+WA_LOG.refreshTable = async function() { await renderWALog(); };
+
+// Resend from log entry
+function resendWALog(btn) {
+  const log = JSON.parse(btn.dataset.log);
+  const inv = STATE.invoices.find(i => String(i.id) === String(log.inv_id));
+  if (!inv) { toast('Invoice not found', 'warning'); return; }
+  const client = STATE.clients.find(c => String(c.id) === String(inv.client)) || {};
+  const phone  = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g,'');
+  if (!phone) { toast('No phone number for this client', 'warning'); return; }
+  sendWA(phone, log.msg || '', log.type, inv, client)
+    .then(() => { toast('\u2705 Message resent!', 'success'); renderWALog(); })
+    .catch(e  => toast('\u274C Resend failed: ' + e.message, 'error'));
+}
+
+// Delete single log entry
+async function deleteWALogEntry(entryId) {
+  if (!confirm('Delete this log entry?')) return;
+  try {
+    await api('api/wa_log.php', 'DELETE', { entry_id: entryId });
+    renderWALog();
+    toast('Log entry deleted', 'info');
+  } catch(e) {
+    toast('Could not delete entry', 'error');
+  }
+}
 
 // Export function for CSV
 async function exportMsgLog() {
