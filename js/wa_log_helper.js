@@ -204,7 +204,8 @@ const WA_LOG = {
                 row.dataset.entryId = log.id;
                 row.dataset.status = log.status;
                 row.innerHTML = `
-                    <td class="wa-log-ts" title="${log.ts}">${this.formatTimeRelative(log.ts)}</td>
+                    <div>${WA_LOG.formatTimeRelative(log.ts)}</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px">${log.ts}</div>
                     <td class="wa-log-type">${this.getTypeLabel(log.type)}</td>
                     <td class="wa-log-client">${log.client || '-'}</td>
                     <td class="wa-log-phone">${log.phone || '-'}</td>
