@@ -15198,6 +15198,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 </script>
-<script src="/js/wa_log_helper.js"></script>
+
 </body>
 </html>
