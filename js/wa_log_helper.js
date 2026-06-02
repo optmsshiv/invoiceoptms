@@ -19,7 +19,7 @@ const WA_LOG = {
                 second: '2-digit',
                 hour12: true
             });
-        } catch(e) {
+        } catch (e) {
             console.error('Time format error:', e);
             return ts;
         }
@@ -41,9 +41,9 @@ const WA_LOG = {
             if (diffMins < 60) return diffMins + ' min' + (diffMins > 1 ? 's' : '') + ' ago';
             if (diffHours < 24) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
             if (diffDays < 7) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
-            
+
             return this.formatTime(ts);
-        } catch(e) {
+        } catch (e) {
             return this.formatTime(ts);
         }
     },
@@ -55,19 +55,19 @@ const WA_LOG = {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             const data = await response.json();
             if (!data.success) {
                 throw new Error(data.error || 'Failed to fetch log');
             }
-            
+
             console.log(`[WA Log] Fetched ${data.count} messages | Timezone: ${data.timezone}`);
             return data.data || [];
-        } catch(e) {
+        } catch (e) {
             console.error('[WA Log] Fetch error:', e);
             return [];
         }
@@ -94,7 +94,7 @@ const WA_LOG = {
 
         // ✅ Step 2: Add to UI immediately (optimistic update)
         this.addToTable(entry);
-        
+
         // ✅ Step 3: Send to server
         try {
             const response = await fetch('/api/wa_log.php', {
@@ -109,22 +109,22 @@ const WA_LOG = {
                 // ✅ Step 4: Update status to 'sent_web'
                 this.updateEntryStatus(entryId, 'sent_web', null);
                 console.log('[WA Log] Message sent:', entryId);
-                
+
                 // ✅ Step 5: Refresh from server after 1 second to sync
                 setTimeout(() => this.refreshTable(), 1000);
-                
+
                 return { success: true, id: result.id };
             } else {
                 throw new Error(result.error || 'Send failed');
             }
-        } catch(e) {
+        } catch (e) {
             console.error('[WA Log] Send error:', e);
             // ✅ Step 6: Mark as failed
             this.updateEntryStatus(entryId, 'failed', e.message);
-            
+
             // Still try to save the failure to server
             await this.logError(entryId, e.message);
-            
+
             return { success: false, error: e.message };
         }
     },
@@ -139,7 +139,10 @@ const WA_LOG = {
         row.dataset.entryId = entry.id;
         row.dataset.status = entry.status;
         row.innerHTML = `
-            <td class="wa-log-ts">${this.formatTime(entry.ts)}</td>
+            <td class="wa-log-ts">
+                <div style="font-weight:600;color:var(--text)">${this.formatTimeRelative(entry.ts)}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">${this.formatTime(entry.ts)}</div>
+            </td>
             <td class="wa-log-type">${this.getTypeLabel(entry.type)}</td>
             <td class="wa-log-client">${entry.client}</td>
             <td class="wa-log-phone">${entry.phone}</td>
@@ -149,7 +152,7 @@ const WA_LOG = {
                 <span class="badge badge-${entry.status}">${entry.status}</span>
             </td>
         `;
-        
+
         // Insert at TOP of table
         table.insertBefore(row, table.firstChild);
     },
@@ -182,7 +185,7 @@ const WA_LOG = {
                     error: errorMsg
                 })
             });
-        } catch(e) {
+        } catch (e) {
             console.error('[WA Log] Could not log error:', e);
         }
     },
@@ -204,8 +207,10 @@ const WA_LOG = {
                 row.dataset.entryId = log.id;
                 row.dataset.status = log.status;
                 row.innerHTML = `
-                    <div>${WA_LOG.formatTimeRelative(log.ts)}</div>
-                    <div style="font-size:11px;color:var(--muted);margin-top:2px">${log.ts}</div>
+                    <td class="wa-log-ts">
+                        <div style="font-weight:600;color:var(--text)">${this.formatTimeRelative(log.ts)}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:2px">${log.ts}</div>
+                    </td>
                     <td class="wa-log-type">${this.getTypeLabel(log.type)}</td>
                     <td class="wa-log-client">${log.client || '-'}</td>
                     <td class="wa-log-phone">${log.phone || '-'}</td>
@@ -220,7 +225,7 @@ const WA_LOG = {
             });
 
             console.log('[WA Log] Table refreshed with ' + logs.length + ' entries');
-        } catch(e) {
+        } catch (e) {
             console.error('[WA Log] Refresh error:', e);
         }
     },
@@ -256,7 +261,7 @@ const WA_LOG = {
             } else {
                 throw new Error(result.error);
             }
-        } catch(e) {
+        } catch (e) {
             toast('✗ Error clearing log: ' + e.message, 'error');
         }
     },
@@ -285,8 +290,8 @@ const WA_LOG = {
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('wa-log-table')) {
         WA_LOG.refreshTable();
-        
+
         // Refresh every 10 seconds
-        setInterval(() => WA_LOG.refreshTable(), 600000);
+        setInterval(() => WA_LOG.refreshTable(), 60000);
     }
 });
