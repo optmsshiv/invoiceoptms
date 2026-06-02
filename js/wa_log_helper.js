@@ -286,6 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
         WA_LOG.refreshTable();
         
         // Refresh every 10 seconds
-        setInterval(() => WA_LOG.refreshTable(), 10000);
+        setInterval(() => WA_LOG.refreshTable(), 600000);
     }
 });
