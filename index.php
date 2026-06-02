@@ -1398,6 +1398,7 @@ const SERVER = {
                   <option value="A">Clean Minimal</option>
                   <option value="B">Corporate Split</option>
                   <option value="E">Dark Header</option>
+                  <option value="F">Formal Letterhead</option>
                 </select>
               </div>
             </div>
@@ -1630,6 +1631,7 @@ const SERVER = {
                 <option value="A">Clean Minimal</option>
                 <option value="B">Corporate Split</option>
                 <option value="E">Dark Header</option>
+                  <option value="F">Formal Letterhead</option>
               </select>
               <button class="mini-btn" onclick="livePreview()"><i class="fas fa-sync"></i></button>
             </div>
@@ -2808,6 +2810,7 @@ View Invoice: {{6}}</pre></details>
                 <option value="A">Clean Minimal</option>
                 <option value="B">Corporate Split</option>
                 <option value="E">Dark Header</option>
+                  <option value="F">Formal Letterhead</option>
               </select>
             </div>
             <div class="field"><label>Invoice Number Prefix</label>
@@ -3207,6 +3210,7 @@ View Invoice: {{6}}</pre></details>
                 <option value="A">Clean Minimal</option>
                 <option value="B">Corporate Split</option>
                 <option value="E">Dark Header</option>
+                  <option value="F">Formal Letterhead</option>
               </select>
             </div>
           </div>
@@ -5324,7 +5328,7 @@ function buildInvoiceHTML(d, forPrint) {
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
 
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   return fn(d, sc, itemsHTML, gstColHeader, rowNumHeader);
 }
@@ -5557,18 +5561,52 @@ function totalsRows(d, accentColor, borderColor) {
   const grand     = d.grand     || 0;
   const discType  = d.discType  || 'percent';
   const disc      = d.disc      || 0;
+  const afterDisc = sub - discAmt;
   const rowStyle  = `display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:11px;color:#64748B;border-bottom:0.5px solid ${border}`;
   const valStyle  = `font-family:monospace;font-weight:600;color:#0F172A`;
   const grandStyle= `display:flex;justify-content:space-between;align-items:center;padding:9px 12px;margin-top:6px;border-radius:6px;background:${accent}`;
 
+  // ── Smart text color: detect if accent is light or dark ──────────────────
+  const hexClean = accent.replace('#','');
+  let txtColor = '#fff';
+  if (/^[0-9a-fA-F]{6}$/.test(hexClean)) {
+    const r = parseInt(hexClean.slice(0,2),16);
+    const g = parseInt(hexClean.slice(2,4),16);
+    const b = parseInt(hexClean.slice(4,6),16);
+    const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+    txtColor = luminance > 0.55 ? '#0F172A' : '#fff';
+  }
+
+  // ── Paid date from payments ───────────────────────────────────────────────
+  const isPaid    = d.status === 'Paid';
+  const isPartial = d.status === 'Partial';
+  let paidDateStr = '';
+  let totalPaid   = 0;
+  if ((isPaid || isPartial) && typeof STATE !== 'undefined') {
+    const invIdStr = d.invId ? String(d.invId) : '';
+    const pmts = (STATE.payments || [])
+      .filter(p => p.invoice_id && String(p.invoice_id) === invIdStr)
+      .sort((a,b) => new Date(a.date||a.payment_date||0) - new Date(b.date||b.payment_date||0));
+    if (pmts.length) {
+      totalPaid = pmts.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+      const lastPmt = pmts[pmts.length-1];
+      const dt = lastPmt.date || lastPmt.payment_date || '';
+      paidDateStr = dt ? new Date(dt).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}) : '';
+    }
+  }
+
   return `<div style="padding:14px;background:#F8FAFC;border:0.5px solid ${border};border-radius:8px">
     <div style="${rowStyle}"><span>Subtotal</span><span style="${valStyle}">${fmt_money(sub,sym)}</span></div>
-    ${discAmt>0?`<div style="${rowStyle}"><span>Discount${discType==='fixed'?' (₹)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="font-family:monospace;font-weight:600;color:#DC2626">−${fmt_money(discAmt,sym)}</span></div>`:''}
+    ${discAmt>0?`
+    <div style="${rowStyle}"><span>Discount${discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="font-family:monospace;font-weight:600;color:#DC2626">−${fmt_money(discAmt,sym)}</span></div>
+    <div style="${rowStyle}"><span>After Discount</span><span style="${valStyle}">${fmt_money(afterDisc,sym)}</span></div>`:''}
     ${gstAmt>0?`<div style="${rowStyle}"><span>GST</span><span style="${valStyle}">+${fmt_money(gstAmt,sym)}</span></div>`:''}
     <div style="${grandStyle}">
-      <span style="font-size:12px;font-weight:700;color:#fff">Total</span>
-      <span style="font-family:monospace;font-weight:800;font-size:15px;color:#fff">${fmt_money(grand,sym)}</span>
+      <span style="font-size:12px;font-weight:700;color:${txtColor}">Total Due</span>
+      <span style="font-family:monospace;font-weight:800;font-size:15px;color:${txtColor}">${fmt_money(grand,sym)}</span>
     </div>
+    ${isPaid && paidDateStr?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:10px;color:#166534;border-top:0.5px solid ${border};margin-top:4px"><span>✓ Paid on ${paidDateStr}</span><span style="font-family:monospace;font-weight:700">${fmt_money(totalPaid,sym)}</span></div>`:''}
+    ${isPartial && paidDateStr?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:10px;color:#92400E;border-top:0.5px solid ${border};margin-top:4px"><span>⚡ Part paid on ${paidDateStr}</span><span style="font-family:monospace;font-weight:700">${fmt_money(totalPaid,sym)}</span></div>`:''}
   </div>`;
 }
 
@@ -5669,7 +5707,7 @@ function buildTplA(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   ${tplWatermark(d)}
   <div style="border-left:5px solid ${accent};padding:32px 40px 24px 36px;display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:200px;object-fit:contain;display:block;margin-bottom:10px" onerror="this.style.display='none'">`:''}
+      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:200px;object-fit:contain;display:block;margin-bottom:10px" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}
       <div style="font-size:22px;font-weight:700;color:${accent};letter-spacing:-.5px;line-height:1;${sc.logo?'display:none':''}">${sc.company}</div>
       <div style="margin-top:8px;font-size:10px;color:#94A3B8;line-height:2">
         ${sc.gst?`<span>GSTIN: ${sc.gst}</span><br>`:''}
@@ -5758,9 +5796,13 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   const primary = (window.TPL_CUSTOM && TPL_CUSTOM.color1) ? TPL_CUSTOM.color1 : '#1565C0';
   const font     = (window.TPL_CUSTOM && TPL_CUSTOM.font)   ? TPL_CUSTOM.font   : "'Public Sans',sans-serif";
 
-  // Lighten primary for fills — use fixed light blue tint approach
-  const lightBg  = 'rgba(21,101,192,0.06)';
-  const lightBdr = 'rgba(21,101,192,0.18)';
+  // Derive light tint from primary color dynamically
+  const _hex = primary.replace('#','');
+  const _r = parseInt(_hex.slice(0,2),16)||21;
+  const _g = parseInt(_hex.slice(2,4),16)||101;
+  const _b = parseInt(_hex.slice(4,6),16)||192;
+  const lightBg  = `rgba(${_r},${_g},${_b},0.06)`;
+  const lightBdr = `rgba(${_r},${_g},${_b},0.18)`;
 
   const statusColors = { Paid:'#166534|#DCFCE7', Pending:'#92400E|#FEF3C7', Overdue:'#991B1B|#FEE2E2', Draft:'#374151|#F3F4F6', Partial:'#92400E|#FFF7ED', Cancelled:'#6B7280|#F9FAFB', Estimate:'#1E40AF|#DBEAFE' };
   const [stxt, sbg] = (statusColors[d.status] || '#374151|#F3F4F6').split('|');
@@ -5773,7 +5815,7 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 
   <div style="display:flex;min-height:130px">
     <div style="width:44%;background:${primary};padding:28px 28px;display:flex;flex-direction:column;justify-content:center">
-      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:180px;object-fit:contain;display:block;margin-bottom:10px;filter:brightness(0) invert(1)" onerror="this.style.display='none'">`:''}
+      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:180px;object-fit:contain;display:block;margin-bottom:10px;filter:brightness(0) invert(1)" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}
       <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1;${sc.logo?'display:none':''}">${sc.company}</div>
       <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,0.6);line-height:2">
         ${sc.gst?`<div>GSTIN: ${sc.gst}</div>`:''}
@@ -5828,7 +5870,7 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         ${gstColHeader?`<th style="${thR}">GST%</th>`:''}
         <th style="${thR}">Amount</th>
       </tr></thead>
-      <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:0.5px solid rgba(21,101,192,0.12)').replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
+      <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:0.5px solid ${lightBdr}`).replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
     </table>
   </div>
 
@@ -5841,7 +5883,7 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </div>
     <div style="width:230px">
       ${totalsRows(d,primary,lightBdr)}
-      ${previousDueBlock(d,'#1565C0','rgba(21,101,192,0.05)','rgba(21,101,192,0.25)')}
+      ${previousDueBlock(d,primary,lightBg,lightBdr)}
       ${tplSignHTML(d)}
     </div>
   </div>
@@ -5874,7 +5916,7 @@ function buildTplE(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 
   <div style="background:${dark};padding:28px 36px;display:flex;justify-content:space-between;align-items:center">
     <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:200px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none'">`:''}
+      ${sc.logo?`<img src="${sc.logo}" style="height:56px;max-width:200px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}
       <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;${sc.logo?'display:none':''}">${sc.company}</div>
       <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;line-height:2">
         ${sc.gst?`<span>GSTIN: ${sc.gst}</span><br>`:''}
@@ -5953,6 +5995,201 @@ function buildTplE(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 }
 
 // ── Payment Received Block — shown on Paid/Partial invoices ─────────────────
+// ── TEMPLATE F: Formal Letterhead ────────────────────────────────────────────
+function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
+  d.popt = d.popt || {};
+  sc = resolveCompany(sc);
+  const sym      = d.sym || '₹';
+  const useSerif = (window.TPL_CUSTOM && TPL_CUSTOM.font && TPL_CUSTOM.font.includes('serif'))
+                   ? TPL_CUSTOM.font : "'Georgia','Times New Roman',serif";
+  const sans     = "'Public Sans','Segoe UI',sans-serif";
+
+  // ── Status badge (outlined, no fill) ──────────────────────────────────────
+  const statusBorder = { Paid:'#166534', Pending:'#92400E', Overdue:'#991B1B', Draft:'#374151', Partial:'#92400E', Cancelled:'#6B7280', Estimate:'#1E40AF' };
+  const sBdr = statusBorder[d.status] || '#374151';
+
+  // ── Payment info for "Paid" status ────────────────────────────────────────
+  const isPaid    = d.status === 'Paid';
+  const isPartial = d.status === 'Partial';
+  let paidDateStr = '';
+  let paidSummaryHTML = '';
+  if ((isPaid || isPartial) && typeof STATE !== 'undefined') {
+    const invIdStr = d.invId ? String(d.invId) : '';
+    const pmts = (STATE.payments || [])
+      .filter(p => p.invoice_id && String(p.invoice_id) === invIdStr)
+      .sort((a, b) => new Date(a.date || a.payment_date || 0) - new Date(b.date || b.payment_date || 0));
+    if (pmts.length) {
+      const lastPmt = pmts[pmts.length - 1];
+      const dt = lastPmt.date || lastPmt.payment_date || '';
+      paidDateStr = dt ? new Date(dt).toLocaleDateString(_moneyLocale(), { day:'2-digit', month:'short', year:'numeric' }) : '';
+      const totalPaid = pmts.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+      const pmtRows = pmts.map(p => {
+        const pDt  = p.date || p.payment_date || '';
+        const pDtF = pDt ? new Date(pDt).toLocaleDateString(_moneyLocale(), { day:'2-digit', month:'short', year:'numeric' }) : '—';
+        return `<tr>
+          <td style="padding:5px 6px;font-size:10px;border-bottom:0.5px solid #e5e5e5;font-family:${sans}">${pDtF}</td>
+          <td style="padding:5px 6px;font-size:10px;border-bottom:0.5px solid #e5e5e5;font-family:${sans}">${p.method || '—'}</td>
+          <td style="padding:5px 6px;font-size:10px;border-bottom:0.5px solid #e5e5e5;font-family:monospace">${p.txn || '—'}</td>
+          <td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;border-bottom:0.5px solid #e5e5e5;font-family:monospace">${fmt_money(parseFloat(p.amount||0), sym)}</td>
+        </tr>`;
+      }).join('');
+      paidSummaryHTML = `
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid #ccc">
+        <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:8px;font-family:${sans}">
+          ${isPaid ? 'Payment Record' : 'Partial Payment Record'}
+        </div>
+        <table style="width:100%;border-collapse:collapse;border-top:1.5px solid #333;border-bottom:1px solid #333">
+          <thead><tr style="border-bottom:1px solid #333">
+            <th style="padding:5px 6px;font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:left;font-family:${sans}">Date</th>
+            <th style="padding:5px 6px;font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:left;font-family:${sans}">Mode</th>
+            <th style="padding:5px 6px;font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:left;font-family:${sans}">Ref / Txn ID</th>
+            <th style="padding:5px 6px;font-size:8px;letter-spacing:1px;text-transform:uppercase;text-align:right;font-family:${sans}">Amount</th>
+          </tr></thead>
+          <tbody>${pmtRows}</tbody>
+        </table>
+        ${isPartial ? `<div style="margin-top:6px;font-size:10px;font-family:${sans};color:#92400E">
+          Balance outstanding: <strong>${fmt_money(Math.max(0,(d.grand||0)-totalPaid), sym)}</strong>
+        </div>` : ''}
+      </div>`;
+    }
+  }
+
+  // ── Totals block with discount row ────────────────────────────────────────
+  const sub      = d.sub     || 0;
+  const discAmt  = d.discAmt || 0;
+  const disc     = d.disc    || 0;
+  const discType = d.discType|| 'percent';
+  const gstAmt   = d.gstAmt  || 0;
+  const grand    = d.grand   || 0;
+  const afterDisc = sub - discAmt;
+
+  const trStyle  = `display:flex;justify-content:space-between;font-size:10px;padding:4px 0;border-bottom:0.5px solid #ddd;font-family:${sans}`;
+  const valStyle = `font-family:monospace;font-weight:600`;
+
+  const totalsHTML = `
+  <div style="display:flex;justify-content:flex-end;margin-top:12px">
+    <div style="min-width:210px">
+      <div style="${trStyle}"><span>Subtotal</span><span style="${valStyle}">${fmt_money(sub,sym)}</span></div>
+      ${discAmt > 0 ? `<div style="${trStyle}"><span>Discount${discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="${valStyle};color:#b91c1c">− ${fmt_money(discAmt,sym)}</span></div>
+      <div style="${trStyle}"><span>After Discount</span><span style="${valStyle}">${fmt_money(afterDisc,sym)}</span></div>` : ''}
+      ${gstAmt > 0 ? `<div style="${trStyle}"><span>GST</span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;border-top:1.5px solid #333;font-family:${sans}">
+        <span style="font-size:12px;font-weight:700">Total Due</span>
+        <span style="font-family:monospace;font-weight:800;font-size:14px">${fmt_money(grand,sym)}</span>
+      </div>
+      ${isPaid ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:0.5px solid #ddd;font-size:10px;color:#166534;font-family:${sans}">
+        <span>Paid on ${paidDateStr}</span>
+        <span style="font-family:monospace;font-weight:700">${fmt_money(grand,sym)}</span>
+      </div>` : ''}
+    </div>
+  </div>`;
+
+  // ── Items table (adapt shared itemsHTML for ruled style) ──────────────────
+  const ruledItems = itemsHTML
+    .replace(/border-bottom:1px solid #eee/g, 'border-bottom:0.5px solid #ddd')
+    .replace(/padding:9px 8px/g, 'padding:7px 6px')
+    .replace(/font-size:11px/g, 'font-size:10.5px');
+
+  return `<div style="font-family:${useSerif};background:#fff;width:794px;min-height:1123px;position:relative;color:#1a1a1a">
+  ${tplWatermark(d)}
+
+  <!-- LETTERHEAD -->
+  <div style="text-align:center;padding:36px 48px 18px;border-bottom:2px solid #1a1a1a">
+    ${d.popt.logo !== false && sc.logo
+      ? `<img src="${sc.logo}" style="height:52px;max-width:220px;object-fit:contain;display:block;margin:0 auto 10px" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div style="display:none;font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase">${sc.company}</div>`
+      : `<div style="font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase">${sc.company}</div>`}
+    <div style="font-size:9px;letter-spacing:1px;color:#555;line-height:2;margin-top:4px;font-family:${sans}">
+      ${sc.address ? `${sc.address.replace(/\n/g,' · ')} &nbsp;|&nbsp; ` : ''}
+      ${sc.gst ? `GSTIN: ${sc.gst} &nbsp;|&nbsp; ` : ''}
+      ${sc.phone ? `${sc.phone}` : ''}
+      ${sc.email ? ` &nbsp;|&nbsp; ${sc.email}` : ''}
+    </div>
+  </div>
+
+  <!-- REF BLOCK -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 48px 14px;border-bottom:0.5px solid #ccc">
+    <div style="font-size:10px;line-height:2.2;color:#444;font-family:${sans}">
+      <div>Ref. No. &nbsp;<strong style="color:#1a1a1a;font-family:monospace">${d.status==='Estimate'?'EST':'INV'}/${new Date().getFullYear()}/${String(d.num||'').replace(/[^0-9]/g,'').padStart(4,'0') || d.num}</strong></div>
+      <div>Issue Date &nbsp;<strong style="color:#1a1a1a">${d.date||'—'}</strong></div>
+      <div>Due Date &nbsp;&nbsp;<strong style="color:#1a1a1a">${d.due||'—'}</strong></div>
+      ${isPaid && paidDateStr ? `<div>Paid On &nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#166534">${paidDateStr}</strong></div>` : ''}
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;font-family:${sans}">${d.status==='Estimate'?'Estimate':'Invoice'}</div>
+      <div style="font-size:20px;font-weight:700;font-family:monospace;letter-spacing:1px;color:#1a1a1a">#${d.num}</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;font-family:${sans}">${sc.currency||'INR'}</div>
+      <span style="display:inline-block;margin-top:6px;padding:2px 10px;border:1px solid ${sBdr};font-size:8px;letter-spacing:2px;text-transform:uppercase;color:${sBdr};font-family:${sans}">${d.status.toUpperCase()}</span>
+    </div>
+  </div>
+
+  <!-- BILL TO / FROM -->
+  <div style="display:flex;gap:0;padding:14px 48px 14px;border-bottom:0.5px solid #ccc">
+    <div style="flex:1;padding-right:24px;border-right:0.5px solid #ccc">
+      <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:${sans}">Billed By</div>
+      <div style="font-size:12px;font-weight:700;color:#1a1a1a">${sc.company}</div>
+      <div style="font-size:10px;color:#555;line-height:1.9;margin-top:3px;font-family:${sans}">
+        ${sc.gst ? `<div>GSTIN: ${sc.gst}</div>` : ''}
+        ${sc.address ? `<div>${sc.address.replace(/\n/g,', ')}</div>` : ''}
+      </div>
+    </div>
+    <div style="flex:1;padding-left:24px">
+      <div style="font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:${sans}">Billed To</div>
+      ${tplClientLogoHTML(d)}
+      <div style="font-size:12px;font-weight:700;color:#1a1a1a">${d.cname}</div>
+      <div style="font-size:10px;color:#555;line-height:1.9;margin-top:3px;font-family:${sans}">
+        ${d.cperson ? `<div>${d.cperson}</div>` : ''}
+        ${d.cemail  ? `<div>${d.cemail}</div>`  : ''}
+        ${d.cwa     ? `<div>${d.cwa}</div>`     : ''}
+        ${d.caddr   ? `<div>${d.caddr.replace(/\n/g,', ')}</div>` : ''}
+        ${d.cgst    ? `<div>GSTIN: ${d.cgst}</div>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <div style="padding:18px 48px 0">
+    <table style="width:100%;border-collapse:collapse;font-family:${sans}">
+      <thead>
+        <tr style="border-top:1.5px solid #1a1a1a;border-bottom:1px solid #1a1a1a">
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left;width:24px">#</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left">Description</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">Type</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Qty</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Rate</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Amount</th>
+          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th>` : ''}
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Total</th>
+        </tr>
+      </thead>
+      <tbody>${ruledItems}</tbody>
+    </table>
+
+    ${totalsHTML}
+  </div>
+
+  <!-- BANK + NOTES + PAYMENT RECORD + SIGNATURE -->
+  <div style="padding:18px 48px 0;display:flex;gap:32px">
+    <div style="flex:1">
+      ${tplBankHTML(d,'#333','#fafafa','border:0.5px solid #ccc;border-radius:0')}
+      ${tplNotesHTML(d,'#555','#fafafa')}
+      ${tplTncHTML(d,'#888')}
+      ${paidSummaryHTML}
+    </div>
+    <div style="width:200px">
+      ${tplQrHTML(d)}
+      ${tplSignHTML(d,'','Authorised Signatory')}
+    </div>
+  </div>
+
+  <!-- FOOTER RULE -->
+  <div style="margin:18px 48px 0;padding-top:12px;border-top:0.5px solid #ccc;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:9px;color:#999;font-family:${sans}">${d.generatedBy||sc.company||''}</span>
+    <span style="font-size:9px;color:#999;font-family:${sans}">${sc.website||sc.email||''}</span>
+  </div>
+  <div style="height:3px;background:#1a1a1a;margin-top:10px"></div>
+</div>`;
+}
+
 function paymentReceivedBlock(d, borderColor='#C8E6C9', bgColor='#F1F8E9', accentColor='#2E7D32') {
   if (d.popt && d.popt.paymentBlock === false) return '';
   const invId = d.invId ? String(d.invId) : '';
@@ -6362,7 +6599,7 @@ function openPrintWindow(d, items) {
     : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Ensure d has sym set (fallback for when called from create form)
   if (!d.sym) d.sym = '₹';
@@ -6470,7 +6707,7 @@ function printInvoiceById(inv) {
       return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:(inv.status==='Paid'||inv.status==='Cancelled'),paymentBlock:true,previousDue:true}, saved||{});
     })()
   };
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Snapshot STATE — must preserve invoices and payments for previousDueBlock
   const _printSc2 = Object.assign({}, sc);
@@ -6783,7 +7020,7 @@ function openPreviewModal(id) {
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
   const scaledH = Math.round(1123*scale);
@@ -7267,14 +7504,19 @@ function confirmPaid() {
       renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
       const wasPartial = partialCheck && partialCheck.checked && payload.partial;
+
+      // ── Close modal FIRST so toast is visible ─────────────────
+      closeModal('modal-paid');
+
+      // ── Toast ─────────────────────────────────────────────────
       if (wasPartial) {
-        toast(`✅ Partial payment (${fmt_money(payload.amount,'₹')}) recorded! Invoice remains active for remaining ${fmt_money(payload.remaining_amt,'₹')}.`,'success');
+        toast(`✅ Partial payment (${fmt_money(payload.amount,'₹')}) recorded! Remaining: ${fmt_money(payload.remaining_amt,'₹')}.`,'success');
       } else {
         toast('✅ Invoice marked paid & payment recorded!','success');
       }
-      // Auto-send WA receipt if toggle ON
+
+      // ── Auto-send WA receipt if toggle ON ─────────────────────
       const waP = STATE.settings.wa || {};
-      // Determine if we should send: paid uses auto_paid, partial uses auto_partial
       const shouldSendWA = wasPartial ? (waP.auto_partial !== '0') : (waP.auto_paid !== '0');
       if (shouldSendWA) {
         const paidInv = STATE.invoices.find(i => String(i.id) === String(mid));
@@ -7282,7 +7524,6 @@ function confirmPaid() {
           const cP     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
           const phoneP = (cP.wa || cP.whatsapp || cP.phone || '').replace(/\D/g,'');
           if (phoneP) {
-            // Choose template based on payment type
             const isSplitPmt = payload.method && payload.method.startsWith('Split');
             let tplKey, tplDefault, tplName;
             if (wasPartial) {
@@ -7296,7 +7537,6 @@ function confirmPaid() {
               tplName = 'payment_received';
             }
             const tplP = tplKey || tplDefault;
-            // Enrich inv with payment-specific data for template variables
             const invWithPmt = Object.assign({}, paidInv, {
               _paidAmt:      payload.amount,
               _remainingAmt: payload.remaining_amt || 0,
@@ -7312,9 +7552,32 @@ function confirmPaid() {
           }
         }
       }
+
+      // ── Auto-send Email receipt if toggle ON ──────────────────
+      const ec = STATE.settings.email_cfg || STATE.settings || {};
+      const shouldSendEmail = wasPartial
+        ? (STATE.settings.email_auto_partial !== '0')
+        : (STATE.settings.email_auto_paid    !== '0');
+      if (shouldSendEmail) {
+        const paidInvE = STATE.invoices.find(i => String(i.id) === String(mid));
+        if (paidInvE) {
+          const cE = STATE.clients.find(x => String(x.id) === String(paidInvE.client)) || {};
+          if (cE.email) {
+            api('api/email.php','POST',{
+              action:     'send',
+              type:       'receipt',
+              invoice_id: mid,
+              to:         cE.email,
+              to_name:    cE.name || 'Client',
+            }).then(r => {
+              if (r?.success) toast(`📧 Receipt email sent to ${cE.name || cE.email}!`, 'success');
+              else            toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
+            }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
+          }
+        }
+      }
     })
     .catch(e => toast('❌ '+e.message,'error'));
-  closeModal('modal-paid');
 }
 
 // ══════════════════════════════════════════
@@ -8543,7 +8806,7 @@ function _renderRptCharts(){
 // ══════════════════════════════════════════
 // TEMPLATES GRID
 // ══════════════════════════════════════════
-const tplNames = ['Colorful Matte','Clean Minimal','Corporate Split','Dark Header'];
+const tplNames = ['Colorful Matte','Clean Minimal','Corporate Split','Dark Header','Formal Letterhead'];
 const tplColors = ['#6366F1'];
 const tplAccents = ['#A5B4FC'];
 
@@ -8556,6 +8819,7 @@ function renderTemplatesGrid() {
     { id:'A', name:'Clean Minimal',  desc:'Left accent · borderless', color:'#1E293B', accent:'#94A3B8' },
     { id:'B', name:'Corporate Split',desc:'Two-column header',        color:'#1565C0', accent:'#BBDEFB' },
     { id:'E', name:'Dark Header',    desc:'Full-width dark header',   color:'#0F172A', accent:'#38BDF8' },
+    { id:'F', name:'Formal Letterhead', desc:'Serif · B&W · Print-ready', color:'#1a1a1a', accent:'#888888' },
   ];
   grid.innerHTML = templates.map(t => {
     const isActive = String(active) === String(t.id);
@@ -8586,7 +8850,7 @@ function previewTemplate(n) {
   const inner=document.getElementById('tplPreviewInner');
   const label=document.getElementById('tplPreviewLabel');
   if(!panel||!inner){return;}
-  const _lblMap={'2':'Colorful Matte','A':'Clean Minimal','B':'Corporate Split','E':'Dark Header'};
+  const _lblMap={'2':'Colorful Matte','A':'Clean Minimal','B':'Corporate Split','E':'Dark Header','F':'Formal Letterhead'};
   if(label) label.textContent=(_lblMap[String(n)]||'Template '+n)+' Preview';
   const sc=STATE.settings;
   const sd={tpl:n,num:'DEMO-001',date:'2025-04-10',due:'2025-04-25',svc:'Website Development',
@@ -8608,7 +8872,7 @@ function previewTemplate(n) {
   inner.innerHTML=`<div style="width:${Math.round(794*scale)}px;height:${sh}px;overflow:hidden;position:relative;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.2)"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${fn(sd,sc,iHTML,gH)}</div></div>`;
   panel.style.display='block';
   panel.scrollIntoView({behavior:'smooth',block:'start'});
-  const _tplLabel = {'2':'Colorful Matte','A':'Clean Minimal','B':'Corporate Split','E':'Dark Header'};
+  const _tplLabel = {'2':'Colorful Matte','A':'Clean Minimal','B':'Corporate Split','E':'Dark Header','F':'Formal Letterhead'};
   toast(`👁️ ${_tplLabel[String(n)] || 'Template '+n}`, 'info');
 }
 
@@ -11323,8 +11587,9 @@ function syncThemePicker() {
   const picker  = document.getElementById('tpl2-theme-picker');
   const cpicker = document.getElementById('tpl-color-pickers');
   const isTpl2  = tplId === '2';
+  const isTplF  = tplId === 'F';
   if (picker)  picker.style.display  = isTpl2 ? 'block' : 'none';
-  if (cpicker) cpicker.style.display = isTpl2 ? 'none'  : 'grid';
+  if (cpicker) cpicker.style.display = (isTpl2 || isTplF) ? 'none' : 'grid';
   // Persist selected template so it survives page refresh
   if (STATE.settings.activeTemplate !== tplId) {
     STATE.settings.activeTemplate = tplId;
@@ -14491,7 +14756,7 @@ setTimeout(async () => {
   } catch(e) {
     console.warn('[AutoReminder] Scheduler error:', e.message);
   }
-}, 5000); // end auto-reminder scheduler
+}); // end auto-reminder scheduler
 
 // ── Auto-run recurring generation on page load ────────────────
 // Fires 6s after load — after STATE settles and recurring loads.
