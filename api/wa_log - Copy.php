@@ -1,15 +1,11 @@
 <?php
 // ================================================================
 //  api/wa_log.php  — WhatsApp Message Log (DB persistence)
-//  UPDATED: Timezone fix, proper ordering, security improvements
 //
 //  GET    /api/wa_log.php              → fetch recent log (newest first, max 500)
 //  POST   /api/wa_log.php              → append a log entry
-//  DELETE /api/wa_log.php              → clear all log entries (with confirmation)
+//  DELETE /api/wa_log.php              → clear all log entries
 // ================================================================
-
-// ── SET TIMEZONE TO INDIA STANDARD TIME (IST) ───────────────────
-date_default_timezone_set('Asia/Kolkata');
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -18,7 +14,6 @@ requireLogin();
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
-$user   = currentUser();
 
 const WA_ALLOWED_TYPES = [
     'invoice_created', 'estimate_created', 'payment_received', 'partial_payment',
@@ -29,9 +24,6 @@ const WA_ALLOWED_STATUSES = ['sending', 'sent_api', 'sent_web', 'failed'];
 
 try {
     $db = getDB();
-    
-    // ── SET MYSQL TIMEZONE TO IST (+05:30) ──────────────────────
-    $db->exec("SET time_zone = '+05:30'");
 
     // ── Auto-create table if migration not run ───────────────────
     $db->exec("CREATE TABLE IF NOT EXISTS `wa_message_log` (
@@ -50,44 +42,27 @@ try {
         `error`      VARCHAR(500)  NULL,
         PRIMARY KEY (`id`),
         UNIQUE KEY `uk_entry_id` (`entry_id`),
-        INDEX `idx_wa_log_ts_id` (`ts` DESC, `id` DESC),
+        INDEX `idx_wa_log_ts` (`ts`),
         INDEX `idx_wa_log_inv` (`inv_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // ── GET: fetch log ───────────────────────────────────────────
     if ($method === 'GET') {
-        // ✅ FIXED: Order by ts DESC (newest first), then by id DESC for consistent ordering
         $stmt = $db->query(
-            'SELECT 
-                entry_id AS id, 
-                DATE_FORMAT(ts, "%Y-%m-%d %H:%i:%s") as ts,
-                type, 
-                status, 
-                client, 
-                phone,
-                inv_id, 
-                inv_num, 
-                inv_amt, 
-                inv_status, 
-                msg, 
-                error
+            'SELECT entry_id AS id, ts, type, status, client, phone,
+                    inv_id, inv_num, inv_amt, inv_status, msg, error
              FROM wa_message_log
-             ORDER BY ts DESC, id DESC
+             ORDER BY ts DESC
              LIMIT 500'
         );
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode([
-            'success'  => true,
-            'timezone' => 'Asia/Kolkata (IST, UTC+05:30)',
-            'count'    => count($rows),
-            'data'     => $rows
-        ]);
+        echo json_encode(['success' => true, 'data' => $rows]);
         exit;
     }
 
     // ── Read body ────────────────────────────────────────────────
     $body = [];
-    if (in_array($method, ['POST', 'DELETE'])) {
+    if ($method === 'POST') {
         $raw  = file_get_contents('php://input');
         $body = json_decode($raw, true) ?: [];
     }
@@ -117,32 +92,23 @@ try {
                 ':eid'    => $entryId,
             ]);
             if ($upd->rowCount() > 0) {
-                echo json_encode([
-                    'success'  => true, 
-                    'updated'  => true,
-                    'timezone' => 'Asia/Kolkata (IST)'
-                ]);
+                echo json_encode(['success' => true, 'updated' => true]);
                 exit;
             }
         }
 
         // Insert new row (INSERT IGNORE to handle race conditions)
-        // ✅ FIXED: Using date() which now respects Asia/Kolkata timezone
         $stmt = $db->prepare(
             'INSERT IGNORE INTO wa_message_log
                (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
              VALUES
                (:eid, :ts, :type, :status, :client, :phone, :inv_id, :inv_num, :inv_amt, :inv_status, :msg, :error)'
         );
-        
-        // ✅ Get current time in IST
-        $currentTime = date('Y-m-d H:i:s');
-        
         $stmt->execute([
             ':eid'        => $entryId,
             ':ts'         => !empty($body['ts'])
                                 ? date('Y-m-d H:i:s', strtotime($body['ts']))
-                                : $currentTime,  // ✅ NOW USES IST
+                                : date('Y-m-d H:i:s'),
             ':type'       => $type,
             ':status'     => $status,
             ':client'     => substr($body['client']     ?? '', 0, 200),
@@ -155,43 +121,14 @@ try {
             ':error'      => substr($body['error'] ?? '', 0, 500),
         ]);
 
-        echo json_encode([
-            'success'  => true,
-            'id'       => (int)$db->lastInsertId(),
-            'timezone' => 'Asia/Kolkata (IST)',
-            'ts'       => $currentTime
-        ]);
+        echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
         exit;
     }
 
-    // ── DELETE: clear log with confirmation ──────────────────────
+    // ── DELETE: clear log ────────────────────────────────────────
     if ($method === 'DELETE') {
-        // ✅ NEW: Require confirmation code to prevent accidental deletion
-        $confirmCode = $body['confirm_code'] ?? '';
-        $expectedCode = 'CLEAR_WA_LOG_' . date('Y-m-d');
-        
-        if ($confirmCode !== $expectedCode) {
-            http_response_code(403);
-            echo json_encode([
-                'success' => false,
-                'error'   => 'Deletion confirmation failed',
-                'hint'    => 'Send confirm_code: ' . $expectedCode
-            ]);
-            exit;
-        }
-
-        // ✅ Log deletion action for audit trail
-        error_log('[WA_LOG_DELETE] User: ' . ($user['email'] ?? 'unknown') . 
-                  ' | Time: ' . date('Y-m-d H:i:s') . 
-                  ' | IP: ' . $_SERVER['REMOTE_ADDR']);
-
         $db->exec('DELETE FROM wa_message_log');
-        echo json_encode([
-            'success'  => true,
-            'message'  => 'All WhatsApp message logs cleared',
-            'timezone' => 'Asia/Kolkata (IST)',
-            'cleared_at' => date('Y-m-d H:i:s')
-        ]);
+        echo json_encode(['success' => true]);
         exit;
     }
 
@@ -199,12 +136,7 @@ try {
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
 
 } catch (Exception $e) {
-    error_log('wa_log.php error: ' . $e->getMessage() . ' | Time: ' . date('Y-m-d H:i:s'));
+    error_log('wa_log.php error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode([
-        'success'  => false,
-        'error'    => 'Server error',
-        'timezone' => 'Asia/Kolkata (IST)'
-    ]);
+    echo json_encode(['success' => false, 'error' => 'Server error']);
 }
-?>
