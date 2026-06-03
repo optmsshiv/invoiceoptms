@@ -7623,11 +7623,9 @@ function confirmPaid() {
     .then(([ir,pr]) => {
       if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
       if (pr&&pr.data)   STATE.payments=pr.data;
-      // ── Read partial state BEFORE closing modal (checkbox resets on close) ──
+      renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
       const wasPartial = partialCheck && partialCheck.checked && payload.partial;
-
-      renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
 
       // ── Close modal FIRST so toast is visible ─────────────────
       closeModal('modal-paid');
