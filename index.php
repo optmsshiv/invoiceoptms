@@ -2982,7 +2982,8 @@ View Invoice: {{6}}</pre></details>
           </select>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-outline" id="wa-log-refresh-btn" onclick="renderWALog()" title="Refresh log"><i class="fas fa-sync-alt"></i> Refresh</button>
+          <span id="wa-log-last-refresh" style="font-size:11px;color:var(--muted);align-self:center;white-space:nowrap"></span>
+          <button class="btn btn-outline" id="wa-log-refresh-btn" onclick="renderWALog(true)" title="Refresh log"><i class="fas fa-sync-alt"></i> Refresh</button>
           <button class="btn btn-outline" onclick="exportMsgLog()"><i class="fas fa-download"></i> Export</button>
           <button class="btn btn-outline" style="color:#E53935;border-color:#E53935" onclick="WA_LOG.clearLogs()"><i class="fas fa-trash"></i> Clear Log</button>
         </div>
@@ -15086,7 +15087,9 @@ const WA_LOG = {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       return d.success ? (d.data || []) : [];
-    } catch(e) { console.error('[WA Log] Fetch error:', e); return []; }
+    } catch(e) { console.error('[WA Log] Fetch error:', e); 
+    toast('❌ Could not load WA logs: ' + e.message, 'error');
+    return []; }
   },
   formatTimeRelative(ts) {
     if (!ts) return '';
@@ -15296,6 +15299,12 @@ async function renderWALog(resetPage = false) {
       </tr>`;
     }).join('');
 
+    // ── Last refreshed timestamp ──────────────────────────────
+    const tsEl = document.getElementById('wa-log-last-refresh');
+    if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+    });
+    
   } catch(e) {
     console.error('Error rendering WA log:', e);
   } finally {
@@ -15370,10 +15379,18 @@ function resendWALog(btn) {
     .catch(e  => toast('❌ Resend failed: ' + e.message, 'error'));
 }
 
-// Initialize on page open
+// Initialize on page open + auto-refresh every 60 seconds
 document.addEventListener('DOMContentLoaded', () => {
-  if (document.getElementById('wa-log-table')) renderWALog();
+  if (!document.getElementById('wa-log-table')) return;
+
+  renderWALog(); // initial load
+
+  // Auto-refresh every 60 seconds — only when tab is visible
+  setInterval(() => {
+    if (document.visibilityState === 'visible') renderWALog();
+  }, 60000);
 });
+
 // Export function for CSV
 async function exportMsgLog() {
   try {
