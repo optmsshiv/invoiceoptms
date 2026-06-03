@@ -15095,8 +15095,10 @@ async function renderWALog() {
       return matchSearch && matchType && matchStatus;
     });
 
+    // Guarantee newest first
     filtered.sort((a, b) => new Date(b.ts) - new Date(a.ts));
 
+    // Update statistics
     const stats = {
       total:   logs.length,
       sent:    logs.filter(l => l.status === 'sent_api').length,
@@ -15119,69 +15121,60 @@ async function renderWALog() {
       return;
     }
 
-    // ── Type badge config — lighter colors ────────────────────────
-    // Alert types (overdue, reminder, followup) get a pill with left border for urgency
     const typeBadge = {
-      invoice_created:  { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-file',               label:'New Invoice', alert:false },
-      estimate_created: { bg:'#EDFAF4', color:'#1A7A5E', icon:'fa-file-alt',           label:'Estimate',    alert:false },
-      payment_received: { bg:'#EDFAF0', color:'#1E7E34', icon:'fa-check-circle',       label:'Payment',     alert:false },
-      partial_payment:  { bg:'#FFF4E5', color:'#B45309', icon:'fa-bolt',               label:'Partial Pay', alert:false },
-      split_payment:    { bg:'#FFF4E5', color:'#B45309', icon:'fa-random',             label:'Split Pay',   alert:false },
-      payment_overdue:  { bg:'#FEF0EF', color:'#C0392B', icon:'fa-exclamation-triangle',label:'Overdue',    alert:true  },
-      payment_reminder: { bg:'#EEF5FF', color:'#2563EB', icon:'fa-bell',              label:'Reminder',    alert:true  },
-      invoice_followup: { bg:'#FDF0F7', color:'#9D174D', icon:'fa-phone-alt',         label:'Follow-up',   alert:true  },
-      festival:         { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-star',              label:'Festival',    alert:false },
-      unknown:          { bg:'#F5F5F5', color:'#888',    icon:'fa-question-circle',   label:'Unknown',     alert:false },
+      invoice_created:  { bg:'#EEEDFE', color:'#3C3489', icon:'fa-file',              label:'New Invoice'  },
+      estimate_created: { bg:'#E1F5EE', color:'#085041', icon:'fa-file-alt',          label:'Estimate'     },
+      payment_received: { bg:'#EAF3DE', color:'#27500A', icon:'fa-check-circle',      label:'Payment'      },
+      partial_payment:  { bg:'#FAEEDA', color:'#633806', icon:'fa-bolt',              label:'Partial Pay'  },
+      split_payment:    { bg:'#FAEEDA', color:'#633806', icon:'fa-random',            label:'Split Pay'    },
+      payment_overdue:  { bg:'#FCEBEB', color:'#791F1F', icon:'fa-exclamation-circle',label:'Overdue'      },
+      payment_reminder: { bg:'#E6F1FB', color:'#0C447C', icon:'fa-bell',             label:'Reminder'     },
+      invoice_followup: { bg:'#FBEAF0', color:'#72243E', icon:'fa-phone',            label:'Follow-up'    },
+      festival:         { bg:'#EEEDFE', color:'#3C3489', icon:'fa-star',             label:'Festival'     },
+      unknown:          { bg:'var(--bg2,#f5f5f5)', color:'var(--muted)', icon:'fa-question-circle', label:'Unknown' },
     };
-
-    // ── Status badge config — lighter colors ──────────────────────
     const statusBadge = {
-      sent_api: { bg:'#EDFAF0', color:'#1E7E34', icon:'fa-check',         label:'Sent (API)' },
-      sent_web: { bg:'#EEF5FF', color:'#2563EB', icon:'fa-mobile-alt',    label:'Manual'     },
-      sending:  { bg:'#FFF9EC', color:'#B45309', icon:'fa-circle-notch',  label:'Sending'    },
-      failed:   { bg:'#FEF0EF', color:'#C0392B', icon:'fa-times-circle',  label:'Failed'     },
+      sent_api: { bg:'#EAF3DE', color:'#27500A', icon:'fa-check',        label:'Sent (API)' },
+      sent_web: { bg:'#E6F1FB', color:'#0C447C', icon:'fa-mobile-alt',   label:'Manual'     },
+      sending:  { bg:'#FAEEDA', color:'#633806', icon:'fa-clock',        label:'Sending'    },
+      failed:   { bg:'#FCEBEB', color:'#791F1F', icon:'fa-times-circle', label:'Failed'     },
     };
 
     tbody.innerHTML = filtered.map(log => {
-      // ── AM/PM time — nowrap ────────────────────────────────────
       const tsDate  = log.ts ? new Date(log.ts) : null;
       const timeStr = tsDate ? tsDate.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' }) : '—';
       const dateStr = tsDate ? tsDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }) : '—';
       const relStr  = WA_LOG.formatTimeRelative(log.ts);
 
-      // ── Type pill — alert types get left border accent ─────────
       const tb = typeBadge[log.type] || typeBadge.unknown;
-      const alertStyle = tb.alert
-        ? `border-left:3px solid ${tb.color};border-radius:0 6px 6px 0;`
-        : 'border-radius:6px;';
-      const typePill = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;${alertStyle}font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color};white-space:nowrap">
-        <i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
+      const typePill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color}"><i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
 
-      // ── Status pill ────────────────────────────────────────────
-      const sb = statusBadge[log.status] || { bg:'#F5F5F5', color:'#888', icon:'fa-circle', label:log.status };
-      const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color};white-space:nowrap">
-        <i class="fas ${sb.icon}" style="font-size:10px"></i>${sb.label}</span>`;
+      const sb = statusBadge[log.status] || { bg:'var(--bg2,#f5f5f5)', color:'var(--muted)', icon:'fa-circle', label:log.status };
+      const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color}"><i class="fas ${sb.icon}" style="font-size:10px"></i>${sb.label}</span>`;
 
-      // ── Message ────────────────────────────────────────────────
       const msgText  = (log.status === 'failed' && log.error) ? log.error : (log.msg || '—');
-      const msgColor = log.status === 'failed' ? '#C0392B' : 'var(--muted)';
+      const msgColor = log.status === 'failed' ? 'var(--red,#c0392b)' : 'var(--text2,var(--muted))';
       const msgShort = msgText.length > 55 ? msgText.substring(0,55)+'…' : msgText;
 
-      // ── Action buttons — pill style ────────────────────────────
-      const invBtn = log.inv_id ? `
-        <button onclick="openInvoice('${log.inv_id}')" title="View Invoice"
-          style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border,#ddd);background:var(--bg,#fff);color:var(--text2,#555);font-size:11px;cursor:pointer;white-space:nowrap">
-          <i class="fas fa-file-invoice" style="font-size:11px"></i>
-        </button>` : '';
+      const invBtn = log.inv_id
+        ? `<button title="View Invoice" onclick="editInvoice('${log.inv_id}')"
+            style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid var(--border,#ddd);background:var(--bg,#fff);color:var(--text2,#555);font-size:11px;cursor:pointer">
+            <i class="fas fa-file-invoice" style="font-size:11px"></i></button>`
+        : '';
 
-      const logJson = JSON.stringify(log).replace(/'/g,"&#39;").replace(/"/g,'&quot;');
+      // Only show time·date sub-line when relStr is relative ("X ago")
+      // When relStr already shows full date (>7 days old), don't repeat it
+      const isRelative = /ago|just now/i.test(relStr);
+      const subLine = isRelative
+        ? `<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr} &nbsp;·&nbsp; ${dateStr}</div>`
+        : `<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr}</div>`;
 
       return `<tr>
         <td style="white-space:nowrap;min-width:130px">
           <div style="font-size:12px;font-weight:600;color:var(--text)">${relStr}</div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr} &nbsp;·&nbsp; ${dateStr}</div>
+          ${subLine}
         </td>
-        <td style="white-space:nowrap">${typePill}</td>
+        <td>${typePill}</td>
         <td>
           <div style="font-size:13px;font-weight:600;color:var(--text)">${log.client || '—'}</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.phone || '—'}</div>
@@ -15190,19 +15183,18 @@ async function renderWALog() {
           <div style="font-size:13px;font-weight:600;color:var(--text)">${log.inv_num || '—'}</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.inv_amt || '—'}</div>
         </td>
-        <td style="max-width:200px"><div style="font-size:12px;color:${msgColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msgText.replace(/"/g,'&quot;')}">${msgShort}</div></td>
+        <td><div style="font-size:12px;color:${msgColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msgText.replace(/"/g,'&quot;')}">${msgShort}</div></td>
         <td style="white-space:nowrap;min-width:110px">${statusPill}</td>
-        <td style="white-space:nowrap">
-          <div style="display:inline-flex;gap:4px;align-items:center">
+        <td>
+          <div style="display:flex;gap:4px;align-items:center">
             ${invBtn}
-            <button onclick="resendWALog(this)" data-log="${logJson}" title="Resend"
-              style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid #BBD6FD;background:#EEF5FF;color:#2563EB;font-size:11px;cursor:pointer;white-space:nowrap">
-              <i class="fas fa-paper-plane" style="font-size:11px"></i>
-            </button>
-            <button onclick="deleteWALogEntry('${log.id}')" title="Delete"
-              style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid #FACACA;background:#FEF0EF;color:#C0392B;font-size:11px;cursor:pointer;white-space:nowrap">
-              <i class="fas fa-trash" style="font-size:11px"></i>
-            </button>
+            <button title="Resend" onclick="resendWALog(this)"
+              data-log="${JSON.stringify(log).replace(/"/g,'&quot;')}"
+              style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid #BBD6FD;background:#EEF5FF;color:#2563EB;font-size:11px;cursor:pointer">
+              <i class="fas fa-paper-plane" style="font-size:11px"></i></button>
+            <button title="Delete" onclick="deleteWALogEntry('${log.id}')"
+              style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid #FACACA;background:#FEF0EF;color:#C0392B;font-size:11px;cursor:pointer">
+              <i class="fas fa-trash" style="font-size:11px"></i></button>
           </div>
         </td>
       </tr>`;
@@ -15213,21 +15205,20 @@ async function renderWALog() {
   }
 }
 
-// WA_LOG.refreshTable → renderWALog directly
+// WA_LOG.refreshTable → renderWALog directly (removes external helper dependency)
 WA_LOG.refreshTable = async function() { await renderWALog(); };
 
 // Resend from log entry
 function resendWALog(btn) {
-  let log;
-  try { log = JSON.parse(btn.dataset.log); } catch(e) { toast('Could not parse log entry','error'); return; }
+  const log = JSON.parse(btn.dataset.log);
   const inv = STATE.invoices.find(i => String(i.id) === String(log.inv_id));
-  if (!inv) { toast('Invoice not found in current session', 'warning'); return; }
+  if (!inv) { toast('Invoice not found', 'warning'); return; }
   const client = STATE.clients.find(c => String(c.id) === String(inv.client)) || {};
   const phone  = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g,'');
   if (!phone) { toast('No phone number for this client', 'warning'); return; }
   sendWA(phone, log.msg || '', log.type, inv, client)
-    .then(() => { toast('✅ Message resent!', 'success'); renderWALog(); })
-    .catch(e  => toast('❌ Resend failed: ' + e.message, 'error'));
+    .then(() => { toast('\u2705 Message resent!', 'success'); renderWALog(); })
+    .catch(e  => toast('\u274C Resend failed: ' + e.message, 'error'));
 }
 
 // Delete single log entry
