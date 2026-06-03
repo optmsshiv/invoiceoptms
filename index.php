@@ -3036,7 +3036,7 @@ View Invoice: {{6}}</pre></details>
               <th style="width:120px">Type</th>
               <th style="width:150px">Client</th>
               <th style="width:120px">Invoice</th>
-              <th>Message</th>
+              <th style="width:160px">Message</th>
               <th style="width:100px">Status</th>
               <th style="width:90px">Actions</th>
             </tr>
@@ -15101,6 +15101,42 @@ const WA_LOG = {
     } catch(e) { return ts; }
   },
   refreshTable: async function() { await renderWALog(); },
+
+    async clearLogs() {
+    const confirm = await Swal.fire({
+      title: 'Clear all logs?',
+      text: 'This will permanently delete all WhatsApp message logs. This cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, clear all',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#E53935',
+      customClass: { popup: 'swal-compact' }
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      // Build today's date in YYYY-MM-DD (IST) — must match PHP's date('Y-m-d')
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // gives YYYY-MM-DD
+      const confirmCode = 'CLEAR_WA_LOG_' + today;
+
+      const r = await fetch('/api/wa_log.php', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm_code: confirmCode })
+      });
+      const d = await r.json();
+
+      if (d.success) {
+        toast('✅ All logs cleared', 'success');
+        await renderWALog();
+      } else {
+        toast('❌ Failed: ' + (d.error || 'Unknown error'), 'error');
+      }
+    } catch(e) {
+      toast('❌ Error: ' + e.message, 'error');
+    }
+  },
 };
 
 // ── Pagination state ──────────────────────────────────────────────────────────
