@@ -7623,11 +7623,9 @@ function confirmPaid() {
     .then(([ir,pr]) => {
       if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
       if (pr&&pr.data)   STATE.payments=pr.data;
-      // ── Read partial state BEFORE closing modal (checkbox resets on close) ──
+      renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
       const partialCheck = document.getElementById('paid-collect-remaining');
       const wasPartial = partialCheck && partialCheck.checked && payload.partial;
-
-      renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
 
       // ── Close modal FIRST so toast is visible ─────────────────
       closeModal('modal-paid');
@@ -7646,8 +7644,7 @@ function confirmPaid() {
         const paidInv = STATE.invoices.find(i => String(i.id) === String(mid));
         if (paidInv) {
           const cP     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
-          // ── Fallback to invoice-stored fields for one-time clients ──
-          const phoneP = (cP.wa || cP.whatsapp || cP.phone || paidInv.client_wa || paidInv.client_phone || '').replace(/\D/g,'');
+          const phoneP = (cP.wa || cP.whatsapp || cP.phone || '').replace(/\D/g,'');
           if (phoneP) {
             const isSplitPmt = payload.method && payload.method.startsWith('Split');
             let tplKey, tplDefault, tplName;
@@ -7687,18 +7684,15 @@ function confirmPaid() {
         const paidInvE = STATE.invoices.find(i => String(i.id) === String(mid));
         if (paidInvE) {
           const cE = STATE.clients.find(x => String(x.id) === String(paidInvE.client)) || {};
-          // ── Fallback to invoice-stored fields for one-time clients ──
-          const emailE = cE.email || paidInvE.client_email || '';
-          const nameE  = cE.name  || paidInvE.client_name  || 'Client';
-          if (emailE) {
+          if (cE.email) {
             api('api/email.php','POST',{
               action:     'send',
               type:       'receipt',
               invoice_id: mid,
-              to:         emailE,
-              to_name:    nameE,
+              to:         cE.email,
+              to_name:    cE.name || 'Client',
             }).then(r => {
-              if (r?.success) toast(`📧 Receipt email sent to ${nameE || emailE}!`, 'success');
+              if (r?.success) toast(`📧 Receipt email sent to ${cE.name || cE.email}!`, 'success');
               else            toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
             }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
           }
