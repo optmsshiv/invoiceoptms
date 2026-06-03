@@ -8501,7 +8501,8 @@ async function toggleClientActive(id, makeActive) {
     const res = await api('api/clients.php?id=' + dbId, 'PUT', {
       name: c.name, person: c.person||'', email: c.email||'', wa: c.wa||'',
       gst: c.gst||'', color: c.color||'#00897B', addr: c.addr||'',
-      landmark: c.landmark||'', active: makeActive ? 1 : 0
+      landmark: c.landmark||'', active: makeActive ? 1 : 0,
+      logo: c.image || c.logo || ''   // ✅ preserve existing logo
     });
     if (!res || res.success === false) throw new Error(res?.error || 'API returned failure');
     const r = await api('api/clients.php');
