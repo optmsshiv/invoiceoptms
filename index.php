@@ -2982,7 +2982,7 @@ View Invoice: {{6}}</pre></details>
           </select>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-outline" onclick="renderWALog()" title="Refresh log"><i class="fas fa-sync-alt"></i> Refresh</button>
+          <button class="btn btn-outline" id="wa-log-refresh-btn" onclick="renderWALog()" title="Refresh log"><i class="fas fa-sync-alt"></i> Refresh</button>
           <button class="btn btn-outline" onclick="exportMsgLog()"><i class="fas fa-download"></i> Export</button>
           <button class="btn btn-outline" style="color:#E53935;border-color:#E53935" onclick="WA_LOG.clearLogs()"><i class="fas fa-trash"></i> Clear Log</button>
         </div>
@@ -15143,6 +15143,30 @@ const WA_LOG = {
 const WA_LOG_PAGE = { current: 1, perPage: 15 };
 
 async function renderWALog(resetPage = false) {
+    // ── Loading bar ──────────────────────────────────────────────
+  const btn = document.getElementById('wa-log-refresh-btn');
+  let bar = document.getElementById('wa-log-loading-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'wa-log-loading-bar';
+    bar.style.cssText = `
+      position:fixed; top:0; left:0; height:3px; width:0%;
+      background:linear-gradient(90deg,var(--teal),var(--teal-l));
+      z-index:9999; border-radius:0 2px 2px 0;
+      transition:width .3s ease, opacity .4s ease;
+      box-shadow:0 0 8px var(--teal-l);
+    `;
+    document.body.appendChild(bar);
+  }
+  // Animate bar start
+  bar.style.opacity = '1';
+  bar.style.width = '0%';
+  requestAnimationFrame(() => { bar.style.width = '70%'; });
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Refreshing…';
+  }
+
   try {
     const logs = await WA_LOG.fetchLog();
     const searchTerm   = document.getElementById('msglog-search')?.value?.toLowerCase() || '';
@@ -15274,6 +15298,18 @@ async function renderWALog(resetPage = false) {
 
   } catch(e) {
     console.error('Error rendering WA log:', e);
+  } finally {
+    // ── Finish loading bar ──────────────────────────────────────
+    const bar = document.getElementById('wa-log-loading-bar');
+    if (bar) {
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.opacity = '0'; bar.style.width = '0%'; }, 400);
+    }
+    const btn = document.getElementById('wa-log-refresh-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+    }
   }
 }
 
