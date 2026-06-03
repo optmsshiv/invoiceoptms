@@ -61,7 +61,7 @@ $defaultCurrency= $settings['default_currency'] ?? '₹';
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 <!-- ✅ WhatsApp Message Log Helper (Fixed timezone, ordering, optimistic updates) -->
-<script src="/js/wa_log_helper.js"></script>
+<!-- wa_log_helper.js removed: logic now inline in renderWALog() -->
 <style>
 /* ── SweetAlert2 compact theme ── */
 .swal-compact { font-family:'Public Sans',sans-serif !important; border-radius:14px !important; max-width:360px !important; }
@@ -9726,7 +9726,7 @@ function logWAMessage({ inv, client, type, msg, status, error }) {
     msg:        msg || '',
     error:      error || '',
   };
-  log.unshift(entry); // prepend — newest first
+  log.unshift(entry); // newest first
   saveMsgLog(log);
 
   // Persist to DB (fire-and-forget — localStorage is immediate, DB is backup)
@@ -15078,6 +15078,31 @@ function applyAvatarGlow(img) {
 // WhatsApp Message Log - Enhanced rendering with filtering & stats
 // ═══════════════════════════════════════════════════════════════════
 
+// ── WA_LOG inline (wa_log_helper.js removed) ─────────────────────────────────
+const WA_LOG = {
+  async fetchLog() {
+    try {
+      const r = await fetch('/api/wa_log.php', { method:'GET', headers:{'Content-Type':'application/json'} });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      return d.success ? (d.data || []) : [];
+    } catch(e) { console.error('[WA Log] Fetch error:', e); return []; }
+  },
+  formatTimeRelative(ts) {
+    if (!ts) return '';
+    try {
+      const diff = Date.now() - new Date(ts).getTime();
+      const s = Math.floor(diff/1000), m = Math.floor(s/60), h = Math.floor(m/60), days = Math.floor(h/24);
+      if (s < 60)   return 'just now';
+      if (m < 60)   return m + ' min' + (m>1?'s':'') + ' ago';
+      if (h < 24)   return h + ' hour' + (h>1?'s':'') + ' ago';
+      if (days < 6) return days + ' day' + (days>1?'s':'') + ' ago';
+      return new Date(ts).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true, timeZone:'Asia/Kolkata' });
+    } catch(e) { return ts; }
+  },
+  refreshTable: async function() { await renderWALog(); },
+};
+
 async function renderWALog() {
   try {
     const logs = await WA_LOG.fetchLog();
@@ -15141,62 +15166,66 @@ async function renderWALog() {
     };
 
     tbody.innerHTML = filtered.map(log => {
-      const tsDate  = log.ts ? new Date(log.ts) : null;
-      const timeStr = tsDate ? tsDate.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' }) : '—';
-      const dateStr = tsDate ? tsDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' }) : '—';
-      const relStr  = WA_LOG.formatTimeRelative(log.ts);
+      const tsDate = log.ts ? new Date(log.ts) : null;
 
+      // ── Time display: ≤5 days → relative + sub line, >5 days → full date+time+seconds only ──
+      const diffDays = tsDate ? (Date.now() - tsDate.getTime()) / 86400000 : 999;
+      let timeCell;
+      if (diffDays <= 5) {
+        const relStr  = WA_LOG.formatTimeRelative(log.ts);
+        const timeStr = tsDate.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' });
+        const dateStr = tsDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' });
+        timeCell = `<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">${relStr}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr} &nbsp;·&nbsp; ${dateStr}</div>`;
+      } else {
+        const fullStr = tsDate.toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true, timeZone:'Asia/Kolkata' });
+        timeCell = `<div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">${fullStr}</div>`;
+      }
+
+      // ── Type badge ────────────────────────────────────────────
       const tb = typeBadge[log.type] || typeBadge.unknown;
-      const typePill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color}"><i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
+      const alertStyle = tb.alert ? `border-left:3px solid ${tb.color};border-radius:0 6px 6px 0;` : 'border-radius:6px;';
+      const typePill = `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;${alertStyle}font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color};white-space:nowrap"><i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
 
-      const sb = statusBadge[log.status] || { bg:'var(--bg2,#f5f5f5)', color:'var(--muted)', icon:'fa-circle', label:log.status };
-      const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color}"><i class="fas ${sb.icon}" style="font-size:10px"></i>${sb.label}</span>`;
+      // ── Status badge ──────────────────────────────────────────
+      const sb = statusBadge[log.status] || { bg:'#F5F5F5', color:'#888', icon:'fa-circle', label:log.status };
+      const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color};white-space:nowrap"><i class="fas ${sb.icon}" style="font-size:10px"></i>${sb.label}</span>`;
 
+      // ── Message ───────────────────────────────────────────────
       const msgText  = (log.status === 'failed' && log.error) ? log.error : (log.msg || '—');
-      const msgColor = log.status === 'failed' ? 'var(--red,#c0392b)' : 'var(--text2,var(--muted))';
+      const msgColor = log.status === 'failed' ? '#C0392B' : 'var(--muted)';
       const msgShort = msgText.length > 55 ? msgText.substring(0,55)+'…' : msgText;
 
-      const invBtn = log.inv_id
-        ? `<button title="View Invoice" onclick="editInvoice('${log.inv_id}')"
-            style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid var(--border,#ddd);background:var(--bg,#fff);color:var(--text2,#555);font-size:11px;cursor:pointer">
-            <i class="fas fa-file-invoice" style="font-size:11px"></i></button>`
-        : '';
+      // ── Invoice status subline color ──────────────────────────
+      const invStatusColor = {
+        Paid:'#1E7E34', Partial:'#B45309', Overdue:'#C0392B',
+        Pending:'#2563EB', Draft:'#888', Cancelled:'#888'
+      }[log.inv_status] || '#888';
 
-      // Only show time·date sub-line when relStr is relative ("X ago")
-      // When relStr already shows full date (>7 days old), don't repeat it
-      const isRelative = /ago|just now/i.test(relStr);
-      const subLine = isRelative
-        ? `<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr} &nbsp;·&nbsp; ${dateStr}</div>`
-        : `<div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;white-space:nowrap">${timeStr}</div>`;
+      // ── Resend button only ────────────────────────────────────
+      const resendBtn = `<button title="Resend" onclick="resendWALog(this)"
+        data-log="${JSON.stringify(log).replace(/"/g,'&quot;')}"
+        style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:1px solid #BBD6FD;background:#EEF5FF;color:#2563EB;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-paper-plane" style="font-size:11px"></i> Resend
+      </button>`;
 
       return `<tr>
-        <td style="white-space:nowrap;min-width:130px">
-          <div style="font-size:12px;font-weight:600;color:var(--text)">${relStr}</div>
-          ${subLine}
-        </td>
-        <td>${typePill}</td>
+        <td style="white-space:nowrap;min-width:130px">${timeCell}</td>
+        <td style="white-space:nowrap">${typePill}</td>
         <td>
           <div style="font-size:13px;font-weight:600;color:var(--text)">${log.client || '—'}</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.phone || '—'}</div>
         </td>
         <td>
           <div style="font-size:13px;font-weight:600;color:var(--text)">${log.inv_num || '—'}</div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${log.inv_amt || '—'}</div>
-        </td>
-        <td><div style="font-size:12px;color:${msgColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msgText.replace(/"/g,'&quot;')}">${msgShort}</div></td>
-        <td style="white-space:nowrap;min-width:110px">${statusPill}</td>
-        <td>
-          <div style="display:flex;gap:4px;align-items:center">
-            ${invBtn}
-            <button title="Resend" onclick="resendWALog(this)"
-              data-log="${JSON.stringify(log).replace(/"/g,'&quot;')}"
-              style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid #BBD6FD;background:#EEF5FF;color:#2563EB;font-size:11px;cursor:pointer">
-              <i class="fas fa-paper-plane" style="font-size:11px"></i></button>
-            <button title="Delete" onclick="deleteWALogEntry('${log.id}')"
-              style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:6px;border:1px solid #FACACA;background:#FEF0EF;color:#C0392B;font-size:11px;cursor:pointer">
-              <i class="fas fa-trash" style="font-size:11px"></i></button>
+          <div style="font-size:11px;font-family:var(--mono);margin-top:1px">
+            <span style="color:var(--muted)">${log.inv_amt || '—'}</span>
+            ${log.inv_status ? `<span style="color:${invStatusColor};margin-left:5px;font-weight:600">${log.inv_status}</span>` : ''}
           </div>
         </td>
+        <td style="max-width:200px"><div style="font-size:12px;color:${msgColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msgText.replace(/"/g,'&quot;')}">${msgShort}</div></td>
+        <td style="white-space:nowrap;min-width:110px">${statusPill}</td>
+        <td>${resendBtn}</td>
       </tr>`;
     }).join('');
 
@@ -15204,9 +15233,6 @@ async function renderWALog() {
     console.error('Error rendering WA log:', e);
   }
 }
-
-// WA_LOG.refreshTable → renderWALog directly (removes external helper dependency)
-WA_LOG.refreshTable = async function() { await renderWALog(); };
 
 // Resend from log entry
 function resendWALog(btn) {
