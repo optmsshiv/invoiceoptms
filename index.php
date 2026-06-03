@@ -15146,8 +15146,8 @@ const WA_LOG = {
 const WA_LOG_PAGE = { current: 1, perPage: 15 };
 
 async function renderWALog(resetPage = false) {
-    // ── Loading bar ──────────────────────────────────────────────
-  const btn = document.getElementById('wa-log-refresh-btn');
+    // ── 1. Loading bar ──────────────────────────────────────────────
+ // const btn = document.getElementById('wa-log-refresh-btn');
   let bar = document.getElementById('wa-log-loading-bar');
   if (!bar) {
     bar = document.createElement('div');
@@ -15165,10 +15165,32 @@ async function renderWALog(resetPage = false) {
   bar.style.opacity = '1';
   bar.style.width = '0%';
   requestAnimationFrame(() => { bar.style.width = '70%'; });
+  // ── 2. REFRESH BUTTON — spinner + disabled ────────────────────
+  const btn = document.getElementById('wa-log-refresh-btn');
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Refreshing…';
   }
+
+    // ── 3. SKELETON ROWS — show immediately while API loads ───────
+  const tbodyEarly = document.querySelector('#wa-log-table tbody');
+  if (tbodyEarly) {
+    const skeletonRow = () => `
+      <tr style="animation:wa-skeleton-pulse 1.2s ease-in-out infinite">
+        <td><div style="height:12px;border-radius:4px;background:#E8EAED;width:80px;margin-bottom:5px"></div>
+            <div style="height:10px;border-radius:4px;background:#F3F4F6;width:60px"></div></td>
+        <td><div style="height:22px;border-radius:6px;background:#E8EAED;width:70px"></div></td>
+        <td><div style="height:12px;border-radius:4px;background:#E8EAED;width:100px;margin-bottom:5px"></div>
+            <div style="height:10px;border-radius:4px;background:#F3F4F6;width:70px"></div></td>
+        <td><div style="height:12px;border-radius:4px;background:#E8EAED;width:90px;margin-bottom:5px"></div>
+            <div style="height:10px;border-radius:4px;background:#F3F4F6;width:60px"></div></td>
+        <td><div style="height:12px;border-radius:4px;background:#E8EAED;width:140px"></div></td>
+        <td><div style="height:22px;border-radius:6px;background:#E8EAED;width:65px"></div></td>
+        <td><div style="height:28px;border-radius:6px;background:#E8EAED;width:70px"></div></td>
+      </tr>`;
+    tbodyEarly.innerHTML = Array(6).fill(0).map(skeletonRow).join('');
+  }
+
 
   try {
     const logs = await WA_LOG.fetchLog();
@@ -15299,26 +15321,27 @@ async function renderWALog(resetPage = false) {
       </tr>`;
     }).join('');
 
-    // ── Last refreshed timestamp ──────────────────────────────
-    const tsEl = document.getElementById('wa-log-last-refresh');
-    if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
-    });
-    
   } catch(e) {
     console.error('Error rendering WA log:', e);
+    toast('❌ Could not load WA logs: ' + e.message, 'error');
   } finally {
-    // ── Finish loading bar ──────────────────────────────────────
+    // ── 4. Finish loading bar ──────────────────────────────────────
     const bar = document.getElementById('wa-log-loading-bar');
     if (bar) {
       bar.style.width = '100%';
       setTimeout(() => { bar.style.opacity = '0'; bar.style.width = '0%'; }, 400);
     }
+    // ── 5. RESTORE REFRESH BUTTON ─────────────────────────────
     const btn = document.getElementById('wa-log-refresh-btn');
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
     }
+    // ── Last refreshed timestamp ──────────────────────────────
+    const tsEl = document.getElementById('wa-log-last-refresh');
+    if (tsEl) tsEl.textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+    });
   }
 }
 
