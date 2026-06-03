@@ -164,9 +164,17 @@ try {
         exit;
     }
 
-    // ── DELETE: clear log with confirmation ──────────────────────
+    // ── DELETE: single entry or clear all ───────────────────────
     if ($method === 'DELETE') {
-        // ✅ NEW: Require confirmation code to prevent accidental deletion
+        // ── Single entry delete ──────────────────────────────────
+        if (!empty($body['entry_id'])) {
+            $entryId = substr($body['entry_id'], 0, 40);
+            $db->prepare("DELETE FROM wa_message_log WHERE entry_id = ?")->execute([$entryId]);
+            echo json_encode(['success' => true, 'deleted' => $entryId]);
+            exit;
+        }
+
+        // ── Clear all with confirmation ──────────────────────────
         $confirmCode = $body['confirm_code'] ?? '';
         $expectedCode = 'CLEAR_WA_LOG_' . date('Y-m-d');
         
