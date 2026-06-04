@@ -3732,7 +3732,7 @@ View Invoice: {{6}}</pre></details>
 
     <!-- Footer -->
     <div class="modal-footer" style="padding:14px 20px;flex-shrink:0">
-      <button class="btn btn-success" onclick="confirmPaid()" style="flex:1"><i class="fas fa-check"></i> Confirm Payment</button>
+      <button id="btn-confirm-paid" class="btn btn-success" onclick="confirmPaid()" style="flex:1"><i class="fas fa-check"></i> Confirm Payment</button>
       <button class="btn btn-outline" onclick="closeModal('modal-paid')" style="padding:9px 20px">Cancel</button>
     </div>
 
@@ -7569,7 +7569,8 @@ function confirmPaid() {
   const mid = String(STATE.activeMenuInvoiceId);
   const inv = STATE.invoices.find(i=>String(i.id)===mid);
   if (!inv) { closeModal('modal-paid'); return; }
-  // Block save if split payment amounts don't match Amount Received
+
+  // ── Validation: split amounts must match ──────────────────────
   const isSplitMethod = document.getElementById('paid-method')?.value === 'Split';
   if (isSplitMethod) {
     const splitRows = document.querySelectorAll('#split-rows .split-amt');
@@ -7581,27 +7582,33 @@ function confirmPaid() {
       return;
     }
   }
-  const amtReceived    = parseFloat(document.getElementById('paid-amt').value)||parseFloat(inv.amount)||0;
-  const totalAmt       = parseFloat(inv.amount||0);
-  const settleDiscAmt  = getSettlementDiscAmt(totalAmt);
-  // Total paid including ALL previous partial payments + this payment + settlement discount
-  const prevPaid = STATE.payments
+
+  const amtReceived   = parseFloat(document.getElementById('paid-amt').value)||parseFloat(inv.amount)||0;
+  const totalAmt      = parseFloat(inv.amount||0);
+  const settleDiscAmt = getSettlementDiscAmt(totalAmt);
+  const prevPaid      = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-  const totalCovered   = prevPaid + amtReceived + settleDiscAmt;
-  const remaining      = Math.max(0, totalAmt - totalCovered);
-  // ALERT: if amount < total and checkbox not checked, warn user
+  const totalCovered  = prevPaid + amtReceived + settleDiscAmt;
+  const remaining     = Math.max(0, totalAmt - totalCovered);
+
+  // ── Validation: partial checkbox required if amount < total ───
   if (remaining > 0.01) {
     const partialCheckEl = document.getElementById('paid-collect-remaining');
     if (!partialCheckEl || !partialCheckEl.checked) {
       const remBox = document.getElementById('paid-remaining-box');
-      if (remBox) { remBox.style.display = 'block'; remBox.style.border = '2px solid #E53935'; remBox.style.background = '#FFF3F3'; setTimeout(()=>{ remBox.style.border='1.5px solid #FFD54F'; remBox.style.background='#FFF8E1'; },2500); }
+      if (remBox) { remBox.style.display='block'; remBox.style.border='2px solid #E53935'; remBox.style.background='#FFF3F3'; setTimeout(()=>{ remBox.style.border='1.5px solid #FFD54F'; remBox.style.background='#FFF8E1'; },2500); }
       toast(`⚠️ Amount received (${fmt_money(amtReceived,'₹')}) is less than invoice total (${fmt_money(totalAmt,'₹')}). Please tick "Record as partial" checkbox to keep invoice active for the remaining ${fmt_money(remaining,'₹')}, or enter the full amount.`, 'warning');
       return;
     }
   }
-  const isPartial = remaining > 0.01 &&
-                    document.getElementById('paid-collect-remaining')?.checked;
+
+  const isPartial  = remaining > 0.01 && document.getElementById('paid-collect-remaining')?.checked;
+
+  // ── Read wasPartial NOW before modal closes & resets DOM ──────
+  const partialCheck = document.getElementById('paid-collect-remaining');
+  const wasPartial   = !!(partialCheck && partialCheck.checked && isPartial);
+
   const payload = {
     invoice_id:          parseInt(mid)||null,
     invoice_number:      inv.num||inv.invoice_number||'',
@@ -7618,94 +7625,81 @@ function confirmPaid() {
     partial:        isPartial ? 1 : 0,
     remaining_amt:  isPartial ? remaining : 0,
   };
+
+  // ── Button loading state: disable to prevent double-submit ────
+  const confirmBtn = document.getElementById('btn-confirm-paid');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  }
+
   api('api/payments.php','POST',payload)
-    .then(() => Promise.all([api('api/invoices.php'),api('api/payments.php')]))
-    .then(([ir,pr]) => {
-      if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
-      if (pr&&pr.data)   STATE.payments=pr.data;
-      // ── Read partial state BEFORE closing modal (checkbox resets on close) ──
-      const partialCheck = document.getElementById('paid-collect-remaining');
-      const wasPartial = partialCheck && partialCheck.checked && payload.partial;
-
-      renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
-
-      // ── Close modal FIRST so toast is visible ─────────────────
+    .then(() => {
+      // ── STEP 1: Close modal & show toast instantly ─────────────
       closeModal('modal-paid');
-
-      // ── Toast ─────────────────────────────────────────────────
       if (wasPartial) {
         toast(`✅ Partial payment (${fmt_money(payload.amount,'₹')}) recorded! Remaining: ${fmt_money(payload.remaining_amt,'₹')}.`,'success');
       } else {
         toast('✅ Invoice marked paid & payment recorded!','success');
       }
 
-      // ── Auto-send WA receipt if toggle ON ─────────────────────
-      const waP = STATE.settings.wa || {};
+      // ── STEP 2: WA & Email fire immediately (non-blocking) ─────
+      const paidInv = STATE.invoices.find(i => String(i.id) === String(mid)) || inv;
+      const cP      = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
+      const phoneP  = (cP.wa || cP.whatsapp || cP.phone || paidInv.client_wa || paidInv.client_phone || '').replace(/\D/g,'');
+      const waP     = STATE.settings.wa || {};
       const shouldSendWA = wasPartial ? (waP.auto_partial !== '0') : (waP.auto_paid !== '0');
-      if (shouldSendWA) {
-        const paidInv = STATE.invoices.find(i => String(i.id) === String(mid));
-        if (paidInv) {
-          const cP     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
-          // ── Fallback to invoice-stored fields for one-time clients ──
-          const phoneP = (cP.wa || cP.whatsapp || cP.phone || paidInv.client_wa || paidInv.client_phone || '').replace(/\D/g,'');
-          if (phoneP) {
-            const isSplitPmt = payload.method && payload.method.startsWith('Split');
-            let tplKey, tplDefault, tplName;
-            if (wasPartial) {
-              tplKey = waP.tpl_partial; tplDefault = getDefaultWATpl('partial_receipt');
-              tplName = 'partial_payment';
-            } else if (isSplitPmt) {
-              tplKey = waP.tpl_split || waP.tpl_paid; tplDefault = getDefaultWATpl('split_receipt');
-              tplName = 'split_payment';
-            } else {
-              tplKey = waP.tpl_paid; tplDefault = getDefaultWATpl('paid');
-              tplName = 'payment_received';
-            }
-            const tplP = tplKey || tplDefault;
-            const invWithPmt = Object.assign({}, paidInv, {
-              _paidAmt:      payload.amount,
-              _remainingAmt: payload.remaining_amt || 0,
-              _payMethod:    payload.method,
-              _instalmentNo: pr&&pr.data ? pr.data.filter(p=>String(p.invoice_id)===mid).length : 1,
-              _settleDisc:   payload.settlement_discount || 0,
-            });
-            const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
-            logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'sending' });
-            sendWA(phoneP, msgP, tplName, invWithPmt, cP)
-              .then(r => logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: r ? 'sent_api' : 'sent_web' }))
-              .catch(e => { logWAMessage({ inv: invWithPmt, client: cP, type: tplName, msg: msgP, status: 'failed', error: e.message }); console.warn('WA payment msg failed:', e.message); });
-          }
-        }
+      if (shouldSendWA && phoneP) {
+        const isSplitPmt = payload.method && payload.method.startsWith('Split');
+        let tplKey, tplDefault, tplName;
+        if (wasPartial)       { tplKey=waP.tpl_partial;             tplDefault=getDefaultWATpl('partial_receipt'); tplName='partial_payment'; }
+        else if (isSplitPmt)  { tplKey=waP.tpl_split||waP.tpl_paid; tplDefault=getDefaultWATpl('split_receipt');   tplName='split_payment'; }
+        else                  { tplKey=waP.tpl_paid;                tplDefault=getDefaultWATpl('paid');            tplName='payment_received'; }
+        const tplP = tplKey || tplDefault;
+        const invWithPmt = Object.assign({}, paidInv, {
+          _paidAmt:      payload.amount,
+          _remainingAmt: payload.remaining_amt || 0,
+          _payMethod:    payload.method,
+          _instalmentNo: STATE.payments.filter(p=>String(p.invoice_id)===mid).length + 1,
+          _settleDisc:   payload.settlement_discount || 0,
+        });
+        const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
+        logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'sending' });
+        sendWA(phoneP, msgP, tplName, invWithPmt, cP)
+          .then(r => logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:r?'sent_api':'sent_web' }))
+          .catch(e => { logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'failed', error:e.message }); console.warn('WA payment msg failed:',e.message); });
       }
 
-      // ── Auto-send Email receipt if toggle ON ──────────────────
-      const ec = STATE.settings.email_cfg || STATE.settings || {};
       const shouldSendEmail = wasPartial
         ? (STATE.settings.email_auto_partial !== '0')
         : (STATE.settings.email_auto_paid    !== '0');
       if (shouldSendEmail) {
-        const paidInvE = STATE.invoices.find(i => String(i.id) === String(mid));
-        if (paidInvE) {
-          const cE = STATE.clients.find(x => String(x.id) === String(paidInvE.client)) || {};
-          // ── Fallback to invoice-stored fields for one-time clients ──
-          const emailE = cE.email || paidInvE.client_email || '';
-          const nameE  = cE.name  || paidInvE.client_name  || 'Client';
-          if (emailE) {
-            api('api/email.php','POST',{
-              action:     'send',
-              type:       'receipt',
-              invoice_id: mid,
-              to:         emailE,
-              to_name:    nameE,
-            }).then(r => {
-              if (r?.success) toast(`📧 Receipt email sent to ${nameE || emailE}!`, 'success');
-              else            toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
-            }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
-          }
+        const cE     = STATE.clients.find(x => String(x.id) === String(paidInv.client)) || {};
+        const emailE = cE.email || paidInv.client_email || '';
+        const nameE  = cE.name  || paidInv.client_name  || 'Client';
+        if (emailE) {
+          api('api/email.php','POST',{ action:'send', type:'receipt', invoice_id:mid, to:emailE, to_name:nameE })
+            .then(r => {
+              if (r?.success) toast(`📧 Receipt email sent to ${nameE||emailE}!`,'success');
+              else            toast('⚠️ Email not sent — check SMTP settings.','warning');
+            }).catch(() => toast('⚠️ Email could not be sent.','warning'));
         }
       }
+
+      // ── STEP 3: Reload data silently in background ─────────────
+      Promise.all([api('api/invoices.php'), api('api/payments.php')])
+        .then(([ir,pr]) => {
+          if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
+          if (pr&&pr.data)   STATE.payments=pr.data;
+          renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
+        })
+        .catch(()=>{/* silent — UI already updated */});
     })
-    .catch(e => toast('❌ '+e.message,'error'));
+    .catch(e => {
+      // Re-enable button on failure so user can retry
+      if (confirmBtn) { confirmBtn.disabled=false; confirmBtn.innerHTML='<i class="fas fa-check"></i> Confirm Payment'; }
+      toast('❌ '+e.message,'error');
+    });
 }
 
 // ══════════════════════════════════════════
