@@ -362,6 +362,15 @@ function handleSend($db, $input) {
 
     $smtp   = getSmtpConfig($input, $db);
 
+    // ── CC self setting ───────────────────────────────────────────
+    $ccSelf = '';
+    try {
+        $ccRow = $db->prepare("SELECT `value` FROM settings WHERE `key`='email_cc_self' LIMIT 1");
+        $ccRow->execute();
+        $ccSelfEnabled = ($ccRow->fetchColumn() === '1');
+        if ($ccSelfEnabled) $ccSelf = $smtp['from'] ?? '';
+    } catch(\Exception $e){}
+
     // ── Log first to get the log ID for the tracking pixel ────────
     $logId  = 0;
     try {
@@ -372,7 +381,7 @@ function handleSend($db, $input) {
     // ── Build HTML with tracking pixel (needs log ID) ──────────────
     $vars['_log_id'] = $logId;
     $html   = buildEmailHTML($rawBody, $type, $vars);
-    $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html);
+    $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html, $ccSelf);
 
     // ── Update log status after send attempt ──────────────────────
     $status = $result['success'] ? 'sent' : 'failed';
@@ -899,7 +908,7 @@ HTML;
 }
 
 // ── PHPMailer / mail() sender ────────────────────────────────────
-function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $htmlBody): array {
+function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject, string $htmlBody, string $ccSelf = ''): array {
     if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
         return ['success'=>false,'error'=>'SMTP not configured. Fill all fields and Save first.'];
     }
@@ -920,6 +929,10 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
             $mail->Port       = $smtp['port'];
             $mail->setFrom($smtp['from'], $smtp['name']);
             $mail->addAddress($to, $toName);
+            // ── CC self if enabled ────────────────────────────────
+            if ($ccSelf && $ccSelf !== $to) {
+                $mail->addCC($ccSelf, $smtp['name'] ?? '');
+            }
             $mail->isHTML(true);
             $mail->Subject = $subject;
             $mail->Body    = $htmlBody;
@@ -933,6 +946,7 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
     // Fallback: native PHP mail()
     $headers  = "MIME-Version: 1.0\r\nContent-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$smtp['name']} <{$smtp['from']}>\r\nReply-To: {$smtp['from']}\r\n";
+    if ($ccSelf && $ccSelf !== $to) $headers .= "CC: {$ccSelf}\r\n";
     $sent = @mail($to, $subject, $htmlBody, $headers);
     if ($sent) return ['success'=>true];
     return ['success'=>false,'error'=>'PHPMailer not found & PHP mail() failed. Run: composer require phpmailer/phpmailer'];
