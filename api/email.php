@@ -362,19 +362,18 @@ function handleSend($db, $input) {
 
     $smtp   = getSmtpConfig($input, $db);
 
-    // ── CC self setting ───────────────────────────────────────────
+    // ── CC self ───────────────────────────────────────────────────
     $ccSelf = '';
     try {
         $ccRow = $db->prepare("SELECT `value` FROM settings WHERE `key`='email_cc_self' LIMIT 1");
         $ccRow->execute();
-        $ccSelfEnabled = ($ccRow->fetchColumn() === '1');
-        if ($ccSelfEnabled) $ccSelf = $smtp['from'] ?? '';
+        if ($ccRow->fetchColumn() === '1') $ccSelf = $smtp['from'] ?? '';
     } catch(\Exception $e){}
 
     // ── Log first to get the log ID for the tracking pixel ────────
     $logId  = 0;
     try {
-        logEmailSent($db, $invId, $type, $to, $subject, 'sending');
+        logEmailSent($db, $invId, $type, $to, $subject, 'sending', '', $toName);
         $logId = (int)$db->lastInsertId();
     } catch(\Exception $e){}
 
@@ -391,7 +390,7 @@ function handleSend($db, $input) {
             $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=NOW() WHERE id=?")
                ->execute([$status, $errMsg ?: null, $logId]);
         } else {
-            logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg);
+            logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg, $toName);
         }
     } catch(\Exception $e){}
 
@@ -929,10 +928,7 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
             $mail->Port       = $smtp['port'];
             $mail->setFrom($smtp['from'], $smtp['name']);
             $mail->addAddress($to, $toName);
-            // ── CC self if enabled ────────────────────────────────
-            if ($ccSelf && $ccSelf !== $to) {
-                $mail->addCC($ccSelf, $smtp['name'] ?? '');
-            }
+            if ($ccSelf && $ccSelf !== $to) { $mail->addCC($ccSelf, $smtp['name'] ?? ''); }
             $mail->isHTML(true);
             $mail->Subject = $subject;
             $mail->Body    = $htmlBody;
@@ -953,10 +949,12 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
 }
 
 // ── Log sent email ───────────────────────────────────────────────
-function logEmailSent($db, int $invId, string $type, string $to, string $subject, string $status, string $error=''): void {
+function logEmailSent($db, int $invId, string $type, string $to, string $subject, string $status, string $error='', string $toName=''): void {
     try {
-        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,NOW(),NOW())")
-           ->execute([$invId ?: null, $type, $to, $subject, $status, $error ?: null]);
+        // Add to_name column if missing (safe migration)
+        try { $db->exec("ALTER TABLE email_logs ADD COLUMN `to_name` VARCHAR(200) NULL AFTER `to_email`"); } catch(\Exception $e2){}
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())")
+           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
 

@@ -2642,7 +2642,6 @@ View Invoice: {{6}}</pre></details>
 
             <!-- Filters -->
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
-              <!-- Status filter -->
               <div>
                 <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Status</div>
                 <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -2652,7 +2651,6 @@ View Invoice: {{6}}</pre></details>
                   <button class="em-status-pill" data-val="opened" onclick="emLogPill(this,'status')" style="padding:6px 13px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Opened</button>
                 </div>
               </div>
-              <!-- Type filter -->
               <div>
                 <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Type</div>
                 <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -2664,7 +2662,6 @@ View Invoice: {{6}}</pre></details>
                   <button class="em-type-pill" data-val="followup" onclick="emLogPill(this,'type')" style="padding:6px 13px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Follow-up</button>
                 </div>
               </div>
-              <!-- Date range -->
               <div>
                 <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">From</div>
                 <input type="date" id="em-log-from" onchange="loadEmailLogs()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px">
@@ -9373,16 +9370,20 @@ function emLogPill(btn, group) {
 
 function fmtEmailTime(raw) {
   if (!raw) return '—';
-  // raw = "2026-06-04 14:30:00" from MySQL
-  const d = new Date(raw.replace(' ', 'T'));
+  // raw = "2026-06-04 14:30:00" from MySQL (IST)
+  // Append +05:30 so browser parses as IST regardless of local timezone
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + '+05:30';
+  const d = new Date(normalized);
   if (isNaN(d)) return raw;
-  const day   = d.getDate();
-  const mon   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-  let   h     = d.getHours();
-  const min   = String(d.getMinutes()).padStart(2,'0');
-  const ampm  = h >= 12 ? 'pm' : 'am';
-  h = h % 12 || 12;
-  return `${day} ${mon}, ${h}:${min} ${ampm}`;
+  return d.toLocaleString('en-IN', {
+    day:    '2-digit',
+    month:  'short',
+    year:   'numeric',
+    hour:   '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  });
 }
 
 async function loadEmailLogs(invId) {
@@ -9438,13 +9439,13 @@ async function loadEmailLogs(invId) {
 
     // ── Type badge config ─────────────────────────────────────────
     const typeBadge = {
-      invoice:  { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-file',          label:'Invoice'   },
-      estimate: { bg:'#EEF5FF', color:'#2563EB', icon:'fa-file-alt',      label:'Estimate'  },
-      receipt:  { bg:'#EDFAF0', color:'#1E7E34', icon:'fa-check-circle',  label:'Receipt'   },
-      reminder: { bg:'#FFF4E5', color:'#B45309', icon:'fa-bell',          label:'Reminder'  },
-      overdue:  { bg:'#FEF0EF', color:'#C0392B', icon:'fa-exclamation-triangle', label:'Overdue', alert:true },
-      followup: { bg:'#FDF0F7', color:'#9D174D', icon:'fa-phone-alt',    label:'Follow-up', alert:true },
-      test:     { bg:'#E0F2F1', color:'#00695C', icon:'fa-flask',        label:'Test'      },
+      invoice:  { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-file',               label:'Invoice'  },
+      estimate: { bg:'#EEF5FF', color:'#2563EB', icon:'fa-file-alt',           label:'Estimate' },
+      receipt:  { bg:'#EDFAF0', color:'#1E7E34', icon:'fa-check-circle',       label:'Receipt'  },
+      reminder: { bg:'#FFF4E5', color:'#B45309', icon:'fa-bell',               label:'Reminder', alert:true },
+      overdue:  { bg:'#FEF0EF', color:'#C0392B', icon:'fa-exclamation-triangle',label:'Overdue', alert:true },
+      followup: { bg:'#FDF0F7', color:'#9D174D', icon:'fa-phone-alt',          label:'Follow-up',alert:true },
+      test:     { bg:'#E0F2F1', color:'#00695C', icon:'fa-flask',              label:'Test'     },
     };
 
     const showSubject = window._emShowSubject !== false;
@@ -9456,15 +9457,12 @@ async function loadEmailLogs(invId) {
         <i class="fas ${tb.icon}" style="font-size:10px"></i>${tb.label}</span>`;
 
       const sentTime = fmtEmailTime(log.sent_at || log.created_at);
-      const tsDate   = log.sent_at || log.created_at ? new Date(log.sent_at || log.created_at) : null;
-      const relTime  = tsDate ? formatRelTime(tsDate) : sentTime;
+      const relTime  = _emRelTime(log.sent_at || log.created_at);
 
-      // Status cell
       const statusCell = log.status === 'sent'
         ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#EDFAF0;color:#1E7E34;white-space:nowrap"><i class="fas fa-check" style="font-size:10px"></i>Sent</span>`
         : `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#FEF0EF;color:#C0392B;white-space:nowrap"><i class="fas fa-times" style="font-size:10px"></i>Failed</span>`;
 
-      // Open cell
       const openCell = log.open_count > 0
         ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#EEF5FF;color:#1565C0;white-space:nowrap"><i class="fas fa-eye" style="font-size:10px"></i>${log.open_count} open${log.open_count>1?'s':''}</span>`
         : `<span style="font-size:11px;color:var(--muted)">—</span>`;
@@ -9480,13 +9478,13 @@ async function loadEmailLogs(invId) {
         : '';
 
       return `<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:9px 8px;white-space:nowrap;min-width:120px">
+        <td style="padding:9px 8px;white-space:nowrap;min-width:130px">
           <div style="font-size:12px;font-weight:600;color:var(--text)">${relTime}</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px">${sentTime}</div>
         </td>
         <td style="padding:9px 8px;white-space:nowrap">${typePill}</td>
         <td style="padding:9px 8px;max-width:180px">
-          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.to_name || log.to_email || '—'}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.to_name || '—'}</div>
           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.to_email||''}</div>
         </td>
         ${subjectCol}
@@ -9496,7 +9494,6 @@ async function loadEmailLogs(invId) {
     }).join('');
 
     const subjectHeader = showSubject ? '<th style="padding:8px;text-align:left;font-weight:700">Subject</th>' : '';
-
     container.innerHTML = `<table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--bg);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid var(--border)">
         <th style="padding:8px;text-align:left;font-weight:700">Sent</th>
@@ -9541,14 +9538,19 @@ function toggleEmailSubject(btn) {
   loadEmailLogs();
 }
 
-// ── Relative time helper ───────────────────────────────────────────
-function formatRelTime(date) {
-  const diff = Math.floor((Date.now() - date) / 1000);
-  if (diff < 60)   return 'just now';
-  if (diff < 3600) return Math.floor(diff/60) + ' min ago';
-  if (diff < 86400) return Math.floor(diff/3600) + ' hr ago';
+// ── IST-aware relative time ────────────────────────────────────────
+function _emRelTime(raw) {
+  if (!raw) return '—';
+  // Append +05:30 so string is parsed as IST regardless of browser timezone
+  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + '+05:30';
+  const d = new Date(normalized);
+  if (isNaN(d)) return raw;
+  const diff = Math.floor((Date.now() - d) / 1000);
+  if (diff < 60)     return 'just now';
+  if (diff < 3600)   return Math.floor(diff/60) + ' min ago';
+  if (diff < 86400)  return Math.floor(diff/3600) + ' hr ago';
   if (diff < 604800) return Math.floor(diff/86400) + ' days ago';
-  return date.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'Asia/Kolkata' });
 }
 
 
