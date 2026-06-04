@@ -2626,45 +2626,28 @@ View Invoice: {{6}}</pre></details>
         <div id="em-tab-logs" class="em-tab-pane" style="display:none">
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-history" style="color:#37474F"></i> Email Logs
-              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-                <button class="btn btn-outline" style="padding:5px 12px;font-size:12px" onclick="exportEmailLogsCsv()"><i class="fas fa-download"></i> CSV</button>
-                <button class="btn btn-outline" style="padding:5px 12px;font-size:12px" onclick="loadEmailLogs()"><i class="fas fa-sync"></i> Refresh</button>
-              </div>
+              <button class="btn btn-outline" style="margin-left:auto;padding:6px 12px;font-size:12px" onclick="loadEmailLogs()"><i class="fas fa-sync"></i> Refresh</button>
             </div>
-
-            <!-- Stats row -->
-            <div id="em-log-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
-
             <!-- Filters -->
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
-              <!-- Status pills -->
-              <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-                <button class="em-status-pill active" data-val="" onclick="emLogPill(this,'status')" style="padding:5px 12px;font-size:12px;border:none;background:var(--teal);color:#fff;cursor:pointer;white-space:nowrap">All</button>
-                <button class="em-status-pill" data-val="sent" onclick="emLogPill(this,'status')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Sent</button>
-                <button class="em-status-pill" data-val="failed" onclick="emLogPill(this,'status')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Failed</button>
-                <button class="em-status-pill" data-val="opened" onclick="emLogPill(this,'status')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Opened</button>
-              </div>
-              <!-- Type pills -->
-              <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-                <button class="em-type-pill active" data-val="" onclick="emLogPill(this,'type')" style="padding:5px 12px;font-size:12px;border:none;background:var(--teal);color:#fff;cursor:pointer;white-space:nowrap">All</button>
-                <button class="em-type-pill" data-val="receipt" onclick="emLogPill(this,'type')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Receipt</button>
-                <button class="em-type-pill" data-val="invoice" onclick="emLogPill(this,'type')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Invoice</button>
-                <button class="em-type-pill" data-val="reminder" onclick="emLogPill(this,'type')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Reminder</button>
-                <button class="em-type-pill" data-val="overdue" onclick="emLogPill(this,'type')" style="padding:5px 12px;font-size:12px;border:none;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">Overdue</button>
-              </div>
-              <!-- Date range -->
-              <input type="date" id="em-log-from" onchange="loadEmailLogs()" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px">
-              <input type="date" id="em-log-to" onchange="loadEmailLogs()" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <select id="em-log-filter-type" onchange="loadEmailLogs()" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;color:var(--text)">
+                <option value="">All Types</option>
+                <option value="invoice">Invoice</option>
+                <option value="estimate">Estimate</option>
+                <option value="receipt">Receipt</option>
+                <option value="reminder">Reminder</option>
+                <option value="overdue">Overdue</option>
+                <option value="followup">Follow-up</option>
+                <option value="test">Test</option>
+              </select>
+              <select id="em-log-filter-status" onchange="loadEmailLogs()" style="padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:12px;color:var(--text)">
+                <option value="">All Status</option>
+                <option value="sent">Sent</option>
+                <option value="failed">Failed</option>
+              </select>
             </div>
-
             <div id="em-logs-table" style="font-size:13px">
               <div style="color:var(--muted);text-align:center;padding:32px">Click Refresh to load logs</div>
-            </div>
-
-            <!-- Pagination -->
-            <div id="em-log-pagination" style="display:none;align-items:center;justify-content:space-between;padding:12px 0 0;font-size:12px;color:var(--muted)">
-              <span id="em-log-page-info"></span>
-              <div id="em-log-page-btns" style="display:flex;gap:4px"></div>
             </div>
           </div>
         </div>
@@ -9330,131 +9313,41 @@ async function saveEmailAuto() {
   try { await api('api/settings.php', 'POST', payload); } catch(e) {}
 }
 
-// ── Email log state ───────────────────────────────────────────────
-window._emLogPage   = 1;
-window._emLogStatus = '';
-window._emLogType   = '';
-
-function emLogPill(btn, group) {
-  const cls = group === 'status' ? '.em-status-pill' : '.em-type-pill';
-  document.querySelectorAll(cls).forEach(b => {
-    b.style.background = 'var(--bg)';
-    b.style.color      = 'var(--muted)';
-    b.classList.remove('active');
-  });
-  btn.style.background = 'var(--teal)';
-  btn.style.color      = '#fff';
-  btn.classList.add('active');
-  if (group === 'status') window._emLogStatus = btn.dataset.val;
-  else                    window._emLogType   = btn.dataset.val;
-  window._emLogPage = 1;
-  loadEmailLogs();
-}
-
-function fmtEmailTime(raw) {
-  if (!raw) return '—';
-  // raw = "2026-06-04 14:30:00" from MySQL
-  const d = new Date(raw.replace(' ', 'T'));
-  if (isNaN(d)) return raw;
-  const day   = d.getDate();
-  const mon   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-  let   h     = d.getHours();
-  const min   = String(d.getMinutes()).padStart(2,'0');
-  const ampm  = h >= 12 ? 'pm' : 'am';
-  h = h % 12 || 12;
-  return `${day} ${mon}, ${h}:${min} ${ampm}`;
-}
-
+// ── Load email logs ──────────────────────────────────────────────
 async function loadEmailLogs(invId) {
   const container = document.getElementById('em-logs-table');
   if (!container) return;
   container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
-
-  let url = 'api/email.php?action=logs&page=' + (window._emLogPage || 1);
-  const status  = window._emLogStatus || '';
-  const type    = window._emLogType   || '';
-  const fromDt  = document.getElementById('em-log-from')?.value || '';
-  const toDt    = document.getElementById('em-log-to')?.value   || '';
-  if (invId)  url += '&invoice_id=' + invId;
-  if (type)   url += '&type='   + encodeURIComponent(type);
-  if (fromDt) url += '&from='   + fromDt;
-  if (toDt)   url += '&to='     + toDt;
-  // "opened" is a client-side filter only (API returns all sent, we filter by open_count>0)
-  const filterOpened = (status === 'opened');
-  if (status && status !== 'opened') url += '&status=' + status;
-
+  let url = 'api/email.php?action=logs';
+  const type   = document.getElementById('em-log-filter-type')?.value;
+  const status = document.getElementById('em-log-filter-status')?.value;
+  if (invId) url += '&invoice_id=' + invId;
+  if (type)   url += '&type='   + type;
+  if (status) url += '&status=' + status;
   try {
     const r = await api(url);
-
-    // ── Stats cards ──────────────────────────────────────────────
-    const statsEl = document.getElementById('em-log-stats');
-    if (statsEl && r.stats) {
-      const s = r.stats;
-      const openRate = s.total > 0 ? Math.round((s.opened / s.total) * 100) : 0;
-      statsEl.innerHTML = `
-        <div style="background:var(--card-bg,var(--bg));border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-          <div style="font-size:20px;font-weight:700;color:var(--text)">${s.total||0}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Total sent</div>
-        </div>
-        <div style="background:var(--card-bg,var(--bg));border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-          <div style="font-size:20px;font-weight:700;color:#2E7D32">${s.sent||0}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Delivered</div>
-        </div>
-        <div style="background:var(--card-bg,var(--bg));border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-          <div style="font-size:20px;font-weight:700;color:#C62828">${s.failed||0}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Failed</div>
-        </div>
-        <div style="background:var(--card-bg,var(--bg));border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-          <div style="font-size:20px;font-weight:700;color:#1565C0">${s.opened||0} <span style="font-size:12px;color:var(--muted);font-weight:400">(${openRate}%)</span></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Opened</div>
-        </div>`;
-    }
-
-    let data = r.data || [];
-    if (filterOpened) data = data.filter(l => l.open_count > 0);
-
-    if (!data.length) {
+    if (!r.success || !r.data?.length) {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:32px;font-size:13px">No email logs found</div>';
-      document.getElementById('em-log-pagination').style.display = 'none';
       return;
     }
-
-    const typeBadge = {
-      invoice:  ['#E8EAF6','#1A237E','📄'],
-      estimate: ['#E3F2FD','#1565C0','📋'],
-      receipt:  ['#E8F5E9','#1B5E20','✅'],
-      reminder: ['#FFF3E0','#E65100','🔔'],
-      overdue:  ['#FFEBEE','#B71C1C','⚠️'],
-      followup: ['#F3E5F5','#4A148C','📞'],
-      test:     ['#E0F2F1','#00695C','🧪'],
-    };
-
-    const rows = data.map(log => {
-      const [tbg, tcol, ticon] = typeBadge[log.type] || ['#F5F5F5','#555','📧'];
-      const sentTime = fmtEmailTime(log.sent_at || log.created_at);
-      const statusCell = log.status === 'sent'
-        ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#2E7D32"><span style="width:7px;height:7px;border-radius:50%;background:#388E3C;display:inline-block"></span>Sent</span>`
-        : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#C62828"><span style="width:7px;height:7px;border-radius:50%;background:#E53935;display:inline-block"></span>Failed</span>`;
-      const openCell = log.open_count > 0
-        ? `<span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">👁 ${log.open_count} open${log.open_count>1?'s':''}</span>`
+    const typeEmoji = { invoice:'📄', estimate:'📋', receipt:'✅', reminder:'🔔', overdue:'⚠️', followup:'📞', test:'🧪' };
+    const rows = r.data.map(log => {
+      const statusBadge = log.status === 'sent'
+        ? `<span style="background:#E8F5E9;color:#2E7D32;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">✅ Sent</span>`
+        : `<span style="background:#FFEBEE;color:#C62828;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700">❌ Failed</span>`;
+      const openBadge = log.opened_at
+        ? `<span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600" title="Opened: ${log.opened_at}">👁 ${log.open_count}×</span>`
         : `<span style="font-size:11px;color:var(--muted)">Not opened</span>`;
-      const errTip   = log.error_msg ? ` title="${String(log.error_msg).replace(/"/g,'&quot;')}"` : '';
-      const retryBtn = log.status === 'failed'
-        ? `<button onclick="retryEmail(${log.id},${log.invoice_id||0},'${log.type}','${(log.to_email||'').replace(/'/g,'')}')"
-             style="font-size:11px;color:#C62828;background:#FFEBEE;border:none;border-radius:6px;padding:3px 9px;cursor:pointer;margin-left:4px">
-             <i class="fas fa-redo"></i> Retry</button>` : '';
+      const errTip = log.error_msg ? ` title="${log.error_msg.replace(/"/g,'')}"` : '';
       return `<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:10px 8px;white-space:nowrap">
-          <span style="background:${tbg};color:${tcol};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${ticon} ${log.type}</span>
-        </td>
-        <td style="padding:10px 8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.to_email||''}">${log.to_email||''}</td>
-        <td style="padding:10px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${log.subject||''}</td>
-        <td style="padding:10px 8px"${errTip}>${statusCell}${retryBtn}</td>
-        <td style="padding:10px 8px">${openCell}</td>
-        <td style="padding:10px 8px;font-size:11px;color:var(--muted);white-space:nowrap">${sentTime}</td>
+        <td style="padding:10px 8px">${typeEmoji[log.type]||'📧'} <strong>${log.type}</strong></td>
+        <td style="padding:10px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.to_email}">${log.to_email}</td>
+        <td style="padding:10px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.subject||''}</td>
+        <td style="padding:10px 8px"${errTip}>${statusBadge}</td>
+        <td style="padding:10px 8px">${openBadge}</td>
+        <td style="padding:10px 8px;font-size:11px;color:var(--muted);white-space:nowrap">${(log.sent_at||log.created_at||'').substring(0,16)}</td>
       </tr>`;
     }).join('');
-
     container.innerHTML = `<table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:var(--bg);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">
         <th style="padding:8px;text-align:left;font-weight:700">Type</th>
@@ -9464,56 +9357,9 @@ async function loadEmailLogs(invId) {
         <th style="padding:8px;text-align:left;font-weight:700">Opened</th>
         <th style="padding:8px;text-align:left;font-weight:700">Sent At</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
-
-    // ── Pagination ───────────────────────────────────────────────
-    const total = r.total || 0;
-    const pages = r.pages || 1;
-    const page  = r.page  || 1;
-    const pgEl  = document.getElementById('em-log-pagination');
-    const pgInfo = document.getElementById('em-log-page-info');
-    const pgBtns = document.getElementById('em-log-page-btns');
-    if (pgEl && total > 25) {
-      pgEl.style.display = 'flex';
-      pgInfo.textContent = `Showing ${((page-1)*25)+1}–${Math.min(page*25,total)} of ${total}`;
-      let btns = '';
-      for (let i = 1; i <= pages; i++) {
-        const active = i === page ? `background:var(--teal);color:#fff;border-color:var(--teal);` : `background:var(--bg);color:var(--text);`;
-        btns += `<button onclick="window._emLogPage=${i};loadEmailLogs()"
-          style="${active}width:28px;height:28px;border-radius:6px;border:1px solid var(--border);font-size:12px;cursor:pointer">${i}</button>`;
-      }
-      pgBtns.innerHTML = btns;
-    } else if (pgEl) {
-      pgEl.style.display = 'none';
-    }
   } catch(e) {
     container.innerHTML = '<div style="color:#C62828;padding:24px;text-align:center">Error loading logs: ' + e.message + '</div>';
   }
-}
-
-async function retryEmail(logId, invId, type, toEmail) {
-  if (!toEmail) { toast('⚠️ No recipient email on record','warning'); return; }
-  try {
-    const r = await api('api/email.php','POST',{ action:'send', invoice_id: invId, type, to: toEmail });
-    if (r?.success) { toast('📧 Email resent successfully!','success'); loadEmailLogs(); }
-    else            toast('❌ Retry failed: ' + (r?.error||'Unknown error'), 'error');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function exportEmailLogsCsv() {
-  const rows = document.querySelectorAll('#em-logs-table tbody tr');
-  if (!rows.length) { toast('No logs to export','warning'); return; }
-  const headers = ['Type','To','Subject','Status','Opened','Sent At'];
-  const lines = [headers.join(',')];
-  rows.forEach(tr => {
-    const cells = tr.querySelectorAll('td');
-    const vals = Array.from(cells).map(td => '"' + td.innerText.replace(/"/g,'""').replace(/\n/g,' ').trim() + '"');
-    lines.push(vals.join(','));
-  });
-  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'email_logs_' + new Date().toISOString().slice(0,10) + '.csv';
-  a.click();
 }
 
 // ── Load SMTP profiles ───────────────────────────────────────────

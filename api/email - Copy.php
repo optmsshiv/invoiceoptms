@@ -17,9 +17,7 @@ ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-// Open-tracking pixel must work without a session (email clients don't send cookies)
-$_earlyAction = $_GET['action'] ?? '';
-if ($_earlyAction !== 'track') requireLogin();
+requireLogin();
 
 header('Content-Type: application/json');
 
@@ -51,7 +49,6 @@ try {
         case 'save_template': handleSaveTemplate($db, $input); break;
         case 'preview':       handlePreview($db, $input);      break;
         case 'logs':          handleLogs($db);                  break;
-        case 'track':         handleTrack($db);                  break;
         case 'smtp_profiles': handleGetProfiles($db);           break;
         case 'save_profile':  handleSaveProfile($db, $input);   break;
         case 'del_profile':   handleDelProfile($db);            break;
@@ -99,7 +96,8 @@ function handleSaveTemplate($db, $input) {
     if (!in_array($type, $allowed)) {
         jsonResponse(['success'=>false,'error'=>'Invalid template type'], 422);
     }
-    $row = $db->prepare("SELECT id FROM email_templates WHERE type=?");
+    $exists = $db->prepare("SELECT id FROM email_templates WHERE type=?")->execute([$type]);
+    $row    = $db->prepare("SELECT id FROM email_templates WHERE type=?");
     $row->execute([$type]);
     $existing = $row->fetch();
     if ($existing) {
@@ -128,68 +126,18 @@ function handlePreview($db, $input) {
 // ── GET action=logs ─────────────────────────────────────────────
 function handleLogs($db) {
     ensureEmailTables($db);
-    $invId   = (int)($_GET['invoice_id'] ?? 0);
-    $type    = $_GET['type']      ?? '';
-    $status  = $_GET['status']    ?? '';
-    $from    = $_GET['from']      ?? '';
-    $to      = $_GET['to']        ?? '';
-    $page    = max(1, (int)($_GET['page'] ?? 1));
-    $limit   = 25;
-    $offset  = ($page - 1) * $limit;
-
+    $invId  = (int)($_GET['invoice_id'] ?? 0);
+    $type   = $_GET['type']   ?? '';
+    $status = $_GET['status'] ?? '';
     $sql    = "SELECT * FROM email_logs WHERE 1";
-    $cntSql = "SELECT COUNT(*) FROM email_logs WHERE 1";
     $params = [];
-    if ($invId)  { $sql .= " AND invoice_id=?";  $cntSql .= " AND invoice_id=?";  $params[] = $invId; }
-    if ($type)   { $sql .= " AND type=?";         $cntSql .= " AND type=?";         $params[] = $type; }
-    if ($status) { $sql .= " AND status=?";       $cntSql .= " AND status=?";       $params[] = $status; }
-    if ($from)   { $sql .= " AND DATE(COALESCE(sent_at,created_at)) >= ?"; $cntSql .= " AND DATE(COALESCE(sent_at,created_at)) >= ?"; $params[] = $from; }
-    if ($to)     { $sql .= " AND DATE(COALESCE(sent_at,created_at)) <= ?"; $cntSql .= " AND DATE(COALESCE(sent_at,created_at)) <= ?"; $params[] = $to; }
-
-    $cntStmt = $db->prepare($cntSql);
-    $cntStmt->execute($params);
-    $total = (int)$cntStmt->fetchColumn();
-
-    // Summary stats (always unfiltered by page)
-    $statsRows = $db->query("SELECT
-        COUNT(*) as total,
-        SUM(status='sent') as sent,
-        SUM(status='failed') as failed,
-        SUM(open_count > 0) as opened
-        FROM email_logs")->fetch();
-
-    $sql .= " ORDER BY COALESCE(sent_at,created_at) DESC LIMIT {$limit} OFFSET {$offset}";
+    if ($invId)  { $sql .= " AND invoice_id=?";  $params[] = $invId; }
+    if ($type)   { $sql .= " AND type=?";         $params[] = $type; }
+    if ($status) { $sql .= " AND status=?";       $params[] = $status; }
+    $sql .= " ORDER BY created_at DESC LIMIT 200";
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    jsonResponse([
-        'success' => true,
-        'data'    => $stmt->fetchAll(),
-        'total'   => $total,
-        'page'    => $page,
-        'pages'   => max(1, (int)ceil($total / $limit)),
-        'stats'   => $statsRows,
-    ]);
-}
-
-// ── GET action=track — open tracking pixel ───────────────────────
-function handleTrack($db) {
-    $id = (int)($_GET['id'] ?? 0);
-    if ($id) {
-        try {
-            $db->prepare(
-                "UPDATE email_logs SET
-                    open_count = open_count + 1,
-                    opened_at  = COALESCE(opened_at, NOW())
-                 WHERE id = ?"
-            )->execute([$id]);
-        } catch(\Exception $e) {}
-    }
-    // Return a 1×1 transparent GIF — no auth check needed (email clients don't send cookies)
-    header('Content-Type: image/gif');
-    header('Cache-Control: no-store, no-cache, must-revalidate');
-    header('Pragma: no-cache');
-    echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    exit;
+    jsonResponse(['success'=>true,'data'=>$stmt->fetchAll()]);
 }
 
 // ── GET action=smtp_profiles ────────────────────────────────────
@@ -361,30 +309,12 @@ function handleSend($db, $input) {
     $rawBody = trim(preg_replace('/\n{3,}/', "\n\n", $rawBody));
 
     $smtp   = getSmtpConfig($input, $db);
-
-    // ── Log first to get the log ID for the tracking pixel ────────
-    $logId  = 0;
-    try {
-        logEmailSent($db, $invId, $type, $to, $subject, 'sending');
-        $logId = (int)$db->lastInsertId();
-    } catch(\Exception $e){}
-
-    // ── Build HTML with tracking pixel (needs log ID) ──────────────
-    $vars['_log_id'] = $logId;
-    $html   = buildEmailHTML($rawBody, $type, $vars);
+    $html   = buildEmailHTML($rawBody, $type, $vars);   // pass $vars for structured template
     $result = sendSmtpEmail($smtp, $to, $toName, $subject, $html);
 
-    // ── Update log status after send attempt ──────────────────────
     $status = $result['success'] ? 'sent' : 'failed';
     $errMsg = $result['error']   ?? '';
-    try {
-        if ($logId) {
-            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=NOW() WHERE id=?")
-               ->execute([$status, $errMsg ?: null, $logId]);
-        } else {
-            logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg);
-        }
-    } catch(\Exception $e){}
+    try { logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg); } catch(\Exception $e){}
 
     if ($result['success'] && $invId && isset($_SESSION['user_id'])) {
         try { logActivity($_SESSION['user_id'], 'email_sent', 'invoice', $invId, "Email ($type) sent to $to"); } catch(\Exception $e){}
@@ -544,7 +474,7 @@ function buildTemplateVars($db, int $invId, string $type): array {
         $portalLink = $portalBase . '?t=' . $b64token . '&src=email';
     } catch(\Exception $e){}
 
-    $vars['{client_name}']          = $client['name'] ?? $client['client_name'] ?? $inv['client_name'] ?? 'Valued Client';
+    $vars['{client_name}']          = $client['name'] ?? $client['client_name'] ?? 'Valued Client';
     $vars['{invoice_no}']           = $num;
     $vars['{amount}']               = $sym . number_format($grand, 2);
     $vars['{due_date}']             = $dueFmt;
@@ -842,15 +772,6 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
         </tr>
       </table>';
 
-    // ── Open tracking pixel (1×1 transparent GIF via api/email.php?action=track) ──
-    $trackingPixel = '';
-    $logId = $vars['_log_id'] ?? 0;
-    if ($logId) {
-        $baseUrl = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $trackUrl = $baseUrl . '/api/email.php?action=track&id=' . (int)$logId;
-        $trackingPixel = '<img src="' . $trackUrl . '" width="1" height="1" style="display:block;width:1px;height:1px;border:0" alt="">';
-    }
-
     return <<<HTML
 <!DOCTYPE html>
 <html>
@@ -891,7 +812,7 @@ function buildEmailHTML(string $body, string $type = 'invoice', array $vars = []
     <div style="text-align:center;padding:14px;font-size:11px;color:#aaa">
       Sent via Invoice Manager
     </div>
-    {$trackingPixel}
+
   </div>
 </body>
 </html>
@@ -941,7 +862,7 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
 // ── Log sent email ───────────────────────────────────────────────
 function logEmailSent($db, int $invId, string $type, string $to, string $subject, string $status, string $error=''): void {
     try {
-        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,NOW(),NOW())")
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,subject,status,error_msg,created_at) VALUES (?,?,?,?,?,?,NOW())")
            ->execute([$invId ?: null, $type, $to, $subject, $status, $error ?: null]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
