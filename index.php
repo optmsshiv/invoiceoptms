@@ -7806,6 +7806,26 @@ async function changeInvoiceStatus(id, newStatus, cancelReason = '') {
       setTimeout(() => sendWAForInvoice(inv), 600);
     }
 
+    // ── Auto-fire Email when Draft/Cancelled → Pending ────────
+    // Mirrors the WA block above — respects email_auto_inv toggle
+    const ec = STATE.settings.email_cfg || {};
+    if (newStatus === 'Pending' && ['Draft', 'Cancelled'].includes(oldStatus) && ec.email_auto_inv === '1' && (ec.smtp_host || ec.smtp_user)) {
+      setTimeout(() => {
+        const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+        if (!c.email) return;
+        api('api/email.php', 'POST', {
+          action:     'send',
+          type:       'invoice',
+          invoice_id: inv.id,
+          to:         c.email,
+          to_name:    c.name || 'Client',
+        }).then(r => {
+          if (r?.success) toast(`📧 Invoice emailed to ${c.name || c.email}`, 'success');
+          else            console.warn('Auto email (draft→pending) failed:', r);
+        }).catch(e => console.warn('Auto email (draft→pending) error:', e.message));
+      }, 800);
+    }
+
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
 }
 
