@@ -15,7 +15,6 @@
 
 ob_start();
 error_reporting(0);
-date_default_timezone_set('Asia/Kolkata'); // Ensure timestamps are stored in IST
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 // Open-tracking pixel must work without a session (email clients don't send cookies)
@@ -388,7 +387,7 @@ function handleSend($db, $input) {
     $errMsg = $result['error']   ?? '';
     try {
         if ($logId) {
-            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=NOW() WHERE id=?")
+            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=UTC_TIMESTAMP() WHERE id=?")
                ->execute([$status, $errMsg ?: null, $logId]);
         } else {
             logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg, $toName);
@@ -954,9 +953,8 @@ function logEmailSent($db, int $invId, string $type, string $to, string $subject
     try {
         // Add to_name column if missing (safe migration)
         try { $db->exec("ALTER TABLE email_logs ADD COLUMN `to_name` VARCHAR(200) NULL AFTER `to_email`"); } catch(\Exception $e2){}
-        $now = date('Y-m-d H:i:s'); // IST — date_default_timezone_set('Asia/Kolkata') is set at top
-        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
-           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null, $now, $now]);
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())")
+           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
 

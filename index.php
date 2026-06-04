@@ -9370,9 +9370,8 @@ function emLogPill(btn, group) {
 
 function fmtEmailTime(raw) {
   if (!raw) return '—';
-  // raw = "2026-06-04 14:30:00" from MySQL (IST)
-  // Append +05:30 so browser parses as IST regardless of local timezone
-  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + '+05:30';
+  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   return d.toLocaleString('en-IN', {
@@ -9541,8 +9540,8 @@ function toggleEmailSubject(btn) {
 // ── IST-aware relative time ────────────────────────────────────────
 function _emRelTime(raw) {
   if (!raw) return '—';
-  // Append +05:30 so string is parsed as IST regardless of browser timezone
-  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + '+05:30';
+  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
+  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + 'Z';
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   const diff = Math.floor((Date.now() - d) / 1000);
