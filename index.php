@@ -2483,9 +2483,8 @@ View Invoice: {{6}}</pre></details>
 
     <!-- ─────────── EMAIL SETUP ─────────── -->
     <div id="page-email-setup" class="page">
-      <div class="settings-wrap">
 
-        <!-- ── Tab Bar ── -->
+        <!-- ── Tab Bar (full width, outside settings-wrap) ── -->
         <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto">
           <button class="em-tab-btn active" onclick="emTab('smtp',this)" style="padding:10px 20px;background:none;border:none;font-weight:700;font-size:13px;cursor:pointer;border-bottom:2px solid var(--teal);color:var(--teal);margin-bottom:-2px;white-space:nowrap"><i class="fas fa-server"></i> SMTP</button>
           <button class="em-tab-btn" onclick="emTab('tpl',this)" style="padding:10px 20px;background:none;border:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);margin-bottom:-2px;white-space:nowrap"><i class="fas fa-file-alt"></i> Templates</button>
@@ -2493,6 +2492,9 @@ View Invoice: {{6}}</pre></details>
           <button class="em-tab-btn" onclick="emTab('logs',this)" style="padding:10px 20px;background:none;border:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);margin-bottom:-2px;white-space:nowrap"><i class="fas fa-history"></i> Logs</button>
           <button class="em-tab-btn" onclick="emTab('profiles',this)" style="padding:10px 20px;background:none;border:none;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);margin-bottom:-2px;white-space:nowrap"><i class="fas fa-layer-group"></i> Profiles</button>
         </div>
+
+      <!-- ── Narrow tabs (SMTP / Templates / Automation / Profiles) stay in settings-wrap ── -->
+      <div class="settings-wrap">
 
         <!-- ══ TAB: SMTP ══ -->
         <div id="em-tab-smtp" class="em-tab-pane">
@@ -2622,9 +2624,11 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-        <!-- ══ TAB: LOGS ══ -->
+      </div><!-- end settings-wrap: SMTP / Templates / Automation -->
+
+        <!-- ══ TAB: LOGS — full width, outside settings-wrap ══ -->
         <div id="em-tab-logs" class="em-tab-pane" style="display:none">
-          <div class="settings-block">
+          <div class="settings-block" style="max-width:100%">
             <div class="sb-title"><i class="fas fa-history" style="color:#37474F"></i> Email Logs
               <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
                 <button class="btn btn-outline" style="padding:5px 12px;font-size:12px" onclick="exportEmailLogsCsv()"><i class="fas fa-download"></i> CSV</button>
@@ -2668,6 +2672,8 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
         </div>
+
+      <div class="settings-wrap"><!-- reopen settings-wrap for Profiles -->
 
         <!-- ══ TAB: SMTP PROFILES ══ -->
         <div id="em-tab-profiles" class="em-tab-pane" style="display:none">
@@ -2713,8 +2719,8 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-      </div>
-    </div>
+      </div><!-- end settings-wrap: Profiles -->
+    </div><!-- end page-email-setup -->
 
     <!-- ── Email Preview Modal ── -->
     <div id="em-preview-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px">
