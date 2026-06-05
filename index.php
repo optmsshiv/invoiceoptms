@@ -13298,11 +13298,14 @@ async function _renderPortalTable(search) {
     if (views === null) {
       viewsCell = `<span style="color:var(--muted);font-size:12px">—</span>`;
     } else if (views === 0) {
-      viewsCell = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#FAEEDA;color:#633806;border:1px solid #FAC775;white-space:nowrap">
+      viewsCell = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#FFF4E5;color:#B45309;border:1px solid #FBBF24;white-space:nowrap">
         <i class="fas fa-eye-slash" style="font-size:10px"></i> Never viewed</span>`;
     } else {
-      viewsCell = `<div style="font-size:13px;font-weight:600;color:var(--text)">${views}</div>
-        ${lastViewed ? `<div style="font-size:11px;color:var(--muted)">Last: ${lastViewed}</div>` : ''}`;
+      viewsCell = `<div>
+        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;white-space:nowrap">
+          <i class="fas fa-eye" style="font-size:10px"></i> ${views} view${views!==1?'s':''}</span>
+        ${lastViewed ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">Last: ${lastViewed}</div>` : ''}
+      </div>`;
     }
 
     // Expiry cell
@@ -13319,7 +13322,7 @@ async function _renderPortalTable(search) {
     const actBtn = (cls, icon, title, onclick) =>
       `<button onclick="${onclick}" title="${title}"
         style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;border:0.5px solid ${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#F7C1C1' : cls === 'amber' ? '#FAC775' : cls === 'green' ? '#C0DD97' : cls === 'blue' ? '#B5D4F4' : 'var(--border)'};background:${cls === 'teal' ? 'var(--teal-bg)' : cls === 'red' ? '#FCEBEB' : cls === 'amber' ? '#FAEEDA' : cls === 'green' ? '#EAF3DE' : cls === 'blue' ? '#E6F1FB' : 'var(--bg)'};color:${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#791F1F' : cls === 'amber' ? '#633806' : cls === 'green' ? '#27500A' : cls === 'blue' ? '#185FA5' : 'var(--text)'}">
-        <i class="fas ${icon}"></i></button>`;
+        <i class="${icon.startsWith('fab ') ? icon : 'fas '+icon}"></i></button>`;
 
     // Generate / Regenerate — with confirm dialog for regenerate
     const genOnclick = t
@@ -13361,7 +13364,7 @@ Thank you!`);
       <td style="white-space:nowrap">
         <div style="display:flex;gap:4px">
           ${actBtn('amber','fa-clock','Set expiry', `_setPortalExpiry('${t?.token||''}','${inv.num||inv.invoice_number||''}')`)}
-          ${actBtn('green','fa-whatsapp','Share on WhatsApp', waOnclick)}
+          ${actBtn('green','fab fa-whatsapp','Share on WhatsApp', waOnclick)}
           ${url ? actBtn('blue','fa-external-link-alt','Preview', `window.open('${url}','_blank')`) : ''}
           ${actBtn('','fa-sync-alt', t ? 'Regenerate link' : 'Generate link', genOnclick)}
           ${url ? actBtn('red','fa-trash','Revoke link', `revokePortalLink(${inv.id})`) : ''}
