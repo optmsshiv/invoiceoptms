@@ -54,18 +54,9 @@ if ($method === 'GET' && !empty($_GET['token'])) {
             }
         }
 
-        // Update view counter — set first_viewed only on first visit
-        $db->prepare('UPDATE portal_tokens
-                      SET views        = views + 1,
-                          last_viewed  = NOW(),
-                          first_viewed = COALESCE(first_viewed, NOW())
-                      WHERE token = :t')
+        // Update view counter
+        $db->prepare('UPDATE portal_tokens SET views = views + 1, last_viewed = NOW() WHERE token = :t')
            ->execute([':t' => $token]);
-
-        // One-time backfill: if first_viewed still null for other tokens, use last_viewed
-        try {
-            $db->exec('UPDATE portal_tokens SET first_viewed = last_viewed WHERE first_viewed IS NULL AND last_viewed IS NOT NULL');
-        } catch (Exception $e) { /* non-fatal */ }
 
         // Fetch client info
         $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
@@ -82,12 +73,7 @@ if ($method === 'GET' && !empty($_GET['token'])) {
         $pStmt->execute([':id' => $row['invoice_id']]);
         $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Re-fetch after update to get accurate first_viewed / last_viewed
-        $vFresh = $db->prepare('SELECT views, first_viewed, last_viewed FROM portal_tokens WHERE token = :t LIMIT 1');
-        $vFresh->execute([':t' => $token]);
-        $vRow = $vFresh->fetch(PDO::FETCH_ASSOC);
-
-        echo json_encode(['success'=>true,'invoice'=>$row,'client'=>$client,'items'=>$lineItems,'payments'=>$payments,'views'=>(int)($vRow['views'] ?? 1),'first_viewed'=>$vRow['first_viewed'] ?? null,'last_viewed'=>$vRow['last_viewed'] ?? null]);
+        echo json_encode(['success'=>true,'invoice'=>$row,'client'=>$client,'items'=>$lineItems,'payments'=>$payments,'views'=>(int)$row['views']+1]);
     } catch (Exception $e) {
         error_log('portal.php token error: ' . $e->getMessage());
         http_response_code(500);
