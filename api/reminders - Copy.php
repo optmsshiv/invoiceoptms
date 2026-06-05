@@ -19,9 +19,9 @@ $action = $_GET['action'] ?? '';
 $isLog  = isset($_GET['log']);
 
 // ── FIX #5: Allowed values for type and channel ──────────────────
-const ALLOWED_TYPES    = ['due_reminder', 'due_soon', 'due_today', 'overdue', 'followup', 'paid', 'promise_reminder'];
+const ALLOWED_TYPES    = ['due_reminder', 'due_soon', 'due_today', 'overdue', 'followup', 'paid'];
 const ALLOWED_CHANNELS = ['whatsapp', 'sms', 'email', 'both'];
-const ALLOWED_STATUSES = ['sent', 'failed', 'pending', 'skipped', 'promise'];
+const ALLOWED_STATUSES = ['sent', 'failed', 'pending'];
 
 try {
     $db = getDB();
@@ -38,25 +38,6 @@ try {
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $db->exec("INSERT IGNORE INTO `reminder_settings` (id,before_days,on_due,overdue_freq,max_overdue,channel) VALUES (1,3,1,7,3,'whatsapp')");
-
-    // ── Promise to Pay table ──────────────────────────────────────
-    $db->exec("CREATE TABLE IF NOT EXISTS `promise_to_pay` (
-        `id`           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-        `invoice_id`   INT UNSIGNED  NOT NULL,
-        `invoice_num`  VARCHAR(40)   NOT NULL DEFAULT '',
-        `client_name`  VARCHAR(200)  NOT NULL DEFAULT '',
-        `promise_date` DATE          NOT NULL,
-        `amount`       DECIMAL(12,2) NOT NULL DEFAULT 0,
-        `note`         TEXT          NULL,
-        `channel`      VARCHAR(20)   NOT NULL DEFAULT 'whatsapp',
-        `status`       VARCHAR(20)   NOT NULL DEFAULT 'pending',
-        `reminded_at`  DATETIME      NULL,
-        `created_at`   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (`id`),
-        INDEX `idx_ptp_inv`  (`invoice_id`),
-        INDEX `idx_ptp_date` (`promise_date`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
     $db->exec("CREATE TABLE IF NOT EXISTS `reminder_log` (
         `id`          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
         `invoice_id`  INT UNSIGNED  NULL,
@@ -73,16 +54,6 @@ try {
 
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
-        // ── GET promises ─────────────────────────────────────────
-        if ($action === 'promises') {
-            $stmt = $db->query(
-                "SELECT * FROM promise_to_pay
-                 WHERE status IN ('pending','reminded')
-                 ORDER BY promise_date ASC"
-            );
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-            exit;
-        }
         if ($isLog) {
             // Return reminder log (newest first, max 200)
             $stmt = $db->query(
@@ -108,14 +79,7 @@ try {
             );
             $log = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt3 = $db->query(
-                "SELECT * FROM promise_to_pay
-                 WHERE status IN ('pending','reminded')
-                 ORDER BY promise_date ASC"
-            );
-            $promises = $stmt3->fetchAll(PDO::FETCH_ASSOC);
-
-            echo json_encode(['success' => true, 'settings' => $settings, 'log' => $log, 'promises' => $promises]);
+            echo json_encode(['success' => true, 'settings' => $settings, 'log' => $log]);
         }
         exit;
     }
@@ -170,82 +134,6 @@ try {
         ]);
 
         echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
-        exit;
-    }
-
-    // ── POST: save a promise-to-pay entry ───────────────────────
-    if ($method === 'POST' && $action === 'promise') {
-        $invoiceId   = (int)($body['invoice_id']  ?? 0);
-        $promiseDate = $body['promise_date'] ?? '';
-        $amount      = (float)($body['amount']    ?? 0);
-        $note        = substr($body['note']       ?? '', 0, 500);
-        $channel     = in_array($body['channel']  ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
-        $invNum      = substr($body['invoice_num']  ?? '', 0, 40);
-        $clientName  = substr($body['client_name']  ?? '', 0, 200);
-
-        if (!$invoiceId || !$promiseDate) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'invoice_id and promise_date are required']);
-            exit;
-        }
-        // Validate date format
-        $d = DateTime::createFromFormat('Y-m-d', $promiseDate);
-        if (!$d || $d->format('Y-m-d') !== $promiseDate) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Invalid date format. Use YYYY-MM-DD']);
-            exit;
-        }
-
-        $stmt = $db->prepare(
-            'INSERT INTO promise_to_pay
-               (invoice_id, invoice_num, client_name, promise_date, amount, note, channel, status)
-             VALUES (:inv_id, :inv_num, :client, :pdate, :amt, :note, :ch, "pending")'
-        );
-        $stmt->execute([
-            ':inv_id'  => $invoiceId,
-            ':inv_num' => $invNum,
-            ':client'  => $clientName,
-            ':pdate'   => $promiseDate,
-            ':amt'     => $amount,
-            ':note'    => $note,
-            ':ch'      => $channel,
-        ]);
-        $newId = (int)$db->lastInsertId();
-
-        // Log to reminder_log as well
-        $db->prepare(
-            'INSERT INTO reminder_log
-               (invoice_id, invoice_num, client_name, type, channel, status, message)
-             VALUES (:inv_id, :inv_num, :client, "promise_reminder", :ch, "promise",
-                     :msg)'
-        )->execute([
-            ':inv_id'  => $invoiceId,
-            ':inv_num' => $invNum,
-            ':client'  => $clientName,
-            ':ch'      => $channel,
-            ':msg'     => 'Promise to pay by ' . $promiseDate . ($note ? ' — ' . $note : ''),
-        ]);
-
-        echo json_encode(['success' => true, 'id' => $newId]);
-        exit;
-    }
-
-    // ── POST: mark promise as fulfilled / cancelled ───────────────
-    if ($method === 'POST' && $action === 'promise_update') {
-        $pid    = (int)($body['id']     ?? 0);
-        $status = $body['status']       ?? 'fulfilled';
-        $allowed = ['fulfilled','cancelled','reminded'];
-        if (!$pid || !in_array($status, $allowed)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Invalid id or status']);
-            exit;
-        }
-        $set = $status === 'reminded'
-            ? 'status=:s, reminded_at=NOW()'
-            : 'status=:s';
-        $db->prepare("UPDATE promise_to_pay SET {$set} WHERE id=:id")
-           ->execute([':s' => $status, ':id' => $pid]);
-        echo json_encode(['success' => true]);
         exit;
     }
 

@@ -3250,7 +3250,9 @@ View Invoice: {{6}}</pre></details>
             <div class="field"><label>Channel</label>
               <select id="rem-channel" style="width:100%">
                 <option value="whatsapp">WhatsApp</option>
+                <option value="email">Email</option>
                 <option value="both">WhatsApp + Email</option>
+                <option value="sms">SMS</option>
               </select>
             </div>
             <button class="btn btn-success" onclick="saveReminderSettings()" style="width:100%"><i class="fas fa-save"></i> Save Rules</button>
@@ -3265,6 +3267,19 @@ View Invoice: {{6}}</pre></details>
           <div id="rem-queue-cards" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
+      <!-- Promise-to-Pay tracker -->
+      <div class="dash-card" id="promise-tracker-card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title"><i class="fas fa-handshake" style="color:#6D28D9"></i> Promise to Pay Tracker</span>
+          <span id="promise-count-badge" style="background:#EDE9FE;color:#6D28D9;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;display:none">0</span>
+        </div>
+        <div id="promise-list" style="padding:8px 0">
+          <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
+            <i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises
+          </div>
+        </div>
+      </div>
+
       <!-- Reminder history -->
       <div class="table-card">
         <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
@@ -12341,6 +12356,7 @@ function getSplitMethodLabel() {
 // ══════════════════════════════════════════════════════════════
 STATE.expenses  = [];
 STATE.reminders = [];
+STATE.promises  = [];   // promise-to-pay entries
 STATE.activity  = [];
 
 // ── DB-backed save functions ───────────────────────────────────
@@ -12363,16 +12379,28 @@ async function loadFeatureData() {
     console.warn('expenses API unavailable (run migration?):', expR.reason?.message);
 
   if (remR.status === 'fulfilled') {
-  //──  if (remR.value?.log)      STATE.reminders    = remR.value.log; (it has been replaced) ──────────────
   if (remR.value?.log) STATE.reminders = remR.value.log.map(r => ({
-  id:         r.id,
-  ts:         r.sent_at,          // DB: sent_at  → JS: ts
-  invNum:     r.invoice_num,      // DB: invoice_num → JS: invNum
-  clientName: r.client_name,      // DB: client_name → JS: clientName
-  type:       r.type,
-  channel:    r.channel,
-  status:     r.status
-}));
+    id:         r.id,
+    ts:         r.sent_at,
+    invNum:     r.invoice_num,
+    clientName: r.client_name,
+    type:       r.type,
+    channel:    r.channel,
+    status:     r.status
+  }));
+  // Load promise-to-pay entries
+  if (remR.value?.promises) STATE.promises = remR.value.promises.map(p => ({
+    id:          p.id,
+    invoiceId:   p.invoice_id,
+    invNum:      p.invoice_num,
+    clientName:  p.client_name,
+    promiseDate: p.promise_date,
+    amount:      parseFloat(p.amount||0),
+    note:        p.note||'',
+    channel:     p.channel,
+    status:      p.status,
+    remindedAt:  p.reminded_at
+  }));
     if (remR.value?.settings) STATE._remSettings = remR.value.settings;
     // Also seed from settings table (before_days etc saved there by saveReminderSettings)
     if (!STATE._remSettings || !STATE._remSettings.before_days) {
@@ -12390,6 +12418,8 @@ async function loadFeatureData() {
   } else {
     console.warn('reminders API unavailable (run migration?):', remR.reason?.message);
   }
+  // Auto-send any promises that are due today or overdue
+  if (typeof checkDuePromises === 'function') checkDuePromises();
 
   if (actR.status === 'fulfilled' && actR.value?.data) {
     STATE.activity = actR.value.data.map(r => ({
@@ -13387,6 +13417,7 @@ function renderReminders() {
   const _wfl = document.getElementById('wa-followup-days-label');
   if (_wfl) _wfl.textContent = cfg.overdueFreq || 7;
   _buildReminderQueue();
+  _renderPromiseTracker();
   _renderReminderHistory();
 }
 
@@ -13400,7 +13431,8 @@ function _buildReminderQueue() {
   // Build overdue count per invoice to respect maxOverdue limit in queue
   const _queueOverdueCount = {};
   (STATE.reminders || []).forEach(entry => {
-    if (entry.type === 'Overdue Alert' && entry.invNum && entry.status === 'sent') {
+    // FIX: match DB key 'overdue', not old human label 'Overdue Alert'
+    if ((entry.type === 'overdue' || entry.type === 'Overdue Alert') && entry.invNum && entry.status === 'sent') {
       _queueOverdueCount[entry.invNum] = (_queueOverdueCount[entry.invNum] || 0) + 1;
     }
   });
@@ -13418,6 +13450,23 @@ function _buildReminderQueue() {
     if (inv.status === 'Overdue' || daysOverdue > 0) {
       // Skip if already hit maxOverdue limit
       if ((_queueOverdueCount[invNum] || 0) >= (cfg.maxOverdue || 3)) return;
+      // FIX Bug#5: throttle by overdue_freq — don't show if reminded too recently
+      const _lastOvSent = (STATE.reminders || [])
+        .filter(e => e.invNum === invNum && (e.type==='overdue'||e.type==='Overdue Alert') && e.status==='sent')
+        .map(e => new Date((e.ts||'').replace(' ','T')+'Z'))
+        .filter(d => !isNaN(d))
+        .sort((a,b) => b-a)[0];
+      if (_lastOvSent) {
+        const _daysSince = Math.floor((today - _lastOvSent) / 864e5);
+        if (_daysSince < (cfg.overdueFreq || 7)) return; // too soon
+      }
+      // Skip if client made a promise-to-pay that's still pending and future-dated
+      const _activePtp = (STATE.promises || []).find(p =>
+        String(p.invoiceId) === String(inv.id) &&
+        p.status === 'pending' &&
+        new Date(p.promiseDate+'T00:00:00') >= today
+      );
+      if (_activePtp) return; // silently suppress — promise modal handles it
       queue.push({ inv, client:c, type:'overdue', urgency:'high',
         label:`${daysOverdue}d overdue`, msg:`Overdue reminder for ${invNum}` });
     } else if (daysUntilDue === 0) {
@@ -13458,6 +13507,7 @@ function _buildReminderQueue() {
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         ${(phone || email) ? `<button onclick="sendReminderNow('${q.inv.id}', getReminderSettings().channel || 'whatsapp')" style="padding:5px 10px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">${(()=>{const ch=getReminderSettings().channel||'whatsapp';return ch==='email'?'<i class="fas fa-envelope"></i> Send':ch==='both'?'<i class="fas fa-paper-plane"></i> Send Both':'<i class="fab fa-whatsapp"></i> Send';})()}</button>` : ''}
+        <button onclick="openPromiseModal('${q.inv.id}')" style="padding:5px 10px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600" title="Client promised to pay later">🤝 Promise</button>
         <button onclick="sendReminderNow('${q.inv.id}','skip')" style="padding:5px 10px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">Skip</button>
       </div>
     </div>`;
@@ -13519,9 +13569,9 @@ function sendReminderNow(invId, channel) {
     ts: new Date().toISOString(),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
-    type:       isOverdue ? 'Overdue Alert' : 'Due Reminder',
+    type:       isOverdue ? 'overdue' : 'due_reminder',   // FIX: use DB keys not human labels
     channel:    channel === 'skip' ? (getReminderSettings().channel || 'whatsapp') : channel,
-    status:     channel === 'skip' ? 'skipped' : 'sent'
+    status:     channel === 'skip' ? 'skipped' : 'sent'   // FIX: 'skipped' now allowed in backend
   };
   STATE.reminders.unshift(entry);
   if (STATE.reminders.length > 200) STATE.reminders = STATE.reminders.slice(0, 200);
@@ -13550,8 +13600,8 @@ function sendAllReminders() {
   // Build per-invoice overdue send count from reminder history
   const overdueCountByInv = {};
   (STATE.reminders || []).forEach(entry => {
-    if (entry.type === 'Overdue Alert' && entry.invNum) {
-      // match by invoice number since reminderLog uses invNum not invoice_id
+    // FIX: match both old label and new DB key
+    if ((entry.type === 'overdue' || entry.type === 'Overdue Alert') && entry.invNum) {
       overdueCountByInv[entry.invNum] = (overdueCountByInv[entry.invNum] || 0) + 1;
     }
   });
@@ -13585,7 +13635,7 @@ function _renderReminderHistory() {
   tbody.innerHTML = STATE.reminders.slice(0,50).map(r => {
     const statusColor = r.status==='sent'?'#388E3C':r.status==='skipped'?'#888':'#C62828';
     return `<tr>
-      <td style="font-size:11px;color:var(--muted)">${r.ts ? new Date(r.ts).toLocaleString(_moneyLocale()) : '—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.ts ? new Date((r.ts||'').replace(' ','T')+'Z').toLocaleString(_moneyLocale()) : '—'}</td>
       <td style="font-family:var(--mono);font-weight:700">${r.invNum||'—'}</td>
       <td>${r.clientName||'—'}</td>
       <td>${r.type||'—'}</td>
@@ -13601,6 +13651,206 @@ async function clearReminderHistory() {
   api('api/reminders.php?log=1','DELETE').then(()=>{
     STATE.reminders=[]; renderReminders(); toast('🗑️ History cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
+}
+
+// ══════════════════════════════════════════════════════════════
+// PROMISE TO PAY
+// ══════════════════════════════════════════════════════════════
+let _ptpInvId = null;
+
+function openPromiseModal(invId) {
+  _ptpInvId = invId;
+  const inv = STATE.invoices.find(i => String(i.id) === String(invId));
+  if (!inv) return;
+  const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+
+  // Label
+  const label = document.getElementById('ptp-inv-label');
+  if (label) label.textContent = (inv.num||inv.invoice_number||'') + ' · ' + (c.name||inv.clientName||inv.client_name||'Client');
+
+  // Default date = tomorrow
+  const tom = new Date(); tom.setDate(tom.getDate()+1);
+  const dd = document.getElementById('ptp-date');
+  if (dd) dd.value = tom.toISOString().slice(0,10);
+
+  // Default amount = remaining balance
+  const paid = (inv.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const remaining = Math.max(0,(parseFloat(inv.amount)||0) - paid);
+  const da = document.getElementById('ptp-amount');
+  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : '';
+
+  // Default channel from settings
+  const dch = document.getElementById('ptp-channel');
+  if (dch) dch.value = getReminderSettings().channel || 'whatsapp';
+
+  // Clear note
+  const dn = document.getElementById('ptp-note');
+  if (dn) dn.value = '';
+
+  // Show modal
+  const modal = document.getElementById('promise-modal');
+  if (modal) { modal.style.display='flex'; }
+}
+
+function closePromiseModal() {
+  const modal = document.getElementById('promise-modal');
+  if (modal) modal.style.display='none';
+  _ptpInvId = null;
+}
+
+async function savePromise() {
+  const invId       = _ptpInvId;
+  const promiseDate = document.getElementById('ptp-date')?.value;
+  const amount      = parseFloat(document.getElementById('ptp-amount')?.value||0);
+  const channel     = document.getElementById('ptp-channel')?.value || 'whatsapp';
+  const note        = document.getElementById('ptp-note')?.value?.trim() || '';
+
+  if (!invId || !promiseDate) { toast('❌ Please select a promise date','error'); return; }
+  if (new Date(promiseDate) < new Date(new Date().toDateString())) {
+    toast('❌ Promise date must be today or in the future','error'); return;
+  }
+
+  const inv = STATE.invoices.find(i => String(i.id) === String(invId)) || {};
+  const cl  = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+
+  try {
+    const res = await api('api/reminders.php?action=promise', 'POST', {
+      invoice_id:   invId,
+      invoice_num:  inv.num || inv.invoice_number || '',
+      client_name:  cl.name || inv.clientName || inv.client_name || '',
+      promise_date: promiseDate,
+      amount:       amount || 0,
+      channel,
+      note
+    });
+
+    // Add to local STATE
+    STATE.promises = STATE.promises || [];
+    STATE.promises.push({
+      id:          res.id,
+      invoiceId:   invId,
+      invNum:      inv.num || inv.invoice_number || '',
+      clientName:  cl.name || inv.clientName || inv.client_name || '',
+      promiseDate,
+      amount,
+      note,
+      channel,
+      status:      'pending',
+      remindedAt:  null
+    });
+
+    closePromiseModal();
+    toast('✅ Promise saved — reminder will be sent on ' + promiseDate, 'success');
+    renderReminders(); // refresh queue (will now suppress this invoice)
+
+    logActivity('reminder_sent',
+      'Promise to pay recorded: ' + (inv.num||inv.invoice_number||''),
+      cl.name || inv.clientName || '', invId);
+
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function _renderPromiseTracker() {
+  const el = document.getElementById('promise-list');
+  if (!el) return;
+  const badge = document.getElementById('promise-count-badge');
+
+  const active = (STATE.promises || []).filter(p => p.status === 'pending' || p.status === 'reminded');
+  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? '' : 'none'; }
+
+  if (!active.length) {
+    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
+      <i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises</div>`;
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  el.innerHTML = active.map(p => {
+    const due    = new Date(p.promiseDate + 'T00:00:00');
+    const days   = Math.floor((due - today) / 864e5);
+    const isOver = days < 0;
+    const isDue  = days === 0;
+    const col    = isOver ? '#C62828' : isDue ? '#E65100' : '#6D28D9';
+    const bg     = isOver ? '#FFEBEE' : isDue ? '#FFF3E0' : '#F5F3FF';
+    const label  = isOver ? `${Math.abs(days)}d overdue promise` : isDue ? 'Due today!' : `in ${days} day${days!==1?'s':''}`;
+    const chIcon = p.channel==='email'?'📧':p.channel==='both'?'💬📧':'💬';
+
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="width:38px;height:38px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤝</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
+          <strong style="font-family:var(--mono);font-size:13px">${p.invNum||'—'}</strong>
+          <span style="font-size:11px;color:var(--muted)">${p.clientName||'—'}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${col};color:#fff;font-weight:700">${label}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
+          <span>📅 ${p.promiseDate}</span>
+          ${p.amount>0 ? `<span>💰 ₹${Number(p.amount).toLocaleString('en-IN')}</span>` : ''}
+          <span>${chIcon} ${p.channel}</span>
+          ${p.note ? `<span>📝 ${p.note}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button onclick="sendPromiseReminder('${p.id}')" style="padding:5px 10px;background:${bg};color:${col};border:1px solid ${col}40;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">
+          ${chIcon} Send Now
+        </button>
+        <button onclick="markPromiseFulfilled('${p.id}')" style="padding:5px 10px;background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A740;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">
+          ✅ Fulfilled
+        </button>
+        <button onclick="markPromiseCancelled('${p.id}')" style="padding:5px 10px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">
+          ✕ Cancel
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Send a reminder for a promise-to-pay entry
+function sendPromiseReminder(ptpId) {
+  const p = (STATE.promises||[]).find(x => String(x.id) === String(ptpId));
+  if (!p) return;
+  const inv = STATE.invoices.find(i => String(i.id) === String(p.invoiceId));
+  if (!inv) { toast('⚠️ Invoice not found','warning'); return; }
+
+  sendReminderNow(inv.id, p.channel);
+
+  // Mark as reminded in DB
+  api('api/reminders.php?action=promise_update', 'POST', { id: ptpId, status: 'reminded' })
+    .catch(e => console.warn('promise_update failed:', e.message));
+
+  // Update local state
+  const idx = (STATE.promises||[]).findIndex(x => String(x.id) === String(ptpId));
+  if (idx >= 0) STATE.promises[idx].status = 'reminded';
+  _renderPromiseTracker();
+}
+
+async function markPromiseFulfilled(ptpId) {
+  await api('api/reminders.php?action=promise_update', 'POST', { id: ptpId, status: 'fulfilled' })
+    .catch(e => console.warn('promise_update failed:', e.message));
+  STATE.promises = (STATE.promises||[]).filter(x => String(x.id) !== String(ptpId));
+  toast('✅ Marked as fulfilled', 'success');
+  _renderPromiseTracker();
+}
+
+async function markPromiseCancelled(ptpId) {
+  await api('api/reminders.php?action=promise_update', 'POST', { id: ptpId, status: 'cancelled' })
+    .catch(e => console.warn('promise_update failed:', e.message));
+  STATE.promises = (STATE.promises||[]).filter(x => String(x.id) !== String(ptpId));
+  toast('🗑️ Promise cancelled', 'info');
+  renderReminders();
+}
+
+// Auto-send due promises on page load / data refresh
+function checkDuePromises() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  (STATE.promises||[]).forEach(p => {
+    if (p.status !== 'pending') return;
+    const due = new Date(p.promiseDate + 'T00:00:00');
+    if (due > today) return; // not yet due
+    // Auto-send the reminder
+    sendPromiseReminder(p.id);
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
