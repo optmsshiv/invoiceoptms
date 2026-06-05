@@ -22,6 +22,7 @@ if ($method === 'GET' && !empty($_GET['token'])) {
     $token = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['token']);
     try {
         $db   = getDB();
+        $db->exec("SET time_zone = '+05:30'");
         $stmt = $db->prepare(
             'SELECT pt.invoice_id, pt.views, pt.expires_at, pt.created_at,
                     i.invoice_number, i.issued_date AS issue_date, i.due_date,
@@ -102,6 +103,7 @@ requireLogin();
 
 try {
     $db = getDB();
+    $db->exec("SET time_zone = '+05:30'");
 
     // ── GET: list all tokens ──────────────────────────────────────
     if ($method === 'GET' && empty($_GET['invoice_id'])) {

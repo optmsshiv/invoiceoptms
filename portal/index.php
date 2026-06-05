@@ -39,6 +39,8 @@ if (!$rawToken) {
         // ── Format A: hex token — look up in portal_tokens DB ────
         try {
             $db = getDB();
+            // Force IST so NOW(), first_viewed, last_viewed are all stored/read in India time
+            $db->exec("SET time_zone = '+05:30'");
 
             // Auto-create table if needed
             $db->exec("CREATE TABLE IF NOT EXISTS `portal_tokens` (
@@ -128,6 +130,7 @@ if (!$rawToken) {
 if (!$error && $invoiceId > 0) {
     try {
         $db = getDB();
+        $db->exec("SET time_zone = '+05:30'");
 
         // Fetch invoice — look up by id only (the number in the token is just for display)
         $stmt = $db->prepare("
