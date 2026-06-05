@@ -1011,7 +1011,7 @@ $tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['
         <div class="tl-label" data-t="Viewed">Viewed</div>
         <div class="tl-date"><?= $tlViewedDate ?></div>
         <?php if ($tlLastDiff): ?>
-        <div class="tl-date" style="color:var(--teal);margin-top:1px">↻ <?= fmt_date($lastViewed) ?></div>
+        <div class="tl-date" style="color:var(--teal);margin-top:1px">↻ <?= fmt_date(date('Y-m-d')) ?></div>
         <?php endif; ?>
       </div>
 
