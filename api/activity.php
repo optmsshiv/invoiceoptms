@@ -122,7 +122,7 @@ try {
             ':inv'    => !empty($body['invoice_id']) ? (int)$body['invoice_id'] : null,
             ':uid'    => $uid,
             ':ip'     => $ip,
-            ':ts'     => date('Y-m-d H:i:s'),  // PHP is set to Asia/Kolkata — stores correct IST
+            ':ts'     => date('Y-m-d H:i:s'),
         ]);
         echo json_encode(['success'=>true,'id'=>(int)$db->lastInsertId()]);
         exit;
