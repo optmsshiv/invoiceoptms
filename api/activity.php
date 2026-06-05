@@ -112,8 +112,8 @@ try {
         $uid   = $user['id'] ?? null;
         $ip    = $_SERVER['REMOTE_ADDR'] ?? null;
         $stmt  = $db->prepare(
-            'INSERT INTO activitys_log (type, label, detail, invoice_id, user_id, ip)
-             VALUES (:type, :label, :detail, :inv, :uid, :ip)'
+            'INSERT INTO activitys_log (type, label, detail, invoice_id, user_id, ip, created_at)
+             VALUES (:type, :label, :detail, :inv, :uid, :ip, :ts)'
         );
         $stmt->execute([
             ':type'   => $type,
@@ -122,6 +122,7 @@ try {
             ':inv'    => !empty($body['invoice_id']) ? (int)$body['invoice_id'] : null,
             ':uid'    => $uid,
             ':ip'     => $ip,
+            ':ts'     => date('Y-m-d H:i:s'),  // PHP is set to Asia/Kolkata — stores correct IST
         ]);
         echo json_encode(['success'=>true,'id'=>(int)$db->lastInsertId()]);
         exit;
