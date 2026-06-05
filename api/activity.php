@@ -74,7 +74,8 @@ try {
         $limit  = min((int)($_GET['limit']  ?? 200), 500);
         $offset = max((int)($_GET['offset'] ?? 0), 0);
 
-        $sql  = 'SELECT * FROM activitys_log WHERE ' . implode(' AND ', $where)
+        $sql  = "SELECT *, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s+05:30') AS created_at
+                 FROM activitys_log WHERE " . implode(' AND ', $where)
               . ' ORDER BY created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
