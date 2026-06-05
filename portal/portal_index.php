@@ -914,12 +914,6 @@ $dueCount       = count($otherDues ?? []);
 $dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
 $overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
 $today_ts       = strtotime('today');
-
-// Total count including current invoice
-$totalDueCount  = $dueCount + 1;
-// Overdue count including current invoice if it's overdue
-$totalOverdueCount = $overdueCount + (($inv['status'] ?? '') === 'Overdue' ? 1 : 0);
-$totalPendingCount = ($totalDueCount - $totalOverdueCount);
 ?>
 <?php if ($hasDues): ?>
 <div class="dues-banner" id="duesBanner">
@@ -928,19 +922,19 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
   </div>
   <div class="dues-banner-body">
     <div class="dues-banner-title">
-      <?= $totalOverdueCount > 0
-          ? '⚠️ You have ' . $totalOverdueCount . ' overdue invoice' . ($totalOverdueCount > 1 ? 's' : '') . ' + ' . $totalPendingCount . ' pending'
-          : '📋 You have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount > 1 ? 's' : '') ?>
+      <?= $overdueCount > 0
+          ? '⚠️ You have ' . $overdueCount . ' overdue invoice' . ($overdueCount > 1 ? 's' : '') . ' + ' . ($dueCount - $overdueCount) . ' pending'
+          : '📋 You have ' . $dueCount . ' other pending invoice' . ($dueCount > 1 ? 's' : '') ?>
     </div>
     <div class="dues-banner-sub">
       Total outstanding across all invoices:
       <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
-      <?php if ($totalOverdueCount > 0): ?>
+      <?php if ($overdueCount > 0): ?>
       — please clear overdue amounts at the earliest.
       <?php endif; ?>
     </div>
     <button class="dues-banner-total" onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})">
-      <i class="fas fa-arrow-down"></i> View all <?= $totalDueCount ?> outstanding invoice<?= $totalDueCount > 1 ? 's' : '' ?>
+      <i class="fas fa-arrow-down"></i> View all <?= $dueCount ?> outstanding invoice<?= $dueCount > 1 ? 's' : '' ?>
     </button>
   </div>
 </div>
@@ -1442,6 +1436,15 @@ if ($items):
     </div>
     <?php endif; ?>
 
+    <!-- Feature 3: I've Paid button -->
+    <?php
+      $waNum = preg_replace('/\D/', '', $companyPhone);
+      if (strlen($waNum) === 10) $waNum = '91' . $waNum;
+      $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining > 0 ? $remaining : $totalAmt, $sym) . '*. Please confirm receipt. Thank you!');
+    ?>
+    <a href="https://wa.me/<?= $waNum ?>?text=<?= $ivePaidMsg ?>" class="ive-paid-btn" target="_blank">
+      <i class="fab fa-whatsapp" style="font-size:16px"></i> I've Paid — Notify <?= htmlspecialchars($companyName) ?>
+    </a>
   </div>
 </div>
 <?php endif; ?>
@@ -1550,7 +1553,7 @@ if (document.readyState === 'loading') {
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
     <i class="fas fa-file-invoice" style="color:#E65100"></i>
     <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
-    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $totalDueCount ?> invoice<?= $totalDueCount > 1 ? 's' : '' ?></span>
+    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?></span>
   </div>
   <div class="card-body" style="padding:0 18px">
 
@@ -1588,40 +1591,16 @@ if (document.readyState === 'loading') {
     </div>
     <?php endforeach; ?>
 
-    <!-- Previous outstanding subtotal -->
     <?php if ($dueTotal > 0): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--card-alt,#FAFAFA);border-top:1px dashed var(--border);margin:0 -18px;padding:8px 18px">
-      <span style="font-size:11px;color:var(--muted)">Previous outstanding (<?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?>)</span>
-      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><?= fmt_inr($dueTotal, $sym) ?></span>
-    </div>
-    <?php endif; ?>
-
-    <!-- Current invoice row -->
-    <?php if ($remaining > 0.01): ?>
-    <div class="dues-row" style="background:#FFFDE7;margin:0 -18px;padding:12px 18px">
-      <div class="dues-status-dot" style="background:<?= status_col($inv['status'] ?? '') ?>"></div>
-      <div style="flex:1;min-width:0">
-        <div class="dues-inv-num"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></div>
-        <div class="dues-service"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></div>
-        <div style="font-size:10px;color:#F9A825;font-weight:700;margin-top:2px">This invoice (remaining)</div>
-      </div>
-      <div class="dues-due-date">
-        <div style="font-size:11px;color:var(--muted)">Due</div>
-        <div style="font-size:12px;font-weight:600"><?= fmt_date($inv['due_date'] ?? '') ?></div>
-      </div>
-      <div class="dues-amount"><?= fmt_inr($remaining, $sym) ?></div>
-    </div>
-    <?php endif; ?>
-
-    <!-- Grand total -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
       <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
       <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
     </div>
+    <?php endif; ?>
 
     <?php if ($companyPhone): ?>
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
-      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal + $remaining, $sym) . '. Can you help me clear these?'); ?>
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $dueCount . ' other outstanding invoice' . ($dueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
        style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
@@ -1650,26 +1629,12 @@ if (document.readyState === 'loading') {
       <?php if (($inv['status'] ?? '') === 'Overdue'): ?><span class="wa-dot"></span><?php endif; ?>
     </a>
     <?php endif; ?>
-
-    <?php if ($remaining > 0.01 && $companyPhone): ?>
-    <?php
-      $waNum2     = preg_replace('/\D/', '', $companyPhone);
-      if (strlen($waNum2) === 10) $waNum2 = '91' . $waNum2;
-      $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining, $sym) . '*. Please confirm receipt. Thank you!');
-    ?>
-    <a href="https://wa.me/<?= $waNum2 ?>?text=<?= $ivePaidMsg ?>" class="ive-paid-btn" target="_blank">
-      <i class="fab fa-whatsapp" style="font-size:16px"></i> I've Paid — Notify <?= htmlspecialchars($companyName) ?>
-    </a>
-    <?php endif; ?>
-
-    <div style="display:flex;gap:10px;margin-top:10px">
-      <button class="pdf-btn" onclick="window.print()" style="flex:1">
-        <i class="fas fa-print"></i> Print <?= $isEstimate ? 'Estimate' : 'Invoice' ?>
-      </button>
-      <button class="pdf-dl-btn" onclick="downloadPDF()" style="flex:1">
-        <i class="fas fa-file-pdf"></i> Download PDF
-      </button>
-    </div>
+    <button class="pdf-btn" onclick="window.print()">
+      <i class="fas fa-print"></i> Print <?= $isEstimate ? 'Estimate' : 'Invoice' ?>
+    </button>
+    <button class="pdf-dl-btn" onclick="downloadPDF()">
+      <i class="fas fa-file-pdf"></i> Download as PDF
+    </button>
   </div>
 </div>
 
