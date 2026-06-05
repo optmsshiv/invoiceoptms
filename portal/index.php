@@ -1002,10 +1002,17 @@ $tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['
       </div>
 
       <!-- Step 2: Viewed — always done (they're here) -->
+      <?php
+        $tlLastDiff = $lastViewed && $firstViewed &&
+                      date('Y-m-d', strtotime($lastViewed)) !== date('Y-m-d', strtotime($firstViewed));
+      ?>
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Viewed">Viewed</div>
         <div class="tl-date"><?= $tlViewedDate ?></div>
+        <?php if ($tlLastDiff): ?>
+        <div class="tl-date" style="color:var(--teal);margin-top:1px">↻ <?= fmt_date($lastViewed) ?></div>
+        <?php endif; ?>
       </div>
 
       <?php if ($tlIsPartial): ?>
