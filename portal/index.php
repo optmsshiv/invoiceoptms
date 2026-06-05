@@ -965,65 +965,90 @@ if (($inv['status'] ?? '') === 'Overdue' && !empty($inv['due_date'])) {
 
 <?php
 // ── #4 Invoice timeline ────────────────────────────────────
-// Steps: Issued → Viewed → Partial → Paid/Overdue
-$tlStatus  = $inv['status'] ?? '';
-$tlIssued  = !empty($inv['issue_date']);
-$tlViewed  = true; // they're viewing it right now
-$tlPartial = in_array($tlStatus, ['Partial','Paid']);
-$tlPaid    = ($tlStatus === 'Paid');
-$tlOverdue = ($tlStatus === 'Overdue');
+// Steps: Issued → Viewed → [Partial?] → Paid / Overdue / Pending
+$tlStatus    = $inv['status'] ?? '';
+$tlIsPartial = ($tlStatus === 'Partial');
+$tlIsPaid    = ($tlStatus === 'Paid');
+$tlIsOverdue = ($tlStatus === 'Overdue');
+
+// Bug 2 fix: for base64 tokens $firstViewed is null — use today's date
+$tlViewedDate = $firstViewed ? fmt_date($firstViewed) : fmt_date(date('Y-m-d'));
+
+// Bug 3 fix: use paid_date from invoice first, then last payment row, never issue_date
+$tlPaidDate = '—';
+if ($tlIsPaid || $tlIsPartial) {
+    if (!empty($inv['paid_date'])) {
+        $tlPaidDate = fmt_date($inv['paid_date']);
+    } elseif (!empty($payments)) {
+        $lastPmt = end($payments);
+        $tlPaidDate = !empty($lastPmt['payment_date']) ? fmt_date($lastPmt['payment_date']) : '—';
+    }
+}
+
+// Bug 4 fix: partial invoice past due_date = partial+overdue
+$tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['due_date']) < strtotime('today');
 ?>
 <?php if (!$isEstimate): ?>
 <div class="card timeline-card">
   <div class="card-head"><i class="fas fa-stream"></i> <span data-t="Invoice Timeline">Invoice Timeline</span></div>
   <div class="card-body" style="padding:14px 18px 18px">
     <div class="timeline">
+
+      <!-- Step 1: Issued — always done -->
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Issued">Issued</div>
         <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
       </div>
+
+      <!-- Step 2: Viewed — always done (they're here) -->
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Viewed">Viewed</div>
-        <div class="tl-date"><?= $firstViewed ? fmt_date($firstViewed) : 'Now' ?></div>
+        <div class="tl-date"><?= $tlViewedDate ?></div>
       </div>
-      <?php if ($tlStatus === 'Paid'): ?>
-      <?php
-        // FIX: if paid directly (no payment rows), fall back to issue_date
-        $paidDateStr = !empty($payments)
-            ? fmt_date(end($payments)['payment_date'])
-            : (!empty($inv['issue_date']) ? fmt_date($inv['issue_date']) : '—');
-      ?>
-      <div class="tl-step">
-        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Paid">Paid</div>
-        <div class="tl-date"><?= $paidDateStr ?></div>
-      </div>
-      <?php elseif ($tlStatus === 'Partial'): ?>
+
+      <?php if ($tlIsPartial): ?>
+      <!-- Step 3: Partial payment received -->
       <div class="tl-step">
         <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Partial">Partial</div>
-        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+        <div class="tl-date"><?= $tlPaidDate ?></div>
       </div>
+      <!-- Step 4: Balance — overdue if past due_date -->
       <div class="tl-step">
-        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+        <div class="tl-dot <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">
+          <i class="fas fa-<?= $tlPartialOverdue ? 'exclamation' : 'clock' ?>" style="font-size:8px"></i>
+        </div>
         <div class="tl-label" data-t="Balance">Balance</div>
-        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+        <div class="tl-date"><?= $tlPartialOverdue ? 'Overdue' : 'Due ' . fmt_date($inv['due_date'] ?? '') ?></div>
       </div>
-      <?php elseif ($tlOverdue): ?>
+
+      <?php elseif ($tlIsPaid): ?>
+      <!-- Step 3: Fully paid -->
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Paid">Paid</div>
+        <div class="tl-date"><?= $tlPaidDate ?></div>
+      </div>
+
+      <?php elseif ($tlIsOverdue): ?>
+      <!-- Step 3: Overdue -->
       <div class="tl-step">
         <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Overdue">Overdue</div>
         <div class="tl-date">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
       </div>
+
       <?php else: ?>
+      <!-- Step 3: Pending -->
       <div class="tl-step">
         <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Pending">Pending</div>
         <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
       </div>
       <?php endif; ?>
+
     </div>
   </div>
 </div>
