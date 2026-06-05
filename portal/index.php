@@ -500,15 +500,20 @@ tr:last-child td{border:none}
 /* ── #4 Invoice timeline ── */
 .timeline-card{margin-bottom:16px}
 .timeline{display:flex;align-items:flex-start;justify-content:space-between;position:relative;padding:8px 0 4px}
-.timeline::before{content:'';position:absolute;top:22px;left:20px;right:20px;height:2px;background:var(--border);z-index:0}
-.tl-step{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;position:relative;z-index:1}
-.tl-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px}
+.tl-track{position:absolute;top:21px;left:0;right:0;height:2px;background:var(--border);z-index:0;border-radius:2px}
+.tl-progress{position:absolute;top:0;left:0;height:100%;border-radius:2px}
+.tl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1}
+.tl-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);transition:.2s}
 .tl-dot.done{background:var(--green);border-color:var(--green);color:#fff}
-.tl-dot.active{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 0 0 3px var(--teal-bg)}
+.tl-dot.active{background:var(--bg);border-color:var(--teal);color:var(--teal);box-shadow:0 0 0 4px var(--teal-bg);width:24px;height:24px}
 .tl-dot.warn{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 0 0 3px #FFF3E0}
 .tl-dot.overdue{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 0 0 3px var(--red-bg)}
-.tl-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:center;line-height:1.3}
-.tl-date{font-size:9px;color:var(--muted);text-align:center;font-family:var(--mono)}
+.tl-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3}
+.tl-label.active{color:var(--teal)}
+.tl-label.overdue{color:var(--red)}
+.tl-label.warn{color:var(--orange)}
+.tl-date{font-size:10px;color:var(--muted);text-align:center;font-family:var(--mono)}
+.tl-last{font-size:10px;color:var(--teal);text-align:center;font-family:var(--mono);display:flex;align-items:center;justify-content:center;gap:3px;margin-top:1px}
 
 /* ── #2 Payment Receipt ── */
 .receipt-card{border:2px dashed #A5D6A7!important;background:linear-gradient(135deg,#F9FFF9,#F1FFF3)!important}
@@ -661,6 +666,8 @@ tr:last-child td{border:none}
   .timeline-card{break-inside:avoid}
   .tl-label{font-size:8px!important}
   .tl-date{font-size:8px!important}
+  .tl-last{font-size:8px!important}
+  .tl-dot.active{box-shadow:none!important}
 
   /* ── Tables ── */
   table{font-size:12px!important;min-width:unset!important}
@@ -995,72 +1002,87 @@ $tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['
 <div class="card timeline-card">
   <div class="card-head"><i class="fas fa-stream"></i> <span data-t="Invoice Timeline">Invoice Timeline</span></div>
   <div class="card-body" style="padding:14px 18px 18px">
-    <div class="timeline">
+    <?php
+// Progress line width and color based on status
+$tlProgressColor = match(true) {
+    $tlIsPaid                          => 'var(--green)',
+    $tlIsOverdue                       => 'var(--red)',
+    $tlIsPartial && $tlPartialOverdue  => 'var(--orange)',
+    $tlIsPartial                       => 'var(--orange)',
+    default                            => 'var(--teal)',
+};
+$tlProgressWidth = match(true) {
+    $tlIsPaid    => '100%',
+    $tlIsPartial => '75%',
+    $tlIsOverdue => '100%',
+    default      => '66%',   // Pending: issued+viewed done, last step pending
+};
+?>
+<div class="timeline">
+  <div class="tl-track">
+    <div class="tl-progress" style="width:<?= $tlProgressWidth ?>;background:<?= $tlProgressColor ?>"></div>
+  </div>
 
-      <!-- Step 1: Issued — always done -->
-      <div class="tl-step">
-        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Issued">Issued</div>
-        <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
-      </div>
+  <!-- Step 1: Issued — always done -->
+  <div class="tl-step">
+    <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+    <div class="tl-label">Issued</div>
+    <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
+  </div>
 
-      <!-- Step 2: Viewed — always done (they're here) -->
-      <?php
-        // Show ↻ today only when first_viewed was on a previous day
-        $tlReviewing = $firstViewed &&
-                       date('Y-m-d', strtotime($firstViewed)) !== date('Y-m-d');
-      ?>
-      <div class="tl-step">
-        <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Viewed">Viewed</div>
-        <div class="tl-date"><?= $tlViewedDate ?></div>
-        <?php if ($tlReviewing): ?>
-        <div class="tl-date" style="color:var(--teal);margin-top:1px">↻ <?= fmt_date(date('Y-m-d')) ?></div>
-        <?php endif; ?>
-      </div>
+  <!-- Step 2: Viewed — always done (they're here) -->
+  <?php $tlReviewing = $firstViewed && date('Y-m-d', strtotime($firstViewed)) !== date('Y-m-d'); ?>
+  <div class="tl-step">
+    <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
+    <div class="tl-label">Viewed</div>
+    <div class="tl-date"><?= $tlViewedDate ?></div>
+    <?php if ($tlReviewing): ?>
+    <div class="tl-last"><i class="fas fa-sync-alt" style="font-size:8px"></i> <?= fmt_date(date('Y-m-d')) ?></div>
+    <?php endif; ?>
+  </div>
 
-      <?php if ($tlIsPartial): ?>
-      <!-- Step 3: Partial payment received -->
-      <div class="tl-step">
-        <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Partial">Partial</div>
-        <div class="tl-date"><?= $tlPaidDate ?></div>
-      </div>
-      <!-- Step 4: Balance — overdue if past due_date -->
-      <div class="tl-step">
-        <div class="tl-dot <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">
-          <i class="fas fa-<?= $tlPartialOverdue ? 'exclamation' : 'clock' ?>" style="font-size:8px"></i>
-        </div>
-        <div class="tl-label" data-t="Balance">Balance</div>
-        <div class="tl-date"><?= $tlPartialOverdue ? 'Overdue' : 'Due ' . fmt_date($inv['due_date'] ?? '') ?></div>
-      </div>
-
-      <?php elseif ($tlIsPaid): ?>
-      <!-- Step 3: Fully paid -->
-      <div class="tl-step">
-        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Paid">Paid</div>
-        <div class="tl-date"><?= $tlPaidDate ?></div>
-      </div>
-
-      <?php elseif ($tlIsOverdue): ?>
-      <!-- Step 3: Overdue -->
-      <div class="tl-step">
-        <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Overdue">Overdue</div>
-        <div class="tl-date">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
-      </div>
-
-      <?php else: ?>
-      <!-- Step 3: Pending -->
-      <div class="tl-step">
-        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
-        <div class="tl-label" data-t="Pending">Pending</div>
-        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
-      </div>
-      <?php endif; ?>
-
+  <?php if ($tlIsPartial): ?>
+  <!-- Step 3: Partial -->
+  <div class="tl-step">
+    <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
+    <div class="tl-label warn">Partial</div>
+    <div class="tl-date"><?= $tlPaidDate ?></div>
+  </div>
+  <!-- Step 4: Balance -->
+  <div class="tl-step">
+    <div class="tl-dot <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">
+      <i class="fas fa-<?= $tlPartialOverdue ? 'exclamation' : 'clock' ?>" style="font-size:8px"></i>
     </div>
+    <div class="tl-label <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">Balance</div>
+    <div class="tl-date"><?= $tlPartialOverdue ? 'Overdue' : 'Due ' . fmt_date($inv['due_date'] ?? '') ?></div>
+  </div>
+
+  <?php elseif ($tlIsPaid): ?>
+  <!-- Step 3: Paid -->
+  <div class="tl-step">
+    <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+    <div class="tl-label">Paid</div>
+    <div class="tl-date"><?= $tlPaidDate ?></div>
+  </div>
+
+  <?php elseif ($tlIsOverdue): ?>
+  <!-- Step 3: Overdue -->
+  <div class="tl-step">
+    <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
+    <div class="tl-label overdue">Overdue</div>
+    <div class="tl-date" style="color:var(--red)">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
+  </div>
+
+  <?php else: ?>
+  <!-- Step 3: Pending -->
+  <div class="tl-step">
+    <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+    <div class="tl-label active">Pending</div>
+    <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+  </div>
+  <?php endif; ?>
+
+</div>
   </div>
 </div>
 <?php endif; ?>
