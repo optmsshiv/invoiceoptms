@@ -5064,6 +5064,7 @@ function openRowMenu(e, id) {
       <i class="fas fa-check-circle"></i> Mark as Paid ${isPaid?'(already paid)':isCancelled?'(cancelled)':isDraft?'(make pending first)':isEstimate?'(convert to invoice first)':''}
     </div>
     ${canCancel ? `<div class="rm-item" onclick="rowMenuAction('cancel')" style="color:#E65100"><i class="fas fa-ban"></i> Cancel Invoice</div>` : ''}
+    ${st === 'Partial' ? `<div class="rm-item" onclick="rowMenuAction('balance-reminder')" style="color:#D97706;font-weight:700"><i class="fas fa-bell"></i> Send Balance Reminder</div>` : ''}
     ${(isPaid || st === 'Partial' || isCancelled) ? `<div class="rm-item" onclick="rowMenuAction('credit-note')" style="color:#6A1B9A;font-weight:600"><i class="fas fa-file-circle-minus"></i> Issue Credit Note</div>` : ''}
     ${!isEstimate ? `<div class="rm-item" onclick="rowMenuAction('make-recurring')" style="color:var(--purple);font-weight:600"><i class="fas fa-sync-alt"></i> Make Recurring</div>` : ''}
     <div class="rm-item rm-danger" onclick="rowMenuAction('delete')"><i class="fas fa-trash"></i> Delete</div>`;
@@ -5098,7 +5099,8 @@ function rowMenuAction(action) {
   if (action === 'convert-estimate') { convertEstimateToInvoice(id); return; }
   if (action === 'credit-note')  { openCreditNoteModal(inv); return; }
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
-  if (action === 'make-recurring') { openRecurringFromInvoice(inv); return; }
+  if (action === 'make-recurring')   { openRecurringFromInvoice(inv); return; }
+  if (action === 'balance-reminder') { openBalanceReminderModal(id); return; }
 }
 
 function closeAllDropdowns(e) {
@@ -13653,6 +13655,133 @@ async function clearReminderHistory() {
   }).catch(e=>toast('❌ '+e.message,'error'));
 }
 
+
+
+// ══════════════════════════════════════════════════════════════
+// BALANCE REMINDER (Partial invoice — no promise date needed)
+// ══════════════════════════════════════════════════════════════
+let _brInvId   = null;
+let _brChannel = 'whatsapp';
+
+function openBalanceReminderModal(invId) {
+  const inv = STATE.invoices.find(i => String(i.id) === String(invId));
+  if (!inv) return;
+  _brInvId = invId;
+
+  const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+  const sym = inv.currency || '₹';
+
+  // Compute paid & remaining
+  const invIdStr = String(inv.id || '');
+  const pmts = invIdStr
+    ? (STATE.payments||[]).filter(p => String(p.invoice_id) === invIdStr)
+    : [];
+  const paid      = pmts.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const remaining = Math.max(0, parseFloat(inv.amount||0) - paid);
+
+  // Fill summary strip
+  document.getElementById('br-total').textContent     = fmt_money(parseFloat(inv.amount||0), sym);
+  document.getElementById('br-paid').textContent      = fmt_money(paid, sym);
+  document.getElementById('br-remaining').textContent = fmt_money(remaining, sym);
+
+  // Label
+  const lbl = (inv.num||inv.invoice_number||'') + ' · ' + (c.name||inv.clientName||inv.client_name||'Client');
+  document.getElementById('br-inv-label').textContent = lbl;
+
+  // Default channel from settings
+  _brChannel = getReminderSettings().channel || 'whatsapp';
+  _highlightBRChannel(_brChannel);
+
+  // Build message with remaining amount injected
+  const wa  = STATE.settings.wa || {};
+  const tpl = wa.tpl_remind || getDefaultWATpl('remind');
+  // Temporarily inject _paidAmt and _remainingAmt so formatWAMsg resolves them
+  const invWithAmts = Object.assign({}, inv, { _paidAmt: paid, _remainingAmt: remaining });
+  // Replace {amount} placeholder in template with remaining for balance reminder
+  const balanceTpl = tpl
+    .replace(/\*?{currency}\*?{amount}\*?/g, '*' + fmt_money(remaining, sym) + '*')
+    .replace(/{amount}/g, fmt_money(remaining, sym));
+  const msg = formatWAMsg(balanceTpl, invWithAmts, c, STATE.settings);
+
+  document.getElementById('br-message').value = msg;
+
+  document.getElementById('balance-reminder-modal').style.display = 'flex';
+}
+
+function closeBalanceReminderModal() {
+  document.getElementById('balance-reminder-modal').style.display = 'none';
+  _brInvId = null;
+}
+
+function setBRChannel(ch) {
+  _brChannel = ch;
+  _highlightBRChannel(ch);
+}
+
+function _highlightBRChannel(ch) {
+  const active  = 'border:2px solid #D97706;background:#FFF8E1;color:#92400E;';
+  const passive = 'border:2px solid var(--border);background:var(--bg);color:var(--muted);';
+  document.getElementById('br-ch-wa').style.cssText    += ch==='whatsapp' ? active : passive;
+  document.getElementById('br-ch-email').style.cssText += ch==='email'    ? active : passive;
+  document.getElementById('br-ch-both').style.cssText  += ch==='both'     ? active : passive;
+}
+
+async function sendBalanceReminder() {
+  const inv = STATE.invoices.find(i => String(i.id) === String(_brInvId));
+  if (!inv) return;
+  const cl  = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+  const msg = document.getElementById('br-message').value.trim();
+  const ch  = _brChannel;
+
+  const phone = (cl.wa||cl.whatsapp||cl.phone||inv.client_wa||inv.client_phone||'').replace(/\D/g,'');
+  const email = cl.email || cl.mail || inv.client_email || '';
+
+  let sent = false;
+
+  // WhatsApp send
+  if ((ch === 'whatsapp' || ch === 'both') && phone) {
+    logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'sending' });
+    sendWA(phone, msg, 'balance_reminder', inv, cl)
+      .then(res => logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status: res ? 'sent_api' : 'sent_web' }))
+      .catch(e  => logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'failed', error:e.message }));
+    sent = true;
+  } else if ((ch === 'whatsapp' || ch === 'both') && !phone) {
+    toast('⚠️ No WhatsApp number for ' + (cl.name||'client'), 'warning');
+  }
+
+  // Email send
+  if ((ch === 'email' || ch === 'both') && email) {
+    sendEmailFromInvoice(inv.id, 'reminder', email, cl.name||inv.clientName||'');
+    sent = true;
+  } else if ((ch === 'email' || ch === 'both') && !email) {
+    toast('⚠️ No email address for ' + (cl.name||'client'), 'warning');
+  }
+
+  if (sent) {
+    // Log to reminders DB
+    const invIdStr = String(inv.id||'');
+    const pmts = (STATE.payments||[]).filter(p => String(p.invoice_id) === invIdStr);
+    const paid  = pmts.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const remaining = Math.max(0, parseFloat(inv.amount||0) - paid);
+
+    api('api/reminders.php?action=log', 'POST', {
+      invoice_id:  inv.id,
+      invoice_num: inv.num || inv.invoice_number || '',
+      client_name: cl.name || inv.clientName || inv.client_name || '',
+      type:        'due_reminder',
+      channel:     ch,
+      status:      'sent',
+      message:     'Balance reminder — remaining: ' + fmt_money(remaining)
+    }).catch(e => console.warn('reminder log failed:', e.message));
+
+    logActivity('reminder_sent',
+      'Balance reminder sent: ' + (inv.num||inv.invoice_number||''),
+      cl.name || inv.clientName || '', inv.id);
+
+    toast('✅ Balance reminder sent via ' + ch, 'success');
+    closeBalanceReminderModal();
+  }
+}
 // ══════════════════════════════════════════════════════════════
 // PROMISE TO PAY
 // ══════════════════════════════════════════════════════════════
@@ -16044,6 +16173,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </script>
 
+
+<!-- ── Balance Reminder Modal ─────────────────────────────────── -->
+<div id="balance-reminder-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden">
+    <div style="background:linear-gradient(135deg,#D97706,#92400E);padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px;color:#fff">
+        <i class="fas fa-bell" style="font-size:18px"></i>
+        <div>
+          <div style="font-weight:800;font-size:15px">Send Balance Reminder</div>
+          <div id="br-inv-label" style="font-size:11px;opacity:.8"></div>
+        </div>
+      </div>
+      <button onclick="closeBalanceReminderModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px">&#x2715;</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+
+      <!-- Summary strip -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:10px;overflow:hidden">
+        <div style="background:#FFF8E1;padding:12px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#92400E;margin-bottom:3px">Total</div>
+          <div id="br-total" style="font-size:15px;font-weight:800;font-family:var(--mono);color:#1A1A2E"></div>
+        </div>
+        <div style="background:#E8F5E9;padding:12px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#2E7D32;margin-bottom:3px">Paid</div>
+          <div id="br-paid" style="font-size:15px;font-weight:800;font-family:var(--mono);color:#2E7D32"></div>
+        </div>
+        <div style="background:#FFEBEE;padding:12px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#C62828;margin-bottom:3px">Balance Due</div>
+          <div id="br-remaining" style="font-size:16px;font-weight:800;font-family:var(--mono);color:#C62828"></div>
+        </div>
+      </div>
+
+      <!-- Channel selector -->
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px">Send via</label>
+        <div style="display:flex;gap:8px">
+          <button id="br-ch-wa"    onclick="setBRChannel('whatsapp')" style="flex:1;padding:9px;border-radius:8px;border:2px solid #25D366;background:#25D36615;color:#1a7a3c;font-size:12px;font-weight:700;cursor:pointer">&#128172; WhatsApp</button>
+          <button id="br-ch-email" onclick="setBRChannel('email')"    style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--border);background:var(--bg);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer">&#128140; Email</button>
+          <button id="br-ch-both"  onclick="setBRChannel('both')"     style="flex:1;padding:9px;border-radius:8px;border:2px solid var(--border);background:var(--bg);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer">&#128172;+&#128140; Both</button>
+        </div>
+      </div>
+
+      <!-- Message preview -->
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px">Message preview <span style="font-weight:400;text-transform:none">(editable)</span></label>
+        <textarea id="br-message" rows="7" style="width:100%;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:12px;line-height:1.6;font-family:var(--mono);resize:vertical"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button onclick="closeBalanceReminderModal()" style="flex:1;padding:11px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)">Cancel</button>
+        <button onclick="sendBalanceReminder()" style="flex:2;padding:11px;background:linear-gradient(135deg,#D97706,#92400E);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)"><i class="fas fa-paper-plane"></i> Send Reminder</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Promise-to-Pay Modal ──────────────────────────────────── -->
 <div id="promise-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:16px">
