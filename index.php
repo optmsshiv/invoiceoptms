@@ -3212,7 +3212,6 @@ View Invoice: {{6}}</pre></details>
             <option value="expired">Expired</option>
           </select>
         </div>
-        <div style="font-size:12px;color:var(--muted)" id="portal-page-info"></div>
       </div>
       <!-- Full width portal table -->
       <div class="settings-block" style="padding:0;overflow:hidden">
@@ -3227,9 +3226,12 @@ View Invoice: {{6}}</pre></details>
           <th>Expiry</th>
           <th>Actions</th>
         </tr></thead><tbody id="portal-tbody"></tbody></table>
+        <!-- Pagination inside table block footer -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="portal-page-info"></div>
+          <div id="portal-pagination" style="display:none;justify-content:center;align-items:center;gap:6px"></div>
+        </div>
       </div>
-      <!-- Pagination -->
-      <div id="portal-pagination" style="display:none;justify-content:center;align-items:center;gap:6px;padding:14px 0 4px"></div>
     </div>
         <!-- ─────────── PAYMENT REMINDERS ─────────── -->
     <div id="page-reminders" class="page">
@@ -14151,8 +14153,8 @@ function _renderActivityTimeline(reset) {
   const html = chunk.map(e => {
     const info    = _actTypeInfo(e.type);
     const d       = e.ts ? new Date(e.ts) : new Date();
-    const dateStr = d.toLocaleDateString(_moneyLocale(),{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    const timeStr = d.toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit'});
+    const dateStr = d.toLocaleDateString(_moneyLocale(),{weekday:'short',day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Kolkata'});
+    const timeStr = d.toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
     let dateHeader = '';
     if (dateStr !== lastDate) {
       lastDate = dateStr;
