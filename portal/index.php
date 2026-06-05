@@ -1003,14 +1003,15 @@ $tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['
 
       <!-- Step 2: Viewed — always done (they're here) -->
       <?php
-        $tlLastDiff = $lastViewed && $firstViewed &&
-                      date('Y-m-d', strtotime($lastViewed)) !== date('Y-m-d', strtotime($firstViewed));
+        // Show ↻ today only when first_viewed was on a previous day
+        $tlReviewing = $firstViewed &&
+                       date('Y-m-d', strtotime($firstViewed)) !== date('Y-m-d');
       ?>
       <div class="tl-step">
         <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
         <div class="tl-label" data-t="Viewed">Viewed</div>
         <div class="tl-date"><?= $tlViewedDate ?></div>
-        <?php if ($tlLastDiff): ?>
+        <?php if ($tlReviewing): ?>
         <div class="tl-date" style="color:var(--teal);margin-top:1px">↻ <?= fmt_date(date('Y-m-d')) ?></div>
         <?php endif; ?>
       </div>
