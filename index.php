@@ -3174,34 +3174,58 @@ View Invoice: {{6}}</pre></details>
 
     <!-- ─────────── CLIENT PORTAL ─────────── -->
     <div id="page-portal" class="page">
-      <div style="max-width:860px">
-        <!-- Info banner -->
-        <div style="display:flex;align-items:flex-start;gap:14px;background:linear-gradient(135deg,#e0f2f1,#e3f2fd);border-radius:12px;padding:16px 20px;margin-bottom:18px;border:1px solid #b2dfdb">
-          <div style="font-size:24px;line-height:1">&#128279;</div>
-          <div>
-            <div style="font-weight:700;font-size:14px;color:#00695C;margin-bottom:4px">Portal links are auto-generated</div>
-            <div style="font-size:12px;color:#555;line-height:1.6">Every new invoice gets a unique secure link automatically when saved. Links for existing invoices are generated on first page load. Clients can view invoice details, status &amp; payment info &#8212; no login needed.</div>
-          </div>
+      <!-- Info banner — keep as is -->
+      <div style="display:flex;align-items:flex-start;gap:14px;background:linear-gradient(135deg,#e0f2f1,#e3f2fd);border-radius:12px;padding:16px 20px;margin-bottom:18px;border:1px solid #b2dfdb">
+        <div style="font-size:24px;line-height:1">&#128279;</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#00695C;margin-bottom:4px">Portal links are auto-generated</div>
+          <div style="font-size:12px;color:#555;line-height:1.6">Every new invoice gets a unique secure link automatically when saved. Links for existing invoices are generated on first page load. Clients can view invoice details, status &amp; payment info &#8212; no login needed.</div>
         </div>
-        <!-- Base URL config -->
-        <div class="settings-block" style="margin-bottom:18px;padding:14px 18px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fas fa-globe" style="color:var(--teal);margin-right:6px"></i>Portal Base URL</div>
-            <input id="portal-base-url" placeholder="https://invcs.optms.co.in/portal/" value="https://invcs.optms.co.in/portal/" style="flex:1;min-width:200px">
-            <button class="btn btn-outline" onclick="_renderPortalTable()" style="white-space:nowrap"><i class="fas fa-sync-alt"></i> Refresh</button>
-            <div id="portal-autogen-status" style="font-size:11px;color:var(--muted)"></div>
-          </div>
+      </div>
+      <!-- Base URL config -->
+      <div class="settings-block" style="margin-bottom:18px;padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap"><i class="fas fa-globe" style="color:var(--teal);margin-right:6px"></i>Portal Base URL</div>
+          <input id="portal-base-url" placeholder="https://invcs.optms.co.in/portal/" value="https://invcs.optms.co.in/portal/" style="flex:1;min-width:200px">
+          <button class="btn btn-outline" onclick="_renderPortalTable()" style="white-space:nowrap"><i class="fas fa-sync-alt"></i> Refresh</button>
+          <div id="portal-autogen-status" style="font-size:11px;color:var(--muted)"></div>
         </div>
-        <!-- All portal links -->
-        <div class="settings-block" style="padding:0;overflow:hidden">
-          <div class="card-header" style="padding:14px 18px">
-            <span class="card-title">All Invoice Portal Links</span>
-            <input type="text" class="table-search" placeholder="Search&#x2026;" oninput="filterPortalTable(this.value)" style="max-width:200px">
-          </div>
-          <table class="data-table"><thead><tr>
-            <th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th><th>Portal Link</th><th>Views</th><th>Actions</th>
-          </tr></thead><tbody id="portal-tbody"></tbody></table>
+      </div>
+      <!-- Stats bar -->
+      <div id="portal-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
+      <!-- Toolbar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="filterPortalTable(this.value)" id="portal-search" style="width:200px">
+          <select class="table-filter" id="portal-status-filter" onchange="_renderPortalTable()">
+            <option value="">All status</option>
+            <option value="Pending">Pending</option>
+            <option value="Overdue">Overdue</option>
+            <option value="Partial">Partial</option>
+            <option value="Paid">Paid</option>
+            <option value="Draft">Draft</option>
+          </select>
+          <select class="table-filter" id="portal-link-filter" onchange="_renderPortalTable()">
+            <option value="">All links</option>
+            <option value="never">Never viewed</option>
+            <option value="viewed">Viewed</option>
+            <option value="expired">Expired</option>
+          </select>
         </div>
+      </div>
+      <!-- Full width portal table -->
+      <div class="settings-block" style="padding:0;overflow:hidden">
+        <table class="data-table"><thead><tr>
+          <th>Invoice #</th>
+          <th>Client</th>
+          <th>Amount</th>
+          <th>Due date</th>
+          <th>Status</th>
+          <th>Portal link</th>
+          <th>Views</th>
+          <th>Expiry</th>
+          <th>Actions</th>
+        </tr></thead><tbody id="portal-tbody"></tbody></table>
       </div>
     </div>
         <!-- ─────────── PAYMENT REMINDERS ─────────── -->
@@ -13135,11 +13159,8 @@ async function _setPortalExpiry(token, invNum) {
 async function _renderPortalTable(search) {
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>`;
 
-  // Show loading
-  tbody.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>`;
-
-  // Fetch all tokens from DB
   try {
     const res = await api('api/portal.php');
     if (res.success && Array.isArray(res.data)) {
@@ -13148,83 +13169,176 @@ async function _renderPortalTable(search) {
     }
   } catch(e) { _portalTokenMap = {}; }
 
-  const s = (search || '').toLowerCase();
-  const rows = STATE.invoices.filter(inv => {
-    if (!s) return true;
-    const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-    const name = c.name || inv.clientName || inv.client_name || '';
-    return (inv.num||'').toLowerCase().includes(s) || name.toLowerCase().includes(s);
+  const s          = (search || document.getElementById('portal-search')?.value || '').toLowerCase();
+  const statusF    = document.getElementById('portal-status-filter')?.value || '';
+  const linkF      = document.getElementById('portal-link-filter')?.value   || '';
+
+  let rows = STATE.invoices.filter(inv => {
+    const cl = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const name = (cl.name || inv.clientName || inv.client_name || '').toLowerCase();
+    const matchS = !s || (inv.num||'').toLowerCase().includes(s) || name.includes(s);
+    const matchSt = !statusF || inv.status === statusF;
+    const t = _portalTokenMap[String(inv.id)];
+    const views = t ? (parseInt(t.views)||0) : null;
+    const expiresAt = t && t.expires_at ? new Date(t.expires_at) : null;
+    const isExpired = expiresAt && expiresAt < new Date();
+    let matchL = true;
+    if (linkF === 'never')   matchL = t && views === 0 && !isExpired;
+    if (linkF === 'viewed')  matchL = t && views > 0;
+    if (linkF === 'expired') matchL = isExpired;
+    return matchS && matchSt && matchL;
   });
 
+  // ── Build stats ───────────────────────────────────────────────
+  const statsEl = document.getElementById('portal-stats');
+  if (statsEl) {
+    const allTokens  = Object.values(_portalTokenMap);
+    const now        = new Date();
+    const activeLinks  = allTokens.length;
+    const totalViews   = allTokens.reduce((s,t) => s + (parseInt(t.views)||0), 0);
+    const neverViewed  = allTokens.filter(t => (parseInt(t.views)||0) === 0 && !(t.expires_at && new Date(t.expires_at) < now)).length;
+    const expired      = allTokens.filter(t => t.expires_at && new Date(t.expires_at) < now).length;
+    const card = (ico, bg, color, label, val) =>
+      `<div style="background:var(--bg2,var(--bg));border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+        <div style="width:36px;height:36px;border-radius:8px;background:${bg};color:${color};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0"><i class="fas ${ico}"></i></div>
+        <div>
+          <div style="font-size:20px;font-weight:700;color:${color};line-height:1.1">${val}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.4px">${label}</div>
+        </div>
+      </div>`;
+    statsEl.innerHTML =
+      card('fa-link',       '#E6F1FB','#185FA5','Active links',   activeLinks)  +
+      card('fa-eye',        '#EAF3DE','#27500A','Total views',    totalViews)   +
+      card('fa-eye-slash',  '#FAEEDA','#633806','Never viewed',   neverViewed)  +
+      card('fa-clock',      '#FCEBEB','#791F1F','Expired',        expired);
+  }
+
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)">No invoices found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:var(--muted)">No invoices found</td></tr>`;
     return;
   }
 
-  const statusColors = {Paid:'#388E3C',Pending:'#F9A825',Overdue:'#C62828',Partial:'#E65100',Draft:'#9E9E9E',Cancelled:'#757575',Estimate:'#3949AB'};
-  tbody.innerHTML = rows.map(inv => {
-    const c    = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-    const cName = c.name || inv.clientName || inv.client_name || '—';
-    const t   = _portalTokenMap[String(inv.id)];
-    const url = t ? _buildPortalURL(t.token) : '';
-    const sc  = statusColors[inv.status] || '#888';
-    const views = t ? (parseInt(t.views) || 0) : null;
-    const lastViewed = t && t.last_viewed
-      ? new Date(t.last_viewed).toLocaleDateString(_moneyLocale(), {day:'2-digit', month:'short', year:'numeric'})
-      : null;
+  // ── Status badge config ───────────────────────────────────────
+  const statusBadge = {
+    Paid:      { bg:'#EAF3DE', color:'#27500A', icon:'fa-check-circle'        },
+    Pending:   { bg:'#FAEEDA', color:'#633806', icon:'fa-clock'               },
+    Overdue:   { bg:'#FCEBEB', color:'#791F1F', icon:'fa-exclamation-triangle' },
+    Partial:   { bg:'#FFF4E5', color:'#B45309', icon:'fa-bolt'                },
+    Draft:     { bg:'#F1EFE8', color:'#5F5E5A', icon:'fa-file'                },
+    Cancelled: { bg:'#F1EFE8', color:'#5F5E5A', icon:'fa-ban'                 },
+    Estimate:  { bg:'#EEEDFE', color:'#3C3489', icon:'fa-file-alt'            },
+  };
 
+  tbody.innerHTML = rows.map(inv => {
+    const cl     = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const cName  = cl.name || inv.clientName || inv.client_name || '—';
+    const cEmail = cl.email || '';
+    const t      = _portalTokenMap[String(inv.id)];
+    const url    = t ? _buildPortalURL(t.token) : '';
+    const views  = t ? (parseInt(t.views)||0) : null;
+    const lastViewed = t && t.last_viewed
+      ? new Date(t.last_viewed).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short'})
+      : null;
     const expiresAt  = t && t.expires_at ? new Date(t.expires_at) : null;
     const isExpired  = expiresAt && expiresAt < new Date();
-    const expiryFmt  = expiresAt ? expiresAt.toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}) : null;
+    const daysLeft   = expiresAt && !isExpired ? Math.ceil((expiresAt - new Date()) / 86400000) : null;
 
-    return `<tr style="${isExpired?'opacity:.55':''}">
+    // Status pill
+    const sb = statusBadge[inv.status] || { bg:'#F1EFE8', color:'#5F5E5A', icon:'fa-circle' };
+    const statusPill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:${sb.bg};color:${sb.color};white-space:nowrap">
+      <i class="fas ${sb.icon}" style="font-size:10px"></i>${inv.status}</span>`;
+
+    // Due date — red if overdue
+    const dueColor = inv.status === 'Overdue' ? '#791F1F' : 'var(--text)';
+    const dueStr   = inv.due || inv.due_date || '—';
+
+    // Link pill — truncated with inline copy
+    const linkCell = url
+      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--bg2,#f5f5f5);border:0.5px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--muted);max-width:220px;cursor:pointer" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))" title="${url}">
+          <i class="fas fa-link" style="font-size:10px;flex-shrink:0"></i>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${url.replace(/^https?:\/\/[^/]+\//,'')}</span>
+          <i class="fas fa-copy" style="font-size:10px;flex-shrink:0"></i>
+        </div>`
+      : `<span style="color:var(--muted);font-size:12px;font-style:italic">No link yet</span>`;
+
+    // Views cell
+    let viewsCell;
+    if (views === null) {
+      viewsCell = `<span style="color:var(--muted);font-size:12px">—</span>`;
+    } else if (views === 0) {
+      viewsCell = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#FAEEDA;color:#633806;border:1px solid #FAC775;white-space:nowrap">
+        <i class="fas fa-eye-slash" style="font-size:10px"></i> Never viewed</span>`;
+    } else {
+      viewsCell = `<div style="font-size:13px;font-weight:600;color:var(--text)">${views}</div>
+        ${lastViewed ? `<div style="font-size:11px;color:var(--muted)">Last: ${lastViewed}</div>` : ''}`;
+    }
+
+    // Expiry cell
+    let expiryCell;
+    if (isExpired) {
+      expiryCell = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:11px;background:#FCEBEB;color:#791F1F;white-space:nowrap"><i class="fas fa-ban" style="font-size:9px"></i> Expired</span>`;
+    } else if (daysLeft !== null) {
+      expiryCell = `<span style="padding:2px 7px;border-radius:4px;font-size:11px;background:#FFF4E5;color:#B45309;white-space:nowrap">${daysLeft}d left</span>`;
+    } else {
+      expiryCell = `<span style="font-size:11px;color:var(--muted)">—</span>`;
+    }
+
+    // Action buttons
+    const actBtn = (cls, icon, title, onclick) =>
+      `<button onclick="${onclick}" title="${title}"
+        style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;border:0.5px solid ${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#F7C1C1' : cls === 'amber' ? '#FAC775' : cls === 'green' ? '#C0DD97' : cls === 'blue' ? '#B5D4F4' : 'var(--border)'};background:${cls === 'teal' ? 'var(--teal-bg)' : cls === 'red' ? '#FCEBEB' : cls === 'amber' ? '#FAEEDA' : cls === 'green' ? '#EAF3DE' : cls === 'blue' ? '#E6F1FB' : 'var(--bg)'};color:${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#791F1F' : cls === 'amber' ? '#633806' : cls === 'green' ? '#27500A' : cls === 'blue' ? '#185FA5' : 'var(--text)'}">
+        <i class="fas ${icon}"></i></button>`;
+
+    // Generate / Regenerate — with confirm dialog for regenerate
+    const genOnclick = t
+      ? `(async(btn)=>{
+          const ok = await Swal.fire({title:'Regenerate link?',text:'The old link will stop working. The client will need the new link.',icon:'warning',showCancelButton:true,confirmButtonText:'Regenerate',confirmButtonColor:'#E53935',customClass:{popup:'swal-compact'}});
+          if (!ok.isConfirmed) return;
+          btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; toast('🔗 Link regenerated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)`
+      : `(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
+          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)`;
+
+    // WA share
+    const waPhone = (cl.wa || cl.whatsapp || cl.phone || '').replace(/\D/g,'');
+    const waMsg   = encodeURIComponent(`Hi ${cName},
+
+Your invoice ${inv.num||''} is ready.
+Amount: ${fmt_money(inv.amount||0)}
+
+View & pay here:
+${url}
+
+Thank you!`);
+    const waOnclick = url && waPhone
+      ? `window.open('https://wa.me/${waPhone}?text=${waMsg}','_blank')`
+      : `toast('⚠️ No phone number for this client','warning')`;
+
+    return `<tr style="${isExpired?'opacity:.6':''}">
       <td><strong style="font-family:var(--mono);font-size:12px">${inv.num||inv.invoice_number||''}</strong></td>
-      <td style="font-size:13px">${cName}</td>
-      <td style="font-family:var(--mono);font-size:13px">${fmt_money(inv.amount||0)}</td>
       <td>
-        <span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${sc}18;color:${sc}">${inv.status}</span>
-        ${isExpired ? `<br><span style="font-size:10px;color:var(--red);font-weight:600">⛔ Link expired</span>` : (expiryFmt ? `<br><span style="font-size:10px;color:var(--muted)">Expires ${expiryFmt}</span>` : '')}
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${cName}</div>
+        ${cEmail ? `<div style="font-size:11px;color:var(--muted)">${cEmail}</div>` : ''}
       </td>
-      <td style="max-width:220px">
-        ${url
-          ? `<code style="font-size:11px;color:var(--teal);word-break:break-all">${url}</code>`
-          : `<span style="color:var(--muted);font-size:12px;font-style:italic">No link yet</span>`}
-      </td>
-      <td style="text-align:center;font-size:12px">
-        ${views !== null
-          ? `<strong style="color:var(--teal)">${views}</strong>${lastViewed ? `<br><span style="font-size:10px;color:var(--muted)">${lastViewed}</span>` : ''}`
-          : `<span style="color:var(--muted)">—</span>`}
-      </td>
+      <td style="font-family:var(--mono);font-size:12px">${fmt_money(inv.amount||0)}</td>
+      <td style="font-size:12px;font-weight:500;color:${dueColor};white-space:nowrap">${dueStr}</td>
+      <td>${statusPill}</td>
+      <td>${linkCell}</td>
+      <td>${viewsCell}</td>
+      <td>${expiryCell}</td>
       <td style="white-space:nowrap">
-        <button onclick="(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
-          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token;
-          toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)"
-          title="${t ? 'Regenerate link' : 'Generate link'}"
-          style="padding:4px 8px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
-          <i class="fas fa-${t ? 'sync-alt' : 'link'}"></i>
-        </button>
-        ${url ? `
-        <button onclick="_setPortalExpiry('${t.token}','${inv.num||inv.invoice_number||''}')" title="Set expiry date"
-          style="padding:4px 8px;background:${expiryFmt?'#FFF8E1':'var(--bg)'};color:${expiryFmt?'#E65100':'var(--text)'};border:1px solid ${expiryFmt?'#FFE082':'var(--border)'};border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
-          <i class="fas fa-clock"></i>
-        </button>
-        <button onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))"
-          title="Copy link"
-          style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
-          <i class="fas fa-copy"></i>
-        </button>
-        <button onclick="window.open('${url}','_blank')" title="Preview"
-          style="padding:4px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;margin-right:3px">
-          <i class="fas fa-external-link-alt"></i>
-        </button>
-        <button onclick="revokePortalLink(${inv.id})" title="Revoke link"
-          style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #FFCDD2;border-radius:6px;cursor:pointer;font-size:11px">
-          <i class="fas fa-trash"></i>
-        </button>` : ''}
+        <div style="display:flex;gap:4px">
+          ${actBtn('amber','fa-clock','Set expiry', `_setPortalExpiry('${t?.token||''}','${inv.num||inv.invoice_number||''}')`)}
+          ${actBtn('green','fa-whatsapp','Share on WhatsApp', waOnclick)}
+          ${url ? actBtn('blue','fa-external-link-alt','Preview', `window.open('${url}','_blank')`) : ''}
+          ${actBtn('','fa-sync-alt', t ? 'Regenerate link' : 'Generate link', genOnclick)}
+          ${url ? actBtn('red','fa-trash','Revoke link', `revokePortalLink(${inv.id})`) : ''}
+        </div>
       </td>
     </tr>`;
   }).join('');
 }
+
 
 // ══════════════════════════════════════════════════════════════
 // 4. PAYMENT REMINDERS
