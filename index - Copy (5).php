@@ -3246,6 +3246,7 @@ View Invoice: {{6}}</pre></details>
         <!-- ─────────── PAYMENT REMINDERS ─────────── -->
     <div id="page-reminders" class="page">
       <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:18px;flex-wrap:wrap">
+        <!-- Settings panel -->
         <div class="dash-card" style="flex:0 0 300px;min-width:260px">
           <div class="card-header"><span class="card-title"><i class="fas fa-cog" style="color:var(--teal)"></i> Reminder Rules</span></div>
           <div style="display:flex;flex-direction:column;gap:10px">
@@ -3266,21 +3267,22 @@ View Invoice: {{6}}</pre></details>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="email">Email</option>
                 <option value="both">WhatsApp + Email</option>
+                <option value="sms">SMS</option>
               </select>
             </div>
             <button class="btn btn-success" onclick="saveReminderSettings()" style="width:100%"><i class="fas fa-save"></i> Save Rules</button>
           </div>
         </div>
+        <!-- Queue -->
         <div class="dash-card" style="flex:1;min-width:0">
           <div class="card-header">
             <span class="card-title"><i class="fas fa-list" style="color:var(--amber)"></i> Reminder Queue</span>
             <button class="btn btn-primary" style="font-size:12px" onclick="sendAllReminders()"><i class="fas fa-paper-plane"></i> Send All Now</button>
           </div>
-          <div id="rem-queue-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px"></div>
           <div id="rem-queue-cards" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
       </div>
-
+      <!-- Promise-to-Pay tracker -->
       <div class="dash-card" id="promise-tracker-card" style="margin-bottom:16px">
         <div class="card-header">
           <span class="card-title"><i class="fas fa-handshake" style="color:#6D28D9"></i> Promise to Pay Tracker</span>
@@ -3293,42 +3295,18 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
+      <!-- Reminder history -->
       <div class="table-card">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
           <span style="font-weight:700;font-size:14px">Reminder History</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <select id="rem-hist-type" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
-              <option value="">All types</option>
-              <option value="due_soon">Due Soon</option>
-              <option value="due_today">Due Today</option>
-              <option value="overdue">Overdue</option>
-              <option value="followup">Follow-up</option>
-              <option value="promise_reminder">Promise</option>
-            </select>
-            <select id="rem-hist-channel" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
-              <option value="">All channels</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-              <option value="both">Both</option>
-            </select>
-            <select id="rem-hist-status" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
-              <option value="">All status</option>
-              <option value="sent">Sent</option>
-              <option value="failed">Failed</option>
-              <option value="skipped">Skipped</option>
-            </select>
-            <button class="btn btn-outline" style="font-size:12px" onclick="clearReminderHistory()"><i class="fas fa-trash"></i> Clear</button>
-          </div>
+          <button class="btn btn-outline" style="font-size:12px" onclick="clearReminderHistory()"><i class="fas fa-trash"></i> Clear History</button>
         </div>
         <table class="data-table"><thead><tr>
-          <th>Sent At</th><th>Invoice</th><th>Client</th><th>Type</th><th>Channel</th><th>Status</th><th>Message</th>
+          <th>Sent At</th><th>Invoice</th><th>Client</th><th>Type</th><th>Channel</th><th>Status</th>
         </tr></thead><tbody id="rem-history-tbody"></tbody></table>
-        <div id="rem-hist-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border);background:var(--bg)">
-          <span id="rem-hist-page-info" style="font-size:12px;color:var(--muted)"></span>
-          <div id="rem-hist-page-btns" style="display:flex;gap:5px"></div>
-        </div>
       </div>
     </div>
+
     <!-- ─────────── RECURRING INVOICES ─────────── -->
     <div id="page-recurring" class="page">
       <div class="page-toolbar">
@@ -13628,25 +13606,8 @@ function _buildReminderQueue() {
   const badge = document.getElementById('badge-reminders');
   if (badge) { badge.textContent=queue.length; badge.style.display=queue.length?'':'none'; }
 
-  // ── Stats bar ────────────────────────────────────────────────
-  const statsEl = document.getElementById('rem-queue-stats');
-  if (statsEl) {
-    const overdueCnt  = queue.filter(q=>q.urgency==='high').length;
-    const todayCnt    = queue.filter(q=>q.urgency==='medium').length;
-    const upcomingCnt = queue.filter(q=>q.urgency==='low').length;
-    const card = (ico,bg,bdr,clr,label,val) =>
-      `<div style="background:var(--bg2,var(--bg));border:1px solid ${bdr};border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px">
-        <div style="width:32px;height:32px;border-radius:7px;background:${bg};color:${clr};border:1px solid ${bdr};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0"><i class="fas ${ico}"></i></div>
-        <div><div style="font-size:18px;font-weight:700;color:${clr};line-height:1">${val}</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px">${label}</div></div>
-      </div>`;
-    statsEl.innerHTML =
-      card('fa-exclamation-triangle','#FEF0EF','#F7C1C1','#C0392B','Overdue',  overdueCnt)  +
-      card('fa-calendar-day',        '#FFF4E5','#FBBF24','#B45309','Due Today', todayCnt)    +
-      card('fa-clock',               '#EEF5FF','#B5D4F4','#185FA5','Upcoming',  upcomingCnt);
-  }
-
   if (!queue.length) {
-    el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-check-circle" style="font-size:28px;color:#1E7E34;opacity:.4;display:block;margin-bottom:8px"></i><div style="font-weight:600;color:var(--text);margin-bottom:4px">All caught up!</div><div style="font-size:12px">No reminders pending right now.</div></div>`;
+    el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-check-circle" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px"></i>No pending reminders</div>`;
     return;
   }
 
@@ -13789,103 +13750,23 @@ function sendAllReminders() {
 }
 
 function _renderReminderHistory() {
-  if (!window._remHistPage) window._remHistPage = 1;
-  const PER_PAGE = 10;
-  const tbody    = document.getElementById('rem-history-tbody');
+  const tbody = document.getElementById('rem-history-tbody');
   if (!tbody) return;
-
-  const typeF = document.getElementById('rem-hist-type')?.value    || '';
-  const chanF = document.getElementById('rem-hist-channel')?.value || '';
-  const statF = document.getElementById('rem-hist-status')?.value  || '';
-
-  let data = (STATE.reminders || []).filter(r => {
-    return (!typeF || r.type === typeF) &&
-           (!chanF || (r.channel||'') === chanF) &&
-           (!statF || (r.status||'') === statF);
-  });
-
-  if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)"><i class="fas fa-inbox" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px"></i>No reminder history yet</td></tr>`;
-    const pgDiv = document.getElementById('rem-hist-pagination');
-    if (pgDiv) pgDiv.style.display = 'none';
+  if (!STATE.reminders.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--muted)">No reminder history yet</td></tr>`;
     return;
   }
-
-  const typeBadge = {
-    due_soon:        {bg:'#FFF4E5',color:'#B45309',bdr:'#FBBF24',icon:'fa-clock',              label:'Due Soon',  alert:false},
-    due_today:       {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-calendar-day',       label:'Due Today', alert:true},
-    due_reminder:    {bg:'#EEF5FF',color:'#185FA5',bdr:'#B5D4F4',icon:'fa-bell',               label:'Reminder',  alert:false},
-    overdue:         {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-exclamation-triangle',label:'Overdue',   alert:true},
-    followup:        {bg:'#FDF0F7',color:'#9D174D',bdr:'#F0ABCD',icon:'fa-phone-alt',          label:'Follow-up', alert:true},
-    promise_reminder:{bg:'#EDE9FE',color:'#6D28D9',bdr:'#C4B5FD',icon:'fa-handshake',          label:'Promise',   alert:false},
-    paid:            {bg:'#EDFAF0',color:'#1E7E34',bdr:'#C0DD97',icon:'fa-check-circle',       label:'Paid',      alert:false},
-  };
-
-  const chanBadge = ch => {
-    if (ch==='whatsapp') return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97"><i class="fab fa-whatsapp" style="font-size:10px"></i> WA</span>`;
-    if (ch==='email')    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#EEF5FF;color:#185FA5;border:1px solid #B5D4F4"><i class="fas fa-envelope" style="font-size:10px"></i> Email</span>`;
-    if (ch==='both')     return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#F0EFFD;color:#5B52C7;border:1px solid #AFA9EC"><i class="fas fa-paper-plane" style="font-size:10px"></i> Both</span>`;
-    return `<span style="font-size:11px;color:var(--muted)">—</span>`;
-  };
-
-  const statBadge = st => {
-    if (st==='sent')    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97"><i class="fas fa-check" style="font-size:9px"></i> Sent</span>`;
-    if (st==='failed')  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#FEF0EF;color:#C0392B;border:1px solid #F7C1C1"><i class="fas fa-times" style="font-size:9px"></i> Failed</span>`;
-    if (st==='skipped') return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#F5F5F5;color:#888;border:1px solid #ddd"><i class="fas fa-forward" style="font-size:9px"></i> Skipped</span>`;
-    if (st==='promise') return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD"><i class="fas fa-handshake" style="font-size:9px"></i> Promise</span>`;
-    return `<span style="font-size:11px;color:var(--muted)">${st||'—'}</span>`;
-  };
-
-  const total = data.length;
-  const pages = Math.ceil(total / PER_PAGE);
-  const page  = window._remHistPage || 1;
-  const paged = data.slice((page-1)*PER_PAGE, page*PER_PAGE);
-
-  tbody.innerHTML = paged.map(r => {
-    const raw  = r.ts || r.sent_at || '';
-    const norm = raw ? (raw.includes('T') ? raw : raw.replace(' ','T')+'+05:30') : '';
-    const d    = norm ? new Date(norm) : null;
-    const diff = d && !isNaN(d) ? Math.floor((Date.now()-d)/1000) : null;
-    const rel  = diff===null ? '—' : diff<60 ? 'just now' : diff<3600 ? Math.floor(diff/60)+'m ago' : diff<86400 ? Math.floor(diff/3600)+'h ago' : diff<604800 ? Math.floor(diff/86400)+'d ago' : (d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}));
-    const time = d && !isNaN(d) ? d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}) : '';
-
-    const tb = typeBadge[r.type] || {bg:'#F5F5F5',color:'#888',bdr:'#ddd',icon:'fa-circle',label:r.type||'—',alert:false};
-    const aStyle = tb.alert ? `border-left:3px solid ${tb.color};border-radius:0 6px 6px 0;` : 'border-radius:6px;';
-    const typePill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;${aStyle}font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color};border:1px solid ${tb.bdr};white-space:nowrap"><i class="fas ${tb.icon}" style="font-size:9px"></i> ${tb.label}</span>`;
-
-    const msg      = r.message || r.msg || '';
-    const msgShort = msg.length > 45 ? msg.slice(0,45)+'…' : msg;
-
+  tbody.innerHTML = STATE.reminders.slice(0,50).map(r => {
+    const statusColor = r.status==='sent'?'#388E3C':r.status==='skipped'?'#888':'#C62828';
     return `<tr>
-      <td style="white-space:nowrap;min-width:100px">
-        <div style="font-size:12px;font-weight:600;color:var(--text)">${rel}</div>
-        <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${time}</div>
-      </td>
-      <td style="font-family:var(--mono);font-weight:700;font-size:12px">${r.invNum||r.invoice_num||'—'}</td>
-      <td style="font-size:13px">${r.clientName||r.client_name||'—'}</td>
-      <td>${typePill}</td>
-      <td>${chanBadge(r.channel||'')}</td>
-      <td>${statBadge(r.status||'')}</td>
-      <td style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg.replace(/"/g,'&quot;')}">${msgShort||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.ts ? new Date((r.ts||'').replace(' ','T')+'Z').toLocaleString(_moneyLocale()) : '—'}</td>
+      <td style="font-family:var(--mono);font-weight:700">${r.invNum||'—'}</td>
+      <td>${r.clientName||'—'}</td>
+      <td>${r.type||'—'}</td>
+      <td>${(()=>{const ch=r.channel||'';if(ch==='skip')return '<span style="color:#888">—</span>';if(ch==='both')return '📱+📧 Both';if(ch==='email')return '📧 Email';if(ch==='whatsapp')return '💬 WhatsApp';return ch||'—';})()}</td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:${statusColor}15;color:${statusColor}">${r.status}</span></td>
     </tr>`;
   }).join('');
-
-  const pgDiv  = document.getElementById('rem-hist-pagination');
-  const pgInfo = document.getElementById('rem-hist-page-info');
-  const pgBtns = document.getElementById('rem-hist-page-btns');
-  if (pgDiv) {
-    pgDiv.style.display = 'flex';
-    if (pgInfo) pgInfo.textContent = `Showing ${((page-1)*PER_PAGE)+1}–${Math.min(page*PER_PAGE,total)} of ${total}`;
-    if (pgBtns) {
-      if (pages > 1) {
-        const bS = (act,dis) => `width:28px;height:28px;border-radius:7px;border:1px solid ${act?'var(--teal)':'var(--border)'};background:${act?'var(--teal)':'var(--bg)'};color:${act?'#fff':'var(--text)'};cursor:${dis?'default':'pointer'};font-size:11px;opacity:${dis?'.4':'1'}`;
-        let h = `<button onclick="if(window._remHistPage>1){window._remHistPage--;_renderReminderHistory();}" style="${bS(false,page===1)}"><i class="fas fa-chevron-left"></i></button>`;
-        for(let i=1;i<=pages;i++) h+=`<button onclick="window._remHistPage=${i};_renderReminderHistory()" style="${bS(i===page,false)}">${i}</button>`;
-        h+=`<button onclick="if(window._remHistPage<${pages}){window._remHistPage++;_renderReminderHistory();}" style="${bS(false,page===pages)}"><i class="fas fa-chevron-right"></i></button>`;
-        pgBtns.innerHTML = h;
-      } else pgBtns.innerHTML = '';
-    }
-  }
 }
 
 async function clearReminderHistory() {
@@ -14033,157 +13914,6 @@ async function sendBalanceReminder() {
 // PROMISE TO PAY
 // ══════════════════════════════════════════════════════════════
 let _ptpInvId = null;
-
-function openPromiseModal(invId) {
-  _ptpInvId = invId;
-  const inv = STATE.invoices.find(i => String(i.id) === String(invId));
-  if (!inv) return;
-  const c   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-
-  // Label
-  const label = document.getElementById('ptp-inv-label');
-  if (label) label.textContent = (inv.num||inv.invoice_number||'') + ' · ' + (c.name||inv.clientName||inv.client_name||'Client');
-
-  // Default date = tomorrow
-  const tom = new Date(); tom.setDate(tom.getDate()+1);
-  const dd = document.getElementById('ptp-date');
-  if (dd) dd.value = tom.toISOString().slice(0,10);
-
-  // Default amount = remaining balance
-  const invPayments = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(invId));
-  const paid        = invPayments.reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
-  const grand       = parseFloat(inv.grand_total || inv.amount || 0);
-  const remaining   = Math.max(0, grand - paid);
-  const da = document.getElementById('ptp-amount');
-  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : '';
-
-  // Default channel from settings
-  const dch = document.getElementById('ptp-channel');
-  if (dch) dch.value = getReminderSettings().channel || 'whatsapp';
-
-  // Clear note
-  const dn = document.getElementById('ptp-note');
-  if (dn) dn.value = '';
-
-  // Show modal
-  const modal = document.getElementById('promise-modal');
-  if (modal) { modal.style.display='flex'; }
-}
-
-function closePromiseModal() {
-  const modal = document.getElementById('promise-modal');
-  if (modal) modal.style.display='none';
-  _ptpInvId = null;
-}
-
-async function savePromise() {
-  const invId       = _ptpInvId;
-  const promiseDate = document.getElementById('ptp-date')?.value;
-  const amount      = parseFloat(document.getElementById('ptp-amount')?.value||0);
-  const channel     = document.getElementById('ptp-channel')?.value || 'whatsapp';
-  const note        = document.getElementById('ptp-note')?.value?.trim() || '';
-
-  if (!invId || !promiseDate) { toast('❌ Please select a promise date','error'); return; }
-  if (new Date(promiseDate) < new Date(new Date().toDateString())) {
-    toast('❌ Promise date must be today or in the future','error'); return;
-  }
-
-  const inv = STATE.invoices.find(i => String(i.id) === String(invId)) || {};
-  const cl  = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-
-  try {
-    const res = await api('api/reminders.php?action=promise', 'POST', {
-      invoice_id:   invId,
-      invoice_num:  inv.num || inv.invoice_number || '',
-      client_name:  cl.name || inv.clientName || inv.client_name || '',
-      promise_date: promiseDate,
-      amount:       amount || 0,
-      channel,
-      note
-    });
-
-    // Add to local STATE
-    STATE.promises = STATE.promises || [];
-    STATE.promises.push({
-      id:          res.id,
-      invoiceId:   invId,
-      invNum:      inv.num || inv.invoice_number || '',
-      clientName:  cl.name || inv.clientName || inv.client_name || '',
-      promiseDate,
-      amount,
-      note,
-      channel,
-      status:      'pending',
-      remindedAt:  null
-    });
-
-    closePromiseModal();
-    toast('✅ Promise saved — reminder will be sent on ' + promiseDate, 'success');
-    renderReminders(); // refresh queue (will now suppress this invoice)
-
-    logActivity('reminder_sent',
-      'Promise to pay recorded: ' + (inv.num||inv.invoice_number||''),
-      cl.name || inv.clientName || '', invId);
-
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _renderPromiseTracker() {
-  const el    = document.getElementById('promise-list');
-  const badge = document.getElementById('promise-count-badge');
-  if (!el) return;
-
-  const active = (STATE.promises || []).filter(p => ['pending','reminded'].includes(p.status||''));
-  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? 'inline-block' : 'none'; }
-
-  if (!active.length) {
-    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px"><i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises</div>`;
-    return;
-  }
-
-  const today    = new Date(); today.setHours(0,0,0,0);
-  const overdue  = active.filter(p => new Date((p.promiseDate||p.promise_date)+'T00:00:00') < today);
-  const dueToday = active.filter(p => { const d=new Date((p.promiseDate||p.promise_date)+'T00:00:00'); return d.getTime()===today.getTime(); });
-  const upcoming = active.filter(p => new Date((p.promiseDate||p.promise_date)+'T00:00:00') > today);
-
-  const row = (p, urgency) => {
-    const isOver = urgency==='overdue', isToday = urgency==='today';
-    const bg  = isOver ? '#FEF0EF' : isToday ? '#FFF4E5' : '#F5F3FF';
-    const bdr = isOver ? '#F7C1C1' : isToday ? '#FBBF24' : '#C4B5FD';
-    const col = isOver ? '#C0392B' : isToday ? '#B45309' : '#6D28D9';
-    const pDate = p.promiseDate || p.promise_date || '';
-    const dateF = pDate ? new Date(pDate+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const daysAgo = isOver ? Math.abs(Math.floor((new Date(pDate+'T00:00:00')-today)/864e5)) : 0;
-    const lbl = isOver ? `⚠ ${daysAgo}d overdue` : isToday ? '📅 Due Today' : `📅 ${dateF}`;
-    const amt = p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '';
-    const chIcon = p.channel==='email'?'fa-envelope':p.channel==='both'?'fa-paper-plane':'fab fa-whatsapp';
-
-    return `<div style="background:${bg};border:1px solid ${bdr};border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
-          <strong style="font-family:var(--mono);font-size:12px">${p.invNum||p.invoice_num||'—'}</strong>
-          <span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${col};color:#fff;font-weight:700">${lbl}</span>
-          ${amt?`<span style="font-size:11px;color:var(--muted)">${amt}</span>`:''}
-        </div>
-        <div style="font-size:12px;color:var(--muted)">${p.clientName||p.client_name||'—'}${p.note?` · <em>${p.note}</em>`:''}</div>
-      </div>
-      <div style="display:flex;gap:5px;flex-shrink:0">
-        <button onclick="sendPromiseReminder('${p.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>
-        <button onclick="updatePromise('${p.id}','fulfilled')" style="padding:4px 9px;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">✓ Paid</button>
-        <button onclick="updatePromise('${p.id}','cancelled')" style="padding:4px 9px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">Cancel</button>
-      </div>
-    </div>`;
-  };
-
-  const section = (title, items, urgency) => !items.length ? '' :
-    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding:0 2px">${title} (${items.length})</div>` +
-    items.map(p => row(p, urgency)).join('');
-
-  el.innerHTML =
-    section('⚠ Overdue promises', overdue,  'overdue') +
-    section('📅 Due today',        dueToday, 'today')   +
-    section('Upcoming',            upcoming, 'upcoming');
-}
 
 function openPromiseModal(invId) {
   _ptpInvId = invId;

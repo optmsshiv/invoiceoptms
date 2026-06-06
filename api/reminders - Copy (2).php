@@ -1,10 +1,13 @@
 <?php
 // ================================================================
 //  api/reminders.php  — Reminder Settings + Reminder Log
+//
+//  GET    /api/reminders.php                → get settings + recent log
+//  GET    /api/reminders.php?log=1          → reminder log only
+//  POST   /api/reminders.php                → save reminder settings
+//  POST   /api/reminders.php?action=log     → append a reminder log entry
+//  DELETE /api/reminders.php                → clear reminder log  [FIX #2: removed ?log=1 requirement]
 // ================================================================
-
-// ── SET TIMEZONE TO INDIA STANDARD TIME (IST) ───────────────────
-date_default_timezone_set('Asia/Kolkata');
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
