@@ -13838,8 +13838,10 @@ function openPromiseModal(invId) {
   if (dd) dd.value = tom.toISOString().slice(0,10);
 
   // Default amount = remaining balance
-  const paid = (inv.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const remaining = Math.max(0,(parseFloat(inv.amount)||0) - paid);
+  const invPayments = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(invId));
+  const paid        = invPayments.reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+  const grand       = parseFloat(inv.grand_total || inv.amount || 0);
+  const remaining   = Math.max(0, grand - paid);
   const da = document.getElementById('ptp-amount');
   if (da) da.value = remaining > 0 ? remaining.toFixed(2) : '';
 
