@@ -11489,7 +11489,7 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','balance_reminder','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
@@ -16363,9 +16363,10 @@ async function renderWALog(resetPage = false) {
       split_payment:    { bg:'#FFF4E5', color:'#B45309', icon:'fa-random',              label:'Split Pay',   alert:false },
       payment_overdue:  { bg:'#FEF0EF', color:'#C0392B', icon:'fa-exclamation-triangle',label:'Overdue',     alert:true  },
       payment_reminder: { bg:'#EEF5FF', color:'#2563EB', icon:'fa-bell',               label:'Reminder',    alert:true  },
-      invoice_followup: { bg:'#FDF0F7', color:'#9D174D', icon:'fa-phone-alt',          label:'Follow-up',   alert:true  },
-      festival:         { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-star',               label:'Festival',    alert:false },
-      unknown:          { bg:'#F5F5F5', color:'#888',    icon:'fa-question-circle',    label:'Unknown',     alert:false },
+      invoice_followup:  { bg:'#FDF0F7', color:'#9D174D', icon:'fa-phone-alt',          label:'Follow-up',      alert:true  },
+      balance_reminder:  { bg:'#FFF4E5', color:'#92400E', icon:'fa-wallet',             label:'Bal. Reminder',  alert:false },
+      festival:          { bg:'#F0EFFD', color:'#5B52C7', icon:'fa-star',               label:'Festival',       alert:false },
+      unknown:           { bg:'#F5F5F5', color:'#888',    icon:'fa-question-circle',    label:'Unknown',        alert:false },
     };
     const statusBadge = {
       sent_api: { bg:'#EDFAF0', color:'#1E7E34', icon:'fa-check',         label:'Sent (API)' },
