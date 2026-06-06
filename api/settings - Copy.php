@@ -38,28 +38,6 @@ switch ($method) {
       'overdue_freq'       => '7',
       'max_overdue'        => '3',
       'channel'            => 'whatsapp',
-      // ── WhatsApp Meta template names & languages ──────────────
-      'wa_msg_mode'                    => 'session',
-      'wa_tpl_name_invoice'            => '',
-      'wa_tpl_lang_invoice'            => 'en_US',
-      'wa_tpl_name_estimate'           => '',
-      'wa_tpl_lang_estimate'           => 'en_US',
-      'wa_tpl_name_reminder'           => '',
-      'wa_tpl_lang_reminder'           => 'en_US',
-      'wa_tpl_name_overdue'            => '',
-      'wa_tpl_lang_overdue'            => 'en_US',
-      'wa_tpl_name_paid'               => '',
-      'wa_tpl_lang_paid'               => 'en_US',
-      'wa_tpl_name_followup'           => '',
-      'wa_tpl_lang_followup'           => 'en_US',
-      'wa_tpl_name_recurring'          => '',
-      'wa_tpl_lang_recurring'          => 'en_US',
-      'wa_tpl_name_partial'            => '',
-      'wa_tpl_lang_partial'            => 'en_US',
-      'wa_tpl_name_balance_reminder'   => '',
-      'wa_tpl_lang_balance_reminder'   => 'en_US',
-      'wa_tpl_name_festival'           => '',
-      'wa_tpl_lang_festival'           => 'en_US',
     ];
     
     // Fetch existing settings from DB
