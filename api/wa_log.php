@@ -23,7 +23,7 @@ $user   = currentUser();
 const WA_ALLOWED_TYPES = [
     'invoice_created', 'estimate_created', 'payment_received', 'partial_payment',
     'split_payment', 'payment_overdue', 'payment_reminder', 'invoice_followup',
-    'festival', 'unknown'
+    'festival', 'balance_reminder', 'unknown'
 ];
 const WA_ALLOWED_STATUSES = ['sending', 'sent_api', 'sent_web', 'failed'];
 
