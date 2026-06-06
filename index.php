@@ -3193,11 +3193,11 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Stats bar -->
       <div id="portal-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
-      <!-- Toolbar -->
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="filterPortalTable(this.value)" id="portal-search" style="width:200px">
-          <select class="table-filter" id="portal-status-filter" onchange="_renderPortalTable()">
+      <!-- Toolbar — single row -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="_portalPage=1;_renderPortalTable(this.value)" id="portal-search" style="width:190px">
+          <select class="table-filter" id="portal-status-filter" onchange="_portalPage=1;_renderPortalTable()">
             <option value="">All status</option>
             <option value="Pending">Pending</option>
             <option value="Overdue">Overdue</option>
@@ -3205,13 +3205,14 @@ View Invoice: {{6}}</pre></details>
             <option value="Paid">Paid</option>
             <option value="Draft">Draft</option>
           </select>
-          <select class="table-filter" id="portal-link-filter" onchange="_renderPortalTable()">
+          <select class="table-filter" id="portal-link-filter" onchange="_portalPage=1;_renderPortalTable()">
             <option value="">All links</option>
             <option value="never">Never viewed</option>
             <option value="viewed">Viewed</option>
             <option value="expired">Expired</option>
           </select>
         </div>
+        <div style="font-size:12px;color:var(--muted)" id="portal-page-info"></div>
       </div>
       <!-- Full width portal table -->
       <div class="settings-block" style="padding:0;overflow:hidden">
@@ -3227,6 +3228,8 @@ View Invoice: {{6}}</pre></details>
           <th>Actions</th>
         </tr></thead><tbody id="portal-tbody"></tbody></table>
       </div>
+      <!-- Pagination -->
+      <div id="portal-pagination" style="display:none;justify-content:center;align-items:center;gap:6px;padding:14px 0 4px"></div>
     </div>
         <!-- ─────────── PAYMENT REMINDERS ─────────── -->
     <div id="page-reminders" class="page">
@@ -13189,6 +13192,8 @@ async function _setPortalExpiry(token, invNum) {
 }
 
 async function _renderPortalTable(search) {
+  if (!window._portalPage) window._portalPage = 1;
+  const PER_PAGE = 10;
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>`;
@@ -13261,7 +13266,11 @@ async function _renderPortalTable(search) {
     Estimate:  { bg:'#EEEDFE', color:'#3C3489', icon:'fa-file-alt'            },
   };
 
-  tbody.innerHTML = rows.map(inv => {
+  // ── Paginate rows ────────────────────────────────────────────
+  const _portalPage = window._portalPage || 1;
+  const pagedRows = rows.slice((_portalPage-1)*PER_PAGE, _portalPage*PER_PAGE);
+
+  tbody.innerHTML = pagedRows.map(inv => {
     const cl     = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     const cName  = cl.name || inv.clientName || inv.client_name || '—';
     const cEmail = cl.email || '';
@@ -13286,10 +13295,13 @@ async function _renderPortalTable(search) {
 
     // Link pill — truncated with inline copy
     const linkCell = url
-      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--bg2,#f5f5f5);border:0.5px solid var(--border);font-size:11px;font-family:var(--mono);color:var(--muted);max-width:220px;cursor:pointer" onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Copied!','success'))" title="${url}">
+      ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#EEF5FF;border:1px solid #B5D4F4;font-size:11px;font-family:var(--mono);color:#185FA5;max-width:220px;cursor:pointer;transition:all .15s"
+          onmouseover="this.style.background='#DBEAFE';this.style.borderColor='#93C5FD'"
+          onmouseout="this.style.background='#EEF5FF';this.style.borderColor='#B5D4F4'"
+          onclick="navigator.clipboard.writeText('${url}').then(()=>toast('✅ Link copied!','success'))" title="Click to copy">
           <i class="fas fa-link" style="font-size:10px;flex-shrink:0"></i>
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${url.replace(/^https?:\/\/[^/]+\//,'')}</span>
-          <i class="fas fa-copy" style="font-size:10px;flex-shrink:0"></i>
+          <i class="fas fa-copy" style="font-size:10px;flex-shrink:0;opacity:.7"></i>
         </div>`
       : `<span style="color:var(--muted);font-size:12px;font-style:italic">No link yet</span>`;
 
@@ -13316,10 +13328,22 @@ async function _renderPortalTable(search) {
     }
 
     // Action buttons
-    const actBtn = (cls, icon, title, onclick) =>
-      `<button onclick="${onclick}" title="${title}"
-        style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;border:0.5px solid ${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#F7C1C1' : cls === 'amber' ? '#FAC775' : cls === 'green' ? '#C0DD97' : cls === 'blue' ? '#B5D4F4' : 'var(--border)'};background:${cls === 'teal' ? 'var(--teal-bg)' : cls === 'red' ? '#FCEBEB' : cls === 'amber' ? '#FAEEDA' : cls === 'green' ? '#EAF3DE' : cls === 'blue' ? '#E6F1FB' : 'var(--bg)'};color:${cls === 'teal' ? 'var(--teal)' : cls === 'red' ? '#791F1F' : cls === 'amber' ? '#633806' : cls === 'green' ? '#27500A' : cls === 'blue' ? '#185FA5' : 'var(--text)'}">
-        <i class="fas ${icon}"></i></button>`;
+    const _pClr = {
+      teal:  {bg:'var(--teal-bg)', bdr:'var(--teal)',  clr:'var(--teal)', hbg:'var(--teal)',hclr:'#fff'},
+      red:   {bg:'#FCEBEB',        bdr:'#F7C1C1',      clr:'#791F1F',     hbg:'#E53935',   hclr:'#fff'},
+      amber: {bg:'#FFF4E5',        bdr:'#FBBF24',      clr:'#B45309',     hbg:'#F59E0B',   hclr:'#fff'},
+      green: {bg:'#EDFAF0',        bdr:'#C0DD97',      clr:'#1E7E34',     hbg:'#25D366',   hclr:'#fff'},
+      blue:  {bg:'#EEF5FF',        bdr:'#B5D4F4',      clr:'#185FA5',     hbg:'#1565C0',   hclr:'#fff'},
+      '':    {bg:'var(--bg)',       bdr:'var(--border)',clr:'var(--text)', hbg:'var(--bg2)',hclr:'var(--text)'},
+    };
+    const actBtn = (cls, icon, title, onclick) => {
+      const p = _pClr[cls] || _pClr[''];
+      return `<button onclick="${onclick}" title="${title}"
+        onmouseover="this.style.background='${p.hbg}';this.style.color='${p.hclr}';this.style.transform='scale(1.1)'"
+        onmouseout="this.style.background='${p.bg}';this.style.color='${p.clr}';this.style.transform='scale(1)'"
+        style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;border:1px solid ${p.bdr};background:${p.bg};color:${p.clr};transition:all .15s ease">
+        <i class="${icon.startsWith('fab ') ? icon : 'fas '+icon}"></i></button>`;
+    };
 
     // Generate / Regenerate — with confirm dialog for regenerate
     const genOnclick = t
@@ -13327,9 +13351,9 @@ async function _renderPortalTable(search) {
           const ok = await Swal.fire({title:'Regenerate link?',text:'The old link will stop working. The client will need the new link.',icon:'warning',showCancelButton:true,confirmButtonText:'Regenerate',confirmButtonColor:'#E53935',customClass:{popup:'swal-compact'}});
           if (!ok.isConfirmed) return;
           btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
-          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; toast('🔗 Link regenerated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)`
+          try{ const r=await api('api/portal.php','POST',{invoice_id:parseInt(${inv.id})}); if(r&&r.token){ _portalTokenMap[String(${inv.id})]=r; toast('🔗 Link regenerated!','success'); _renderPortalTable(); }else{ toast('❌ Failed — check portal.php','error'); console.error('regen fail',r); } }catch(e){ toast('❌ '+e.message,'error'); console.error(e); } btn.disabled=false; btn.innerHTML='<i class=\'fas fa-sync-alt\'></i>'; })(this)`
       : `(async(btn)=>{ btn.disabled=true; btn.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i>';
-          try{ const r=await api('api/portal.php','POST',{invoice_id:${inv.id}}); if(r&&r.token){ _portalTokenCache['${inv.id}']=r.token; toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed','error'); } }catch(e){ toast('❌ '+e.message,'error'); } btn.disabled=false; })(this)`;
+          try{ const r=await api('api/portal.php','POST',{invoice_id:parseInt(${inv.id})}); if(r&&r.token){ _portalTokenMap[String(${inv.id})]=r; toast('🔗 Link generated!','success'); _renderPortalTable(); }else{ toast('❌ Failed — check portal.php','error'); console.error('gen fail',r); } }catch(e){ toast('❌ '+e.message,'error'); console.error(e); } btn.disabled=false; btn.innerHTML='<i class=\'fas fa-sync-alt\'></i>'; })(this)`;
 
     // WA share
     const waPhone = (cl.wa || cl.whatsapp || cl.phone || '').replace(/\D/g,'');
@@ -13361,7 +13385,7 @@ Thank you!`);
       <td style="white-space:nowrap">
         <div style="display:flex;gap:4px">
           ${actBtn('amber','fa-clock','Set expiry', `_setPortalExpiry('${t?.token||''}','${inv.num||inv.invoice_number||''}')`)}
-          ${actBtn('green','fa-whatsapp','Share on WhatsApp', waOnclick)}
+          ${actBtn('green','fab fa-whatsapp','Share on WhatsApp', waOnclick)}
           ${url ? actBtn('blue','fa-external-link-alt','Preview', `window.open('${url}','_blank')`) : ''}
           ${actBtn('','fa-sync-alt', t ? 'Regenerate link' : 'Generate link', genOnclick)}
           ${url ? actBtn('red','fa-trash','Revoke link', `revokePortalLink(${inv.id})`) : ''}
@@ -13369,6 +13393,30 @@ Thank you!`);
       </td>
     </tr>`;
   }).join('');
+
+  // ── Pagination ──────────────────────────────────────────────
+  const total  = rows.length;
+  const pages  = Math.ceil(total / PER_PAGE);
+  const pgInfo = document.getElementById('portal-page-info');
+  const pgDiv  = document.getElementById('portal-pagination');
+  if (pgInfo) pgInfo.textContent = total ? `Showing ${((_portalPage-1)*PER_PAGE)+1}–${Math.min(_portalPage*PER_PAGE,total)} of ${total}` : '';
+  if (pgDiv) {
+    if (pages > 1) {
+      pgDiv.style.display = 'flex';
+      let html = '';
+      // Prev
+      html += `<button onclick="_portalPage=Math.max(1,_portalPage-1);_renderPortalTable()" ${_portalPage===1?'disabled':''} style="width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:13px${_portalPage===1?';opacity:.4':''}"><i class="fas fa-chevron-left"></i></button>`;
+      for (let i=1;i<=pages;i++) {
+        const act = i===_portalPage;
+        html += `<button onclick="_portalPage=${i};_renderPortalTable()" style="width:30px;height:30px;border-radius:7px;border:1px solid ${act?'var(--teal)':'var(--border)'};background:${act?'var(--teal)':'var(--bg)'};color:${act?'#fff':'var(--text)'};cursor:pointer;font-size:12px;font-weight:${act?'700':'400'}">${i}</button>`;
+      }
+      // Next
+      html += `<button onclick="_portalPage=Math.min(${pages},_portalPage+1);_renderPortalTable()" ${_portalPage===pages?'disabled':''} style="width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;font-size:13px${_portalPage===pages?';opacity:.4':''}"><i class="fas fa-chevron-right"></i></button>`;
+      pgDiv.innerHTML = html;
+    } else {
+      pgDiv.style.display = 'none';
+    }
+  }
 }
 
 
@@ -13803,13 +13851,10 @@ function openPromiseModal(invId) {
   if (dd) dd.value = tom.toISOString().slice(0,10);
 
   // Default amount = remaining balance
-  // Read from STATE.payments (inv.payments is not populated on the invoice object)
-  const invPayments = (STATE.payments || []).filter(p => String(p.invoice_id) === String(invId));
-  const paid        = invPayments.reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
-  const grand       = parseFloat(inv.grand_total || inv.amount || 0);
-  const remaining   = Math.max(0, grand - paid);
+  const paid = (inv.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const remaining = Math.max(0,(parseFloat(inv.amount)||0) - paid);
   const da = document.getElementById('ptp-amount');
-  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : grand.toFixed(2);
+  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : '';
 
   // Default channel from settings
   const dch = document.getElementById('ptp-channel');
