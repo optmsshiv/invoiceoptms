@@ -3193,10 +3193,11 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Stats bar -->
       <div id="portal-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px"></div>
-      <!-- Toolbar — all filters in one row -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="_portalPage=1;_renderPortalTable(this.value)" id="portal-search" style="width:190px">
-        <select class="table-filter" id="portal-status-filter" onchange="_portalPage=1;_renderPortalTable()">
+      <!-- Toolbar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="filterPortalTable(this.value)" id="portal-search" style="width:200px">
+          <select class="table-filter" id="portal-status-filter" onchange="_renderPortalTable()">
           <option value="">All status</option>
           <option value="Pending">Pending</option>
           <option value="Overdue">Overdue</option>
@@ -3204,14 +3205,15 @@ View Invoice: {{6}}</pre></details>
           <option value="Paid">Paid</option>
           <option value="Draft">Draft</option>
         </select>
-        <select class="table-filter" id="portal-link-filter" onchange="_portalPage=1;_renderPortalTable()">
+          <select class="table-filter" id="portal-link-filter" onchange="_renderPortalTable()">
           <option value="">All links</option>
           <option value="never">Never viewed</option>
           <option value="viewed">Viewed</option>
           <option value="expired">Expired</option>
         </select>
       </div>
-      <!-- Full width portal table with pagination in footer -->
+      </div>
+      <!-- Full width portal table -->
       <div class="settings-block" style="padding:0;overflow:hidden">
         <table class="data-table"><thead><tr>
           <th>Invoice #</th>
@@ -3224,11 +3226,6 @@ View Invoice: {{6}}</pre></details>
           <th>Expiry</th>
           <th>Actions</th>
         </tr></thead><tbody id="portal-tbody"></tbody></table>
-        <!-- Table footer — pagination lives inside card -->
-        <div id="portal-pagination" style="display:none;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border);background:var(--bg)">
-          <span id="portal-page-info" style="font-size:12px;color:var(--muted)"></span>
-          <div id="portal-page-btns" style="display:flex;gap:5px;align-items:center"></div>
-        </div>
       </div>
     </div>
         <!-- ─────────── PAYMENT REMINDERS ─────────── -->
