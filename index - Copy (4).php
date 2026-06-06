@@ -2297,7 +2297,6 @@ Thank you for choosing {company_name}!
                 <div class="field"><label>📋 Invoice Follow-up</label><div style="display:flex;gap:6px"><input id="tpl-name-followup" placeholder="invoice_followup" style="flex:1"><input id="tpl-lang-followup" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link</div></div>
                 <div class="field"><label>🔁 Recurring Invoice</label><div style="display:flex;gap:6px"><input id="tpl-name-recurring" placeholder="recurring_invoice" style="flex:1"><input id="tpl-lang-recurring" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}link {{7}}outstanding</div></div>
                 <div class="field"><label>💚 Partial Payment</label><div style="display:flex;gap:6px"><input id="tpl-name-partial" placeholder="partial_payment" style="flex:1"><input id="tpl-lang-partial" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}paid {{4}}remaining {{5}}due {{6}}link</div></div>
-                <div class="field"><label>💰 Balance Reminder</label><div style="display:flex;gap:6px"><input id="tpl-name-balance-reminder" placeholder="balance_reminder" style="flex:1"><input id="tpl-lang-balance-reminder" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}paid {{4}}remaining {{5}}due {{6}}link</div></div>
                 <div class="field"><label>🎉 Festival Greeting</label><div style="display:flex;gap:6px"><input id="tpl-name-festival" placeholder="festival_greeting" style="flex:1"><input id="tpl-lang-festival" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}company {{3}}phone</div></div>
               </div>
 
@@ -2374,17 +2373,6 @@ View Invoice: {{7}}</pre></details>
 Partial payment received for Invoice #{{2}}.
 Paid: ₹{{3}} | Remaining: ₹{{4}}
 Due by: {{5}}
-
-View Invoice: {{6}}</pre></details>
-                  <details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;font-weight:600;color:#D97706">balance_reminder — UTILITY</summary><pre style="font-size:11px;background:#fff;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;border:1px solid var(--border)">Hi {{1}},
-
-💰 *Balance Reminder* — Invoice #{{2}}
-
-Amount Paid: *₹{{3}}*
-Remaining Balance: *₹{{4}}*
-Due by: {{5}}
-
-Please clear the balance at your earliest convenience.
 
 View Invoice: {{6}}</pre></details>
                 </div>
@@ -7794,17 +7782,8 @@ function confirmPaid() {
         const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
         logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'sending' });
         sendWA(phoneP, msgP, tplName, invWithPmt, cP)
-          .then(r => {
-            logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:r?'sent_api':'sent_web' });
-            const label = wasPartial ? 'Partial payment receipt' : (isSplitPmt ? 'Split payment receipt' : 'Payment receipt');
-            toast(`📱 ${label} sent to ${cP.name || phoneP} via WhatsApp!`, 'success');
-          })
-          .catch(e => {
-            logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'failed', error:e.message });
-            toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-          });
-      } else if (shouldSendWA && !phoneP) {
-        toast(`⚠️ WA not sent — no phone number for ${cP.name || 'client'}`, 'warning');
+          .then(r => logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:r?'sent_api':'sent_web' }))
+          .catch(e => { logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'failed', error:e.message }); console.warn('WA payment msg failed:',e.message); });
       }
 
       const shouldSendEmail = wasPartial
@@ -9279,8 +9258,6 @@ window.saveWASettings = async function() {
     wa_tpl_lang_recurring: val('tpl-lang-recurring')  || 'en_US',
     wa_tpl_name_partial:   val('tpl-name-partial'),
     wa_tpl_lang_partial:   val('tpl-lang-partial')   || 'en_US',
-    wa_tpl_name_balance_reminder: val('tpl-name-balance-reminder'),
-    wa_tpl_lang_balance_reminder: val('tpl-lang-balance-reminder') || 'en_US',
     wa_tpl_name_festival:  val('tpl-name-festival'),
     wa_tpl_lang_festival:  val('tpl-lang-festival')  || 'en_US',
   };
@@ -9315,8 +9292,6 @@ window.saveWASettings = async function() {
     tpl_lang_recurring: payload.wa_tpl_lang_recurring,
     tpl_name_partial:   payload.wa_tpl_name_partial,
     tpl_lang_partial:  payload.wa_tpl_lang_partial,
-    tpl_name_balance_reminder: payload.wa_tpl_name_balance_reminder,
-    tpl_lang_balance_reminder: payload.wa_tpl_lang_balance_reminder,
     tpl_name_festival: payload.wa_tpl_name_festival,
     tpl_lang_festival: payload.wa_tpl_lang_festival,
   });
@@ -10947,8 +10922,6 @@ async function loadAllData() {
         tpl_lang_recurring: s.wa_tpl_lang_recurring || 'en_US',
         tpl_name_partial:   s.wa_tpl_name_partial   || '',
         tpl_lang_partial:  s.wa_tpl_lang_partial  || 'en_US',
-        tpl_name_balance_reminder: s.wa_tpl_name_balance_reminder || '',
-        tpl_lang_balance_reminder: s.wa_tpl_lang_balance_reminder || 'en_US',
         tpl_name_festival: s.wa_tpl_name_festival || '',
         tpl_lang_festival: s.wa_tpl_lang_festival || 'en_US',
       };
@@ -11778,7 +11751,6 @@ function buildWATplParams(tplName, inv, client, settings) {
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
     balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
-    balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
@@ -11819,7 +11791,7 @@ async function sendWA(phone, message, tplName, inv, client) {
       'split_payment':    'paid',
       'payment_overdue':  'overdue',
       'payment_reminder': 'reminder',
-      'balance_reminder': 'balance_reminder',
+      'balance_reminder': 'reminder',
       'invoice_followup': 'followup',
       'festival':         'festival',
     };
@@ -13864,14 +13836,8 @@ async function sendBalanceReminder() {
   if ((ch === 'whatsapp' || ch === 'both') && phone) {
     logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'sending' });
     sendWA(phone, msg, 'balance_reminder', inv, cl)
-      .then(res => {
-        logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status: res ? 'sent_api' : 'sent_web' });
-        toast(`📱 Balance reminder sent to ${cl.name || phone} via WhatsApp!`, 'success');
-      })
-      .catch(e  => {
-        logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'failed', error:e.message });
-        toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-      });
+      .then(res => logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status: res ? 'sent_api' : 'sent_web' }))
+      .catch(e  => logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'failed', error:e.message }));
     sent = true;
   } else if ((ch === 'whatsapp' || ch === 'both') && !phone) {
     toast('⚠️ No WhatsApp number for ' + (cl.name||'client'), 'warning');
