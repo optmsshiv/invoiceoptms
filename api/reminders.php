@@ -92,7 +92,7 @@ try {
             $settings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
             if (empty($settings['channel'])) $settings['channel'] = 'whatsapp';
 
-            // FIX #3: Cast on_due to a real boolean so JS receives true/false, not "0"/"1" string
+        
             if (!empty($settings)) {
                 $settings['on_due']      = (int)$settings['on_due'];
                 $settings['before_days'] = (int)$settings['before_days'];
@@ -127,7 +127,6 @@ try {
 
     // ── POST: log a reminder entry ────────────────────────────────
     if ($method === 'POST' && $action === 'log') {
-        // FIX #5: Validate channel against allowed list
         $type    = in_array($body['type']    ?? '', ALLOWED_TYPES)    ? $body['type']    : 'due_reminder';
         $channel = in_array($body['channel'] ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
         $status  = in_array($body['status']  ?? '', ALLOWED_STATUSES) ? $body['status']  : 'sent';
@@ -147,24 +146,28 @@ try {
             ':msg'     => $body['message'] ?? '',
         ]);
 
-        // Also write to activity_log
-        $user   = currentUser();
-        $uid    = $user['id'] ?? null;
-        $ip     = $_SERVER['REMOTE_ADDR'] ?? null;
-        $label  = 'Reminder sent: ' . ($body['invoice_num'] ?? '');
-        $detail = ($body['client_name'] ?? '') . ' via ' . $channel;
-        $aStmt  = $db->prepare(
-            'INSERT INTO activity_log (type, label, detail, invoice_id, user_id, ip)
-             VALUES (:type, :label, :detail, :inv, :uid, :ip)'
-        );
-        $aStmt->execute([
-            ':type'  => 'reminder_sent',
-            ':label' => $label,
-            ':detail'=> $detail,
-            ':inv'   => !empty($body['invoice_id']) ? (int)$body['invoice_id'] : null,
-            ':uid'   => $uid,
-            ':ip'    => $ip,
-        ]);
+        // Also write to activitys_log (best-effort — don't fail the whole request)
+        try {
+            $user   = currentUser();
+            $uid    = $user['id'] ?? null;
+            $ip     = $_SERVER['REMOTE_ADDR'] ?? null;
+            $label  = 'Reminder sent: ' . ($body['invoice_num'] ?? '');
+            $detail = ($body['client_name'] ?? '') . ' via ' . $channel;
+            $aStmt  = $db->prepare(
+                'INSERT INTO activitys_log (type, label, detail, invoice_id, user_id, ip)
+                 VALUES (:type, :label, :detail, :inv, :uid, :ip)'
+            );
+            $aStmt->execute([
+                ':type'   => 'reminder_sent',
+                ':label'  => $label,
+                ':detail' => $detail,
+                ':inv'    => !empty($body['invoice_id']) ? (int)$body['invoice_id'] : null,
+                ':uid'    => $uid,
+                ':ip'     => $ip,
+            ]);
+        } catch (Exception $eAct) {
+            error_log('activitys_log write failed (non-fatal): ' . $eAct->getMessage());
+        }
 
         echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
         exit;
