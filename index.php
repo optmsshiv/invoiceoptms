@@ -3198,20 +3198,20 @@ View Invoice: {{6}}</pre></details>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input type="text" class="table-search" placeholder="Search invoice, client…" oninput="filterPortalTable(this.value)" id="portal-search" style="width:200px">
           <select class="table-filter" id="portal-status-filter" onchange="_renderPortalTable()">
-          <option value="">All status</option>
-          <option value="Pending">Pending</option>
-          <option value="Overdue">Overdue</option>
-          <option value="Partial">Partial</option>
-          <option value="Paid">Paid</option>
-          <option value="Draft">Draft</option>
-        </select>
+            <option value="">All status</option>
+            <option value="Pending">Pending</option>
+            <option value="Overdue">Overdue</option>
+            <option value="Partial">Partial</option>
+            <option value="Paid">Paid</option>
+            <option value="Draft">Draft</option>
+          </select>
           <select class="table-filter" id="portal-link-filter" onchange="_renderPortalTable()">
-          <option value="">All links</option>
-          <option value="never">Never viewed</option>
-          <option value="viewed">Viewed</option>
-          <option value="expired">Expired</option>
-        </select>
-      </div>
+            <option value="">All links</option>
+            <option value="never">Never viewed</option>
+            <option value="viewed">Viewed</option>
+            <option value="expired">Expired</option>
+          </select>
+        </div>
       </div>
       <!-- Full width portal table -->
       <div class="settings-block" style="padding:0;overflow:hidden">
@@ -13189,8 +13189,6 @@ async function _setPortalExpiry(token, invNum) {
 }
 
 async function _renderPortalTable(search) {
-  if (!window._portalPage) window._portalPage = 1;
-  const PER_PAGE = 10;
   const tbody = document.getElementById('portal-tbody');
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>`;
@@ -13203,17 +13201,17 @@ async function _renderPortalTable(search) {
     }
   } catch(e) { _portalTokenMap = {}; }
 
-  const s       = (search || document.getElementById('portal-search')?.value || '').toLowerCase();
-  const statusF = document.getElementById('portal-status-filter')?.value || '';
-  const linkF   = document.getElementById('portal-link-filter')?.value   || '';
+  const s          = (search || document.getElementById('portal-search')?.value || '').toLowerCase();
+  const statusF    = document.getElementById('portal-status-filter')?.value || '';
+  const linkF      = document.getElementById('portal-link-filter')?.value   || '';
 
   let rows = STATE.invoices.filter(inv => {
-    const cl   = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+    const cl = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
     const name = (cl.name || inv.clientName || inv.client_name || '').toLowerCase();
-    const matchS  = !s || (inv.num||'').toLowerCase().includes(s) || name.includes(s);
+    const matchS = !s || (inv.num||'').toLowerCase().includes(s) || name.includes(s);
     const matchSt = !statusF || inv.status === statusF;
     const t = _portalTokenMap[String(inv.id)];
-    const views     = t ? (parseInt(t.views)||0) : null;
+    const views = t ? (parseInt(t.views)||0) : null;
     const expiresAt = t && t.expires_at ? new Date(t.expires_at) : null;
     const isExpired = expiresAt && expiresAt < new Date();
     let matchL = true;
@@ -13835,10 +13833,13 @@ function openPromiseModal(invId) {
   if (dd) dd.value = tom.toISOString().slice(0,10);
 
   // Default amount = remaining balance
-  const paid = (inv.payments||[]).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const remaining = Math.max(0,(parseFloat(inv.amount)||0) - paid);
+  // Read from STATE.payments (inv.payments is not populated on the invoice object)
+  const invPayments = (STATE.payments || []).filter(p => String(p.invoice_id) === String(invId));
+  const paid        = invPayments.reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+  const grand       = parseFloat(inv.grand_total || inv.amount || 0);
+  const remaining   = Math.max(0, grand - paid);
   const da = document.getElementById('ptp-amount');
-  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : '';
+  if (da) da.value = remaining > 0 ? remaining.toFixed(2) : grand.toFixed(2);
 
   // Default channel from settings
   const dch = document.getElementById('ptp-channel');
