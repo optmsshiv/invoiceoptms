@@ -11489,13 +11489,18 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','balance_reminder','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en_US';
   });
+  // balance_reminder has a hyphenated DOM id so must be restored separately
+  const brN = document.getElementById('tpl-name-balance-reminder');
+  const brL = document.getElementById('tpl-lang-balance-reminder');
+  if (brN) brN.value = wa['tpl_name_balance_reminder'] || '';
+  if (brL) brL.value = wa['tpl_lang_balance_reminder'] || 'en_US';
 }
 
 
