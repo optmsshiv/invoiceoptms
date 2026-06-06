@@ -7107,16 +7107,10 @@ async function saveInvoice() {
           const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
           logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'sending' });
           sendWA(phone, msg, 'estimate_created', invForWA, c)
-            .then(res => {
-              logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: res ? 'sent_api' : 'sent_web' });
-              toast(`📱 Estimate sent to ${c.name || phone} via WhatsApp!`, 'success');
-            })
-            .catch(e => {
-              logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message });
-              toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-            });
+            .then(res => logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: res ? 'sent_api' : 'sent_web' }))
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'estimate_created', msg, status: 'failed', error: e.message }); console.warn('WA estimate send failed:', e.message); });
         } else {
-          toast(`⚠️ WA not sent — no phone number for ${d.cname || 'client'}`, 'warning');
+          console.warn('WA estimate: no phone number found — add WhatsApp number to client profile');
         }
       }
 
@@ -7130,45 +7124,13 @@ async function saveInvoice() {
           const msg = formatWAMsg(tpl, invForWA, c, STATE.settings);
           logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'sending' });
           sendWA(phone, msg, 'invoice_created', invForWA, c)
-            .then(res => {
-              logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: res ? 'sent_api' : 'sent_web' });
-              toast(`📱 Invoice sent to ${c.name || phone} via WhatsApp!`, 'success');
-            })
-            .catch(e => {
-              logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message });
-              toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-            });
+            .then(res => logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: res ? 'sent_api' : 'sent_web' }))
+            .catch(e => { logWAMessage({ inv: invForWA, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message }); console.warn('WA invoice send failed:', e.message); });
         } else {
-          toast(`⚠️ WA not sent — no phone number for ${d.cname || 'client'}`, 'warning');
+          console.warn('WA invoice: no phone number found — add WhatsApp number to client profile');
         }
       }
     }
-
-    // ── Auto-send Email: only on NEW save, respects email_auto_inv / email_auto_est ──
-    const ec = STATE.settings.email_cfg || STATE.settings || {};
-    const clientForEmail = STATE.clients.find(x => String(x.id) === String(selVal)) || {};
-    const emailAddr  = clientForEmail.email || '';
-    const clientName = clientForEmail.name  || d.cname || '';
-    const shouldEmailInv = savedStatus !== 'Draft' && savedStatus !== 'Estimate' && ec.email_auto_inv === '1';
-    const shouldEmailEst = savedStatus === 'Estimate' && ec.email_auto_est === '1';
-    if ((shouldEmailInv || shouldEmailEst) && emailAddr && (ec.smtp_host || ec.smtp_user)) {
-      const emailInvId = saved?.id || STATE.invoices.find(i => i.num && i.num === d.num)?.id;
-      if (emailInvId) {
-        api('api/email.php', 'POST', {
-          action:     'send',
-          type:       savedStatus === 'Estimate' ? 'estimate' : 'invoice',
-          invoice_id: emailInvId,
-          to:         emailAddr,
-          to_name:    clientName,
-        }).then(r => {
-          if (r?.success) toast(`📧 ${savedStatus === 'Estimate' ? 'Estimate' : 'Invoice'} email sent to ${clientName || emailAddr}!`, 'success');
-          else            toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
-        }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
-      }
-    } else if ((shouldEmailInv || shouldEmailEst) && !emailAddr) {
-      toast(`⚠️ Email not sent — no email address for ${clientName || 'client'}`, 'warning');
-    }
-
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -7896,26 +7858,7 @@ async function changeInvoiceStatus(id, newStatus, cancelReason = '') {
     // respects the auto_inv toggle, 600ms delay matches convert flow.
     const wa = STATE.settings.wa || {};
     if (newStatus === 'Pending' && ['Draft', 'Cancelled'].includes(oldStatus) && wa.auto_inv === '1') {
-      setTimeout(() => {
-        const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-        const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
-        if (phone) {
-          const tpl = wa.tpl_inv || getDefaultWATpl('inv');
-          const msg = formatWAMsg(tpl, inv, c, STATE.settings);
-          logWAMessage({ inv, client: c, type: 'invoice_created', msg, status: 'sending' });
-          sendWA(phone, msg, 'invoice_created', inv, c)
-            .then(res => {
-              logWAMessage({ inv, client: c, type: 'invoice_created', msg, status: res ? 'sent_api' : 'sent_web' });
-              toast(`📱 Invoice sent to ${c.name || phone} via WhatsApp!`, 'success');
-            })
-            .catch(e => {
-              logWAMessage({ inv, client: c, type: 'invoice_created', msg, status: 'failed', error: e.message });
-              toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-            });
-        } else {
-          toast(`⚠️ WA not sent — no phone number for ${inv.client_name || 'client'}`, 'warning');
-        }
-      }, 600);
+      setTimeout(() => sendWAForInvoice(inv), 600);
     }
 
   } catch(e) { toast('❌ Failed: ' + e.message, 'error'); }
@@ -11750,7 +11693,6 @@ function buildWATplParams(tplName, inv, client, settings) {
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
-    balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
     festival:         ['client_name','company_name','company_phone'],
@@ -11791,7 +11733,6 @@ async function sendWA(phone, message, tplName, inv, client) {
       'split_payment':    'paid',
       'payment_overdue':  'overdue',
       'payment_reminder': 'reminder',
-      'balance_reminder': 'reminder',
       'invoice_followup': 'followup',
       'festival':         'festival',
     };
