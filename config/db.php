@@ -34,6 +34,8 @@ function getDB(): PDO {
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]
         );
+        // Set MySQL session timezone to IST so NOW(), CURRENT_TIMESTAMP are correct
+        $pdo->exec("SET time_zone = '+05:30'");
         
     } catch (PDOException $e) {
         error_log('DB connection failed: ' . $e->getMessage());

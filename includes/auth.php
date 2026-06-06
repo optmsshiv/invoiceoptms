@@ -2,6 +2,7 @@
 // ================================================================
 //  OPTMS Invoice Manager — includes/auth.php
 // ================================================================
+date_default_timezone_set('Asia/Kolkata');
 require_once __DIR__ . '/../config/db.php';
 
 function startSession(): void {
