@@ -12528,8 +12528,7 @@ async function loadFeatureData() {
     clientName: r.client_name,
     type:       r.type,
     channel:    r.channel,
-    status:     r.status,
-    message:    r.message || ''
+    status:     r.status
   }));
   // Load promise-to-pay entries
   if (remR.value?.promises) STATE.promises = remR.value.promises.map(p => ({
