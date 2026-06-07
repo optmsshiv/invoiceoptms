@@ -3294,33 +3294,31 @@ View Invoice: {{6}}</pre></details>
       </div>
 
       <div class="table-card">
-        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-weight:700;font-size:14px;white-space:nowrap">Reminder History</span>
-          <input id="rem-hist-search" type="text" placeholder="&#x1F50D; Client / Invoice" oninput="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;width:160px;flex-shrink:0">
-          <select id="rem-hist-type" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
-            <option value="">All Types</option>
-            <option value="due_soon">Due Soon</option>
-            <option value="due_today">Due Today</option>
-            <option value="due_reminder">Reminder</option>
-            <option value="overdue">Overdue</option>
-            <option value="followup">Follow-up</option>
-            <option value="balance_reminder">Balance</option>
-            <option value="promise_reminder">Promise</option>
-          </select>
-          <select id="rem-hist-channel" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
-            <option value="">All Channels</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="email">Email</option>
-            <option value="both">Both</option>
-          </select>
-          <select id="rem-hist-status" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
-            <option value="">All Status</option>
-            <option value="sent">Sent</option>
-            <option value="failed">Failed</option>
-            <option value="skipped">Skipped</option>
-            <option value="promise">Promise</option>
-          </select>
-          <button class="btn btn-outline" style="font-size:12px;margin-left:auto;white-space:nowrap" onclick="clearReminderHistory()"><i class="fas fa-trash"></i> Clear</button>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="font-weight:700;font-size:14px">Reminder History</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="rem-hist-type" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
+              <option value="">All types</option>
+              <option value="due_soon">Due Soon</option>
+              <option value="due_today">Due Today</option>
+              <option value="overdue">Overdue</option>
+              <option value="followup">Follow-up</option>
+              <option value="promise_reminder">Promise</option>
+            </select>
+            <select id="rem-hist-channel" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
+              <option value="">All channels</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="email">Email</option>
+              <option value="both">Both</option>
+            </select>
+            <select id="rem-hist-status" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px">
+              <option value="">All status</option>
+              <option value="sent">Sent</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+            <button class="btn btn-outline" style="font-size:12px" onclick="clearReminderHistory()"><i class="fas fa-trash"></i> Clear</button>
+          </div>
         </div>
         <table class="data-table"><thead><tr>
           <th>Sent At</th><th>Invoice</th><th>Client</th><th>Type</th><th>Channel</th><th>Status</th><th>Message</th>
@@ -11491,13 +11489,18 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','balance_reminder','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en_US';
   });
+  // balance_reminder has a hyphenated DOM id so must be restored separately
+  const brN = document.getElementById('tpl-name-balance-reminder');
+  const brL = document.getElementById('tpl-lang-balance-reminder');
+  if (brN) brN.value = wa['tpl_name_balance_reminder'] || '';
+  if (brL) brL.value = wa['tpl_lang_balance_reminder'] || 'en_US';
 }
 
 
@@ -13652,82 +13655,31 @@ function _buildReminderQueue() {
     return;
   }
 
-  const overdueBatch  = queue.filter(q => q.urgency === 'high');
-  const todayBatch    = queue.filter(q => q.urgency === 'medium');
-  const upcomingBatch = queue.filter(q => q.urgency === 'low');
+  const urgencyColors = { high:'#C62828', medium:'#E65100', low:'#F9A825' };
+  const urgencyBg     = { high:'#ffebee', medium:'#fbe9e7', low:'#fff8e1' };
 
-  const qRow = (q) => {
-    const ch    = getReminderSettings().channel || 'whatsapp';
+  el.innerHTML = queue.map(q => {
+    const col = urgencyColors[q.urgency];
+    const bg  = urgencyBg[q.urgency];
+    // Also check invoice fields for one-time clients who have no saved client record
     const phone = (q.client.wa||q.client.whatsapp||q.client.phone||q.inv.client_wa||q.inv.client_phone||'').replace(/\D/g,'');
-    const email = q.client.email||q.client.mail||q.inv.client_email||'';
-    const hasContact = !!(phone || email);
-    const chIcon = ch==='email' ? 'fa-envelope' : ch==='both' ? 'fa-paper-plane' : 'fab fa-whatsapp';
-    const col = q.urgency==='high' ? '#C0392B' : q.urgency==='medium' ? '#B45309' : '#185FA5';
-    const bgPill = q.urgency==='high' ? '#FEF0EF' : q.urgency==='medium' ? '#FFF4E5' : '#EEF5FF';
-    const pmts = (STATE.payments||[]).filter(pp => String(pp.invoice_id)===String(q.inv.id));
-    const paid = pmts.reduce((s,pp) => s+parseFloat(pp.amount||0), 0);
-    const total = parseFloat(q.inv.grand_total||q.inv.amount||0);
-    const remaining = Math.max(0, total - paid);
-    const amtStr = paid > 0
-      ? `<span style="font-size:10px;color:#B45309">₹${remaining.toLocaleString('en-IN')} due</span>`
-      : `<span style="font-size:11px;font-weight:600">${fmt_money(total)}</span>`;
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
-      <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
-      <td style="padding:8px 6px;white-space:nowrap">
-        <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bgPill};color:${col}">${q.label}</span>
-        <div style="font-size:10px;color:var(--muted);margin-top:1px">${q.inv.due||'—'}</div>
-      </td>
-      <td style="padding:8px 6px">${amtStr}</td>
-      <td style="padding:8px 6px;white-space:nowrap">
-        <div style="display:flex;gap:4px;align-items:center">
-          ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
-          <button onclick="openPromiseModal('${q.inv.id}')" style="padding:3px 8px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600" title="Record promise to pay">🤝</button>
-          <button onclick="sendReminderNow('${q.inv.id}','skip')" style="padding:3px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px" title="Skip this reminder">Skip</button>
+    const email = q.client.email || q.client.mail || q.inv.client_email || '';
+    return `<div style="background:${bg};border:1.5px solid ${col}30;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px">
+          <strong style="font-size:13px;font-family:var(--mono)">${q.inv.num||q.inv.invoice_number||''}</strong>
+          <span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${col};color:#fff;font-weight:700">${q.label}</span>
         </div>
-      </td>
-    </tr>`;
-  };
-
-  const qSection = (id, title, items, defaultOpen) => {
-    if (!items.length) return '';
-    const isOpen = window['_qOpen_'+id] !== undefined ? window['_qOpen_'+id] : defaultOpen;
-    const dotCol = id==='overdue' ? '#C0392B' : id==='today' ? '#B45309' : '#185FA5';
-    const chevron = isOpen ? 'fa-chevron-down' : 'fa-chevron-right';
-    return `<div style="margin-bottom:6px">
-      <div onclick="window['_qOpen_${id}']=!(window['_qOpen_${id}']!==undefined?window['_qOpen_${id}']:${defaultOpen});_buildReminderQueue()"
-           style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;user-select:none;background:var(--bg2,var(--bg));border-radius:8px;border:1px solid var(--border);margin-bottom:2px">
-        <i class="fas ${chevron}" style="font-size:10px;color:var(--muted);width:10px"></i>
-        <span style="width:8px;height:8px;border-radius:50%;background:${dotCol};display:inline-block;flex-shrink:0"></span>
-        <span style="font-size:12px;font-weight:700;color:var(--text)">${title}</span>
-        <span style="font-size:11px;padding:1px 7px;border-radius:8px;background:${dotCol}18;color:${dotCol};font-weight:700;margin-left:2px">${items.length}</span>
-        <button onclick="event.stopPropagation();items_${id}.forEach(q=>sendReminderNow(q.inv.id,getReminderSettings().channel||'whatsapp'))" 
-                style="margin-left:auto;padding:2px 10px;background:${dotCol}12;color:${dotCol};border:1px solid ${dotCol}30;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700">Send All</button>
+        <div style="font-size:12px;color:var(--muted)">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time Client'} · ${fmt_money(q.inv.amount||0)} · Due: ${q.inv.due||'—'}</div>
       </div>
-      ${isOpen ? `<div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:var(--bg2,var(--bg));border-bottom:2px solid var(--border)">
-            <th style="padding:5px 10px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Invoice</th>
-            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Client</th>
-            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Status</th>
-            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Amount</th>
-            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Actions</th>
-          </tr></thead>
-          <tbody>${items.map(q => qRow(q)).join('')}</tbody>
-        </table>
-      </div>` : ''}
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${(phone || email) ? `<button onclick="sendReminderNow('${q.inv.id}', getReminderSettings().channel || 'whatsapp')" style="padding:5px 10px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">${(()=>{const ch=getReminderSettings().channel||'whatsapp';return ch==='email'?'<i class="fas fa-envelope"></i> Send':ch==='both'?'<i class="fas fa-paper-plane"></i> Send Both':'<i class="fab fa-whatsapp"></i> Send';})()}</button>` : ''}
+        <button onclick="openPromiseModal('${q.inv.id}')" style="padding:5px 10px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600" title="Client promised to pay later">🤝 Promise</button>
+        <button onclick="sendReminderNow('${q.inv.id}','skip')" style="padding:5px 10px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">Skip</button>
+      </div>
     </div>`;
-  };
-
-  // expose arrays for "Send All" section buttons
-  window.items_overdue  = overdueBatch;
-  window.items_today    = todayBatch;
-  window.items_upcoming = upcomingBatch;
-
-  el.innerHTML =
-    qSection('overdue',  '⚠ Overdue',   overdueBatch,  true)  +
-    qSection('today',    '📅 Due Today', todayBatch,    true)  +
-    qSection('upcoming', '🗓 Upcoming',  upcomingBatch, true);
+  }).join('');
 }
 
 function sendReminderNow(invId, channel) {
@@ -13847,22 +13799,14 @@ function _renderReminderHistory() {
   const tbody    = document.getElementById('rem-history-tbody');
   if (!tbody) return;
 
-  const typeF   = document.getElementById('rem-hist-type')?.value    || '';
-  const chanF   = document.getElementById('rem-hist-channel')?.value || '';
-  const statF   = document.getElementById('rem-hist-status')?.value  || '';
-  const searchF = (document.getElementById('rem-hist-search')?.value || '').toLowerCase().trim();
+  const typeF = document.getElementById('rem-hist-type')?.value    || '';
+  const chanF = document.getElementById('rem-hist-channel')?.value || '';
+  const statF = document.getElementById('rem-hist-status')?.value  || '';
 
   let data = (STATE.reminders || []).filter(r => {
-    if (typeF   && r.type !== typeF) return false;
-    if (chanF   && (r.channel||'') !== chanF) return false;
-    if (statF   && (r.status||'') !== statF) return false;
-    if (searchF) {
-      const inv    = (r.invNum||r.invoice_num||'').toLowerCase();
-      const client = (r.clientName||r.client_name||'').toLowerCase();
-      const msg    = (r.message||r.msg||r.note||'').toLowerCase();
-      if (!inv.includes(searchF) && !client.includes(searchF) && !msg.includes(searchF)) return false;
-    }
-    return true;
+    return (!typeF || r.type === typeF) &&
+           (!chanF || (r.channel||'') === chanF) &&
+           (!statF || (r.status||'') === statF);
   });
 
   if (!data.length) {
@@ -13873,14 +13817,13 @@ function _renderReminderHistory() {
   }
 
   const typeBadge = {
-    due_soon:        {bg:'#FFF4E5',color:'#B45309',bdr:'#FBBF24',icon:'fa-clock',               label:'Due Soon',     alert:false},
-    due_today:       {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-calendar-day',        label:'Due Today',    alert:true},
-    due_reminder:    {bg:'#EEF5FF',color:'#185FA5',bdr:'#B5D4F4',icon:'fa-bell',                label:'Reminder',     alert:false},
-    overdue:         {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-exclamation-triangle', label:'Overdue',      alert:true},
-    followup:        {bg:'#FDF0F7',color:'#9D174D',bdr:'#F0ABCD',icon:'fa-phone-alt',           label:'Follow-up',    alert:true},
-    balance_reminder:{bg:'#FFF4E5',color:'#92400E',bdr:'#FCD34D',icon:'fa-wallet',              label:'Bal. Reminder',alert:false},
-    promise_reminder:{bg:'#EDE9FE',color:'#6D28D9',bdr:'#C4B5FD',icon:'fa-handshake',           label:'Promise',      alert:false},
-    paid:            {bg:'#EDFAF0',color:'#1E7E34',bdr:'#C0DD97',icon:'fa-check-circle',        label:'Paid',         alert:false},
+    due_soon:        {bg:'#FFF4E5',color:'#B45309',bdr:'#FBBF24',icon:'fa-clock',              label:'Due Soon',  alert:false},
+    due_today:       {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-calendar-day',       label:'Due Today', alert:true},
+    due_reminder:    {bg:'#EEF5FF',color:'#185FA5',bdr:'#B5D4F4',icon:'fa-bell',               label:'Reminder',  alert:false},
+    overdue:         {bg:'#FEF0EF',color:'#C0392B',bdr:'#F7C1C1',icon:'fa-exclamation-triangle',label:'Overdue',   alert:true},
+    followup:        {bg:'#FDF0F7',color:'#9D174D',bdr:'#F0ABCD',icon:'fa-phone-alt',          label:'Follow-up', alert:true},
+    promise_reminder:{bg:'#EDE9FE',color:'#6D28D9',bdr:'#C4B5FD',icon:'fa-handshake',          label:'Promise',   alert:false},
+    paid:            {bg:'#EDFAF0',color:'#1E7E34',bdr:'#C0DD97',icon:'fa-check-circle',       label:'Paid',      alert:false},
   };
 
   const chanBadge = ch => {
@@ -13908,30 +13851,27 @@ function _renderReminderHistory() {
     const norm = raw ? (raw.includes('T') ? raw : raw.replace(' ','T')+'+05:30') : '';
     const d    = norm ? new Date(norm) : null;
     const diff = d && !isNaN(d) ? Math.floor((Date.now()-d)/1000) : null;
-    const rel  = diff===null ? '—' : diff<60 ? 'just now' : diff<3600 ? Math.floor(diff/60)+'m ago' : diff<86400 ? Math.floor(diff/3600)+'h ago' : diff<604800 ? Math.floor(diff/86400)+'d ago' : d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'});
+    const rel  = diff===null ? '—' : diff<60 ? 'just now' : diff<3600 ? Math.floor(diff/60)+'m ago' : diff<86400 ? Math.floor(diff/3600)+'h ago' : diff<604800 ? Math.floor(diff/86400)+'d ago' : (d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}));
     const time = d && !isNaN(d) ? d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}) : '';
-    // Fix 2: always show date in second line regardless of how recent
-    const dateStr = d && !isNaN(d) ? d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}) : '';
 
     const tb = typeBadge[r.type] || {bg:'#F5F5F5',color:'#888',bdr:'#ddd',icon:'fa-circle',label:r.type||'—',alert:false};
     const aStyle = tb.alert ? `border-left:3px solid ${tb.color};border-radius:0 6px 6px 0;` : 'border-radius:6px;';
     const typePill = `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;${aStyle}font-size:11px;font-weight:600;background:${tb.bg};color:${tb.color};border:1px solid ${tb.bdr};white-space:nowrap"><i class="fas ${tb.icon}" style="font-size:9px"></i> ${tb.label}</span>`;
 
-    // Fix 3: check all possible message fields, never show dash if any exist
-    const msg      = (r.message||r.msg||r.note||'').trim();
-    const msgShort = msg.length > 50 ? msg.slice(0,50)+'…' : msg;
+    const msg      = r.message || r.msg || '';
+    const msgShort = msg.length > 45 ? msg.slice(0,45)+'…' : msg;
 
     return `<tr>
-      <td style="white-space:nowrap;min-width:110px">
+      <td style="white-space:nowrap;min-width:100px">
         <div style="font-size:12px;font-weight:600;color:var(--text)">${rel}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${time}${dateStr && rel !== dateStr ? ' · '+dateStr : ''}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono)">${time}</div>
       </td>
       <td style="font-family:var(--mono);font-weight:700;font-size:12px">${r.invNum||r.invoice_num||'—'}</td>
       <td style="font-size:13px">${r.clientName||r.client_name||'—'}</td>
       <td>${typePill}</td>
       <td>${chanBadge(r.channel||'')}</td>
       <td>${statBadge(r.status||'')}</td>
-      <td style="font-size:11px;color:${msg?'var(--text)':'var(--muted)'};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg.replace(/"/g,'&quot;')}">${msgShort||'<span style=\'color:var(--muted)\'>—</span>'}</td>
+      <td style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${msg.replace(/"/g,'&quot;')}">${msgShort||'—'}</td>
     </tr>`;
   }).join('');
 
@@ -14080,10 +14020,10 @@ async function sendBalanceReminder() {
       invoice_id:  inv.id,
       invoice_num: inv.num || inv.invoice_number || '',
       client_name: cl.name || inv.clientName || inv.client_name || '',
-      type:        'balance_reminder',
+      type:        'due_reminder',
       channel:     ch,
       status:      'sent',
-      message:     'Balance reminder — paid: ' + fmt_money(paid) + ' · remaining: ' + fmt_money(remaining)
+      message:     'Balance reminder — remaining: ' + fmt_money(remaining)
     }).catch(e => console.warn('reminder log failed:', e.message));
 
     logActivity('reminder_sent',
@@ -14193,7 +14133,62 @@ async function savePromise() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-// _renderPromiseTracker moved below — single implementation
+function _renderPromiseTracker() {
+  const el    = document.getElementById('promise-list');
+  const badge = document.getElementById('promise-count-badge');
+  if (!el) return;
+
+  const active = (STATE.promises || []).filter(p => ['pending','reminded'].includes(p.status||''));
+  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? 'inline-block' : 'none'; }
+
+  if (!active.length) {
+    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px"><i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises</div>`;
+    return;
+  }
+
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const overdue  = active.filter(p => new Date((p.promiseDate||p.promise_date)+'T00:00:00') < today);
+  const dueToday = active.filter(p => { const d=new Date((p.promiseDate||p.promise_date)+'T00:00:00'); return d.getTime()===today.getTime(); });
+  const upcoming = active.filter(p => new Date((p.promiseDate||p.promise_date)+'T00:00:00') > today);
+
+  const row = (p, urgency) => {
+    const isOver = urgency==='overdue', isToday = urgency==='today';
+    const bg  = isOver ? '#FEF0EF' : isToday ? '#FFF4E5' : '#F5F3FF';
+    const bdr = isOver ? '#F7C1C1' : isToday ? '#FBBF24' : '#C4B5FD';
+    const col = isOver ? '#C0392B' : isToday ? '#B45309' : '#6D28D9';
+    const pDate = p.promiseDate || p.promise_date || '';
+    const dateF = pDate ? new Date(pDate+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const daysAgo = isOver ? Math.abs(Math.floor((new Date(pDate+'T00:00:00')-today)/864e5)) : 0;
+    const lbl = isOver ? `⚠ ${daysAgo}d overdue` : isToday ? '📅 Due Today' : `📅 ${dateF}`;
+    const amt = p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '';
+    const chIcon = p.channel==='email'?'fa-envelope':p.channel==='both'?'fa-paper-plane':'fab fa-whatsapp';
+
+    return `<div style="background:${bg};border:1px solid ${bdr};border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
+          <strong style="font-family:var(--mono);font-size:12px">${p.invNum||p.invoice_num||'—'}</strong>
+          <span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${col};color:#fff;font-weight:700">${lbl}</span>
+          ${amt?`<span style="font-size:11px;color:var(--muted)">${amt}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--muted)">${p.clientName||p.client_name||'—'}${p.note?` · <em>${p.note}</em>`:''}</div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button onclick="sendPromiseReminder('${p.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>
+        <button onclick="updatePromise('${p.id}','fulfilled')" style="padding:4px 9px;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">✓ Paid</button>
+        <button onclick="updatePromise('${p.id}','cancelled')" style="padding:4px 9px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">Cancel</button>
+      </div>
+    </div>`;
+  };
+
+  const section = (title, items, urgency) => !items.length ? '' :
+    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;padding:0 2px">${title} (${items.length})</div>` +
+    items.map(p => row(p, urgency)).join('');
+
+  el.innerHTML =
+    section('⚠ Overdue promises', overdue,  'overdue') +
+    section('📅 Due today',        dueToday, 'today')   +
+    section('Upcoming',            upcoming, 'upcoming');
+}
 
 function openPromiseModal(invId) {
   _ptpInvId = invId;
@@ -14290,147 +14285,69 @@ async function savePromise() {
 }
 
 function _renderPromiseTracker() {
-  const el    = document.getElementById('promise-list');
-  const badge = document.getElementById('promise-count-badge');
+  const el = document.getElementById('promise-list');
   if (!el) return;
+  const badge = document.getElementById('promise-count-badge');
 
-  const active = (STATE.promises||[]).filter(p => p.status==='pending'||p.status==='reminded');
-  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? 'inline-block' : 'none'; }
+  const active = (STATE.promises || []).filter(p => p.status === 'pending' || p.status === 'reminded');
+  if (badge) { badge.textContent = active.length; badge.style.display = active.length ? '' : 'none'; }
 
   if (!active.length) {
-    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px"><i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises</div>`;
+    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
+      <i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises</div>`;
     return;
   }
 
-  const today    = new Date(); today.setHours(0,0,0,0);
-  const overdue  = active.filter(p => new Date((p.promiseDate||p.promise_date||'')+'T00:00:00') < today);
-  const dueToday = active.filter(p => new Date((p.promiseDate||p.promise_date||'')+'T00:00:00').getTime() === today.getTime());
-  const upcoming = active.filter(p => new Date((p.promiseDate||p.promise_date||'')+'T00:00:00') > today);
+  const today = new Date(); today.setHours(0,0,0,0);
 
-  // Compact table row renderer
-  const row = (p, urgency) => {
-    const isOver = urgency==='overdue', isToday = urgency==='today';
-    const col = isOver ? '#C0392B' : isToday ? '#B45309' : '#6D28D9';
-    const bgPill = isOver ? '#FEF0EF' : isToday ? '#FFF4E5' : '#EDE9FE';
-    const pDate = p.promiseDate || p.promise_date || '';
-    const dateF = pDate ? new Date(pDate+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—';
-    const daysAgo = isOver ? Math.abs(Math.floor((new Date(pDate+'T00:00:00')-today)/864e5)) : 0;
-    const daysFwd = !isOver && !isToday ? Math.floor((new Date(pDate+'T00:00:00')-today)/864e5) : 0;
-    const lbl = isOver ? `${daysAgo}d late` : isToday ? 'Today' : `${daysFwd}d`;
-    const amt = p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '—';
-    const chIcon = p.channel==='email' ? 'fa-envelope' : p.channel==='both' ? 'fa-paper-plane' : 'fab fa-whatsapp';
-    const chColor = p.channel==='email' ? '#2563EB' : p.channel==='both' ? '#5B52C7' : '#1E7E34';
-    const statusDot = p.status==='reminded'
-      ? `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:#FFF4E5;color:#B45309;border:1px solid #FBBF24">reminded</span>`
-      : '';
+  el.innerHTML = active.map(p => {
+    const due    = new Date(p.promiseDate + 'T00:00:00');
+    const days   = Math.floor((due - today) / 864e5);
+    const isOver = days < 0;
+    const isDue  = days === 0;
+    const col    = isOver ? '#C62828' : isDue ? '#E65100' : '#6D28D9';
+    const bg     = isOver ? '#FFEBEE' : isDue ? '#FFF3E0' : '#F5F3FF';
+    const label  = isOver ? `${Math.abs(days)}d overdue promise` : isDue ? 'Due today!' : `in ${days} day${days!==1?'s':''}`;
+    const chIcon = p.channel==='email'?'📧':p.channel==='both'?'💬📧':'💬';
 
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${p.invNum||p.invoice_num||'—'}</td>
-      <td style="padding:8px 6px;font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||p.client_name||'—'} ${statusDot}</td>
-      <td style="padding:8px 6px;white-space:nowrap">
-        <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bgPill};color:${col}">${lbl}</span>
-        <div style="font-size:10px;color:var(--muted);margin-top:1px">${dateF}</div>
-      </td>
-      <td style="padding:8px 6px;font-size:12px;font-weight:600;white-space:nowrap">${amt}</td>
-      <td style="padding:8px 6px"><i class="${chIcon}" style="color:${chColor};font-size:12px"></i></td>
-      <td style="padding:8px 6px;font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.note||'').replace(/"/g,'&quot;')}">${p.note||'—'}</td>
-      <td style="padding:8px 6px;white-space:nowrap">
-        <div style="display:flex;gap:4px;align-items:center">
-          <button onclick="sendPromiseReminder('${p.id}')" title="Send reminder" style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:${bgPill};color:${col};border:1px solid ${col}30;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>
-          <button onclick="markPromiseFulfilled('${p.id}')" title="Mark paid" style="padding:3px 8px;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✓</button>
-          <button onclick="markPromiseCancelled('${p.id}')" title="Cancel promise" style="padding:3px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px">✕</button>
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="width:38px;height:38px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤝</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
+          <strong style="font-family:var(--mono);font-size:13px">${p.invNum||'—'}</strong>
+          <span style="font-size:11px;color:var(--muted)">${p.clientName||'—'}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:10px;background:${col};color:#fff;font-weight:700">${label}</span>
         </div>
-      </td>
-    </tr>`;
-  };
-
-  // Collapsible section builder
-  const section = (id, title, items, urgency, defaultOpen) => {
-    if (!items.length) return '';
-    const isOpen = window['_ptpOpen_'+id] !== false ? defaultOpen : window['_ptpOpen_'+id];
-    const chevron = isOpen ? 'fa-chevron-down' : 'fa-chevron-right';
-    const dotCol  = urgency==='overdue' ? '#C0392B' : urgency==='today' ? '#B45309' : '#6D28D9';
-    return `<div style="margin-bottom:4px">
-      <div onclick="window['_ptpOpen_${id}']=!(window['_ptpOpen_${id}']!==false?${defaultOpen}:window['_ptpOpen_${id}']);_renderPromiseTracker()"
-           style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;user-select:none;background:var(--bg2,var(--bg));border-radius:8px;border:1px solid var(--border)">
-        <i class="fas ${chevron}" style="font-size:10px;color:var(--muted);width:10px"></i>
-        <span style="width:8px;height:8px;border-radius:50%;background:${dotCol};display:inline-block;flex-shrink:0"></span>
-        <span style="font-size:12px;font-weight:700;color:var(--text)">${title}</span>
-        <span style="font-size:11px;padding:1px 7px;border-radius:8px;background:${dotCol}18;color:${dotCol};font-weight:700;margin-left:2px">${items.length}</span>
+        <div style="font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap">
+          <span>📅 ${p.promiseDate}</span>
+          ${p.amount>0 ? `<span>💰 ₹${Number(p.amount).toLocaleString('en-IN')}</span>` : ''}
+          <span>${chIcon} ${p.channel}</span>
+          ${p.note ? `<span>📝 ${p.note}</span>` : ''}
+        </div>
       </div>
-      ${isOpen ? `<div style="overflow-x:auto;margin-top:4px">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:var(--bg2,var(--bg));border-bottom:2px solid var(--border)">
-            <th style="padding:6px 10px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Invoice</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Client</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Due</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Amount</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Ch.</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Note</th>
-            <th style="padding:6px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Actions</th>
-          </tr></thead>
-          <tbody>${items.map(p => row(p, urgency)).join('')}</tbody>
-        </table>
-      </div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button onclick="sendPromiseReminder('${p.id}')" style="padding:5px 10px;background:${bg};color:${col};border:1px solid ${col}40;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">
+          ${chIcon} Send Now
+        </button>
+        <button onclick="markPromiseFulfilled('${p.id}')" style="padding:5px 10px;background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A740;border-radius:7px;cursor:pointer;font-size:11px;font-weight:600">
+          ✅ Fulfilled
+        </button>
+        <button onclick="markPromiseCancelled('${p.id}')" style="padding:5px 10px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:11px">
+          ✕ Cancel
+        </button>
+      </div>
     </div>`;
-  };
-
-  el.innerHTML =
-    section('overdue',  '⚠ Overdue Promises', overdue,  'overdue', true)  +
-    section('today',    '📅 Due Today',         dueToday, 'today',   true)  +
-    section('upcoming', '🗓 Upcoming',           upcoming, 'upcoming', true);
+  }).join('');
 }
 
-// Send a reminder for a promise-to-pay entry (uses remaining balance, not full amount)
+// Send a reminder for a promise-to-pay entry
 function sendPromiseReminder(ptpId) {
   const p = (STATE.promises||[]).find(x => String(x.id) === String(ptpId));
   if (!p) return;
   const inv = STATE.invoices.find(i => String(i.id) === String(p.invoiceId));
   if (!inv) { toast('⚠️ Invoice not found','warning'); return; }
-  const cl  = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
-  const sym = inv.currency || '₹';
 
-  // Compute remaining balance (same as openBalanceReminderModal)
-  const pmts      = (STATE.payments||[]).filter(pp => String(pp.invoice_id) === String(inv.id));
-  const paid      = pmts.reduce((s,pp) => s + parseFloat(pp.amount||0), 0);
-  const remaining = Math.max(0, parseFloat(inv.grand_total||inv.amount||0) - paid);
-  const promisedAmt = p.amount > 0 ? p.amount : remaining;
-
-  // Build message using remaining balance — same logic as balance reminder modal
-  const wa  = STATE.settings.wa || {};
-  const tpl = wa.tpl_remind || getDefaultWATpl('remind');
-  const invWithAmts = Object.assign({}, inv, { _paidAmt: paid, _remainingAmt: remaining });
-  const balanceTpl = tpl
-    .replace(/\*?{currency}\*?{amount}\*?/g, '*' + fmt_money(remaining, sym) + '*')
-    .replace(/{amount}/g, fmt_money(remaining, sym));
-  const msg = formatWAMsg(balanceTpl, invWithAmts, cl, STATE.settings);
-
-  const phone = (cl.wa||cl.whatsapp||cl.phone||inv.client_wa||inv.client_phone||'').replace(/\D/g,'');
-  const ch    = p.channel || 'whatsapp';
-
-  if ((ch === 'whatsapp' || ch === 'both') && phone) {
-    logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'sending' });
-    sendWA(phone, msg, 'balance_reminder', inv, cl)
-      .then(res => { logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status: res ? 'sent_api' : 'sent_web' }); })
-      .catch(e  => { logWAMessage({ inv, client:cl, type:'balance_reminder', msg, status:'failed', error:e.message }); });
-  } else if ((ch === 'whatsapp' || ch === 'both') && !phone) {
-    toast('⚠️ No WhatsApp number for ' + (cl.name||'client'), 'warning');
-  }
-  if ((ch === 'email' || ch === 'both') && (cl.email||inv.client_email)) {
-    sendEmailFromInvoice(inv.id, 'reminder', cl.email||inv.client_email, cl.name||inv.clientName||'');
-  }
-
-  api('api/reminders.php?action=log', 'POST', {
-    invoice_id:  inv.id,
-    invoice_num: inv.num || inv.invoice_number || '',
-    client_name: cl.name || inv.clientName || inv.client_name || '',
-    type:        'balance_reminder',
-    channel:     ch,
-    status:      'sent',
-    message:     'Promise reminder — paid: ' + fmt_money(paid, sym) + ' · remaining: ' + fmt_money(remaining, sym)
-  }).catch(e => console.warn('promise reminder log failed:', e.message));
-
-  toast('✅ Promise reminder sent to ' + (cl.name||'client'), 'success');
+  sendReminderNow(inv.id, p.channel);
 
   // Mark as reminded in DB
   api('api/reminders.php?action=promise_update', 'POST', { id: ptpId, status: 'reminded' })
