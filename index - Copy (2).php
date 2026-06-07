@@ -1010,90 +1010,6 @@ select { cursor: pointer; }
 /* ── PHP-build extras ── */
 .nav-item[href*="logout"] { color: rgba(255,100,100,.75) !important; }
 .nav-item[href*="logout"]:hover { color: #ff6b6b !important; background:rgba(255,80,80,.1) !important; }
-
-/* ── User avatar chip in topbar ── */
-.user-chip {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 10px 4px 4px;
-  border: 1.5px solid var(--border); border-radius: 10px;
-  background: transparent; cursor: pointer;
-  transition: .18s; position: relative;
-}
-.user-chip:hover { background: var(--bg); border-color: var(--teal); }
-.user-chip-avatar {
-  width: 28px; height: 28px; border-radius: 7px;
-  background: var(--teal); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; flex-shrink: 0; overflow: hidden;
-}
-.user-chip-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
-.user-chip-chevron { font-size: 10px; color: var(--muted); margin-left: 2px; }
-
-/* ── User dropdown panel ── */
-.user-dropdown {
-  position: absolute; top: calc(100% + 10px); right: 0;
-  width: 240px; background: var(--card);
-  border: 1px solid var(--border); border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.12); z-index: 700;
-  display: none; overflow: hidden;
-}
-.user-dropdown.open { display: block; }
-.user-dropdown-header {
-  padding: 16px; display: flex; align-items: center; gap: 12px;
-  background: linear-gradient(135deg, var(--teal) 0%, #00695C 100%);
-}
-.udh-avatar {
-  width: 42px; height: 42px; border-radius: 10px;
-  background: rgba(255,255,255,.25); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 800; flex-shrink: 0; overflow: hidden;
-  border: 2px solid rgba(255,255,255,.4);
-}
-.udh-name { font-size: 13px; font-weight: 700; color: #fff; }
-.udh-email { font-size: 10px; color: rgba(255,255,255,.75); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-.udh-role { display: inline-block; margin-top: 4px; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 8px; background: rgba(255,255,255,.2); color: #fff; text-transform: uppercase; letter-spacing: .4px; }
-.user-dropdown-body { padding: 6px; }
-.ud-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: 8px; cursor: pointer;
-  font-size: 13px; font-weight: 500; color: var(--text);
-  transition: .15s; border: none; background: none; width: 100%; text-align: left;
-}
-.ud-item:hover { background: var(--bg); }
-.ud-item i { width: 16px; text-align: center; font-size: 13px; color: var(--muted); }
-.ud-item.danger { color: #E53935; }
-.ud-item.danger i { color: #E53935; }
-.ud-item.danger:hover { background: #FEF0EF; }
-.ud-divider { height: 1px; background: var(--border); margin: 4px 6px; }
-
-/* ── Profile settings card ── */
-.profile-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-}
-.profile-card-banner {
-  height: 80px;
-  background: linear-gradient(135deg, var(--teal) 0%, #00695C 100%);
-}
-.profile-card-body { padding: 0 24px 24px; }
-.profile-avatar-wrap {
-  margin-top: -36px; margin-bottom: 16px;
-  display: flex; align-items: flex-end; justify-content: space-between;
-}
-.profile-avatar-lg {
-  width: 72px; height: 72px; border-radius: 14px;
-  background: var(--teal); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 800; border: 3px solid var(--card);
-  overflow: hidden; cursor: pointer; position: relative; flex-shrink: 0;
-}
-.profile-avatar-lg:hover .avatar-overlay { opacity: 1; }
-.avatar-overlay {
-  position: absolute; inset: 0; background: rgba(0,0,0,.45);
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: .2s; border-radius: 11px;
-}
-.avatar-overlay i { color: #fff; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -1246,23 +1162,13 @@ const SERVER = {
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
     </a>
-
+    <a class="nav-item" href="/auth/logout.php" style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)"><i class="fas fa-sign-out-alt" style="color:#ff8a80"></i><span style="color:#ff8a80">Logout</span></a>
   </nav>
 
   <div class="sidebar-footer">
-    <div class="sidebar-user" onclick="confirmLogout()" title="Sign out" style="cursor:pointer;transition:.18s;border-radius:10px;padding:6px 8px;margin:-6px -8px" onmouseenter="this.style.background='rgba(255,80,80,.08)'" onmouseleave="this.style.background='transparent'">
-      <div class="user-avatar" style="flex-shrink:0;border:2px solid rgba(255,255,255,.15)">
-        <?php if (!empty($user['avatar'])): ?>
-          <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:6px">
-        <?php else: ?>
-          <?= strtoupper(substr($user['name'],0,2)) ?>
-        <?php endif; ?>
-      </div>
-      <div class="user-info" style="flex:1;min-width:0">
-        <span class="user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($user['name']) ?></span>
-        <span class="user-role"><?= ucfirst($user['role']) ?></span>
-      </div>
-      <i class="fas fa-sign-out-alt" style="color:rgba(255,100,100,.6);font-size:13px;flex-shrink:0"></i>
+    <div class="sidebar-user">
+      <div class="user-avatar"><?= strtoupper(substr($user['name'],0,2)) ?></div>
+      <div class="user-info"><span class="user-name"><?= htmlspecialchars($user['name']) ?></span><span class="user-role"><?= ucfirst($user['role']) ?></span></div>
     </div>
   </div>
 </aside>
@@ -1293,49 +1199,6 @@ const SERVER = {
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
           <div id="notifItems"><div style="padding:12px 16px;color:var(--muted);font-size:13px;text-align:center">Loading notifications…</div></div>
           <div style="padding:10px 16px;text-align:center"><button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearNotifs()">Mark all read</button></div>
-        </div>
-      </div>
-
-      <!-- User chip + dropdown -->
-      <div class="notif-wrap" style="position:relative">
-        <button class="user-chip" id="userChipBtn" onclick="toggleUserDropdown(event)">
-          <div class="user-chip-avatar" id="topbarAvatarChip">
-            <?php if (!empty($user['avatar'])): ?>
-              <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover">
-            <?php else: ?>
-              <?= strtoupper(substr($user['name'],0,2)) ?>
-            <?php endif; ?>
-          </div>
-          <span class="user-chip-name"><?= htmlspecialchars(explode(' ', $user['name'])[0]) ?></span>
-          <i class="fas fa-chevron-down user-chip-chevron" id="userChipChevron"></i>
-        </button>
-        <div class="user-dropdown" id="userDropdown">
-          <div class="user-dropdown-header">
-            <div class="udh-avatar" id="dropdownAvatarBig">
-              <?php if (!empty($user['avatar'])): ?>
-                <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover">
-              <?php else: ?>
-                <?= strtoupper(substr($user['name'],0,2)) ?>
-              <?php endif; ?>
-            </div>
-            <div style="min-width:0">
-              <div class="udh-name"><?= htmlspecialchars($user['name']) ?></div>
-              <div class="udh-email"><?= htmlspecialchars($user['email']) ?></div>
-              <span class="udh-role"><?= ucfirst($user['role']) ?></span>
-            </div>
-          </div>
-          <div class="user-dropdown-body">
-            <button class="ud-item" onclick="closeUserDropdown();showPage('settings',document.querySelector('[data-page=settings]'));setTimeout(()=>document.querySelector('[data-tab=profile]')?.click(),300)">
-              <i class="fas fa-user-edit"></i> Edit Profile
-            </button>
-            <button class="ud-item" onclick="closeUserDropdown();showPage('settings',document.querySelector('[data-page=settings]'))">
-              <i class="fas fa-cog"></i> Settings
-            </button>
-            <div class="ud-divider"></div>
-            <button class="ud-item danger" onclick="confirmLogout()">
-              <i class="fas fa-sign-out-alt"></i> Sign Out
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -2924,47 +2787,37 @@ View Invoice: {{6}}</pre></details>
       <div class="settings-wrap">
 
         <!-- Admin Profile -->
-        <!-- Admin Profile Card -->
-        <div class="profile-card">
-          <div class="profile-card-banner"></div>
-          <div class="profile-card-body">
-            <div class="profile-avatar-wrap">
-              <label style="cursor:pointer" title="Click to change photo">
-                <div class="profile-avatar-lg" id="profile-avatar-preview">
-                  <?php if (!empty($user['avatar'])): ?>
-                    <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover">
-                  <?php else: ?>
-                    <?= strtoupper(substr($user['name'],0,2)) ?>
-                  <?php endif; ?>
-                  <div class="avatar-overlay"><i class="fas fa-camera"></i></div>
+        <div class="settings-block">
+          <div class="sb-title"><i class="fas fa-user-circle"></i> Admin Profile</div>
+          <div class="form-grid g2">
+            <div class="field">
+              <label>Profile Photo</label>
+              <div style="display:flex;gap:12px;align-items:center">
+                <div id="profile-avatar-preview" style="width:64px;height:64px;border-radius:12px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden">
+                  <?= strtoupper(substr($user['name'],0,2)) ?>
                 </div>
-                <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
-              </label>
-              <div style="padding-bottom:4px">
-                <span style="font-size:10px;color:var(--muted)">JPG, PNG, WebP · max 2MB</span>
+                <div>
+                  <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)">
+                    <i class="fas fa-upload"></i> Upload Photo
+                    <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
+                  </label>
+                  <div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG, WebP — max 2MB</div>
+                </div>
               </div>
             </div>
-            <div style="margin-bottom:6px">
-              <div style="font-size:18px;font-weight:800;color:var(--text)"><?= htmlspecialchars($user['name']) ?></div>
-              <div style="font-size:12px;color:var(--muted)"><?= htmlspecialchars($user['email']) ?> · <span style="font-size:11px;padding:1px 8px;border-radius:8px;background:var(--teal-bg);color:var(--teal);font-weight:700"><?= ucfirst($user['role']) ?></span></div>
-            </div>
-          </div>
-          <div style="padding:0 24px 24px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div></div>
             <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>"></div>
             <div class="field"><label>Email</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>"></div>
             <div class="field"><label>New Password <span style="font-size:10px;font-weight:400;color:var(--muted)">(leave blank to keep current)</span></label>
-              <input type="password" id="profile-pass" placeholder="Min 6 characters" autocomplete="new-password">
+              <input type="password" id="profile-pass" placeholder="New password (min 6 chars)" autocomplete="new-password">
             </div>
             <div class="field"><label>Confirm Password</label>
               <input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password">
             </div>
-            <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-top:4px">
-              <button class="btn btn-primary" onclick="saveProfile()"><i class="fas fa-save"></i> Save Changes</button>
-              <button onclick="confirmLogout()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#FEF0EF;color:#E53935;border:1.5px solid #F7C1C1;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">
-                <i class="fas fa-sign-out-alt"></i> Sign Out
-              </button>
-            </div>
           </div>
+          <button class="btn btn-primary" style="margin-top:14px" onclick="saveProfile()">
+            <i class="fas fa-save"></i> Update Profile
+          </button>
         </div>
 
         <div class="settings-block">
@@ -11554,40 +11407,6 @@ function populateSettingsForm() {
 }
 
 
-// ── User Dropdown (topbar chip) ────────────────────────────────
-window.toggleUserDropdown = function(e) {
-  e.stopPropagation();
-  const panel   = document.getElementById('userDropdown');
-  const chevron = document.getElementById('userChipChevron');
-  const isOpen  = panel.classList.contains('open');
-  // Close notif panel first
-  document.getElementById('notifPanel')?.classList.remove('open');
-  panel.classList.toggle('open', !isOpen);
-  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-};
-window.closeUserDropdown = function() {
-  document.getElementById('userDropdown')?.classList.remove('open');
-  const chevron = document.getElementById('userChipChevron');
-  if (chevron) chevron.style.transform = '';
-};
-document.addEventListener('click', function(e) {
-  if (!document.getElementById('userChipBtn')?.contains(e.target)) closeUserDropdown();
-});
-
-window.confirmLogout = async function() {
-  const r = await Swal.fire({
-    title: 'Sign out?',
-    text:  'You will be returned to the login page.',
-    icon:  'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sign Out',
-    cancelButtonText: 'Cancel',
-    confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (r.isConfirmed) window.location.href = '/auth/logout.php';
-};
-
 // ── Admin Profile ──────────────────────────────────────────────
 window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
@@ -11625,21 +11444,10 @@ window.saveProfile = async function() {
   const payload = { name, email, password: pass || null, avatar: SERVER.user?._avatarUrl || null };
   try {
     const res = await api('api/profile.php', 'POST', payload);
-    // Sync sidebar name
+    // Update sidebar display
     const nameEl = document.querySelector('.user-name'); if (nameEl) nameEl.textContent = name;
-    // Sync chip name (first name only)
-    const chipName = document.querySelector('.user-chip-name'); if (chipName) chipName.textContent = name.split(' ')[0];
-    // Sync all avatar elements if photo was set
-    if (payload.avatar) {
-      const imgHtml = `<img src="${payload.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
-      const initials = name.slice(0,2).toUpperCase();
-      ['.user-avatar','#topbarAvatarChip','#dropdownAvatarBig'].forEach(sel => {
-        const el = document.querySelector(sel);
-        if (el) el.innerHTML = imgHtml;
-      });
-      const sideAvatar = document.querySelector('.sidebar-footer .user-avatar');
-      if (sideAvatar) sideAvatar.innerHTML = imgHtml;
-    }
+    const avaEl  = document.querySelector('.user-avatar');
+    if (avaEl && payload.avatar) avaEl.innerHTML = `<img src="${payload.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
     if (pass) { document.getElementById('profile-pass').value = ''; document.getElementById('profile-pass2').value = ''; }
     toast('✅ Profile updated!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -12720,7 +12528,8 @@ async function loadFeatureData() {
     clientName: r.client_name,
     type:       r.type,
     channel:    r.channel,
-    status:     r.status
+    status:     r.status,
+    message:    r.message || ''
   }));
   // Load promise-to-pay entries
   if (remR.value?.promises) STATE.promises = remR.value.promises.map(p => ({
