@@ -48,12 +48,6 @@ try {
 $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? $cfg['email_remind_days']   ?? 3));
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? $cfg['email_followup_days'] ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? $cfg['email_max_followup']  ?? 3));
-$remChannel   = $remSettings['channel'] ?? 'email'; // 'whatsapp','email','both'
-// If reminder_settings.channel is 'whatsapp', email cron should do nothing
-if ($remChannel === 'whatsapp') {
-    echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to whatsapp-only. Email cron skipping.\n";
-    exit;
-}
 
 if (!$autoRemind && !$autoOverdue && !$autoFollowup) {
     echo "[" . date('Y-m-d H:i:s') . "] All email automation is OFF. Nothing to do.\n";
@@ -221,7 +215,7 @@ function cronReplaceVars(string $s, array $d): string {
         [
             $d['client_name']      ?? '',
             $d['invoice_number']   ?? '',
-            $sym . number_format((float)($d['_display_amt'] ?? $d['grand_total'] ?? $d['amount'] ?? 0), 2),
+            $sym . number_format((float)($d['grand_total'] ?? $d['amount'] ?? 0), 2),
             $sym,
             isset($d['due_date'])    ? date('d M Y', strtotime($d['due_date']))    : '',
             isset($d['issued_date']) ? date('d M Y', strtotime($d['issued_date'])) : '',
@@ -339,35 +333,6 @@ function alreadySentToday($db, int $invId, string $type): bool {
     return (bool)$stmt->fetch();
 }
 
-// ── Remaining balance for Partial invoices ──────────────────────
-function emailGetDisplayAmt($db, array $inv): float {
-    $grand = (float)($inv['grand_total'] ?? $inv['amount'] ?? 0);
-    if (($inv['status'] ?? '') === 'Partial') {
-        try {
-            $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=?");
-            $stmt->execute([$inv['id']]);
-            $paid = (float)$stmt->fetchColumn();
-            return max(0, $grand - $paid);
-        } catch (Exception $e) {}
-    }
-    return $grand;
-}
-
-// ── Suppress overdue/followup if active promise-to-pay exists ───
-function emailHasActivePromise($db, int $invId): bool {
-    try {
-        $stmt = $db->prepare(
-            "SELECT id FROM promise_to_pay
-             WHERE invoice_id=? AND status IN ('pending','reminded')
-             AND promise_date >= CURDATE() LIMIT 1"
-        );
-        $stmt->execute([$invId]);
-        return (bool)$stmt->fetch();
-    } catch (Exception $e) {
-        return false;
-    }
-}
-
 // ================================================================
 //  1. DUE SOON REMINDER
 //     Only for: Pending, Partial  — NOT Paid, Draft, Cancelled, Estimate
@@ -386,12 +351,10 @@ if ($autoRemind) {
     $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $tpl  = getCronTemplate($db, 'reminder');
 
-    $sent = 0;
     foreach ($invs as $inv) {
         // Skip if already reminded today
         if (alreadySentToday($db, (int)$inv['id'], 'reminder')) continue;
 
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
         $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
         $data = array_merge($inv, $company);
         $subj = cronReplaceVars($tpl['subject'], $data);
@@ -401,9 +364,8 @@ if ($autoRemind) {
         $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
         cronLogEmail($db, (int)$inv['id'], 'reminder', $inv['c_email'], $subj, $ok);
         $log[] = ($ok ? '✅' : '❌') . " Reminder → {$inv['client_name']} ({$inv['c_email']}) — {$inv['invoice_number']}";
-        $sent++;
     }
-    echo "[Reminder] {$sent} reminder(s) sent out of " . count($invs) . " eligible (due in {$remindDays} days)\n";
+    echo "[Reminder] " . count($invs) . " invoice(s) checked (due in {$remindDays} days)\n";
 }
 
 // ================================================================
@@ -411,7 +373,7 @@ if ($autoRemind) {
 //      Fires when due_date = today AND on_due setting is enabled
 //      (respects reminder_settings.on_due, fallback to settings table)
 // ================================================================
-$onDue = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
+$onDue = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') === '1';
 if ($autoRemind && $onDue) {
     $stmt = $db->prepare("
         SELECT i.*, c.email AS c_email, c.name AS client_name
@@ -427,7 +389,6 @@ if ($autoRemind && $onDue) {
     $sent = 0;
     foreach ($invs as $inv) {
         if (alreadySentToday($db, (int)$inv['id'], 'reminder')) continue;
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
         $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
         $data = array_merge($inv, $company);
         $subj = cronReplaceVars($tpl['subject'], $data);
@@ -468,10 +429,6 @@ if ($autoOverdue) {
         // Skip if already sent an overdue email today
         if (alreadySentToday($db, (int)$inv['id'], 'overdue')) continue;
 
-        // Suppress if client has an active promise-to-pay
-        if (emailHasActivePromise($db, (int)$inv['id'])) continue;
-
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
         $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
         $data = array_merge($inv, $company);
         $subj = cronReplaceVars($tpl['subject'], $data);
@@ -526,10 +483,7 @@ if ($autoFollowup) {
 
         // Skip if already sent a follow-up today
         if (alreadySentToday($db, $invId, 'followup')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (emailHasActivePromise($db, $invId)) continue;
 
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
         $inv['invoice_link'] = cronGetPortalLink($db, $invId, $portalBase);
         $data = array_merge($inv, $company);
         $subj = cronReplaceVars($tpl['subject'], $data);

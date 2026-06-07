@@ -60,13 +60,7 @@ try {
 $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? 3));
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? 3));
-$onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
-$remChannel   = $remSettings['channel'] ?? 'whatsapp'; // 'whatsapp','email','both'
-// If reminder_settings.channel is 'email', WA cron should do nothing
-if ($remChannel === 'email') {
-    echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to email-only. WA cron skipping.\n";
-    exit;
-}
+$onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') === '1';
 
 // ── Template names/langs from settings ───────────────────────────
 $tplReminder = $cfg['wa_tpl_name_reminder'] ?? 'payment_reminder';
@@ -247,7 +241,7 @@ function waCronLog($db, int $invId, string $type, array $inv, string $tplName, b
                $inv['c_phone']     ?? '',
                (string)($inv['id'] ?? ''),
                $inv['invoice_number'] ?? '',
-               $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
+               $inv['currency'] ?? '₹' . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
                $inv['status'] ?? '',
                '[cron] ' . $tplName,
                $ok ? null : 'Cron send failed',
@@ -299,21 +293,6 @@ function waLastSent($db, int $invId, array $types): ?string {
         return $val ?: null;
     } catch (Exception $e) {
         return null;
-    }
-}
-
-// ── Check if invoice has an active promise-to-pay (suppresses overdue/followup) ─
-function waHasActivePromise($db, int $invId): bool {
-    try {
-        $stmt = $db->prepare(
-            "SELECT id FROM promise_to_pay
-             WHERE invoice_id=? AND status IN ('pending','reminded')
-             AND promise_date >= CURDATE() LIMIT 1"
-        );
-        $stmt->execute([$invId]);
-        return (bool)$stmt->fetch();
-    } catch (Exception $e) {
-        return false;
     }
 }
 
@@ -395,11 +374,10 @@ if ($autoOverdue) {
 
     foreach ($invs as $inv) {
         $invId = (int)$inv['id'];
-        // Only fire if no overdue alert has ever been sent (followup count doesn't block this)
-        if (waCountSent($db, $invId, 'payment_overdue') > 0) continue;
+        // Only fire if no overdue/followup has ever been sent for this invoice
+        if (waCountSent($db, $invId, 'payment_overdue') > 0)  continue;
+        if (waCountSent($db, $invId, 'invoice_followup') > 0) continue;
         if (waAlreadySentToday($db, $invId, 'payment_overdue')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (waHasActivePromise($db, $invId)) continue;
 
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
         $params     = waBuildParams('overdue', $inv, $company, $portalLink, $db);
@@ -443,8 +421,6 @@ if ($autoFollowup) {
         if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) continue;
 
         if (waAlreadySentToday($db, $invId, 'invoice_followup')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (waHasActivePromise($db, $invId)) continue;
 
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
         $params     = waBuildParams('followup', $inv, $company, $portalLink, $db);
