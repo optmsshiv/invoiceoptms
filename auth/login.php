@@ -1,6 +1,6 @@
 <?php
 // ================================================================
-//  OPTMS Invoice Manager — Login Page (Redesigned)
+//  OPTMS Invoice Manager — Login Page (Redesigned + Geometric BG)
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -43,44 +43,66 @@ html,body{height:100%;font-family:'Public Sans',sans-serif}
 
 body{
   min-height:100vh;
-  background:#f0f4f3;
+  background:#071f1a;
   display:flex;
   align-items:center;
   justify-content:center;
   padding:24px 20px;
+  position:relative;
+  overflow:hidden;
 }
 
-/* ── Outer wrapper ── */
+/* ── Geometric canvas background ── */
+#geo-bg{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* ── Card wrapper ── */
 .wrap{
   display:flex;
   border-radius:20px;
   overflow:hidden;
-  border:1px solid #d4ddd9;
   width:100%;
   max-width:720px;
   min-height:520px;
-  box-shadow:0 8px 40px rgba(8,80,65,.10);
-  animation:fadeUp .4s ease;
+  position:relative;
+  z-index:1;
+  border:1px solid rgba(29,158,117,.18);
+  box-shadow:0 32px 80px rgba(0,0,0,.45);
+  animation:fadeUp .45s ease;
 }
-@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
 
 /* ── Left teal panel ── */
 .left{
   width:240px;
   flex-shrink:0;
-  background:#085041;
+  background:rgba(8,80,65,.88);
   padding:38px 28px;
   display:flex;
   flex-direction:column;
   justify-content:space-between;
+  position:relative;
+  overflow:hidden;
+}
+.left-ring{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid rgba(29,158,117,.15);
+  pointer-events:none;
 }
 .left-icon{
   width:46px;height:46px;
-  background:#0F6E56;
+  background:rgba(29,158,117,.2);
   border-radius:13px;
   display:flex;align-items:center;justify-content:center;
   margin-bottom:26px;
-  border:1px solid #1D9E75;
+  border:1px solid rgba(29,158,117,.35);
 }
 .left-icon i{font-size:20px;color:#9FE1CB}
 .left-title{font-size:17px;font-weight:600;color:#E1F5EE;line-height:1.4;margin-bottom:8px}
@@ -89,18 +111,19 @@ body{
 .feat{display:flex;align-items:flex-start;gap:10px}
 .feat-dot{
   width:20px;height:20px;border-radius:50%;
-  background:#0F6E56;border:1px solid #1D9E75;
+  background:rgba(29,158,117,.15);
+  border:1px solid rgba(29,158,117,.3);
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;margin-top:1px;
 }
 .feat-dot i{font-size:10px;color:#9FE1CB}
 .feat-text{font-size:12px;color:#9FE1CB;line-height:1.5}
-.left-bottom{font-size:11px;color:#0F6E56}
+.left-bottom{font-size:11px;color:rgba(93,202,165,.4);position:relative;z-index:1}
 
 /* ── Right form panel ── */
 .right{
   flex:1;
-  background:#fff;
+  background:#ffffff;
   padding:44px 40px;
   display:flex;
   flex-direction:column;
@@ -124,7 +147,7 @@ body{
 .iw input{
   width:100%;padding:11px 12px 11px 36px;
   border:1.5px solid #E5E7EB;border-radius:9px;
-  font-family:inherit;font-size:14px;color:#111;
+  font-family:inherit;font-size:14px;color:#111827;
   background:#F9FAFB;outline:none;
   transition:border-color .18s,box-shadow .18s,background .18s;
 }
@@ -133,7 +156,7 @@ body{
   box-shadow:0 0 0 3px rgba(29,158,117,.13);
   background:#fff;
 }
-.iw input::placeholder{color:#C4C4C4}
+.iw input::placeholder{color:#D1D5DB}
 .eye-btn{
   position:absolute;right:10px;
   background:none;border:none;cursor:pointer;
@@ -176,7 +199,7 @@ body{
 }
 .sso-btn:hover{background:#F3F4F6;border-color:#D1D5DB}
 
-/* ── Shake animation ── */
+/* ── Shake on error ── */
 .shake{animation:shake .35s ease}
 @keyframes shake{
   0%,100%{transform:translateX(0)}
@@ -186,23 +209,31 @@ body{
   80%{transform:translateX(4px)}
 }
 
-/* ── Responsive: stack on narrow screens ── */
-@media(max-width:560px){
+/* ── Responsive ── */
+@media(max-width:580px){
   .wrap{flex-direction:column;min-height:auto}
-  .left{width:100%;padding:28px 24px;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:center}
-  .feature-list{display:none}
-  .left-bottom{display:none}
-  .right{padding:28px 24px}
+  .left{width:100%;padding:24px;flex-direction:row;align-items:center;gap:14px}
+  .left-title{font-size:14px}
+  .left-sub,.feature-list,.left-bottom{display:none}
+  .left-icon{margin-bottom:0;flex-shrink:0}
+  .right{padding:28px 20px}
 }
 </style>
 </head>
 <body>
 
+<!-- Geometric canvas background -->
+<canvas id="geo-bg"></canvas>
+
 <div class="wrap" id="card">
 
   <!-- ── Left panel ── -->
   <div class="left">
-    <div>
+    <!-- Decorative rings -->
+    <div class="left-ring" style="width:130px;height:130px;top:-45px;right:-45px"></div>
+    <div class="left-ring" style="width:90px;height:90px;bottom:-30px;left:-30px"></div>
+
+    <div style="position:relative;z-index:1">
       <div class="left-icon"><i class="fas fa-file-invoice"></i></div>
       <div class="left-title"><?= htmlspecialchars($companyName) ?><br>Invoice Manager</div>
       <div class="left-sub">Manage invoices, clients &amp; payments — all in one place.</div>
@@ -221,7 +252,10 @@ body{
         </div>
       </div>
     </div>
-    <div class="left-bottom">&copy; <?= date('Y') ?> <?= htmlspecialchars($companyName) ?> &nbsp;&middot;&nbsp; v<?= APP_VERSION ?></div>
+
+    <div class="left-bottom">
+      &copy; <?= date('Y') ?> <?= htmlspecialchars($companyName) ?> &nbsp;&middot;&nbsp; v<?= APP_VERSION ?>
+    </div>
   </div>
 
   <!-- ── Right form panel ── -->
@@ -284,17 +318,119 @@ body{
 </div>
 
 <script>
-function togglePwd(){
-  const p=document.getElementById('password'),i=document.getElementById('eyeIco');
-  p.type=p.type==='password'?'text':'password';
-  i.className=p.type==='password'?'fas fa-eye':'fas fa-eye-slash';
+// ── Geometric mesh background ──────────────────────────
+(function () {
+  var c  = document.getElementById('geo-bg');
+  var ctx = c.getContext('2d');
+
+  function resize() {
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+    draw();
+  }
+
+  function draw() {
+    var W = c.width, H = c.height;
+    var teal = 'rgba(29,158,117,';
+    ctx.clearRect(0, 0, W, H);
+
+    var size = 52;
+
+    // Dot grid
+    for (var x = 0; x <= W; x += size) {
+      for (var y = 0; y <= H; y += size) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = teal + '0.22)';
+        ctx.fill();
+      }
+    }
+
+    // Faint horizontal & vertical grid lines
+    ctx.lineWidth = 0.4;
+    for (var x = 0; x <= W; x += size) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H);
+      ctx.strokeStyle = teal + '0.06)'; ctx.stroke();
+    }
+    for (var y = 0; y <= H; y += size) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y);
+      ctx.strokeStyle = teal + '0.06)'; ctx.stroke();
+    }
+
+    // Diagonal accent lines
+    var diags = [
+      [0, H * 0.2,  W * 0.45, 0],
+      [0, H * 0.65, W * 0.55, H * 0.05],
+      [W * 0.15, H, W * 0.75, 0],
+      [W * 0.5,  H, W,        H * 0.3],
+      [W * 0.75, H, W,        H * 0.65]
+    ];
+    ctx.lineWidth = 0.8;
+    diags.forEach(function (d) {
+      ctx.beginPath(); ctx.moveTo(d[0], d[1]); ctx.lineTo(d[2], d[3]);
+      ctx.strokeStyle = teal + '0.055)'; ctx.stroke();
+    });
+
+    // Hollow hexagons
+    var hexes = [
+      [W * 0.12, H * 0.18, 58],
+      [W * 0.82, H * 0.7,  46],
+      [W * 0.62, H * 0.12, 34],
+      [W * 0.28, H * 0.82, 40],
+      [W * 0.9,  H * 0.25, 28]
+    ];
+    ctx.lineWidth = 0.9;
+    hexes.forEach(function (h) {
+      ctx.beginPath();
+      for (var i = 0; i < 6; i++) {
+        var angle = Math.PI / 180 * (60 * i - 30);
+        var px = h[0] + h[2] * Math.cos(angle);
+        var py = h[1] + h[2] * Math.sin(angle);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = teal + '0.09)'; ctx.stroke();
+    });
+
+    // Small diamond accents
+    var diamonds = [
+      [W * 0.45, H * 0.08, 10],
+      [W * 0.05, H * 0.45, 8],
+      [W * 0.95, H * 0.5,  7],
+      [W * 0.7,  H * 0.92, 9]
+    ];
+    ctx.lineWidth = 0.7;
+    diamonds.forEach(function (d) {
+      ctx.beginPath();
+      ctx.moveTo(d[0],        d[1] - d[2]);
+      ctx.lineTo(d[0] + d[2], d[1]);
+      ctx.lineTo(d[0],        d[1] + d[2]);
+      ctx.lineTo(d[0] - d[2], d[1]);
+      ctx.closePath();
+      ctx.strokeStyle = teal + '0.11)'; ctx.stroke();
+    });
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+// ── Password toggle ────────────────────────────────────
+function togglePwd() {
+  var p = document.getElementById('password');
+  var i = document.getElementById('eyeIco');
+  p.type = p.type === 'password' ? 'text' : 'password';
+  i.className = p.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
 }
 
+// ── Shake card on PHP error ────────────────────────────
 <?php if ($error): ?>
-(function(){
-  const c=document.getElementById('card');
+(function () {
+  var c = document.getElementById('card');
   c.classList.add('shake');
-  c.addEventListener('animationend',()=>c.classList.remove('shake'),{once:true});
+  c.addEventListener('animationend', function () {
+    c.classList.remove('shake');
+  }, { once: true });
 })();
 <?php endif; ?>
 </script>
