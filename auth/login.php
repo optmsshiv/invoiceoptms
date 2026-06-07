@@ -1,12 +1,11 @@
 <?php
 // ================================================================
-//  OPTMS Invoice Manager — Login Page
+//  OPTMS Invoice Manager — Login Page (Redesigned)
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 startSession();
 
-// Already logged in → dashboard
 if (!empty($_SESSION['user_id'])) {
     header('Location: /');
     exit;
@@ -35,98 +34,269 @@ $companyName = getSetting('company_name', 'OPTMS Tech');
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — <?= htmlspecialchars($companyName) ?> Invoice Manager</title>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Sign In — <?= htmlspecialchars($companyName) ?> Invoice Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:'Public Sans',sans-serif;background:linear-gradient(135deg,#1A2332 0%,#263348 55%,#00897B 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:#fff;border-radius:20px;padding:48px 44px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,.35);animation:fadeUp .4s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-.brand{text-align:center;margin-bottom:36px}
-.logo{width:58px;height:58px;background:linear-gradient(135deg,#00897B,#4DB6AC);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;margin:0 auto 12px;letter-spacing:-1px}
-.brand-name{font-size:20px;font-weight:800;color:#1A2332}
-.brand-sub{font-size:13px;color:#9CA3AF;margin-top:2px}
-.field{margin-bottom:18px}
-.field label{display:block;font-size:12.5px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-.inp{position:relative}
-.inp i.ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9CA3AF;font-size:14px;pointer-events:none}
-.inp input{width:100%;padding:13px 14px 13px 40px;border:1.5px solid #E5E7EB;border-radius:10px;font-family:inherit;font-size:14px;color:#111;transition:.2s;outline:none;background:#fff}
-.inp input:focus{border-color:#00897B;box-shadow:0 0 0 3px rgba(0,137,123,.12)}
-.inp .eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:13px;padding:4px}
-.err{background:#FEE2E2;border:1px solid #FECACA;border-radius:9px;padding:11px 14px;font-size:13px;color:#DC2626;margin-bottom:18px;display:flex;align-items:center;gap:8px}
-.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;font-size:13px}
-.row label{display:flex;align-items:center;gap:6px;cursor:pointer;color:#555}
-.row input[type=checkbox]{accent-color:#00897B;width:14px;height:14px}
-.btn-login{width:100%;padding:14px;background:linear-gradient(135deg,#00897B,#00695C);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:.2s}
-.btn-login:hover{background:linear-gradient(135deg,#00695C,#004D40);transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,137,123,.3)}
-.btn-login:active{transform:none}
-.forgot{color:#00897B;text-decoration:none;font-weight:600;font-size:13px}
-.forgot:hover{text-decoration:underline}
-.footer{text-align:center;margin-top:24px;font-size:11px;color:#C4C4C4;line-height:1.8}
-.demo-hint{background:#E0F2F1;border-radius:8px;padding:10px 14px;font-size:12px;color:#00695C;margin-bottom:18px;text-align:center}
-.demo-hint code{font-weight:700;font-size:12px}
+html,body{height:100%;font-family:'Public Sans',sans-serif}
+
+body{
+  min-height:100vh;
+  background:#f0f4f3;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px 20px;
+}
+
+/* ── Outer wrapper ── */
+.wrap{
+  display:flex;
+  border-radius:20px;
+  overflow:hidden;
+  border:1px solid #d4ddd9;
+  width:100%;
+  max-width:720px;
+  min-height:520px;
+  box-shadow:0 8px 40px rgba(8,80,65,.10);
+  animation:fadeUp .4s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+/* ── Left teal panel ── */
+.left{
+  width:240px;
+  flex-shrink:0;
+  background:#085041;
+  padding:38px 28px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+.left-icon{
+  width:46px;height:46px;
+  background:#0F6E56;
+  border-radius:13px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:26px;
+  border:1px solid #1D9E75;
+}
+.left-icon i{font-size:20px;color:#9FE1CB}
+.left-title{font-size:17px;font-weight:600;color:#E1F5EE;line-height:1.4;margin-bottom:8px}
+.left-sub{font-size:12px;color:#5DCAA5;line-height:1.65}
+.feature-list{margin-top:26px;display:flex;flex-direction:column;gap:13px}
+.feat{display:flex;align-items:flex-start;gap:10px}
+.feat-dot{
+  width:20px;height:20px;border-radius:50%;
+  background:#0F6E56;border:1px solid #1D9E75;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;
+}
+.feat-dot i{font-size:10px;color:#9FE1CB}
+.feat-text{font-size:12px;color:#9FE1CB;line-height:1.5}
+.left-bottom{font-size:11px;color:#0F6E56}
+
+/* ── Right form panel ── */
+.right{
+  flex:1;
+  background:#fff;
+  padding:44px 40px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.welcome-label{font-size:11.5px;color:#6B7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+.welcome-title{font-size:21px;font-weight:700;color:#111827;margin-bottom:28px}
+
+/* ── Error box ── */
+.err{
+  background:#FEF2F2;border:1px solid #FECACA;border-radius:9px;
+  padding:9px 13px;font-size:13px;color:#B91C1C;
+  margin-bottom:14px;display:flex;align-items:center;gap:7px;
+}
+
+/* ── Fields ── */
+.field{margin-bottom:14px}
+.fl{font-size:11.5px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block}
+.iw{position:relative;display:flex;align-items:center}
+.iw i.ic{position:absolute;left:12px;font-size:14px;color:#9CA3AF;pointer-events:none}
+.iw input{
+  width:100%;padding:11px 12px 11px 36px;
+  border:1.5px solid #E5E7EB;border-radius:9px;
+  font-family:inherit;font-size:14px;color:#111;
+  background:#F9FAFB;outline:none;
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+.iw input:focus{
+  border-color:#1D9E75;
+  box-shadow:0 0 0 3px rgba(29,158,117,.13);
+  background:#fff;
+}
+.iw input::placeholder{color:#C4C4C4}
+.eye-btn{
+  position:absolute;right:10px;
+  background:none;border:none;cursor:pointer;
+  color:#9CA3AF;font-size:13px;padding:4px;
+  display:flex;align-items:center;
+}
+.eye-btn:hover{color:#374151}
+
+/* ── Meta row ── */
+.meta{display:flex;align-items:center;justify-content:space-between;margin:14px 0 20px;font-size:13px}
+.rem{display:flex;align-items:center;gap:6px;cursor:pointer;color:#6B7280}
+.rem input{accent-color:#1D9E75;width:13px;height:13px;cursor:pointer}
+.fp{color:#0F6E56;text-decoration:none;font-weight:600;font-size:13px}
+.fp:hover{text-decoration:underline}
+
+/* ── Sign-in button ── */
+.btn{
+  width:100%;padding:12px;
+  background:#085041;color:#E1F5EE;
+  border:none;border-radius:9px;
+  font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;letter-spacing:.2px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .16s,transform .1s;
+}
+.btn:hover{background:#0F6E56}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.7;cursor:not-allowed}
+
+/* ── SSO divider ── */
+.divline{display:flex;align-items:center;gap:10px;margin:18px 0}
+.divline span{font-size:11.5px;color:#9CA3AF;white-space:nowrap}
+.divline hr{flex:1;border:none;border-top:1px solid #F3F4F6}
+.sso-btn{
+  width:100%;padding:10px;
+  background:#F9FAFB;border:1.5px solid #E5E7EB;border-radius:9px;
+  font-family:inherit;font-size:13px;color:#374151;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background .15s,border-color .15s;
+}
+.sso-btn:hover{background:#F3F4F6;border-color:#D1D5DB}
+
+/* ── Shake animation ── */
+.shake{animation:shake .35s ease}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
+
+/* ── Responsive: stack on narrow screens ── */
+@media(max-width:560px){
+  .wrap{flex-direction:column;min-height:auto}
+  .left{width:100%;padding:28px 24px;flex-direction:row;flex-wrap:wrap;gap:16px;align-items:center}
+  .feature-list{display:none}
+  .left-bottom{display:none}
+  .right{padding:28px 24px}
+}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="brand">
-    <div class="logo"><?= strtoupper(substr($companyName,0,2)) ?></div>
-    <div class="brand-name"><?= htmlspecialchars($companyName) ?></div>
-    <div class="brand-sub">Invoice Manager &mdash; Sign In</div>
-  </div>
 
-  <div class="demo-hint">
-    Default: <code>admin@optmstech.in</code> / <code>Admin@1234</code>
-  </div>
+<div class="wrap" id="card">
 
-  <?php if ($error): ?>
-  <div class="err"><i class="fas fa-exclamation-circle"></i><?= htmlspecialchars($error) ?></div>
-  <?php endif; ?>
-
-  <form method="POST" autocomplete="on">
-    <div class="field">
-      <label for="email">Email Address</label>
-      <div class="inp">
-        <i class="fas fa-envelope ic"></i>
-        <input type="email" id="email" name="email"
-               placeholder="admin@optmstech.in"
-               value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
-               required autofocus autocomplete="email">
+  <!-- ── Left panel ── -->
+  <div class="left">
+    <div>
+      <div class="left-icon"><i class="fas fa-file-invoice"></i></div>
+      <div class="left-title"><?= htmlspecialchars($companyName) ?><br>Invoice Manager</div>
+      <div class="left-sub">Manage invoices, clients &amp; payments — all in one place.</div>
+      <div class="feature-list">
+        <div class="feat">
+          <div class="feat-dot"><i class="fas fa-check"></i></div>
+          <div class="feat-text">GST-ready invoices</div>
+        </div>
+        <div class="feat">
+          <div class="feat-dot"><i class="fas fa-check"></i></div>
+          <div class="feat-text">Client &amp; payment tracking</div>
+        </div>
+        <div class="feat">
+          <div class="feat-dot"><i class="fas fa-check"></i></div>
+          <div class="feat-text">PDF export &amp; QR codes</div>
+        </div>
       </div>
     </div>
-    <div class="field">
-      <label for="password">Password</label>
-      <div class="inp">
-        <i class="fas fa-lock ic"></i>
-        <input type="password" id="password" name="password"
-               placeholder="••••••••" required autocomplete="current-password">
-        <button type="button" class="eye" onclick="togglePwd()" title="Show/hide">
-          <i class="fas fa-eye" id="eyeIco"></i>
-        </button>
+    <div class="left-bottom">&copy; <?= date('Y') ?> <?= htmlspecialchars($companyName) ?> &nbsp;&middot;&nbsp; v<?= APP_VERSION ?></div>
+  </div>
+
+  <!-- ── Right form panel ── -->
+  <div class="right">
+    <div class="welcome-label">Invoice Manager</div>
+    <div class="welcome-title">Welcome back</div>
+
+    <?php if ($error): ?>
+    <div class="err">
+      <i class="fas fa-exclamation-circle"></i>
+      <?= htmlspecialchars($error) ?>
+    </div>
+    <?php endif; ?>
+
+    <form method="POST" autocomplete="on">
+      <div class="field">
+        <label class="fl" for="email">Email</label>
+        <div class="iw">
+          <i class="fas fa-envelope ic"></i>
+          <input type="email" id="email" name="email"
+                 placeholder="admin@optmstech.in"
+                 value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                 required autofocus autocomplete="email">
+        </div>
       </div>
+
+      <div class="field">
+        <label class="fl" for="password">Password</label>
+        <div class="iw">
+          <i class="fas fa-lock ic"></i>
+          <input type="password" id="password" name="password"
+                 placeholder="••••••••" required autocomplete="current-password">
+          <button type="button" class="eye-btn" onclick="togglePwd()" title="Show / hide password">
+            <i class="fas fa-eye" id="eyeIco"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="meta">
+        <label class="rem">
+          <input type="checkbox" name="remember"> Remember me
+        </label>
+        <a href="forgot_password.php" class="fp">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="btn" id="signin-btn">
+        <i class="fas fa-sign-in-alt"></i> Sign in
+      </button>
+    </form>
+
+    <div class="divline">
+      <hr><span>or continue with</span><hr>
     </div>
-    <div class="row">
-      <label><input type="checkbox" name="remember"> Remember me</label>
-      <a href="forgot_password.php" class="forgot">Forgot password?</a>
-    </div>
-    <button type="submit" class="btn-login">
-      <i class="fas fa-sign-in-alt"></i> &nbsp;Sign In
+
+    <button type="button" class="sso-btn">
+      <i class="fas fa-building"></i> Sign in with SSO
     </button>
-  </form>
-
-  <div class="footer">
-    <?= htmlspecialchars(APP_NAME) ?> v<?= APP_VERSION ?><br>
-    &copy; <?= date('Y') ?> <?= htmlspecialchars($companyName) ?>
   </div>
+
 </div>
+
 <script>
 function togglePwd(){
   const p=document.getElementById('password'),i=document.getElementById('eyeIco');
   p.type=p.type==='password'?'text':'password';
   i.className=p.type==='password'?'fas fa-eye':'fas fa-eye-slash';
 }
+
+<?php if ($error): ?>
+(function(){
+  const c=document.getElementById('card');
+  c.classList.add('shake');
+  c.addEventListener('animationend',()=>c.classList.remove('shake'),{once:true});
+})();
+<?php endif; ?>
 </script>
 </body>
 </html>
