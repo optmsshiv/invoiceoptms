@@ -56,8 +56,8 @@ switch ($method) {
       'wa_tpl_lang_recurring'          => 'en_US',
       'wa_tpl_name_partial'            => '',
       'wa_tpl_lang_partial'            => 'en_US',
-      'wa_tpl_name_balance_reminder'   => '',
-      'wa_tpl_lang_balance_reminder'   => 'en_US',
+      'wa_tpl_name_balance'            => '',
+      'wa_tpl_lang_balance'            => 'en_US',
       'wa_tpl_name_festival'           => '',
       'wa_tpl_lang_festival'           => 'en_US',
     ];
