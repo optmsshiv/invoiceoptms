@@ -13701,7 +13701,7 @@ function _buildReminderQueue() {
     const phone = (q.client.wa||q.client.whatsapp||q.client.phone||q.inv.client_wa||q.inv.client_phone||'').replace(/\D/g,'');
     const email = q.client.email||q.client.mail||q.inv.client_email||'';
     const hasContact = !!(phone || email);
-    const chIcon = ch==='email' ? 'fa-envelope' : ch==='both' ? 'fa-paper-plane' : 'fab fa-whatsapp';
+    const chIcon = ch==='email' ? 'fas fa-envelope' : ch==='both' ? 'fas fa-paper-plane' : 'fab fa-whatsapp';
     const col = q.urgency==='high' ? '#C0392B' : q.urgency==='medium' ? '#B45309' : '#185FA5';
     const bgPill = q.urgency==='high' ? '#FEF0EF' : q.urgency==='medium' ? '#FFF4E5' : '#EEF5FF';
     const pmts = (STATE.payments||[]).filter(pp => String(pp.invoice_id)===String(q.inv.id));
@@ -13766,8 +13766,8 @@ function _buildReminderQueue() {
 
   el.innerHTML =
     qSection('overdue',  '⚠ Overdue',   overdueBatch,  true)  +
-    qSection('today',    '📅 Due Today', todayBatch,    true)  +
-    qSection('upcoming', '🗓 Upcoming',  upcomingBatch, true);
+    qSection('today',    '📅 Due Today', todayBatch,    false) +
+    qSection('upcoming', '🗓 Upcoming',  upcomingBatch, false);
 }
 
 function sendReminderNow(invId, channel) {
@@ -14372,7 +14372,7 @@ function _renderPromiseTracker() {
     const amt = _paid > 0
       ? `<span style="color:#B45309;font-weight:600">${fmt_money(_remain)}</span><div style="font-size:10px;color:var(--muted)">of ${fmt_money(_total)}</div>`
       : p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '—';
-    const chIcon = p.channel==='email' ? 'fa-envelope' : p.channel==='both' ? 'fa-paper-plane' : 'fab fa-whatsapp';
+    const chIcon = p.channel==='email' ? 'fas fa-envelope' : p.channel==='both' ? 'fas fa-paper-plane' : 'fab fa-whatsapp';
     const chColor = p.channel==='email' ? '#2563EB' : p.channel==='both' ? '#5B52C7' : '#1E7E34';
     const statusDot = p.status==='reminded'
       ? `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:#FFF4E5;color:#B45309;border:1px solid #FBBF24">reminded</span>`
