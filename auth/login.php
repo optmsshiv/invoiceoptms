@@ -43,7 +43,7 @@ html,body{height:100%;font-family:'Public Sans',sans-serif}
 
 body{
   min-height:100vh;
-  background:#071f1a;
+  background:#f0f4f3;
   display:flex;
   align-items:center;
   justify-content:center;
