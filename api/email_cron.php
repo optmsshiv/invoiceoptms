@@ -368,8 +368,146 @@ function emailHasActivePromise($db, int $invId): bool {
     }
 }
 
+
+// ── Consolidated email helpers ────────────────────────────────────
+
+/**
+ * Groups invoice rows by client email.
+ * Returns: [ email => ['email'=>..,'name'=>..,'invs'=>[..]], .. ]
+ */
+function emailGroupByClient(array $invs): array {
+    $groups = [];
+    foreach ($invs as $inv) {
+        $email = $inv['c_email'] ?? '';
+        if (!$email) continue;
+        if (!isset($groups[$email])) {
+            $groups[$email] = [
+                'email' => $email,
+                'name'  => $inv['client_name'] ?? 'Client',
+                'invs'  => [],
+            ];
+        }
+        $groups[$email]['invs'][] = $inv;
+    }
+    return $groups;
+}
+
+/**
+ * Build a styled HTML invoice table for all invoices in a group.
+ * Used in consolidated emails instead of single-invoice body text.
+ */
+function emailBuildInvoiceTable($db, array $invs, array $company, string $portalBase): array {
+    $sym        = $invs[0]['currency'] ?? '₹';
+    $totalAmt   = 0;
+    $rows       = '';
+    $links      = [];
+    $maxOverdue = 0;
+
+    foreach ($invs as $inv) {
+        $displayAmt = emailGetDisplayAmt($db, $inv);
+        $totalAmt  += $displayAmt;
+        $dueDate    = !empty($inv['due_date']) ? date('d M Y', strtotime($inv['due_date'])) : '—';
+        $daysOver   = max(0, (int)($inv['days_overdue'] ?? 0));
+        if ($daysOver > $maxOverdue) $maxOverdue = $daysOver;
+        $amtFmt     = $sym . number_format($displayAmt, 2);
+        $status     = $inv['status'] ?? '';
+        $statusCol  = $status === 'Partial' ? '#B45309' : '#C0392B';
+        $link       = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
+        $links[]    = $link;
+        $invNo      = htmlspecialchars($inv['invoice_number'] ?? '', ENT_QUOTES);
+        $rows .= "<tr>
+          <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;font-family:monospace'>#{$invNo}</td>
+          <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0'>{$dueDate}</td>
+          <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;color:{$statusCol};font-weight:600'>{$status}" .
+          ($daysOver > 0 ? " <span style='font-size:11px'>({$daysOver}d)</span>" : '') .
+          "</td>
+          <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;font-weight:700;text-align:right'>{$amtFmt}</td>
+          <td style='padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center'>" .
+          ($link ? "<a href='{$link}' style='font-size:12px;color:#00897B;font-weight:600'>Pay →</a>" : '—') .
+          "</td>
+        </tr>
+";
+    }
+
+    $totalFmt = $sym . number_format($totalAmt, 2);
+    $table = "
+<table style='width:100%;border-collapse:collapse;margin:16px 0;font-size:14px'>
+  <thead>
+    <tr style='background:#f5f5f5'>
+      <th style='padding:9px 12px;text-align:left;font-size:12px;color:#666;border-bottom:2px solid #ddd'>Invoice</th>
+      <th style='padding:9px 12px;text-align:left;font-size:12px;color:#666;border-bottom:2px solid #ddd'>Due Date</th>
+      <th style='padding:9px 12px;text-align:left;font-size:12px;color:#666;border-bottom:2px solid #ddd'>Status</th>
+      <th style='padding:9px 12px;text-align:right;font-size:12px;color:#666;border-bottom:2px solid #ddd'>Amount Due</th>
+      <th style='padding:9px 12px;text-align:center;font-size:12px;color:#666;border-bottom:2px solid #ddd'>Portal</th>
+    </tr>
+  </thead>
+  <tbody>{$rows}</tbody>
+  <tfoot>
+    <tr style='background:#fafafa'>
+      <td colspan='3' style='padding:10px 12px;font-weight:700;font-size:13px'>Total Outstanding</td>
+      <td style='padding:10px 12px;font-weight:700;font-size:15px;text-align:right;color:#C0392B'>{$totalFmt}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>";
+
+    return [
+        'table'       => $table,
+        'total_amt'   => $totalAmt,
+        'total_fmt'   => $totalFmt,
+        'sym'         => $sym,
+        'max_overdue' => $maxOverdue,
+        'links'       => $links,
+        'primary_link'=> $links[0] ?? '',
+    ];
+}
+
+/**
+ * Build consolidated HTML email body for multiple invoices.
+ */
+function emailBuildConsolidatedHTML(
+    string $clientName, string $type, array $tableData,
+    array $company, string $intro
+): string {
+    $accents = [
+        'reminder' => ['#F9A825', '🔔 Payment Reminder'],
+        'overdue'  => ['#E53935', '⚠️ Invoices Overdue'],
+        'followup' => ['#7B1FA2', '📞 Follow-up Notice'],
+    ];
+    [$color, $heading] = $accents[$type] ?? ['#00897B', '📄 Invoice Summary'];
+
+    $safeIntro  = nl2br(htmlspecialchars($intro, ENT_QUOTES, 'UTF-8'));
+    $table      = $tableData['table']; // already HTML, don't escape
+    $upi        = htmlspecialchars($company['upi'] ?? '', ENT_QUOTES);
+    $phone      = htmlspecialchars($company['company_phone'] ?? '', ENT_QUOTES);
+    $cname      = htmlspecialchars($company['company_name'] ?? '', ENT_QUOTES);
+
+    return <<<HTML
+<html><head><style>
+body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;margin:0}
+.wrap{max-width:620px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.10)}
+.hdr{background:{$color};color:#fff;padding:24px 32px;font-size:18px;font-weight:700}
+.bdy{padding:24px 32px;color:#333;font-size:15px;line-height:1.8}
+.ftr{background:#f9f9f9;padding:14px 32px;font-size:12px;color:#999;border-top:1px solid #eee;text-align:center}
+a{color:{$color}}
+</style></head><body>
+<div class="wrap">
+  <div class="hdr">{$heading}</div>
+  <div class="bdy">
+    <p>{$safeIntro}</p>
+    {$table}
+    <p style="margin-top:16px">Pay via UPI: <strong>{$upi}</strong></p>
+    <p style="color:#888;font-size:13px">For queries, call us at {$phone}.</p>
+    <p>Thank you,<br><strong>{$cname}</strong></p>
+  </div>
+  <div class="ftr">Sent via Invoice Manager</div>
+</div>
+</body></html>
+HTML;
+}
+
 // ================================================================
-//  1. DUE SOON REMINDER
+//  1. DUE SOON REMINDER — CONSOLIDATED (one email per client)
 //     Only for: Pending, Partial  — NOT Paid, Draft, Cancelled, Estimate
 // ================================================================
 if ($autoRemind) {
@@ -381,35 +519,57 @@ if ($autoRemind) {
         WHERE i.due_date = ?
           AND i.status IN ('Pending', 'Partial')
           AND c.email IS NOT NULL AND c.email != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute([$reminderDate]);
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $tpl  = getCronTemplate($db, 'reminder');
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = emailGroupByClient($invs);
+    $sent   = 0;
 
-    $sent = 0;
-    foreach ($invs as $inv) {
-        // Skip if already reminded today
-        if (alreadySentToday($db, (int)$inv['id'], 'reminder')) continue;
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'],
+            fn($inv) => !alreadySentToday($db, (int)$inv['id'], 'reminder'));
+        if (empty($eligible)) continue;
+        $eligible = array_values($eligible);
 
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
-        $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
-        $data = array_merge($inv, $company);
-        $subj = cronReplaceVars($tpl['subject'], $data);
-        $body = cronReplaceVars($tpl['body'],    $data);
-        $html = cronBuildHTML($body, 'reminder');
+        if (count($eligible) === 1) {
+            // Single invoice: use existing per-invoice template
+            $inv = $eligible[0];
+            $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
+            $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
+            $tpl  = getCronTemplate($db, 'reminder');
+            $data = array_merge($inv, $company);
+            $subj = cronReplaceVars($tpl['subject'], $data);
+            $body = cronReplaceVars($tpl['body'], $data);
+            $html = cronBuildHTML($body, 'reminder');
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            $log[] = ($ok ? '✅' : '❌') . " Reminder → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
+        } else {
+            // Multiple invoices: one consolidated email with invoice table
+            $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
+            $intro = "Dear {$group['name']},
 
-        $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
-        cronLogEmail($db, (int)$inv['id'], 'reminder', $inv['c_email'], $subj, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " Reminder → {$inv['client_name']} ({$inv['c_email']}) — {$inv['invoice_number']}";
+This is a friendly reminder that you have " . count($eligible) .
+                     " invoice(s) due on " . date('d M Y', strtotime($reminderDate)) .
+                     " totalling {$tableData['total_fmt']}. Kindly arrange payment before the due date.";
+            $subj  = "Payment Reminder: " . count($eligible) . " invoice(s) due — {$tableData['total_fmt']}";
+            $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            foreach ($eligible as $inv) {
+                cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            }
+            $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
+            $log[] = ($ok ? '✅' : '❌') . " Reminder (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
+        }
         $sent++;
     }
-    echo "[Reminder] {$sent} reminder(s) sent out of " . count($invs) . " eligible (due in {$remindDays} days)\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[Reminder] {$sent} client(s) notified covering {$total} invoice(s) (due in {$remindDays} days)\n";
 }
 
 // ================================================================
-//  1b. ON DUE DATE REMINDER
-//      Fires when due_date = today AND on_due setting is enabled
-//      (respects reminder_settings.on_due, fallback to settings table)
+//  1b. ON DUE DATE REMINDER — CONSOLIDATED
 // ================================================================
 $onDue = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
 if ($autoRemind && $onDue) {
@@ -420,32 +580,54 @@ if ($autoRemind && $onDue) {
         WHERE i.due_date = CURDATE()
           AND i.status IN ('Pending', 'Partial')
           AND c.email IS NOT NULL AND c.email != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $tpl  = getCronTemplate($db, 'reminder');
-    $sent = 0;
-    foreach ($invs as $inv) {
-        if (alreadySentToday($db, (int)$inv['id'], 'reminder')) continue;
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
-        $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
-        $data = array_merge($inv, $company);
-        $subj = cronReplaceVars($tpl['subject'], $data);
-        $body = cronReplaceVars($tpl['body'],    $data);
-        $html = cronBuildHTML($body, 'reminder');
-        $ok   = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
-        cronLogEmail($db, (int)$inv['id'], 'reminder', $inv['c_email'], $subj, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " Due Today → {$inv['client_name']} ({$inv['c_email']}) — #{$inv['invoice_number']}";
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = emailGroupByClient($invs);
+    $sent   = 0;
+
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'],
+            fn($inv) => !alreadySentToday($db, (int)$inv['id'], 'reminder'));
+        if (empty($eligible)) continue;
+        $eligible = array_values($eligible);
+
+        if (count($eligible) === 1) {
+            $inv = $eligible[0];
+            $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
+            $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
+            $tpl  = getCronTemplate($db, 'reminder');
+            $data = array_merge($inv, $company);
+            $subj = cronReplaceVars($tpl['subject'], $data);
+            $body = cronReplaceVars($tpl['body'], $data);
+            $html = cronBuildHTML($body, 'reminder');
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            $log[] = ($ok ? '✅' : '❌') . " Due Today → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
+        } else {
+            $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
+            $intro = "Dear {$group['name']},
+
+This is a reminder that you have " . count($eligible) .
+                     " invoice(s) due today totalling {$tableData['total_fmt']}. Please arrange payment today.";
+            $subj  = "Due Today: " . count($eligible) . " invoice(s) — {$tableData['total_fmt']}";
+            $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            foreach ($eligible as $inv) {
+                cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            }
+            $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
+            $log[] = ($ok ? '✅' : '❌') . " Due Today (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
+        }
         $sent++;
     }
-    echo "[On Due] {$sent} due-today reminder(s) sent out of " . count($invs) . " eligible invoice(s)\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[On Due] {$sent} client(s) notified covering {$total} invoice(s)\n";
 }
 
 // ================================================================
-//  2. OVERDUE ALERT
-//     - Invoice is past due date
-//     - Status must be Pending or Partial (NOT Paid, not Cancelled)
-//     - Only send once per day per invoice
+//  2. OVERDUE ALERT — CONSOLIDATED
 // ================================================================
 if ($autoOverdue) {
     $stmt = $db->prepare("
@@ -458,39 +640,59 @@ if ($autoOverdue) {
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending', 'Partial')
           AND c.email IS NOT NULL AND c.email != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $tpl  = getCronTemplate($db, 'overdue');
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = emailGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        // Skip if already sent an overdue email today
-        if (alreadySentToday($db, (int)$inv['id'], 'overdue')) continue;
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'], function($inv) use ($db) {
+            if (alreadySentToday($db, (int)$inv['id'], 'overdue'))    return false;
+            if (emailHasActivePromise($db, (int)$inv['id']))           return false;
+            return true;
+        });
+        if (empty($eligible)) continue;
+        $eligible = array_values($eligible);
 
-        // Suppress if client has an active promise-to-pay
-        if (emailHasActivePromise($db, (int)$inv['id'])) continue;
+        if (count($eligible) === 1) {
+            $inv = $eligible[0];
+            $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
+            $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
+            $tpl  = getCronTemplate($db, 'overdue');
+            $data = array_merge($inv, $company);
+            $subj = cronReplaceVars($tpl['subject'], $data);
+            $body = cronReplaceVars($tpl['body'], $data);
+            $html = cronBuildHTML($body, 'overdue');
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok);
+            $log[] = ($ok ? '✅' : '❌') . " Overdue → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+        } else {
+            $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
+            $maxDays   = $tableData['max_overdue'];
+            $intro = "Dear {$group['name']},
 
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
-        $inv['invoice_link'] = cronGetPortalLink($db, (int)$inv['id'], $portalBase);
-        $data = array_merge($inv, $company);
-        $subj = cronReplaceVars($tpl['subject'], $data);
-        $body = cronReplaceVars($tpl['body'],    $data);
-        $html = cronBuildHTML($body, 'overdue');
-
-        $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
-        cronLogEmail($db, (int)$inv['id'], 'overdue', $inv['c_email'], $subj, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " Overdue → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+You have " . count($eligible) .
+                     " overdue invoice(s) totalling {$tableData['total_fmt']}. " .
+                     "The oldest is {$maxDays} day(s) past due. Please arrange payment immediately.";
+            $subj  = "⚠️ OVERDUE: " . count($eligible) . " invoice(s) — {$tableData['total_fmt']}";
+            $html  = emailBuildConsolidatedHTML($group['name'], 'overdue', $tableData, $company, $intro);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            foreach ($eligible as $inv) {
+                cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok);
+            }
+            $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
+            $log[] = ($ok ? '✅' : '❌') . " Overdue (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
+        }
         $sent++;
     }
-    echo "[Overdue] {$sent} overdue alert(s) sent out of " . count($invs) . " eligible invoice(s)\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[Overdue] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
 }
 
 // ================================================================
-//  3. OVERDUE FOLLOW-UP SEQUENCE
-//     - Past due AND Pending/Partial only (never Paid/Cancelled)
-//     - Caps at $maxFollowup total follow-up emails per invoice
-//     - Waits at least $followupDays between each follow-up
+//  3. OVERDUE FOLLOW-UP SEQUENCE — CONSOLIDATED
 // ================================================================
 if ($autoFollowup) {
     $stmt = $db->prepare("
@@ -503,46 +705,67 @@ if ($autoFollowup) {
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending', 'Partial')
           AND c.email IS NOT NULL AND c.email != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $tpl  = getCronTemplate($db, 'followup');
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = emailGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        $invId = (int)$inv['id'];
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'], function($inv) use ($db, $maxFollowup, $followupDays) {
+            $invId = (int)$inv['id'];
+            $cntStmt = $db->prepare("SELECT COUNT(*) FROM email_logs WHERE invoice_id=? AND type='followup'");
+            $cntStmt->execute([$invId]);
+            if ((int)$cntStmt->fetchColumn() >= $maxFollowup) return false;
+            $lastStmt = $db->prepare("SELECT MAX(created_at) FROM email_logs WHERE invoice_id=? AND type IN ('followup','overdue')");
+            $lastStmt->execute([$invId]);
+            $lastSent = $lastStmt->fetchColumn();
+            if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) return false;
+            if (alreadySentToday($db, $invId, 'followup'))  return false;
+            if (emailHasActivePromise($db, $invId))          return false;
+            return true;
+        });
+        if (empty($eligible)) continue;
+        $eligible = array_values($eligible);
 
-        // How many follow-ups already sent?
-        $cntStmt = $db->prepare("SELECT COUNT(*) FROM email_logs WHERE invoice_id=? AND type='followup'");
-        $cntStmt->execute([$invId]);
-        $totalSent = (int)$cntStmt->fetchColumn();
-        if ($totalSent >= $maxFollowup) continue; // Cap reached
+        if (count($eligible) === 1) {
+            $inv   = $eligible[0];
+            $invId = (int)$inv['id'];
+            $cntStmt = $db->prepare("SELECT COUNT(*) FROM email_logs WHERE invoice_id=? AND type='followup'");
+            $cntStmt->execute([$invId]);
+            $totalSent = (int)$cntStmt->fetchColumn();
+            $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
+            $inv['invoice_link'] = cronGetPortalLink($db, $invId, $portalBase);
+            $tpl  = getCronTemplate($db, 'followup');
+            $data = array_merge($inv, $company);
+            $subj = cronReplaceVars($tpl['subject'], $data);
+            $body = cronReplaceVars($tpl['body'], $data);
+            $html = cronBuildHTML($body, 'followup');
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            cronLogEmail($db, $invId, 'followup', $group['email'], $subj, $ok);
+            $log[] = ($ok ? '✅' : '❌') . " Follow-up #" . ($totalSent + 1) . " → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+        } else {
+            $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
+            $maxDays   = $tableData['max_overdue'];
+            $intro = "Dear {$group['name']},
 
-        // When was the last follow-up (or overdue alert) sent?
-        $lastStmt = $db->prepare("SELECT MAX(created_at) FROM email_logs WHERE invoice_id=? AND type IN ('followup','overdue')");
-        $lastStmt->execute([$invId]);
-        $lastSent = $lastStmt->fetchColumn();
-        if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) continue; // Too soon
-
-        // Skip if already sent a follow-up today
-        if (alreadySentToday($db, $invId, 'followup')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (emailHasActivePromise($db, $invId)) continue;
-
-        $inv['_display_amt'] = emailGetDisplayAmt($db, $inv);
-        $inv['invoice_link'] = cronGetPortalLink($db, $invId, $portalBase);
-        $data = array_merge($inv, $company);
-        $subj = cronReplaceVars($tpl['subject'], $data);
-        $body = cronReplaceVars($tpl['body'],    $data);
-        $html = cronBuildHTML($body, 'followup');
-
-        $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
-        cronLogEmail($db, $invId, 'followup', $inv['c_email'], $subj, $ok);
-        $label = $ok ? '✅' : '❌';
-        $log[] = "{$label} Follow-up #" . ($totalSent + 1) . " → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+We are following up on " . count($eligible) .
+                     " outstanding invoice(s) totalling {$tableData['total_fmt']}. " .
+                     "The oldest is {$maxDays} day(s) overdue. Kindly settle these at your earliest convenience.";
+            $subj  = "Follow-up: " . count($eligible) . " outstanding invoice(s) — {$tableData['total_fmt']}";
+            $html  = emailBuildConsolidatedHTML($group['name'], 'followup', $tableData, $company, $intro);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
+            foreach ($eligible as $inv) {
+                cronLogEmail($db, (int)$inv['id'], 'followup', $group['email'], $subj, $ok);
+            }
+            $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
+            $log[] = ($ok ? '✅' : '❌') . " Follow-up (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
+        }
         $sent++;
     }
-    echo "[Follow-up] {$sent} follow-up(s) sent out of " . count($invs) . " eligible invoice(s)\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[Follow-up] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
 }
 
 // ================================================================

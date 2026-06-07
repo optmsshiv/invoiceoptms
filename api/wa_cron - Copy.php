@@ -60,7 +60,13 @@ try {
 $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? 3));
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? 3));
-$onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') === '1';
+$onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
+$remChannel   = $remSettings['channel'] ?? 'whatsapp'; // 'whatsapp','email','both'
+// If reminder_settings.channel is 'email', WA cron should do nothing
+if ($remChannel === 'email') {
+    echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to email-only. WA cron skipping.\n";
+    exit;
+}
 
 // ── Template names/langs from settings ───────────────────────────
 $tplReminder = $cfg['wa_tpl_name_reminder'] ?? 'payment_reminder';
@@ -108,9 +114,20 @@ function waGetPortalLink($db, int $invId, string $portalBase): string {
 //  reminder  → {{1}}name {{2}}inv# {{3}}amount {{4}}due  {{5}}upi {{6}}company {{7}}link
 //  overdue   → {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}company {{7}}link
 //  followup  → {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone   {{7}}link
-function waBuildParams(string $type, array $inv, array $company, string $portalLink): array {
-    $sym      = $inv['currency'] ?? '₹';
-    $amount   = $sym . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2);
+function waBuildParams(string $type, array $inv, array $company, string $portalLink, $db = null): array {
+    $sym   = $inv['currency'] ?? '₹';
+    $grand = (float)($inv['grand_total'] ?? $inv['amount'] ?? 0);
+    // For Partial invoices use remaining balance, not full grand_total
+    $displayAmt = $grand;
+    if (($inv['status'] ?? '') === 'Partial' && $db !== null) {
+        try {
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=?");
+            $stmt->execute([$inv['id']]);
+            $paid = (float)$stmt->fetchColumn();
+            $displayAmt = max(0, $grand - $paid);
+        } catch (Exception $e) {}
+    }
+    $amount   = $sym . number_format($displayAmt, 2);
     $dueFmt   = !empty($inv['due_date']) ? date('d M Y', strtotime($inv['due_date'])) : '';
     $daysOver = (string)(int)($inv['days_overdue'] ?? 0);
     $name     = $inv['client_name'] ?? 'Valued Client';
@@ -123,7 +140,6 @@ function waBuildParams(string $type, array $inv, array $company, string $portalL
         default    => [$name, $invNo, $amount],
     };
 }
-
 // ── Send via wa_send.php (reuses phone sanitization + Meta v22.0) ─
 function waCronSend(string $waToken, string $waPid, string $phone,
                     string $tplName, string $tplLang, array $params): bool {
@@ -231,7 +247,7 @@ function waCronLog($db, int $invId, string $type, array $inv, string $tplName, b
                $inv['c_phone']     ?? '',
                (string)($inv['id'] ?? ''),
                $inv['invoice_number'] ?? '',
-               $inv['currency'] ?? '₹' . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
+               $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
                $inv['status'] ?? '',
                '[cron] ' . $tplName,
                $ok ? null : 'Cron send failed',
@@ -286,6 +302,21 @@ function waLastSent($db, int $invId, array $types): ?string {
     }
 }
 
+// ── Check if invoice has an active promise-to-pay (suppresses overdue/followup) ─
+function waHasActivePromise($db, int $invId): bool {
+    try {
+        $stmt = $db->prepare(
+            "SELECT id FROM promise_to_pay
+             WHERE invoice_id=? AND status IN ('pending','reminded')
+             AND promise_date >= CURDATE() LIMIT 1"
+        );
+        $stmt->execute([$invId]);
+        return (bool)$stmt->fetch();
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
 // ================================================================
 //  1. PRE-DUE REMINDER
 // ================================================================
@@ -307,7 +338,7 @@ if ($autoRemind) {
         $invId = (int)$inv['id'];
         if (waAlreadySentToday($db, $invId, 'payment_reminder')) continue;
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('reminder', $inv, $company, $portalLink);
+        $params     = waBuildParams('reminder', $inv, $company, $portalLink, $db);
         $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplReminder, $tplLangRem, $params);
         waCronLog($db, $invId, 'payment_reminder', $inv, $tplReminder, $ok);
         $log[] = ($ok ? '✅' : '❌') . " WA Reminder → {$inv['client_name']} ({$inv['c_phone']}) — #{$inv['invoice_number']}";
@@ -336,7 +367,7 @@ if ($autoRemind && $onDue) {
         $invId = (int)$inv['id'];
         if (waAlreadySentToday($db, $invId, 'payment_reminder')) continue;
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('reminder', $inv, $company, $portalLink);
+        $params     = waBuildParams('reminder', $inv, $company, $portalLink, $db);
         $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplReminder, $tplLangRem, $params);
         waCronLog($db, $invId, 'payment_reminder', $inv, $tplReminder, $ok);
         $log[] = ($ok ? '✅' : '❌') . " WA Due Today → {$inv['client_name']} ({$inv['c_phone']}) — #{$inv['invoice_number']}";
@@ -364,13 +395,14 @@ if ($autoOverdue) {
 
     foreach ($invs as $inv) {
         $invId = (int)$inv['id'];
-        // Only fire if no overdue/followup has ever been sent for this invoice
-        if (waCountSent($db, $invId, 'payment_overdue') > 0)  continue;
-        if (waCountSent($db, $invId, 'invoice_followup') > 0) continue;
+        // Only fire if no overdue alert has ever been sent (followup count doesn't block this)
+        if (waCountSent($db, $invId, 'payment_overdue') > 0) continue;
         if (waAlreadySentToday($db, $invId, 'payment_overdue')) continue;
+        // Suppress if client has an active promise-to-pay
+        if (waHasActivePromise($db, $invId)) continue;
 
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('overdue', $inv, $company, $portalLink);
+        $params     = waBuildParams('overdue', $inv, $company, $portalLink, $db);
         $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplOverdue, $tplLangOv, $params);
         waCronLog($db, $invId, 'payment_overdue', $inv, $tplOverdue, $ok);
         $log[] = ($ok ? '✅' : '❌') . " WA Overdue → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
@@ -411,9 +443,11 @@ if ($autoFollowup) {
         if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) continue;
 
         if (waAlreadySentToday($db, $invId, 'invoice_followup')) continue;
+        // Suppress if client has an active promise-to-pay
+        if (waHasActivePromise($db, $invId)) continue;
 
         $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('followup', $inv, $company, $portalLink);
+        $params     = waBuildParams('followup', $inv, $company, $portalLink, $db);
         $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplFollowup, $tplLangFu, $params);
         waCronLog($db, $invId, 'invoice_followup', $inv, $tplFollowup, $ok);
         $log[] = ($ok ? '✅' : '❌') . " WA Follow-up #" . ($fuCount + 1) . " → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
