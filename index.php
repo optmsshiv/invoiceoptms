@@ -3294,7 +3294,7 @@ View Invoice: {{6}}</pre></details>
       </div>
 
       <div class="table-card">
-        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;overflow-x:auto;min-height:44px;flex-wrap:nowrap">
           <span style="font-weight:700;font-size:14px;white-space:nowrap">Reminder History</span>
           <input id="rem-hist-search" type="text" placeholder="&#x1F50D; Client / Invoice" oninput="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;width:160px;flex-shrink:0">
           <select id="rem-hist-type" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
@@ -13750,7 +13750,13 @@ function sendReminderNow(invId, channel) {
       const tpl = isOverdue
         ? (wa.tpl_overdue || getDefaultWATpl('overdue'))
         : (wa.tpl_remind  || getDefaultWATpl('remind'));
-      const msg = formatWAMsg(tpl, inv, c, STATE.settings);
+      // Use remaining balance in message if client has partial payments
+      const _pmts      = (STATE.payments||[]).filter(pp => String(pp.invoice_id)===String(inv.id));
+      const _paid      = _pmts.reduce((s,pp) => s+parseFloat(pp.amount||0), 0);
+      const _total     = parseFloat(inv.grand_total||inv.amount||0);
+      const _remaining = Math.max(0, _total - _paid);
+      const invForMsg  = _paid > 0 ? Object.assign({}, inv, { amount: _remaining, grand_total: _remaining }) : inv;
+      const msg = formatWAMsg(tpl, invForMsg, c, STATE.settings);
       logWAMessage({ inv, client: c, type: msgType, msg, status: 'sending' });
       sendWA(phone, msg, msgType, inv, c)
         .then(res => logWAMessage({ inv, client: c, type: msgType, msg, status: res ? 'sent_api' : 'sent_web' }))
@@ -14317,7 +14323,15 @@ function _renderPromiseTracker() {
     const daysAgo = isOver ? Math.abs(Math.floor((new Date(pDate+'T00:00:00')-today)/864e5)) : 0;
     const daysFwd = !isOver && !isToday ? Math.floor((new Date(pDate+'T00:00:00')-today)/864e5) : 0;
     const lbl = isOver ? `${daysAgo}d late` : isToday ? 'Today' : `${daysFwd}d`;
-    const amt = p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '—';
+    // Live remaining balance — reads from STATE.payments so auto-updates after partial payments
+    const _inv    = STATE.invoices.find(i => String(i.id)===String(p.invoiceId))||{};
+    const _pmts   = (STATE.payments||[]).filter(pp => String(pp.invoice_id)===String(p.invoiceId));
+    const _paid   = _pmts.reduce((s,pp) => s+parseFloat(pp.amount||0), 0);
+    const _total  = parseFloat(_inv.grand_total||_inv.amount||p.amount||0);
+    const _remain = Math.max(0, _total - _paid);
+    const amt = _paid > 0
+      ? `<span style="color:#B45309;font-weight:600">${fmt_money(_remain)}</span><div style="font-size:10px;color:var(--muted)">of ${fmt_money(_total)}</div>`
+      : p.amount > 0 ? fmt_money(parseFloat(p.amount)) : '—';
     const chIcon = p.channel==='email' ? 'fa-envelope' : p.channel==='both' ? 'fa-paper-plane' : 'fab fa-whatsapp';
     const chColor = p.channel==='email' ? '#2563EB' : p.channel==='both' ? '#5B52C7' : '#1E7E34';
     const statusDot = p.status==='reminded'
@@ -14336,9 +14350,9 @@ function _renderPromiseTracker() {
       <td style="padding:8px 6px;font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.note||'').replace(/"/g,'&quot;')}">${p.note||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
-          <button onclick="sendPromiseReminder('${p.id}')" title="Send reminder" style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:${bgPill};color:${col};border:1px solid ${col}30;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>
-          <button onclick="markPromiseFulfilled('${p.id}')" title="Mark paid" style="padding:3px 8px;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✓</button>
-          <button onclick="markPromiseCancelled('${p.id}')" title="Cancel promise" style="padding:3px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px">✕</button>
+          <button onclick="sendPromiseReminder('${p.id}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:${bgPill};color:${col};border:1px solid ${col}30;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>
+          <button onclick="markPromiseFulfilled('${p.id}')" style="padding:3px 9px;background:#EDFAF0;color:#1E7E34;border:1px solid #C0DD97;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">Paid</button>
+          <button onclick="markPromiseCancelled('${p.id}')" style="padding:3px 9px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap">Cancel</button>
         </div>
       </td>
     </tr>`;
