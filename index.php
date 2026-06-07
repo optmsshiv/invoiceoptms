@@ -1041,6 +1041,27 @@ const SERVER = {
     tpl_followup:  <?= json_encode($settings['wa_tpl_followup'] ?? '') ?>,
     tpl_recurring: <?= json_encode($settings['wa_tpl_recurring'] ?? '') ?>,
     tpl_festival:  <?= json_encode($settings['wa_tpl_festival'] ?? '') ?>,
+    // Template names & langs (persisted so they survive page refresh)
+    tpl_name_invoice:          <?= json_encode($settings['wa_tpl_name_invoice']          ?? '') ?>,
+    tpl_lang_invoice:          <?= json_encode($settings['wa_tpl_lang_invoice']          ?? 'en_US') ?>,
+    tpl_name_estimate:         <?= json_encode($settings['wa_tpl_name_estimate']         ?? '') ?>,
+    tpl_lang_estimate:         <?= json_encode($settings['wa_tpl_lang_estimate']         ?? 'en_US') ?>,
+    tpl_name_reminder:         <?= json_encode($settings['wa_tpl_name_reminder']         ?? '') ?>,
+    tpl_lang_reminder:         <?= json_encode($settings['wa_tpl_lang_reminder']         ?? 'en_US') ?>,
+    tpl_name_overdue:          <?= json_encode($settings['wa_tpl_name_overdue']          ?? '') ?>,
+    tpl_lang_overdue:          <?= json_encode($settings['wa_tpl_lang_overdue']          ?? 'en_US') ?>,
+    tpl_name_paid:             <?= json_encode($settings['wa_tpl_name_paid']             ?? '') ?>,
+    tpl_lang_paid:             <?= json_encode($settings['wa_tpl_lang_paid']             ?? 'en_US') ?>,
+    tpl_name_followup:         <?= json_encode($settings['wa_tpl_name_followup']         ?? '') ?>,
+    tpl_lang_followup:         <?= json_encode($settings['wa_tpl_lang_followup']         ?? 'en_US') ?>,
+    tpl_name_recurring:        <?= json_encode($settings['wa_tpl_name_recurring']        ?? '') ?>,
+    tpl_lang_recurring:        <?= json_encode($settings['wa_tpl_lang_recurring']        ?? 'en_US') ?>,
+    tpl_name_partial:          <?= json_encode($settings['wa_tpl_name_partial']          ?? '') ?>,
+    tpl_lang_partial:          <?= json_encode($settings['wa_tpl_lang_partial']          ?? 'en_US') ?>,
+    tpl_name_balance_reminder: <?= json_encode($settings['wa_tpl_name_balance_reminder'] ?? '') ?>,
+    tpl_lang_balance_reminder: <?= json_encode($settings['wa_tpl_lang_balance_reminder'] ?? 'en_US') ?>,
+    tpl_name_festival:         <?= json_encode($settings['wa_tpl_name_festival']         ?? '') ?>,
+    tpl_lang_festival:         <?= json_encode($settings['wa_tpl_lang_festival']         ?? 'en_US') ?>,
     auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '0') ?>,
     auto_estimate: <?= json_encode($settings['wa_auto_estimate']?? '1') ?>,
     auto_paid:     <?= json_encode($settings['wa_auto_paid']    ?? '1') ?>,
@@ -11491,18 +11512,13 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','balance_reminder','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en_US';
   });
-  // balance_reminder has a hyphenated DOM id but underscore STATE key — must be set explicitly
-  const _brN = document.getElementById('tpl-name-balance-reminder');
-  const _brL = document.getElementById('tpl-lang-balance-reminder');
-  if (_brN) _brN.value = wa['tpl_name_balance_reminder'] || '';
-  if (_brL) _brL.value = wa['tpl_lang_balance_reminder'] || 'en_US';
 }
 
 
@@ -13584,7 +13600,11 @@ function _buildReminderQueue() {
   // Build overdue count per invoice to respect maxOverdue limit in queue
   const _queueOverdueCount = {};
   // Build set of invoice nums skipped TODAY — suppress from queue until tomorrow
-  const _todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+  // Use local date parts — toISOString() gives UTC which breaks IST (shows yesterday)
+  const _now = new Date();
+  const _todayStr = _now.getFullYear() + '-' +
+    String(_now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(_now.getDate()).padStart(2, '0'); // YYYY-MM-DD local
   const _skippedTodayNums = new Set();
   (STATE.reminders || []).forEach(entry => {
     // FIX: match DB key 'overdue', not old human label 'Overdue Alert'
