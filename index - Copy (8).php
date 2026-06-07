@@ -1041,27 +1041,6 @@ const SERVER = {
     tpl_followup:  <?= json_encode($settings['wa_tpl_followup'] ?? '') ?>,
     tpl_recurring: <?= json_encode($settings['wa_tpl_recurring'] ?? '') ?>,
     tpl_festival:  <?= json_encode($settings['wa_tpl_festival'] ?? '') ?>,
-    // Template names & langs (persisted so they survive page refresh)
-    tpl_name_invoice:          <?= json_encode($settings['wa_tpl_name_invoice']          ?? '') ?>,
-    tpl_lang_invoice:          <?= json_encode($settings['wa_tpl_lang_invoice']          ?? 'en_US') ?>,
-    tpl_name_estimate:         <?= json_encode($settings['wa_tpl_name_estimate']         ?? '') ?>,
-    tpl_lang_estimate:         <?= json_encode($settings['wa_tpl_lang_estimate']         ?? 'en_US') ?>,
-    tpl_name_reminder:         <?= json_encode($settings['wa_tpl_name_reminder']         ?? '') ?>,
-    tpl_lang_reminder:         <?= json_encode($settings['wa_tpl_lang_reminder']         ?? 'en_US') ?>,
-    tpl_name_overdue:          <?= json_encode($settings['wa_tpl_name_overdue']          ?? '') ?>,
-    tpl_lang_overdue:          <?= json_encode($settings['wa_tpl_lang_overdue']          ?? 'en_US') ?>,
-    tpl_name_paid:             <?= json_encode($settings['wa_tpl_name_paid']             ?? '') ?>,
-    tpl_lang_paid:             <?= json_encode($settings['wa_tpl_lang_paid']             ?? 'en_US') ?>,
-    tpl_name_followup:         <?= json_encode($settings['wa_tpl_name_followup']         ?? '') ?>,
-    tpl_lang_followup:         <?= json_encode($settings['wa_tpl_lang_followup']         ?? 'en_US') ?>,
-    tpl_name_recurring:        <?= json_encode($settings['wa_tpl_name_recurring']        ?? '') ?>,
-    tpl_lang_recurring:        <?= json_encode($settings['wa_tpl_lang_recurring']        ?? 'en_US') ?>,
-    tpl_name_partial:          <?= json_encode($settings['wa_tpl_name_partial']          ?? '') ?>,
-    tpl_lang_partial:          <?= json_encode($settings['wa_tpl_lang_partial']          ?? 'en_US') ?>,
-    tpl_name_balance_reminder: <?= json_encode($settings['wa_tpl_name_balance_reminder'] ?? '') ?>,
-    tpl_lang_balance_reminder: <?= json_encode($settings['wa_tpl_lang_balance_reminder'] ?? 'en_US') ?>,
-    tpl_name_festival:         <?= json_encode($settings['wa_tpl_name_festival']         ?? '') ?>,
-    tpl_lang_festival:         <?= json_encode($settings['wa_tpl_lang_festival']         ?? 'en_US') ?>,
     auto_inv:      <?= json_encode($settings['wa_auto_inv']     ?? '0') ?>,
     auto_estimate: <?= json_encode($settings['wa_auto_estimate']?? '1') ?>,
     auto_paid:     <?= json_encode($settings['wa_auto_paid']    ?? '1') ?>,
@@ -13599,18 +13578,10 @@ function _buildReminderQueue() {
 
   // Build overdue count per invoice to respect maxOverdue limit in queue
   const _queueOverdueCount = {};
-  // Build set of invoice nums skipped TODAY — suppress from queue until tomorrow
-  const _todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
-  const _skippedTodayNums = new Set();
   (STATE.reminders || []).forEach(entry => {
     // FIX: match DB key 'overdue', not old human label 'Overdue Alert'
     if ((entry.type === 'overdue' || entry.type === 'Overdue Alert') && entry.invNum && entry.status === 'sent') {
       _queueOverdueCount[entry.invNum] = (_queueOverdueCount[entry.invNum] || 0) + 1;
-    }
-    // Track skipped-today: suppress from queue for rest of day
-    if (entry.status === 'skipped' && entry.invNum) {
-      const entryDate = (entry.ts || '').slice(0, 10);
-      if (entryDate === _todayStr) _skippedTodayNums.add(entry.invNum);
     }
   });
 
@@ -13623,8 +13594,6 @@ function _buildReminderQueue() {
     const daysUntilDue = Math.floor((due - today) / 864e5);
     const daysOverdue  = -daysUntilDue;
     const invNum       = inv.num || inv.invoice_number || '';
-    // Suppress invoices manually skipped today — reappear tomorrow
-    if (_skippedTodayNums.has(invNum)) return;
 
     if (inv.status === 'Overdue' || daysOverdue > 0) {
       // Skip if already hit maxOverdue limit
@@ -13700,8 +13669,8 @@ function _buildReminderQueue() {
     const total = parseFloat(q.inv.grand_total||q.inv.amount||0);
     const remaining = Math.max(0, total - paid);
     const amtStr = paid > 0
-      ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
-      : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
+      ? `<span style="font-size:10px;color:#B45309">₹${remaining.toLocaleString('en-IN')} due</span>`
+      : `<span style="font-size:11px;font-weight:600">${fmt_money(total)}</span>`;
     return `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
@@ -13789,7 +13758,7 @@ function sendReminderNow(invId, channel) {
       const invForMsg  = _paid > 0 ? Object.assign({}, inv, { amount: _remaining, grand_total: _remaining }) : inv;
       const msg = formatWAMsg(tpl, invForMsg, c, STATE.settings);
       logWAMessage({ inv, client: c, type: msgType, msg, status: 'sending' });
-      sendWA(phone, msg, msgType, invForMsg, c)
+      sendWA(phone, msg, msgType, inv, c)
         .then(res => logWAMessage({ inv, client: c, type: msgType, msg, status: res ? 'sent_api' : 'sent_web' }))
         .catch(e  => logWAMessage({ inv, client: c, type: msgType, msg, status: 'failed', error: e.message }));
     } else {
@@ -14377,7 +14346,7 @@ function _renderPromiseTracker() {
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${dateF}</div>
       </td>
       <td style="padding:8px 6px;font-size:12px;font-weight:600;white-space:nowrap">${amt}</td>
-      <td style="padding:8px 6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:5px;background:${chColor}15;border:1px solid ${chColor}40"><i class="${chIcon}" style="color:${chColor};font-size:11px"></i></span></td>
+      <td style="padding:8px 6px"><i class="${chIcon}" style="color:${chColor};font-size:12px"></i></td>
       <td style="padding:8px 6px;font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.note||'').replace(/"/g,'&quot;')}">${p.note||'—'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
