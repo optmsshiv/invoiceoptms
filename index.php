@@ -11519,6 +11519,11 @@ function populateWAPage() {
     if (nEl) nEl.value = wa['tpl_name_' + t] || '';
     if (lEl) lEl.value = wa['tpl_lang_' + t] || 'en_US';
   });
+  // balance_reminder uses a hyphenated DOM id — must be set explicitly
+    const _brN = document.getElementById('tpl-name-balance-reminder');
+    const _brL = document.getElementById('tpl-lang-balance-reminder');
+    if (_brN) _brN.value = wa['tpl_name_balance_reminder'] || '';
+    if (_brL) _brL.value = wa['tpl_lang_balance_reminder'] || 'en_US';
 }
 
 
