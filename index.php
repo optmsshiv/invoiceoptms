@@ -12820,7 +12820,8 @@ async function loadFeatureData() {
     clientName: r.client_name,
     type:       r.type,
     channel:    r.channel,
-    status:     r.status
+    status:     r.status,
+    message:    r.message || ''
   }));
   // Load promise-to-pay entries
   if (remR.value?.promises) STATE.promises = remR.value.promises.map(p => ({
@@ -14118,14 +14119,16 @@ function sendReminderNow(invId, channel) {
   }
 
   const _clientName = c.name || inv.clientName || inv.client_name || '';
+  const _remMsgText = typeof msg !== 'undefined' ? (msg || '') : '';
   const entry = {
-    id: Date.now() + '',
-    ts: new Date().toISOString(),
+    id:         Date.now() + '',
+    ts:         new Date().toISOString(),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
-    type:       isOverdue ? 'overdue' : 'due_reminder',   // FIX: use DB keys not human labels
+    type:       isOverdue ? 'overdue' : 'due_reminder',
     channel:    channel === 'skip' ? (getReminderSettings().channel || 'whatsapp') : channel,
-    status:     channel === 'skip' ? 'skipped' : 'sent'   // FIX: 'skipped' now allowed in backend
+    status:     channel === 'skip' ? 'skipped' : 'sent',
+    message:    _remMsgText
   };
   STATE.reminders.unshift(entry);
   if (STATE.reminders.length > 200) STATE.reminders = STATE.reminders.slice(0, 200);
@@ -14136,7 +14139,8 @@ function sendReminderNow(invId, channel) {
     client_name: _clientName,
     type:        isOverdue ? 'overdue' : 'due_reminder',
     channel:     channel === 'skip' ? (getReminderSettings().channel || 'whatsapp') : channel,
-    status:      channel === 'skip' ? 'skipped' : 'sent'
+    status:      channel === 'skip' ? 'skipped' : 'sent',
+    message:     _remMsgText
   }).catch(e => console.warn('reminder log write failed:', e.message));
 
   logActivity('reminder_sent',
@@ -16330,14 +16334,17 @@ setTimeout(async () => {
       const isOv = msgType === 'payment_overdue';
       const invNum = inv.num || inv.invoice_number || '';
       const _cName = c.name || inv.clientName || inv.client_name || '';
+      const _autoType = isOv ? 'overdue' : msgType === 'invoice_followup' ? 'followup' : 'due_reminder';
+      const _autoMsg  = typeof waMsg !== 'undefined' ? (waMsg || '') : '';
       const entry = {
-        id: Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        ts: new Date().toISOString(),
+        id:         Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        ts:         new Date().toISOString(),
         invNum,
         clientName: _cName,
-        type: isOv ? 'Overdue Alert' : msgType === 'invoice_followup' ? 'Follow-up' : 'Due Reminder',
-        channel: ch,
-        status: 'sent'
+        type:       _autoType,
+        channel:    ch,
+        status:     'sent',
+        message:    _autoMsg
       };
       STATE.reminders.unshift(entry);
       if (STATE.reminders.length > 200) STATE.reminders = STATE.reminders.slice(0, 200);
@@ -16345,9 +16352,10 @@ setTimeout(async () => {
         invoice_id:  inv.id,
         invoice_num: invNum,
         client_name: _cName,
-        type:        isOv ? 'overdue' : msgType === 'invoice_followup' ? 'followup' : 'due_reminder',
+        type:        _autoType,
         channel:     ch,
-        status:      'sent'
+        status:      'sent',
+        message:     _autoMsg
       }).catch(e => console.warn('[AutoReminder] log write failed:', e.message));
       logActivity('reminder_sent', `Auto-reminder sent: ${invNum}`, _cName, inv.id);
       sentCount++;
