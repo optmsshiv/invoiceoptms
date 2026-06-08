@@ -14014,7 +14014,7 @@ function _buildReminderQueue() {
       <td style="padding:8px 6px">${amtStr}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
-          ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
+          ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}','${q.type}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
           <button onclick="openPromiseModal('${q.inv.id}')" style="padding:3px 8px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600" title="Record promise to pay">🤝</button>
           <button onclick="sendReminderNow('${q.inv.id}','skip')" style="padding:3px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px" title="Skip this reminder">Skip</button>
         </div>
@@ -14034,7 +14034,7 @@ function _buildReminderQueue() {
         <span style="width:8px;height:8px;border-radius:50%;background:${dotCol};display:inline-block;flex-shrink:0"></span>
         <span style="font-size:12px;font-weight:700;color:var(--text)">${title}</span>
         <span style="font-size:11px;padding:1px 7px;border-radius:8px;background:${dotCol}18;color:${dotCol};font-weight:700;margin-left:2px">${items.length}</span>
-        <button onclick="event.stopPropagation();items_${id}.forEach(q=>sendReminderNow(q.inv.id,getReminderSettings().channel||'whatsapp'))" 
+        <button onclick="event.stopPropagation();items_${id}.forEach(q=>sendReminderNow(q.inv.id,getReminderSettings().channel||'whatsapp',q.type))" 
                 style="margin-left:auto;padding:2px 10px;background:${dotCol}12;color:${dotCol};border:1px solid ${dotCol}30;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700">Send All</button>
       </div>
       ${isOpen ? `<div style="overflow-x:auto">
@@ -14063,7 +14063,7 @@ function _buildReminderQueue() {
     qSection('upcoming', '🗓 Upcoming',  upcomingBatch, false);
 }
 
-function sendReminderNow(invId, channel) {
+function sendReminderNow(invId, channel, qtype) {
   const inv = STATE.invoices.find(i => String(i.id) === String(invId));
   if (!inv) return;
   const c = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
@@ -14072,6 +14072,11 @@ function sendReminderNow(invId, channel) {
   const isOverdue = inv.status === 'Overdue' ||
     (inv.due && new Date(inv.due) < new Date(new Date().toDateString()));
   const msgType = isOverdue ? 'payment_overdue' : 'payment_reminder';
+  // Derive correct log type from queue type or fallback
+  const _logType = isOverdue ? 'overdue'
+    : (qtype === 'due_today' ? 'due_today'
+    : (qtype === 'due_soon'  ? 'due_soon'
+    : 'due_reminder'));
 
   const sendViaWA = (ch) => {
     if (ch !== 'whatsapp' && ch !== 'both') return;
@@ -14125,7 +14130,7 @@ function sendReminderNow(invId, channel) {
     ts:         new Date().toISOString(),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
-    type:       isOverdue ? 'overdue' : 'due_reminder',
+    type:       _logType,
     channel:    channel === 'skip' ? (getReminderSettings().channel || 'whatsapp') : channel,
     status:     channel === 'skip' ? 'skipped' : 'sent',
     message:    _remMsgText
@@ -14137,7 +14142,7 @@ function sendReminderNow(invId, channel) {
     invoice_id:  inv.id,
     invoice_num: inv.num || inv.invoice_number || '',
     client_name: _clientName,
-    type:        isOverdue ? 'overdue' : 'due_reminder',
+    type:        _logType,
     channel:     channel === 'skip' ? (getReminderSettings().channel || 'whatsapp') : channel,
     status:      channel === 'skip' ? 'skipped' : 'sent',
     message:     _remMsgText
@@ -14177,7 +14182,8 @@ function sendAllReminders() {
     const invNum = inv.num || inv.invoice_number || '';
     if (daysUntilDue < 0 && (overdueCountByInv[invNum] || 0) >= maxOv) return;
 
-    sendReminderNow(inv.id, ch);
+    const qtype = daysUntilDue < 0 ? 'overdue' : daysUntilDue === 0 ? 'due_today' : 'due_soon';
+    sendReminderNow(inv.id, ch, qtype);
     count++;
   });
   toast(`✅ Sent ${count} reminder${count !== 1 ? 's' : ''} via ${ch}`, 'success');
@@ -14774,7 +14780,7 @@ function sendPromiseReminder(ptpId) {
     invoice_id:  inv.id,
     invoice_num: inv.num || inv.invoice_number || '',
     client_name: cl.name || inv.clientName || inv.client_name || '',
-    type:        'balance_reminder',
+    type:        'promise_reminder',
     channel:     ch,
     status:      'sent',
     message:     'Promise reminder — paid: ' + fmt_money(paid, sym) + ' · remaining: ' + fmt_money(remaining, sym)
