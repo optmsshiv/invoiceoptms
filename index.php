@@ -804,7 +804,7 @@ select { cursor: pointer; }
 /* ══════════════════════════════════════════
    SETTINGS
 ══════════════════════════════════════════ */
-.settings-wrap { max-width: 760px; }
+.settings-wrap { max-width: 900px; }
 .settings-block {
   background: var(--card); border-radius: var(--r); padding: 22px;
   border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 18px;
@@ -813,6 +813,38 @@ select { cursor: pointer; }
   font-size: 14px; font-weight: 700; color: var(--text);
   margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
   padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+
+/* ── Settings Tab Navigation ── */
+.stab-bar {
+  display: flex; gap: 2px; padding: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 14px; margin-bottom: 24px; overflow-x: auto;
+  scrollbar-width: none; flex-wrap: nowrap;
+}
+.stab-bar::-webkit-scrollbar { display: none; }
+.stab-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 10px; border: none;
+  background: transparent; cursor: pointer; white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  transition: .18s; flex-shrink: 0;
+}
+.stab-btn:hover { background: var(--card); color: var(--text); }
+.stab-btn.active {
+  background: var(--card); color: var(--teal);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.stab-btn i { font-size: 13px; }
+.stab-pane { display: none; }
+.stab-pane.active { display: block; }
+
+/* ── Settings sticky footer ── */
+.stab-footer {
+  position: sticky; bottom: 0; z-index: 10;
+  background: var(--card); border-top: 1px solid var(--border);
+  padding: 12px 0; margin-top: 24px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
 }
 .toggle-list { margin-top: 16px; }
 .toggle-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -1207,9 +1239,7 @@ const SERVER = {
     <a class="nav-item" data-page="settings" onclick="showPage('settings',this)">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
-    <a class="nav-item" data-page="backup" onclick="showPage('backup',this)">
-      <i class="fas fa-database"></i><span>Backup & Export</span>
-    </a>
+
     <a class="nav-item" data-page="msglog" onclick="showPage('msglog',this)">
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
@@ -2971,139 +3001,148 @@ View Invoice: {{6}}</pre></details>
     <div id="page-settings" class="page">
       <div class="settings-wrap">
 
-        <!-- Profile moved to dedicated page-profile -->
+        <!-- ── Tab Bar ── -->
+        <div class="stab-bar">
+          <button class="stab-btn active" onclick="settingsTab('company',this)"><i class="fas fa-building"></i> Company</button>
+          <button class="stab-btn" onclick="settingsTab('invoice',this)"><i class="fas fa-file-invoice"></i> Invoice</button>
+          <button class="stab-btn" onclick="settingsTab('catalog',this)"><i class="fas fa-tags"></i> Catalog</button>
+          <button class="stab-btn" onclick="settingsTab('backup',this)"><i class="fas fa-database"></i> Backup</button>
+        </div>
 
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-building"></i> Company Profile</div>
-          <div class="form-grid g2">
-            <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
-            <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
-            <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
-            <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
-            <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
-            <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
-            <div class="field"><label>Estimate/Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
-            <div class="field"><label>UPI ID</label><input id="sc-upi" value="<?= htmlspecialchars($companyUpi) ?>"></div>
-            <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
-              <textarea id="sc-bank" style="min-height:85px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
-            </div>
-            <div class="field"><label>Default Currency</label>
-              <select id="sc-cur"><option value="₹"<?= ($defaultCurrency==="₹")?" selected":"" ?>>INR (₹)</option><option value="$"<?= ($defaultCurrency==="$")?" selected":"" ?>>USD ($)</option></select>
-            </div>
-            <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
-            <div class="field">
-              <label>Company Logo</label>
-              <div style="display:flex;gap:6px;align-items:stretch">
-                <input id="sc-logo" placeholder="https://… or upload →" oninput="livePreview()" style="flex:1;min-width:0">
-                <label style="display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;transition:.2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-                  <i class="fas fa-upload"></i> Upload
-                  <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this,'sc-logo','sc-logo-preview')">
-                </label>
+        <!-- ══ TAB: COMPANY ══ -->
+        <div id="stab-company" class="stab-pane active">
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-building" style="color:var(--teal)"></i> Company Profile</div>
+            <div class="form-grid g2">
+              <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
+              <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
+              <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
+              <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
+              <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
+              <div class="field"><label>UPI ID</label><input id="sc-upi" value="<?= htmlspecialchars($companyUpi) ?>"></div>
+              <div class="field"><label>Default Currency</label>
+                <select id="sc-cur"><option value="₹"<?= ($defaultCurrency==="₹")?" selected":"" ?>>INR (₹)</option><option value="$"<?= ($defaultCurrency==="$")?" selected":"" ?>>USD ($)</option></select>
               </div>
-              <div id="sc-logo-preview" style="margin-top:8px;min-height:0"></div>
-            </div>
-            <div class="field">
-              <label>Authorised Signature</label>
-              <div style="display:flex;gap:6px;align-items:stretch">
-                <input id="sc-sign" placeholder="https://… or upload →" style="flex:1;min-width:0">
-                <label style="display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;transition:.2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-                  <i class="fas fa-pen-nib"></i> Upload Signature
-                  <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this,'sc-sign','sc-sign-preview')">
-                </label>
+              <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
+              <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
+              <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
+              <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
+                <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
               </div>
-              <div id="sc-sign-preview" style="margin-top:6px;min-height:0"></div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px">Transparent PNG recommended for best results in PDF</div>
+              <div class="field">
+                <label>Company Logo</label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <input id="sc-logo" placeholder="https://… or upload →" oninput="livePreview()" style="flex:1;min-width:0">
+                  <label style="display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;transition:.2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                    <i class="fas fa-upload"></i> Upload
+                    <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this,'sc-logo','sc-logo-preview')">
+                  </label>
+                </div>
+                <div id="sc-logo-preview" style="margin-top:8px;min-height:0"></div>
+              </div>
+              <div class="field">
+                <label>Authorised Signature</label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <input id="sc-sign" placeholder="https://… or upload →" style="flex:1;min-width:0">
+                  <label style="display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;transition:.2s" onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                    <i class="fas fa-pen-nib"></i> Upload Signature
+                    <input type="file" accept="image/*" style="display:none" onchange="handleLogoUpload(this,'sc-sign','sc-sign-preview')">
+                  </label>
+                </div>
+                <div id="sc-sign-preview" style="margin-top:6px;min-height:0"></div>
+                <div style="font-size:10px;color:var(--muted);margin-top:4px">Transparent PNG recommended for best results in PDF</div>
+              </div>
             </div>
           </div>
-          <button class="btn btn-primary" style="margin-top:16px" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Settings</button>
+          <div class="stab-footer">
+            <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
+          </div>
         </div>
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-sliders-h"></i> Invoice Defaults</div>
-          <div class="form-grid g2">
-            <div class="field"><label>Default GST Rate</label>
-              <select id="sd-gst">
-                <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option>
-                <option value="18" selected>18%</option><option value="28">28%</option>
-              </select>
-            </div>
-            <div class="field"><label>Payment Due (days)</label>
-              <input type="number" id="sd-due" value="<?= htmlspecialchars($dueDays ?: '15') ?>" min="1" max="365" oninput="STATE.settings.dueDays = parseInt(this.value) || 15;">
-            </div>
-            <div class="field"><label>Default Template</label>
-              <select id="sd-tpl">
-                <option value="2">Colorful Matte</option>
-                <option value="A">Clean Minimal</option>
-                <option value="B">Corporate Split</option>
-                <option value="E">Dark Header</option>
+
+        <!-- ══ TAB: INVOICE ══ -->
+        <div id="stab-invoice" class="stab-pane">
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-sliders-h" style="color:var(--teal)"></i> Invoice Defaults</div>
+            <div class="form-grid g2">
+              <div class="field"><label>Default GST Rate</label>
+                <select id="sd-gst">
+                  <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option>
+                  <option value="18" selected>18%</option><option value="28">28%</option>
+                </select>
+              </div>
+              <div class="field"><label>Payment Due (days)</label>
+                <input type="number" id="sd-due" value="<?= htmlspecialchars($dueDays ?: '15') ?>" min="1" max="365" oninput="STATE.settings.dueDays = parseInt(this.value) || 15;">
+              </div>
+              <div class="field"><label>Default Template</label>
+                <select id="sd-tpl">
+                  <option value="2">Colorful Matte</option>
+                  <option value="A">Clean Minimal</option>
+                  <option value="B">Corporate Split</option>
+                  <option value="E">Dark Header</option>
                   <option value="F">Formal Letterhead</option>
-              </select>
-            </div>
-            <div class="field"><label>Invoice Number Prefix</label>
-              <input id="sd-prefix" placeholder="<?= htmlspecialchars(preg_replace('/\d{4}/', date('Y'), $prefix ?: ('OT-' . date('Y') . '-'))) ?>" value="">
-            </div>
-            <div class="field"><label>Estimate / Quote Prefix</label>
-              <input id="sd-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="">
-            </div>
-            <div class="field"><label>Default Currency</label>
-              <select id="sd-currency">
-                <option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option>
-              </select>
-            </div>
-            <div class="field" style="grid-column:1/-1"><label>Default Bank Details</label>
-              <textarea id="sd-bank" style="min-height:60px" placeholder="Bank name, account, IFSC, UPI..."><?= htmlspecialchars($companyBank) ?></textarea>
-            </div>
-            <div class="field" style="grid-column:1/-1"><label>Default Notes to Client</label>
-              <textarea id="sd-notes" style="min-height:60px" placeholder="e.g. Thank you for your business. Payment due within {{due_days}} days."><?= htmlspecialchars($settings['default_notes'] ?? '') ?></textarea>
-            </div>
-            <div class="field" style="grid-column:1/-1"><label>Default Terms &amp; Conditions</label>
-              <textarea id="sd-tnc" style="min-height:80px" placeholder="Enter default terms and conditions for all invoices..."><?= htmlspecialchars($defaultTnc) ?></textarea>
+                </select>
+              </div>
+              <div class="field"><label>Default Currency</label>
+                <select id="sd-currency">
+                  <option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option>
+                </select>
+              </div>
+              <div class="field g-full"><label>Default Notes to Client</label>
+                <textarea id="sd-notes" style="min-height:60px" placeholder="e.g. Thank you for your business. Payment due within {{due_days}} days."><?= htmlspecialchars($settings['default_notes'] ?? '') ?></textarea>
+              </div>
+              <div class="field g-full"><label>Default Terms &amp; Conditions</label>
+                <textarea id="sd-tnc" style="min-height:80px" placeholder="Enter default terms and conditions for all invoices..."><?= htmlspecialchars($defaultTnc) ?></textarea>
+              </div>
             </div>
           </div>
-          <button class="btn btn-primary" style="margin-top:14px" onclick="saveInvoiceDefaults()">
-            <i class="fas fa-save"></i> Save Invoice Defaults
-          </button>
-        </div>
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-tags"></i> Service / Product Categories</div>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Create and color-code categories to organise your services and products.</p>
-          <div id="cat-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input id="cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
-            <input type="color" id="cat-new-color" value="#00897B" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
-            <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addCategory()"><i class="fas fa-plus"></i> Add</button>
+          <div class="stab-footer">
+            <button class="btn btn-primary" onclick="saveInvoiceDefaults()"><i class="fas fa-save"></i> Save Invoice Defaults</button>
           </div>
         </div>
 
-        <!-- Item Types Manager -->
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-layer-group"></i> Line Item Types</div>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Manage item types shown in the invoice line-item "Type" dropdown. These are saved to the database and available across all invoices.</p>
-          <div id="item-type-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input id="itype-new-name" class="table-search" placeholder="Type name e.g. Subscription…" style="flex:1;min-width:160px;max-width:240px">
-            <input type="color" id="itype-new-color" value="#1976D2" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
-            <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addItemType()"><i class="fas fa-plus"></i> Add Type</button>
+        <!-- ══ TAB: CATALOG ══ -->
+        <div id="stab-catalog" class="stab-pane">
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-tags" style="color:var(--teal)"></i> Service / Product Categories</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Create and color-code categories to organise your services and products.</p>
+            <div id="cat-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
+              <input type="color" id="cat-new-color" value="#00897B" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+              <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addCategory()"><i class="fas fa-plus"></i> Add</button>
+            </div>
           </div>
-          <p style="font-size:11px;color:var(--muted);margin-top:10px"><i class="fas fa-info-circle"></i> Default types (Service, Product, Labour, Other) are always available even if deleted — they will be recreated on page reload.</p>
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-layer-group" style="color:var(--teal)"></i> Line Item Types</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Manage item types shown in the invoice line-item "Type" dropdown.</p>
+            <div id="item-type-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="itype-new-name" class="table-search" placeholder="Type name e.g. Subscription…" style="flex:1;min-width:160px;max-width:240px">
+              <input type="color" id="itype-new-color" value="#1976D2" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+              <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addItemType()"><i class="fas fa-plus"></i> Add Type</button>
+            </div>
+            <p style="font-size:11px;color:var(--muted);margin-top:10px"><i class="fas fa-info-circle"></i> Default types (Service, Product, Labour, Other) are always available even if deleted.</p>
+          </div>
         </div>
+
+        <!-- ══ TAB: BACKUP ══ -->
+        <div id="stab-backup" class="stab-pane">
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-database" style="color:var(--teal)"></i> Backup &amp; Export</div>
+            <div class="backup-actions">
+              <button class="backup-btn" onclick="exportAllJSON()"><i class="fas fa-file-code"></i><span>Export All Data (JSON)</span></button>
+              <button class="backup-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i><span>Export Invoices (CSV)</span></button>
+              <button class="backup-btn" onclick="importData()"><i class="fas fa-file-upload"></i><span>Import Data (JSON)</span></button>
+              <button class="backup-btn" onclick="clearAllData()"><i class="fas fa-trash"></i><span>Clear All Data</span></button>
+            </div>
+            <div class="field" style="margin-top:16px"><label>Last Backup</label><input value="Never" readonly style="background:#f5f5f5"></div>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- ─────────── BACKUP ─────────── -->
-    <div id="page-backup" class="page">
-      <div class="settings-wrap">
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-database"></i> Backup & Export</div>
-          <div class="backup-actions">
-            <button class="backup-btn" onclick="exportAllJSON()"><i class="fas fa-file-code"></i><span>Export All Data (JSON)</span></button>
-            <button class="backup-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i><span>Export Invoices (CSV)</span></button>
-            <button class="backup-btn" onclick="importData()"><i class="fas fa-file-upload"></i><span>Import Data (JSON)</span></button>
-            <button class="backup-btn" onclick="clearAllData()"><i class="fas fa-trash"></i><span>Clear All Data</span></button>
-          </div>
-          <div class="field" style="margin-top:16px"><label>Last Backup</label><input value="Never" readonly style="background:#f5f5f5"></div>
-        </div>
-      </div>
-    </div><!-- /page-backup -->
+<!-- Backup moved into Settings → Backup tab -->
 
     <!-- ─────────── MESSAGE LOG (Updated: IST timezone, proper ordering, optimistic updates) ─────────── -->
     <div id="page-msglog" class="page">
@@ -4380,7 +4419,7 @@ const breadcrumbs = {
   clients:'Clients', products:'Services & Products', payments:'Payments',
   'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
-  'email-setup':'Email Setup', settings:'Settings', backup:'Backup & Export',
+  'email-setup':'Email Setup', settings:'Settings',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
   activity:'Activity Log', profile:'My Profile'
@@ -4405,7 +4444,7 @@ function showPage(name, el) {
   if (name === 'dashboard') renderDashboard();
   if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
-  if (name === 'settings')    populateSettingsForm();
+  if (name === 'settings')  { populateSettingsForm(); settingsTab('company', document.querySelector('.stab-btn')); }
   if (name === 'email-setup') { populateSettingsForm(); loadEmailAutoSettings(); }
   if (name === 'msglog')    renderMsgLog();
   if (name === 'aging')     renderAgingReport();
@@ -11648,6 +11687,19 @@ window.saveProfilePassword = async function() {
     document.getElementById('profile-pass2').value = '';
     toast('✅ Password updated!','success');
   } catch(e) { toast('❌ Failed: '+e.message,'error'); }
+};
+
+// ── Settings Tab ───────────────────────────────────────────────
+window.settingsTab = function(name, btn) {
+  document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
+  const pane = document.getElementById('stab-' + name);
+  if (pane) pane.classList.add('active');
+  if (btn)  btn.classList.add('active');
+  else {
+    const b = document.querySelector(`.stab-btn[onclick*="'${name}'"]`);
+    if (b) b.classList.add('active');
+  }
 };
 
 // ── Admin Profile ──────────────────────────────────────────────

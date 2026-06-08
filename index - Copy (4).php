@@ -1010,6 +1010,58 @@ select { cursor: pointer; }
 /* ── PHP-build extras ── */
 .nav-item[href*="logout"] { color: rgba(255,100,100,.75) !important; }
 .nav-item[href*="logout"]:hover { color: #ff6b6b !important; background:rgba(255,80,80,.1) !important; }
+
+/* ── User chip (topbar) ── */
+.user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
+.user-chip:hover { background:var(--bg);border-color:var(--teal); }
+.user-chip-avatar { width:28px;height:28px;border-radius:7px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
+.user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
+.user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
+
+/* ── User dropdown ── */
+.user-dropdown { position:absolute;top:calc(100% + 10px);right:0;width:240px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.13);z-index:700;display:none;overflow:hidden; }
+.user-dropdown.open { display:block; }
+.user-dropdown-header { padding:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
+.udh-avatar { width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
+.udh-name { font-size:13px;font-weight:700;color:#fff; }
+.udh-email { font-size:10px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px; }
+.udh-role { display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;text-transform:uppercase;letter-spacing:.4px; }
+.user-dropdown-body { padding:6px; }
+.ud-item { display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);transition:.15s;border:none;background:none;width:100%;text-align:left; }
+.ud-item:hover { background:var(--bg); }
+.ud-item i { width:16px;text-align:center;font-size:13px;color:var(--muted); }
+.ud-item.danger { color:#E53935; }
+.ud-item.danger i { color:#E53935; }
+.ud-item.danger:hover { background:#FEF0EF; }
+.ud-divider { height:1px;background:var(--border);margin:4px 6px; }
+
+/* ── Profile page ── */
+.profile-page-wrap { display:grid;grid-template-columns:280px 1fr;gap:20px;max-width:900px;margin:0 auto;padding:4px 0 40px; }
+@media(max-width:700px){ .profile-page-wrap { grid-template-columns:1fr; } }
+.profile-left-card { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;height:fit-content; }
+.profile-banner { height:72px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
+.profile-left-body { padding:0 20px 20px; }
+.profile-av-wrap { margin-top:-38px;margin-bottom:12px; }
+.profile-av-lg { width:76px;height:76px;border-radius:16px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:3px solid var(--card);overflow:hidden;cursor:pointer;position:relative; }
+.profile-av-lg:hover .pav-overlay { opacity:1; }
+.pav-overlay { position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;opacity:0;transition:.2s;border-radius:13px; }
+.pav-overlay i { color:#fff;font-size:20px; }
+.profile-stat { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px; }
+.profile-stat:last-child { border:none; }
+.profile-stat-label { color:var(--muted); }
+.profile-stat-val { font-weight:700;color:var(--text); }
+.profile-right { display:flex;flex-direction:column;gap:16px; }
+.pcard { background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden; }
+.pcard-header { padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px; }
+.pcard-header i { font-size:14px;color:var(--teal); }
+.pcard-title { font-size:14px;font-weight:700;color:var(--text); }
+.pcard-body { padding:20px; }
+.pcard-body .field { margin-bottom:14px; }
+.pcard-body .field:last-of-type { margin-bottom:0; }
+.pcard-footer { padding:12px 20px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:flex-end;gap:10px; }
+.danger-zone { background:#FEF0EF;border:1px solid #F7C1C1;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
+.dz-text h4 { font-size:13px;font-weight:700;color:#C0392B;margin:0 0 3px; }
+.dz-text p { font-size:11px;color:#E57373;margin:0; }
 </style>
 </head>
 <body>
@@ -1162,13 +1214,19 @@ const SERVER = {
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
     </a>
-    <a class="nav-item" href="/auth/logout.php" style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)"><i class="fas fa-sign-out-alt" style="color:#ff8a80"></i><span style="color:#ff8a80">Logout</span></a>
+
   </nav>
 
   <div class="sidebar-footer">
-    <div class="sidebar-user">
-      <div class="user-avatar"><?= strtoupper(substr($user['name'],0,2)) ?></div>
-      <div class="user-info"><span class="user-name"><?= htmlspecialchars($user['name']) ?></span><span class="user-role"><?= ucfirst($user['role']) ?></span></div>
+    <div class="sidebar-user" onclick="showPage('profile',null)" title="My Profile" style="cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px;transition:.18s" onmouseenter="this.style.background='rgba(255,255,255,.06)'" onmouseleave="this.style.background='transparent'">
+      <div class="user-avatar" style="flex-shrink:0;border:2px solid rgba(255,255,255,.15)">
+        <?php if(!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:6px"><?php else: ?><?= strtoupper(substr($user['name'],0,2)) ?><?php endif; ?>
+      </div>
+      <div class="user-info" style="flex:1;min-width:0">
+        <span class="user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($user['name']) ?></span>
+        <span class="user-role"><?= ucfirst($user['role']) ?></span>
+      </div>
+      <i class="fas fa-chevron-right" style="color:rgba(255,255,255,.3);font-size:11px;flex-shrink:0"></i>
     </div>
   </div>
 </aside>
@@ -1199,6 +1257,41 @@ const SERVER = {
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
           <div id="notifItems"><div style="padding:12px 16px;color:var(--muted);font-size:13px;text-align:center">Loading notifications…</div></div>
           <div style="padding:10px 16px;text-align:center"><button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearNotifs()">Mark all read</button></div>
+        </div>
+      </div>
+
+      <!-- User chip -->
+      <div class="notif-wrap" style="position:relative">
+        <button class="user-chip" id="userChipBtn" onclick="toggleUserDropdown(event)">
+          <div class="user-chip-avatar" id="chipAvatar">
+            <?php if(!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover"><?php else: ?><?= strtoupper(substr($user['name'],0,2)) ?><?php endif; ?>
+          </div>
+          <span class="user-chip-name"><?= htmlspecialchars(explode(' ',$user['name'])[0]) ?></span>
+          <i class="fas fa-chevron-down user-chip-chevron" id="userChipChevron"></i>
+        </button>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="user-dropdown-header">
+            <div class="udh-avatar" id="dropdownAvatar">
+              <?php if(!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover"><?php else: ?><?= strtoupper(substr($user['name'],0,2)) ?><?php endif; ?>
+            </div>
+            <div style="min-width:0">
+              <div class="udh-name"><?= htmlspecialchars($user['name']) ?></div>
+              <div class="udh-email"><?= htmlspecialchars($user['email']) ?></div>
+              <span class="udh-role"><?= ucfirst($user['role']) ?></span>
+            </div>
+          </div>
+          <div class="user-dropdown-body">
+            <button class="ud-item" onclick="closeUserDropdown();showPage('profile',null)">
+              <i class="fas fa-user-edit"></i> My Profile
+            </button>
+            <button class="ud-item" onclick="closeUserDropdown();showPage('settings',document.querySelector('[data-page=settings]'))">
+              <i class="fas fa-cog"></i> Settings
+            </button>
+            <div class="ud-divider"></div>
+            <button class="ud-item danger" onclick="confirmLogout()">
+              <i class="fas fa-sign-out-alt"></i> Sign Out
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2782,43 +2875,103 @@ View Invoice: {{6}}</pre></details>
       </div>
     </div>
 
+    <!-- ─────────── PROFILE ─────────── -->
+    <div id="page-profile" class="page">
+      <div class="profile-page-wrap">
+
+        <!-- Left: identity card -->
+        <div class="profile-left-card">
+          <div class="profile-banner"></div>
+          <div class="profile-left-body">
+            <div class="profile-av-wrap">
+              <label style="cursor:pointer;display:inline-block" title="Click to change photo">
+                <div class="profile-av-lg" id="profile-avatar-preview">
+                  <?php if(!empty($user['avatar'])): ?>
+                    <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover">
+                  <?php else: ?>
+                    <?= strtoupper(substr($user['name'],0,2)) ?>
+                  <?php endif; ?>
+                  <div class="pav-overlay"><i class="fas fa-camera"></i></div>
+                </div>
+                <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
+              </label>
+            </div>
+            <div style="margin-bottom:18px">
+              <div id="profile-display-name" style="font-size:18px;font-weight:800;color:var(--text);line-height:1.2"><?= htmlspecialchars($user['name']) ?></div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px"><?= htmlspecialchars($user['email']) ?></div>
+              <span style="display:inline-block;margin-top:6px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--teal-bg,#E0F2F1);color:var(--teal);text-transform:uppercase;letter-spacing:.5px"><?= ucfirst($user['role']) ?></span>
+            </div>
+            <div>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-file-invoice" style="width:14px;color:var(--muted)"></i> Total Invoices</span>
+                <span class="profile-stat-val" id="ps-inv-count">—</span>
+              </div>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-users" style="width:14px;color:var(--muted)"></i> Total Clients</span>
+                <span class="profile-stat-val" id="ps-client-count">—</span>
+              </div>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-clock" style="width:14px;color:var(--muted)"></i> Member Since</span>
+                <span class="profile-stat-val"><?= isset($user['created_at']) ? date('M Y', strtotime($user['created_at'])) : 'N/A' ?></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: edit cards -->
+        <div class="profile-right">
+
+          <!-- Account info -->
+          <div class="pcard">
+            <div class="pcard-header">
+              <i class="fas fa-user"></i>
+              <span class="pcard-title">Account Information</span>
+            </div>
+            <div class="pcard-body">
+              <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
+              <div class="field" style="margin-bottom:0"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+            </div>
+            <div class="pcard-footer">
+              <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+          </div>
+
+          <!-- Security -->
+          <div class="pcard">
+            <div class="pcard-header">
+              <i class="fas fa-lock"></i>
+              <span class="pcard-title">Change Password</span>
+            </div>
+            <div class="pcard-body">
+              <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
+              <div class="field" style="margin-bottom:0"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
+            </div>
+            <div class="pcard-footer">
+              <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
+              <button class="btn btn-primary" onclick="saveProfilePassword()"><i class="fas fa-key"></i> Update Password</button>
+            </div>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="danger-zone">
+            <div class="dz-text">
+              <h4><i class="fas fa-sign-out-alt" style="margin-right:5px"></i>Sign Out</h4>
+              <p>You will be logged out and redirected to the login page.</p>
+            </div>
+            <button onclick="confirmLogout()" style="padding:9px 20px;background:#E53935;color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0">
+              Sign Out
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     <!-- ─────────── SETTINGS ─────────── -->
     <div id="page-settings" class="page">
       <div class="settings-wrap">
 
-        <!-- Admin Profile -->
-        <div class="settings-block">
-          <div class="sb-title"><i class="fas fa-user-circle"></i> Admin Profile</div>
-          <div class="form-grid g2">
-            <div class="field">
-              <label>Profile Photo</label>
-              <div style="display:flex;gap:12px;align-items:center">
-                <div id="profile-avatar-preview" style="width:64px;height:64px;border-radius:12px;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden">
-                  <?= strtoupper(substr($user['name'],0,2)) ?>
-                </div>
-                <div>
-                  <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)">
-                    <i class="fas fa-upload"></i> Upload Photo
-                    <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
-                  </label>
-                  <div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG, WebP — max 2MB</div>
-                </div>
-              </div>
-            </div>
-            <div></div>
-            <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>"></div>
-            <div class="field"><label>Email</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>"></div>
-            <div class="field"><label>New Password <span style="font-size:10px;font-weight:400;color:var(--muted)">(leave blank to keep current)</span></label>
-              <input type="password" id="profile-pass" placeholder="New password (min 6 chars)" autocomplete="new-password">
-            </div>
-            <div class="field"><label>Confirm Password</label>
-              <input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password">
-            </div>
-          </div>
-          <button class="btn btn-primary" style="margin-top:14px" onclick="saveProfile()">
-            <i class="fas fa-save"></i> Update Profile
-          </button>
-        </div>
+        <!-- Profile moved to dedicated page-profile -->
 
         <div class="settings-block">
           <div class="sb-title"><i class="fas fa-building"></i> Company Profile</div>
@@ -4230,7 +4383,7 @@ const breadcrumbs = {
   'email-setup':'Email Setup', settings:'Settings', backup:'Backup & Export',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
-  activity:'Activity Log'
+  activity:'Activity Log', profile:'My Profile'
 };
 
 function showPage(name, el) {
@@ -4262,6 +4415,7 @@ function showPage(name, el) {
   if (name === 'portal')    renderPortal();
   if (name === 'activity')  renderActivityLog();
   if (name === 'credit-notes') renderCreditNotes();
+  if (name === 'profile')      renderProfilePage();
 }
 
 // ══════════════════════════════════════════
@@ -11407,6 +11561,95 @@ function populateSettingsForm() {
 }
 
 
+// ── User Dropdown (topbar chip) ────────────────────────────────
+window.toggleUserDropdown = function(e) {
+  e.stopPropagation();
+  const panel   = document.getElementById('userDropdown');
+  const chevron = document.getElementById('userChipChevron');
+  const isOpen  = panel.classList.contains('open');
+  document.getElementById('notifPanel')?.classList.remove('open');
+  panel.classList.toggle('open', !isOpen);
+  if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+};
+window.closeUserDropdown = function() {
+  document.getElementById('userDropdown')?.classList.remove('open');
+  const chev = document.getElementById('userChipChevron');
+  if (chev) chev.style.transform = '';
+};
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('userChipBtn')?.contains(e.target)) closeUserDropdown();
+});
+
+window.confirmLogout = async function() {
+  const r = await Swal.fire({
+    title: 'Sign out?',
+    text:  'You will be returned to the login page.',
+    icon:  'question',
+    showCancelButton:  true,
+    confirmButtonText: 'Sign Out',
+    cancelButtonText:  'Stay',
+    confirmButtonColor:'#E53935',
+  });
+  if (r.isConfirmed) window.location.href = '/auth/logout.php';
+};
+
+// ── Profile Page ────────────────────────────────────────────────
+window.renderProfilePage = function() {
+  // Fill live stats from STATE
+  const invCount    = document.getElementById('ps-inv-count');
+  const clientCount = document.getElementById('ps-client-count');
+  if (invCount)    invCount.textContent    = (STATE.invoices||[]).length  || '0';
+  if (clientCount) clientCount.textContent = (STATE.clients||[]).length   || '0';
+};
+
+// Sync avatar + name everywhere after profile save
+function _syncProfileUI(name, avatarSrc) {
+  // Topbar chip
+  const chipName = document.querySelector('.user-chip-name');
+  if (chipName) chipName.textContent = name.split(' ')[0];
+  // Sidebar footer name
+  const sidebarName = document.querySelector('.sidebar-footer .user-name');
+  if (sidebarName) sidebarName.textContent = name;
+  // Profile left card display name
+  const dispName = document.getElementById('profile-display-name');
+  if (dispName) dispName.textContent = name;
+  // Dropdown header
+  const udName = document.querySelector('.udh-name');
+  if (udName) udName.textContent = name;
+  // Avatar elements
+  if (avatarSrc) {
+    const img = `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
+    ['#chipAvatar','#dropdownAvatar','#profile-avatar-preview','.user-avatar'].forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.innerHTML = img);
+    });
+  }
+}
+
+window.saveProfileInfo = async function() {
+  const name  = document.getElementById('profile-name')?.value.trim();
+  const email = document.getElementById('profile-email')?.value.trim();
+  if (!name || !email) { toast('Name and email are required','warning'); return; }
+  try {
+    await api('api/profile.php','POST',{ name, email });
+    _syncProfileUI(name, null);
+    toast('✅ Profile updated!','success');
+  } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }
+};
+
+window.saveProfilePassword = async function() {
+  const pass  = document.getElementById('profile-pass')?.value;
+  const pass2 = document.getElementById('profile-pass2')?.value;
+  if (!pass) { toast('Enter a new password','warning'); return; }
+  if (pass.length < 6) { toast('Password must be at least 6 characters','warning'); return; }
+  if (pass !== pass2) { toast('Passwords do not match','warning'); return; }
+  try {
+    await api('api/profile.php','POST',{ password: pass });
+    document.getElementById('profile-pass').value  = '';
+    document.getElementById('profile-pass2').value = '';
+    toast('✅ Password updated!','success');
+  } catch(e) { toast('❌ Failed: '+e.message,'error'); }
+};
+
 // ── Admin Profile ──────────────────────────────────────────────
 window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
@@ -11444,10 +11687,7 @@ window.saveProfile = async function() {
   const payload = { name, email, password: pass || null, avatar: SERVER.user?._avatarUrl || null };
   try {
     const res = await api('api/profile.php', 'POST', payload);
-    // Update sidebar display
-    const nameEl = document.querySelector('.user-name'); if (nameEl) nameEl.textContent = name;
-    const avaEl  = document.querySelector('.user-avatar');
-    if (avaEl && payload.avatar) avaEl.innerHTML = `<img src="${payload.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    _syncProfileUI(name, payload.avatar || null);
     if (pass) { document.getElementById('profile-pass').value = ''; document.getElementById('profile-pass2').value = ''; }
     toast('✅ Profile updated!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -12528,8 +12768,7 @@ async function loadFeatureData() {
     clientName: r.client_name,
     type:       r.type,
     channel:    r.channel,
-    status:     r.status,
-    message:    r.message || ''
+    status:     r.status
   }));
   // Load promise-to-pay entries
   if (remR.value?.promises) STATE.promises = remR.value.promises.map(p => ({
