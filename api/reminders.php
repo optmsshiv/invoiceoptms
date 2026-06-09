@@ -39,7 +39,15 @@ try {
     // Auto-add new columns if the table already existed before this migration
     foreach (['send_hour TINYINT NOT NULL DEFAULT 9', 'send_minute TINYINT NOT NULL DEFAULT 0'] as $_col) {
         $_colName = explode(' ', $_col)[0];
-        try { $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `{$_colName}` {$_col}"); } catch (Throwable $_e) { /* already exists */ }
+        $colExists = $db->query(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME   = 'reminder_settings'
+               AND COLUMN_NAME  = '{$_colName}'"
+        )->fetchColumn();
+        if (!$colExists) {
+            $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `{$_colName}` {$_col}");
+        }
     }
     $db->exec("INSERT IGNORE INTO `reminder_settings` (id,before_days,on_due,overdue_freq,max_overdue,channel,send_hour,send_minute) VALUES (1,3,1,7,3,'whatsapp',9,0)");
 
@@ -303,5 +311,5 @@ try {
 } catch (Throwable $e) {
     error_log('reminders.php error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Server error', 'debug' => $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine()]);
+    echo json_encode(['success' => false, 'error' => 'Server error']);
 }
