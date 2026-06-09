@@ -31,17 +31,10 @@ try {
         `overdue_freq` TINYINT      NOT NULL DEFAULT 7,
         `max_overdue`  TINYINT      NOT NULL DEFAULT 3,
         `channel`      VARCHAR(20)  NOT NULL DEFAULT 'whatsapp',
-        `send_hour`    TINYINT      NOT NULL DEFAULT 9,
-        `send_minute`  TINYINT      NOT NULL DEFAULT 0,
         `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    // Auto-add new columns if the table already existed before this migration
-    foreach (['send_hour TINYINT NOT NULL DEFAULT 9', 'send_minute TINYINT NOT NULL DEFAULT 0'] as $_col) {
-        $_colName = explode(' ', $_col)[0];
-        try { $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `{$_colName}` {$_col}"); } catch (Exception $e) { /* already exists */ }
-    }
-    $db->exec("INSERT IGNORE INTO `reminder_settings` (id,before_days,on_due,overdue_freq,max_overdue,channel,send_hour,send_minute) VALUES (1,3,1,7,3,'whatsapp',9,0)");
+    $db->exec("INSERT IGNORE INTO `reminder_settings` (id,before_days,on_due,overdue_freq,max_overdue,channel) VALUES (1,3,1,7,3,'whatsapp')");
 
     // ── Promise to Pay table ──────────────────────────────────────
     $db->exec("CREATE TABLE IF NOT EXISTS `promise_to_pay` (
@@ -105,8 +98,6 @@ try {
                 $settings['before_days'] = (int)$settings['before_days'];
                 $settings['overdue_freq']= (int)$settings['overdue_freq'];
                 $settings['max_overdue'] = (int)$settings['max_overdue'];
-                $settings['send_hour']   = (int)($settings['send_hour']   ?? 9);
-                $settings['send_minute'] = (int)($settings['send_minute'] ?? 0);
             }
 
             $stmt2 = $db->query(
@@ -264,16 +255,14 @@ try {
         $channel = in_array($body['channel'] ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
 
         $stmt = $db->prepare(
-            'INSERT INTO reminder_settings (id, before_days, on_due, overdue_freq, max_overdue, channel, send_hour, send_minute)
-             VALUES (1, :bd, :od, :of, :mo, :ch, :sh, :sm)
+            'INSERT INTO reminder_settings (id, before_days, on_due, overdue_freq, max_overdue, channel)
+             VALUES (1, :bd, :od, :of, :mo, :ch)
              ON DUPLICATE KEY UPDATE
                before_days  = VALUES(before_days),
                on_due       = VALUES(on_due),
                overdue_freq = VALUES(overdue_freq),
                max_overdue  = VALUES(max_overdue),
-               channel      = VALUES(channel),
-               send_hour    = VALUES(send_hour),
-               send_minute  = VALUES(send_minute)'
+               channel      = VALUES(channel)'
         );
         $stmt->execute([
             ':bd' => (int)($body['before_days']  ?? 3),
@@ -281,8 +270,6 @@ try {
             ':of' => (int)($body['overdue_freq']  ?? 7),
             ':mo' => (int)($body['max_overdue']   ?? 3),
             ':ch' => $channel,
-            ':sh' => max(0, min(23, (int)($body['send_hour']   ?? 9))),
-            ':sm' => max(0, min(59, (int)($body['send_minute'] ?? 0))),
         ]);
         echo json_encode(['success' => true]);
         exit;

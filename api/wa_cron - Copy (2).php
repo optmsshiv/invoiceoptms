@@ -318,7 +318,77 @@ function waHasActivePromise($db, int $invId): bool {
 }
 
 // ================================================================
-//  1. PRE-DUE REMINDER
+//  CONSOLIDATED SEND HELPER
+//  Groups invoices by client, sends ONE message per client covering
+//  all their eligible invoices. Logs per-invoice so state tracking works.
+// ================================================================
+
+/**
+ * Groups invoice rows by client_id.
+ * Returns: [ client_id => [ 'phone'=>..., 'name'=>..., 'invs'=>[...] ], ... ]
+ */
+function waGroupByClient(array $invs): array {
+    $groups = [];
+    foreach ($invs as $inv) {
+        $cid = $inv['client_id'] ?? $inv['id']; // fallback to inv id if no client_id
+        if (!isset($groups[$cid])) {
+            $groups[$cid] = [
+                'phone' => $inv['c_phone'] ?? '',
+                'name'  => $inv['client_name'] ?? 'Client',
+                'invs'  => [],
+            ];
+        }
+        $groups[$cid]['invs'][] = $inv;
+    }
+    return $groups;
+}
+
+/**
+ * For a group of invoices, compute total outstanding amount.
+ */
+function waGroupTotalAmt($db, array $invs): array {
+    $sym   = $invs[0]['currency'] ?? '₹';
+    $total = 0;
+    foreach ($invs as $inv) {
+        $grand = (float)($inv['grand_total'] ?? $inv['amount'] ?? 0);
+        if (($inv['status'] ?? '') === 'Partial' && $db !== null) {
+            try {
+                $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=?");
+                $stmt->execute([$inv['id']]);
+                $paid  = (float)$stmt->fetchColumn();
+                $total += max(0, $grand - $paid);
+            } catch (Exception $e) { $total += $grand; }
+        } else {
+            $total += $grand;
+        }
+    }
+    return ['sym' => $sym, 'total' => $total, 'fmt' => $sym . number_format($total, 2)];
+}
+
+/**
+ * Pick anchor invoice for template: oldest due date (most urgent).
+ * Returns the anchor inv with overridden amount = total outstanding.
+ */
+function waPickAnchor(array $invs, array $amtInfo): array {
+    usort($invs, fn($a, $b) => strcmp($a['due_date'] ?? '', $b['due_date'] ?? ''));
+    $anchor = $invs[0];
+    // Override amount fields so template shows total outstanding, not single invoice
+    $anchor['grand_total'] = $amtInfo['total'];
+    $anchor['amount']      = $amtInfo['total'];
+    $anchor['currency']    = $amtInfo['sym'];
+    // Summarise invoice numbers in a readable way
+    $nums = array_map(fn($i) => '#' . ($i['invoice_number'] ?? ''), $invs);
+    if (count($nums) > 1) {
+        // Put all inv numbers into invoice_number field for template param
+        $anchor['invoice_number'] = implode(', ', $nums);
+    }
+    return $anchor;
+}
+
+// ================================================================
+//  1. PRE-DUE REMINDER (CONSOLIDATED)
+//     One WA message per client even if they have multiple invoices
+//     due on the same reminder date.
 // ================================================================
 if ($autoRemind) {
     $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
@@ -329,26 +399,44 @@ if ($autoRemind) {
         WHERE i.due_date = ?
           AND i.status IN ('Pending','Partial')
           AND c.phone IS NOT NULL AND c.phone != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute([$reminderDate]);
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = waGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        $invId = (int)$inv['id'];
-        if (waAlreadySentToday($db, $invId, 'payment_reminder')) continue;
-        $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('reminder', $inv, $company, $portalLink, $db);
-        $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplReminder, $tplLangRem, $params);
-        waCronLog($db, $invId, 'payment_reminder', $inv, $tplReminder, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " WA Reminder → {$inv['client_name']} ({$inv['c_phone']}) — #{$inv['invoice_number']}";
+    foreach ($groups as $group) {
+        // Filter out invoices already reminded today
+        $eligible = array_filter($group['invs'],
+            fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
+        if (empty($eligible)) continue;
+
+        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+        $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
+        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
+
+        // Log once per invoice in the group so per-invoice state is tracked
+        $invNums = [];
+        foreach ($eligible as $inv) {
+            waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
+            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+        }
+        $label  = $ok ? '✅' : '❌';
+        $count  = count($eligible);
+        $log[]  = "{$label} WA Reminder → {$group['name']} ({$group['phone']}) — " .
+                  ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                  " — Total: {$amtInfo['fmt']}";
         $sent++;
     }
-    echo "[WA Reminder] {$sent} sent out of " . count($invs) . " eligible (due in {$remindDays} days)\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[WA Reminder] {$sent} client(s) notified covering {$total} invoice(s) (due in {$remindDays} days)\n";
 }
 
 // ================================================================
-//  1b. ON DUE DATE REMINDER
+//  1b. ON DUE DATE REMINDER (CONSOLIDATED)
 // ================================================================
 if ($autoRemind && $onDue) {
     $stmt = $db->prepare("
@@ -358,26 +446,43 @@ if ($autoRemind && $onDue) {
         WHERE i.due_date = CURDATE()
           AND i.status IN ('Pending','Partial')
           AND c.phone IS NOT NULL AND c.phone != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = waGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        $invId = (int)$inv['id'];
-        if (waAlreadySentToday($db, $invId, 'payment_reminder')) continue;
-        $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('reminder', $inv, $company, $portalLink, $db);
-        $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplReminder, $tplLangRem, $params);
-        waCronLog($db, $invId, 'payment_reminder', $inv, $tplReminder, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " WA Due Today → {$inv['client_name']} ({$inv['c_phone']}) — #{$inv['invoice_number']}";
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'],
+            fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
+        if (empty($eligible)) continue;
+
+        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+        $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
+        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
+
+        $invNums = [];
+        foreach ($eligible as $inv) {
+            waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
+            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+        }
+        $label = $ok ? '✅' : '❌';
+        $count = count($eligible);
+        $log[] = "{$label} WA Due Today → {$group['name']} ({$group['phone']}) — " .
+                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                 " — Total: {$amtInfo['fmt']}";
         $sent++;
     }
-    echo "[WA On Due] {$sent} due-today reminder(s) sent out of " . count($invs) . " eligible\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[WA On Due] {$sent} client(s) notified covering {$total} invoice(s)\n";
 }
 
 // ================================================================
-//  2. OVERDUE ALERT (first send only)
+//  2. OVERDUE ALERT — CONSOLIDATED (first alert per invoice,
+//     but only ONE WA message per client per day)
 // ================================================================
 if ($autoOverdue) {
     $stmt = $db->prepare("
@@ -388,31 +493,48 @@ if ($autoOverdue) {
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending','Partial')
           AND c.phone IS NOT NULL AND c.phone != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = waGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        $invId = (int)$inv['id'];
-        // Only fire if no overdue alert has ever been sent (followup count doesn't block this)
-        if (waCountSent($db, $invId, 'payment_overdue') > 0) continue;
-        if (waAlreadySentToday($db, $invId, 'payment_overdue')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (waHasActivePromise($db, $invId)) continue;
+    foreach ($groups as $group) {
+        // Eligible = never had overdue alert, not already sent today, no active promise
+        $eligible = array_filter($group['invs'], function($inv) use ($db) {
+            if (waCountSent($db, (int)$inv['id'], 'payment_overdue') > 0) return false;
+            if (waAlreadySentToday($db, (int)$inv['id'], 'payment_overdue'))  return false;
+            if (waHasActivePromise($db, (int)$inv['id']))                     return false;
+            return true;
+        });
+        if (empty($eligible)) continue;
 
-        $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('overdue', $inv, $company, $portalLink, $db);
-        $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplOverdue, $tplLangOv, $params);
-        waCronLog($db, $invId, 'payment_overdue', $inv, $tplOverdue, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " WA Overdue → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+        $params     = waBuildParams('overdue', $anchor, $company, $portalLink);
+        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplOverdue, $tplLangOv, $params);
+
+        $invNums = [];
+        foreach ($eligible as $inv) {
+            waCronLog($db, (int)$inv['id'], 'payment_overdue', $inv, $tplOverdue, $ok);
+            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+        }
+        $label = $ok ? '✅' : '❌';
+        $count = count($eligible);
+        $log[] = "{$label} WA Overdue → {$group['name']} — " .
+                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                 " — Total: {$amtInfo['fmt']}";
         $sent++;
     }
-    echo "[WA Overdue] {$sent} overdue alert(s) sent out of " . count($invs) . " eligible\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[WA Overdue] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
 }
 
 // ================================================================
-//  3. OVERDUE FOLLOW-UP SEQUENCE
+//  3. OVERDUE FOLLOW-UP SEQUENCE — CONSOLIDATED
+//     Per-invoice cap/timing still respected, but one WA per client.
 // ================================================================
 if ($autoFollowup) {
     $stmt = $db->prepare("
@@ -423,37 +545,48 @@ if ($autoFollowup) {
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending','Partial')
           AND c.phone IS NOT NULL AND c.phone != ''
+        ORDER BY i.due_date ASC
     ");
     $stmt->execute();
-    $invs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $sent = 0;
+    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $groups = waGroupByClient($invs);
+    $sent   = 0;
 
-    foreach ($invs as $inv) {
-        $invId = (int)$inv['id'];
+    foreach ($groups as $group) {
+        $eligible = array_filter($group['invs'], function($inv) use ($db, $maxFollowup, $followupDays) {
+            $invId = (int)$inv['id'];
+            if (waCountSent($db, $invId, 'payment_overdue') === 0) return false; // first alert not sent yet
+            $fuCount  = waCountSent($db, $invId, 'invoice_followup');
+            if ($fuCount >= $maxFollowup) return false; // cap reached
+            $lastSent = waLastSent($db, $invId, ['payment_overdue', 'invoice_followup']);
+            if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) return false; // too soon
+            if (waAlreadySentToday($db, $invId, 'invoice_followup')) return false;
+            if (waHasActivePromise($db, $invId)) return false;
+            return true;
+        });
+        if (empty($eligible)) continue;
 
-        // Must have had first overdue alert before follow-ups start
-        if (waCountSent($db, $invId, 'payment_overdue') === 0) continue;
+        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+        $params     = waBuildParams('followup', $anchor, $company, $portalLink);
+        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplFollowup, $tplLangFu, $params);
 
-        // Cap reached?
-        $fuCount = waCountSent($db, $invId, 'invoice_followup');
-        if ($fuCount >= $maxFollowup) continue;
-
-        // Too soon since last overdue/followup send?
-        $lastSent = waLastSent($db, $invId, ['payment_overdue', 'invoice_followup']);
-        if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) continue;
-
-        if (waAlreadySentToday($db, $invId, 'invoice_followup')) continue;
-        // Suppress if client has an active promise-to-pay
-        if (waHasActivePromise($db, $invId)) continue;
-
-        $portalLink = waGetPortalLink($db, $invId, $portalBase);
-        $params     = waBuildParams('followup', $inv, $company, $portalLink, $db);
-        $ok         = waCronSend($waToken, $waPid, $inv['c_phone'], $tplFollowup, $tplLangFu, $params);
-        waCronLog($db, $invId, 'invoice_followup', $inv, $tplFollowup, $ok);
-        $log[] = ($ok ? '✅' : '❌') . " WA Follow-up #" . ($fuCount + 1) . " → {$inv['client_name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
+        $invNums = [];
+        foreach ($eligible as $inv) {
+            $fuCount = waCountSent($db, (int)$inv['id'], 'invoice_followup');
+            waCronLog($db, (int)$inv['id'], 'invoice_followup', $inv, $tplFollowup, $ok);
+            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+        }
+        $label = $ok ? '✅' : '❌';
+        $count = count($eligible);
+        $log[] = "{$label} WA Follow-up → {$group['name']} — " .
+                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                 " — Total: {$amtInfo['fmt']}";
         $sent++;
     }
-    echo "[WA Follow-up] {$sent} follow-up(s) sent out of " . count($invs) . " eligible\n";
+    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+    echo "[WA Follow-up] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
 }
 
 // ================================================================

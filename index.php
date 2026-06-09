@@ -3481,6 +3481,24 @@ View Invoice: {{6}}</pre></details>
                 <option value="both">WhatsApp + Email</option>
               </select>
             </div>
+            <div class="field"><label>⏰ Send reminders at (IST)</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select id="rem-send-hour" style="flex:1">
+                  <?php for($h=0;$h<24;$h++): ?>
+                  <option value="<?=$h?>"><?=sprintf('%02d',$h)?>:00 (<?=$h===0?'12 AM':($h<12?$h.' AM':($h===12?'12 PM':($h-12).' PM'))?>) </option>
+                  <?php endfor; ?>
+                </select>
+                <select id="rem-send-minute" style="width:80px">
+                  <option value="0">:00</option>
+                  <option value="15">:15</option>
+                  <option value="30">:30</option>
+                  <option value="45">:45</option>
+                </select>
+              </div>
+              <div id="rem-cron-hint" style="margin-top:6px;font-size:11px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 8px;border:1px dashed var(--border2);font-family:var(--mono);line-height:1.5">
+                <!-- filled by JS -->
+              </div>
+            </div>
             <button class="btn btn-success" onclick="saveReminderSettings()" style="width:100%"><i class="fas fa-save"></i> Save Rules</button>
           </div>
         </div>
@@ -3503,6 +3521,17 @@ View Invoice: {{6}}</pre></details>
           <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
             <i class="fas fa-handshake" style="font-size:24px;opacity:.2;display:block;margin-bottom:8px"></i>No active promises
           </div>
+        </div>
+      </div>
+
+      <!-- ── Auto-Reminder Health Check ─────────────────────────── -->
+      <div class="dash-card" id="rem-health-card" style="margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title"><i class="fas fa-heartbeat" style="color:#E53935"></i> Auto-Reminder Health</span>
+          <button class="btn btn-outline" style="font-size:12px" onclick="_buildHealthCheck()"><i class="fas fa-sync-alt"></i> Refresh</button>
+        </div>
+        <div id="rem-health-body" style="padding:4px 0">
+          <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Loading…</div>
         </div>
       </div>
 
@@ -13850,7 +13879,9 @@ function getReminderSettings() {
     onDue:       (s.on_due ?? s.onDue ?? 1) == 1,
     overdueFreq: parseInt(s.overdue_freq ?? s.overdueFreq ?? wa.followup_days  ?? 7),
     maxOverdue:  parseInt(s.max_overdue  ?? s.maxOverdue  ?? wa.max_followup   ?? 3),
-    channel:     s.channel || (STATE.settings && STATE.settings.channel) || 'whatsapp'
+    channel:     s.channel || (STATE.settings && STATE.settings.channel) || 'whatsapp',
+    sendHour:    parseInt(s.send_hour   ?? 9),
+    sendMinute:  parseInt(s.send_minute ?? 0),
   };
 }
 async function saveReminderSettings() {
@@ -13859,7 +13890,9 @@ async function saveReminderSettings() {
     on_due:       document.getElementById('rem-on-due')?.value==='1' ? 1 : 0,
     overdue_freq: parseInt(document.getElementById('rem-overdue-freq')?.value)||7,
     max_overdue:  parseInt(document.getElementById('rem-max-overdue')?.value)||3,
-    channel:      document.getElementById('rem-channel')?.value||'whatsapp'
+    channel:      document.getElementById('rem-channel')?.value||'whatsapp',
+    send_hour:    parseInt(document.getElementById('rem-send-hour')?.value)||9,
+    send_minute:  parseInt(document.getElementById('rem-send-minute')?.value)||0,
   };
   try {
     await api('api/reminders.php','POST',payload);
@@ -13869,6 +13902,7 @@ async function saveReminderSettings() {
     // Sync wa-followup-days-label on WA page
     const _wfl = document.getElementById('wa-followup-days-label');
     if (_wfl) _wfl.textContent = payload.overdue_freq || 7;
+    _updateCronHint(payload.send_hour, payload.send_minute);
     toast('✅ Reminder rules saved','success');
   } catch(e) { toast('❌ '+e.message,'error'); }
 }
@@ -13880,12 +13914,16 @@ function renderReminders() {
   if (document.getElementById('rem-overdue-freq')) document.getElementById('rem-overdue-freq').value = cfg.overdueFreq||7;
   if (document.getElementById('rem-max-overdue'))  document.getElementById('rem-max-overdue').value  = cfg.maxOverdue||3;
   if (document.getElementById('rem-channel'))      document.getElementById('rem-channel').value      = cfg.channel||'whatsapp';
+  if (document.getElementById('rem-send-hour'))    document.getElementById('rem-send-hour').value    = cfg.sendHour||9;
+  if (document.getElementById('rem-send-minute'))  document.getElementById('rem-send-minute').value  = cfg.sendMinute||0;
+  _updateCronHint(cfg.sendHour||9, cfg.sendMinute||0);
   // Keep WA page followup label in sync with Reminder page setting
   const _wfl = document.getElementById('wa-followup-days-label');
   if (_wfl) _wfl.textContent = cfg.overdueFreq || 7;
   _buildReminderQueue();
   _renderPromiseTracker();
   _renderReminderHistory();
+  _buildHealthCheck();
 }
 
 function _buildReminderQueue() {
@@ -13997,6 +14035,15 @@ function _buildReminderQueue() {
     const chIcon = ch==='email' ? 'fas fa-envelope' : ch==='both' ? 'fas fa-paper-plane' : 'fab fa-whatsapp';
     const col = q.urgency==='high' ? '#C0392B' : q.urgency==='medium' ? '#B45309' : '#185FA5';
     const bgPill = q.urgency==='high' ? '#FEF0EF' : q.urgency==='medium' ? '#FFF4E5' : '#EEF5FF';
+    // ── Client color-coding: same client = same row tint ─────────
+    const _CLIENT_COLORS = [
+      '#E8F4FD','#E8F5E9','#FFF8E1','#F3E5F5','#FCE4EC',
+      '#E0F7FA','#FFF3E0','#EDE7F6','#E1F5FE','#F9FBE7'
+    ];
+    const _clientKey = String(q.client.id || q.inv.client || q.client.name || '');
+    let _cIdx = 0;
+    if (_clientKey) { for(let _ci=0;_ci<_clientKey.length;_ci++) _cIdx = (_cIdx*31 + _clientKey.charCodeAt(_ci)) & 0xff; _cIdx = _cIdx % _CLIENT_COLORS.length; }
+    const rowBg = _clientKey ? `background:${_CLIENT_COLORS[_cIdx]};` : '';
     const pmts = (STATE.payments||[]).filter(pp => String(pp.invoice_id)===String(q.inv.id));
     const paid = pmts.reduce((s,pp) => s+parseFloat(pp.amount||0), 0);
     const total = parseFloat(q.inv.grand_total||q.inv.amount||0);
@@ -14004,7 +14051,7 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
-    return `<tr style="border-bottom:1px solid var(--border)">
+    return `<tr style="${rowBg}border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
@@ -14307,6 +14354,93 @@ async function clearReminderHistory() {
   api('api/reminders.php?log=1','DELETE').then(()=>{
     STATE.reminders=[]; renderReminders(); toast('🗑️ History cleared','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
+}
+
+// ── Cron schedule hint ────────────────────────────────────────────
+function _updateCronHint(hour, minute) {
+  const el = document.getElementById('rem-cron-hint');
+  if (!el) return;
+  const hh = String(hour).padStart(2,'0'), mm = String(minute).padStart(2,'0');
+  // cPanel cron: run every 30 min so timing guard catches the right window
+  el.innerHTML = `<span style="color:var(--muted2);font-size:10px;text-transform:uppercase;letter-spacing:.4px">cPanel Cron (recommended)</span><br>` +
+    `<span style="color:var(--text2)">*/30 * * * *&nbsp; php /path/api/wa_cron.php</span><br>` +
+    `<span style="color:var(--text2)">*/30 * * * *&nbsp; php /path/api/email_cron.php</span><br>` +
+    `<span style="color:var(--teal);font-size:10px">↳ Will actually send at ${hh}:${mm} IST (±20 min window)</span>`;
+}
+
+// ── Auto-reminder health check ────────────────────────────────────
+function _buildHealthCheck() {
+  const el = document.getElementById('rem-health-body');
+  if (!el) return;
+  const cfg = getReminderSettings();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const reminders = STATE.reminders || [];
+  const invoices  = STATE.invoices  || [];
+  const clients   = STATE.clients   || [];
+
+  // Count invoices needing attention
+  let noPhone=0, noEmail=0, overdueUnsent=0, capHit=0;
+  const overdueCountByInv = {};
+  reminders.forEach(e => {
+    if ((e.type==='overdue'||e.type==='Overdue Alert') && e.invNum && e.status==='sent')
+      overdueCountByInv[e.invNum] = (overdueCountByInv[e.invNum]||0)+1;
+  });
+  invoices.forEach(inv => {
+    if (['Paid','Cancelled','Draft'].includes(inv.status)) return;
+    const due = inv.due ? new Date(inv.due) : null;
+    if (!due) return;
+    due.setHours(0,0,0,0);
+    if (due >= today) return; // not overdue
+    const c = clients.find(x=>String(x.id)===String(inv.client))||{};
+    const phone = (c.wa||c.whatsapp||c.phone||inv.client_phone||'').replace(/\D/g,'');
+    const email = c.email||c.mail||inv.client_email||'';
+    const invNum = inv.num||inv.invoice_number||'';
+    const cnt = overdueCountByInv[invNum]||0;
+    if (!phone && !email) { noPhone++; return; }
+    if (cfg.channel!=='email' && !phone) noEmail++;
+    if (cfg.channel!=='whatsapp' && !email) noEmail++;
+    if (cnt >= (cfg.maxOverdue||3)) { capHit++; return; }
+    if (cnt===0) overdueUnsent++;
+  });
+
+  // Last reminder sent
+  const lastSent = reminders.length
+    ? reminders.slice().sort((a,b)=>((b.ts||b.sent_at||'')>(a.ts||a.sent_at||''))?1:-1)[0]
+    : null;
+  const lastSentStr = lastSent
+    ? (() => { const d=new Date((lastSent.ts||lastSent.sent_at||'').replace(' ','T')+'Z'); return isNaN(d)?'—':d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'Asia/Kolkata'}); })()
+    : 'Never';
+
+  // WA config check
+  const wa = STATE.settings?.wa||{};
+  const waOk  = !!(wa.token && wa.pid);
+  const smtpOk = !!(STATE.settings?.smtp_host||STATE.settings?.smtp_user);
+
+  const chip = (ok, label) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:700;background:${ok?'#EDFAF0':'#FEF0EF'};color:${ok?'#1E7E34':'#C0392B'};border:1px solid ${ok?'#C0DD97':'#F7C1C1'}"><i class="fas ${ok?'fa-check':'fa-times'}" style="font-size:9px"></i> ${label}</span>`;
+
+  const row = (icon, label, val, warn) =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);${warn?'background:#FEF9EF;':''}">
+      <i class="fas ${icon}" style="width:16px;color:${warn?'#B45309':'var(--muted)'}"></i>
+      <span style="font-size:12px;flex:1;color:var(--text2)">${label}</span>
+      <span style="font-size:12px;font-weight:700;color:${warn?'#C0392B':'var(--text)'}">${val}</span>
+    </div>`;
+
+  el.innerHTML =
+    `<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)">
+      ${chip(waOk,'WA API')} ${chip(smtpOk,'SMTP')}
+      ${chip(cfg.channel==='whatsapp'||cfg.channel==='both','WA reminders')}
+      ${chip(cfg.channel==='email'||cfg.channel==='both','Email reminders')}
+    </div>` +
+    row('fa-clock','Last reminder sent', lastSentStr, false) +
+    row('fa-exclamation-triangle','Overdue — first reminder not sent yet', overdueUnsent, overdueUnsent>0) +
+    row('fa-ban','Reached max reminder cap', capHit, capHit>0) +
+    row('fa-phone-slash','No contact info on file', noPhone, noPhone>0) +
+    row('fa-bell','Send time (IST)', String(cfg.sendHour||9).padStart(2,'0')+':'+String(cfg.sendMinute||0).padStart(2,'0'), false) +
+    `<div style="padding:8px 14px;font-size:11px;color:var(--muted)">
+      <i class="fas fa-info-circle" style="margin-right:4px"></i>
+      Set cPanel cron to <strong>*/30 * * * *</strong> and the timing guard handles the rest.
+    </div>`;
 }
 
 

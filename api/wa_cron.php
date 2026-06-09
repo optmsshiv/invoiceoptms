@@ -68,6 +68,21 @@ if ($remChannel === 'email') {
     exit;
 }
 
+// ── Send-time guard: only run in the configured hour window (±15 min) ───
+// This requires cPanel cron to run every 30 min: */30 * * * *
+// Actual send is controlled by send_hour:send_minute from reminder_settings.
+date_default_timezone_set('Asia/Kolkata');
+$sendHour     = (int)($remSettings['send_hour']   ?? 9);
+$sendMinute   = (int)($remSettings['send_minute'] ?? 0);
+$nowTotalMin  = (int)date('G') * 60 + (int)date('i');
+$sendTotalMin = $sendHour * 60 + $sendMinute;
+$diffMin      = abs($nowTotalMin - $sendTotalMin);
+if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
+    echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
+         sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, tolerance ±20 min). Exiting.\n";
+    exit;
+}
+
 // ── Template names/langs from settings ───────────────────────────
 $tplReminder = $cfg['wa_tpl_name_reminder'] ?? 'payment_reminder';
 $tplLangRem  = $cfg['wa_tpl_lang_reminder'] ?? 'en_US';
@@ -260,9 +275,11 @@ function waCronLog($db, int $invId, string $type, array $inv, string $tplName, b
 // ── Already sent this type today for this invoice? ───────────────
 function waAlreadySentToday($db, int $invId, string $type): bool {
     try {
+        // Use IST date explicitly — MySQL CURDATE() is UTC which can be yesterday at 9 AM IST
         $stmt = $db->prepare(
             "SELECT id FROM wa_message_log
-             WHERE inv_id=? AND type=? AND DATE(ts)=CURDATE()
+             WHERE inv_id=? AND type=?
+               AND DATE(CONVERT_TZ(ts,'UTC','Asia/Kolkata')) = CURDATE()
              AND status IN ('sent_api','sent_web') LIMIT 1"
         );
         $stmt->execute([(string)$invId, $type]);

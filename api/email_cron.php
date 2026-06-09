@@ -48,10 +48,23 @@ try {
 $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? $cfg['email_remind_days']   ?? 3));
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? $cfg['email_followup_days'] ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? $cfg['email_max_followup']  ?? 3));
-$remChannel   = $remSettings['channel'] ?? 'email'; // 'whatsapp','email','both'
+$remChannel   = $remSettings['channel'] ?? 'whatsapp'; // FIX: was 'email', must match wa_cron default
 // If reminder_settings.channel is 'whatsapp', email cron should do nothing
 if ($remChannel === 'whatsapp') {
     echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to whatsapp-only. Email cron skipping.\n";
+    exit;
+}
+
+// ── Send-time guard: only run in the configured hour window (±20 min) ───
+date_default_timezone_set('Asia/Kolkata');
+$sendHour     = (int)($remSettings['send_hour']   ?? 9);
+$sendMinute   = (int)($remSettings['send_minute'] ?? 0);
+$nowTotalMin  = (int)date('G') * 60 + (int)date('i');
+$sendTotalMin = $sendHour * 60 + $sendMinute;
+$diffMin      = abs($nowTotalMin - $sendTotalMin);
+if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
+    echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
+         sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, tolerance ±20 min). Exiting.\n";
     exit;
 }
 
@@ -334,7 +347,8 @@ function cronLogEmail($db, int $invId, string $type, string $to, string $subject
 
 // ── Check if this email type was already sent today for this invoice ──
 function alreadySentToday($db, int $invId, string $type): bool {
-    $stmt = $db->prepare("SELECT id FROM email_logs WHERE invoice_id=? AND type=? AND DATE(created_at)=CURDATE() LIMIT 1");
+    // FIX: Use IST date — MySQL CURDATE() is UTC, but cron runs at IST time
+    $stmt = $db->prepare("SELECT id FROM email_logs WHERE invoice_id=? AND type=? AND DATE(CONVERT_TZ(created_at,'UTC','Asia/Kolkata'))=CURDATE() LIMIT 1");
     $stmt->execute([$invId, $type]);
     return (bool)$stmt->fetch();
 }
