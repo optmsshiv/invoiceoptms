@@ -15,10 +15,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 $isLog  = isset($_GET['log']);
 
-// ── FIX #5: Allowed values for type and channel ──────────────────
-const ALLOWED_TYPES    = ['due_reminder', 'due_soon', 'due_today', 'overdue', 'followup', 'paid', 'promise_reminder'];
-const ALLOWED_CHANNELS = ['whatsapp', 'sms', 'email', 'both'];
-const ALLOWED_STATUSES = ['sent', 'failed', 'pending', 'skipped', 'promise'];
+// ── Allowed values — guarded defines prevent fatal on re-include ──
+if (!defined('REM_TYPES')) {
+    define('REM_TYPES',    'due_reminder,due_soon,due_today,overdue,followup,paid,promise_reminder');
+    define('REM_CHANNELS', 'whatsapp,sms,email,both');
+    define('REM_STATUSES', 'sent,failed,pending,skipped,promise');
+}
 
 try {
     $db = getDB();
@@ -36,19 +38,9 @@ try {
         `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    // Auto-add new columns if the table already existed before this migration
-    foreach (['send_hour TINYINT NOT NULL DEFAULT 9', 'send_minute TINYINT NOT NULL DEFAULT 0'] as $_col) {
-        $_colName = explode(' ', $_col)[0];
-        $colExists = $db->query(
-            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE()
-               AND TABLE_NAME   = 'reminder_settings'
-               AND COLUMN_NAME  = '{$_colName}'"
-        )->fetchColumn();
-        if (!$colExists) {
-            $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `{$_colName}` {$_col}");
-        }
-    }
+    // Auto-add send_hour / send_minute if table existed before this migration
+    try { $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `send_hour`   TINYINT NOT NULL DEFAULT 9"); }  catch (Throwable $e) { /* column already exists */ }
+    try { $db->exec("ALTER TABLE `reminder_settings` ADD COLUMN `send_minute` TINYINT NOT NULL DEFAULT 0"); }  catch (Throwable $e) { /* column already exists */ }
     $db->exec("INSERT IGNORE INTO `reminder_settings` (id,before_days,on_due,overdue_freq,max_overdue,channel,send_hour,send_minute) VALUES (1,3,1,7,3,'whatsapp',9,0)");
 
     // ── Promise to Pay table ──────────────────────────────────────
@@ -144,9 +136,9 @@ try {
 
     // ── POST: log a reminder entry ────────────────────────────────
     if ($method === 'POST' && $action === 'log') {
-        $type    = in_array($body['type']    ?? '', ALLOWED_TYPES)    ? $body['type']    : 'due_reminder';
-        $channel = in_array($body['channel'] ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
-        $status  = in_array($body['status']  ?? '', ALLOWED_STATUSES) ? $body['status']  : 'sent';
+        $type    = in_array($body['type']    ?? '', explode(',', REM_TYPES))    ? $body['type']    : 'due_reminder';
+        $channel = in_array($body['channel'] ?? '', explode(',', REM_CHANNELS)) ? $body['channel'] : 'whatsapp';
+        $status  = in_array($body['status']  ?? '', explode(',', REM_STATUSES)) ? $body['status']  : 'sent';
 
         $stmt = $db->prepare(
             'INSERT INTO reminder_log
@@ -196,7 +188,7 @@ try {
         $promiseDate = $body['promise_date'] ?? '';
         $amount      = (float)($body['amount']    ?? 0);
         $note        = substr($body['note']       ?? '', 0, 500);
-        $channel     = in_array($body['channel']  ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
+        $channel     = in_array($body['channel']  ?? '', explode(',', REM_CHANNELS)) ? $body['channel'] : 'whatsapp';
         $invNum      = substr($body['invoice_num']  ?? '', 0, 40);
         $clientName  = substr($body['client_name']  ?? '', 0, 200);
 
@@ -269,7 +261,7 @@ try {
     // ── POST: save reminder settings ──────────────────────────────
     if ($method === 'POST') {
         // validate channel against allowed list, default to 'whatsapp' if invalid or missing
-        $channel = in_array($body['channel'] ?? '', ALLOWED_CHANNELS) ? $body['channel'] : 'whatsapp';
+        $channel = in_array($body['channel'] ?? '', explode(',', REM_CHANNELS)) ? $body['channel'] : 'whatsapp';
 
         $stmt = $db->prepare(
             'INSERT INTO reminder_settings (id, before_days, on_due, overdue_freq, max_overdue, channel, send_hour, send_minute)
@@ -308,8 +300,8 @@ try {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
 
-} catch (Throwable $e) {
-    error_log('reminders.php error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+} catch (Exception $e) {
+    error_log('reminders.php error: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Server error']);
 }
