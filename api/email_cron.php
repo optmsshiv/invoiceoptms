@@ -537,7 +537,7 @@ HTML;
 if ($autoRemind) {
     $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
     $stmt = $db->prepare("
-        SELECT i.*, c.email AS c_email, c.name AS client_name
+        SELECT i.*, c.email COLLATE utf8mb4_unicode_ci AS c_email, c.name COLLATE utf8mb4_unicode_ci AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = ?
@@ -598,7 +598,7 @@ This is a friendly reminder that you have " . count($eligible) .
 $onDue = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
 if ($autoRemind && $onDue) {
     $stmt = $db->prepare("
-        SELECT i.*, c.email AS c_email, c.name AS client_name
+        SELECT i.*, c.email COLLATE utf8mb4_unicode_ci AS c_email, c.name COLLATE utf8mb4_unicode_ci AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = CURDATE()
