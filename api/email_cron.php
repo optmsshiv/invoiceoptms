@@ -541,7 +541,7 @@ if ($autoRemind) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = ?
-          AND i.status IN ('Pending', 'Partial')
+          AND i.status IN ('Pending', 'Partial', 'Overdue')
           AND c.email IS NOT NULL AND c.email != ''
         ORDER BY i.due_date ASC
     ");
@@ -602,7 +602,7 @@ if ($autoRemind && $onDue) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = CURDATE()
-          AND i.status IN ('Pending', 'Partial')
+          AND i.status IN ('Pending', 'Partial', 'Overdue')
           AND c.email IS NOT NULL AND c.email != ''
         ORDER BY i.due_date ASC
     ");
@@ -662,7 +662,7 @@ if ($autoOverdue) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending', 'Partial')
+          AND i.status IN ('Pending', 'Partial', 'Overdue')
           AND c.email IS NOT NULL AND c.email != ''
         ORDER BY i.due_date ASC
     ");
@@ -727,7 +727,7 @@ if ($autoFollowup) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending', 'Partial')
+          AND i.status IN ('Pending', 'Partial', 'Overdue')
           AND c.email IS NOT NULL AND c.email != ''
         ORDER BY i.due_date ASC
     ");
