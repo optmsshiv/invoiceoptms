@@ -39,8 +39,6 @@ if (!$rawToken) {
         // ── Format A: hex token — look up in portal_tokens DB ────
         try {
             $db = getDB();
-            // Force IST so NOW(), first_viewed, last_viewed are all stored/read in India time
-            $db->exec("SET time_zone = '+05:30'");
 
             // Auto-create table if needed
             $db->exec("CREATE TABLE IF NOT EXISTS `portal_tokens` (
@@ -130,7 +128,6 @@ if (!$rawToken) {
 if (!$error && $invoiceId > 0) {
     try {
         $db = getDB();
-        $db->exec("SET time_zone = '+05:30'");
 
         // Fetch invoice — look up by id only (the number in the token is just for display)
         $stmt = $db->prepare("
@@ -500,20 +497,15 @@ tr:last-child td{border:none}
 /* ── #4 Invoice timeline ── */
 .timeline-card{margin-bottom:16px}
 .timeline{display:flex;align-items:flex-start;justify-content:space-between;position:relative;padding:8px 0 4px}
-.tl-track{position:absolute;top:21px;left:0;right:0;height:2px;background:var(--border);z-index:0;border-radius:2px}
-.tl-progress{position:absolute;top:0;left:0;height:100%;border-radius:2px}
-.tl-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;position:relative;z-index:1}
-.tl-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);transition:.2s}
+.timeline::before{content:'';position:absolute;top:22px;left:20px;right:20px;height:2px;background:var(--border);z-index:0}
+.tl-step{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;position:relative;z-index:1}
+.tl-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px}
 .tl-dot.done{background:var(--green);border-color:var(--green);color:#fff}
-.tl-dot.active{background:var(--bg);border-color:var(--teal);color:var(--teal);box-shadow:0 0 0 4px var(--teal-bg);width:24px;height:24px}
+.tl-dot.active{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 0 0 3px var(--teal-bg)}
 .tl-dot.warn{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 0 0 3px #FFF3E0}
 .tl-dot.overdue{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 0 0 3px var(--red-bg)}
-.tl-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.3}
-.tl-label.active{color:var(--teal)}
-.tl-label.overdue{color:var(--red)}
-.tl-label.warn{color:var(--orange)}
-.tl-date{font-size:10px;color:var(--muted);text-align:center;font-family:var(--mono)}
-.tl-last{font-size:10px;color:var(--teal);text-align:center;font-family:var(--mono);display:flex;align-items:center;justify-content:center;gap:3px;margin-top:1px}
+.tl-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:center;line-height:1.3}
+.tl-date{font-size:9px;color:var(--muted);text-align:center;font-family:var(--mono)}
 
 /* ── #2 Payment Receipt ── */
 .receipt-card{border:2px dashed #A5D6A7!important;background:linear-gradient(135deg,#F9FFF9,#F1FFF3)!important}
@@ -587,18 +579,6 @@ tr:last-child td{border:none}
   .dues-banner-sub{color:#FFB74D}
 }
 @media print{.dues-banner,.dues-card{display:none!important}}
-
-/* ── Mobile: hide QR (can't scan own screen), show UPI app buttons ── */
-@media(max-width:600px){
-  .qr-section{display:none!important}
-}
-/* ── Desktop: hide UPI deep-link buttons (upi:// doesn't work on desktop) ── */
-@media(min-width:601px){
-  .upi-pay-btns{display:none!important}
-}
-
-/* ── Dues card bottom margin ── */
-.dues-card{margin-bottom:16px}
 
 /* ── Outstanding dues banner ── */
 .view-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);margin-top:6px}
@@ -678,8 +658,6 @@ tr:last-child td{border:none}
   .timeline-card{break-inside:avoid}
   .tl-label{font-size:8px!important}
   .tl-date{font-size:8px!important}
-  .tl-last{font-size:8px!important}
-  .tl-dot.active{box-shadow:none!important}
 
   /* ── Tables ── */
   table{font-size:12px!important;min-width:unset!important}
@@ -936,12 +914,6 @@ $dueCount       = count($otherDues ?? []);
 $dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
 $overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
 $today_ts       = strtotime('today');
-
-// Total count including current invoice
-$totalDueCount  = $dueCount + 1;
-// Overdue count including current invoice if it's overdue
-$totalOverdueCount = $overdueCount + (($inv['status'] ?? '') === 'Overdue' ? 1 : 0);
-$totalPendingCount = ($totalDueCount - $totalOverdueCount);
 ?>
 <?php if ($hasDues): ?>
 <div class="dues-banner" id="duesBanner">
@@ -950,19 +922,19 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
   </div>
   <div class="dues-banner-body">
     <div class="dues-banner-title">
-      <?= $totalOverdueCount > 0
-          ? '⚠️ You have ' . $totalOverdueCount . ' overdue invoice' . ($totalOverdueCount > 1 ? 's' : '') . ' + ' . $totalPendingCount . ' pending'
-          : '📋 You have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount > 1 ? 's' : '') ?>
+      <?= $overdueCount > 0
+          ? '⚠️ You have ' . $overdueCount . ' overdue invoice' . ($overdueCount > 1 ? 's' : '') . ' + ' . ($dueCount - $overdueCount) . ' pending'
+          : '📋 You have ' . $dueCount . ' other pending invoice' . ($dueCount > 1 ? 's' : '') ?>
     </div>
     <div class="dues-banner-sub">
       Total outstanding across all invoices:
       <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
-      <?php if ($totalOverdueCount > 0): ?>
+      <?php if ($overdueCount > 0): ?>
       — please clear overdue amounts at the earliest.
       <?php endif; ?>
     </div>
     <button class="dues-banner-total" onclick="document.getElementById('otherDuesCard').scrollIntoView({behavior:'smooth'})">
-      <i class="fas fa-arrow-down"></i> View all <?= $totalDueCount ?> outstanding invoice<?= $totalDueCount > 1 ? 's' : '' ?>
+      <i class="fas fa-arrow-down"></i> View all <?= $dueCount ?> outstanding invoice<?= $dueCount > 1 ? 's' : '' ?>
     </button>
   </div>
 </div>
@@ -987,114 +959,66 @@ if (($inv['status'] ?? '') === 'Overdue' && !empty($inv['due_date'])) {
 
 <?php
 // ── #4 Invoice timeline ────────────────────────────────────
-// Steps: Issued → Viewed → [Partial?] → Paid / Overdue / Pending
-$tlStatus    = $inv['status'] ?? '';
-$tlIsPartial = ($tlStatus === 'Partial');
-$tlIsPaid    = ($tlStatus === 'Paid');
-$tlIsOverdue = ($tlStatus === 'Overdue');
-
-// Bug 2 fix: for base64 tokens $firstViewed is null — use today's date
-$tlViewedDate = $firstViewed ? fmt_date($firstViewed) : fmt_date(date('Y-m-d'));
-
-// Bug 3 fix: use paid_date from invoice first, then last payment row, never issue_date
-$tlPaidDate = '—';
-if ($tlIsPaid || $tlIsPartial) {
-    if (!empty($inv['paid_date'])) {
-        $tlPaidDate = fmt_date($inv['paid_date']);
-    } elseif (!empty($payments)) {
-        $lastPmt = end($payments);
-        $tlPaidDate = !empty($lastPmt['payment_date']) ? fmt_date($lastPmt['payment_date']) : '—';
-    }
-}
-
-// Bug 4 fix: partial invoice past due_date = partial+overdue
-$tlPartialOverdue = $tlIsPartial && !empty($inv['due_date']) && strtotime($inv['due_date']) < strtotime('today');
+// Steps: Issued → Viewed → Partial → Paid/Overdue
+$tlStatus  = $inv['status'] ?? '';
+$tlIssued  = !empty($inv['issue_date']);
+$tlViewed  = true; // they're viewing it right now
+$tlPartial = in_array($tlStatus, ['Partial','Paid']);
+$tlPaid    = ($tlStatus === 'Paid');
+$tlOverdue = ($tlStatus === 'Overdue');
 ?>
 <?php if (!$isEstimate): ?>
 <div class="card timeline-card">
   <div class="card-head"><i class="fas fa-stream"></i> <span data-t="Invoice Timeline">Invoice Timeline</span></div>
   <div class="card-body" style="padding:14px 18px 18px">
-    <?php
-// Progress line width and color based on status
-$tlProgressColor = match(true) {
-    $tlIsPaid                          => 'var(--green)',
-    $tlIsOverdue                       => 'var(--red)',
-    $tlIsPartial && $tlPartialOverdue  => 'var(--orange)',
-    $tlIsPartial                       => 'var(--orange)',
-    default                            => 'var(--teal)',
-};
-$tlProgressWidth = match(true) {
-    $tlIsPaid    => '100%',
-    $tlIsPartial => '75%',
-    $tlIsOverdue => '100%',
-    default      => '66%',   // Pending: issued+viewed done, last step pending
-};
-?>
-<div class="timeline">
-  <div class="tl-track">
-    <div class="tl-progress" style="width:<?= $tlProgressWidth ?>;background:<?= $tlProgressColor ?>"></div>
-  </div>
-
-  <!-- Step 1: Issued — always done -->
-  <div class="tl-step">
-    <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
-    <div class="tl-label">Issued</div>
-    <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
-  </div>
-
-  <!-- Step 2: Viewed — always done (they're here) -->
-  <?php $tlReviewing = $firstViewed && date('Y-m-d', strtotime($firstViewed)) !== date('Y-m-d'); ?>
-  <div class="tl-step">
-    <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
-    <div class="tl-label">Viewed</div>
-    <div class="tl-date"><?= $tlViewedDate ?></div>
-    <?php if ($tlReviewing): ?>
-    <div class="tl-last"><i class="fas fa-sync-alt" style="font-size:8px"></i> <?= fmt_date(date('Y-m-d')) ?></div>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($tlIsPartial): ?>
-  <!-- Step 3: Partial -->
-  <div class="tl-step">
-    <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
-    <div class="tl-label warn">Partial</div>
-    <div class="tl-date"><?= $tlPaidDate ?></div>
-  </div>
-  <!-- Step 4: Balance -->
-  <div class="tl-step">
-    <div class="tl-dot <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">
-      <i class="fas fa-<?= $tlPartialOverdue ? 'exclamation' : 'clock' ?>" style="font-size:8px"></i>
+    <div class="timeline">
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Issued">Issued</div>
+        <div class="tl-date"><?= fmt_date($inv['issue_date'] ?? '') ?></div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-eye" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Viewed">Viewed</div>
+        <div class="tl-date"><?= $firstViewed ? fmt_date($firstViewed) : 'Now' ?></div>
+      </div>
+      <?php if ($tlStatus === 'Paid'): ?>
+      <?php
+        // FIX: if paid directly (no payment rows), fall back to issue_date
+        $paidDateStr = !empty($payments)
+            ? fmt_date(end($payments)['payment_date'])
+            : (!empty($inv['issue_date']) ? fmt_date($inv['issue_date']) : '—');
+      ?>
+      <div class="tl-step">
+        <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Paid">Paid</div>
+        <div class="tl-date"><?= $paidDateStr ?></div>
+      </div>
+      <?php elseif ($tlStatus === 'Partial'): ?>
+      <div class="tl-step">
+        <div class="tl-dot warn"><i class="fas fa-adjust" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Partial">Partial</div>
+        <div class="tl-date"><?= !empty($payments) ? fmt_date(end($payments)['payment_date']) : '—' ?></div>
+      </div>
+      <div class="tl-step">
+        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Balance">Balance</div>
+        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php elseif ($tlOverdue): ?>
+      <div class="tl-step">
+        <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Overdue">Overdue</div>
+        <div class="tl-date">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php else: ?>
+      <div class="tl-step">
+        <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
+        <div class="tl-label" data-t="Pending">Pending</div>
+        <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
+      </div>
+      <?php endif; ?>
     </div>
-    <div class="tl-label <?= $tlPartialOverdue ? 'overdue' : 'active' ?>">Balance</div>
-    <div class="tl-date"><?= $tlPartialOverdue ? 'Overdue' : 'Due ' . fmt_date($inv['due_date'] ?? '') ?></div>
-  </div>
-
-  <?php elseif ($tlIsPaid): ?>
-  <!-- Step 3: Paid -->
-  <div class="tl-step">
-    <div class="tl-dot done"><i class="fas fa-check" style="font-size:8px"></i></div>
-    <div class="tl-label">Paid</div>
-    <div class="tl-date"><?= $tlPaidDate ?></div>
-  </div>
-
-  <?php elseif ($tlIsOverdue): ?>
-  <!-- Step 3: Overdue -->
-  <div class="tl-step">
-    <div class="tl-dot overdue"><i class="fas fa-times" style="font-size:8px"></i></div>
-    <div class="tl-label overdue">Overdue</div>
-    <div class="tl-date" style="color:var(--red)">Since <?= fmt_date($inv['due_date'] ?? '') ?></div>
-  </div>
-
-  <?php else: ?>
-  <!-- Step 3: Pending -->
-  <div class="tl-step">
-    <div class="tl-dot active"><i class="fas fa-clock" style="font-size:8px"></i></div>
-    <div class="tl-label active">Pending</div>
-    <div class="tl-date">Due <?= fmt_date($inv['due_date'] ?? '') ?></div>
-  </div>
-  <?php endif; ?>
-
-</div>
   </div>
 </div>
 <?php endif; ?>
@@ -1512,6 +1436,15 @@ if ($items):
     </div>
     <?php endif; ?>
 
+    <!-- Feature 3: I've Paid button -->
+    <?php
+      $waNum = preg_replace('/\D/', '', $companyPhone);
+      if (strlen($waNum) === 10) $waNum = '91' . $waNum;
+      $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining > 0 ? $remaining : $totalAmt, $sym) . '*. Please confirm receipt. Thank you!');
+    ?>
+    <a href="https://wa.me/<?= $waNum ?>?text=<?= $ivePaidMsg ?>" class="ive-paid-btn" target="_blank">
+      <i class="fab fa-whatsapp" style="font-size:16px"></i> I've Paid — Notify <?= htmlspecialchars($companyName) ?>
+    </a>
   </div>
 </div>
 <?php endif; ?>
@@ -1620,7 +1553,7 @@ if (document.readyState === 'loading') {
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
     <i class="fas fa-file-invoice" style="color:#E65100"></i>
     <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
-    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $totalDueCount ?> invoice<?= $totalDueCount > 1 ? 's' : '' ?></span>
+    <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?></span>
   </div>
   <div class="card-body" style="padding:0 18px">
 
@@ -1658,40 +1591,16 @@ if (document.readyState === 'loading') {
     </div>
     <?php endforeach; ?>
 
-    <!-- Previous outstanding subtotal -->
     <?php if ($dueTotal > 0): ?>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--card-alt,#FAFAFA);border-top:1px dashed var(--border);margin:0 -18px;padding:8px 18px">
-      <span style="font-size:11px;color:var(--muted)">Previous outstanding (<?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?>)</span>
-      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><?= fmt_inr($dueTotal, $sym) ?></span>
-    </div>
-    <?php endif; ?>
-
-    <!-- Current invoice row -->
-    <?php if ($remaining > 0.01): ?>
-    <div class="dues-row" style="background:#FFFDE7;margin:0 -18px;padding:12px 18px">
-      <div class="dues-status-dot" style="background:<?= status_col($inv['status'] ?? '') ?>"></div>
-      <div style="flex:1;min-width:0">
-        <div class="dues-inv-num"><?= htmlspecialchars($inv['invoice_number'] ?? '') ?></div>
-        <div class="dues-service"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></div>
-        <div style="font-size:10px;color:#F9A825;font-weight:700;margin-top:2px">This invoice (remaining)</div>
-      </div>
-      <div class="dues-due-date">
-        <div style="font-size:11px;color:var(--muted)">Due</div>
-        <div style="font-size:12px;font-weight:600"><?= fmt_date($inv['due_date'] ?? '') ?></div>
-      </div>
-      <div class="dues-amount"><?= fmt_inr($remaining, $sym) ?></div>
-    </div>
-    <?php endif; ?>
-
-    <!-- Grand total -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
       <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
       <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
     </div>
+    <?php endif; ?>
 
     <?php if ($companyPhone): ?>
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
-      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal + $remaining, $sym) . '. Can you help me clear these?'); ?>
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $dueCount . ' other outstanding invoice' . ($dueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
        style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
@@ -1720,26 +1629,12 @@ if (document.readyState === 'loading') {
       <?php if (($inv['status'] ?? '') === 'Overdue'): ?><span class="wa-dot"></span><?php endif; ?>
     </a>
     <?php endif; ?>
-
-    <?php if ($remaining > 0.01 && $companyPhone): ?>
-    <?php
-      $waNum2     = preg_replace('/\D/', '', $companyPhone);
-      if (strlen($waNum2) === 10) $waNum2 = '91' . $waNum2;
-      $ivePaidMsg = urlencode('Hi ' . $companyName . '! 👋 I have made the payment for ' . ($isEstimate ? 'Estimate' : 'Invoice') . ' *' . ($inv['invoice_number'] ?? '') . '* of *' . fmt_inr($remaining, $sym) . '*. Please confirm receipt. Thank you!');
-    ?>
-    <a href="https://wa.me/<?= $waNum2 ?>?text=<?= $ivePaidMsg ?>" class="ive-paid-btn" target="_blank">
-      <i class="fab fa-whatsapp" style="font-size:16px"></i> I've Paid — Notify <?= htmlspecialchars($companyName) ?>
-    </a>
-    <?php endif; ?>
-
-    <div style="display:flex;gap:10px;margin-top:10px">
-      <button class="pdf-btn" onclick="window.print()" style="flex:1">
-        <i class="fas fa-print"></i> Print <?= $isEstimate ? 'Estimate' : 'Invoice' ?>
-      </button>
-      <button class="pdf-dl-btn" onclick="downloadPDF()" style="flex:1">
-        <i class="fas fa-file-pdf"></i> Download PDF
-      </button>
-    </div>
+    <button class="pdf-btn" onclick="window.print()">
+      <i class="fas fa-print"></i> Print <?= $isEstimate ? 'Estimate' : 'Invoice' ?>
+    </button>
+    <button class="pdf-dl-btn" onclick="downloadPDF()">
+      <i class="fas fa-file-pdf"></i> Download as PDF
+    </button>
   </div>
 </div>
 
