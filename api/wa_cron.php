@@ -164,9 +164,13 @@ function waBuildParams(string $type, array $inv, array $company, string $portalL
     $name     = $inv['client_name'] ?? 'Valued Client';
     $invNo    = $inv['invoice_number'] ?? '';
 
+    // Param order must match EXACTLY what is registered in Meta Business Manager
     return match($type) {
-        'reminder' => [$name, $invNo, $amount, $dueFmt,   $company['upi'], $company['company_name'],  $portalLink],
-        'overdue'  => [$name, $invNo, $amount, $daysOver, $company['upi'], $company['company_name'],  $portalLink],
+        // payment_reminder: {{1}}name {{2}}inv# {{3}}amount {{4}}due_date {{5}}upi {{6}}company {{7}}link
+        'reminder' => [$name, $invNo, $amount, $dueFmt,   $company['upi'], $company['company_name'], $portalLink],
+        // payment_overdue:  {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}link {{7}}phone {{8}}company
+        'overdue'  => [$name, $invNo, $amount, $daysOver, $company['upi'], $portalLink, $company['company_phone'], $company['company_name']],
+        // invoice_followup: {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link
         'followup' => [$name, $invNo, $amount, $daysOver, $company['upi'], $company['company_phone'], $portalLink],
         default    => [$name, $invNo, $amount],
     };
