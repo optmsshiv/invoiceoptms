@@ -419,7 +419,7 @@ function waPickAnchor(array $invs, array $amtInfo): array {
 if ($autoRemind) {
     $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
     $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp COLLATE utf8mb4_unicode_ci,''), NULLIF(c.phone COLLATE utf8mb4_unicode_ci,'')) AS c_phone, c.name COLLATE utf8mb4_unicode_ci AS client_name
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp NULLIF(c.phone AS c_phone, c.name AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = ?
@@ -466,7 +466,7 @@ if ($autoRemind) {
 // ================================================================
 if ($autoRemind && $onDue) {
     $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp COLLATE utf8mb4_unicode_ci,''), NULLIF(c.phone COLLATE utf8mb4_unicode_ci,'')) AS c_phone, c.name COLLATE utf8mb4_unicode_ci AS client_name
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp NULLIF(c.phone AS c_phone, c.name AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = CURDATE()
@@ -512,7 +512,7 @@ if ($autoRemind && $onDue) {
 // ================================================================
 if ($autoOverdue) {
     $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp COLLATE utf8mb4_unicode_ci,''), NULLIF(c.phone COLLATE utf8mb4_unicode_ci,'')) AS c_phone, c.name COLLATE utf8mb4_unicode_ci AS client_name,
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp NULLIF(c.phone AS c_phone, c.name AS client_name,
                DATEDIFF(CURDATE(), i.due_date) AS days_overdue
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
@@ -564,7 +564,7 @@ if ($autoOverdue) {
 // ================================================================
 if ($autoFollowup) {
     $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp COLLATE utf8mb4_unicode_ci,''), NULLIF(c.phone COLLATE utf8mb4_unicode_ci,'')) AS c_phone, c.name COLLATE utf8mb4_unicode_ci AS client_name,
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp NULLIF(c.phone AS c_phone, c.name AS client_name,
                DATEDIFF(CURDATE(), i.due_date) AS days_overdue
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
