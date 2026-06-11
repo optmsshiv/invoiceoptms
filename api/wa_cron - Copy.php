@@ -68,19 +68,27 @@ if ($remChannel === 'email') {
     exit;
 }
 
-// ── Send-time guard: only run in the configured hour window (±15 min) ───
-// This requires cPanel cron to run every 30 min: */30 * * * *
-// Actual send is controlled by send_hour:send_minute from reminder_settings.
+// ── Send-time guard ───────────────────────────────────────────────
+// Only applies if send_hour column exists in reminder_settings.
+// If column missing (migration not run yet), skip guard and always run.
 date_default_timezone_set('Asia/Kolkata');
-$sendHour     = (int)($remSettings['send_hour']   ?? 9);
-$sendMinute   = (int)($remSettings['send_minute'] ?? 0);
-$nowTotalMin  = (int)date('G') * 60 + (int)date('i');
-$sendTotalMin = $sendHour * 60 + $sendMinute;
-$diffMin      = abs($nowTotalMin - $sendTotalMin);
-if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
-    echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
-         sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, tolerance ±20 min). Exiting.\n";
-    exit;
+$sendHour     = isset($remSettings['send_hour']) ? (int)$remSettings['send_hour']   : null;
+$sendMinute   = isset($remSettings['send_hour']) ? (int)($remSettings['send_minute'] ?? 0) : null;
+
+if ($sendHour !== null) {
+    $nowTotalMin  = (int)date('G') * 60 + (int)date('i');
+    $sendTotalMin = $sendHour * 60 + $sendMinute;
+    $diffMin      = abs($nowTotalMin - $sendTotalMin);
+    if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
+        echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
+             sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, now: " . date('H:i') .
+             ", diff: {$diffMin} min, tolerance ±20 min). Exiting.\n";
+        exit;
+    }
+    echo "[" . date('Y-m-d H:i:s') . "] Send window OK (configured: " .
+         sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, diff: {$diffMin} min).\n";
+} else {
+    echo "[" . date('Y-m-d H:i:s') . "] send_hour not configured — skipping time guard, running now.\n";
 }
 
 // ── Template names/langs from settings ───────────────────────────
@@ -347,7 +355,8 @@ function waHasActivePromise($db, int $invId): bool {
 function waGroupByClient(array $invs): array {
     $groups = [];
     foreach ($invs as $inv) {
-        $cid = $inv['client_id'] ?? $inv['id']; // fallback to inv id if no client_id
+        // Group by client_id if present, else by phone number (never by invoice id)
+        $cid = !empty($inv['client_id']) ? (string)$inv['client_id'] : ('phone_' . preg_replace('/\D/', '', $inv['c_phone'] ?? ''));
         if (!isset($groups[$cid])) {
             $groups[$cid] = [
                 'phone' => $inv['c_phone'] ?? '',
@@ -410,12 +419,12 @@ function waPickAnchor(array $invs, array $amtInfo): array {
 if ($autoRemind) {
     $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
     $stmt = $db->prepare("
-        SELECT i.*, c.phone AS c_phone, c.name AS client_name
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,'')) AS c_phone, c.name AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = ?
           AND i.status IN ('Pending','Partial')
-          AND c.phone IS NOT NULL AND c.phone != ''
+          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL)
         ORDER BY i.due_date ASC
     ");
     $stmt->execute([$reminderDate]);
@@ -457,12 +466,12 @@ if ($autoRemind) {
 // ================================================================
 if ($autoRemind && $onDue) {
     $stmt = $db->prepare("
-        SELECT i.*, c.phone AS c_phone, c.name AS client_name
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,'')) AS c_phone, c.name AS client_name
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = CURDATE()
           AND i.status IN ('Pending','Partial')
-          AND c.phone IS NOT NULL AND c.phone != ''
+          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL)
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
@@ -503,13 +512,13 @@ if ($autoRemind && $onDue) {
 // ================================================================
 if ($autoOverdue) {
     $stmt = $db->prepare("
-        SELECT i.*, c.phone AS c_phone, c.name AS client_name,
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,'')) AS c_phone, c.name AS client_name,
                DATEDIFF(CURDATE(), i.due_date) AS days_overdue
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending','Partial')
-          AND c.phone IS NOT NULL AND c.phone != ''
+          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL)
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
@@ -555,13 +564,13 @@ if ($autoOverdue) {
 // ================================================================
 if ($autoFollowup) {
     $stmt = $db->prepare("
-        SELECT i.*, c.phone AS c_phone, c.name AS client_name,
+        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,'')) AS c_phone, c.name AS client_name,
                DATEDIFF(CURDATE(), i.due_date) AS days_overdue
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
           AND i.status IN ('Pending','Partial')
-          AND c.phone IS NOT NULL AND c.phone != ''
+          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL)
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
