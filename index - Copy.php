@@ -7288,7 +7288,6 @@ async function saveInvoice() {
     if (!isNewSave) {
       const inv = STATE.invoices.find(i => String(i.id) === String(STATE.editingInvoiceId));
       const dbId = inv?._dbId || parseInt(inv?.id) || 0;
-      const _wasDraft = STATE._editOrigStatus === 'Draft';
       await api('api/invoices.php?id=' + dbId, 'PUT', payload);
       toast('✅ Invoice updated!', 'success');
       const _editedInv = inv || {};
@@ -7300,55 +7299,6 @@ async function saveInvoice() {
       }
       // Navigate back to invoices list after editing
       showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
-      // ── Draft→Estimate promotion: offer to send to client ────────────
-      if (_wasDraft && payload.status === 'Estimate') {
-        setTimeout(() => {
-          const _estInv = STATE.invoices.find(i => String(i.id) === String(dbId)) || inv || {};
-          const _estClient = STATE.clients.find(x => String(x.id) === String(_estInv.client || _estInv.client_id || selVal)) || {};
-          const _estPhone = (_estClient.wa || _estClient.whatsapp || _estClient.phone || formPhone || '').replace(/\D/g, '');
-          const _estEmail = _estClient.email || '';
-          Swal.fire({
-            icon:              'success',
-            title:             `Estimate ${payload.invoice_number} saved!`,
-            html:              `<p style="font-size:14px;margin:8px 0">Draft promoted to Estimate.<br>Send to <strong>${payload.client_name || 'client'}</strong> now?</p>`,
-            showDenyButton:    !!_estEmail,
-            showCancelButton:  true,
-            confirmButtonText: '📱 WhatsApp',
-            denyButtonText:    '📧 Email',
-            cancelButtonText:  'Later',
-            confirmButtonColor:'#25D366',
-            denyButtonColor:   '#1976D2',
-            customClass:       { popup: 'swal-compact' },
-          }).then(r => {
-            if (r.isConfirmed && _estPhone) {
-              const wa = STATE.settings.wa || {};
-              const tpl = wa.tpl_estimate || getDefaultWATpl('estimate');
-              const msg = formatWAMsg(tpl, _estInv, _estClient, STATE.settings);
-              logWAMessage({ inv: _estInv, client: _estClient, type: 'estimate_created', msg, status: 'sending' });
-              sendWA(_estPhone, msg, 'estimate_created', _estInv, _estClient)
-                .then(res => {
-                  logWAMessage({ inv: _estInv, client: _estClient, type: 'estimate_created', msg, status: res ? 'sent_api' : 'sent_web' });
-                  toast(`📱 Estimate sent to ${_estClient.name || _estPhone} via WhatsApp!`, 'success');
-                })
-                .catch(e => toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning'));
-            } else if (r.isConfirmed && !_estPhone) {
-              toast(`⚠️ No phone number for ${payload.client_name || 'client'}`, 'warning');
-            } else if (r.isDenied && _estEmail) {
-              const ec = STATE.settings.email_cfg || STATE.settings || {};
-              if (ec.smtp_host || ec.smtp_user) {
-                api('api/email.php', 'POST', { action: 'send', type: 'estimate', invoice_id: dbId, to: _estEmail, to_name: payload.client_name || '' })
-                  .then(res => {
-                    if (res?.success) toast(`📧 Estimate email sent to ${payload.client_name || _estEmail}!`, 'success');
-                    else toast(`⚠️ Email not sent — check SMTP settings.`, 'warning');
-                  }).catch(() => toast(`⚠️ Email could not be sent.`, 'warning'));
-              } else {
-                toast(`⚠️ SMTP not configured — go to Settings > Email`, 'warning');
-              }
-            }
-          });
-        }, 600);
-      }
-      STATE._editOrigStatus = null;
     } else {
       const _res = await api('api/invoices.php', 'POST', payload);
       if (payload.status === 'Draft') {
@@ -7655,8 +7605,6 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-caddr').value    = c ? c.addr   : (inv.client_addr  || inv.client_address || '');
   const sr = document.querySelectorAll('input[name="inv-status"]');
   sr.forEach(r => r.checked = r.value === inv.status);
-  // Track original status so Draft→Estimate promotion is detectable on save
-  STATE._editOrigStatus = inv.status || '';
   // ── Restore PDF options checkboxes from saved pdf_options ──
   let _savedPopt = inv.pdf_options || inv.popt || null;
   if (_savedPopt && typeof _savedPopt === 'string') { try { _savedPopt = JSON.parse(_savedPopt); } catch(e) { _savedPopt = null; } }
@@ -8489,15 +8437,7 @@ function onStatusChange(newStatus) {
     const invPfx = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
 
     if (newStatus === 'Estimate') {
-        // If editing a Draft, rename its INV- number to QT- prefix (keep sequence)
-        if (STATE.editingInvoiceId && STATE._editOrigStatus === 'Draft') {
-            const current = numEl.value || '';
-            const seqMatch = current.match(/(\d+)$/);
-            const seq = seqMatch ? seqMatch[1] : '001';
-            numEl.value = estPfx + seq.padStart(3, '0');
-            return;
-        }
-        // New estimate — auto-generate next QT number
+        // FIX: auto-generate estimate number client-side (never leave blank)
         let nextSeq = 1;
         STATE.invoices.forEach(inv => {
             const n = inv.num || inv.invoice_number || '';

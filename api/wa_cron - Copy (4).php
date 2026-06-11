@@ -156,9 +156,13 @@ function waBuildParams(string $type, array $inv, array $company, string $portalL
     $name     = $inv['client_name'] ?? 'Valued Client';
     $invNo    = $inv['invoice_number'] ?? '';
 
+    // Param order must match EXACTLY what is registered in Meta Business Manager
     return match($type) {
-        'reminder' => [$name, $invNo, $amount, $dueFmt,   $company['upi'], $company['company_name'],  $portalLink],
-        'overdue'  => [$name, $invNo, $amount, $daysOver, $company['upi'], $company['company_name'],  $portalLink],
+        // payment_reminder: {{1}}name {{2}}inv# {{3}}amount {{4}}due_date {{5}}upi {{6}}company_name {{7}}link
+        'reminder' => [$name, $invNo, $amount, $dueFmt,   $company['upi'], $company['company_name'], $portalLink],
+        // payment_overdue: {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}link {{7}}phone {{8}}company
+        'overdue'  => [$name, $invNo, $amount, $daysOver, $company['upi'], $portalLink, $company['company_phone'], $company['company_name']],
+        // invoice_followup: {{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link
         'followup' => [$name, $invNo, $amount, $daysOver, $company['upi'], $company['company_phone'], $portalLink],
         default    => [$name, $invNo, $amount],
     };
@@ -257,49 +261,26 @@ function waCronSendDirect(string $token, string $pid, string $toPhone,
 
 // ── Log to wa_message_log (same table as browser sends) ──────────
 function waCronLog($db, int $invId, string $type, array $inv, string $tplName, bool $ok): void {
-    // Include hour in entry_id so re-runs in different send windows get new entries
-    $entryId = 'cron_' . $invId . '_' . $type . '_' . date('YmdH');
-    $status  = $ok ? 'sent_api' : 'failed';
-    $client  = $inv['client_name'] ?? '';
-    $phone   = $inv['c_phone']     ?? '';
-    $invNum  = $inv['invoice_number'] ?? '';
-    $invAmt  = $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2);
-    $invSt   = $inv['status'] ?? '';
-    $msg     = '[cron] ' . $tplName;
-    $error   = $ok ? null : 'Cron send failed';
+    $entryId = 'cron_' . $invId . '_' . $type . '_' . date('Ymd');
     try {
-        $db->prepare("INSERT INTO wa_message_log
+        $db->prepare("INSERT IGNORE INTO wa_message_log
             (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
-            VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE status=VALUES(status), ts=NOW(), error=VALUES(error)")
-           ->execute([$entryId, $type, $status, $client, $phone, (string)$invId, $invNum, $invAmt, $invSt, $msg, $error]);
-    } catch (Exception $e) {
-        error_log('waCronLog: ' . $e->getMessage());
-    }
-
-    // Fix 2: Also write to reminder_log so UI history tab shows cron sends
-    try {
-        $logType = match($type) {
-            'payment_reminder' => 'due_reminder',
-            'payment_overdue'  => 'overdue',
-            'invoice_followup' => 'followup',
-            default            => 'due_reminder',
-        };
-        $channel = 'whatsapp';
-        $db->prepare("INSERT INTO reminder_log
-            (invoice_id, invoice_num, client_name, type, channel, status, message, sent_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())")
+            VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
            ->execute([
-               $invId,
-               $invNum,
-               $client,
-               $logType,
-               $channel,
-               $ok ? 'sent' : 'failed',
-               '[cron] ' . $tplName . ($ok ? '' : ' — failed'),
+               $entryId,
+               $type,
+               $ok ? 'sent_api' : 'failed',
+               $inv['client_name'] ?? '',
+               $inv['c_phone']     ?? '',
+               (string)($inv['id'] ?? ''),
+               $inv['invoice_number'] ?? '',
+               $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
+               $inv['status'] ?? '',
+               '[cron] ' . $tplName,
+               $ok ? null : 'Cron send failed',
            ]);
     } catch (Exception $e) {
-        error_log('waCronLog reminder_log: ' . $e->getMessage());
+        error_log('waCronLog: ' . $e->getMessage());
     }
 }
 
