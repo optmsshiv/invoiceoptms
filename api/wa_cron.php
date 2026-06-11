@@ -423,8 +423,8 @@ if ($autoRemind) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = ?
-          AND i.status IN ('Pending','Partial')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+          AND i.status IN ('Pending','Partial','Overdue')
+          AND (c.whatsapp IS NOT NULL AND c.whatsapp != '' OR c.phone IS NOT NULL AND c.phone != '' OR i.client_wa IS NOT NULL AND i.client_wa != '')
         ORDER BY i.due_date ASC
     ");
     $stmt->execute([$reminderDate]);
@@ -470,8 +470,8 @@ if ($autoRemind && $onDue) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date = CURDATE()
-          AND i.status IN ('Pending','Partial')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+          AND i.status IN ('Pending','Partial','Overdue')
+          AND (c.whatsapp IS NOT NULL AND c.whatsapp != '' OR c.phone IS NOT NULL AND c.phone != '' OR i.client_wa IS NOT NULL AND i.client_wa != '')
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
@@ -517,8 +517,8 @@ if ($autoOverdue) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending','Partial')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+          AND i.status IN ('Pending','Partial','Overdue')
+          AND (c.whatsapp IS NOT NULL AND c.whatsapp != '' OR c.phone IS NOT NULL AND c.phone != '' OR i.client_wa IS NOT NULL AND i.client_wa != '')
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
@@ -569,8 +569,8 @@ if ($autoFollowup) {
         FROM invoices i
         LEFT JOIN clients c ON c.id = i.client_id
         WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending','Partial')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+          AND i.status IN ('Pending','Partial','Overdue')
+          AND (c.whatsapp IS NOT NULL AND c.whatsapp != '' OR c.phone IS NOT NULL AND c.phone != '' OR i.client_wa IS NOT NULL AND i.client_wa != '')
         ORDER BY i.due_date ASC
     ");
     $stmt->execute();
