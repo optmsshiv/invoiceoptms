@@ -107,17 +107,10 @@ $company = [
 ];
 
 // Portal base URL
-$portalBase = rtrim($cfg['portal_base_url'] ?? '', '/');
-if (!$portalBase) {
-    try {
-        $domainRow = $db->query("SELECT value FROM settings WHERE `key`='app_url' LIMIT 1")->fetch();
-        if ($domainRow) $portalBase = rtrim($domainRow['value'], '/');
-    } catch (Exception $e) {}
+$portalBase = rtrim($cfg['portal_base_url'] ?? '', '/') . '/';
+if (!$portalBase || $portalBase === '/') {
+    $portalBase = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/portal/';
 }
-if (!$portalBase) {
-    $portalBase = 'https://invcs.optms.co.in'; // hard fallback for CLI cron
-}
-$portalBase = rtrim($portalBase, '/') . '/portal/';
 
 // ================================================================
 //  HELPERS
@@ -126,13 +119,12 @@ $portalBase = rtrim($portalBase, '/') . '/portal/';
 // ── Get or create portal token link ─────────────────────────────
 function waGetPortalLink($db, int $invId, string $portalBase): string {
     try {
-        // Reuse existing valid token — matches portal.php logic
-        $stmt = $db->prepare("SELECT token FROM portal_tokens WHERE invoice_id=? AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY id DESC LIMIT 1");
+        $stmt = $db->prepare("SELECT token FROM invoice_portal_tokens WHERE invoice_id=? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$invId]);
         $token = $stmt->fetchColumn();
         if (!$token) {
-            $token = bin2hex(random_bytes(16));
-            $db->prepare("INSERT INTO portal_tokens (invoice_id, token, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE token=VALUES(token)")
+            $token = bin2hex(random_bytes(24));
+            $db->prepare("INSERT INTO invoice_portal_tokens (invoice_id, token, created_at) VALUES (?, ?, NOW())")
                ->execute([$invId, $token]);
         }
         return $portalBase . '?t=' . $token;

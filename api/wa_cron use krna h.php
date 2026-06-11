@@ -107,15 +107,22 @@ $company = [
 ];
 
 // Portal base URL
+// Portal base URL: read from settings, fallback to app domain (not localhost — cron runs from CLI)
 $portalBase = rtrim($cfg['portal_base_url'] ?? '', '/');
 if (!$portalBase) {
+    // Derive from the cron file's own path: public_html/invoiceoptms/api/ → derive domain
+    $scriptPath = __DIR__;
+    // Try to find domain from settings first
     try {
         $domainRow = $db->query("SELECT value FROM settings WHERE `key`='app_url' LIMIT 1")->fetch();
-        if ($domainRow) $portalBase = rtrim($domainRow['value'], '/');
+        if ($domainRow) {
+            $portalBase = rtrim($domainRow['value'], '/');
+        }
     } catch (Exception $e) {}
 }
 if (!$portalBase) {
-    $portalBase = 'https://invcs.optms.co.in'; // hard fallback for CLI cron
+    // Hard fallback — update this if your domain changes
+    $portalBase = 'https://invcs.optms.co.in';
 }
 $portalBase = rtrim($portalBase, '/') . '/portal/';
 
@@ -126,13 +133,12 @@ $portalBase = rtrim($portalBase, '/') . '/portal/';
 // ── Get or create portal token link ─────────────────────────────
 function waGetPortalLink($db, int $invId, string $portalBase): string {
     try {
-        // Reuse existing valid token — matches portal.php logic
-        $stmt = $db->prepare("SELECT token FROM portal_tokens WHERE invoice_id=? AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY id DESC LIMIT 1");
+        $stmt = $db->prepare("SELECT token FROM invoice_portal_tokens WHERE invoice_id=? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$invId]);
         $token = $stmt->fetchColumn();
         if (!$token) {
-            $token = bin2hex(random_bytes(16));
-            $db->prepare("INSERT INTO portal_tokens (invoice_id, token, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE token=VALUES(token)")
+            $token = bin2hex(random_bytes(24));
+            $db->prepare("INSERT INTO invoice_portal_tokens (invoice_id, token, created_at) VALUES (?, ?, NOW())")
                ->execute([$invId, $token]);
         }
         return $portalBase . '?t=' . $token;
@@ -265,49 +271,26 @@ function waCronSendDirect(string $token, string $pid, string $toPhone,
 
 // ── Log to wa_message_log (same table as browser sends) ──────────
 function waCronLog($db, int $invId, string $type, array $inv, string $tplName, bool $ok): void {
-    // Include hour in entry_id so re-runs in different send windows get new entries
-    $entryId = 'cron_' . $invId . '_' . $type . '_' . date('YmdH');
-    $status  = $ok ? 'sent_api' : 'failed';
-    $client  = $inv['client_name'] ?? '';
-    $phone   = $inv['c_phone']     ?? '';
-    $invNum  = $inv['invoice_number'] ?? '';
-    $invAmt  = $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2);
-    $invSt   = $inv['status'] ?? '';
-    $msg     = '[cron] ' . $tplName;
-    $error   = $ok ? null : 'Cron send failed';
+    $entryId = 'cron_' . $invId . '_' . $type . '_' . date('Ymd');
     try {
-        $db->prepare("INSERT INTO wa_message_log
+        $db->prepare("INSERT IGNORE INTO wa_message_log
             (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
-            VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE status=VALUES(status), ts=NOW(), error=VALUES(error)")
-           ->execute([$entryId, $type, $status, $client, $phone, (string)$invId, $invNum, $invAmt, $invSt, $msg, $error]);
-    } catch (Exception $e) {
-        error_log('waCronLog: ' . $e->getMessage());
-    }
-
-    // Fix 2: Also write to reminder_log so UI history tab shows cron sends
-    try {
-        $logType = match($type) {
-            'payment_reminder' => 'due_reminder',
-            'payment_overdue'  => 'overdue',
-            'invoice_followup' => 'followup',
-            default            => 'due_reminder',
-        };
-        $channel = 'whatsapp';
-        $db->prepare("INSERT INTO reminder_log
-            (invoice_id, invoice_num, client_name, type, channel, status, message, sent_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())")
+            VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
            ->execute([
-               $invId,
-               $invNum,
-               $client,
-               $logType,
-               $channel,
-               $ok ? 'sent' : 'failed',
-               '[cron] ' . $tplName . ($ok ? '' : ' — failed'),
+               $entryId,
+               $type,
+               $ok ? 'sent_api' : 'failed',
+               $inv['client_name'] ?? '',
+               $inv['c_phone']     ?? '',
+               (string)($inv['id'] ?? ''),
+               $inv['invoice_number'] ?? '',
+               $inv['_display_amt'] ?? ($inv['currency'] ?? '₹') . number_format((float)($inv['grand_total'] ?? $inv['amount'] ?? 0), 2),
+               $inv['status'] ?? '',
+               '[cron] ' . $tplName,
+               $ok ? null : 'Cron send failed',
            ]);
     } catch (Exception $e) {
-        error_log('waCronLog reminder_log: ' . $e->getMessage());
+        error_log('waCronLog: ' . $e->getMessage());
     }
 }
 
