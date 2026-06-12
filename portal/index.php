@@ -1670,8 +1670,8 @@ if (document.readyState === 'loading') {
     </div>
     <?php endif; ?>
 
-    <!-- Current invoice row -->
-    <?php if ($remaining > 0.01): ?>
+    <!-- Current invoice row: only show if it is a real due invoice (not Estimate/Cancelled) -->
+    <?php if ($remaining > 0.01 && $currentIsDue): ?>
     <div class="dues-row" style="background:#FFFDE7;margin:0 -18px;padding:12px 18px">
       <div class="dues-status-dot" style="background:<?= status_col($inv['status'] ?? '') ?>"></div>
       <div style="flex:1;min-width:0">
@@ -1690,12 +1690,12 @@ if (document.readyState === 'loading') {
     <!-- Grand total -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
       <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
-      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
+      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($totalOutstanding, $sym) ?></span>
     </div>
 
     <?php if ($companyPhone): ?>
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
-      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal + $remaining, $sym) . '. Can you help me clear these?'); ?>
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($totalOutstanding, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
        style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
