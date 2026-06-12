@@ -1626,7 +1626,7 @@ if (document.readyState === 'loading') {
     <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
     <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $totalDueCount ?> invoice<?= $totalDueCount > 1 ? 's' : '' ?></span>
   </div>
-  <div class="card-body" style="padding:1px 18px">
+  <div class="card-body" style="padding:0 18px">
 
     <?php foreach ($otherDues as $od):
       $odDays     = 0;
@@ -1697,7 +1697,7 @@ if (document.readyState === 'loading') {
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
       $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($totalOutstanding, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
-       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;margin-bottom:10px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
     </a>
     <?php endif; ?>
