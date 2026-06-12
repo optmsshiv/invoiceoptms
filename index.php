@@ -11317,7 +11317,7 @@ async function loadAllData() {
       STATE.settings.activeTemplate = s.active_template || '2';
       STATE.settings.defaultGST     = (s.default_gst !== undefined && s.default_gst !== '') ? parseInt(s.default_gst) : 18;
       STATE.settings.dueDays        = parseInt(s.due_days)||15;
-      STATE.settings.defaultBank    = s.default_bank  || '';
+      STATE.settings.defaultBank    = s.company_bank  || '';
       STATE.settings.defaultNotes   = s.default_notes || '';
       STATE.settings.defaultTnC     = s.default_tnc   || '';
       STATE.settings.generatedBy    = s.generated_by  || '';
