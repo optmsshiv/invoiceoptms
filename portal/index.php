@@ -261,6 +261,7 @@ function status_label($s) {
 
 $sym           = $inv['currency'] ?: '₹';
 $isEstimate    = ($inv['status'] ?? '') === 'Estimate';
+$isCancelled   = ($inv['status'] ?? '') === 'Cancelled';
 $totalAmt      = (float)($inv['amount'] ?? 0);
 $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
@@ -937,13 +938,16 @@ $dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
 $overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
 $today_ts       = strtotime('today');
 
-// Total count including current invoice
-$totalDueCount  = $dueCount + 1;
+// Total count: only include current invoice if it is itself a real due invoice
+$currentIsDue   = in_array($inv['status'] ?? '', ['Pending','Overdue','Partial']);
+$totalDueCount  = $dueCount + ($currentIsDue ? 1 : 0);
 // Overdue count including current invoice if it's overdue
 $totalOverdueCount = $overdueCount + (($inv['status'] ?? '') === 'Overdue' ? 1 : 0);
 $totalPendingCount = ($totalDueCount - $totalOverdueCount);
+// Total outstanding amount: only add $remaining if current invoice is a real due invoice
+$totalOutstanding = $dueTotal + ($currentIsDue ? $remaining : 0);
 ?>
-<?php if ($hasDues): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <div class="dues-banner" id="duesBanner">
   <div class="dues-banner-icon">
     <i class="fas fa-exclamation-circle"></i>
@@ -956,7 +960,7 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
     </div>
     <div class="dues-banner-sub">
       Total outstanding across all invoices:
-      <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
+      <strong style="font-family:var(--mono)"><?= fmt_inr($totalOutstanding, $sym) ?></strong>
       <?php if ($totalOverdueCount > 0): ?>
       — please clear overdue amounts at the earliest.
       <?php endif; ?>
@@ -1441,7 +1445,7 @@ if ($items):
   </div>
 </div>
 <?php endif; ?>
-<?php if ($remaining > 0.01 && $companyUPI && !$isEstimate): ?>
+<?php if ($remaining > 0.01 && $companyUPI && !$isEstimate && !$isCancelled): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-mobile-alt"></i> <span data-t="Pay Now">Pay Now</span></div>
   <div class="card-body">
@@ -1614,7 +1618,7 @@ if (document.readyState === 'loading') {
 </div>
 <?php endif; ?>
 
-<?php if ($hasDues): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <!-- ── Other Outstanding Invoices ── -->
 <div class="card dues-card" id="otherDuesCard">
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">

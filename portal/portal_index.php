@@ -588,6 +588,18 @@ tr:last-child td{border:none}
 }
 @media print{.dues-banner,.dues-card{display:none!important}}
 
+/* ── Mobile: hide QR (can't scan own screen), show UPI app buttons ── */
+@media(max-width:600px){
+  .qr-section{display:none!important}
+}
+/* ── Desktop: hide UPI deep-link buttons (upi:// doesn't work on desktop) ── */
+@media(min-width:601px){
+  .upi-pay-btns{display:none!important}
+}
+
+/* ── Dues card bottom margin ── */
+.dues-card{margin-bottom:16px}
+
 /* ── Outstanding dues banner ── */
 .view-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);margin-top:6px}
 .view-badge i{font-size:10px}
