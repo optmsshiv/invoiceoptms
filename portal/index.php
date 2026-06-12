@@ -1626,7 +1626,7 @@ if (document.readyState === 'loading') {
     <span style="color:#BF360C;font-weight:800">Other Outstanding Invoices</span>
     <span style="margin-left:auto;background:#E65100;color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700"><?= $totalDueCount ?> invoice<?= $totalDueCount > 1 ? 's' : '' ?></span>
   </div>
-  <div class="card-body" style="padding:0 18px">
+  <div class="card-body" style="padding:1px 18px">
 
     <?php foreach ($otherDues as $od):
       $odDays     = 0;
