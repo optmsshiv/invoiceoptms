@@ -4051,6 +4051,11 @@ View Invoice: {{6}}</pre></details>
           <div style="height:5px;background:#FFE082;border-radius:3px;margin-bottom:10px;overflow:hidden">
             <div id="paid-rem-bar" style="height:100%;background:linear-gradient(90deg,#43A047,#66BB6A);border-radius:3px;width:0%;transition:width .4s"></div>
           </div>
+          <!-- Discount breakdown footer — shown only when settlement discount > 0 -->
+          <div id="paid-rem-breakdown" style="display:none;font-size:11px;color:#5D4037;background:#FFF8E1;border:1px dashed #FFD54F;border-radius:7px;padding:7px 11px;margin-bottom:8px;font-family:var(--mono);line-height:1.6">
+            <span style="font-weight:700;color:#E65100">Total Covered:</span>
+            <span id="paid-rem-breakdown-text"></span>
+          </div>
           <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:#fff;border-radius:8px;padding:10px 12px;border:1.5px solid #FFD54F">
             <input type="checkbox" id="paid-collect-remaining" style="accent-color:#E65100;width:15px;height:15px;flex-shrink:0;margin-top:1px">
             <div>
@@ -7956,8 +7961,8 @@ function onPaidAmtInput() {
     return;
   }
   // Mark field as manually edited — discount auto-fill will not override a user-typed value
-  const amtEl = document.getElementById('paid-amt');
-  if (amtEl) amtEl.dataset.userEdited = 'true';
+  const amtElB = document.getElementById('paid-amt');
+  if (amtElB) amtElB.dataset.userEdited = 'true';
   updatePaidRemaining();
 }
 
@@ -8004,7 +8009,7 @@ function onPaidSettleDiscInput() {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Discount cleared — restore field to remaining due (only if user hasn't manually edited it)
+    // Discount cleared — restore field to remaining due (only if not user-edited)
     const amtEl = document.getElementById('paid-amt');
     if (amtEl && amtEl.dataset.userEdited !== 'true') {
       amtEl.value = remainingDue.toFixed(2);
@@ -8035,8 +8040,21 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)}\ndisc write-off` : '');
+    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
+    // Breakdown footer — only visible when settlement discount is applied
+    const breakdownBox  = document.getElementById('paid-rem-breakdown');
+    const breakdownText = document.getElementById('paid-rem-breakdown-text');
+    if (settleDisc > 0 && breakdownBox && breakdownText) {
+      const parts = [];
+      if (prevPaid > 0.001)  parts.push(`${fmt_money(prevPaid, sym)} prev`);
+      if (received > 0.001)  parts.push(`${fmt_money(received, sym)} now`);
+      parts.push(`${fmt_money(settleDisc, sym)} disc write-off`);
+      breakdownText.textContent = ` ${fmt_money(total, sym)} = ` + parts.join(' + ');
+      breakdownBox.style.display = 'block';
+    } else if (breakdownBox) {
+      breakdownBox.style.display = 'none';
+    }
     const pctEl = el('paid-rem-pct');
     if (pctEl) pctEl.textContent = pct + '%';
     const bar = el('paid-rem-bar');
