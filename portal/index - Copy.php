@@ -1653,9 +1653,7 @@ if (document.readyState === 'loading') {
         <?php elseif ($odPartial): ?>
         <div class="dues-age partial">Partial</div>
         <?php elseif ($odPending && $odDays > 0): ?>
-        <div class="dues-age pending"><?= $odDays ?>d overdue</div>
-        <?php elseif ($odPending): ?>
-        <div class="dues-age" style="background:#E3F2FD;color:#1565C0;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">Due soon</div>
+        <div class="dues-age pending">Due <?= $odDays ?>d ago</div>
         <?php endif; ?>
       </div>
       <div class="dues-amount" style="color:<?= $odOverdue ? 'var(--red)' : 'var(--text)' ?>">
@@ -1667,7 +1665,7 @@ if (document.readyState === 'loading') {
     <!-- Previous outstanding subtotal -->
     <?php if ($dueTotal > 0): ?>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--card-alt,#FAFAFA);border-top:1px dashed var(--border);margin:0 -18px;padding:8px 18px">
-      <span style="font-size:11px;color:var(--muted)">Other invoices (<?= $dueCount ?>)</span>
+      <span style="font-size:11px;color:var(--muted)">Previous outstanding (<?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?>)</span>
       <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><?= fmt_inr($dueTotal, $sym) ?></span>
     </div>
     <?php endif; ?>
