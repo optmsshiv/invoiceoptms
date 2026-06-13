@@ -7963,6 +7963,9 @@ function onPaidAmtInput() {
   // Mark field as manually edited — discount auto-fill will not override a user-typed value
   const amtElB = document.getElementById('paid-amt');
   if (amtElB) amtElB.dataset.userEdited = 'true';
+  // Mark field as manually edited — discount auto-fill will not override a user-typed value
+  const amtElMark = document.getElementById('paid-amt');
+  if (amtElMark) amtElMark.dataset.userEdited = 'true';
   updatePaidRemaining();
 }
 
@@ -7986,8 +7989,7 @@ function onPaidSettleDiscInput() {
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl   = document.getElementById('paid-amt-label-note');
 
-  // If discount value is zero (e.g. user just switched the type dropdown),
-  // clear any discount UI and refresh banner — but do NOT touch the amount field
+  // Discount is zero — just clear UI and refresh, do NOT touch the amount field
   if (discAmt < 0.001) {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
@@ -8030,7 +8032,7 @@ function updatePaidRemaining() {
   const prevPaid   = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-  // Effective coverage = received + settlement discount
+  // Effective coverage = prevPaid (prior) + received (new cash now) + settleDisc (written off)
   const totalCovered  = prevPaid + received + settleDisc;
   const remaining      = Math.max(0, total - totalCovered);
   const remBox         = document.getElementById('paid-remaining-box');
@@ -8041,7 +8043,9 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym);
+    // Banner "Received" shows only already-collected cash (prevPaid).
+    // New entry (received) is shown in Remaining and breakdown — avoids double-count confusion.
+    el('paid-rem-received').textContent = fmt_money(prevPaid, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     // Breakdown footer — only visible when settlement discount is applied
     const breakdownBox  = document.getElementById('paid-rem-breakdown');
