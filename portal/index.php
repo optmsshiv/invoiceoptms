@@ -1712,7 +1712,7 @@ if (document.readyState === 'loading') {
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
       $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($totalOutstanding, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
-       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;margin-bottom:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
     </a>
     <?php endif; ?>
