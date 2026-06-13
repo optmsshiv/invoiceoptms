@@ -2,21 +2,23 @@
 // ================================================================
 //  api/activity.php  — Activity / Audit Log
 //
-//  Reads/writes from `activity_log` table (the real one used by
-//  logActivity() in auth.php). The old `activitys_log` table was
-//  a duplicate created by mistake — now removed.
+//  Reads/writes `activity_log` table (written by logActivity() in auth.php).
+//
+//  The frontend uses: type, label, detail, invoice_id
+//  The DB table uses: action, entity_type, entity_id, details, ip_address
+//
+//  This file maps between the two transparently so index.php needs no changes.
 //
 //  GET    /api/activity.php               → list log (filters via QS)
 //  POST   /api/activity.php               → append entry
 //  DELETE /api/activity.php               → clear all (admin only)
 //
 //  Query params for GET:
-//    ?action=delete                      filter by action
-//    ?entity_type=payment                filter by entity type
-//    ?entity_id=X                        filter by specific record
+//    ?type=invoice_created               filter by action
 //    ?from=YYYY-MM-DD&to=YYYY-MM-DD      date range
-//    ?search=text                        search in details
+//    ?invoice_id=X                       events for one invoice (entity_id)
 //    ?limit=100&offset=0                 pagination (default 200)
+//    ?search=text                        search in details
 // ================================================================
 
 require_once __DIR__ . '/../config/db.php';
@@ -41,21 +43,15 @@ try {
         $where  = ['1=1'];
         $params = [];
 
-        if (!empty($_GET['action'])) {
+        // frontend sends ?type=  → maps to action column
+        if (!empty($_GET['type'])) {
             $where[] = 'action = :action';
-            $params[':action'] = $_GET['action'];
+            $params[':action'] = $_GET['type'];
         }
-        if (!empty($_GET['entity_type'])) {
-            $where[] = 'entity_type = :entity_type';
-            $params[':entity_type'] = $_GET['entity_type'];
-        }
-        if (!empty($_GET['entity_id'])) {
+        // frontend sends ?invoice_id=  → maps to entity_id column
+        if (!empty($_GET['invoice_id'])) {
             $where[] = 'entity_id = :entity_id';
-            $params[':entity_id'] = (int)$_GET['entity_id'];
-        }
-        if (!empty($_GET['user_id'])) {
-            $where[] = 'user_id = :user_id';
-            $params[':user_id'] = (int)$_GET['user_id'];
+            $params[':entity_id'] = (int)$_GET['invoice_id'];
         }
         if (!empty($_GET['from'])) {
             $where[] = 'DATE(created_at) >= :from';
@@ -75,14 +71,15 @@ try {
         $limit  = min((int)($_GET['limit']  ?? 200), 500);
         $offset = max((int)($_GET['offset'] ?? 0), 0);
 
+        // Map DB columns → frontend field names
         $sql = "SELECT
                     id,
                     user_id,
-                    action,
-                    entity_type,
-                    entity_id,
-                    details,
-                    ip_address,
+                    action      AS type,
+                    entity_type AS label,
+                    details     AS detail,
+                    entity_id   AS invoice_id,
+                    ip_address  AS ip,
                     DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s+05:30') AS created_at
                 FROM activity_log
                 WHERE " . implode(' AND ', $where) .
@@ -92,7 +89,7 @@ try {
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Total count for pagination
+        // Total count
         $cStmt = $db->prepare('SELECT COUNT(*) FROM activity_log WHERE ' . implode(' AND ', $where));
         $cStmt->execute($params);
         $total = (int)$cStmt->fetchColumn();
@@ -115,16 +112,18 @@ try {
         if (empty($body)) $body = $_POST;
     }
 
-    // ── POST: append log entry manually ──────────────────────────
+    // ── POST: append log entry ────────────────────────────────────
     if ($method === 'POST') {
-        $action     = trim($body['action']      ?? '');
-        $entityType = trim($body['entity_type'] ?? '');
-        $entityId   = (int)($body['entity_id']  ?? 0);
-        $details    = trim($body['details']      ?? '');
+        // Accept both frontend naming (type/label/detail/invoice_id)
+        // and direct naming (action/entity_type/details/entity_id)
+        $action     = trim($body['type']        ?? $body['action']      ?? '');
+        $entityType = trim($body['label']       ?? $body['entity_type'] ?? '');
+        $details    = trim($body['detail']      ?? $body['details']     ?? '');
+        $entityId   = (int)($body['invoice_id'] ?? $body['entity_id']   ?? 0);
 
-        if (!$action || !$entityType) {
+        if (!$action) {
             http_response_code(422);
-            echo json_encode(['success' => false, 'error' => 'action and entity_type are required']);
+            echo json_encode(['success' => false, 'error' => 'type/action is required']);
             exit;
         }
 
@@ -136,7 +135,14 @@ try {
             'INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
              VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$uid, $action, $entityType, $entityId ?: null, $details, $ip]);
+        $stmt->execute([
+            $uid,
+            $action,
+            $entityType ?: null,
+            $entityId ?: null,
+            $details,
+            $ip
+        ]);
 
         echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
         exit;
@@ -144,7 +150,6 @@ try {
 
     // ── DELETE: clear log (admin only) ────────────────────────────
     if ($method === 'DELETE') {
-        // Only admins can clear the entire log
         $user = currentUser();
         if (($user['role'] ?? '') !== 'admin') {
             http_response_code(403);
