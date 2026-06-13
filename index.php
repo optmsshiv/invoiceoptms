@@ -7868,6 +7868,10 @@ function openPaidModal(id) {
   const sdtEl = document.getElementById('paid-settle-disc-type'); if (sdtEl) sdtEl.value = 'pct';
   const sdDisp = document.getElementById('paid-settle-disc-display'); if (sdDisp) { sdDisp.style.display='none'; sdDisp.textContent=''; }
   const sdInfo = document.getElementById('paid-settle-disc-info'); if (sdInfo) { sdInfo.style.display='none'; sdInfo.textContent=''; }
+  const sdNote = document.getElementById('paid-amt-label-note'); if (sdNote) sdNote.textContent = '';
+  // Reset confirm button (may be stuck in Saving state if modal was closed mid-request)
+  const confirmBtnReset = document.getElementById('btn-confirm-paid');
+  if (confirmBtnReset) { confirmBtnReset.disabled = false; confirmBtnReset.innerHTML = '<i class="fas fa-check"></i> Confirm Payment'; }
   document.getElementById('paid-remaining-box').style.display = 'none';
   // Reset split payment panel — clear amounts to zero, hide panel
   const splitPanel = document.getElementById('split-payment-panel');
@@ -7895,6 +7899,9 @@ function openPaidModal(id) {
   // Pre-fill amount with what's still due
   document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
 
+  // Render partial banner with correct received value (must be after amount is pre-filled)
+  updatePaidRemaining();
+
   // Show already-paid + remaining in summary bar
   const remRow = document.getElementById('paid-inv-remaining-row');
   const alreadyEl = document.getElementById('paid-inv-already');
@@ -7909,20 +7916,10 @@ function openPaidModal(id) {
     }
   }
 
-  // If already partially paid, show partial box with checkbox pre-checked
+  // If already partially paid, pre-check the partial checkbox then let updatePaidRemaining render correct values
   if (alreadyPaid > 0.01 && remaining > 0.01) {
-    const rb = document.getElementById('paid-remaining-box');
-    if (rb) {
-      rb.style.display = 'block';
-      const rt = document.getElementById('paid-rem-total');
-      const rr = document.getElementById('paid-rem-received');
-      const rd = document.getElementById('paid-rem-due');
-      if (rt) rt.textContent = fmt_money(amt, sym);
-      if (rr) rr.textContent = fmt_money(alreadyPaid, sym);
-      if (rd) rd.textContent = fmt_money(remaining, sym);
-      const cb = document.getElementById('paid-collect-remaining');
-      if (cb) cb.checked = true;
-    }
+    const cb = document.getElementById('paid-collect-remaining');
+    if (cb) cb.checked = true;
   }
 
   // Summary bar
@@ -7976,7 +7973,12 @@ function onPaidSettleDiscInput() {
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl = document.getElementById('paid-amt-label-note');
   if (discAmt > 0.001) {
-    const effAmt = Math.max(0, totalAmt - discAmt);
+    // Base for auto-fill is remaining due (after previous payments), not grand total
+    const prevPaidDisc = STATE.payments
+      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const remainingDue = Math.max(0, totalAmt - prevPaidDisc);
+    const effAmt = Math.max(0, remainingDue - discAmt);
     if (dispEl) { dispEl.textContent = '-' + fmt_money(discAmt, sym); dispEl.style.display = 'block'; }
     if (infoEl) {
       infoEl.textContent = `Client pays ${fmt_money(effAmt, sym)} — ${fmt_money(discAmt, sym)} discount written off. Invoice will be marked Paid.`;
