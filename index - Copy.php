@@ -15095,12 +15095,8 @@ function loadMoreActivity()    { _actPage++; _renderActivityTimeline(false); }
 function _renderActivityStats() {
   const el = document.getElementById('activity-stats');
   if (!el) return;
-  // Count by canonical group key (maps both JS and PHP event names to same bucket)
   const types = {};
-  STATE.activity.forEach(e => {
-    const key = _actGroupKey(e);
-    types[key] = (types[key]||0) + 1;
-  });
+  STATE.activity.forEach(e => { types[e.type]=(types[e.type]||0)+1; });
   const pills = Object.entries(types).slice(0,6).map(([t,n]) => {
     const info = _actTypeInfo(t);
     return `<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:${info.bg};border:1px solid ${info.col}30">
@@ -15112,45 +15108,6 @@ function _renderActivityStats() {
   el.innerHTML = `<div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;padding:5px 0">
     <i class="fas fa-history" style="color:var(--teal)"></i> ${STATE.activity.length} total events
   </div>${pills}`;
-}
-
-// Returns a canonical group key so JS and PHP events for same action map together
-function _actGroupKey(e) {
-  const t = (e.type||'').toLowerCase();
-  const l = (e.label||'').toLowerCase();
-  if (t==='create'   && l==='payment')  return 'payment_recorded';
-  if (t==='create'   && l==='invoice')  return 'invoice_created';
-  if (t==='create'   && l==='estimate') return 'estimate_created';
-  if (t==='delete'   && l==='invoice')  return 'invoice_deleted';
-  if (t==='delete'   && l==='estimate') return 'estimate_deleted';
-  if (t==='delete'   && l==='payment')  return 'invoice_deleted';
-  if (t==='update'   && l==='invoice')  return 'invoice_edited';
-  if (t==='update'   && l==='payment')  return 'payment_recorded';
-  if (t==='email_sent')                 return 'email_sent';
-  if (t==='wa_send' || t==='wa_log')    return 'reminder_sent';
-  return t;
-}
-
-// Groups events that happened within 60 seconds and belong to same invoice/action
-function _groupActivityEvents(events) {
-  const groups = [];
-  events.forEach(e => {
-    const eTime = e.ts ? new Date(e.ts).getTime() : 0;
-    const eKey  = _actGroupKey(e);
-    const eInv  = e.invoiceId || (e.detail||'').match(/INV-[\w-]+|QT-[\w-]+/)?.[0] || '';
-    // Try to find an existing group within 60s with same key+invoice
-    const match = groups.find(g =>
-      g.key === eKey &&
-      g.invoiceRef === eInv &&
-      Math.abs(g.time - eTime) <= 60000
-    );
-    if (match) {
-      match.events.push(e);
-    } else {
-      groups.push({ key: eKey, invoiceRef: eInv, time: eTime, events: [e] });
-    }
-  });
-  return groups;
 }
 
 function _actTypeInfo(type) {
@@ -15179,6 +15136,8 @@ function _renderActivityTimeline(reset) {
   const el = document.getElementById('activity-timeline');
   const lm = document.getElementById('activity-load-more');
   if (!el) return;
+  const start = _actPage * _ACT_PER;
+  const chunk = _actFiltered.slice(0, start + _ACT_PER);
   if (reset) el.innerHTML = '';
 
   if (!_actFiltered.length) {
@@ -15190,26 +15149,13 @@ function _renderActivityTimeline(reset) {
     return;
   }
 
-  // Group events then paginate groups
-  const allGroups = _groupActivityEvents(_actFiltered);
-  const start     = _actPage * _ACT_PER;
-  const chunk     = allGroups.slice(0, start + _ACT_PER);
-
+  // Group by date
   let lastDate = '';
-  const html = chunk.map((g, gi) => {
-    const rep     = g.events[0];
-    const info    = _actTypeInfo(g.key);
-    const d       = rep.ts ? new Date(rep.ts) : new Date();
+  const html = chunk.map(e => {
+    const info    = _actTypeInfo(e.type);
+    const d       = e.ts ? new Date(e.ts) : new Date();
     const dateStr = d.toLocaleDateString(_moneyLocale(),{weekday:'short',day:'numeric',month:'short',year:'numeric'});
     const timeStr = d.toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit'});
-    const multi   = g.events.length > 1;
-    const gid     = `actg-${gi}`;
-
-    // Build subtitle: client name + primary detail (strip SNAPSHOT part)
-    const primaryDetail = (rep.detail||'').split('|SNAPSHOT:')[0].trim();
-    const client = (rep.label||'').match(/^[A-Z]/) ? rep.label : '';
-    const subtitle = [client, primaryDetail].filter(Boolean).join(' · ');
-
     let dateHeader = '';
     if (dateStr !== lastDate) {
       lastDate = dateStr;
@@ -15219,54 +15165,21 @@ function _renderActivityTimeline(reset) {
         <div style="flex:1;height:1px;background:var(--border)"></div>
       </div>`;
     }
-
-    // Build child rows for each event in group
-    const children = multi ? g.events.map(e => {
-      const rawDetail  = (e.detail||'').split('|SNAPSHOT:')[0].trim();
-      const snapJson   = (e.detail||'').includes('|SNAPSHOT:') ? (e.detail||'').split('|SNAPSHOT:')[1] : '';
-      const snapId     = `snap-${e.id}`;
-      const src        = ['create','delete','update','email_sent','wa_send','login','logout'].includes(e.type) ? 'PHP' : 'JS';
-      const childTime  = e.ts ? new Date(e.ts).toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit'}) : '';
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 14px 8px 52px;border-bottom:1px solid var(--border)">
-        <div style="width:6px;height:6px;border-radius:50%;background:${info.col};flex-shrink:0;margin-top:5px"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">${e.type||''} · ${e.label||''} · <span style="opacity:.7">${src}</span></div>
-          <div style="font-size:12px;color:var(--text)">${rawDetail||'—'}</div>
-          ${snapJson ? `<span onclick="document.getElementById('${snapId}').style.display=document.getElementById('${snapId}').style.display==='none'?'block':'none';this.textContent=this.textContent.startsWith('+')?'− hide snapshot':'+ show snapshot'" style="font-size:11px;color:var(--primary);cursor:pointer;margin-top:3px;display:inline-block">+ show snapshot</span>
-          <pre id="${snapId}" style="display:none;font-size:10px;color:var(--muted);background:var(--hover);padding:6px 8px;border-radius:6px;margin-top:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all">${snapJson}</pre>` : ''}
+    return `${dateHeader}<div style="display:flex;gap:12px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;align-items:flex-start">
+      <div style="width:32px;height:32px;border-radius:8px;background:${info.bg};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${info.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${e.label||''}</span>
+          <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:${info.col}15;color:${info.col};font-weight:700">${info.label}</span>
         </div>
-        <div style="font-size:11px;color:var(--muted);flex-shrink:0;white-space:nowrap">${childTime}</div>
-      </div>`;
-    }).join('') : '';
-
-    const childrenBlock = multi ? `<div id="${gid}-children" style="display:none;border-top:1px solid var(--border)">${children}</div>` : '';
-    const chevron = multi ? `<i class="fas fa-chevron-down" id="${gid}-chev" style="font-size:11px;color:var(--muted);transition:transform .2s;flex-shrink:0"></i>` : '';
-    const countBadge = multi ? `<span style="font-size:11px;background:var(--hover);color:var(--muted);border-radius:10px;padding:1px 7px;font-weight:600">${g.events.length} events</span>` : '';
-    const cursor = multi ? 'cursor:pointer' : '';
-    const onclick = multi ? `onclick="(function(){var c=document.getElementById('${gid}-children'),ch=document.getElementById('${gid}-chev');var o=c.style.display==='none';c.style.display=o?'block':'none';ch.style.transform=o?'rotate(180deg)':'rotate(0deg)';})()"` : '';
-
-    return `${dateHeader}<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:hidden">
-      <div style="display:flex;gap:12px;padding:10px 14px;align-items:flex-start;${cursor}" ${onclick}>
-        <div style="width:32px;height:32px;border-radius:8px;background:${info.bg};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${info.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap">
-            <span style="font-size:13px;font-weight:600;color:var(--text)">${g.key.replace(/_/g,' ')}</span>
-            <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:${info.col}15;color:${info.col};font-weight:700">${info.label}</span>
-            ${countBadge}
-          </div>
-          <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${subtitle}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <div style="font-size:11px;color:var(--muted);white-space:nowrap">${timeStr}</div>
-          ${chevron}
-        </div>
+        ${e.detail ? `<div style="font-size:12px;color:var(--muted)">${e.detail}</div>` : ''}
       </div>
-      ${childrenBlock}
+      <div style="font-size:11px;color:var(--muted);flex-shrink:0;white-space:nowrap">${timeStr}</div>
     </div>`;
   }).join('');
 
   if (reset) el.innerHTML = html; else el.innerHTML += html;
-  if (lm) lm.style.display = chunk.length < allGroups.length ? 'block' : 'none';
+  if (lm) lm.style.display = chunk.length < _actFiltered.length ? 'block' : 'none';
 }
 
 function exportActivityCSV() {
