@@ -1681,24 +1681,11 @@ if (document.readyState === 'loading') {
         <div class="dues-service"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></div>
         <div style="font-size:10px;color:#F9A825;font-weight:700;margin-top:2px">This invoice (remaining)</div>
       </div>
-      <?php
-        $curDueTs  = !empty($inv['due_date']) ? strtotime($inv['due_date']) : 0;
-        $curDueDays = $curDueTs ? (int)floor(($today_ts - $curDueTs) / 86400) : 0;
-        $curIsOverdue = ($inv['status'] ?? '') === 'Overdue';
-        $curIsPending = ($inv['status'] ?? '') === 'Pending';
-      ?>
       <div class="dues-due-date">
         <div style="font-size:11px;color:var(--muted)">Due</div>
-        <div style="font-size:12px;font-weight:600;color:<?= $curIsOverdue ? 'var(--red)' : 'inherit' ?>"><?= fmt_date($inv['due_date'] ?? '') ?></div>
-        <?php if ($curIsOverdue && $curDueDays > 0): ?>
-        <div class="dues-age overdue">+<?= $curDueDays ?>d overdue</div>
-        <?php elseif ($curIsPending && $curDueDays > 0): ?>
-        <div class="dues-age pending"><?= $curDueDays ?>d overdue</div>
-        <?php elseif ($curIsPending): ?>
-        <div class="dues-age" style="background:#E3F2FD;color:#1565C0;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">Due soon</div>
-        <?php endif; ?>
+        <div style="font-size:12px;font-weight:600"><?= fmt_date($inv['due_date'] ?? '') ?></div>
       </div>
-      <div class="dues-amount" style="color:<?= $curIsOverdue ? 'var(--red)' : 'var(--text)' ?>"><?= fmt_inr($remaining, $sym) ?></div>
+      <div class="dues-amount"><?= fmt_inr($remaining, $sym) ?></div>
     </div>
     <?php endif; ?>
 
@@ -1712,7 +1699,7 @@ if (document.readyState === 'loading') {
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
       $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($totalOutstanding, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
-       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;margin-bottom:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
     </a>
     <?php endif; ?>
