@@ -1129,10 +1129,10 @@ $tlProgressWidth = match(true) {
     <?php else: ?>
     <div class="amt-cell">
       <div class="lbl" data-t="Amount Paid">Amount Paid</div>
-      <div class="val" style="color:var(--green)"><?= fmt_inr($totalCovered, $sym) ?></div>
+      <div class="val" style="color:var(--green)"><?= fmt_inr($totalCash, $sym) ?></div>
       <?php if ($totalSettle > 0.01): ?>
       <div style="font-size:10px;color:#E65100;margin-top:2px">
-        <?= fmt_inr($totalCash, $sym) ?> cash + <?= fmt_inr($totalSettle, $sym) ?> discount
+        + <?= fmt_inr($totalSettle, $sym) ?> settlement discount
       </div>
       <?php endif; ?>
     </div>
@@ -1445,9 +1445,6 @@ if ($items):
     </div>
     <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #C8E6C9">
       <div style="font-size:11px;color:var(--muted)">This is an auto-generated payment receipt</div>
-      <button class="pdf-dl-btn" style="max-width:260px;margin:10px auto 0" onclick="downloadPDF()">
-        <i class="fas fa-file-download"></i> Download Receipt as PDF
-      </button>
     </div>
   </div>
 </div>
@@ -1739,13 +1736,7 @@ if (document.readyState === 'loading') {
       <?php if ($companyEmail): ?><div class="info-item"><label>Email</label><span class="val"><?= htmlspecialchars($companyEmail) ?></span></div><?php endif; ?>
       <?php if ($companyAddress): ?><div class="info-item" style="grid-column:1/-1"><label>Address</label><span class="val" style="font-weight:400"><?= nl2br(htmlspecialchars($companyAddress)) ?></span></div><?php endif; ?>
     </div>
-    <?php if ($companyPhone): ?>
-    <?php $waPhone = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone)===10) $waPhone='91'.$waPhone; ?>
-    <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi, I have a query regarding '.($isEstimate?'Estimate':'Invoice').' '.$inv['invoice_number']) ?>" class="wa-contact-btn" target="_blank">
-      <i class="fab fa-whatsapp" style="font-size:16px"></i> <span data-t="Chat with us on WhatsApp">Chat with us on WhatsApp</span>
-      <?php if (($inv['status'] ?? '') === 'Overdue'): ?><span class="wa-dot"></span><?php endif; ?>
-    </a>
-    <?php endif; ?>
+
 
     <?php if ($remaining > 0.01 && $companyPhone): ?>
     <?php
