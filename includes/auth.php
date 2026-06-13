@@ -5,6 +5,9 @@
 date_default_timezone_set('Asia/Kolkata');
 require_once __DIR__ . '/../config/db.php';
 
+// Session lifetime — 3 hours (10800 seconds)
+if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 10800);
+
 function startSession(): void {
     if (session_status() === PHP_SESSION_NONE) {
         ini_set('session.gc_maxlifetime', SESSION_LIFETIME);
@@ -86,7 +89,13 @@ function doLogout(): void {
 
 function logActivity(int $userId, string $action, string $entityType, int $entityId, string $details = ''): void {
     try {
-        $db   = getDB();
+        $db = getDB();
+
+        // ── Auto-migrate: ensure detail column is TEXT (not VARCHAR) ──
+        try {
+            $db->exec("ALTER TABLE activity_log MODIFY COLUMN details TEXT NULL");
+        } catch (Exception $e) { /* already correct or column name differs */ }
+
         $db->prepare('INSERT INTO activity_log (user_id,action,entity_type,entity_id,details,ip_address) VALUES (?,?,?,?,?,?)')
            ->execute([$userId, $action, $entityType, $entityId, $details, $_SERVER['REMOTE_ADDR'] ?? '']);
     } catch (Exception $e) { /* non-fatal */ }
