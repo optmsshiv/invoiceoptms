@@ -7984,7 +7984,17 @@ function onPaidSettleDiscInput() {
   const discAmt  = getSettlementDiscAmt(totalAmt);
   const dispEl   = document.getElementById('paid-settle-disc-display');
   const infoEl   = document.getElementById('paid-settle-disc-info');
-  const noteEl = document.getElementById('paid-amt-label-note');
+  const noteEl   = document.getElementById('paid-amt-label-note');
+
+  // If discount value is zero (e.g. user just switched the type dropdown),
+  // clear any discount UI and refresh banner — but do NOT touch the amount field
+  if (discAmt < 0.001) {
+    if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
+    if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
+    if (noteEl) noteEl.textContent = '';
+    updatePaidRemaining();
+    return;
+  }
   // Compute remaining due (after any prior partial payments) — used in both branches
   const prevPaidCheck = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
@@ -8004,15 +8014,6 @@ function onPaidSettleDiscInput() {
     const amtEl = document.getElementById('paid-amt');
     if (amtEl && amtEl.dataset.userEdited !== 'true') {
       amtEl.value = effAmt.toFixed(2);
-    }
-  } else {
-    if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
-    if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
-    if (noteEl) noteEl.textContent = '';
-    // Discount cleared — restore field to remaining due (only if not user-edited)
-    const amtEl = document.getElementById('paid-amt');
-    if (amtEl && amtEl.dataset.userEdited !== 'true') {
-      amtEl.value = remainingDue.toFixed(2);
     }
   }
   updatePaidRemaining();
