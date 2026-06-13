@@ -746,9 +746,12 @@ body.src-email .wa-contact-btn,
 body.src-email .lang-toggle,
 body.src-email .ive-paid-btn,
 body.src-email .partial-pay-box,
-body.src-email .upi-box,
 body.src-email .qr-section,
 body.src-email .wa-dot { display:none !important }
+
+/* Email portal: show UPI ID box so client can copy and pay manually */
+body.src-email .upi-box { display:flex !important }
+body.src-email .copy-btn { display:inline-flex !important }
 
 /* Prominent Download PDF button for email */
 body.src-email .pdf-btn{
