@@ -15185,7 +15185,7 @@ function _renderActivityTimeline(reset) {
 function exportActivityCSV() {
   const rows = [['Timestamp','Type','Label','Detail']];
   _actFiltered.forEach(e => rows.push([e.ts||'',e.type||'',e.label||'',e.detail||'']));
-  _downloadCSV(rows, 'activitys_log.csv');
+  _downloadCSV(rows, 'activity_log.csv');
 }
 
 async function clearActivityLog() {

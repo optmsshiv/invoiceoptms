@@ -2,15 +2,21 @@
 // ================================================================
 //  api/activity.php  — Activity / Audit Log
 //
+//  Reads/writes from `activity_log` table (the real one used by
+//  logActivity() in auth.php). The old `activitys_log` table was
+//  a duplicate created by mistake — now removed.
+//
 //  GET    /api/activity.php               → list log (filters via QS)
 //  POST   /api/activity.php               → append entry
 //  DELETE /api/activity.php               → clear all (admin only)
 //
 //  Query params for GET:
-//    ?type=invoice_created               filter by event type
+//    ?action=delete                      filter by action
+//    ?entity_type=payment                filter by entity type
+//    ?entity_id=X                        filter by specific record
 //    ?from=YYYY-MM-DD&to=YYYY-MM-DD      date range
-//    ?invoice_id=X                       events for one invoice
-//    ?limit=100&offset=0                 pagination (default limit 100)
+//    ?search=text                        search in details
+//    ?limit=100&offset=0                 pagination (default 200)
 // ================================================================
 
 require_once __DIR__ . '/../config/db.php';
@@ -25,39 +31,31 @@ $method = $_SERVER['REQUEST_METHOD'];
 try {
     $db = getDB();
 
-    // ── Auto-create table if migration not run ────────────────────
-    $db->exec("CREATE TABLE IF NOT EXISTS `activitys_log` (
-        `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        `type`       VARCHAR(80)     NOT NULL,
-        `label`      VARCHAR(255)    NOT NULL,
-        `detail`     TEXT            NULL,
-        `invoice_id` INT UNSIGNED    NULL,
-        `user_id`    INT UNSIGNED    NULL,
-        `ip`         VARCHAR(45)     NULL,
-        `created_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (`id`),
-        INDEX `idx_actlog_type`    (`type`),
-        INDEX `idx_actlog_inv`     (`invoice_id`),
-        INDEX `idx_actlog_created` (`created_at`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    // Expand type column if it was created with old VARCHAR(60) definition
+    // ── Auto-migrate: ensure details column is TEXT ───────────────
     try {
-        $db->exec("ALTER TABLE `activitys_log` MODIFY COLUMN `detail` TEXT NULL");
-    } catch (Exception $alterEx) { /* ignore — already correct size */ }
+        $db->exec("ALTER TABLE `activity_log` MODIFY COLUMN `details` TEXT NULL");
+    } catch (Exception $e) { /* already correct */ }
 
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
         $where  = ['1=1'];
         $params = [];
 
-        if (!empty($_GET['type'])) {
-            $where[] = 'type = :type';
-            $params[':type'] = $_GET['type'];
+        if (!empty($_GET['action'])) {
+            $where[] = 'action = :action';
+            $params[':action'] = $_GET['action'];
         }
-        if (!empty($_GET['invoice_id'])) {
-            $where[] = 'invoice_id = :inv';
-            $params[':inv'] = (int)$_GET['invoice_id'];
+        if (!empty($_GET['entity_type'])) {
+            $where[] = 'entity_type = :entity_type';
+            $params[':entity_type'] = $_GET['entity_type'];
+        }
+        if (!empty($_GET['entity_id'])) {
+            $where[] = 'entity_id = :entity_id';
+            $params[':entity_id'] = (int)$_GET['entity_id'];
+        }
+        if (!empty($_GET['user_id'])) {
+            $where[] = 'user_id = :user_id';
+            $params[':user_id'] = (int)$_GET['user_id'];
         }
         if (!empty($_GET['from'])) {
             $where[] = 'DATE(created_at) >= :from';
@@ -68,80 +66,101 @@ try {
             $params[':to'] = $_GET['to'];
         }
         if (!empty($_GET['search'])) {
-            $where[] = '(label LIKE :s OR detail LIKE :s2)';
+            $where[] = '(action LIKE :s OR entity_type LIKE :s2 OR details LIKE :s3)';
             $params[':s']  = '%' . $_GET['search'] . '%';
             $params[':s2'] = '%' . $_GET['search'] . '%';
+            $params[':s3'] = '%' . $_GET['search'] . '%';
         }
 
         $limit  = min((int)($_GET['limit']  ?? 200), 500);
         $offset = max((int)($_GET['offset'] ?? 0), 0);
 
-        $sql  = "SELECT *, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s+05:30') AS created_at
-                 FROM activitys_log WHERE " . implode(' AND ', $where)
-              . ' ORDER BY created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
+        $sql = "SELECT
+                    id,
+                    user_id,
+                    action,
+                    entity_type,
+                    entity_id,
+                    details,
+                    ip_address,
+                    DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s+05:30') AS created_at
+                FROM activity_log
+                WHERE " . implode(' AND ', $where) .
+               ' ORDER BY created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
+
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Total count for pagination
-        $cSql   = 'SELECT COUNT(*) FROM activitys_log WHERE ' . implode(' AND ', $where);
-        $cStmt  = $db->prepare($cSql);
+        $cStmt = $db->prepare('SELECT COUNT(*) FROM activity_log WHERE ' . implode(' AND ', $where));
         $cStmt->execute($params);
         $total = (int)$cStmt->fetchColumn();
 
-        echo json_encode(['success'=>true,'data'=>$rows,'total'=>$total,'limit'=>$limit,'offset'=>$offset]);
+        echo json_encode([
+            'success' => true,
+            'data'    => $rows,
+            'total'   => $total,
+            'limit'   => $limit,
+            'offset'  => $offset
+        ]);
         exit;
     }
 
     // ── Read body ────────────────────────────────────────────────
     $body = [];
-    if (in_array($method, ['POST','PUT'])) {
+    if (in_array($method, ['POST', 'PUT'])) {
         $raw  = file_get_contents('php://input');
         $body = json_decode($raw, true) ?: [];
         if (empty($body)) $body = $_POST;
     }
 
-    // ── POST: append log entry ────────────────────────────────────
+    // ── POST: append log entry manually ──────────────────────────
     if ($method === 'POST') {
-        $type  = trim($body['type']  ?? '');
-        $label = trim($body['label'] ?? '');
-        if (!$type || !$label) {
+        $action     = trim($body['action']      ?? '');
+        $entityType = trim($body['entity_type'] ?? '');
+        $entityId   = (int)($body['entity_id']  ?? 0);
+        $details    = trim($body['details']      ?? '');
+
+        if (!$action || !$entityType) {
             http_response_code(422);
-            echo json_encode(['success'=>false,'error'=>'type and label are required']);
+            echo json_encode(['success' => false, 'error' => 'action and entity_type are required']);
             exit;
         }
-        $user  = currentUser();
-        $uid   = $user['id'] ?? null;
-        $ip    = $_SERVER['REMOTE_ADDR'] ?? null;
-        $stmt  = $db->prepare(
-            'INSERT INTO activitys_log (type, label, detail, invoice_id, user_id, ip, created_at)
-             VALUES (:type, :label, :detail, :inv, :uid, :ip, :ts)'
+
+        $user = currentUser();
+        $uid  = $user['id'] ?? $_SESSION['user_id'] ?? null;
+        $ip   = $_SERVER['REMOTE_ADDR'] ?? null;
+
+        $stmt = $db->prepare(
+            'INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
+             VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([
-            ':type'   => $type,
-            ':label'  => $label,
-            ':detail' => $body['detail']     ?? '',
-            ':inv'    => !empty($body['invoice_id']) ? (int)$body['invoice_id'] : null,
-            ':uid'    => $uid,
-            ':ip'     => $ip,
-            ':ts'     => date('Y-m-d H:i:s'),
-        ]);
-        echo json_encode(['success'=>true,'id'=>(int)$db->lastInsertId()]);
+        $stmt->execute([$uid, $action, $entityType, $entityId ?: null, $details, $ip]);
+
+        echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);
         exit;
     }
 
-    // ── DELETE: clear log ─────────────────────────────────────────
+    // ── DELETE: clear log (admin only) ────────────────────────────
     if ($method === 'DELETE') {
-        $db->exec('DELETE FROM activitys_log');
-        echo json_encode(['success'=>true]);
+        // Only admins can clear the entire log
+        $user = currentUser();
+        if (($user['role'] ?? '') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Admin only']);
+            exit;
+        }
+        $db->exec('DELETE FROM activity_log');
+        echo json_encode(['success' => true]);
         exit;
     }
 
     http_response_code(405);
-    echo json_encode(['success'=>false,'error'=>'Method not allowed']);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
 
 } catch (Exception $e) {
     error_log('activity.php error: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success'=>false,'error'=>'Server error']);
+    echo json_encode(['success' => false, 'error' => 'Server error']);
 }
