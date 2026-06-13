@@ -944,7 +944,7 @@ $totalDueCount  = $dueCount + ($currentIsDue ? 1 : 0);
 // Overdue count including current invoice if it's overdue
 $totalOverdueCount = $overdueCount + (($inv['status'] ?? '') === 'Overdue' ? 1 : 0);
 $totalPendingCount = ($totalDueCount - $totalOverdueCount);
-// Total outstanding: only add $remaining if current invoice is a real due invoice
+// Total outstanding amount: only add $remaining if current invoice is a real due invoice
 $totalOutstanding = $dueTotal + ($currentIsDue ? $remaining : 0);
 ?>
 <?php if ($hasDues && !$isCancelled): ?>
@@ -1665,14 +1665,14 @@ if (document.readyState === 'loading') {
     <?php endforeach; ?>
 
     <!-- Previous outstanding subtotal -->
-    <?php if ($dueCount > 1): ?>
+    <?php if ($dueTotal > 0): ?>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--card-alt,#FAFAFA);border-top:1px dashed var(--border);margin:0 -18px;padding:8px 18px">
       <span style="font-size:11px;color:var(--muted)">Other invoices (<?= $dueCount ?>)</span>
       <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><?= fmt_inr($dueTotal, $sym) ?></span>
     </div>
     <?php endif; ?>
 
-    <!-- Current invoice row: only show if real due invoice -->
+    <!-- Current invoice row: only show if it is a real due invoice (not Estimate/Cancelled) -->
     <?php if ($remaining > 0.01 && $currentIsDue): ?>
     <div class="dues-row" style="background:#FFFDE7;margin:0 -18px;padding:12px 18px">
       <div class="dues-status-dot" style="background:<?= status_col($inv['status'] ?? '') ?>"></div>
