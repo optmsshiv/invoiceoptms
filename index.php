@@ -8003,7 +8003,18 @@ function onPaidSettleDiscInput() {
     // Only refresh banner if a discount breakdown was previously visible (user just cleared a non-zero discount)
     // This avoids false 100% jump when switching dropdown type while discount value is already 0
     const breakdownWasVisible = document.getElementById('paid-rem-breakdown')?.style.display !== 'none';
-    if (breakdownWasVisible) updatePaidRemaining();
+    if (breakdownWasVisible) {
+      // Reset amount field back to remaining due (undo the discount auto-fill) unless user manually edited it
+      const amtEl = document.getElementById('paid-amt');
+      if (amtEl && amtEl.dataset.userEdited !== 'true') {
+        const prevPaidReset = STATE.payments
+          .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+          .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+        const remainingDueReset = Math.max(0, totalAmt - prevPaidReset);
+        amtEl.value = remainingDueReset.toFixed(2);
+      }
+      updatePaidRemaining();
+    }
     return;
   }
   // Compute remaining due (after any prior partial payments) — used in both branches
