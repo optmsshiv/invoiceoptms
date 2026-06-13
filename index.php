@@ -15136,7 +15136,7 @@ function _extractInvRef(e) {
   const sources = [
     e.invoiceId ? String(e.invoiceId) : '',
     e.label||'',
-    (e.detail||'').split('|SNAPSHOT:')[0]
+    (e.detail||'').replace(/ ?\| ?SNAPSHOT:[\s\S]*/, '')
   ];
   for (const s of sources) {
     const m = s.match(/(?:INV|QT|OT)-[\w-]+/);
@@ -15186,6 +15186,15 @@ function _actTypeInfo(type) {
     client_deactivated: {icon:'⏸️', label:'Inactive',   col:'#F9A825', bg:'#FFF8E1'},
     reminder_sent:      {icon:'🔔', label:'Reminder',   col:'#F9A825', bg:'#fff8e1'},
     expense_added:      {icon:'💸', label:'Expense',    col:'#455A64', bg:'#eceff1'},
+    email_sent:         {icon:'📧', label:'Email',      col:'#0288D1', bg:'#e1f5fe'},
+    wa_send:            {icon:'💬', label:'WhatsApp',   col:'#2E7D32', bg:'#e8f5e9'},
+    wa_log:             {icon:'💬', label:'WhatsApp',   col:'#2E7D32', bg:'#e8f5e9'},
+    login:              {icon:'🔐', label:'Login',      col:'#5C6BC0', bg:'#e8eaf6'},
+    logout:             {icon:'🚪', label:'Logout',     col:'#78909C', bg:'#eceff1'},
+    credit_note:        {icon:'📝', label:'Credit',     col:'#6D4C41', bg:'#efebe9'},
+    create:             {icon:'➕', label:'Created',    col:'#1976D2', bg:'#e3f2fd'},
+    delete:             {icon:'🗑️', label:'Deleted',   col:'#C62828', bg:'#ffebee'},
+    update:             {icon:'✏️', label:'Updated',    col:'#7B1FA2', bg:'#f3e5f5'},
   };
   return map[type] || {icon:'•', label:type, col:'#9E9E9E', bg:'#f5f5f5'};
 }
@@ -15225,7 +15234,7 @@ function _renderActivityTimeline(reset) {
     const client  = g.events.map(e => {
       // JS events store client in label; PHP events store client_name in snapshot
       if ((e.label||'').match(/^[A-Z][a-z]/)) return e.label;
-      const snap = (e.detail||'').includes('|SNAPSHOT:') ? (() => { try { return JSON.parse((e.detail||'').split('|SNAPSHOT:')[1]); } catch(x){return null;} })() : null;
+      const snap = (e.detail||'').match(/\| ?SNAPSHOT:/) ? (() => { try { return JSON.parse(((e.detail||'').split(/\| ?SNAPSHOT:/)[1]||'')); } catch(x){return null;} })() : null;
       return snap?.client_name || '';
     }).find(c=>c) || '';
     const subtitle = [invRef, client].filter(Boolean).join(' · ');
@@ -15242,8 +15251,8 @@ function _renderActivityTimeline(reset) {
 
     // Build child rows for each event in group
     const children = multi ? g.events.map(e => {
-      const rawDetail  = (e.detail||'').split('|SNAPSHOT:')[0].trim();
-      const snapJson   = (e.detail||'').includes('|SNAPSHOT:') ? (e.detail||'').split('|SNAPSHOT:')[1] : '';
+      const rawDetail  = (e.detail||'').replace(/ ?\| ?SNAPSHOT:.*/s, '').trim();
+      const snapJson   = (e.detail||'').match(/\| ?SNAPSHOT:/) ? ((e.detail||'').split(/\| ?SNAPSHOT:/)[1]||'') : '';
       const snapId     = `snap-${e.id}`;
       const src        = ['create','delete','update','email_sent','wa_send','login','logout'].includes(e.type) ? 'PHP' : 'JS';
       const childTime  = e.ts ? new Date(e.ts).toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit'}) : '';
@@ -15261,7 +15270,7 @@ function _renderActivityTimeline(reset) {
 
     // For single events show a clean detail line (no snapshot)
     const singleDetail = !multi && rep.detail ? (() => {
-      const d = (rep.detail||'').split('|SNAPSHOT:')[0].trim();
+      const d = (rep.detail||'').replace(/ ?\| ?SNAPSHOT:.*/s, '').trim();
       return d ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</div>` : '';
     })() : '';
     const childrenBlock = multi ? `<div id="${gid}-children" style="display:none;border-top:1px solid var(--border)">${children}</div>` : '';
