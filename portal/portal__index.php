@@ -208,6 +208,13 @@ function fmt_date($d) {
     $ts = strtotime($d);
     return $ts ? date('d M Y', $ts) : htmlspecialchars($d);
 }
+function fmt_datetime($d) {
+    if (!$d || $d === '—') return '—';
+    $ts = strtotime($d);
+    if (!$ts) return htmlspecialchars($d);
+    $time = date('H:i', $ts);
+    return date('d M Y', $ts) . ($time !== '00:00' ? ', ' . $time : '');
+}
 function fmt_rel($d) {
     // Returns relative label for first_viewed: "Today", "Yesterday", "3 days ago", or "d M Y" for older
     if (!$d) return '';
@@ -1359,7 +1366,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?></div>
+        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?><?php if (!empty($p['created_at'])): ?><span style="font-size:10px;color:var(--muted);margin-left:4px"><?= date('H:i', strtotime($p['created_at'])) ?></span><?php endif; ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>

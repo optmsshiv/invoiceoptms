@@ -114,18 +114,9 @@ switch ($method) {
     }
 
     $id = (int)$db->lastInsertId();
-
-    // Fetch inserted row for snapshot
-      $snapStmt = $db->prepare('SELECT * FROM payments WHERE id = ?');
-      $snapStmt->execute([$id]);
-      $snapRow = $snapStmt->fetch(PDO::FETCH_ASSOC);
-      $snapshot = json_encode($snapRow, JSON_UNESCAPED_UNICODE);
-
     logActivity((int)$_SESSION['user_id'], 'create', 'payment', $id,
-        "Recorded payment: " . ($d['invoice_number'] ?? $d['inv'] ?? '') .
-        ($settleDisc > 0 ? " (incl. Rs.{$settleDisc} settlement discount)" : '') .
-        ' | SNAPSHOT:' . $snapshot);
-
+      "Recorded payment: " . ($d['invoice_number'] ?? $d['inv'] ?? '') .
+      ($settleDisc > 0 ? " (incl. Rs.{$settleDisc} settlement discount)" : ''));
     jsonResponse(['success' => true, 'id' => $id]);
     break;
 
@@ -151,20 +142,12 @@ switch ($method) {
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'ID required'], 400);
-
-    // Fetch FULL row for snapshot
-    $pmtStmt = $db->prepare('SELECT * FROM payments WHERE id = ?');
+    $pmtStmt = $db->prepare('SELECT invoice_number FROM payments WHERE id = ?');
     $pmtStmt->execute([$id]);
-    $pmt = $pmtStmt->fetch(PDO::FETCH_ASSOC);
-
-    // Soft-delete the payment row
+    $pmt = $pmtStmt->fetch();
     $db->prepare('UPDATE payments SET invoice_deleted = 1 WHERE id = ?')->execute([$id]);
-
-    // Log with full snapshot in detail
-    $snapshot = json_encode($pmt, JSON_UNESCAPED_UNICODE);
     logActivity((int)$_SESSION['user_id'], 'delete', 'payment', $id,
-      'Invoice deleted — payment retained for: ' . ($pmt['invoice_number'] ?? '') .
-      ' | SNAPSHOT:' . $snapshot);
+      'Invoice deleted — payment retained for: ' . ($pmt['invoice_number'] ?? ''));
     jsonResponse(['success' => true]);
     break;
 
