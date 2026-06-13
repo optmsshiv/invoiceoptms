@@ -7927,6 +7927,12 @@ function openPaidModal(id) {
       if (rt) rt.textContent = fmt_money(amt, sym);
       if (rr) rr.textContent = fmt_money(alreadyPaid, sym);
       if (rd) rd.textContent = fmt_money(remaining, sym);
+      // Fix: also update pct badge and progress bar on modal open
+      const openPct = amt > 0 ? Math.min(100, Math.round(alreadyPaid / amt * 100)) : 0;
+      const pctEl = document.getElementById('paid-rem-pct');
+      const barEl = document.getElementById('paid-rem-bar');
+      if (pctEl) pctEl.textContent = openPct + '%';
+      if (barEl) barEl.style.width = openPct + '%';
       const cb = document.getElementById('paid-collect-remaining');
       if (cb) cb.checked = true;
     }
@@ -8043,9 +8049,8 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    // Banner "Received" shows only already-collected cash (prevPaid).
-    // New entry (received) is shown in Remaining and breakdown — avoids double-count confusion.
-    el('paid-rem-received').textContent = fmt_money(prevPaid, sym);
+    // "Received" = all collected cash so far (prevPaid) + current entry — must match the pct display
+    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym);
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     // Breakdown footer — only visible when settlement discount is applied
     const breakdownBox  = document.getElementById('paid-rem-breakdown');
