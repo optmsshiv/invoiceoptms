@@ -7995,15 +7995,12 @@ function onPaidSettleDiscInput() {
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl   = document.getElementById('paid-amt-label-note');
 
-  // Discount is zero — clear discount UI; only recalculate banner if breakdown was previously shown
+  // Discount is zero — just clear UI and refresh, do NOT touch the amount field
   if (discAmt < 0.001) {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Only refresh banner if a discount breakdown was previously visible (user just cleared a non-zero discount)
-    // This avoids false 100% jump when switching dropdown type while discount value is already 0
-    const breakdownWasVisible = document.getElementById('paid-rem-breakdown')?.style.display !== 'none';
-    if (breakdownWasVisible) updatePaidRemaining();
+    // discount is 0 — nothing changed, do not recalculate (avoids false 100% when switching dropdown type)
     return;
   }
   // Compute remaining due (after any prior partial payments) — used in both branches
