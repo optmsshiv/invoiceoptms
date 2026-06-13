@@ -30,7 +30,7 @@ try {
         `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `type`       VARCHAR(80)     NOT NULL,
         `label`      VARCHAR(255)    NOT NULL,
-        `detail`     VARCHAR(500)    NULL,
+        `detail`     TEXT            NULL,
         `invoice_id` INT UNSIGNED    NULL,
         `user_id`    INT UNSIGNED    NULL,
         `ip`         VARCHAR(45)     NULL,
@@ -43,7 +43,7 @@ try {
 
     // Expand type column if it was created with old VARCHAR(60) definition
     try {
-        $db->exec("ALTER TABLE `activitys_log` MODIFY COLUMN `type` VARCHAR(80) NOT NULL");
+        $db->exec("ALTER TABLE `activitys_log` MODIFY COLUMN `detail` TEXT NULL");
     } catch (Exception $alterEx) { /* ignore — already correct size */ }
 
     // ── GET ──────────────────────────────────────────────────────
