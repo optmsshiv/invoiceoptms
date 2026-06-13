@@ -7988,16 +7988,24 @@ function onPaidSettleDiscInput() {
       infoEl.style.display = 'block';
     }
     if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill amount received field with corrected effAmt
+    // Auto-fill amount received field with corrected effAmt.
+    // Update if: field is empty/zero OR still shows the auto-filled remainingDue (user hasn't manually changed it)
     const amtEl = document.getElementById('paid-amt');
     const currentAmt = parseFloat(amtEl?.value) || 0;
-    if (amtEl && currentAmt < 0.01) {
+    if (amtEl && (currentAmt < 0.01 || Math.abs(currentAmt - remainingDue) < 0.01)) {
       amtEl.value = effAmt.toFixed(2);
     }
   } else {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
+    // Restore amount field to remainingDue when discount is cleared
+    const prevPaidCheck2 = STATE.payments
+      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const remainingDue2 = Math.max(0, totalAmt - prevPaidCheck2);
+    const amtEl2 = document.getElementById('paid-amt');
+    if (amtEl2) amtEl2.value = remainingDue2.toFixed(2);
   }
   updatePaidRemaining();
 }
