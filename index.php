@@ -8047,11 +8047,11 @@ function updatePaidRemaining() {
   } else {
     remBox.style.display = 'block';
     const el  = id => document.getElementById(id);
-    const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
+    // pct and Received reflect already-collected cash only — the amount field is pending input, not yet received
+    const pct = total > 0 ? Math.min(100, Math.round(prevPaid / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    // "Received" = all collected cash so far (prevPaid) + current entry — must match the pct display
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym);
-    el('paid-rem-due').textContent      = fmt_money(remaining, sym);
+    el('paid-rem-received').textContent = fmt_money(prevPaid, sym);
+    el('paid-rem-due').textContent      = fmt_money(Math.max(0, total - prevPaid), sym);
     // Breakdown footer — only visible when settlement discount is applied
     const breakdownBox  = document.getElementById('paid-rem-breakdown');
     const breakdownText = document.getElementById('paid-rem-breakdown-text');
