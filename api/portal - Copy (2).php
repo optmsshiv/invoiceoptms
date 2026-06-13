@@ -79,7 +79,7 @@ if ($method === 'GET' && !empty($_GET['token'])) {
         $lineItems = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch payments
-        $pStmt = $db->prepare('SELECT amount, payment_date, method, transaction_id, created_at FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC');
+        $pStmt = $db->prepare('SELECT amount, payment_date, method, transaction_id FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC');
         $pStmt->execute([':id' => $row['invoice_id']]);
         $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
 

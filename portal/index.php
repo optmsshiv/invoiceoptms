@@ -1366,7 +1366,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= fmt_datetime($p['payment_date'] ?? '') ?></div>
+        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?><?php if (!empty($p['created_at'])): ?><span style="font-size:10px;color:var(--muted);margin-left:4px"><?= date('H:i', strtotime($p['created_at'])) ?></span><?php endif; ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>
