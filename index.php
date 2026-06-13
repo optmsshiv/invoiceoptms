@@ -7975,12 +7975,14 @@ function onPaidSettleDiscInput() {
   const dispEl   = document.getElementById('paid-settle-disc-display');
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl = document.getElementById('paid-amt-label-note');
+  // Compute remaining due (after any prior partial payments) — used in both branches
+  const prevPaidCheck = STATE.payments
+    .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+    .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const remainingDue = Math.max(0, totalAmt - prevPaidCheck);
+
   if (discAmt > 0.001) {
-    // ✅ FIX: base effAmt on remaining due, not full invoice total
-    const prevPaidCheck = STATE.payments
-      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
-      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    const remainingDue = Math.max(0, totalAmt - prevPaidCheck);
+    // effAmt = cash client actually pays = remaining due minus written-off discount
     const effAmt = Math.max(0, remainingDue - discAmt);
     if (dispEl) { dispEl.textContent = '-' + fmt_money(discAmt, sym); dispEl.style.display = 'block'; }
     if (infoEl) {
@@ -7988,8 +7990,8 @@ function onPaidSettleDiscInput() {
       infoEl.style.display = 'block';
     }
     if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill amount received field with corrected effAmt.
-    // Update if: field is empty/zero OR still shows the auto-filled remainingDue (user hasn't manually changed it)
+    // Auto-fill: update field if empty OR still holds the modal-pre-filled remainingDue
+    // (meaning user hasn't manually typed a custom amount yet)
     const amtEl = document.getElementById('paid-amt');
     const currentAmt = parseFloat(amtEl?.value) || 0;
     if (amtEl && (currentAmt < 0.01 || Math.abs(currentAmt - remainingDue) < 0.01)) {
@@ -7999,13 +8001,9 @@ function onPaidSettleDiscInput() {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Restore amount field to remainingDue when discount is cleared
-    const prevPaidCheck2 = STATE.payments
-      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
-      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    const remainingDue2 = Math.max(0, totalAmt - prevPaidCheck2);
-    const amtEl2 = document.getElementById('paid-amt');
-    if (amtEl2) amtEl2.value = remainingDue2.toFixed(2);
+    // Discount cleared — restore field to remaining due
+    const amtEl = document.getElementById('paid-amt');
+    if (amtEl) amtEl.value = remainingDue.toFixed(2);
   }
   updatePaidRemaining();
 }
