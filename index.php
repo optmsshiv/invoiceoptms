@@ -7976,20 +7976,22 @@ function onPaidSettleDiscInput() {
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl = document.getElementById('paid-amt-label-note');
   if (discAmt > 0.001) {
-    const effAmt = Math.max(0, totalAmt - discAmt);
+    // ✅ FIX: base effAmt on remaining due, not full invoice total
+    const prevPaidCheck = STATE.payments
+      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const remainingDue = Math.max(0, totalAmt - prevPaidCheck);
+    const effAmt = Math.max(0, remainingDue - discAmt);
     if (dispEl) { dispEl.textContent = '-' + fmt_money(discAmt, sym); dispEl.style.display = 'block'; }
     if (infoEl) {
       infoEl.textContent = `Client pays ${fmt_money(effAmt, sym)} — ${fmt_money(discAmt, sym)} discount written off. Invoice will be marked Paid.`;
       infoEl.style.display = 'block';
     }
     if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill amount received ONLY if user hasn't typed an amount yet and no prior payments exist
+    // Auto-fill amount received field with corrected effAmt
     const amtEl = document.getElementById('paid-amt');
-    const prevPaidCheck = STATE.payments
-      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
-      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
     const currentAmt = parseFloat(amtEl?.value) || 0;
-    if (amtEl && prevPaidCheck < 0.01 && currentAmt < 0.01) {
+    if (amtEl && currentAmt < 0.01) {
       amtEl.value = effAmt.toFixed(2);
     }
   } else {
@@ -8022,7 +8024,7 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)} disc` : '');
+    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)}\ndisc write-off` : '');
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     const pctEl = el('paid-rem-pct');
     if (pctEl) pctEl.textContent = pct + '%';
