@@ -8000,7 +8000,7 @@ function onPaidSettleDiscInput() {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    updatePaidRemaining();
+    // discount is 0 — nothing changed, do not recalculate (avoids false 100% when switching dropdown type)
     return;
   }
   // Compute remaining due (after any prior partial payments) — used in both branches
