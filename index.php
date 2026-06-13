@@ -7868,10 +7868,6 @@ function openPaidModal(id) {
   const sdtEl = document.getElementById('paid-settle-disc-type'); if (sdtEl) sdtEl.value = 'pct';
   const sdDisp = document.getElementById('paid-settle-disc-display'); if (sdDisp) { sdDisp.style.display='none'; sdDisp.textContent=''; }
   const sdInfo = document.getElementById('paid-settle-disc-info'); if (sdInfo) { sdInfo.style.display='none'; sdInfo.textContent=''; }
-  const sdNote = document.getElementById('paid-amt-label-note'); if (sdNote) sdNote.textContent = '';
-  // Reset confirm button (may be stuck in Saving state if modal was closed mid-request)
-  const confirmBtnReset = document.getElementById('btn-confirm-paid');
-  if (confirmBtnReset) { confirmBtnReset.disabled = false; confirmBtnReset.innerHTML = '<i class="fas fa-check"></i> Confirm Payment'; }
   document.getElementById('paid-remaining-box').style.display = 'none';
   // Reset split payment panel — clear amounts to zero, hide panel
   const splitPanel = document.getElementById('split-payment-panel');
@@ -7899,9 +7895,6 @@ function openPaidModal(id) {
   // Pre-fill amount with what's still due
   document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
 
-  // Render partial banner with correct received value (must be after amount is pre-filled)
-  updatePaidRemaining();
-
   // Show already-paid + remaining in summary bar
   const remRow = document.getElementById('paid-inv-remaining-row');
   const alreadyEl = document.getElementById('paid-inv-already');
@@ -7916,10 +7909,20 @@ function openPaidModal(id) {
     }
   }
 
-  // If already partially paid, pre-check the partial checkbox then let updatePaidRemaining render correct values
+  // If already partially paid, show partial box with checkbox pre-checked
   if (alreadyPaid > 0.01 && remaining > 0.01) {
-    const cb = document.getElementById('paid-collect-remaining');
-    if (cb) cb.checked = true;
+    const rb = document.getElementById('paid-remaining-box');
+    if (rb) {
+      rb.style.display = 'block';
+      const rt = document.getElementById('paid-rem-total');
+      const rr = document.getElementById('paid-rem-received');
+      const rd = document.getElementById('paid-rem-due');
+      if (rt) rt.textContent = fmt_money(amt, sym);
+      if (rr) rr.textContent = fmt_money(alreadyPaid, sym);
+      if (rd) rd.textContent = fmt_money(remaining, sym);
+      const cb = document.getElementById('paid-collect-remaining');
+      if (cb) cb.checked = true;
+    }
   }
 
   // Summary bar
@@ -7973,12 +7976,7 @@ function onPaidSettleDiscInput() {
   const infoEl   = document.getElementById('paid-settle-disc-info');
   const noteEl = document.getElementById('paid-amt-label-note');
   if (discAmt > 0.001) {
-    // Base for auto-fill is remaining due (after previous payments), not grand total
-    const prevPaidDisc = STATE.payments
-      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
-      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    const remainingDue = Math.max(0, totalAmt - prevPaidDisc);
-    const effAmt = Math.max(0, remainingDue - discAmt);
+    const effAmt = Math.max(0, totalAmt - discAmt);
     if (dispEl) { dispEl.textContent = '-' + fmt_money(discAmt, sym); dispEl.style.display = 'block'; }
     if (infoEl) {
       infoEl.textContent = `Client pays ${fmt_money(effAmt, sym)} — ${fmt_money(discAmt, sym)} discount written off. Invoice will be marked Paid.`;
@@ -8018,7 +8016,7 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)} disc` : '');
+    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)} disc` : '');
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     const pctEl = el('paid-rem-pct');
     if (pctEl) pctEl.textContent = pct + '%';
@@ -15128,8 +15126,13 @@ function _actGroupKey(e) {
   if (t==='delete'   && l==='payment')  return 'invoice_deleted';
   if (t==='update'   && l==='invoice')  return 'invoice_edited';
   if (t==='update'   && l==='payment')  return 'payment_recorded';
-  if (t==='email_sent')                 return 'email_sent';
-  if (t==='wa_send' || t==='wa_log')    return 'reminder_sent';
+  if (t==='email_sent')                             return 'email_sent';
+  if (t==='wa_send' || t==='wa_log')                return 'reminder_sent';
+  if (t==='login'  || t==='logout')                 return t;
+  if (t==='credit_note')                            return 'credit_note';
+  if (t==='expense_added' || (t==='create' && l.includes('expense'))) return 'expense_added';
+  if (t==='status_changed' || (t==='update' && l.includes('status'))) return 'status_changed';
+  // PHP generic actions with no entity match — return as-is so _actTypeInfo can style them
   return t;
 }
 
@@ -15156,7 +15159,7 @@ function _groupActivityEvents(events) {
     const eInv  = _extractInvRef(e);
     const match = groups.find(g => {
       if (g.key !== eKey) return false;
-      if (Math.abs(g.time - eTime) > 90000) return false;
+      if (Math.abs(g.time - eTime) > 30000) return false; // 30s window — JS+PHP fire within 1-2s
       if (eInv && g.invoiceRef && eInv !== g.invoiceRef) return false;
       return true;
     });
@@ -15231,14 +15234,16 @@ function _renderActivityTimeline(reset) {
     const multi   = g.events.length > 1;
     const gid     = `actg-${gi}`;
 
-    // Build subtitle: invoice ref + client name (no detail, no snapshot)
-    const invRef  = _extractInvRef(rep);
-    const client  = g.events.map(e => {
-      // JS events store client in label; PHP events store client_name in snapshot
-      if ((e.label||'').match(/^[A-Z][a-z]/)) return e.label;
-      const snap = (e.detail||'').match(/\| ?SNAPSHOT:/) ? (() => { try { return JSON.parse(((e.detail||'').split(/\| ?SNAPSHOT:/)[1]||'')); } catch(x){return null;} })() : null;
-      return snap?.client_name || '';
-    }).find(c=>c) || '';
+    // Build subtitle: invoice ref + client name only — no raw detail
+    const invRef = _extractInvRef(rep);
+    const client = g.events.map(e => {
+      // JS events: label holds client name (starts with uppercase word, 3+ chars)
+      if ((e.label||'').match(/^[A-Z][a-zA-Z ]{2,}/)) return e.label;
+      // PHP events: extract client_name from SNAPSHOT JSON
+      const si = (e.detail||'').indexOf('|SNAPSHOT:');
+      if (si > -1) { try { const p = JSON.parse((e.detail||'').substring(si+10)); if (p?.client_name) return p.client_name; } catch(x){} }
+      return '';
+    }).find(c => c) || '';
     const subtitle = [invRef, client].filter(Boolean).join(' · ');
 
     let dateHeader = '';
@@ -15253,15 +15258,18 @@ function _renderActivityTimeline(reset) {
 
     // Build child rows for each event in group
     const children = multi ? g.events.map(e => {
-      const rawDetail  = (e.detail||'').replace(/ ?\| ?SNAPSHOT:.*/s, '').trim();
-      const snapJson   = (e.detail||'').match(/\| ?SNAPSHOT:/) ? ((e.detail||'').split(/\| ?SNAPSHOT:/)[1]||'') : '';
+      const _snapIdx   = (e.detail||'').indexOf('|SNAPSHOT:');
+      const rawDetail  = _snapIdx > -1 ? (e.detail||'').substring(0, _snapIdx).trim() : (e.detail||'').trim();
+      const snapRaw    = _snapIdx > -1 ? (e.detail||'').substring(_snapIdx + 10) : '';
+      const snapJson   = snapRaw ? (() => { try { return JSON.stringify(JSON.parse(snapRaw), null, 2); } catch(x) { return snapRaw; } })() : '';
       const snapId     = `snap-${e.id}`;
       const src        = ['create','delete','update','email_sent','wa_send','login','logout'].includes(e.type) ? 'PHP' : 'JS';
       const childTime  = e.ts ? new Date(e.ts).toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit'}) : '';
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 14px 8px 52px;border-bottom:1px solid var(--border)">
-        <div style="width:6px;height:6px;border-radius:50%;background:${info.col};flex-shrink:0;margin-top:5px"></div>
+      const eInfo = _actTypeInfo(_actGroupKey(e));
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 14px 8px 14px;border-bottom:1px solid var(--border)">
+        <div style="width:26px;height:26px;border-radius:6px;background:${eInfo.bg};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${eInfo.icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">${e.type||''} · ${e.label||''} · <span style="opacity:.7">${src}</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">${e.type||''} · ${e.label||''} · <span style="background:${src==='PHP'?'#e3f2fd':'#f3e5f5'};color:${src==='PHP'?'#1565C0':'#6A1B9A'};padding:1px 5px;border-radius:4px;font-size:10px;font-weight:600">${src}</span></div>
           <div style="font-size:12px;color:var(--text)">${rawDetail||'—'}</div>
           ${snapJson ? `<span onclick="document.getElementById('${snapId}').style.display=document.getElementById('${snapId}').style.display==='none'?'block':'none';this.textContent=this.textContent.startsWith('+')?'− hide snapshot':'+ show snapshot'" style="font-size:11px;color:var(--primary);cursor:pointer;margin-top:3px;display:inline-block">+ show snapshot</span>
           <pre id="${snapId}" style="display:none;font-size:10px;color:var(--muted);background:var(--hover);padding:6px 8px;border-radius:6px;margin-top:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all">${snapJson}</pre>` : ''}
@@ -15272,7 +15280,7 @@ function _renderActivityTimeline(reset) {
 
     // For single events show a clean detail line (no snapshot)
     const singleDetail = !multi && rep.detail ? (() => {
-      const d = (rep.detail||'').replace(/ ?\| ?SNAPSHOT:.*/s, '').trim();
+      const _sd = (rep.detail||'').indexOf('|SNAPSHOT:'); const d = _sd > -1 ? (rep.detail||'').substring(0, _sd).trim() : (rep.detail||'').trim();
       return d ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</div>` : '';
     })() : '';
     const childrenBlock = multi ? `<div id="${gid}-children" style="display:none;border-top:1px solid var(--border)">${children}</div>` : '';
