@@ -7892,8 +7892,10 @@ function openPaidModal(id) {
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
   const remaining = Math.max(0, amt - alreadyPaid);
 
-  // Pre-fill amount with what's still due
-  document.getElementById('paid-amt').value = (remaining > 0 ? remaining : amt).toFixed(2);
+  // Pre-fill amount with what's still due; clear user-edited flag so discount can auto-fill
+  const amtFieldEl = document.getElementById('paid-amt');
+  amtFieldEl.value = (remaining > 0 ? remaining : amt).toFixed(2);
+  amtFieldEl.dataset.userEdited = '';
 
   // Show already-paid + remaining in summary bar
   const remRow = document.getElementById('paid-inv-remaining-row');
@@ -7953,6 +7955,9 @@ function onPaidAmtInput() {
     renderSplitBreakdown();
     return;
   }
+  // Mark field as manually edited — discount auto-fill will not override a user-typed value
+  const amtEl = document.getElementById('paid-amt');
+  if (amtEl) amtEl.dataset.userEdited = 'true';
   updatePaidRemaining();
 }
 
@@ -7990,20 +7995,20 @@ function onPaidSettleDiscInput() {
       infoEl.style.display = 'block';
     }
     if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill: update field if empty OR still holds the modal-pre-filled remainingDue
-    // (meaning user hasn't manually typed a custom amount yet)
+    // Auto-fill: update field unless user has manually typed a custom amount
     const amtEl = document.getElementById('paid-amt');
-    const currentAmt = parseFloat(amtEl?.value) || 0;
-    if (amtEl && (currentAmt < 0.01 || Math.abs(currentAmt - remainingDue) < 0.01)) {
+    if (amtEl && amtEl.dataset.userEdited !== 'true') {
       amtEl.value = effAmt.toFixed(2);
     }
   } else {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Discount cleared — restore field to remaining due
+    // Discount cleared — restore field to remaining due (only if user hasn't manually edited it)
     const amtEl = document.getElementById('paid-amt');
-    if (amtEl) amtEl.value = remainingDue.toFixed(2);
+    if (amtEl && amtEl.dataset.userEdited !== 'true') {
+      amtEl.value = remainingDue.toFixed(2);
+    }
   }
   updatePaidRemaining();
 }
