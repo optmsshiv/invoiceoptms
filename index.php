@@ -7983,9 +7983,15 @@ function onPaidSettleDiscInput() {
       infoEl.style.display = 'block';
     }
     if (noteEl) noteEl.textContent = `(after ${fmt_money(discAmt, sym)} settlement discount)`;
-    // Auto-fill amount received with the effective payable amount
+    // Auto-fill amount received ONLY if user hasn't typed an amount yet and no prior payments exist
     const amtEl = document.getElementById('paid-amt');
-    if (amtEl) amtEl.value = effAmt.toFixed(2);
+    const prevPaidCheck = STATE.payments
+      .filter(p => p.invoice_id && String(p.invoice_id) === mid)
+      .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const currentAmt = parseFloat(amtEl?.value) || 0;
+    if (amtEl && prevPaidCheck < 0.01 && currentAmt < 0.01) {
+      amtEl.value = effAmt.toFixed(2);
+    }
   } else {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
