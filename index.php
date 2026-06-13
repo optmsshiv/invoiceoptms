@@ -15131,21 +15131,36 @@ function _actGroupKey(e) {
   return t;
 }
 
-// Groups events that happened within 60 seconds and belong to same invoice/action
+// Extract invoice/quote number from any field on the event
+function _extractInvRef(e) {
+  const sources = [
+    e.invoiceId ? String(e.invoiceId) : '',
+    e.label||'',
+    (e.detail||'').split('|SNAPSHOT:')[0]
+  ];
+  for (const s of sources) {
+    const m = s.match(/(?:INV|QT|OT)-[\w-]+/);
+    if (m) return m[0];
+  }
+  return '';
+}
+
+// Groups events that happened within 90 seconds with same action+invoice
 function _groupActivityEvents(events) {
   const groups = [];
   events.forEach(e => {
     const eTime = e.ts ? new Date(e.ts).getTime() : 0;
     const eKey  = _actGroupKey(e);
-    const eInv  = e.invoiceId || (e.detail||'').match(/INV-[\w-]+|QT-[\w-]+/)?.[0] || '';
-    // Try to find an existing group within 60s with same key+invoice
-    const match = groups.find(g =>
-      g.key === eKey &&
-      g.invoiceRef === eInv &&
-      Math.abs(g.time - eTime) <= 60000
-    );
+    const eInv  = _extractInvRef(e);
+    const match = groups.find(g => {
+      if (g.key !== eKey) return false;
+      if (Math.abs(g.time - eTime) > 90000) return false;
+      if (eInv && g.invoiceRef && eInv !== g.invoiceRef) return false;
+      return true;
+    });
     if (match) {
       match.events.push(e);
+      if (!match.invoiceRef && eInv) match.invoiceRef = eInv;
     } else {
       groups.push({ key: eKey, invoiceRef: eInv, time: eTime, events: [e] });
     }
@@ -15205,10 +15220,15 @@ function _renderActivityTimeline(reset) {
     const multi   = g.events.length > 1;
     const gid     = `actg-${gi}`;
 
-    // Build subtitle: client name + primary detail (strip SNAPSHOT part)
-    const primaryDetail = (rep.detail||'').split('|SNAPSHOT:')[0].trim();
-    const client = (rep.label||'').match(/^[A-Z]/) ? rep.label : '';
-    const subtitle = [client, primaryDetail].filter(Boolean).join(' · ');
+    // Build subtitle: invoice ref + client name (no detail, no snapshot)
+    const invRef  = _extractInvRef(rep);
+    const client  = g.events.map(e => {
+      // JS events store client in label; PHP events store client_name in snapshot
+      if ((e.label||'').match(/^[A-Z][a-z]/)) return e.label;
+      const snap = (e.detail||'').includes('|SNAPSHOT:') ? (() => { try { return JSON.parse((e.detail||'').split('|SNAPSHOT:')[1]); } catch(x){return null;} })() : null;
+      return snap?.client_name || '';
+    }).find(c=>c) || '';
+    const subtitle = [invRef, client].filter(Boolean).join(' · ');
 
     let dateHeader = '';
     if (dateStr !== lastDate) {
@@ -15239,6 +15259,11 @@ function _renderActivityTimeline(reset) {
       </div>`;
     }).join('') : '';
 
+    // For single events show a clean detail line (no snapshot)
+    const singleDetail = !multi && rep.detail ? (() => {
+      const d = (rep.detail||'').split('|SNAPSHOT:')[0].trim();
+      return d ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</div>` : '';
+    })() : '';
     const childrenBlock = multi ? `<div id="${gid}-children" style="display:none;border-top:1px solid var(--border)">${children}</div>` : '';
     const chevron = multi ? `<i class="fas fa-chevron-down" id="${gid}-chev" style="font-size:11px;color:var(--muted);transition:transform .2s;flex-shrink:0"></i>` : '';
     const countBadge = multi ? `<span style="font-size:11px;background:var(--hover);color:var(--muted);border-radius:10px;padding:1px 7px;font-weight:600">${g.events.length} events</span>` : '';
@@ -15255,6 +15280,7 @@ function _renderActivityTimeline(reset) {
             ${countBadge}
           </div>
           <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${subtitle}</div>
+          ${singleDetail}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="font-size:11px;color:var(--muted);white-space:nowrap">${timeStr}</div>
