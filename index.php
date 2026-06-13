@@ -8016,7 +8016,7 @@ function updatePaidRemaining() {
     const el  = id => document.getElementById(id);
     const pct = total > 0 ? Math.min(100, Math.round(totalCovered / total * 100)) : 0;
     el('paid-rem-total').textContent    = fmt_money(total, sym);
-    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? `\n(+${fmt_money(settleDisc, sym)} disc write-off)` : '');
+    el('paid-rem-received').textContent = fmt_money(prevPaid + received, sym) + (settleDisc > 0 ? ` + ${fmt_money(settleDisc, sym)} disc` : '');
     el('paid-rem-due').textContent      = fmt_money(remaining, sym);
     const pctEl = el('paid-rem-pct');
     if (pctEl) pctEl.textContent = pct + '%';
