@@ -741,17 +741,20 @@ body.src-email .card{border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 
 /* Hide interactive / WA-only elements */
 body.src-email .sticky-bar,
-body.src-email .upi-pay-btns,
 body.src-email .wa-contact-btn,
 body.src-email .lang-toggle,
 body.src-email .ive-paid-btn,
 body.src-email .partial-pay-box,
-body.src-email .qr-section,
 body.src-email .wa-dot { display:none !important }
 
-/* Email portal: show UPI ID box so client can copy and pay manually */
+/* Email portal: show UPI ID box + copy button always */
 body.src-email .upi-box { display:flex !important }
 body.src-email .copy-btn { display:inline-flex !important }
+
+/* Email portal on mobile: show UPI app buttons (GPay/PhonePe/Paytm) */
+@media (max-width:599px) {
+  body.src-email .upi-pay-btns { display:flex !important }
+}
 
 /* Prominent Download PDF button for email */
 body.src-email .pdf-btn{
