@@ -7866,6 +7866,12 @@ async function sendEmailForClient(email, name, num, amount, due, service, d) {
 function markFormPaid() { openPaidModal(null); }
 function openPaidModal(id) {
   STATE.activeMenuInvoiceId = String(id || STATE.activeMenuInvoiceId);
+
+  // ── ADD THIS: reset confirm button in case previous payment left it in loading state ──
+  const confirmBtn = document.getElementById('btn-confirm-paid');
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Payment'; }
+
+  // Reset payment form
   document.getElementById('paid-date').value = fmt_date(new Date());
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
