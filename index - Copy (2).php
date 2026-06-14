@@ -6124,125 +6124,65 @@ function previousDueBlock(d, accentColor, bgColor, borderColor) {
   if (!outstanding.length) return '';
 
   const sym = d.sym || (STATE.settings && STATE.settings.currency) || '₹';
+  const accent = accentColor || '#92400E';
+  const bg     = bgColor     || '#FFFBEB';
+  const border = borderColor || '#FCD34D';
 
   // Calculate remaining balance for each invoice
   const rows = outstanding.map(inv => {
     const invId    = String(inv.id || '');
     const totalPaid = (STATE.payments || [])
-      .filter(p => String(p.invoice_id) === invId && !p.invoice_deleted)
-      .reduce((s, p) => s + parseFloat(p.amount || 0) + parseFloat(p.settlement_discount || 0), 0);
+      .filter(p => String(p.invoice_id) === invId)
+      .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     const grand    = parseFloat(inv.amount || inv.grand_total || 0);
     const balance  = Math.max(0, grand - totalPaid);
     const num      = inv.num || inv.invoice_number || '—';
     const due      = inv.due || inv.due_date || '';
-    const dueDate  = due ? new Date(due) : null;
-    const today    = new Date(); today.setHours(0,0,0,0);
-    const diffDays = dueDate ? Math.round((dueDate - today) / 86400000) : null;
-    const dueF     = dueDate ? dueDate.toLocaleDateString(_moneyLocale(), {day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const status   = inv.status;
-
-    // Per-status colors
-    let badgeBg, badgeColor, rowBg, rowBorder, amountColor, dueLabelColor, dueLabel;
-    if (status === 'Overdue') {
-      badgeBg = '#FEE2E2'; badgeColor = '#B91C1C';
-      rowBg = '#FFF5F5'; rowBorder = '0.5px solid #FCA5A5';
-      amountColor = '#B91C1C';
-      dueLabelColor = '#B91C1C';
-      dueLabel = diffDays !== null ? `${Math.abs(diffDays)} day${Math.abs(diffDays)!==1?'s':''} overdue` : '';
-    } else if (status === 'Partial') {
-      badgeBg = '#FEF3C7'; badgeColor = '#B45309';
-      rowBg = '#FAFAF9'; rowBorder = '0.5px solid #E5E7EB';
-      amountColor = '#1A1A2E';
-      dueLabelColor = '#D97706';
-      dueLabel = diffDays !== null && diffDays >= 0 ? `${diffDays} day${diffDays!==1?'s':''} remaining` : (diffDays < 0 ? `${Math.abs(diffDays)} day${Math.abs(diffDays)!==1?'s':''} overdue` : '');
-    } else {
-      badgeBg = '#FEF3C7'; badgeColor = '#92400E';
-      rowBg = '#FAFAF9'; rowBorder = '0.5px solid #E5E7EB';
-      amountColor = '#1A1A2E';
-      dueLabelColor = '#D97706';
-      dueLabel = diffDays !== null && diffDays >= 0 ? `${diffDays} day${diffDays!==1?'s':''} remaining` : (diffDays < 0 ? `${Math.abs(diffDays)} day${Math.abs(diffDays)!==1?'s':''} overdue` : '');
-    }
-
-    // Progress bar for Partial
-    const progressBar = status === 'Partial' ? (() => {
-      const pct = grand > 0 ? Math.min(100, Math.round((totalPaid / grand) * 100)) : 0;
-      return `
-        <div style="margin-top:8px">
-          <div style="height:4px;background:#E5E7EB;border-radius:99px;overflow:hidden">
-            <div style="width:${pct}%;height:100%;background:#D97706;border-radius:99px"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:9px;color:#94A3B8;margin-top:3px">
-            <span>${sym}${totalPaid.toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2})} paid</span>
-            <span style="color:#D97706">${sym}${balance.toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2})} remaining</span>
-          </div>
-        </div>`;
-    })() : '';
-
-    // Amount display — Partial shows balance + "balance of grand"
-    const amountHTML = status === 'Partial'
-      ? `<div style="text-align:right">
-           <div style="font-size:13px;font-weight:700;font-family:monospace;color:${amountColor}">${fmt_money(balance, sym)}</div>
-           <div style="font-size:9px;color:#94A3B8">balance of ${fmt_money(grand, sym)}</div>
-         </div>`
-      : `<span style="font-size:13px;font-weight:700;font-family:monospace;color:${amountColor}">${fmt_money(balance, sym)}</span>`;
-
-    return { html: `
-      <div style="background:${rowBg};border-radius:8px;padding:10px 12px;margin-bottom:8px;border:${rowBorder}">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:10px;background:${badgeBg};color:${badgeColor};padding:2px 7px;border-radius:4px;font-weight:700">${status.toUpperCase()}</span>
-            <span style="font-size:12px;font-weight:700;font-family:monospace;color:#0F172A">#${num}</span>
-          </div>
-          ${amountHTML}
-        </div>
-        ${progressBar}
-        <div style="margin-top:6px;font-size:11px;color:#64748B;display:flex;gap:16px;align-items:center">
-          <span>&#128197; Due ${dueF}</span>
-          ${dueLabel ? `<span style="color:${dueLabelColor};font-weight:600">${dueLabel}</span>` : ''}
-        </div>
-      </div>`, balance };
+    const dueF     = due ? new Date(due).toLocaleDateString(_moneyLocale(), {day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const isOverdue= inv.status === 'Overdue';
+    const statusColor = isOverdue ? '#DC2626' : inv.status === 'Partial' ? '#D97706' : '#92400E';
+    return { num, dueF, balance, statusColor, status: inv.status };
   });
 
   const totalOutstanding = rows.reduce((s, r) => s + r.balance, 0);
-  // If current invoice is unpaid, add it to total
-  const grandToAdd = d.status !== 'Paid' ? (parseFloat(d.grand) || 0) : 0;
-  const totalPayable = totalOutstanding + grandToAdd;
 
-  // Header + bar color: red if any overdue, else amber/brown
-  const hasOverdue = outstanding.some(inv => inv.status === 'Overdue');
-  const headerColor  = hasOverdue ? '#B91C1C' : '#92400E';
-  const badgeCountBg = hasOverdue ? '#FEE2E2' : '#FEF3C7';
-  const outerBorder  = hasOverdue ? '0.5px solid #FCA5A5' : '0.5px solid #FCD34D';
-  const barBg        = hasOverdue ? '#B91C1C' : '#92400E';
-  const dividerColor = hasOverdue ? '#FCA5A5' : '#FCD34D';
-
-  const rowsHTML = rows.map(r => r.html).join('');
-
-  // This Invoice row — only if current invoice is not paid
-  const thisInvoiceRow = d.status !== 'Paid' ? `
-    <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748B;padding:3px 0">
-      <span>This Invoice</span>
-      <span style="font-family:monospace;font-weight:600">${fmt_money(d.grand || 0, sym)}</span>
-    </div>` : '';
-
-  const invoiceCount = rows.length + (d.status !== 'Paid' ? 1 : 0);
+  const rowsHTML = rows.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:0.5px solid ${border};font-size:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:monospace;font-weight:700;color:#0F172A">#${r.num}</span>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;color:${r.statusColor}">${r.status}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <span style="color:#64748B">Due: ${r.dueF}</span>
+        <span style="font-family:monospace;font-weight:700;color:${r.statusColor}">${fmt_money(r.balance, sym)}</span>
+      </div>
+    </div>`).join('');
 
   return `
-  <div style="margin:10px 0 0;padding:14px 16px;background:#fff;border-radius:10px;border:${outerBorder}">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${headerColor}">⚠ Other Outstanding Invoices</span>
-      <span style="font-size:11px;background:${badgeCountBg};color:${headerColor};padding:2px 8px;border-radius:6px;font-weight:700">${rows.length} invoice${rows.length>1?'s':''}</span>
+  <div style="margin:10px 0 0;padding:12px 14px;background:${bg};border-radius:8px;border:1.5px solid ${border};border-left:4px solid ${accent}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${accent}">⚠ Other Outstanding Invoices</span>
+      <span style="font-size:9px;color:#94A3B8">${rows.length} invoice${rows.length>1?'s':''}</span>
     </div>
     ${rowsHTML}
-    <div style="border-top:0.5px solid ${dividerColor};padding-top:10px">
-      ${thisInvoiceRow}
-      <div style="display:flex;justify-content:space-between;align-items:center;background:${barBg};border-radius:6px;padding:7px 10px;${thisInvoiceRow ? 'margin-top:5px' : ''}">
-        <span style="font-size:11px;font-weight:800;color:#fff">Total Payable</span>
-        <span style="font-family:monospace;font-size:13px;font-weight:800;color:#fff">${fmt_money(totalPayable, sym)}</span>
+    <div style="margin-top:6px;padding-top:6px;border-top:1.5px solid ${border}">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;color:#64748B">
+        <span>Previous Outstanding</span>
+        <span style="font-family:monospace;font-weight:600">${fmt_money(totalOutstanding, sym)}</span>
       </div>
-      <div style="margin-top:6px;font-size:10px;color:#94A3B8;text-align:center">Please clear this at your earliest convenience. 🙏</div>
+     ${d.status !== 'Paid' ? `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;color:#64748B">
+        <span>This Invoice</span>
+        <span style="font-family:monospace;font-weight:600">${fmt_money(d.grand || 0, sym)}</span>
+      </div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-top:5px;border-radius:6px;background:${accent}">
+        <span style="font-size:11px;font-weight:800;color:#fff">Total Payable</span>
+        <span style="font-family:monospace;font-size:13px;font-weight:800;color:#fff">${fmt_money(totalOutstanding + (d.status !== 'Paid' ? (d.grand || 0) : 0), sym)}</span>
+      </div>
+      <div style="margin-top:6px;font-size:9px;color:#94A3B8;line-height:1.7">
+        * Includes ${rows.length + (d.status !== 'Paid' ? 1 : 0)} separate invoice${(rows.length + (d.status !== 'Paid' ? 1 : 0)) > 1 ? 's' : ''}. Please reference individual invoice numbers when paying.
+      </div>
     </div>
-    <div style="margin-top:8px;font-size:9px;color:#94A3B8">* Includes ${invoiceCount} separate invoice${invoiceCount>1?'s':''}. Please reference invoice numbers when paying.</div>
   </div>`;
 }
 
