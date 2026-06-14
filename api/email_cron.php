@@ -49,6 +49,7 @@ $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? $cfg['email_followup_days'] ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? $cfg['email_max_followup']  ?? 3));
 
+
 // ── Send-time guard ───────────────────────────────────────────────
 // Only applies if send_hour column exists in reminder_settings.
 // If column missing (migration not run yet), skip guard and always run.
@@ -131,7 +132,6 @@ if (!$portalBase || $portalBase === '/') {
 
 // ── Load template from DB (uses `enabled`, not `is_active`) ─────
 function getCronTemplate($db, string $type): array {
-    // FIX: column is `enabled`, not `is_active`
     $stmt = $db->prepare("SELECT subject, body FROM email_templates WHERE type=? AND enabled=1 LIMIT 1");
     $stmt->execute([$type]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -170,7 +170,7 @@ Thank you,
   Amount Due : {amount}
   Due Date   : {due_date}
 
-Please arrange payment immediately.
+Please pay immediately.
 
 Pay via UPI: {upi}
 
@@ -340,10 +340,10 @@ function cronSendEmail(array $smtp, string $to, string $toName, string $subject,
 
 // ── Log sent email ───────────────────────────────────────────────
 // FIX: only inserts columns that actually exist in email_logs table
-function cronLogEmail($db, int $invId, string $type, string $to, string $subject, bool $ok, string $error = ''): void {
+function cronLogEmail($db, int $invId, string $type, string $to, string $subject, bool $ok, string $error = '', string $toName = ''): void {
     try {
-        $db->prepare("INSERT INTO email_logs (invoice_id, type, to_email, subject, status, error_msg, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())")
-           ->execute([$invId ?: null, $type, $to, $subject, $ok ? 'sent' : 'failed', $error ?: null]);
+        $db->prepare("INSERT INTO email_logs (invoice_id, type, to_email, to_name, subject, status, error_msg, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())")
+           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $ok ? 'sent' : 'failed', $error ?: null]);
     } catch (Exception $e) {
         error_log('cronLogEmail: ' . $e->getMessage());
     }
@@ -561,7 +561,7 @@ if ($autoRemind) {
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'reminder');
             $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
-            cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             $log[] = ($ok ? '✅' : '❌') . " Reminder → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
         } else {
             // Multiple invoices: one consolidated email with invoice table
@@ -575,7 +575,7 @@ This is a friendly reminder that you have " . count($eligible) .
             $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
             $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
-                cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+                cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             }
             $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
             $log[] = ($ok ? '✅' : '❌') . " Reminder (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
@@ -621,7 +621,7 @@ if ($autoRemind && $onDue) {
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'reminder');
             $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
-            cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+            cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             $log[] = ($ok ? '✅' : '❌') . " Due Today → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
         } else {
             $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
@@ -633,7 +633,7 @@ This is a reminder that you have " . count($eligible) .
             $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
             $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
-                cronLogEmail($db, (int)$inv['id'], 'reminder', $group['email'], $subj, $ok);
+                cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             }
             $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
             $log[] = ($ok ? '✅' : '❌') . " Due Today (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
@@ -684,7 +684,7 @@ if ($autoOverdue) {
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'overdue');
             $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
-            cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok);
+            cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok, '', $group['name']);
             $log[] = ($ok ? '✅' : '❌') . " Overdue → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
         } else {
             $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
@@ -698,7 +698,7 @@ You have " . count($eligible) .
             $html  = emailBuildConsolidatedHTML($group['name'], 'overdue', $tableData, $company, $intro);
             $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
-                cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok);
+                cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok, '', $group['name']);
             }
             $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
             $log[] = ($ok ? '✅' : '❌') . " Overdue (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
@@ -761,7 +761,7 @@ if ($autoFollowup) {
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'followup');
             $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
-            cronLogEmail($db, $invId, 'followup', $group['email'], $subj, $ok);
+            cronLogEmail($db, $invId, 'followup', $group['email'], $subj, $ok, '', $group['name']);
             $log[] = ($ok ? '✅' : '❌') . " Follow-up #" . ($totalSent + 1) . " → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
         } else {
             $tableData = emailBuildInvoiceTable($db, $eligible, $company, $portalBase);
@@ -775,7 +775,7 @@ We are following up on " . count($eligible) .
             $html  = emailBuildConsolidatedHTML($group['name'], 'followup', $tableData, $company, $intro);
             $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
-                cronLogEmail($db, (int)$inv['id'], 'followup', $group['email'], $subj, $ok);
+                cronLogEmail($db, (int)$inv['id'], 'followup', $group['email'], $subj, $ok, '', $group['name']);
             }
             $invNums = implode(', ', array_map(fn($i) => '#'.($i['invoice_number']??''), $eligible));
             $log[] = ($ok ? '✅' : '❌') . " Follow-up (consolidated) → {$group['name']} — {$invNums} — Total: {$tableData['total_fmt']}";
@@ -837,11 +837,8 @@ if ($autoRecurring) {
                     $lines[] = "  #{$p['invoice_number']} — {$sym}" . number_format($pAmt, 2) . " ({$p['status']}) Due: {$p['due_date']}";
                 }
                 $outstandingDues =
-                    "Previous Outstanding Dues:
-" .
-                    implode("
-", $lines) . "
-" .
+                    "Previous Outstanding Dues:" .
+                    implode("", $lines) . "" .
                     "Total Payable (all invoices): " . ($inv['currency'] ?? '₹') . number_format($totalPayable, 2);
             }
         } catch (Exception $e) {}
@@ -855,7 +852,7 @@ if ($autoRecurring) {
         $html = cronBuildHTML($body, 'recurring');
 
         $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
-        cronLogEmail($db, $invId, 'recurring', $inv['c_email'], $subj, $ok);
+        cronLogEmail($db, $invId, 'recurring', $inv['c_email'], $subj, $ok, '', $inv['client_name'] ?? '');
         $log[] = ($ok ? '✅' : '❌') . " Recurring → {$inv['client_name']} ({$inv['c_email']}) — #{$inv['invoice_number']}";
         $sent++;
     }
