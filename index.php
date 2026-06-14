@@ -6170,16 +6170,17 @@ function previousDueBlock(d, accentColor, bgColor, borderColor) {
         <span>Previous Outstanding</span>
         <span style="font-family:monospace;font-weight:600">${fmt_money(totalOutstanding, sym)}</span>
       </div>
+     ${d.status !== 'Paid' ? `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px;color:#64748B">
         <span>This Invoice</span>
         <span style="font-family:monospace;font-weight:600">${fmt_money(d.grand || 0, sym)}</span>
-      </div>
+      </div>` : ''}
       <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-top:5px;border-radius:6px;background:${accent}">
         <span style="font-size:11px;font-weight:800;color:#fff">Total Payable</span>
-        <span style="font-family:monospace;font-size:13px;font-weight:800;color:#fff">${fmt_money(totalOutstanding + (d.grand || 0), sym)}</span>
+        <span style="font-family:monospace;font-size:13px;font-weight:800;color:#fff">${fmt_money(totalOutstanding + (d.status !== 'Paid' ? (d.grand || 0) : 0), sym)}</span>
       </div>
       <div style="margin-top:6px;font-size:9px;color:#94A3B8;line-height:1.7">
-        * Includes ${rows.length + 1} separate invoice${rows.length + 1 > 1 ? 's' : ''}. Please reference individual invoice numbers when paying.
+        * Includes ${rows.length + (d.status !== 'Paid' ? 1 : 0)} separate invoice${(rows.length + (d.status !== 'Paid' ? 1 : 0)) > 1 ? 's' : ''}. Please reference individual invoice numbers when paying.
       </div>
     </div>
   </div>`;
