@@ -48,6 +48,12 @@ try {
 $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? $cfg['email_remind_days']   ?? 3));
 $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? $cfg['email_followup_days'] ?? 7));
 $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? $cfg['email_max_followup']  ?? 3));
+$remChannel   = $remSettings['channel'] ?? 'whatsapp'; // FIX: was 'email', must match wa_cron default
+// If reminder_settings.channel is 'whatsapp', email cron should do nothing
+if ($remChannel === 'whatsapp') {
+    echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to whatsapp-only. Email cron skipping.\n";
+    exit;
+}
 
 // ── Send-time guard ───────────────────────────────────────────────
 // Only applies if send_hour column exists in reminder_settings.
