@@ -368,6 +368,30 @@ canvas { max-width: 100% !important; }
 .cal-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 
 /* Dashboard Recent */
+/* WA queued pill in topbar */
+.wa-queued-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 500;
+  padding: 5px 11px; border-radius: 99px;
+  background: #E8F5E9; color: #2E7D32;
+  border: 1px solid #A5D6A7; cursor: pointer;
+  white-space: nowrap; transition: background 0.15s;
+}
+.wa-queued-pill:hover { background: #C8E6C9; }
+.wa-queued-pill i { font-size: 13px; }
+
+/* Recent activity action buttons */
+.dri-actions { display: flex; gap: 5px; margin-top: 5px; opacity: 0; transition: opacity 0.15s; }
+.dash-recent-item:hover .dri-actions { opacity: 1; }
+.dri-act-btn {
+  font-size: 10px; padding: 3px 8px; border-radius: 6px; border: none;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 3px; font-weight: 500;
+}
+.dri-act-btn.wa  { background: #E8F5E9; color: #2E7D32; }
+.dri-act-btn.view { background: #E3F2FD; color: #1565C0; }
+.dri-act-btn.wa:hover   { background: #C8E6C9; }
+.dri-act-btn.view:hover { background: #BBDEFB; }
+
 .dash-recent-item {
   display: flex; align-items: center; gap: 12px; padding: 10px 0;
   border-bottom: 1px solid var(--border); font-size: 13px;
@@ -1278,6 +1302,12 @@ const SERVER = {
         <div class="search-results" id="searchResults"></div>
       </div>
       <button class="topbar-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
+      <!-- WA Reminders Queued pill -->
+      <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="showPage('reminders',null)" title="WA reminders queued">
+        <i class="fab fa-telegram"></i>
+        <span id="waQueuedCount">0</span> WA reminders queued
+      </button>
+
       <div class="notif-wrap" style="position:relative">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)">
           <i class="fas fa-bell"></i>
@@ -4846,18 +4876,21 @@ function renderDashRecent() {
     const pmt = STATE.payments.find(p=>p.inv===inv.num);
     const pmtTag = pmt ? `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:var(--teal-bg);color:var(--teal);font-weight:700;margin-left:4px">${pmt.method.split(' ')[0]}</span>` : '';
     const df = d => d ? fmt_date_l(d,{day:'2-digit',month:'short'}) : '';
-    return `<div class="dash-recent-item">
+    const canSendWA = ['Pending','Overdue','Partial'].includes(inv.status);
+    const waBtn = canSendWA ? `<button class="dri-act-btn wa" onclick="event.stopPropagation();openWAModal('${inv.num}')"><i class="fab fa-whatsapp"></i> Send WA</button>` : '';
+    return `<div class="dash-recent-item" style="cursor:pointer" onclick="showPage('view','${inv.num}')">
       <div class="dri-avatar" style="background:${c.color}">${isValidImg(c.image)?`<img src="${c.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`:initials}</div>
       <div class="dri-info">
         <div class="dri-name">${inv.num}${pmtTag}</div>
         <div class="dri-meta">${c.name} · ${inv.service}</div>
         <div class="dri-meta" style="margin-top:1px;font-size:10px"><i class="fas fa-calendar-alt" style="color:var(--muted2);width:10px"></i> ${df(inv.issued)} &nbsp;·&nbsp; Due: <span style="color:${inv.status==='Overdue'?'var(--red)':'inherit'}">${df(inv.due)}</span></div>
+        <div class="dri-actions">${waBtn}<button class="dri-act-btn view" onclick="event.stopPropagation();showPage('view','${inv.num}')"><i class="fas fa-eye"></i> View</button></div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div class="dri-amount">${fmt_money(inv.amount)}</div>
         <span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span>
       </div>
-    </div></div>`;
+    </div>`;
   }).join('');
 }
 
@@ -14259,6 +14292,13 @@ function _buildReminderQueue() {
   // Update badge
   const badge = document.getElementById('badge-reminders');
   if (badge) { badge.textContent=queue.length; badge.style.display=queue.length?'':'none'; }
+  // Update topbar WA queued pill
+  const waQueuedPill  = document.getElementById('waQueuedPill');
+  const waQueuedCount = document.getElementById('waQueuedCount');
+  if (waQueuedPill && waQueuedCount) {
+    waQueuedCount.textContent = queue.length;
+    waQueuedPill.style.display = queue.length ? 'inline-flex' : 'none';
+  }
 
   // ── Stats bar ────────────────────────────────────────────────
   const statsEl = document.getElementById('rem-queue-stats');
