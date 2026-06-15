@@ -4982,8 +4982,8 @@ function applyFiltersAndRender() {
         ? new Date(paidDateRaw).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
         : '';
       paidCell = paidDateFmt
-        ? `<div style="display:inline-flex;align-items:center;gap:5px;color:#1B5E20;font-size:12px;font-weight:600"><i class="fas fa-check-circle" style="font-size:12px;color:#2E7D32"></i>${paidDateFmt}</div>`
-        : `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px"><i class="fas fa-check" style="font-size:9px"></i> Full</span>`;
+        ? `<span style="color:#1B5E20;font-size:12px;font-weight:600;white-space:nowrap">${paidDateFmt}</span>`
+        : `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap"><i class="fas fa-check-circle" style="font-size:10px"></i> Full</span>`;
     } else if (inv.status === 'Partial' && totalPaid > 0) {
       const remaining = Math.max(0, inv.amount - totalPaid);
       paidCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -5037,20 +5037,29 @@ function applyFiltersAndRender() {
     const serviceBadge = _svcStr
       ? `<span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:${_svcPalette.bg};color:${_svcPalette.color};white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">${_svcStr}</span>`
       : '—';
-    // ── Status label: "Full paid" for Paid, keep rest as-is ──
-    const statusLabel = inv.status === 'Paid' ? 'Full paid' : inv.status;
+    // ── Status badge with icon per status ──
+    const _statusMap = {
+      'Paid':      { icon:'fa-check-circle',  label:'Full paid' },
+      'Partial':   { icon:'fa-clock',         label:'Partial'   },
+      'Pending':   { icon:'fa-hourglass-half',label:'Pending'   },
+      'Overdue':   { icon:'fa-exclamation-circle', label:'Overdue' },
+      'Cancelled': { icon:'fa-ban',           label:'Cancelled' },
+      'Draft':     { icon:'fa-pencil-alt',    label:'Draft'     },
+    };
+    const _sm = _statusMap[inv.status] || { icon:'fa-circle', label:inv.status };
+    const statusBadgeHtml = `<span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap"
+      title="${inv.status === 'Cancelled' && inv.cancel_reason ? '🚫 Reason: ' + inv.cancel_reason : 'Click to change status'}"
+      onclick="openQuickStatus(event,'${inv.id}')"><i class="fas ${_sm.icon}" style="font-size:9px"></i>${_sm.label}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}`;
     return `<tr data-id="${inv.id}">
       <td><input type="checkbox" class="inv-check" value="${inv.id}" onchange="updateBulkBar()"></td>
       <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600;cursor:default" ${issuedTooltip}>${inv.num}</code></td>
-      <td><div class="client-cell">${avatar}<div><div class="cc-name" style="${isClientInactive?'color:var(--muted)':''}">${c.name}${inactivePill}</div><div class="cc-sub">${c.person||''}</div></div></div></td>
+      <td><div class="client-cell">${avatar}<div><div class="cc-name" style="${isClientInactive?'color:var(--muted)':''}word-break:break-word;white-space:normal">${c.name}${inactivePill}</div><div class="cc-sub">${c.person||''}</div></div></div></td>
       <td>${serviceBadge}</td>
       <td>${inv.issued}</td>
       <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
       <td style="text-align:center">${paidCell}${progressBar}</td>
-      <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer"
-        title="${inv.status === 'Cancelled' && inv.cancel_reason ? '🚫 Reason: ' + inv.cancel_reason : 'Click to change status'}"
-        onclick="openQuickStatus(event,'${inv.id}')">${statusLabel}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}</td>
+      <td>${statusBadgeHtml}</td>
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Preview" onclick="openPreviewModal('${inv.id}')"><i class="fas fa-eye"></i></button>
