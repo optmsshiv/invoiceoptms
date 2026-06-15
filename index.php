@@ -1347,12 +1347,20 @@ const SERVER = {
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card — full width -->
-      <div style="margin-bottom:16px;">
+      <!-- Revenue + Outstanding Two-Column Row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-        <div id="s-outstanding-card" style="display:none"></div>
+        <div id="s-outstanding-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
       </div>
       <div class="dash-stats-row">
+        <div class="stat-card" data-color="teal">
+          <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-revenue">₹0</div>
+            <div class="stat-lbl">Total Revenue</div>
+            <div class="stat-trend up" id="s-revenue-trend"><i class="fas fa-arrow-up"></i> incl. partial received</div>
+          </div>
+        </div>
         <div class="stat-card" data-color="amber">
           <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
           <div class="stat-body">
@@ -1383,14 +1391,6 @@ const SERVER = {
             <div class="stat-val" id="s-clients">0</div>
             <div class="stat-lbl">Active Clients</div>
             <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="teal">
-          <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-wa-today">0</div>
-            <div class="stat-lbl">WA Sent Today</div>
-            <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
           </div>
         </div>
       </div>
@@ -4631,7 +4631,7 @@ function updateDashStats() {
         <span style="font-size:10px;color:#2E9E54">Net collected — ${fmt_money(netRevenue)}</span>
         ${totalSettleDisc > 0 ? `<span style="font-size:10px;color:#8B6914">Written off — ${fmt_money(totalSettleDisc)}</span>` : ''}
       </div>
-      <div style="border-top:1px solid #C6EFCF;padding-top:10px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div style="border-top:1px solid #C6EFCF;padding-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
         <div style="padding-right:8px;border-right:1px solid #C6EFCF">
           <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Net Revenue</div>
           <div style="font-size:13px;font-weight:700;color:#1B6B34;font-family:var(--mono)">${fmt_money(netRevenue)}</div>
@@ -4642,15 +4642,10 @@ function updateDashStats() {
           <div style="font-size:13px;font-weight:700;color:${totalSettleDisc>0?'#8B6914':'var(--muted)'};font-family:var(--mono)">${totalSettleDisc>0?'−'+fmt_money(totalSettleDisc):'—'}</div>
           <div style="font-size:9px;color:#7DA88A;margin-top:2px">written off</div>
         </div>
-        <div style="padding:0 8px;border-right:1px solid #C6EFCF">
+        <div style="padding-left:8px">
           <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Still Pending</div>
           <div style="font-size:13px;font-weight:700;color:${(pend+over+partialRemaining)>0?'#B85C0A':'var(--muted)'};font-family:var(--mono)">${(pend+over+partialRemaining)>0?fmt_money(pend+over+partialRemaining):'—'}</div>
           <div style="font-size:9px;color:#7DA88A;margin-top:2px">yet to collect</div>
-        </div>
-        <div style="padding-left:8px">
-          <div style="font-size:10px;color:#5A7A62;margin-bottom:3px">Partial Payment</div>
-          <div style="font-size:13px;font-weight:700;color:${partialRemaining>0?'#4A2A9E':'var(--muted)'};font-family:var(--mono)">${partialRemaining>0?fmt_money(partialRemaining):'—'}</div>
-          <div style="font-size:9px;color:#7DA88A;margin-top:2px">${partialCnt} invoice${partialCnt!==1?'s':''}</div>
         </div>
       </div>`;
   }
@@ -4706,24 +4701,6 @@ function updateDashStats() {
   if(e('s-overdue-trend'))  e('s-overdue-trend').innerHTML  = `<i class="fas fa-exclamation-circle"></i> ${overCnt} invoice${overCnt!==1?'s':''}`;
   if(e('s-total-trend'))    e('s-total-trend').innerHTML    = `<i class="fas fa-file-invoice"></i> ${invThisM} this month`;
   if(e('s-clients-trend'))  e('s-clients-trend').innerHTML  = `<i class="fas fa-users"></i> ${STATE.clients.length} total`;
-
-  // WA Sent Today stat
-  WA_LOG.fetchLog().then(logs => {
-    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'}); // YYYY-MM-DD
-    const todayLogs = logs.filter(l => {
-      if (!l.ts) return false;
-      return new Date(l.ts).toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'}) === todayStr;
-    });
-    const waSentToday = todayLogs.length;
-    const waFailed    = todayLogs.filter(l => l.status === 'failed').length;
-    if (e('s-wa-today'))       e('s-wa-today').textContent = waSentToday;
-    if (e('s-wa-today-trend')) {
-      e('s-wa-today-trend').innerHTML = waFailed > 0
-        ? `<i class="fas fa-times-circle"></i> ${waFailed} failed`
-        : `<i class="fas fa-check-circle"></i> all delivered`;
-      e('s-wa-today-trend').className = `stat-trend ${waFailed > 0 ? 'down' : 'up'}`;
-    }
-  }).catch(() => {});
 }
 
 function buildLiveChartData(mode) {
