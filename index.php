@@ -4975,7 +4975,15 @@ function applyFiltersAndRender() {
     const totalPaid = paidPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
     let paidCell = '';
     if (inv.status === 'Paid') {
-      paidCell = `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px"><i class="fas fa-check" style="font-size:9px"></i> Full</span>`;
+      // Show the paid date instead of "Full" pill
+      const lastPmt = paidPayments.slice().sort((a,b) => new Date(b.date||b.payment_date||0) - new Date(a.date||a.payment_date||0))[0];
+      const paidDateRaw = lastPmt ? (lastPmt.date || lastPmt.payment_date || '') : '';
+      const paidDateFmt = paidDateRaw
+        ? new Date(paidDateRaw).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
+        : '';
+      paidCell = paidDateFmt
+        ? `<div style="display:inline-flex;align-items:center;gap:5px;color:#1B5E20;font-size:12px;font-weight:600"><i class="fas fa-check-circle" style="font-size:12px;color:#2E7D32"></i>${paidDateFmt}</div>`
+        : `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px"><i class="fas fa-check" style="font-size:9px"></i> Full</span>`;
     } else if (inv.status === 'Partial' && totalPaid > 0) {
       const remaining = Math.max(0, inv.amount - totalPaid);
       paidCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -5014,18 +5022,35 @@ function applyFiltersAndRender() {
         <div style="height:100%;width:${pct}%;background:var(--teal);border-radius:4px;transition:width .4s"></div>
       </div>`;
     }
+    // ── Service pastel badge (deterministic color from service name) ──
+    const _SVC_PALETTES = [
+      {bg:'#E8F4FD',color:'#1565C0'},{bg:'#E8F5E9',color:'#2E7D32'},
+      {bg:'#FFF3E0',color:'#E65100'},{bg:'#F3E5F5',color:'#6A1B9A'},
+      {bg:'#FCE4EC',color:'#880E4F'},{bg:'#E0F7FA',color:'#00695C'},
+      {bg:'#FFF8E1',color:'#F57F17'},{bg:'#EDE7F6',color:'#4527A0'},
+      {bg:'#E1F5FE',color:'#0277BD'},{bg:'#F9FBE7',color:'#558B2F'},
+    ];
+    const _svcStr = String(inv.service||'');
+    let _svcHash = 0;
+    for(let i=0;i<_svcStr.length;i++) _svcHash = (_svcHash*31 + _svcStr.charCodeAt(i)) & 0xff;
+    const _svcPalette = _SVC_PALETTES[_svcHash % _SVC_PALETTES.length];
+    const serviceBadge = _svcStr
+      ? `<span style="display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:${_svcPalette.bg};color:${_svcPalette.color};white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">${_svcStr}</span>`
+      : '—';
+    // ── Status label: "Full paid" for Paid, keep rest as-is ──
+    const statusLabel = inv.status === 'Paid' ? 'Full paid' : inv.status;
     return `<tr data-id="${inv.id}">
       <td><input type="checkbox" class="inv-check" value="${inv.id}" onchange="updateBulkBar()"></td>
       <td><code style="font-family:var(--mono);color:var(--teal);font-weight:600;cursor:default" ${issuedTooltip}>${inv.num}</code></td>
       <td><div class="client-cell">${avatar}<div><div class="cc-name" style="${isClientInactive?'color:var(--muted)':''}">${c.name}${inactivePill}</div><div class="cc-sub">${c.person||''}</div></div></div></td>
-      <td>${inv.service}</td>
+      <td>${serviceBadge}</td>
       <td>${inv.issued}</td>
       <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
       <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
       <td style="text-align:center">${paidCell}${progressBar}</td>
       <td><span class="badge badge-${inv.status.toLowerCase()} inv-status-badge" style="cursor:pointer"
         title="${inv.status === 'Cancelled' && inv.cancel_reason ? '🚫 Reason: ' + inv.cancel_reason : 'Click to change status'}"
-        onclick="openQuickStatus(event,'${inv.id}')">${inv.status}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}</td>
+        onclick="openQuickStatus(event,'${inv.id}')">${statusLabel}</span>${inv.status === 'Cancelled' && inv.cancel_reason ? `<i class="fas fa-info-circle" style="font-size:10px;color:var(--muted);margin-left:4px;cursor:default" title="🚫 ${inv.cancel_reason}"></i>` : ''}</td>
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Preview" onclick="openPreviewModal('${inv.id}')"><i class="fas fa-eye"></i></button>
