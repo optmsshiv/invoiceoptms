@@ -12439,11 +12439,11 @@ function buildWATplParams(tplName, inv, client, settings) {
   // Map template key → ordered params (supports both short keys and verbose keys)
   const maps = {
     // Short keys (used after TPL_KEY_MAP lookup in sendWA)
+    // balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link']
     invoice:          ['invoice_no','company_name','client_name','service','issue_date','due_date','amount','upi','portal_link'],
     paid:             ['client_name','invoice_no','amount','settlement_discount','issue_date','company_name','portal_link'],
     partial:          ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     reminder:         ['client_name','invoice_no','amount','due_date','upi','company_name','portal_link'],
-    balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     balance_reminder: ['client_name','invoice_no','paid_amount','remaining_amount','due_date','portal_link'],
     overdue:          ['client_name','invoice_no','amount','days_overdue','upi','portal_link','company_phone','company_name'],
     followup:         ['client_name','invoice_no','amount','days_overdue','upi','company_phone','portal_link'],
@@ -12487,6 +12487,7 @@ async function sendWA(phone, message, tplName, inv, client) {
       'payment_reminder': 'reminder',
       'balance_reminder': 'balance_reminder',
       'invoice_followup': 'followup',
+      'recurring_invoice': 'recurring',
       'festival':         'festival',
     };
     const tplKey = TPL_KEY_MAP[tplName] || tplName;
