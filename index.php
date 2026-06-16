@@ -392,6 +392,12 @@ canvas { max-width: 100% !important; }
 .dri-act-btn.wa:hover   { background: #C8E6C9; }
 .dri-act-btn.view:hover { background: #BBDEFB; }
 
+.wa-act-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:0.5px solid var(--border); font-size:13px; }
+.wa-act-row:last-child { border-bottom:none; }
+.wa-act-lbl { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.wa-act-val { font-weight:600; color:var(--text); }
+.wa-act-val.fail { color:#E53935; }
+
 .dash-recent-item {
   display: flex; align-items: center; gap: 12px; padding: 10px 0;
   border-bottom: 1px solid var(--border); font-size: 13px;
@@ -1375,10 +1381,17 @@ const SERVER = {
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card — full width -->
-      <div style="margin-bottom:16px;">
+      <!-- Revenue Card (60%) + WA Activity Card (40%) -->
+      <div style="display:grid;grid-template-columns:60fr 40fr;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
         <div id="s-outstanding-card" style="display:none"></div>
+        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+          </div>
+          <div id="waActivityRows"></div>
+        </div>
       </div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="amber">
@@ -4535,6 +4548,30 @@ function showPage(name, el) {
 // ══════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════
+function renderDashWAActivity() {
+  const el = document.getElementById('waActivityRows');
+  if (!el) return;
+  el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Loading…</div>`;
+  WA_LOG.fetchLog().then(logs => {
+    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+    const today = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
+    const sent    = today.length;
+    const viaApi  = today.filter(l => l.status === 'sent_api').length;
+    const viaWeb  = today.filter(l => l.status === 'sent_web').length;
+    const failed  = today.filter(l => l.status === 'failed').length;
+    const rows = [
+      { icon:'fa-paper-plane',  label:'Sent',        val: sent,   red: false },
+      { icon:'fa-plug',         label:'Via API',      val: viaApi, red: false },
+      { icon:'fa-globe',        label:'Via Web',      val: viaWeb, red: false },
+      { icon:'fa-times-circle', label:'Failed',       val: failed, red: true  },
+    ];
+    el.innerHTML = rows.map(r => `<div class="wa-act-row">
+      <span class="wa-act-lbl"><i class="fas ${r.icon}" style="width:14px;text-align:center"></i> ${r.label}</span>
+      <span class="wa-act-val ${r.red && r.val>0 ? 'fail':''}">${r.val}</span>
+    </div>`).join('');
+  }).catch(() => { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load</div>`; });
+}
+
 function renderDashboard() {
   renderRevenueChart('monthly');
   renderDonutChart();
@@ -4545,6 +4582,7 @@ function renderDashboard() {
   renderDashAlerts();
   renderNotifications();
   updateDashStats();
+  renderDashWAActivity();
   _buildReminderQueue(); // update WA queued pill in topbar
 }
 function updateDashStats() {
@@ -4760,47 +4798,54 @@ function buildLiveChartData(mode) {
   const now = new Date();
   if (mode === 'monthly') {
     const year = now.getFullYear();
-    const paid = Array(12).fill(0), pend = Array(12).fill(0), over = Array(12).fill(0);
+    const paid=Array(12).fill(0), pend=Array(12).fill(0), over=Array(12).fill(0), part=Array(12).fill(0), draft=Array(12).fill(0), canc=Array(12).fill(0);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
       if (d.getFullYear() !== year) return;
-      const m = d.getMonth();
-      if (inv.status === 'Paid')    paid[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[m] += parseFloat(inv.amount)||0;
+      const m = d.getMonth(), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[m]  += a;
+      if (inv.status==='Pending')   pend[m]  += a;
+      if (inv.status==='Overdue')   over[m]  += a;
+      if (inv.status==='Partial')   part[m]  += a;
+      if (inv.status==='Draft')     draft[m] += a;
+      if (inv.status==='Cancelled') canc[m]  += a;
     });
-    return { labels: months, paid, pending: pend, overdue: over };
+    return { labels:months, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   if (mode === 'weekly') {
     const weeks = ['W1','W2','W3','W4','W5','W6','W7','W8'];
-    const paid = Array(8).fill(0), pend = Array(8).fill(0), over = Array(8).fill(0);
+    const paid=Array(8).fill(0), pend=Array(8).fill(0), over=Array(8).fill(0), part=Array(8).fill(0), draft=Array(8).fill(0), canc=Array(8).fill(0);
     const baseDate = new Date(now.getFullYear(), now.getMonth(), 1);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
-      const diffDays = Math.floor((d - baseDate) / 86400000);
-      const wk = Math.min(Math.max(Math.floor(diffDays / 7), 0), 7);
-      if (inv.status === 'Paid')    paid[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[wk] += parseFloat(inv.amount)||0;
+      const wk = Math.min(Math.max(Math.floor((d-baseDate)/86400000/7),0),7), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[wk]  += a;
+      if (inv.status==='Pending')   pend[wk]  += a;
+      if (inv.status==='Overdue')   over[wk]  += a;
+      if (inv.status==='Partial')   part[wk]  += a;
+      if (inv.status==='Draft')     draft[wk] += a;
+      if (inv.status==='Cancelled') canc[wk]  += a;
     });
-    return { labels: weeks, paid, pending: pend, overdue: over };
+    return { labels:weeks, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   // yearly
   const curYear = now.getFullYear();
   const years = [curYear-3, curYear-2, curYear-1, curYear].map(String);
-  const paid = Array(4).fill(0), pend = Array(4).fill(0), over = Array(4).fill(0);
+  const paid=Array(4).fill(0), pend=Array(4).fill(0), over=Array(4).fill(0), part=Array(4).fill(0), draft=Array(4).fill(0), canc=Array(4).fill(0);
   STATE.invoices.forEach(inv => {
     if (!inv.issued) return;
-    const yr = new Date(inv.issued).getFullYear();
-    const idx = years.indexOf(String(yr));
+    const idx = years.indexOf(String(new Date(inv.issued).getFullYear())), a = parseFloat(inv.amount)||0;
     if (idx < 0) return;
-    if (inv.status === 'Paid')    paid[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Pending') pend[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Overdue') over[idx] += parseFloat(inv.amount)||0;
+    if (inv.status==='Paid')      paid[idx]  += a;
+    if (inv.status==='Pending')   pend[idx]  += a;
+    if (inv.status==='Overdue')   over[idx]  += a;
+    if (inv.status==='Partial')   part[idx]  += a;
+    if (inv.status==='Draft')     draft[idx] += a;
+    if (inv.status==='Cancelled') canc[idx]  += a;
   });
-  return { labels: years, paid, pending: pend, overdue: over };
+  return { labels:years, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
 }
 
 function renderRevenueChart(mode) {
@@ -4813,9 +4858,12 @@ function renderRevenueChart(mode) {
     data: {
       labels: d.labels,
       datasets: [
-        { label: 'Paid',    data: d.paid,    backgroundColor: 'rgba(0,137,123,.75)',  borderRadius: 5, borderSkipped: false },
-        { label: 'Pending', data: d.pending, backgroundColor: 'rgba(249,168,37,.65)', borderRadius: 5, borderSkipped: false },
-        { label: 'Overdue', data: d.overdue, backgroundColor: 'rgba(229,57,53,.60)',  borderRadius: 5, borderSkipped: false }
+        { label:'Paid',      data:d.paid,      backgroundColor:'rgba(0,137,123,.80)',  borderRadius:4, borderSkipped:false },
+        { label:'Pending',   data:d.pending,   backgroundColor:'rgba(249,168,37,.70)', borderRadius:4, borderSkipped:false },
+        { label:'Overdue',   data:d.overdue,   backgroundColor:'rgba(229,57,53,.65)',   borderRadius:4, borderSkipped:false },
+        { label:'Partial',   data:d.partial,   backgroundColor:'rgba(102,187,106,.70)',borderRadius:4, borderSkipped:false },
+        { label:'Draft',     data:d.draft,     backgroundColor:'rgba(189,189,189,.60)',borderRadius:4, borderSkipped:false },
+        { label:'Cancelled', data:d.cancelled, backgroundColor:'rgba(120,144,156,.55)',borderRadius:4, borderSkipped:false }
       ]
     },
     options: {
@@ -4840,29 +4888,41 @@ function switchChart(mode, btn) {
 function renderDonutChart() {
   const ctx = document.getElementById('donutChart');
   if (!ctx) return;
-  const paid    = STATE.invoices.filter(i=>i.status==='Paid').length;
-  const pending = STATE.invoices.filter(i=>i.status==='Pending').length;
-  const overdue = STATE.invoices.filter(i=>i.status==='Overdue').length;
-  const draft   = STATE.invoices.filter(i=>i.status==='Draft').length;
+  const paid     = STATE.invoices.filter(i=>i.status==='Paid').length;
+  const pending  = STATE.invoices.filter(i=>i.status==='Pending').length;
+  const overdue  = STATE.invoices.filter(i=>i.status==='Overdue').length;
+  const partial  = STATE.invoices.filter(i=>i.status==='Partial').length;
+  const draft    = STATE.invoices.filter(i=>i.status==='Draft').length;
   const estimate = STATE.invoices.filter(i=>i.status==='Estimate').length;
+  const cancelled= STATE.invoices.filter(i=>i.status==='Cancelled').length;
+  const total    = STATE.invoices.length;
+  const labels = ['Paid','Pending','Overdue','Partial','Draft','Estimate','Cancelled'];
+  const vals   = [paid,pending,overdue,partial,draft,estimate,cancelled];
+  const colors = ['#00897B','#FFA726','#EF5350','#66BB6A','#BDBDBD','#3949AB','#78909C'];
+  const centerPlugin = {
+    id:'donutCenter',
+    afterDraw(chart) {
+      const {ctx:c, chartArea:{top,bottom,left,right}} = chart;
+      const cx=(left+right)/2, cy=(top+bottom)/2;
+      c.save();
+      c.textAlign='center'; c.textBaseline='middle';
+      c.font="bold 22px 'Public Sans',sans-serif"; c.fillStyle='#1a1a1a';
+      c.fillText(total, cx, cy-8);
+      c.font="11px 'Public Sans',sans-serif"; c.fillStyle='#9e9e9e';
+      c.fillText('invoices', cx, cy+12);
+      c.restore();
+    }
+  };
   if (donutChartInstance) donutChartInstance.destroy();
   donutChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Paid','Pending','Overdue','Draft','Estimate'],
-      datasets: [{ data: [paid,pending,overdue,draft,estimate], backgroundColor: ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'], borderWidth: 2, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: { legend: { display: false } }
-    }
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:vals, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display:false } } },
+    plugins:[centerPlugin]
   });
   const legend = document.getElementById('donutLegend');
   if (!legend) return;
-  const colors = ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'];
-  const vals   = [paid,pending,overdue,draft,estimate];
-  const labels = ['Paid','Pending','Overdue','Draft','Estimate'];
-  legend.innerHTML = labels.map((l,i) => `<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
+  legend.innerHTML = labels.map((l,i)=>`<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
 }
 
 function renderDashRecent() {
