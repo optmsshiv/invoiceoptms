@@ -4868,7 +4868,10 @@ function renderDonutChart() {
 function renderDashRecent() {
   const el = document.getElementById('dashRecentList');
   if (!el) return;
-  const recent = [...STATE.invoices].reverse().slice(0,8);
+  const recent = [...STATE.invoices]
+    .filter(i => i.status !== 'Cancelled')
+    .sort((a,b) => new Date(b.issued||b.created_at||0) - new Date(a.issued||a.created_at||0))
+    .slice(0,8);
   if (!recent.length) { el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)">No invoices yet</div>'; return; }
   el.innerHTML = recent.map(inv => {
     const c = STATE.clients.find(x=>x.id===inv.client)||{name:inv.client_name||inv.clientName||inv.client||'Unknown',color:'#00897B'};
@@ -4877,14 +4880,14 @@ function renderDashRecent() {
     const pmtTag = pmt ? `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:var(--teal-bg);color:var(--teal);font-weight:700;margin-left:4px">${pmt.method.split(' ')[0]}</span>` : '';
     const df = d => d ? fmt_date_l(d,{day:'2-digit',month:'short'}) : '';
     const canSendWA = ['Pending','Overdue','Partial'].includes(inv.status);
-    const waBtn = canSendWA ? `<button class="dri-act-btn wa" onclick="event.stopPropagation();sendWAForInvoice(STATE.invoices.find(x=>x.num==='${inv.num}'))"><i class="fab fa-whatsapp"></i> Send WA</button>` : '';
-    return `<div class="dash-recent-item" style="cursor:pointer" onclick="showPage('view','${inv.num}')">
+    const waBtn = canSendWA ? `<button class="dri-act-btn wa" onclick="event.stopPropagation();sendWAForInvoice(STATE.invoices.find(x=>x.id==='${inv.id}'))"><i class="fab fa-whatsapp"></i> Send WA</button>` : '';
+    return `<div class="dash-recent-item" style="cursor:pointer" onclick="openPreviewModal('${inv.id}')">
       <div class="dri-avatar" style="background:${c.color}">${isValidImg(c.image)?`<img src="${c.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`:initials}</div>
       <div class="dri-info">
         <div class="dri-name">${inv.num}${pmtTag}</div>
         <div class="dri-meta">${c.name} · ${inv.service}</div>
         <div class="dri-meta" style="margin-top:1px;font-size:10px"><i class="fas fa-calendar-alt" style="color:var(--muted2);width:10px"></i> ${df(inv.issued)} &nbsp;·&nbsp; Due: <span style="color:${inv.status==='Overdue'?'var(--red)':'inherit'}">${df(inv.due)}</span></div>
-        <div class="dri-actions">${waBtn}<button class="dri-act-btn view" onclick="event.stopPropagation();showPage('view','${inv.num}')"><i class="fas fa-eye"></i> View</button></div>
+        <div class="dri-actions">${waBtn}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div class="dri-amount">${fmt_money(inv.amount)}</div>
