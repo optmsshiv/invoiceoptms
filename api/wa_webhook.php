@@ -3,7 +3,8 @@
 //  OPTMS Invoice Manager — api/wa_webhook.php
 //  WhatsApp Business API Webhook Receiver
 // ================================================================
-
+error_log('[WA_WEBHOOK] RAW URI: ' . ($_SERVER['REQUEST_URI'] ?? 'none'));
+error_log('[WA_WEBHOOK] QUERY: ' . ($_SERVER['QUERY_STRING'] ?? 'none'));
 ob_start(); // catch any stray output from includes
 
 date_default_timezone_set('Asia/Kolkata');
