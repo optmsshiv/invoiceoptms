@@ -392,6 +392,12 @@ canvas { max-width: 100% !important; }
 .dri-act-btn.wa:hover   { background: #C8E6C9; }
 .dri-act-btn.view:hover { background: #BBDEFB; }
 
+.wa-act-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:0.5px solid var(--border); font-size:13px; }
+.wa-act-row:last-child { border-bottom:none; }
+.wa-act-lbl { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.wa-act-val { font-weight:600; color:var(--text); }
+.wa-act-val.fail { color:#E53935; }
+
 .dash-recent-item {
   display: flex; align-items: center; gap: 12px; padding: 10px 0;
   border-bottom: 1px solid var(--border); font-size: 13px;
@@ -1375,10 +1381,17 @@ const SERVER = {
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card — full width -->
-      <div style="margin-bottom:16px;">
+      <!-- Revenue Card (60%) + WA Activity Card (40%) -->
+      <div style="display:grid;grid-template-columns:60fr 40fr;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
         <div id="s-outstanding-card" style="display:none"></div>
+        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+          </div>
+          <div id="waActivityRows"></div>
+        </div>
       </div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="amber">
@@ -2161,16 +2174,6 @@ const SERVER = {
               <div class="field"><label>API Token</label><input type="password" id="wa-token" placeholder="Bearer token from Meta Developer Console" value="<?= htmlspecialchars($settings['wa_token']??'') ?>"></div>
               <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345" value="<?= htmlspecialchars($settings['wa_pid']??'') ?>"></div>
               <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID" value="<?= htmlspecialchars($settings['wa_bid']??'') ?>"></div>
-              <div class="field">
-                <label>Webhook Verify Token <span style="font-size:11px;color:var(--muted);font-weight:400">— paste this in Meta Developer Console → Webhooks</span></label>
-                <div style="display:flex;gap:8px;align-items:center">
-                  <input id="wa-webhook-token" placeholder="e.g. optms_wa_webhook_2026" value="<?= htmlspecialchars($settings['wa_webhook_token']??'') ?>" style="flex:1">
-                  <button type="button" class="btn btn-outline" style="font-size:12px;white-space:nowrap" onclick="const t='optms_'+Math.random().toString(36).slice(2,10);document.getElementById('wa-webhook-token').value=t;saveWASettings();toast('✅ Token generated & saved','success')"><i class="fas fa-dice"></i> Generate</button>
-                </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">
-                  Webhook URL: <code><?= (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']==='on'?'https':'http').'://'.$_SERVER['HTTP_HOST'] ?>/api/wa_webhook.php</code>
-                </div>
-              </div>
               <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
@@ -2220,7 +2223,6 @@ const SERVER = {
             <button class="wa-tab-btn" onclick="waTab('paid',this)">✅ Receipt</button>
             <button class="wa-tab-btn" onclick="waTab('partial',this)">💚 Partial</button>
             <button class="wa-tab-btn" onclick="waTab('remind',this)">🔔 Reminder</button>
-            <button class="wa-tab-btn" onclick="waTab('custom',this)">✏️ Custom</button>
             <button class="wa-tab-btn" onclick="waTab('overdue',this)">⚠️ Overdue</button>
             <button class="wa-tab-btn" onclick="waTab('followup',this)">📋 Follow-up</button>
             <button class="wa-tab-btn" onclick="waTab('recurring',this)">🔁 Recurring</button>
@@ -2435,31 +2437,6 @@ Thank you for choosing {company_name}!
             </div>
             <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-recurring')"><i class="fas fa-mobile-alt"></i> Preview</button>
             <div class="wa-preview-wrap" id="wa-prev-recurring"><div class="wa-bubble" id="wa-prev-recurring-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
-          </div>
-
-          <div class="wa-tab-pane" id="watab-custom">
-            <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1B5E20;margin-bottom:12px;line-height:1.7">
-              <strong>✏️ Custom Message:</strong> Send a free-form message to any phone number via WhatsApp Business API. This bypasses all templates — use for special cases, replies, or one-off communication.
-            </div>
-            <div class="field">
-              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Recipient Phone <span style="color:var(--muted)">(digits only, include country code)</span></label>
-              <input id="wa-custom-phone" type="tel" placeholder="e.g. 919876543210" style="font-size:13px;margin-bottom:10px;width:100%">
-            </div>
-            <div class="field">
-              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Message <span id="wa-custom-char" style="float:right;color:var(--muted)">0 / 4096</span></label>
-              <textarea id="wa-custom-msg" rows="6" placeholder="Type your custom message here…"
-                style="width:100%;font-size:13px;font-family:var(--mono);resize:vertical"
-                oninput="const l=this.value.length;document.getElementById('wa-custom-char').textContent=l+' / 4096';if(l>4096)this.value=this.value.slice(0,4096)"></textarea>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-              <button class="btn btn-primary" onclick="sendWACustomMessage()" style="display:flex;align-items:center;gap:6px">
-                <i class="fab fa-whatsapp"></i> Send Now
-              </button>
-              <button class="btn btn-outline" onclick="document.getElementById('wa-custom-msg').value='';document.getElementById('wa-custom-phone').value='';document.getElementById('wa-custom-char').textContent='0 / 4096'">
-                <i class="fas fa-times"></i> Clear
-              </button>
-              <span id="wa-custom-status" style="font-size:12px;color:var(--muted)"></span>
-            </div>
           </div>
 
           <div style="margin-top:14px;display:flex;gap:8px">
@@ -4577,26 +4554,22 @@ function renderDashWAActivity() {
   el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Loading…</div>`;
   WA_LOG.fetchLog().then(logs => {
     const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
-    const today     = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
-    const sent      = today.length;
-    const viaApi    = today.filter(l => ['sent_api','delivered','read'].includes(l.status)).length;
-    const delivered = today.filter(l => ['delivered','read'].includes(l.status)).length;
-    const read      = today.filter(l => l.status === 'read').length;
-    const failed    = today.filter(l => l.status === 'failed').length;
+    const today = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
+    const sent    = today.length;
+    const viaApi  = today.filter(l => l.status === 'sent_api').length;
+    const viaWeb  = today.filter(l => l.status === 'sent_web').length;
+    const failed  = today.filter(l => l.status === 'failed').length;
     const rows = [
-      { icon:'fa-paper-plane',  label:'Sent',      val: sent,      red: false },
-      { icon:'fa-plug',         label:'Via API',    val: viaApi,    red: false },
-      { icon:'fa-check-double', label:'Delivered',  val: delivered, red: false },
-      { icon:'fa-eye',          label:'Read',       val: read,      red: false },
-      { icon:'fa-times-circle', label:'Failed',     val: failed,    red: true  },
+      { icon:'fa-paper-plane',  label:'Sent',        val: sent,   red: false },
+      { icon:'fa-plug',         label:'Via API',      val: viaApi, red: false },
+      { icon:'fa-globe',        label:'Via Web',      val: viaWeb, red: false },
+      { icon:'fa-times-circle', label:'Failed',       val: failed, red: true  },
     ];
     el.innerHTML = rows.map(r => `<div class="wa-act-row">
       <span class="wa-act-lbl"><i class="fas ${r.icon}" style="width:14px;text-align:center"></i> ${r.label}</span>
       <span class="wa-act-val ${r.red && r.val>0 ? 'fail':''}">${r.val}</span>
     </div>`).join('');
-  }).catch(() => {
-    el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load</div>`;
-  });
+  }).catch(() => { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load</div>`; });
 }
 
 function renderDashboard() {
@@ -4609,6 +4582,7 @@ function renderDashboard() {
   renderDashAlerts();
   renderNotifications();
   updateDashStats();
+  renderDashWAActivity();
   _buildReminderQueue(); // update WA queued pill in topbar
 }
 function updateDashStats() {
@@ -4824,47 +4798,54 @@ function buildLiveChartData(mode) {
   const now = new Date();
   if (mode === 'monthly') {
     const year = now.getFullYear();
-    const paid = Array(12).fill(0), pend = Array(12).fill(0), over = Array(12).fill(0);
+    const paid=Array(12).fill(0), pend=Array(12).fill(0), over=Array(12).fill(0), part=Array(12).fill(0), draft=Array(12).fill(0), canc=Array(12).fill(0);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
       if (d.getFullYear() !== year) return;
-      const m = d.getMonth();
-      if (inv.status === 'Paid')    paid[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[m] += parseFloat(inv.amount)||0;
+      const m = d.getMonth(), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[m]  += a;
+      if (inv.status==='Pending')   pend[m]  += a;
+      if (inv.status==='Overdue')   over[m]  += a;
+      if (inv.status==='Partial')   part[m]  += a;
+      if (inv.status==='Draft')     draft[m] += a;
+      if (inv.status==='Cancelled') canc[m]  += a;
     });
-    return { labels: months, paid, pending: pend, overdue: over };
+    return { labels:months, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   if (mode === 'weekly') {
     const weeks = ['W1','W2','W3','W4','W5','W6','W7','W8'];
-    const paid = Array(8).fill(0), pend = Array(8).fill(0), over = Array(8).fill(0);
+    const paid=Array(8).fill(0), pend=Array(8).fill(0), over=Array(8).fill(0), part=Array(8).fill(0), draft=Array(8).fill(0), canc=Array(8).fill(0);
     const baseDate = new Date(now.getFullYear(), now.getMonth(), 1);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
-      const diffDays = Math.floor((d - baseDate) / 86400000);
-      const wk = Math.min(Math.max(Math.floor(diffDays / 7), 0), 7);
-      if (inv.status === 'Paid')    paid[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[wk] += parseFloat(inv.amount)||0;
+      const wk = Math.min(Math.max(Math.floor((d-baseDate)/86400000/7),0),7), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[wk]  += a;
+      if (inv.status==='Pending')   pend[wk]  += a;
+      if (inv.status==='Overdue')   over[wk]  += a;
+      if (inv.status==='Partial')   part[wk]  += a;
+      if (inv.status==='Draft')     draft[wk] += a;
+      if (inv.status==='Cancelled') canc[wk]  += a;
     });
-    return { labels: weeks, paid, pending: pend, overdue: over };
+    return { labels:weeks, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   // yearly
   const curYear = now.getFullYear();
   const years = [curYear-3, curYear-2, curYear-1, curYear].map(String);
-  const paid = Array(4).fill(0), pend = Array(4).fill(0), over = Array(4).fill(0);
+  const paid=Array(4).fill(0), pend=Array(4).fill(0), over=Array(4).fill(0), part=Array(4).fill(0), draft=Array(4).fill(0), canc=Array(4).fill(0);
   STATE.invoices.forEach(inv => {
     if (!inv.issued) return;
-    const yr = new Date(inv.issued).getFullYear();
-    const idx = years.indexOf(String(yr));
+    const idx = years.indexOf(String(new Date(inv.issued).getFullYear())), a = parseFloat(inv.amount)||0;
     if (idx < 0) return;
-    if (inv.status === 'Paid')    paid[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Pending') pend[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Overdue') over[idx] += parseFloat(inv.amount)||0;
+    if (inv.status==='Paid')      paid[idx]  += a;
+    if (inv.status==='Pending')   pend[idx]  += a;
+    if (inv.status==='Overdue')   over[idx]  += a;
+    if (inv.status==='Partial')   part[idx]  += a;
+    if (inv.status==='Draft')     draft[idx] += a;
+    if (inv.status==='Cancelled') canc[idx]  += a;
   });
-  return { labels: years, paid, pending: pend, overdue: over };
+  return { labels:years, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
 }
 
 function renderRevenueChart(mode) {
@@ -4877,9 +4858,12 @@ function renderRevenueChart(mode) {
     data: {
       labels: d.labels,
       datasets: [
-        { label: 'Paid',    data: d.paid,    backgroundColor: 'rgba(0,137,123,.75)',  borderRadius: 5, borderSkipped: false },
-        { label: 'Pending', data: d.pending, backgroundColor: 'rgba(249,168,37,.65)', borderRadius: 5, borderSkipped: false },
-        { label: 'Overdue', data: d.overdue, backgroundColor: 'rgba(229,57,53,.60)',  borderRadius: 5, borderSkipped: false }
+        { label:'Paid',      data:d.paid,      backgroundColor:'rgba(0,137,123,.80)',  borderRadius:4, borderSkipped:false },
+        { label:'Pending',   data:d.pending,   backgroundColor:'rgba(249,168,37,.70)', borderRadius:4, borderSkipped:false },
+        { label:'Overdue',   data:d.overdue,   backgroundColor:'rgba(229,57,53,.65)',   borderRadius:4, borderSkipped:false },
+        { label:'Partial',   data:d.partial,   backgroundColor:'rgba(102,187,106,.70)',borderRadius:4, borderSkipped:false },
+        { label:'Draft',     data:d.draft,     backgroundColor:'rgba(189,189,189,.60)',borderRadius:4, borderSkipped:false },
+        { label:'Cancelled', data:d.cancelled, backgroundColor:'rgba(120,144,156,.55)',borderRadius:4, borderSkipped:false }
       ]
     },
     options: {
@@ -4904,29 +4888,41 @@ function switchChart(mode, btn) {
 function renderDonutChart() {
   const ctx = document.getElementById('donutChart');
   if (!ctx) return;
-  const paid    = STATE.invoices.filter(i=>i.status==='Paid').length;
-  const pending = STATE.invoices.filter(i=>i.status==='Pending').length;
-  const overdue = STATE.invoices.filter(i=>i.status==='Overdue').length;
-  const draft   = STATE.invoices.filter(i=>i.status==='Draft').length;
+  const paid     = STATE.invoices.filter(i=>i.status==='Paid').length;
+  const pending  = STATE.invoices.filter(i=>i.status==='Pending').length;
+  const overdue  = STATE.invoices.filter(i=>i.status==='Overdue').length;
+  const partial  = STATE.invoices.filter(i=>i.status==='Partial').length;
+  const draft    = STATE.invoices.filter(i=>i.status==='Draft').length;
   const estimate = STATE.invoices.filter(i=>i.status==='Estimate').length;
+  const cancelled= STATE.invoices.filter(i=>i.status==='Cancelled').length;
+  const total    = STATE.invoices.length;
+  const labels = ['Paid','Pending','Overdue','Partial','Draft','Estimate','Cancelled'];
+  const vals   = [paid,pending,overdue,partial,draft,estimate,cancelled];
+  const colors = ['#00897B','#FFA726','#EF5350','#66BB6A','#BDBDBD','#3949AB','#78909C'];
+  const centerPlugin = {
+    id:'donutCenter',
+    afterDraw(chart) {
+      const {ctx:c, chartArea:{top,bottom,left,right}} = chart;
+      const cx=(left+right)/2, cy=(top+bottom)/2;
+      c.save();
+      c.textAlign='center'; c.textBaseline='middle';
+      c.font="bold 22px 'Public Sans',sans-serif"; c.fillStyle='#1a1a1a';
+      c.fillText(total, cx, cy-8);
+      c.font="11px 'Public Sans',sans-serif"; c.fillStyle='#9e9e9e';
+      c.fillText('invoices', cx, cy+12);
+      c.restore();
+    }
+  };
   if (donutChartInstance) donutChartInstance.destroy();
   donutChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Paid','Pending','Overdue','Draft','Estimate'],
-      datasets: [{ data: [paid,pending,overdue,draft,estimate], backgroundColor: ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'], borderWidth: 2, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: { legend: { display: false } }
-    }
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:vals, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display:false } } },
+    plugins:[centerPlugin]
   });
   const legend = document.getElementById('donutLegend');
   if (!legend) return;
-  const colors = ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'];
-  const vals   = [paid,pending,overdue,draft,estimate];
-  const labels = ['Paid','Pending','Overdue','Draft','Estimate'];
-  legend.innerHTML = labels.map((l,i) => `<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
+  legend.innerHTML = labels.map((l,i)=>`<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
 }
 
 function renderDashRecent() {
@@ -7921,34 +7917,6 @@ function sendWAFromModal() {
   sendWAForInvoice(inv).catch(e => { if(e) toast('❌ '+e.message,'error'); });
 }
 
-async function sendWACustomMessage() {
-  const phone  = (document.getElementById('wa-custom-phone')?.value || '').replace(/\D/g,'');
-  const msg    = (document.getElementById('wa-custom-msg')?.value || '').trim();
-  const status = document.getElementById('wa-custom-status');
-  if (!phone) { toast('⚠️ Enter recipient phone number','warning'); return; }
-  if (!msg)   { toast('⚠️ Enter a message','warning'); return; }
-  if (status) status.textContent = 'Sending…';
-  try {
-    const result = await sendWA(phone, msg, 'unknown', null, null);
-    if (result) {
-      toast('✅ Custom message sent via API!','success');
-      // Log it
-      logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'sent_api', wamid: result?.wamid||'' });
-      if (document.getElementById('wa-custom-msg'))  document.getElementById('wa-custom-msg').value = '';
-      if (document.getElementById('wa-custom-phone')) document.getElementById('wa-custom-phone').value = '';
-      if (document.getElementById('wa-custom-char')) document.getElementById('wa-custom-char').textContent = '0 / 4096';
-      if (status) status.textContent = '✅ Sent';
-    } else {
-      toast('📱 WhatsApp opened','info');
-      if (status) status.textContent = '📱 Opened WhatsApp';
-    }
-  } catch(e) {
-    logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'failed', error: e.message });
-    toast('❌ ' + e.message,'error');
-    if (status) status.textContent = '❌ Failed';
-  }
-}
-
 
 function sendWAMessage(wa, name, num, amount, due) {
   if (!wa) { toast('⚠️ No WhatsApp number for this client', 'warning'); return; }
@@ -9899,7 +9867,6 @@ window.saveWASettings = async function() {
     wa_token:         val('wa-token'),
     wa_pid:           val('wa-pid'),
     wa_bid:           val('wa-bid'),
-    wa_webhook_token: val('wa-webhook-token'),
     wa_test_phone:    val('wa-test-phone'),
     wa_tpl_inv:       val('wa-tpl-inv'),
     wa_tpl_estimate:  val('wa-tpl-estimate'),
@@ -10672,13 +10639,19 @@ function saveMsgLog(log) {
   try { localStorage.setItem(MSG_LOG_KEY, JSON.stringify(log.slice(-MSG_LOG_MAX))); } catch(e) {}
 }
 
-function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
+function logWAMessage({ inv, client, type, msg, status, error }) {
   const log = getMsgLog();
 
+  // Resolve phone: check client record first, then invoice fields for one-time clients
   const resolvedPhone = (client && (client.wa||client.whatsapp||client.phone))
     || (inv && (inv.client_wa||inv.client_phone)) || '';
+
+  // Resolve invoice id for deduplication
   const resolvedInvId = inv ? String(inv.id || inv._dbId || '') : '';
 
+  // ── Deduplication: if a 'sending' entry exists for same invoice+type,
+  //    update it in-place instead of adding a new row.
+  //    This prevents duplicate rows (sending → sent_api) in the log.
   if (status !== 'sending' && resolvedInvId) {
     const existing = log.findIndex(e =>
       e.status === 'sending' &&
@@ -10688,11 +10661,10 @@ function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
     if (existing !== -1) {
       log[existing].status = status || 'sent_web';
       log[existing].error  = error  || '';
-      if (wamid) log[existing].wamid = wamid;
       saveMsgLog(log);
+      // Update DB entry too
       api('api/wa_log.php', 'POST', {
         id:     log[existing].id,
-        wamid:  wamid || '',
         type:   log[existing].type,
         status: status || 'sent_web',
         error:  error  || '',
@@ -10703,13 +10675,12 @@ function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
         if (failed > 0) { badge.style.display=''; badge.textContent=failed; badge.style.background='var(--red)'; }
         else { badge.style.display='none'; }
       }
-      return;
+      return; // updated in-place, no new entry needed
     }
   }
 
   const entry = {
     id:         Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    wamid:      wamid || '',
     ts:         new Date().toISOString(),
     type:       type || 'unknown',
     status:     status || 'sent_web',
@@ -10722,12 +10693,12 @@ function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
     msg:        msg || '',
     error:      error || '',
   };
-  log.unshift(entry);
+  log.unshift(entry); // newest first
   saveMsgLog(log);
 
+  // Persist to DB (fire-and-forget — localStorage is immediate, DB is backup)
   api('api/wa_log.php', 'POST', {
     id:         entry.id,
-    wamid:      entry.wamid || '',
     ts:         entry.ts,
     type:       entry.type,
     status:     entry.status,
@@ -12689,8 +12660,7 @@ async function sendWAForInvoice(inv) {
   logWAMessage({ inv, client, type: tplName, msg, status: 'sending' });
   try {
     const result = await sendWA(phone, msg, tplName, inv, client);
-    const wamid  = result?.wamid || result?.messages?.[0]?.id || '';
-    logWAMessage({ inv, client, type: tplName, msg, status: result ? 'sent_api' : 'sent_web', wamid });
+    logWAMessage({ inv, client, type: tplName, msg, status: result ? 'sent_api' : 'sent_web' });
     const _toastName = client.name || inv.clientName || inv.client_name || 'client';
     toast(result ? `✅ ${statusLabel} sent to ${_toastName}!` : `📱 WhatsApp opened for ${_toastName}`, 'success');
   } catch(e) {

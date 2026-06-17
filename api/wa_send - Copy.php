@@ -183,16 +183,16 @@ if ($httpStatus >= 400 || isset($data['error'])) {
 }
 
 // ── Success ───────────────────────────────────────────────────────
+// logActivity($_SESSION['user_id'], 'wa_send', 'message', 0,
+//     "WA {$type} sent to +{$phone}" . ($tplName ? " [tpl:{$tplName}/{$tplLangNorm}]" : ''));
+
     $logUserId = $_SESSION['user_id'] ?? 0;
     logActivity($logUserId, 'wa_send', 'message', 0,
     "WA {$type} sent to +{$phone}" . ($tplName ? " [tpl:{$tplName}/{$tplLangNorm}]" : ''));
-
-$wamid = $data['messages'][0]['id'] ?? null;
 
 jsonResponse([
     'success'  => true,
     'phone'    => '+' . $phone,
     'type'     => $type,
-    'wamid'    => $wamid,
     'messages' => $data['messages'] ?? [],
 ]);

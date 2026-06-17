@@ -25,7 +25,7 @@ const WA_ALLOWED_TYPES = [
     'split_payment', 'payment_overdue', 'payment_reminder', 'invoice_followup',
     'balance_reminder', 'festival', 'unknown'
 ];
-const WA_ALLOWED_STATUSES = ['sending', 'sent_api', 'sent_web', 'failed', 'delivered', 'read'];
+const WA_ALLOWED_STATUSES = ['sending', 'sent_api', 'sent_web', 'failed'];
 
 try {
     $db = getDB();
@@ -37,7 +37,6 @@ try {
     $db->exec("CREATE TABLE IF NOT EXISTS `wa_message_log` (
         `id`         INT UNSIGNED  NOT NULL AUTO_INCREMENT,
         `entry_id`   VARCHAR(40)   NOT NULL,
-        `wamid`      VARCHAR(100)  NULL,
         `ts`         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `type`       VARCHAR(40)   NOT NULL DEFAULT 'unknown',
         `status`     VARCHAR(20)   NOT NULL DEFAULT 'sent_web',
@@ -52,23 +51,15 @@ try {
         PRIMARY KEY (`id`),
         UNIQUE KEY `uk_entry_id` (`entry_id`),
         INDEX `idx_wa_log_ts_id` (`ts` DESC, `id` DESC),
-        INDEX `idx_wa_log_inv` (`inv_id`),
-        INDEX `idx_wa_log_wamid` (`wamid`)
+        INDEX `idx_wa_log_inv` (`inv_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-    // Add wamid column if upgrading from old schema
-    try {
-        $db->exec("ALTER TABLE `wa_message_log` ADD COLUMN `wamid` VARCHAR(100) NULL AFTER `entry_id`");
-        $db->exec("ALTER TABLE `wa_message_log` ADD INDEX `idx_wa_log_wamid` (`wamid`)");
-    } catch (Exception $e) { /* column already exists */ }
 
     // ── GET: fetch log ───────────────────────────────────────────
     if ($method === 'GET') {
         // ✅ FIXED: Order by ts DESC (newest first), then by id DESC for consistent ordering
         $stmt = $db->query(
             'SELECT 
-                entry_id AS id,
-                wamid,
+                entry_id AS id, 
                 DATE_FORMAT(ts, "%Y-%m-%d %H:%i:%s") as ts,
                 type, 
                 status, 
@@ -107,31 +98,30 @@ try {
         $status = in_array($body['status'] ?? '', WA_ALLOWED_STATUSES) ? $body['status'] : 'sent_web';
 
         $entryId = substr($body['id'] ?? '', 0, 40);
-        $wamid   = substr($body['wamid'] ?? '', 0, 100);
-
         if (!$entryId) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Missing entry id']);
             exit;
         }
 
-        // If status is not 'sending', try to update existing row first by entry_id
+        // If status is not 'sending', try to update existing 'sending' row first
         if ($status !== 'sending') {
             $upd = $db->prepare(
                 'UPDATE wa_message_log
-                 SET status = :status,
-                     error  = :error,
-                     wamid  = COALESCE(NULLIF(:wamid,""), wamid)
+                 SET status = :status, error = :error
                  WHERE entry_id = :eid AND status = "sending"'
             );
             $upd->execute([
                 ':status' => $status,
                 ':error'  => substr($body['error'] ?? '', 0, 500),
-                ':wamid'  => $wamid,
                 ':eid'    => $entryId,
             ]);
             if ($upd->rowCount() > 0) {
-                echo json_encode(['success' => true, 'updated' => true, 'timezone' => 'Asia/Kolkata (IST)']);
+                echo json_encode([
+                    'success'  => true, 
+                    'updated'  => true,
+                    'timezone' => 'Asia/Kolkata (IST)'
+                ]);
                 exit;
             }
         }
@@ -140,19 +130,19 @@ try {
         // ✅ FIXED: Using date() which now respects Asia/Kolkata timezone
         $stmt = $db->prepare(
             'INSERT IGNORE INTO wa_message_log
-               (entry_id, wamid, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
+               (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
              VALUES
-               (:eid, :wamid, :ts, :type, :status, :client, :phone, :inv_id, :inv_num, :inv_amt, :inv_status, :msg, :error)'
+               (:eid, :ts, :type, :status, :client, :phone, :inv_id, :inv_num, :inv_amt, :inv_status, :msg, :error)'
         );
-
+        
+        // ✅ Get current time in IST
         $currentTime = date('Y-m-d H:i:s');
-
+        
         $stmt->execute([
             ':eid'        => $entryId,
-            ':wamid'      => $wamid ?: null,
             ':ts'         => !empty($body['ts'])
                                 ? date('Y-m-d H:i:s', strtotime($body['ts']))
-                                : $currentTime,
+                                : $currentTime,  // ✅ NOW USES IST
             ':type'       => $type,
             ':status'     => $status,
             ':client'     => substr($body['client']     ?? '', 0, 200),
