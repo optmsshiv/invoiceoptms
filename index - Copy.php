@@ -14485,44 +14485,6 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
-    // ── Next Reminder Date calculation ────────────────────────────
-    let nextRemCell = '—';
-    const _sendHour   = cfg.sendHour   ?? 9;
-    const _sendMin    = cfg.sendMinute ?? 0;
-    const _sendLabel  = `${String(_sendHour).padStart(2,'0')}:${String(_sendMin).padStart(2,'0')}`;
-    if (q.urgency === 'high') {
-      // Overdue: next = last overdue/followup sent date + overdueFreq days
-      const _lastSent = (STATE.reminders || [])
-        .filter(e => e.invNum === (q.inv.num||q.inv.invoice_number) && ['overdue','followup','Overdue Alert'].includes(e.type) && e.status==='sent')
-        .map(e => new Date((e.ts||'').replace(' ','T')))
-        .filter(d => !isNaN(d))
-        .sort((a,b) => b-a)[0];
-      if (_lastSent) {
-        const _next = new Date(_lastSent);
-        _next.setDate(_next.getDate() + (cfg.overdueFreq || 7));
-        _next.setHours(_sendHour, _sendMin, 0, 0);
-        const _isToday = _next.toDateString() === new Date().toDateString();
-        const _isPast  = _next < new Date();
-        const _d = _next.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
-        const _col = _isPast ? '#C0392B' : _isToday ? '#B45309' : '#1565C0';
-        const _bg  = _isPast ? '#FEF0EF' : _isToday ? '#FFF4E5' : '#E3F2FD';
-        const _lbl = _isPast ? 'Overdue now' : _isToday ? `Today ${_sendLabel}` : `${_d} ${_sendLabel}`;
-        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${_bg};color:${_col};white-space:nowrap">${_lbl}</span>`;
-      } else {
-        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FEF0EF;color:#C0392B;white-space:nowrap">Now</span>`;
-      }
-    } else if (q.urgency === 'medium') {
-      nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FFF4E5;color:#B45309;white-space:nowrap">Today ${_sendLabel}</span>`;
-    } else {
-      // Due soon: scheduled send time on due date (or today if beforeDays window)
-      const _dueD = q.inv.due ? new Date(q.inv.due) : null;
-      if (_dueD) {
-        _dueD.setHours(_sendHour, _sendMin, 0, 0);
-        const _d = _dueD.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
-        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#E3F2FD;color:#1565C0;white-space:nowrap">${_d} ${_sendLabel}</span>`;
-      }
-    }
-
     return `<tr style="${rowBg}border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
@@ -14531,7 +14493,6 @@ function _buildReminderQueue() {
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${q.inv.due||'—'}</div>
       </td>
       <td style="padding:8px 6px">${amtStr}</td>
-      <td style="padding:8px 6px;white-space:nowrap">${nextRemCell}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
           ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}','${q.type}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
@@ -14564,7 +14525,6 @@ function _buildReminderQueue() {
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Client</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Status</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Amount</th>
-            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Next Reminder</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Actions</th>
           </tr></thead>
           <tbody>${items.map(q => qRow(q)).join('')}</tbody>

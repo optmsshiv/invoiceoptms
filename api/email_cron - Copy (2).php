@@ -110,14 +110,6 @@ if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
     exit;
 }
 
-// ── CC self setting ───────────────────────────────────────────────
-$cronCcSelf = '';
-try {
-    $ccRow = $db->prepare("SELECT `value` FROM settings WHERE `key`='email_cc_self' LIMIT 1");
-    $ccRow->execute();
-    if ($ccRow->fetchColumn() === '1') $cronCcSelf = $smtp['from'] ?? '';
-} catch (Exception $e) {}
-
 // ── Company info ─────────────────────────────────────────────────
 $company = [
     'company_name'  => $cfg['company_name']    ?? '',
@@ -314,7 +306,7 @@ function cronGetPortalLink($db, int $invId, string $portalBase): string {
 }
 
 // ── Send email via PHPMailer or PHP mail() ───────────────────────
-function cronSendEmail(array $smtp, string $to, string $toName, string $subject, string $html, string $cc = ''): bool {
+function cronSendEmail(array $smtp, string $to, string $toName, string $subject, string $html): bool {
     if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         try {
@@ -329,7 +321,6 @@ function cronSendEmail(array $smtp, string $to, string $toName, string $subject,
             $mail->Port       = (int)$smtp['port'];
             $mail->setFrom($smtp['from'], $smtp['name']);
             $mail->addAddress($to, $toName);
-            if ($cc && $cc !== $to) $mail->addCC($cc);
             $mail->isHTML(true);
             $mail->Subject = $subject;
             $mail->Body    = $html;
@@ -344,7 +335,6 @@ function cronSendEmail(array $smtp, string $to, string $toName, string $subject,
     // Fallback: native mail()
     $headers = "MIME-Version: 1.0\r\nContent-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$smtp['name']} <{$smtp['from']}>\r\nReply-To: {$smtp['from']}\r\n";
-    if ($cc && $cc !== $to) $headers .= "CC: {$cc}\r\n";
     return (bool)@mail($to, $subject, $html, $headers);
 }
 
@@ -364,14 +354,6 @@ function alreadySentToday($db, int $invId, string $type): bool {
     // FIX: Use IST date — MySQL CURDATE() is UTC, but cron runs at IST time
     $stmt = $db->prepare("SELECT id FROM email_logs WHERE invoice_id=? AND type=? AND DATE(CONVERT_TZ(created_at,'UTC','Asia/Kolkata'))=CURDATE() LIMIT 1");
     $stmt->execute([$invId, $type]);
-    return (bool)$stmt->fetch();
-}
-
-// ── Check if this email type was already sent today to this client email ──
-// Prevents duplicate consolidated emails when cron runs multiple times/sections
-function alreadySentTodayToClient($db, string $clientEmail, string $type): bool {
-    $stmt = $db->prepare("SELECT id FROM email_logs WHERE to_email=? AND type=? AND DATE(CONVERT_TZ(created_at,'UTC','Asia/Kolkata'))=CURDATE() LIMIT 1");
-    $stmt->execute([$clientEmail, $type]);
     return (bool)$stmt->fetch();
 }
 
@@ -578,7 +560,7 @@ if ($autoRemind) {
             $subj = cronReplaceVars($tpl['subject'], $data);
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'reminder');
-            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             $log[] = ($ok ? '✅' : '❌') . " Reminder → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
         } else {
@@ -591,7 +573,7 @@ This is a friendly reminder that you have " . count($eligible) .
                      " totalling {$tableData['total_fmt']}. Kindly arrange payment before the due date.";
             $subj  = "Payment Reminder: " . count($eligible) . " invoice(s) due — {$tableData['total_fmt']}";
             $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
-            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
                 cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             }
@@ -638,7 +620,7 @@ if ($autoRemind && $onDue) {
             $subj = cronReplaceVars($tpl['subject'], $data);
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'reminder');
-            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             $log[] = ($ok ? '✅' : '❌') . " Due Today → {$group['name']} ({$group['email']}) — #{$inv['invoice_number']}";
         } else {
@@ -649,7 +631,7 @@ This is a reminder that you have " . count($eligible) .
                      " invoice(s) due today totalling {$tableData['total_fmt']}. Please arrange payment today.";
             $subj  = "Due Today: " . count($eligible) . " invoice(s) — {$tableData['total_fmt']}";
             $html  = emailBuildConsolidatedHTML($group['name'], 'reminder', $tableData, $company, $intro);
-            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
                 cronLogEmail($db, (int)$inv["id"], "reminder", $group["email"], $subj, $ok, "", $group["name"]);
             }
@@ -684,10 +666,9 @@ if ($autoOverdue) {
     $sent   = 0;
 
     foreach ($groups as $group) {
-        // Skip entire client if consolidated overdue already sent today
-        if (alreadySentTodayToClient($db, $group['email'], 'overdue')) continue;
         $eligible = array_filter($group['invs'], function($inv) use ($db) {
-            if (emailHasActivePromise($db, (int)$inv['id'])) return false;
+            if (alreadySentToday($db, (int)$inv['id'], 'overdue'))    return false;
+            if (emailHasActivePromise($db, (int)$inv['id']))           return false;
             return true;
         });
         if (empty($eligible)) continue;
@@ -702,7 +683,7 @@ if ($autoOverdue) {
             $subj = cronReplaceVars($tpl['subject'], $data);
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'overdue');
-            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok, '', $group['name']);
             $log[] = ($ok ? '✅' : '❌') . " Overdue → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
         } else {
@@ -715,7 +696,7 @@ You have " . count($eligible) .
                      "The oldest is {$maxDays} day(s) past due. Please arrange payment immediately.";
             $subj  = "⚠️ OVERDUE: " . count($eligible) . " invoice(s) — {$tableData['total_fmt']}";
             $html  = emailBuildConsolidatedHTML($group['name'], 'overdue', $tableData, $company, $intro);
-            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
                 cronLogEmail($db, (int)$inv['id'], 'overdue', $group['email'], $subj, $ok, '', $group['name']);
             }
@@ -750,8 +731,6 @@ if ($autoFollowup) {
     $sent   = 0;
 
     foreach ($groups as $group) {
-        // Skip entire client if consolidated followup already sent today
-        if (alreadySentTodayToClient($db, $group['email'], 'followup')) continue;
         $eligible = array_filter($group['invs'], function($inv) use ($db, $maxFollowup, $followupDays) {
             $invId = (int)$inv['id'];
             $cntStmt = $db->prepare("SELECT COUNT(*) FROM email_logs WHERE invoice_id=? AND type='followup'");
@@ -761,7 +740,8 @@ if ($autoFollowup) {
             $lastStmt->execute([$invId]);
             $lastSent = $lastStmt->fetchColumn();
             if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) return false;
-            if (emailHasActivePromise($db, $invId)) return false;
+            if (alreadySentToday($db, $invId, 'followup'))  return false;
+            if (emailHasActivePromise($db, $invId))          return false;
             return true;
         });
         if (empty($eligible)) continue;
@@ -780,7 +760,7 @@ if ($autoFollowup) {
             $subj = cronReplaceVars($tpl['subject'], $data);
             $body = cronReplaceVars($tpl['body'], $data);
             $html = cronBuildHTML($body, 'followup');
-            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok   = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             cronLogEmail($db, $invId, 'followup', $group['email'], $subj, $ok, '', $group['name']);
             $log[] = ($ok ? '✅' : '❌') . " Follow-up #" . ($totalSent + 1) . " → {$group['name']} — #{$inv['invoice_number']} ({$inv['days_overdue']} days)";
         } else {
@@ -793,7 +773,7 @@ We are following up on " . count($eligible) .
                      "The oldest is {$maxDays} day(s) overdue. Kindly settle these at your earliest convenience.";
             $subj  = "Follow-up: " . count($eligible) . " outstanding invoice(s) — {$tableData['total_fmt']}";
             $html  = emailBuildConsolidatedHTML($group['name'], 'followup', $tableData, $company, $intro);
-            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html, $cronCcSelf);
+            $ok    = cronSendEmail($smtp, $group['email'], $group['name'], $subj, $html);
             foreach ($eligible as $inv) {
                 cronLogEmail($db, (int)$inv['id'], 'followup', $group['email'], $subj, $ok, '', $group['name']);
             }
@@ -871,7 +851,7 @@ if ($autoRecurring) {
         $body = cronReplaceVars($tpl['body'],    $data);
         $html = cronBuildHTML($body, 'recurring');
 
-        $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html, $cronCcSelf);
+        $ok  = cronSendEmail($smtp, $inv['c_email'], $inv['client_name'] ?? 'Client', $subj, $html);
         cronLogEmail($db, $invId, 'recurring', $inv['c_email'], $subj, $ok, '', $inv['client_name'] ?? '');
         $log[] = ($ok ? '✅' : '❌') . " Recurring → {$inv['client_name']} ({$inv['c_email']}) — #{$inv['invoice_number']}";
         $sent++;
