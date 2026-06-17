@@ -332,7 +332,7 @@ canvas { max-width: 100% !important; }
 .dash-chart-card canvas,
 .dash-calendar-card canvas { display: block; }
 .dash-chart-card .chart-wrap,
-.reports-chart-wrap { position: relative; height: 200px; overflow: hidden; }
+.reports-chart-wrap { position: relative; height: 300px; overflow: hidden; }
 .reports-chart-wrap-lg { position: relative; height: 240px; overflow: hidden; }
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
