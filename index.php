@@ -5116,7 +5116,7 @@ function applyFiltersAndRender() {
         ? new Date(paidDateRaw).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
         : '';
       paidCell = paidDateFmt
-        ? `<span style="color:#1B5E20;font-size:12px;font-weight:600;white-space:nowrap">${paidDateFmt}</span>`
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap"><i class="fas fa-calendar-check" style="font-size:10px"></i> ${paidDateFmt}</span>`
         : `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap"><i class="fas fa-check-circle" style="font-size:10px"></i> Full</span>`;
     } else if (inv.status === 'Partial' && totalPaid > 0) {
       const remaining = Math.max(0, inv.amount - totalPaid);
@@ -5173,7 +5173,7 @@ function applyFiltersAndRender() {
       : '—';
     // ── Status badge with icon per status ──
     const _statusMap = {
-      'Paid':      { icon:'fa-check-circle',  label:'Full paid' },
+      'Paid':      { icon:'fa-check-circle',  label:'Paid' },
       'Partial':   { icon:'fa-clock',         label:'Partial'   },
       'Pending':   { icon:'fa-hourglass-half',label:'Pending'   },
       'Overdue':   { icon:'fa-exclamation-circle', label:'Overdue' },
