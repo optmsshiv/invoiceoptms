@@ -48,6 +48,7 @@ if ($method === 'GET') {
     $challenge = $_GET['hub_challenge']    ?? '';
 
     $verifyToken = getVerifyToken();
+    error_log('[WA_WEBHOOK] stored_raw: ' . json_encode($verifyToken) . ' len=' . strlen($verifyToken));
 
     error_log("[WA_WEBHOOK] GET | mode={$mode} | received={$token} | stored={$verifyToken}");
 
