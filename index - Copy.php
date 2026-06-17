@@ -2175,14 +2175,12 @@ const SERVER = {
               <div class="field"><label>Phone Number ID</label><input id="wa-pid" placeholder="123456789012345" value="<?= htmlspecialchars($settings['wa_pid']??'') ?>"></div>
               <div class="field"><label>Business Account ID</label><input id="wa-bid" placeholder="Your WABA ID" value="<?= htmlspecialchars($settings['wa_bid']??'') ?>"></div>
               <div class="field">
-                <label>Webhook Verify Token <span style="font-size:11px;color:var(--muted);font-weight:400">— copy this into Meta Developer Console → Webhooks</span></label>
+                <label>Webhook Verify Token <span style="font-size:11px;color:var(--muted);font-weight:400">— paste this in Meta Developer Console → Webhooks</span></label>
                 <div style="display:flex;gap:8px;align-items:center">
-                  <input id="wa-webhook-token" placeholder="Click Generate to create a token" value="<?= htmlspecialchars($settings['wa_webhook_token']??'') ?>" style="flex:1;font-family:var(--mono);font-size:13px">
-                  <button type="button" class="btn btn-outline" style="font-size:12px;white-space:nowrap" onclick="const t='optms_'+Math.random().toString(36).slice(2,10);document.getElementById('wa-webhook-token').value=t;saveWASettings().then(()=>toast('✅ Token saved — copy it to Meta','success'))"><i class="fas fa-dice"></i> Generate</button>
+                  <input id="wa-webhook-token" placeholder="e.g. optms_wa_webhook_2026" value="<?= htmlspecialchars($settings['wa_webhook_token']??'') ?>" style="flex:1">
+                  <button type="button" class="btn btn-outline" style="font-size:12px;white-space:nowrap" onclick="const t='optms_'+Math.random().toString(36).slice(2,10);document.getElementById('wa-webhook-token').value=t;saveWASettings();toast('✅ Token generated & saved','success')"><i class="fas fa-dice"></i> Generate</button>
                 </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:5px">
-                  Callback URL for Meta: <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px"><?= (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']==='on'?'https':'http').'://'.$_SERVER['HTTP_HOST'] ?>/api/wa_webhook.php</code>
-                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">Webhook URL: <code><?= (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']==='on'?'https':'http').'://'.$_SERVER['HTTP_HOST'] ?>/api/wa_webhook.php</code></div>
               </div>
               <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
             </div>
@@ -2233,6 +2231,7 @@ const SERVER = {
             <button class="wa-tab-btn" onclick="waTab('paid',this)">✅ Receipt</button>
             <button class="wa-tab-btn" onclick="waTab('partial',this)">💚 Partial</button>
             <button class="wa-tab-btn" onclick="waTab('remind',this)">🔔 Reminder</button>
+            <button class="wa-tab-btn" onclick="waTab('custom',this)">✏️ Custom</button>
             <button class="wa-tab-btn" onclick="waTab('overdue',this)">⚠️ Overdue</button>
             <button class="wa-tab-btn" onclick="waTab('followup',this)">📋 Follow-up</button>
             <button class="wa-tab-btn" onclick="waTab('recurring',this)">🔁 Recurring</button>
@@ -2447,6 +2446,31 @@ Thank you for choosing {company_name}!
             </div>
             <button class="btn btn-outline" style="font-size:12px;padding:5px 12px" onclick="waTogglePreview('wa-prev-recurring')"><i class="fas fa-mobile-alt"></i> Preview</button>
             <div class="wa-preview-wrap" id="wa-prev-recurring"><div class="wa-bubble" id="wa-prev-recurring-bubble"></div><div class="wa-bubble-meta">Delivered ✓✓</div></div>
+          </div>
+
+          <div class="wa-tab-pane" id="watab-custom">
+            <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1B5E20;margin-bottom:12px;line-height:1.7">
+              <strong>✏️ Custom Message:</strong> Send a free-form message to any phone number via WhatsApp Business API. Bypasses all templates — use for special cases, replies, or one-off communication.
+            </div>
+            <div class="field">
+              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Recipient Phone <span style="color:var(--muted)">(digits only, with country code e.g. 919876543210)</span></label>
+              <input id="wa-custom-phone" type="tel" placeholder="919876543210" style="font-size:13px;margin-bottom:10px;width:100%">
+            </div>
+            <div class="field">
+              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Message <span id="wa-custom-char" style="float:right;color:var(--muted)">0 / 4096</span></label>
+              <textarea id="wa-custom-msg" rows="6" placeholder="Type your custom message here…"
+                style="width:100%;font-size:13px;font-family:var(--mono);resize:vertical"
+                oninput="const l=this.value.length;document.getElementById('wa-custom-char').textContent=l+' / 4096';if(l>4096)this.value=this.value.slice(0,4096)"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button class="btn btn-primary" onclick="sendWACustomMessage()" style="display:flex;align-items:center;gap:6px">
+                <i class="fab fa-whatsapp"></i> Send Now
+              </button>
+              <button class="btn btn-outline" onclick="document.getElementById('wa-custom-msg').value='';document.getElementById('wa-custom-phone').value='';document.getElementById('wa-custom-char').textContent='0 / 4096'">
+                <i class="fas fa-times"></i> Clear
+              </button>
+              <span id="wa-custom-status" style="font-size:12px;color:var(--muted);margin-left:4px"></span>
+            </div>
           </div>
 
           <div style="margin-top:14px;display:flex;gap:8px">
@@ -4563,23 +4587,27 @@ function renderDashWAActivity() {
   if (!el) return;
   el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Loading…</div>`;
   WA_LOG.fetchLog().then(logs => {
-    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
-    const today = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
-    const sent    = today.length;
-    const viaApi  = today.filter(l => l.status === 'sent_api').length;
-    const viaWeb  = today.filter(l => l.status === 'sent_web').length;
-    const failed  = today.filter(l => l.status === 'failed').length;
+    const todayStr  = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+    const today     = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
+    const sent      = today.length;
+    const viaApi    = today.filter(l => ['sent_api','delivered','read'].includes(l.status)).length;
+    const delivered = today.filter(l => ['delivered','read'].includes(l.status)).length;
+    const read      = today.filter(l => l.status === 'read').length;
+    const failed    = today.filter(l => l.status === 'failed').length;
     const rows = [
-      { icon:'fa-paper-plane',  label:'Sent',        val: sent,   red: false },
-      { icon:'fa-plug',         label:'Via API',      val: viaApi, red: false },
-      { icon:'fa-globe',        label:'Via Web',      val: viaWeb, red: false },
-      { icon:'fa-times-circle', label:'Failed',       val: failed, red: true  },
+      { icon:'fa-paper-plane',  label:'Sent',      val: sent,      red: false },
+      { icon:'fa-plug',         label:'Via API',    val: viaApi,    red: false },
+      { icon:'fa-check-double', label:'Delivered',  val: delivered, red: false },
+      { icon:'fa-eye',          label:'Read',       val: read,      red: false },
+      { icon:'fa-times-circle', label:'Failed',     val: failed,    red: true  },
     ];
     el.innerHTML = rows.map(r => `<div class="wa-act-row">
       <span class="wa-act-lbl"><i class="fas ${r.icon}" style="width:14px;text-align:center"></i> ${r.label}</span>
       <span class="wa-act-val ${r.red && r.val>0 ? 'fail':''}">${r.val}</span>
     </div>`).join('');
-  }).catch(() => { el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load</div>`; });
+  }).catch(() => {
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load</div>`;
+  });
 }
 
 function renderDashboard() {
@@ -7927,6 +7955,34 @@ function sendWAFromModal() {
   sendWAForInvoice(inv).catch(e => { if(e) toast('❌ '+e.message,'error'); });
 }
 
+async function sendWACustomMessage() {
+  const phone  = (document.getElementById('wa-custom-phone')?.value || '').replace(/\D/g,'');
+  const msg    = (document.getElementById('wa-custom-msg')?.value   || '').trim();
+  const status = document.getElementById('wa-custom-status');
+  if (!phone) { toast('⚠️ Enter recipient phone number','warning'); return; }
+  if (!msg)   { toast('⚠️ Enter a message','warning'); return; }
+  if (status) status.textContent = 'Sending…';
+  try {
+    const result = await sendWA(phone, msg, 'unknown', null, null);
+    if (result) {
+      const wamid = result?.wamid || result?.messages?.[0]?.id || '';
+      logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'sent_api', wamid });
+      toast('✅ Custom message sent via API!','success');
+      document.getElementById('wa-custom-msg').value   = '';
+      document.getElementById('wa-custom-phone').value = '';
+      document.getElementById('wa-custom-char').textContent = '0 / 4096';
+      if (status) status.textContent = '✅ Sent';
+    } else {
+      toast('📱 WhatsApp opened','info');
+      if (status) status.textContent = '📱 Opened WhatsApp';
+    }
+  } catch(e) {
+    logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'failed', error: e.message });
+    toast('❌ ' + e.message,'error');
+    if (status) status.textContent = '❌ Failed';
+  }
+}
+
 
 function sendWAMessage(wa, name, num, amount, due) {
   if (!wa) { toast('⚠️ No WhatsApp number for this client', 'warning'); return; }
@@ -10650,19 +10706,13 @@ function saveMsgLog(log) {
   try { localStorage.setItem(MSG_LOG_KEY, JSON.stringify(log.slice(-MSG_LOG_MAX))); } catch(e) {}
 }
 
-function logWAMessage({ inv, client, type, msg, status, error }) {
+function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
   const log = getMsgLog();
 
-  // Resolve phone: check client record first, then invoice fields for one-time clients
   const resolvedPhone = (client && (client.wa||client.whatsapp||client.phone))
     || (inv && (inv.client_wa||inv.client_phone)) || '';
-
-  // Resolve invoice id for deduplication
   const resolvedInvId = inv ? String(inv.id || inv._dbId || '') : '';
 
-  // ── Deduplication: if a 'sending' entry exists for same invoice+type,
-  //    update it in-place instead of adding a new row.
-  //    This prevents duplicate rows (sending → sent_api) in the log.
   if (status !== 'sending' && resolvedInvId) {
     const existing = log.findIndex(e =>
       e.status === 'sending' &&
@@ -10672,10 +10722,11 @@ function logWAMessage({ inv, client, type, msg, status, error }) {
     if (existing !== -1) {
       log[existing].status = status || 'sent_web';
       log[existing].error  = error  || '';
+      if (wamid) log[existing].wamid = wamid;
       saveMsgLog(log);
-      // Update DB entry too
       api('api/wa_log.php', 'POST', {
         id:     log[existing].id,
+        wamid:  wamid || '',
         type:   log[existing].type,
         status: status || 'sent_web',
         error:  error  || '',
@@ -10686,12 +10737,13 @@ function logWAMessage({ inv, client, type, msg, status, error }) {
         if (failed > 0) { badge.style.display=''; badge.textContent=failed; badge.style.background='var(--red)'; }
         else { badge.style.display='none'; }
       }
-      return; // updated in-place, no new entry needed
+      return;
     }
   }
 
   const entry = {
     id:         Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    wamid:      wamid || '',
     ts:         new Date().toISOString(),
     type:       type || 'unknown',
     status:     status || 'sent_web',
@@ -10704,12 +10756,12 @@ function logWAMessage({ inv, client, type, msg, status, error }) {
     msg:        msg || '',
     error:      error || '',
   };
-  log.unshift(entry); // newest first
+  log.unshift(entry);
   saveMsgLog(log);
 
-  // Persist to DB (fire-and-forget — localStorage is immediate, DB is backup)
   api('api/wa_log.php', 'POST', {
     id:         entry.id,
+    wamid:      entry.wamid || '',
     ts:         entry.ts,
     type:       entry.type,
     status:     entry.status,
@@ -11584,7 +11636,6 @@ async function loadAllData() {
         tpl_lang_balance_reminder: s.wa_tpl_lang_balance_reminder || 'en_US',
         tpl_name_festival: s.wa_tpl_name_festival || '',
         tpl_lang_festival: s.wa_tpl_lang_festival || 'en_US',
-        webhook_token:     s.wa_webhook_token     || '',
       };
       // Restore TPL_CUSTOM from PHP-bridge settings (runs synchronously before DOM ready)
       if (window.TPL_CUSTOM) {
@@ -12168,10 +12219,9 @@ function populateWAPage() {
   };
 
   // Credentials
-  setV('wa-token',         wa.token           || '');
-  setV('wa-pid',           wa.pid             || '');
-  setV('wa-bid',           wa.bid             || '');
-  setV('wa-webhook-token', wa.webhook_token   || '');
+  setV('wa-token',       wa.token || '');
+  setV('wa-pid',         wa.pid   || '');
+  setV('wa-bid',         wa.bid   || '');
   setV('wa-test-phone',  wa.test_phone || '');
   // Update follow-up label from reminder settings (single source of truth)
   const _wfl = document.getElementById('wa-followup-days-label');
@@ -12673,7 +12723,8 @@ async function sendWAForInvoice(inv) {
   logWAMessage({ inv, client, type: tplName, msg, status: 'sending' });
   try {
     const result = await sendWA(phone, msg, tplName, inv, client);
-    logWAMessage({ inv, client, type: tplName, msg, status: result ? 'sent_api' : 'sent_web' });
+    const wamid  = result?.wamid || result?.messages?.[0]?.id || '';
+    logWAMessage({ inv, client, type: tplName, msg, status: result ? 'sent_api' : 'sent_web', wamid });
     const _toastName = client.name || inv.clientName || inv.client_name || 'client';
     toast(result ? `✅ ${statusLabel} sent to ${_toastName}!` : `📱 WhatsApp opened for ${_toastName}`, 'success');
   } catch(e) {
