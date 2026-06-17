@@ -8907,6 +8907,8 @@ function renderClients() {
     const initials = getInitials(c.name);
     const rev = STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid').reduce((s,i)=>s+i.amount,0);
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
+    const _clientInvNums = STATE.invoices.filter(i=>i.client===c.id).map(i=>i.num||i.invoice_number||'');
+    const _remSentCount  = (STATE.reminders||[]).filter(e=>_clientInvNums.includes(e.invNum)&&e.status==='sent').length;
     const isInactive = parseInt(c.active) === 0 || c.status === 'inactive';
 
     // Outstanding dues
@@ -8944,6 +8946,7 @@ function renderClients() {
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
       </div>
       ${outstandingAmt > 0 ? `
@@ -14485,6 +14488,12 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
+    // ── Reminder count for this invoice ──────────────────────────
+    const _invNumKey = q.inv.num || q.inv.invoice_number || '';
+    const _remCount  = (STATE.reminders || []).filter(e => e.invNum === _invNumKey && e.status === 'sent').length;
+    const _remPill   = _remCount > 0
+      ? `<div style="font-size:9px;color:#6D28D9;font-weight:700;margin-top:2px"><i class="fas fa-bell" style="font-size:8px"></i> ${_remCount} sent</div>`
+      : '';
     // ── Next Reminder Date calculation ────────────────────────────
     let nextRemCell = '—';
     const _sendHour   = cfg.sendHour   ?? 9;
@@ -14524,7 +14533,7 @@ function _buildReminderQueue() {
     }
 
     return `<tr style="${rowBg}border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}${_remPill}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bgPill};color:${col}">${q.label}</span>
@@ -14648,7 +14657,7 @@ function sendReminderNow(invId, channel, qtype) {
   const _remMsgText = typeof msg !== 'undefined' ? (msg || '') : '';
   const entry = {
     id:         Date.now() + '',
-    ts:         new Date().toISOString(),
+    ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
     type:       _logType,
@@ -17084,7 +17093,7 @@ setTimeout(async () => {
       const _autoMsg  = typeof waMsg !== 'undefined' ? (waMsg || '') : '';
       const entry = {
         id:         Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        ts:         new Date().toISOString(),
+        ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
         invNum,
         clientName: _cName,
         type:       _autoType,

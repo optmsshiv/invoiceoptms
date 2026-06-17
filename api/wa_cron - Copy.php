@@ -440,10 +440,8 @@ function waPickAnchor(array $invs, array $amtInfo): array {
     // Summarise invoice numbers in a readable way
     $nums = array_map(fn($i) => '#' . ($i['invoice_number'] ?? ''), $invs);
     if (count($nums) > 1) {
-        // If > 2 invoices, Meta template param would exceed character limit — use count instead
-        $anchor['invoice_number'] = count($nums) > 2
-            ? count($nums) . ' invoices'
-            : implode(', ', $nums);
+        // Put all inv numbers into invoice_number field for template param
+        $anchor['invoice_number'] = implode(', ', $nums);
     }
     return $anchor;
 }
