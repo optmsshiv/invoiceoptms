@@ -1,26 +1,10 @@
 Options -Indexes
 ServerSignature Off
 
-# ── Disable mod_security for webhook (Meta params get blocked) ────
-<IfModule mod_security.c>
-    <Files "wa_webhook.php">
-        SecFilterEngine Off
-        SecFilterScanPOST Off
-    </Files>
-</IfModule>
-<IfModule mod_security2.c>
-    <Files "wa_webhook.php">
-        SecRuleEngine Off
-    </Files>
-</IfModule>
-
 # ── Route all requests through index.php (if not a real file) ──
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
-
-    # Webhook: pass through completely untouched with full query string
-    RewriteRule ^api/wa_webhook\.php$ - [L,QSA,NS]
 
     # Allow direct access to existing files and directories
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -62,8 +46,6 @@ ServerSignature Off
 # ── Compression ─────────────────────────────────────────────────
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
-    # Exclude webhook — Meta needs raw uncompressed response
-    SetEnvIfNoCase Request_URI "wa_webhook\.php" no-gzip dont-vary
 </IfModule>
 
 # ── Cache static assets ─────────────────────────────────────────
