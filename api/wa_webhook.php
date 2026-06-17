@@ -35,11 +35,23 @@ function mapMetaStatus(string $s): string {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-// ── Temporary debug — remove after fixing ────────────────────────
-error_log('[WA_WEBHOOK] REQUEST_URI: '    . ($_SERVER['REQUEST_URI']    ?? 'EMPTY'));
+// ── Fix: rebuild $_GET if proxy stripped the query string ─────────
+if (empty($_GET)) {
+    // Try alternate server vars set by some reverse proxies
+    $qs = $_SERVER['QUERY_STRING']
+       ?? $_SERVER['REDIRECT_QUERY_STRING']
+       ?? $_SERVER['HTTP_X_ORIGINAL_URL']
+       ?? '';
+    // Try parsing from REQUEST_URI directly
+    if (empty($qs) && !empty($_SERVER['REQUEST_URI'])) {
+        $parts = explode('?', $_SERVER['REQUEST_URI'], 2);
+        $qs = $parts[1] ?? '';
+    }
+    if (!empty($qs)) parse_str($qs, $_GET);
+}
+
 error_log('[WA_WEBHOOK] QUERY_STRING: '   . ($_SERVER['QUERY_STRING']   ?? 'EMPTY'));
 error_log('[WA_WEBHOOK] GET dump: '       . json_encode($_GET));
-error_log('[WA_WEBHOOK] HTTP_HOST: '      . ($_SERVER['HTTP_HOST']      ?? 'EMPTY'));
 
 // ── GET: Meta webhook verification ───────────────────────────────
 if ($method === 'GET') {
@@ -48,7 +60,6 @@ if ($method === 'GET') {
     $challenge = $_GET['hub_challenge']    ?? '';
 
     $verifyToken = getVerifyToken();
-    error_log('[WA_WEBHOOK] stored_raw: ' . json_encode($verifyToken) . ' len=' . strlen($verifyToken));
 
     error_log("[WA_WEBHOOK] GET | mode={$mode} | received={$token} | stored={$verifyToken}");
 
@@ -65,6 +76,14 @@ if ($method === 'GET') {
         http_response_code(200);
         header('Content-Type: text/plain');
         echo $challenge;
+        exit;
+    }
+
+    // No params — Meta pre-check ping, return 200
+    if (!$mode && !$token) {
+        http_response_code(200);
+        header('Content-Type: text/plain');
+        echo 'OK';
         exit;
     }
 
