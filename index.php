@@ -4991,6 +4991,13 @@ function renderDashRecent() {
       <div style="text-align:right;flex-shrink:0">
         <div class="dri-amount">${fmt_money(inv.amount)}</div>
         <span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span>
+        ${inv.status === 'Paid' ? (() => {
+          const invId = String(inv.id);
+          const lastPmt = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId)
+            .sort((a,b) => new Date(b.date||b.payment_date||0) - new Date(a.date||a.payment_date||0))[0];
+          const pd = lastPmt ? (lastPmt.date || lastPmt.payment_date || '') : '';
+          return pd ? `<div style="font-size:10px;color:#1565C0;font-weight:600;margin-top:3px;white-space:nowrap"><i class="fas fa-calendar-check" style="font-size:9px"></i> ${fmt_date_l(pd,{day:'2-digit',month:'short'})}</div>` : '';
+        })() : ''}
       </div>
     </div>`;
   }).join('');
