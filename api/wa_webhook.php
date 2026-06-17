@@ -2,20 +2,13 @@
 // ================================================================
 //  OPTMS Invoice Manager — api/wa_webhook.php
 //  WhatsApp Business API Webhook Receiver
-//
-//  GET  — Meta webhook verification challenge
-//  POST — Status updates (delivered, read, failed) + inbound msgs
-//
-//  Callback URL : https://invcs.optms.co.in/api/wa_webhook.php
-//  Verify Token : set in Settings → WA → Webhook Verify Token
 // ================================================================
+
+ob_start(); // catch any stray output from includes
 
 date_default_timezone_set('Asia/Kolkata');
 
-// ── IMPORTANT: No Content-Type header yet — challenge needs plain text ──
-
 function getVerifyToken(): string {
-    // Try DB first
     try {
         require_once __DIR__ . '/../config/db.php';
         $db   = getDB();
@@ -23,11 +16,10 @@ function getVerifyToken(): string {
         $row  = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!empty($row['value'])) return trim($row['value']);
     } catch (Throwable $e) {
-        error_log('[WA_WEBHOOK] DB token read failed: ' . $e->getMessage());
+        error_log('[WA_WEBHOOK] DB error: ' . $e->getMessage());
     }
-    // Fallback: environment variable (set in .htaccess or server config)
-    if (!empty($_ENV['WA_WEBHOOK_TOKEN']))    return trim($_ENV['WA_WEBHOOK_TOKEN']);
-    if (!empty(getenv('WA_WEBHOOK_TOKEN')))   return trim(getenv('WA_WEBHOOK_TOKEN'));
+    if (!empty($_ENV['WA_WEBHOOK_TOKEN']))  return trim($_ENV['WA_WEBHOOK_TOKEN']);
+    if (!empty(getenv('WA_WEBHOOK_TOKEN'))) return trim(getenv('WA_WEBHOOK_TOKEN'));
     return '';
 }
 
@@ -51,45 +43,45 @@ if ($method === 'GET') {
 
     $verifyToken = getVerifyToken();
 
-    // Debug log — remove after webhook is verified
-    error_log("[WA_WEBHOOK] Verify attempt | mode={$mode} | token_received={$token} | token_stored={$verifyToken} | challenge={$challenge}");
+    error_log("[WA_WEBHOOK] GET | mode={$mode} | received={$token} | stored={$verifyToken}");
+
+    ob_clean(); // discard any output from includes before sending response
 
     if (!$verifyToken) {
         http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Webhook verify token not set in Settings → WA → Webhook Verify Token']);
+        header('Content-Type: text/plain');
+        echo 'ERROR: webhook token not configured in settings';
         exit;
     }
 
     if ($mode === 'subscribe' && $token === $verifyToken) {
-        // Must return ONLY the challenge as plain text — no JSON, no extra output
         http_response_code(200);
         header('Content-Type: text/plain');
         echo $challenge;
         exit;
     }
 
-    // Token mismatch
     error_log("[WA_WEBHOOK] Token mismatch | expected={$verifyToken} | got={$token}");
     http_response_code(403);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Token mismatch']);
+    header('Content-Type: text/plain');
+    echo 'FORBIDDEN';
     exit;
 }
 
 // ── POST: Process webhook events ─────────────────────────────────
 if ($method === 'POST') {
-    // Respond 200 immediately so Meta doesn't retry
+    ob_clean();
     http_response_code(200);
     header('Content-Type: application/json');
     echo json_encode(['success' => true]);
     if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+    else { ob_flush(); flush(); }
 
     $raw  = file_get_contents('php://input');
     $data = json_decode($raw, true);
 
     if (!$data || ($data['object'] ?? '') !== 'whatsapp_business_account') {
-        error_log('[WA_WEBHOOK] Invalid POST payload: ' . substr($raw, 0, 200));
+        error_log('[WA_WEBHOOK] Invalid payload: ' . substr($raw, 0, 200));
         exit;
     }
 
@@ -102,17 +94,15 @@ if ($method === 'POST') {
             foreach (($entry['changes'] ?? []) as $change) {
                 $value = $change['value'] ?? [];
 
-                // ── Status updates ────────────────────────────────
                 foreach (($value['statuses'] ?? []) as $s) {
-                    $wamid      = $s['id']           ?? '';
-                    $metaStatus = $s['status']        ?? '';
-                    $phone      = $s['recipient_id']  ?? '';
-                    $ourStatus  = mapMetaStatus($metaStatus);
-
+                    $wamid     = $s['id']          ?? '';
+                    $metaStatus = $s['status']      ?? '';
+                    $phone     = $s['recipient_id'] ?? '';
+                    $ourStatus = mapMetaStatus($metaStatus);
                     if (!$wamid || !$ourStatus) continue;
 
                     $priorityMap = ['sent_api'=>1,'sent_web'=>1,'delivered'=>2,'read'=>3,'failed'=>0];
-                    $newPriority = $priorityMap[$ourStatus] ?? 0;
+                    $p = $priorityMap[$ourStatus] ?? 0;
 
                     $stmt = $db->prepare(
                         'UPDATE wa_message_log SET status = :status
@@ -122,12 +112,10 @@ if ($method === 'POST') {
                            OR (:p = 0)
                          )'
                     );
-                    $stmt->execute([':status'=>$ourStatus, ':wamid'=>$wamid, ':p'=>$newPriority]);
-
-                    error_log("[WA_WEBHOOK] {$ourStatus} | wamid={$wamid} phone={$phone}");
+                    $stmt->execute([':status'=>$ourStatus, ':wamid'=>$wamid, ':p'=>$p]);
+                    error_log("[WA_WEBHOOK] {$ourStatus} | wamid={$wamid} | phone={$phone}");
                 }
 
-                // ── Inbound messages ──────────────────────────────
                 foreach (($value['messages'] ?? []) as $m) {
                     $from = $m['from'] ?? '';
                     $body = $m['text']['body'] ?? '[non-text]';
@@ -141,6 +129,8 @@ if ($method === 'POST') {
     exit;
 }
 
+// ── Anything else ─────────────────────────────────────────────────
+ob_clean();
 http_response_code(405);
-header('Content-Type: application/json');
-echo json_encode(['error' => 'Method not allowed']);
+header('Content-Type: text/plain');
+echo 'Method not allowed';
