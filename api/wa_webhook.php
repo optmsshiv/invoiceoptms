@@ -54,6 +54,8 @@ try {
         $token     = $_GET['hub_verify_token']  ?? '';
         $challenge = $_GET['hub_challenge']     ?? '';
 
+        error_log("[WA_WEBHOOK] Verification attempt — mode={$mode} token={$token} challenge={$challenge}");
+    
         $verifyToken = getVerifyToken($db);
 
         if (!$verifyToken) {
