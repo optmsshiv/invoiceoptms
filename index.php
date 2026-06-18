@@ -9069,15 +9069,17 @@ Thank you for your continued business. 🙏
             </div>`).join('')}
         </div>
         <textarea style="width:100%;height:160px;font-size:11px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:8px;resize:none;box-sizing:border-box" id="swal-stmt-msg">${msg}</textarea>
+        ${c.email ? `<div style="margin-top:8px;font-size:11px;color:#666"><i class="fas fa-envelope" style="color:#1565C0"></i> Email will be sent to: <strong>${c.email}</strong></div>` : `<div style="margin-top:8px;font-size:11px;color:#E65100"><i class="fas fa-exclamation-triangle"></i> No email address on file for this client</div>`}
       </div>`,
     showCancelButton: true,
     showDenyButton:   true,
     confirmButtonText: `<i class="fab fa-whatsapp"></i> Send via WA`,
-    denyButtonText:    `📋 Copy Text`,
+    denyButtonText:    c.email ? `<i class="fas fa-envelope"></i> Send Email` : `📋 Copy Text`,
     cancelButtonText:  'Cancel',
     confirmButtonColor: '#25D366',
     denyButtonColor:    '#1976D2',
     customClass: { popup: 'swal-compact' },
+    footer: `<button onclick="navigator.clipboard?.writeText(document.getElementById('swal-stmt-msg')?.value||'').then(()=>Swal.showValidationMessage('📋 Copied!')).catch(()=>{})" style="background:none;border:none;color:#1976D2;cursor:pointer;font-size:12px"><i class="fas fa-copy"></i> Copy Text</button>`
   }).then(result => {
     const finalMsg = document.getElementById('swal-stmt-msg')?.value || msg;
     if (result.isConfirmed) {
@@ -9099,12 +9101,89 @@ Thank you for your continued business. 🙏
           toast('❌ Failed: ' + e.message, 'error');
         });
     } else if (result.isDenied) {
-      // Copy to clipboard
-      navigator.clipboard?.writeText(finalMsg)
-        .then(() => toast('📋 Statement copied to clipboard', 'success'))
-        .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      if (c.email) {
+        // Send statement via email
+        _sendStatementEmail(c, unpaid, totalAmt, sc);
+      } else {
+        navigator.clipboard?.writeText(finalMsg)
+          .then(() => toast('📋 Statement copied to clipboard', 'success'))
+          .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      }
     }
   });
+}
+
+// ── Send account statement via email ──────────────────────────────
+async function _sendStatementEmail(c, unpaid, totalAmt, sc) {
+  if (!c.email) { toast('⚠️ No email address for ' + c.name, 'warning'); return; }
+  const today    = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  const overdueCount = unpaid.filter(i => i.status === 'Overdue').length;
+  const rowsHtml = unpaid.map(i => {
+    const num    = i.num || i.invoice_number || '—';
+    const amt    = fmt_money(parseFloat(i.amount || i.grand_total || 0));
+    const due    = i.due || i.due_date || '—';
+    const bgCol  = i.status==='Overdue' ? '#FFEBEE' : i.status==='Partial' ? '#FFF8E1' : '#E3F2FD';
+    const txCol  = i.status==='Overdue' ? '#C62828' : i.status==='Partial' ? '#E65100' : '#1565C0';
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;font-family:monospace">${num}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#555">${due}</td>
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;text-align:right">${amt}</td>
+      <td style="padding:8px 12px;text-align:center"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${bgCol};color:${txCol}">${i.status}</span></td>
+    </tr>`;
+  }).join('');
+  const htmlBody = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333">
+  <div style="background:#1565C0;padding:20px 24px;border-radius:8px 8px 0 0">
+    <h2 style="color:#fff;margin:0;font-size:18px">📋 Account Statement</h2>
+    <p style="color:#BBDEFB;margin:4px 0 0;font-size:13px">${sc.company || ''}</p>
+  </div>
+  <div style="background:#fff;padding:20px 24px;border:1px solid #e0e0e0;border-top:none">
+    <table style="width:100%;margin-bottom:16px;font-size:13px">
+      <tr><td style="color:#777;padding:3px 0">To:</td><td style="font-weight:700">${c.name}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Date:</td><td>${today}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Invoices:</td><td>${unpaid.length} outstanding</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;margin-bottom:16px">
+      <thead><tr style="background:#F5F5F5">
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Invoice</th>
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Due Date</th>
+        <th style="padding:8px 12px;text-align:right;font-size:12px;color:#555">Amount</th>
+        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#555">Status</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div style="background:#FFF3E0;border-left:4px solid #F57C00;padding:12px 16px;border-radius:4px;margin-bottom:16px">
+      <div style="font-size:13px;color:#777">Total Outstanding</div>
+      <div style="font-size:22px;font-weight:800;color:#C62828">${fmt_money(totalAmt)}</div>
+      ${overdueCount > 0 ? `<div style="font-size:12px;color:#E65100;margin-top:4px">⚠️ ${overdueCount} invoice${overdueCount>1?'s are':' is'} overdue — please clear immediately.</div>` : ''}
+    </div>
+    ${sc.upi ? `<div style="background:#E8F5E9;padding:10px 14px;border-radius:6px;font-size:13px;color:#2E7D32;margin-bottom:16px">💳 Pay via UPI: <strong>${sc.upi}</strong>${sc.defaultBank ? '<br>🏦 ' + sc.defaultBank : ''}</div>` : ''}
+    <p style="font-size:13px;color:#555;margin:0">Please arrange payment at the earliest. Thank you for your continued business.</p>
+  </div>
+  <div style="background:#F5F5F5;padding:12px 24px;border-radius:0 0 8px 8px;font-size:12px;color:#888;text-align:center">
+    ${sc.company || ''} ${sc.phone ? '| 📞 '+sc.phone : ''} ${sc.email ? '| ✉ '+sc.email : ''}
+  </div>
+</div>`;
+  const subject = `Account Statement — ${unpaid.length} Outstanding Invoice${unpaid.length>1?'s':''} | ${fmt_money(totalAmt)}`;
+  try {
+    toast('📧 Sending statement...', 'info');
+    const r = await api('api/email.php', 'POST', {
+      action:  'send',
+      type:    'statement',
+      to:      c.email,
+      to_name: c.name,
+      subject,
+      body:    htmlBody,
+      invoice_id: null
+    });
+    if (r?.success) {
+      toast(`✅ Statement emailed to ${c.email}`, 'success');
+    } else {
+      toast('❌ Email failed: ' + (r?.error || 'Unknown error'), 'error');
+    }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
 }
 
 function filterClients(val) {
@@ -10199,8 +10278,11 @@ function emLogPill(btn, group) {
 
 function fmtEmailTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+  // DB stores in IST — if no timezone info, treat as IST (do NOT append Z which would make it UTC)
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   return d.toLocaleString('en-IN', {
@@ -10342,12 +10424,10 @@ async function loadEmailLogs(invId) {
     if (pgEl && total > 25) {
       pgEl.style.display = 'flex';
       pgInfo.textContent = `Showing ${((page-1)*25)+1}–${Math.min(page*25,total)} of ${total}`;
-      let btns = '';
-      for (let i = 1; i <= pages; i++) {
-        const active = i === page ? `background:var(--teal);color:#fff;border-color:var(--teal);` : `background:var(--bg);color:var(--text);`;
-        btns += `<button onclick="window._emLogPage=${i};loadEmailLogs()"
-          style="${active}width:28px;height:28px;border-radius:6px;border:1px solid var(--border);font-size:12px;cursor:pointer">${i}</button>`;
-      }
+      const btnStyle = (disabled) => `padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:${disabled?'var(--muted)':'var(--text)'};cursor:${disabled?'default':'pointer'};font-size:13px;opacity:${disabled?'0.4':'1'}`;
+      let btns = `<button onclick="if(window._emLogPage>1){window._emLogPage--;loadEmailLogs();}" style="${btnStyle(page<=1)}" ${page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+      btns += `<span style="font-size:12px;color:var(--muted);padding:0 8px">Page ${page} of ${pages}</span>`;
+      btns += `<button onclick="if(window._emLogPage<${pages}){window._emLogPage++;loadEmailLogs();}" style="${btnStyle(page>=pages)}" ${page>=pages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
       pgBtns.innerHTML = btns;
     } else if (pgEl) {
       pgEl.style.display = 'none';
@@ -10369,8 +10449,11 @@ function toggleEmailSubject(btn) {
 // ── IST-aware relative time ────────────────────────────────────────
 function _emRelTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + 'Z';
+  // DB stores in IST — treat as IST, do NOT append Z
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ','T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   const diff = Math.floor((Date.now() - d) / 1000);
