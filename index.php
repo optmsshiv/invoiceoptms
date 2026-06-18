@@ -8945,9 +8945,12 @@ function renderClients() {
       </div>
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+      </div>
+      <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#E3F2FD;border-radius:8px;opacity:${isInactive?'.6':'1'}">
+        <div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
+        <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
       </div>
       ${outstandingAmt > 0 ? `
       <div onclick="filterByClient('${c.id}');showPage('invoices')" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue?'#FFEBEE':'#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue?'#FFCDD2':'#FFE082'}">
@@ -14488,12 +14491,9 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
-    // ── Reminder count for this invoice ──────────────────────────
     const _invNumKey = q.inv.num || q.inv.invoice_number || '';
-    const _remCount  = (STATE.reminders || []).filter(e => e.invNum === _invNumKey && e.status === 'sent').length;
-    const _remPill   = _remCount > 0
-      ? `<div style="font-size:9px;color:#6D28D9;font-weight:700;margin-top:2px"><i class="fas fa-bell" style="font-size:8px"></i> ${_remCount} sent</div>`
-      : '';
+    const _remCount  = (STATE.reminders||[]).filter(e=>e.invNum===_invNumKey&&e.status==='sent').length;
+    const _remPill   = _remCount > 0 ? `<div style="font-size:9px;color:#6D28D9;font-weight:700;margin-top:2px"><i class="fas fa-bell" style="font-size:8px"></i> ${_remCount} sent</div>` : '';
     // ── Next Reminder Date calculation ────────────────────────────
     let nextRemCell = '—';
     const _sendHour   = cfg.sendHour   ?? 9;
