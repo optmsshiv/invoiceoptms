@@ -287,7 +287,7 @@ function handleSend($db, $input) {
 
     if (!$to) jsonResponse(['success'=>false,'error'=>'Recipient email required'], 422);
 
-    // ── Statement: use pre-built subject + body, skip invoice lookup ──
+    // ── Statement: pre-built subject + body, no invoice_id needed ─
     if ($type === 'statement') {
         $subject  = trim($input['subject'] ?? '');
         $htmlBody = trim($input['body']    ?? '');
@@ -305,10 +305,9 @@ function handleSend($db, $input) {
             if ($ccRow->fetchColumn() === '1') $ccSelf = $smtp['from'] ?? '';
         } catch(\Exception $e) {}
         $result = sendSmtpEmail($smtp, $to, $toName, $subject, $htmlBody, $ccSelf);
-        // Log it
         try {
-            logEmailSent($db, null, 'statement', $to, $subject, $result['success'] ? 'sent' : 'failed', '', $toName);
-        } catch(\Exception $e) {}
+            logEmailSent($db, null, 'statement', $to, $subject, $result['success'] ? 'sent' : 'failed', $result['error'] ?? '', $toName);
+        } catch(\Exception $e) { error_log('statement logEmailSent: '.$e->getMessage()); }
         if ($result['success']) {
             jsonResponse(['success'=>true]);
         } else {
@@ -978,7 +977,7 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
 }
 
 // ── Log sent email ───────────────────────────────────────────────
-function logEmailSent($db, int $invId, string $type, string $to, string $subject, string $status, string $error='', string $toName=''): void {
+function logEmailSent($db, ?int $invId, string $type, string $to, string $subject, string $status, string $error='', string $toName=''): void {
     try {
         // Add to_name column if missing (safe migration)
         try { $db->exec("ALTER TABLE email_logs ADD COLUMN `to_name` VARCHAR(200) NULL AFTER `to_email`"); } catch(\Exception $e2){}

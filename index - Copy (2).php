@@ -332,7 +332,8 @@ canvas { max-width: 100% !important; }
 .dash-chart-card canvas,
 .dash-calendar-card canvas { display: block; }
 .dash-chart-card .chart-wrap,
-.reports-chart-wrap { position: relative; height: 200px; overflow: hidden; }
+.dash-card .chart-wrap,
+.reports-chart-wrap { position: relative; height: 290px; overflow: hidden; }
 .reports-chart-wrap-lg { position: relative; height: 240px; overflow: hidden; }
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -391,6 +392,12 @@ canvas { max-width: 100% !important; }
 .dri-act-btn.view { background: #E3F2FD; color: #1565C0; }
 .dri-act-btn.wa:hover   { background: #C8E6C9; }
 .dri-act-btn.view:hover { background: #BBDEFB; }
+
+.wa-act-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:0.5px solid var(--border); font-size:13px; }
+.wa-act-row:last-child { border-bottom:none; }
+.wa-act-lbl { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.wa-act-val { font-weight:600; color:var(--text); }
+.wa-act-val.fail { color:#E53935; }
 
 .dash-recent-item {
   display: flex; align-items: center; gap: 12px; padding: 10px 0;
@@ -1375,10 +1382,17 @@ const SERVER = {
       <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card — full width -->
-      <div style="margin-bottom:16px;">
+      <!-- Revenue Card (60%) + WA Activity Card (40%) -->
+      <div style="display:grid;grid-template-columns:60fr 40fr;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
         <div id="s-outstanding-card" style="display:none"></div>
+        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+          </div>
+          <div id="waActivityRows"></div>
+        </div>
       </div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="amber">
@@ -2167,9 +2181,7 @@ const SERVER = {
                   <input id="wa-webhook-token" placeholder="e.g. optms_wa_webhook_2026" value="<?= htmlspecialchars($settings['wa_webhook_token']??'') ?>" style="flex:1">
                   <button type="button" class="btn btn-outline" style="font-size:12px;white-space:nowrap" onclick="const t='optms_'+Math.random().toString(36).slice(2,10);document.getElementById('wa-webhook-token').value=t;saveWASettings();toast('✅ Token generated & saved','success')"><i class="fas fa-dice"></i> Generate</button>
                 </div>
-                <div style="font-size:11px;color:var(--muted);margin-top:4px">
-                  Webhook URL: <code><?= (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']==='on'?'https':'http').'://'.$_SERVER['HTTP_HOST'] ?>/api/wa_webhook.php</code>
-                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">Webhook URL: <code><?= (isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']==='on'?'https':'http').'://'.$_SERVER['HTTP_HOST'] ?>/api/wa_webhook.php</code></div>
               </div>
               <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
             </div>
@@ -2439,11 +2451,11 @@ Thank you for choosing {company_name}!
 
           <div class="wa-tab-pane" id="watab-custom">
             <div style="background:#E8F5E9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1B5E20;margin-bottom:12px;line-height:1.7">
-              <strong>✏️ Custom Message:</strong> Send a free-form message to any phone number via WhatsApp Business API. This bypasses all templates — use for special cases, replies, or one-off communication.
+              <strong>✏️ Custom Message:</strong> Send a free-form message to any phone number via WhatsApp Business API. Bypasses all templates — use for special cases, replies, or one-off communication.
             </div>
             <div class="field">
-              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Recipient Phone <span style="color:var(--muted)">(digits only, include country code)</span></label>
-              <input id="wa-custom-phone" type="tel" placeholder="e.g. 919876543210" style="font-size:13px;margin-bottom:10px;width:100%">
+              <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Recipient Phone <span style="color:var(--muted)">(digits only, with country code e.g. 919876543210)</span></label>
+              <input id="wa-custom-phone" type="tel" placeholder="919876543210" style="font-size:13px;margin-bottom:10px;width:100%">
             </div>
             <div class="field">
               <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block">Message <span id="wa-custom-char" style="float:right;color:var(--muted)">0 / 4096</span></label>
@@ -2458,7 +2470,7 @@ Thank you for choosing {company_name}!
               <button class="btn btn-outline" onclick="document.getElementById('wa-custom-msg').value='';document.getElementById('wa-custom-phone').value='';document.getElementById('wa-custom-char').textContent='0 / 4096'">
                 <i class="fas fa-times"></i> Clear
               </button>
-              <span id="wa-custom-status" style="font-size:12px;color:var(--muted)"></span>
+              <span id="wa-custom-status" style="font-size:12px;color:var(--muted);margin-left:4px"></span>
             </div>
           </div>
 
@@ -4576,7 +4588,7 @@ function renderDashWAActivity() {
   if (!el) return;
   el.innerHTML = `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Loading…</div>`;
   WA_LOG.fetchLog().then(logs => {
-    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
+    const todayStr  = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Kolkata'});
     const today     = logs.filter(l => l.ts && new Date(l.ts).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}) === todayStr);
     const sent      = today.length;
     const viaApi    = today.filter(l => ['sent_api','delivered','read'].includes(l.status)).length;
@@ -4609,6 +4621,7 @@ function renderDashboard() {
   renderDashAlerts();
   renderNotifications();
   updateDashStats();
+  renderDashWAActivity();
   _buildReminderQueue(); // update WA queued pill in topbar
 }
 function updateDashStats() {
@@ -4824,47 +4837,54 @@ function buildLiveChartData(mode) {
   const now = new Date();
   if (mode === 'monthly') {
     const year = now.getFullYear();
-    const paid = Array(12).fill(0), pend = Array(12).fill(0), over = Array(12).fill(0);
+    const paid=Array(12).fill(0), pend=Array(12).fill(0), over=Array(12).fill(0), part=Array(12).fill(0), draft=Array(12).fill(0), canc=Array(12).fill(0);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
       if (d.getFullYear() !== year) return;
-      const m = d.getMonth();
-      if (inv.status === 'Paid')    paid[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[m] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[m] += parseFloat(inv.amount)||0;
+      const m = d.getMonth(), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[m]  += a;
+      if (inv.status==='Pending')   pend[m]  += a;
+      if (inv.status==='Overdue')   over[m]  += a;
+      if (inv.status==='Partial')   part[m]  += a;
+      if (inv.status==='Draft')     draft[m] += a;
+      if (inv.status==='Cancelled') canc[m]  += a;
     });
-    return { labels: months, paid, pending: pend, overdue: over };
+    return { labels:months, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   if (mode === 'weekly') {
     const weeks = ['W1','W2','W3','W4','W5','W6','W7','W8'];
-    const paid = Array(8).fill(0), pend = Array(8).fill(0), over = Array(8).fill(0);
+    const paid=Array(8).fill(0), pend=Array(8).fill(0), over=Array(8).fill(0), part=Array(8).fill(0), draft=Array(8).fill(0), canc=Array(8).fill(0);
     const baseDate = new Date(now.getFullYear(), now.getMonth(), 1);
     STATE.invoices.forEach(inv => {
       if (!inv.issued) return;
       const d = new Date(inv.issued);
-      const diffDays = Math.floor((d - baseDate) / 86400000);
-      const wk = Math.min(Math.max(Math.floor(diffDays / 7), 0), 7);
-      if (inv.status === 'Paid')    paid[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Pending') pend[wk] += parseFloat(inv.amount)||0;
-      if (inv.status === 'Overdue') over[wk] += parseFloat(inv.amount)||0;
+      const wk = Math.min(Math.max(Math.floor((d-baseDate)/86400000/7),0),7), a = parseFloat(inv.amount)||0;
+      if (inv.status==='Paid')      paid[wk]  += a;
+      if (inv.status==='Pending')   pend[wk]  += a;
+      if (inv.status==='Overdue')   over[wk]  += a;
+      if (inv.status==='Partial')   part[wk]  += a;
+      if (inv.status==='Draft')     draft[wk] += a;
+      if (inv.status==='Cancelled') canc[wk]  += a;
     });
-    return { labels: weeks, paid, pending: pend, overdue: over };
+    return { labels:weeks, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
   }
   // yearly
   const curYear = now.getFullYear();
   const years = [curYear-3, curYear-2, curYear-1, curYear].map(String);
-  const paid = Array(4).fill(0), pend = Array(4).fill(0), over = Array(4).fill(0);
+  const paid=Array(4).fill(0), pend=Array(4).fill(0), over=Array(4).fill(0), part=Array(4).fill(0), draft=Array(4).fill(0), canc=Array(4).fill(0);
   STATE.invoices.forEach(inv => {
     if (!inv.issued) return;
-    const yr = new Date(inv.issued).getFullYear();
-    const idx = years.indexOf(String(yr));
+    const idx = years.indexOf(String(new Date(inv.issued).getFullYear())), a = parseFloat(inv.amount)||0;
     if (idx < 0) return;
-    if (inv.status === 'Paid')    paid[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Pending') pend[idx] += parseFloat(inv.amount)||0;
-    if (inv.status === 'Overdue') over[idx] += parseFloat(inv.amount)||0;
+    if (inv.status==='Paid')      paid[idx]  += a;
+    if (inv.status==='Pending')   pend[idx]  += a;
+    if (inv.status==='Overdue')   over[idx]  += a;
+    if (inv.status==='Partial')   part[idx]  += a;
+    if (inv.status==='Draft')     draft[idx] += a;
+    if (inv.status==='Cancelled') canc[idx]  += a;
   });
-  return { labels: years, paid, pending: pend, overdue: over };
+  return { labels:years, paid, pending:pend, overdue:over, partial:part, draft, cancelled:canc };
 }
 
 function renderRevenueChart(mode) {
@@ -4877,9 +4897,12 @@ function renderRevenueChart(mode) {
     data: {
       labels: d.labels,
       datasets: [
-        { label: 'Paid',    data: d.paid,    backgroundColor: 'rgba(0,137,123,.75)',  borderRadius: 5, borderSkipped: false },
-        { label: 'Pending', data: d.pending, backgroundColor: 'rgba(249,168,37,.65)', borderRadius: 5, borderSkipped: false },
-        { label: 'Overdue', data: d.overdue, backgroundColor: 'rgba(229,57,53,.60)',  borderRadius: 5, borderSkipped: false }
+        { label:'Paid',      data:d.paid,      backgroundColor:'rgba(0,137,123,.80)',  borderRadius:4, borderSkipped:false },
+        { label:'Pending',   data:d.pending,   backgroundColor:'rgba(249,168,37,.70)', borderRadius:4, borderSkipped:false },
+        { label:'Overdue',   data:d.overdue,   backgroundColor:'rgba(229,57,53,.65)',   borderRadius:4, borderSkipped:false },
+        { label:'Partial',   data:d.partial,   backgroundColor:'rgba(102,187,106,.70)',borderRadius:4, borderSkipped:false },
+        { label:'Draft',     data:d.draft,     backgroundColor:'rgba(189,189,189,.60)',borderRadius:4, borderSkipped:false },
+        { label:'Cancelled', data:d.cancelled, backgroundColor:'rgba(120,144,156,.55)',borderRadius:4, borderSkipped:false }
       ]
     },
     options: {
@@ -4904,29 +4927,41 @@ function switchChart(mode, btn) {
 function renderDonutChart() {
   const ctx = document.getElementById('donutChart');
   if (!ctx) return;
-  const paid    = STATE.invoices.filter(i=>i.status==='Paid').length;
-  const pending = STATE.invoices.filter(i=>i.status==='Pending').length;
-  const overdue = STATE.invoices.filter(i=>i.status==='Overdue').length;
-  const draft   = STATE.invoices.filter(i=>i.status==='Draft').length;
+  const paid     = STATE.invoices.filter(i=>i.status==='Paid').length;
+  const pending  = STATE.invoices.filter(i=>i.status==='Pending').length;
+  const overdue  = STATE.invoices.filter(i=>i.status==='Overdue').length;
+  const partial  = STATE.invoices.filter(i=>i.status==='Partial').length;
+  const draft    = STATE.invoices.filter(i=>i.status==='Draft').length;
   const estimate = STATE.invoices.filter(i=>i.status==='Estimate').length;
+  const cancelled= STATE.invoices.filter(i=>i.status==='Cancelled').length;
+  const total    = STATE.invoices.length;
+  const labels = ['Paid','Pending','Overdue','Partial','Draft','Estimate','Cancelled'];
+  const vals   = [paid,pending,overdue,partial,draft,estimate,cancelled];
+  const colors = ['#00897B','#FFA726','#EF5350','#66BB6A','#BDBDBD','#3949AB','#78909C'];
+  const centerPlugin = {
+    id:'donutCenter',
+    afterDraw(chart) {
+      const {ctx:c, chartArea:{top,bottom,left,right}} = chart;
+      const cx=(left+right)/2, cy=(top+bottom)/2;
+      c.save();
+      c.textAlign='center'; c.textBaseline='middle';
+      c.font="bold 22px 'Public Sans',sans-serif"; c.fillStyle='#1a1a1a';
+      c.fillText(total, cx, cy-8);
+      c.font="11px 'Public Sans',sans-serif"; c.fillStyle='#9e9e9e';
+      c.fillText('invoices', cx, cy+12);
+      c.restore();
+    }
+  };
   if (donutChartInstance) donutChartInstance.destroy();
   donutChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Paid','Pending','Overdue','Draft','Estimate'],
-      datasets: [{ data: [paid,pending,overdue,draft,estimate], backgroundColor: ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'], borderWidth: 2, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: { legend: { display: false } }
-    }
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:vals, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display:false } } },
+    plugins:[centerPlugin]
   });
   const legend = document.getElementById('donutLegend');
   if (!legend) return;
-  const colors = ['#4CAF50','#FFA726','#EF5350','#BDBDBD','#3949AB'];
-  const vals   = [paid,pending,overdue,draft,estimate];
-  const labels = ['Paid','Pending','Overdue','Draft','Estimate'];
-  legend.innerHTML = labels.map((l,i) => `<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
+  legend.innerHTML = labels.map((l,i)=>`<div class="dl-item"><div class="dl-dot" style="background:${colors[i]}"></div><span class="dl-label">${l}</span><span class="dl-val">${vals[i]}</span></div>`).join('');
 }
 
 function renderDashRecent() {
@@ -4956,6 +4991,13 @@ function renderDashRecent() {
       <div style="text-align:right;flex-shrink:0">
         <div class="dri-amount">${fmt_money(inv.amount)}</div>
         <span class="badge badge-${inv.status.toLowerCase()}">${inv.status}</span>
+        ${inv.status === 'Paid' ? (() => {
+          const invId = String(inv.id);
+          const lastPmt = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId)
+            .sort((a,b) => new Date(b.date||b.payment_date||0) - new Date(a.date||a.payment_date||0))[0];
+          const pd = lastPmt ? (lastPmt.date || lastPmt.payment_date || '') : '';
+          return pd ? `<div style="font-size:10px;color:#1565C0;font-weight:600;margin-top:3px;white-space:nowrap"><i class="fas fa-calendar-check" style="font-size:9px"></i> ${fmt_date_l(pd,{day:'2-digit',month:'short'})}</div>` : '';
+        })() : ''}
       </div>
     </div>`;
   }).join('');
@@ -5082,7 +5124,7 @@ function applyFiltersAndRender() {
         ? new Date(paidDateRaw).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
         : '';
       paidCell = paidDateFmt
-        ? `<span style="color:#1B5E20;font-size:12px;font-weight:600;white-space:nowrap">${paidDateFmt}</span>`
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;background:#E3F2FD;color:#1565C0;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap"><i class="fas fa-calendar-check" style="font-size:10px"></i> ${paidDateFmt}</span>`
         : `<span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap"><i class="fas fa-check-circle" style="font-size:10px"></i> Full</span>`;
     } else if (inv.status === 'Partial' && totalPaid > 0) {
       const remaining = Math.max(0, inv.amount - totalPaid);
@@ -5139,7 +5181,7 @@ function applyFiltersAndRender() {
       : '—';
     // ── Status badge with icon per status ──
     const _statusMap = {
-      'Paid':      { icon:'fa-check-circle',  label:'Full paid' },
+      'Paid':      { icon:'fa-check-circle',  label:'Paid' },
       'Partial':   { icon:'fa-clock',         label:'Partial'   },
       'Pending':   { icon:'fa-hourglass-half',label:'Pending'   },
       'Overdue':   { icon:'fa-exclamation-circle', label:'Overdue' },
@@ -7923,7 +7965,7 @@ function sendWAFromModal() {
 
 async function sendWACustomMessage() {
   const phone  = (document.getElementById('wa-custom-phone')?.value || '').replace(/\D/g,'');
-  const msg    = (document.getElementById('wa-custom-msg')?.value || '').trim();
+  const msg    = (document.getElementById('wa-custom-msg')?.value   || '').trim();
   const status = document.getElementById('wa-custom-status');
   if (!phone) { toast('⚠️ Enter recipient phone number','warning'); return; }
   if (!msg)   { toast('⚠️ Enter a message','warning'); return; }
@@ -7931,12 +7973,12 @@ async function sendWACustomMessage() {
   try {
     const result = await sendWA(phone, msg, 'unknown', null, null);
     if (result) {
+      const wamid = result?.wamid || result?.messages?.[0]?.id || '';
+      logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'sent_api', wamid });
       toast('✅ Custom message sent via API!','success');
-      // Log it
-      logWAMessage({ inv:null, client:null, type:'unknown', msg, status:'sent_api', wamid: result?.wamid||'' });
-      if (document.getElementById('wa-custom-msg'))  document.getElementById('wa-custom-msg').value = '';
-      if (document.getElementById('wa-custom-phone')) document.getElementById('wa-custom-phone').value = '';
-      if (document.getElementById('wa-custom-char')) document.getElementById('wa-custom-char').textContent = '0 / 4096';
+      document.getElementById('wa-custom-msg').value   = '';
+      document.getElementById('wa-custom-phone').value = '';
+      document.getElementById('wa-custom-char').textContent = '0 / 4096';
       if (status) status.textContent = '✅ Sent';
     } else {
       toast('📱 WhatsApp opened','info');
@@ -8865,6 +8907,8 @@ function renderClients() {
     const initials = getInitials(c.name);
     const rev = STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid').reduce((s,i)=>s+i.amount,0);
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
+    const _clientInvNums = STATE.invoices.filter(i=>i.client===c.id).map(i=>i.num||i.invoice_number||'');
+    const _remSentCount  = (STATE.reminders||[]).filter(e=>_clientInvNums.includes(e.invNum)&&e.status==='sent').length;
     const isInactive = parseInt(c.active) === 0 || c.status === 'inactive';
 
     // Outstanding dues
@@ -8901,8 +8945,12 @@ function renderClients() {
       </div>
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+      </div>
+      <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#E3F2FD;border-radius:8px;opacity:${isInactive?'.6':'1'}">
+        <div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
+        <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
       </div>
       ${outstandingAmt > 0 ? `
       <div onclick="filterByClient('${c.id}');showPage('invoices')" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue?'#FFEBEE':'#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue?'#FFCDD2':'#FFE082'}">
@@ -9021,15 +9069,17 @@ Thank you for your continued business. 🙏
             </div>`).join('')}
         </div>
         <textarea style="width:100%;height:160px;font-size:11px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:8px;resize:none;box-sizing:border-box" id="swal-stmt-msg">${msg}</textarea>
+        ${c.email ? `<div style="margin-top:8px;font-size:11px;color:#666"><i class="fas fa-envelope" style="color:#1565C0"></i> Email will be sent to: <strong>${c.email}</strong></div>` : `<div style="margin-top:8px;font-size:11px;color:#E65100"><i class="fas fa-exclamation-triangle"></i> No email address on file for this client</div>`}
       </div>`,
     showCancelButton: true,
     showDenyButton:   true,
     confirmButtonText: `<i class="fab fa-whatsapp"></i> Send via WA`,
-    denyButtonText:    `📋 Copy Text`,
+    denyButtonText:    c.email ? `<i class="fas fa-envelope"></i> Send Email` : `📋 Copy Text`,
     cancelButtonText:  'Cancel',
     confirmButtonColor: '#25D366',
     denyButtonColor:    '#1976D2',
     customClass: { popup: 'swal-compact' },
+    footer: `<button onclick="navigator.clipboard?.writeText(document.getElementById('swal-stmt-msg')?.value||'').then(()=>Swal.showValidationMessage('📋 Copied!')).catch(()=>{})" style="background:none;border:none;color:#1976D2;cursor:pointer;font-size:12px"><i class="fas fa-copy"></i> Copy Text</button>`
   }).then(result => {
     const finalMsg = document.getElementById('swal-stmt-msg')?.value || msg;
     if (result.isConfirmed) {
@@ -9051,12 +9101,89 @@ Thank you for your continued business. 🙏
           toast('❌ Failed: ' + e.message, 'error');
         });
     } else if (result.isDenied) {
-      // Copy to clipboard
-      navigator.clipboard?.writeText(finalMsg)
-        .then(() => toast('📋 Statement copied to clipboard', 'success'))
-        .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      if (c.email) {
+        // Send statement via email
+        _sendStatementEmail(c, unpaid, totalAmt, sc);
+      } else {
+        navigator.clipboard?.writeText(finalMsg)
+          .then(() => toast('📋 Statement copied to clipboard', 'success'))
+          .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      }
     }
   });
+}
+
+// ── Send account statement via email ──────────────────────────────
+async function _sendStatementEmail(c, unpaid, totalAmt, sc) {
+  if (!c.email) { toast('⚠️ No email address for ' + c.name, 'warning'); return; }
+  const today    = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  const overdueCount = unpaid.filter(i => i.status === 'Overdue').length;
+  const rowsHtml = unpaid.map(i => {
+    const num    = i.num || i.invoice_number || '—';
+    const amt    = fmt_money(parseFloat(i.amount || i.grand_total || 0));
+    const due    = i.due || i.due_date || '—';
+    const bgCol  = i.status==='Overdue' ? '#FFEBEE' : i.status==='Partial' ? '#FFF8E1' : '#E3F2FD';
+    const txCol  = i.status==='Overdue' ? '#C62828' : i.status==='Partial' ? '#E65100' : '#1565C0';
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;font-family:monospace">${num}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#555">${due}</td>
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;text-align:right">${amt}</td>
+      <td style="padding:8px 12px;text-align:center"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${bgCol};color:${txCol}">${i.status}</span></td>
+    </tr>`;
+  }).join('');
+  const htmlBody = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333">
+  <div style="background:#1565C0;padding:20px 24px;border-radius:8px 8px 0 0">
+    <h2 style="color:#fff;margin:0;font-size:18px">📋 Account Statement</h2>
+    <p style="color:#BBDEFB;margin:4px 0 0;font-size:13px">${sc.company || ''}</p>
+  </div>
+  <div style="background:#fff;padding:20px 24px;border:1px solid #e0e0e0;border-top:none">
+    <table style="width:100%;margin-bottom:16px;font-size:13px">
+      <tr><td style="color:#777;padding:3px 0">To:</td><td style="font-weight:700">${c.name}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Date:</td><td>${today}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Invoices:</td><td>${unpaid.length} outstanding</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;margin-bottom:16px">
+      <thead><tr style="background:#F5F5F5">
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Invoice</th>
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Due Date</th>
+        <th style="padding:8px 12px;text-align:right;font-size:12px;color:#555">Amount</th>
+        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#555">Status</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div style="background:#FFF3E0;border-left:4px solid #F57C00;padding:12px 16px;border-radius:4px;margin-bottom:16px">
+      <div style="font-size:13px;color:#777">Total Outstanding</div>
+      <div style="font-size:22px;font-weight:800;color:#C62828">${fmt_money(totalAmt)}</div>
+      ${overdueCount > 0 ? `<div style="font-size:12px;color:#E65100;margin-top:4px">⚠️ ${overdueCount} invoice${overdueCount>1?'s are':' is'} overdue — please clear immediately.</div>` : ''}
+    </div>
+    ${sc.upi ? `<div style="background:#E8F5E9;padding:10px 14px;border-radius:6px;font-size:13px;color:#2E7D32;margin-bottom:16px">💳 Pay via UPI: <strong>${sc.upi}</strong>${sc.defaultBank ? '<br>🏦 ' + sc.defaultBank : ''}</div>` : ''}
+    <p style="font-size:13px;color:#555;margin:0">Please arrange payment at the earliest. Thank you for your continued business.</p>
+  </div>
+  <div style="background:#F5F5F5;padding:12px 24px;border-radius:0 0 8px 8px;font-size:12px;color:#888;text-align:center">
+    ${sc.company || ''} ${sc.phone ? '| 📞 '+sc.phone : ''} ${sc.email ? '| ✉ '+sc.email : ''}
+  </div>
+</div>`;
+  const subject = `Account Statement — ${unpaid.length} Outstanding Invoice${unpaid.length>1?'s':''} | ${fmt_money(totalAmt)}`;
+  try {
+    toast('📧 Sending statement...', 'info');
+    const r = await api('api/email.php', 'POST', {
+      action:  'send',
+      type:    'statement',
+      to:      c.email,
+      to_name: c.name,
+      subject,
+      body:    htmlBody,
+      invoice_id: null
+    });
+    if (r?.success) {
+      toast(`✅ Statement emailed to ${c.email}`, 'success');
+    } else {
+      toast('❌ Email failed: ' + (r?.error || 'Unknown error'), 'error');
+    }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  }
 }
 
 function filterClients(val) {
@@ -10151,8 +10278,11 @@ function emLogPill(btn, group) {
 
 function fmtEmailTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+  // DB stores in IST — if no timezone info, treat as IST (do NOT append Z which would make it UTC)
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   return d.toLocaleString('en-IN', {
@@ -10294,12 +10424,10 @@ async function loadEmailLogs(invId) {
     if (pgEl && total > 25) {
       pgEl.style.display = 'flex';
       pgInfo.textContent = `Showing ${((page-1)*25)+1}–${Math.min(page*25,total)} of ${total}`;
-      let btns = '';
-      for (let i = 1; i <= pages; i++) {
-        const active = i === page ? `background:var(--teal);color:#fff;border-color:var(--teal);` : `background:var(--bg);color:var(--text);`;
-        btns += `<button onclick="window._emLogPage=${i};loadEmailLogs()"
-          style="${active}width:28px;height:28px;border-radius:6px;border:1px solid var(--border);font-size:12px;cursor:pointer">${i}</button>`;
-      }
+      const btnStyle = (disabled) => `padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:${disabled?'var(--muted)':'var(--text)'};cursor:${disabled?'default':'pointer'};font-size:13px;opacity:${disabled?'0.4':'1'}`;
+      let btns = `<button onclick="if(window._emLogPage>1){window._emLogPage--;loadEmailLogs();}" style="${btnStyle(page<=1)}" ${page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+      btns += `<span style="font-size:12px;color:var(--muted);padding:0 8px">Page ${page} of ${pages}</span>`;
+      btns += `<button onclick="if(window._emLogPage<${pages}){window._emLogPage++;loadEmailLogs();}" style="${btnStyle(page>=pages)}" ${page>=pages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
       pgBtns.innerHTML = btns;
     } else if (pgEl) {
       pgEl.style.display = 'none';
@@ -10321,8 +10449,11 @@ function toggleEmailSubject(btn) {
 // ── IST-aware relative time ────────────────────────────────────────
 function _emRelTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + 'Z';
+  // DB stores in IST — treat as IST, do NOT append Z
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ','T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   const diff = Math.floor((Date.now() - d) / 1000);
@@ -14443,14 +14574,56 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
+    const _invNumKey = q.inv.num || q.inv.invoice_number || '';
+    const _remCount  = (STATE.reminders||[]).filter(e=>e.invNum===_invNumKey&&e.status==='sent').length;
+    const _remPill   = _remCount > 0 ? `<div style="font-size:9px;color:#6D28D9;font-weight:700;margin-top:2px"><i class="fas fa-bell" style="font-size:8px"></i> ${_remCount} sent</div>` : '';
+    // ── Next Reminder Date calculation ────────────────────────────
+    let nextRemCell = '—';
+    const _sendHour   = cfg.sendHour   ?? 9;
+    const _sendMin    = cfg.sendMinute ?? 0;
+    const _sendLabel  = `${String(_sendHour).padStart(2,'0')}:${String(_sendMin).padStart(2,'0')}`;
+    if (q.urgency === 'high') {
+      // Overdue: next = last overdue/followup sent date + overdueFreq days
+      const _lastSent = (STATE.reminders || [])
+        .filter(e => e.invNum === (q.inv.num||q.inv.invoice_number) && ['overdue','followup','Overdue Alert'].includes(e.type) && e.status==='sent')
+        .map(e => new Date((e.ts||'').replace(' ','T')))
+        .filter(d => !isNaN(d))
+        .sort((a,b) => b-a)[0];
+      if (_lastSent) {
+        const _next = new Date(_lastSent);
+        _next.setDate(_next.getDate() + (cfg.overdueFreq || 7));
+        _next.setHours(_sendHour, _sendMin, 0, 0);
+        const _isToday = _next.toDateString() === new Date().toDateString();
+        const _isPast  = _next < new Date();
+        const _d = _next.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+        const _col = _isPast ? '#C0392B' : _isToday ? '#B45309' : '#1565C0';
+        const _bg  = _isPast ? '#FEF0EF' : _isToday ? '#FFF4E5' : '#E3F2FD';
+        const _lbl = _isPast ? 'Overdue now' : _isToday ? `Today ${_sendLabel}` : `${_d} ${_sendLabel}`;
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${_bg};color:${_col};white-space:nowrap">${_lbl}</span>`;
+      } else {
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FEF0EF;color:#C0392B;white-space:nowrap">Now</span>`;
+      }
+    } else if (q.urgency === 'medium') {
+      nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FFF4E5;color:#B45309;white-space:nowrap">Today ${_sendLabel}</span>`;
+    } else {
+      // Due soon: scheduled send time on due date (or today if beforeDays window)
+      const _dueD = q.inv.due ? new Date(q.inv.due) : null;
+      if (_dueD) {
+        _dueD.setHours(_sendHour, _sendMin, 0, 0);
+        const _d = _dueD.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#E3F2FD;color:#1565C0;white-space:nowrap">${_d} ${_sendLabel}</span>`;
+      }
+    }
+
     return `<tr style="${rowBg}border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}${_remPill}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bgPill};color:${col}">${q.label}</span>
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${q.inv.due||'—'}</div>
       </td>
       <td style="padding:8px 6px">${amtStr}</td>
+      <td style="padding:8px 6px;white-space:nowrap">${nextRemCell}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
           ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}','${q.type}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
@@ -14483,6 +14656,7 @@ function _buildReminderQueue() {
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Client</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Status</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Amount</th>
+            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Next Reminder</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Actions</th>
           </tr></thead>
           <tbody>${items.map(q => qRow(q)).join('')}</tbody>
@@ -14566,7 +14740,7 @@ function sendReminderNow(invId, channel, qtype) {
   const _remMsgText = typeof msg !== 'undefined' ? (msg || '') : '';
   const entry = {
     id:         Date.now() + '',
-    ts:         new Date().toISOString(),
+    ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
     type:       _logType,
@@ -17002,7 +17176,7 @@ setTimeout(async () => {
       const _autoMsg  = typeof waMsg !== 'undefined' ? (waMsg || '') : '';
       const entry = {
         id:         Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        ts:         new Date().toISOString(),
+        ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
         invNum,
         clientName: _cName,
         type:       _autoType,

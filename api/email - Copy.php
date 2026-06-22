@@ -282,10 +282,39 @@ function handleSend($db, $input) {
         'partial_payment'  => 'receipt',
     ];
     $type = $typeMap[$type] ?? $type;
-    $allowed = ['invoice','estimate','receipt','reminder','overdue','followup','recurring','test'];
+    $allowed = ['invoice','estimate','receipt','reminder','overdue','followup','recurring','test','statement'];
     if (!in_array($type, $allowed)) $type = 'invoice';
 
     if (!$to) jsonResponse(['success'=>false,'error'=>'Recipient email required'], 422);
+
+    // ── Statement: use pre-built subject + body, skip invoice lookup ──
+    if ($type === 'statement') {
+        $subject  = trim($input['subject'] ?? '');
+        $htmlBody = trim($input['body']    ?? '');
+        $toName   = trim($input['to_name'] ?? '');
+        if (!$subject || !$htmlBody) {
+            jsonResponse(['success'=>false,'error'=>'subject and body are required for statement'], 422);
+        }
+        $smtp = getSmtpConfig($input, $db);
+        if (empty($smtp['host'])) jsonResponse(['success'=>false,'error'=>'SMTP not configured'], 422);
+        // CC self
+        $ccSelf = '';
+        try {
+            $ccRow = $db->prepare("SELECT `value` FROM settings WHERE `key`='email_cc_self' LIMIT 1");
+            $ccRow->execute();
+            if ($ccRow->fetchColumn() === '1') $ccSelf = $smtp['from'] ?? '';
+        } catch(\Exception $e) {}
+        $result = sendSmtpEmail($smtp, $to, $toName, $subject, $htmlBody, $ccSelf);
+        // Log it
+        try {
+            logEmailSent($db, null, 'statement', $to, $subject, $result['success'] ? 'sent' : 'failed', '', $toName);
+        } catch(\Exception $e) {}
+        if ($result['success']) {
+            jsonResponse(['success'=>true]);
+        } else {
+            jsonResponse(['success'=>false,'error'=>$result['error']??'SMTP send failed'], 500);
+        }
+    }
 
     // ── Status guard: fetch invoice and block invalid sends ───────
     if ($invId) {
