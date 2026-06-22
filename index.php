@@ -4376,20 +4376,24 @@ const STATE = {
     {name:'Other',           color:'#757575'},
   ],
   settings: {
-    company:  <?= json_encode($companyName)    ?>,
-    gst:      <?= json_encode($companyGst)     ?>,
-    phone:    <?= json_encode($companyPhone)   ?>,
-    email:    <?= json_encode($companyEmail)   ?>,
-    website:  <?= json_encode($companyWebsite) ?>,
-    prefix:   <?= json_encode($prefix)         ?>,
-    upi:      <?= json_encode($companyUpi)     ?>,
-    address:  <?= json_encode($companyAddress) ?>,
-    logo:     <?= json_encode($companyLogo)    ?>,
-    waToken: '',
-    waPid: '',
-    activeTemplate: <?= json_encode($activeTemplate ?: '2') ?>,
-    defaultGST: <?= json_encode((float)($defaultGst ?: 18)) ?>,
-    dueDays: <?= json_encode((int)($dueDays ?: 15)) ?>
+    company:         <?= json_encode($companyName)    ?>,
+    gst:             <?= json_encode($companyGst)     ?>,
+    phone:           <?= json_encode($companyPhone)   ?>,
+    email:           <?= json_encode($companyEmail)   ?>,
+    website:         <?= json_encode($companyWebsite) ?>,
+    prefix:          <?= json_encode($prefix)         ?>,
+    upi:             <?= json_encode($companyUpi)     ?>,
+    address:         <?= json_encode($companyAddress) ?>,
+    logo:            <?= json_encode($companyLogo)    ?>,
+    sign:            <?= json_encode($companySign)    ?>,
+    defaultBank:     <?= json_encode($companyBank)    ?>,
+    tnc:             <?= json_encode($defaultTnc)     ?>,
+    currency:        <?= json_encode($defaultCurrency)?>,
+    waToken:         <?= json_encode($settings['wa_token'] ?? '') ?>,
+    waPid:           <?= json_encode($settings['wa_pid']   ?? '') ?>,
+    activeTemplate:  <?= json_encode($activeTemplate ?: '2') ?>,
+    defaultGST:      <?= json_encode((float)($defaultGst ?: 18)) ?>,
+    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>
   },
   currentPage: 1,
   invoicesPerPage: 10,
@@ -9044,9 +9048,9 @@ Thank you for your continued business. 🙏
 — *${sc.company || ''}*
 📞 ${sc.phone || ''} | ✉ ${sc.email || ''}`;
 
-  // ── WA API config — SERVER.wa has the real token/pid from DB ──
-  const waToken = SERVER.wa?.token || '';
-  const waPid   = SERVER.wa?.pid   || '';
+  // ── WA API config — from STATE.settings (populated from DB) ───
+  const waToken = STATE.settings.waToken || SERVER.wa?.token || '';
+  const waPid   = STATE.settings.waPid   || SERVER.wa?.pid   || '';
   const waPhone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
 
   // ── Show preview modal before sending ──────────────────────────
