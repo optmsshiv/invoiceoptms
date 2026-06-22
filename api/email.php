@@ -13,6 +13,7 @@
 //  DELETE action=del_profile    → Delete an SMTP profile
 // ================================================================
 
+date_default_timezone_set('Asia/Kolkata');
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../config/db.php';
@@ -415,7 +416,7 @@ function handleSend($db, $input) {
     $errMsg = $result['error']   ?? '';
     try {
         if ($logId) {
-            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=UTC_TIMESTAMP() WHERE id=?")
+            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=NOW() WHERE id=?")
                ->execute([$status, $errMsg ?: null, $logId]);
         } else {
             logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg, $toName);
@@ -981,7 +982,7 @@ function logEmailSent($db, ?int $invId, string $type, string $to, string $subjec
     try {
         // Add to_name column if missing (safe migration)
         try { $db->exec("ALTER TABLE email_logs ADD COLUMN `to_name` VARCHAR(200) NULL AFTER `to_email`"); } catch(\Exception $e2){}
-        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())")
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())")
            ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
