@@ -9045,8 +9045,8 @@ Thank you for your continued business. 🙏
 📞 ${sc.phone || ''} | ✉ ${sc.email || ''}`;
 
   // ── WA API config ──────────────────────────────────────────────
-  const waToken = sc.token || sc.wa_token || '';
-  const waPid   = sc.pid   || sc.wa_pid   || '';
+  const waToken = STATE.wa?.token || STATE.wa?.wa_token || '';
+  const waPid   = STATE.wa?.pid   || STATE.wa?.wa_pid   || '';
   const waPhone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
 
   // ── Show preview modal before sending ──────────────────────────
