@@ -391,7 +391,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     $lastPaymentDate = $payments ? pdf_fmt_date(end($payments)['payment_date'] ?? '') : '';
     $statusBorders = [
         'Paid' => '#166534', 'Pending' => '#92400E', 'Overdue' => '#991B1B',
-        'Draft' => '#374151', 'Partial' => '#92400E', 'Cancelled' => '#6B7280', 'Estimate' => '#1E40AF',
+        'Draft' => '#374151', 'Partial' => '#D97706', 'Cancelled' => '#6B7280', 'Estimate' => '#1E40AF',
     ];
     $sBdr = $statusBorders[$inv['status']] ?? '#374151';
 ?>

@@ -7058,11 +7058,12 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     Overdue:   '#991B1B,#DC2626,#F87171',
     Cancelled: '#374151,#6B7280,#D1D5DB',
     Draft:     '#1E3A5F,#2563EB,#93C5FD',
-    Partial:   '#92400E,#D97706,#FCD34D',
+    Partial:   '#D97706,#F59E0B,#FDE68A',
     Pending:   T.band
   };
   const activeBand = statusBands[d.status] || T.band;
-  const [b1] = activeBand.split(',');
+  const [b1, b2] = activeBand.split(',');
+  const accentStrip = b2 || b1; // use mid-tone so Partial amber is warm not muddy-brown
 
   const thStyle = `padding:10px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.thtext};text-align:left`;
   const thr = `${thStyle};text-align:right`;
@@ -7072,7 +7073,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   ${tplWatermark(d)}
 
   <!-- ACCENT STRIP -->
-  <div style="height:5px;background:${b1}"></div>
+  <div style="height:5px;background:${accentStrip}"></div>
 
   <!-- HEADER: dark logo sidebar + white content panel (canonical design — matches PDF download) -->
   <div style="display:flex">
@@ -9958,7 +9959,7 @@ function previewTemplate(n) {
   const iHTML=`<tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Website Development Premium</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Service</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹88,500.00</td></tr><tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Domain & Hosting</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Product</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹5,310.00</td></tr>`;
   const gH=`<th style="padding:10px 12px;text-align:center">GST%</th>`;
   sd._rawItems=[{desc:'Website Development Premium',qty:1,rate:75000,gst:18},{desc:'Domain & Hosting',qty:1,rate:4500,gst:18}];
-  const tpls={'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const tpls={'2':buildTpl2,'F':buildTplF};
   const fn=tpls[String(n)]||buildTpl2;
   const scale=Math.min(0.78,(window.innerWidth-280)/794);
   const sh=Math.round(1123*scale);
