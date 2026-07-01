@@ -12,6 +12,10 @@
 
 require_once __DIR__ . '/../config/db.php';
 
+// Ensure all date()/strtotime() calls below use IST, regardless of the
+// server's default PHP timezone setting.
+date_default_timezone_set('Asia/Kolkata');
+
 $rawToken = $_GET['t'] ?? '';
 $src      = $_GET['src'] ?? 'wa';   // 'email' = email portal, 'wa' = WhatsApp portal (default)
 $isEmailPortal = ($src === 'email');
@@ -164,13 +168,24 @@ if (!$error && $invoiceId > 0) {
             }
 
             // Payment history
-            $pStmt = $db->prepare(
-                'SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount,
-                        payment_date, method, transaction_id, notes
-                 FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC'
-            );
-            $pStmt->execute([':id' => $inv['invoice_id']]);
-            $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
+            try {
+                $pStmt = $db->prepare(
+                    'SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount,
+                            payment_date, method, transaction_id, notes, created_at
+                     FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC'
+                );
+                $pStmt->execute([':id' => $inv['invoice_id']]);
+                $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                // created_at column may not exist on this payments table — retry without it
+                $pStmt = $db->prepare(
+                    'SELECT amount, COALESCE(settlement_discount,0) AS settlement_discount,
+                            payment_date, method, transaction_id, notes
+                     FROM payments WHERE invoice_id = :id ORDER BY payment_date ASC'
+                );
+                $pStmt->execute([':id' => $inv['invoice_id']]);
+                $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
 
             // Company settings
             try {
@@ -221,6 +236,20 @@ function fmt_datetime_always($d) {
     $ts = strtotime($d);
     if (!$ts) return htmlspecialchars($d);
     return date('d M Y', $ts) . ', ' . date('H:i', $ts);
+}
+function fmt_payment_datetime($paymentDate, $createdAt) {
+    // Date comes from payment_date; time comes from created_at when payment_date
+    // itself has no real time component (i.e. is midnight), since payment_date is
+    // often stored as a plain DATE while created_at is a true DATETIME.
+    if (!$paymentDate || $paymentDate === '—') return '—';
+    $dateTs = strtotime($paymentDate);
+    if (!$dateTs) return htmlspecialchars($paymentDate);
+    $timeSrc = $dateTs;
+    if (date('H:i', $dateTs) === '00:00' && $createdAt) {
+        $createdTs = strtotime($createdAt);
+        if ($createdTs) $timeSrc = $createdTs;
+    }
+    return date('d M Y', $dateTs) . ', ' . date('H:i', $timeSrc);
 }
 function fmt_rel($d) {
     // Returns relative label for first_viewed: "Today", "Yesterday", "3 days ago", or "d M Y" for older
@@ -1379,7 +1408,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= fmt_datetime_always($p['payment_date'] ?? '') ?></div>
+        <div class="pmt-date"><?= fmt_payment_datetime($p['payment_date'] ?? '', $p['created_at'] ?? '') ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>
