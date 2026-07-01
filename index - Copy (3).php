@@ -4376,20 +4376,24 @@ const STATE = {
     {name:'Other',           color:'#757575'},
   ],
   settings: {
-    company:  <?= json_encode($companyName)    ?>,
-    gst:      <?= json_encode($companyGst)     ?>,
-    phone:    <?= json_encode($companyPhone)   ?>,
-    email:    <?= json_encode($companyEmail)   ?>,
-    website:  <?= json_encode($companyWebsite) ?>,
-    prefix:   <?= json_encode($prefix)         ?>,
-    upi:      <?= json_encode($companyUpi)     ?>,
-    address:  <?= json_encode($companyAddress) ?>,
-    logo:     <?= json_encode($companyLogo)    ?>,
-    waToken: '',
-    waPid: '',
-    activeTemplate: <?= json_encode($activeTemplate ?: '2') ?>,
-    defaultGST: <?= json_encode((float)($defaultGst ?: 18)) ?>,
-    dueDays: <?= json_encode((int)($dueDays ?: 15)) ?>
+    company:         <?= json_encode($companyName)    ?>,
+    gst:             <?= json_encode($companyGst)     ?>,
+    phone:           <?= json_encode($companyPhone)   ?>,
+    email:           <?= json_encode($companyEmail)   ?>,
+    website:         <?= json_encode($companyWebsite) ?>,
+    prefix:          <?= json_encode($prefix)         ?>,
+    upi:             <?= json_encode($companyUpi)     ?>,
+    address:         <?= json_encode($companyAddress) ?>,
+    logo:            <?= json_encode($companyLogo)    ?>,
+    sign:            <?= json_encode($companySign)    ?>,
+    defaultBank:     <?= json_encode($companyBank)    ?>,
+    tnc:             <?= json_encode($defaultTnc)     ?>,
+    currency:        <?= json_encode($defaultCurrency)?>,
+    waToken:         <?= json_encode($settings['wa_token'] ?? '') ?>,
+    waPid:           <?= json_encode($settings['wa_pid']   ?? '') ?>,
+    activeTemplate:  <?= json_encode($activeTemplate ?: '2') ?>,
+    defaultGST:      <?= json_encode((float)($defaultGst ?: 18)) ?>,
+    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>
   },
   currentPage: 1,
   invoicesPerPage: 10,
@@ -8907,6 +8911,8 @@ function renderClients() {
     const initials = getInitials(c.name);
     const rev = STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid').reduce((s,i)=>s+i.amount,0);
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
+    const _clientInvNums = STATE.invoices.filter(i=>i.client===c.id).map(i=>i.num||i.invoice_number||'');
+    const _remSentCount  = (STATE.reminders||[]).filter(e=>_clientInvNums.includes(e.invNum)&&e.status==='sent').length;
     const isInactive = parseInt(c.active) === 0 || c.status === 'inactive';
 
     // Outstanding dues
@@ -8943,8 +8949,12 @@ function renderClients() {
       </div>
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${cnt}</div><div class="cc-stat-lbl">Invoices</div></div>
-        <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color}">${fmt_money(rev)}</div><div class="cc-stat-lbl">Revenue</div></div>
+        <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
+      </div>
+      <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#E3F2FD;border-radius:8px;opacity:${isInactive?'.6':'1'}">
+        <div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
+        <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
       </div>
       ${outstandingAmt > 0 ? `
       <div onclick="filterByClient('${c.id}');showPage('invoices')" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue?'#FFEBEE':'#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue?'#FFCDD2':'#FFE082'}">
@@ -9038,6 +9048,11 @@ Thank you for your continued business. 🙏
 — *${sc.company || ''}*
 📞 ${sc.phone || ''} | ✉ ${sc.email || ''}`;
 
+  // ── WA API config — from STATE.settings (populated from DB) ───
+  const waToken = STATE.settings.waToken || SERVER.wa?.token || '';
+  const waPid   = STATE.settings.waPid   || SERVER.wa?.pid   || '';
+  const waPhone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
+
   // ── Show preview modal before sending ──────────────────────────
   Swal.fire({
     title: `Statement — ${c.name}`,
@@ -9062,43 +9077,121 @@ Thank you for your continued business. 🙏
               </div>
             </div>`).join('')}
         </div>
-        <textarea style="width:100%;height:160px;font-size:11px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:8px;resize:none;box-sizing:border-box" id="swal-stmt-msg">${msg}</textarea>
+        <textarea style="width:100%;height:120px;font-size:11px;font-family:monospace;border:1px solid #ddd;border-radius:6px;padding:8px;resize:none;box-sizing:border-box" id="swal-stmt-msg">${msg}</textarea>
+        ${waToken && waPhone ? `<div style="margin-top:6px;font-size:11px;color:#1a7a3c"><i class="fab fa-whatsapp"></i> WA → <strong>${waPhone}</strong> <span style="color:#888">(free-form, 24h session)</span></div>` : `<div style="margin-top:6px;font-size:11px;color:#E65100"><i class="fas fa-exclamation-triangle"></i> WA API not configured — use Email or Copy</div>`}
+        ${c.email ? `<div style="margin-top:3px;font-size:11px;color:#1565C0"><i class="fas fa-envelope"></i> Email → <strong>${c.email}</strong></div>` : `<div style="margin-top:3px;font-size:11px;color:#999"><i class="fas fa-envelope"></i> No email on file</div>`}
       </div>`,
-    showCancelButton: true,
-    showDenyButton:   true,
-    confirmButtonText: `<i class="fab fa-whatsapp"></i> Send via WA`,
-    denyButtonText:    `📋 Copy Text`,
+    showCancelButton:  true,
+    showDenyButton:    true,
+    confirmButtonText: waToken && waPhone ? `<i class="fab fa-whatsapp"></i> Send via WA` : `📋 Copy Text`,
+    denyButtonText:    c.email ? `<i class="fas fa-envelope"></i> Send Email` : `📋 Copy Text`,
     cancelButtonText:  'Cancel',
-    confirmButtonColor: '#25D366',
+    confirmButtonColor: waToken && waPhone ? '#25D366' : '#1976D2',
     denyButtonColor:    '#1976D2',
     customClass: { popup: 'swal-compact' },
-  }).then(result => {
+    footer: `<button onclick="navigator.clipboard?.writeText(document.getElementById('swal-stmt-msg')?.value||'').then(()=>Swal.showValidationMessage('📋 Copied!')).catch(()=>{})" style="background:none;border:none;color:#1976D2;cursor:pointer;font-size:12px"><i class="fas fa-copy"></i> Copy Text</button>`
+  }).then(async result => {
     const finalMsg = document.getElementById('swal-stmt-msg')?.value || msg;
     if (result.isConfirmed) {
-      // Send via WhatsApp
-      const phone = (c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
-      if (!phone) { toast('⚠️ No WhatsApp number for ' + c.name, 'warning'); return; }
-      const stmtInv = { id: null, num: 'STMT', invoice_number: 'STMT', client: clientId,
-                        clientName: c.name, amount: totalAmt, grand_total: totalAmt, status: 'Statement' };
-      logWAMessage({ inv: stmtInv, client: c, type: 'invoice_created', msg: finalMsg, status: 'sending' });
-      sendWA(phone, finalMsg, 'invoice_created', stmtInv, c)
-        .then(res => {
-          logWAMessage({ inv: stmtInv, client: c, type: 'invoice_created', msg: finalMsg,
-            status: res ? 'sent_api' : 'sent_web' });
-          toast(res ? `✅ Statement sent to ${c.name}` : `📱 WhatsApp opened for ${c.name}`, 'success');
-        })
-        .catch(e => {
-          logWAMessage({ inv: stmtInv, client: c, type: 'invoice_created', msg: finalMsg,
-            status: 'failed', error: e.message });
-          toast('❌ Failed: ' + e.message, 'error');
-        });
+      if (waToken && waPhone) {
+        // Option B — free-form WA (no template, uses 24h session window)
+        const stmtInv = { id: null, num: 'STMT', invoice_number: 'STMT', client: clientId,
+                          clientName: c.name, amount: totalAmt, grand_total: totalAmt, status: 'Statement' };
+        logWAMessage({ inv: stmtInv, client: c, type: 'statement', msg: finalMsg, status: 'sending' });
+        try {
+          const res = await sendWABusinessMsg(waPhone, finalMsg, waToken, waPid, null); // null = free-form, no template
+          logWAMessage({ inv: stmtInv, client: c, type: 'statement', msg: finalMsg,
+            status: res?.success ? 'sent_api' : 'sent_web' });
+          toast(res?.success ? `✅ Statement sent to ${c.name} via WA` : `📱 WhatsApp opened for ${c.name}`, 'success');
+        } catch(e) {
+          // Fallback: open wa.me link
+          const clean = (c.wa||'').replace(/\D/g,'');
+          const link  = 'https://wa.me/' + (clean.length===10?'91'+clean:clean) + '?text=' + encodeURIComponent(finalMsg);
+          window.open(link, '_blank');
+          toast('📱 WhatsApp opened (API unavailable)', 'info');
+        }
+      } else {
+        // No WA API — copy text
+        navigator.clipboard?.writeText(finalMsg)
+          .then(() => toast('📋 Statement copied to clipboard', 'success'))
+          .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      }
     } else if (result.isDenied) {
-      // Copy to clipboard
-      navigator.clipboard?.writeText(finalMsg)
-        .then(() => toast('📋 Statement copied to clipboard', 'success'))
-        .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      if (c.email) {
+        // Option C — send via email
+        _sendStatementEmail(c, unpaid, totalAmt, sc);
+      } else {
+        navigator.clipboard?.writeText(finalMsg)
+          .then(() => toast('📋 Statement copied to clipboard', 'success'))
+          .catch(() => toast('📋 Select and copy from the text area', 'info'));
+      }
     }
   });
+}
+
+async function _sendStatementEmail(c, unpaid, totalAmt, sc) {
+  if (!c.email) { toast('⚠️ No email address for ' + c.name, 'warning'); return; }
+  const today = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  const overdueCount = unpaid.filter(i => i.status === 'Overdue').length;
+  const rowsHtml = unpaid.map(i => {
+    const num   = i.num || i.invoice_number || '—';
+    const amt   = fmt_money(parseFloat(i.amount || i.grand_total || 0));
+    const due   = i.due || i.due_date || '—';
+    const bgCol = i.status==='Overdue'?'#FFEBEE':i.status==='Partial'?'#FFF8E1':'#E3F2FD';
+    const txCol = i.status==='Overdue'?'#C62828':i.status==='Partial'?'#E65100':'#1565C0';
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;font-family:monospace">${num}</td>
+      <td style="padding:8px 12px;font-size:13px;color:#555">${due}</td>
+      <td style="padding:8px 12px;font-size:13px;font-weight:700;text-align:right">${amt}</td>
+      <td style="padding:8px 12px;text-align:center"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${bgCol};color:${txCol}">${i.status}</span></td>
+    </tr>`;
+  }).join('');
+  const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333">
+  <div style="background:#1565C0;padding:20px 24px;border-radius:8px 8px 0 0">
+    <h2 style="color:#fff;margin:0;font-size:18px">📋 Account Statement</h2>
+    <p style="color:#BBDEFB;margin:4px 0 0;font-size:13px">${sc.company||''}</p>
+  </div>
+  <div style="background:#fff;padding:20px 24px;border:1px solid #e0e0e0;border-top:none">
+    <table style="width:100%;margin-bottom:16px;font-size:13px">
+      <tr><td style="color:#777;padding:3px 0">To:</td><td style="font-weight:700">${c.name}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Date:</td><td>${today}</td></tr>
+      <tr><td style="color:#777;padding:3px 0">Invoices:</td><td>${unpaid.length} outstanding</td></tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;margin-bottom:16px">
+      <thead><tr style="background:#F5F5F5">
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Invoice</th>
+        <th style="padding:8px 12px;text-align:left;font-size:12px;color:#555">Due Date</th>
+        <th style="padding:8px 12px;text-align:right;font-size:12px;color:#555">Amount</th>
+        <th style="padding:8px 12px;text-align:center;font-size:12px;color:#555">Status</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div style="background:#FFF3E0;border-left:4px solid #F57C00;padding:12px 16px;border-radius:4px;margin-bottom:16px">
+      <div style="font-size:13px;color:#777">Total Outstanding</div>
+      <div style="font-size:22px;font-weight:800;color:#C62828">${fmt_money(totalAmt)}</div>
+      ${overdueCount>0?`<div style="font-size:12px;color:#E65100;margin-top:4px">⚠️ ${overdueCount} invoice${overdueCount>1?'s are':' is'} overdue — please clear immediately.</div>`:''}
+    </div>
+    ${sc.upi?`<div style="background:#E8F5E9;padding:10px 14px;border-radius:6px;font-size:13px;color:#2E7D32;margin-bottom:16px">💳 Pay via UPI: <strong>${sc.upi}</strong>${sc.defaultBank?'<br>🏦 '+sc.defaultBank:''}</div>`:''}
+    <p style="font-size:13px;color:#555;margin:0">Please arrange payment at the earliest. Thank you for your continued business.</p>
+  </div>
+  <div style="background:#F5F5F5;padding:12px 24px;border-radius:0 0 8px 8px;font-size:12px;color:#888;text-align:center">
+    ${sc.company||''} ${sc.phone?'| 📞 '+sc.phone:''} ${sc.email?'| ✉ '+sc.email:''}
+  </div>
+</div>`;
+  const subject = `Account Statement — ${unpaid.length} Outstanding Invoice${unpaid.length>1?'s':''} | ${fmt_money(totalAmt)}`;
+  try {
+    toast('📧 Sending statement...', 'info');
+    const r = await api('api/email.php', 'POST', {
+      action: 'send', type: 'statement',
+      to: c.email, to_name: c.name,
+      subject, body: htmlBody, invoice_id: null
+    });
+    if (r?.success) {
+      toast(`✅ Statement emailed to ${c.email}`, 'success');
+    } else {
+      toast('❌ Email failed: ' + (r?.error || 'Unknown error'), 'error');
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function filterClients(val) {
@@ -10193,8 +10286,10 @@ function emLogPill(btn, group) {
 
 function fmtEmailTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   return d.toLocaleString('en-IN', {
@@ -10336,12 +10431,10 @@ async function loadEmailLogs(invId) {
     if (pgEl && total > 25) {
       pgEl.style.display = 'flex';
       pgInfo.textContent = `Showing ${((page-1)*25)+1}–${Math.min(page*25,total)} of ${total}`;
-      let btns = '';
-      for (let i = 1; i <= pages; i++) {
-        const active = i === page ? `background:var(--teal);color:#fff;border-color:var(--teal);` : `background:var(--bg);color:var(--text);`;
-        btns += `<button onclick="window._emLogPage=${i};loadEmailLogs()"
-          style="${active}width:28px;height:28px;border-radius:6px;border:1px solid var(--border);font-size:12px;cursor:pointer">${i}</button>`;
-      }
+      const btnStyle = (disabled) => `padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:${disabled?'var(--muted)':'var(--text)'};cursor:${disabled?'default':'pointer'};font-size:13px;opacity:${disabled?'0.4':'1'}`;
+      let btns = `<button onclick="if(window._emLogPage>1){window._emLogPage--;loadEmailLogs();}" style="${btnStyle(page<=1)}" ${page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+      btns += `<span style="font-size:12px;color:var(--muted);padding:0 8px">Page ${page} of ${pages}</span>`;
+      btns += `<button onclick="if(window._emLogPage<${pages}){window._emLogPage++;loadEmailLogs();}" style="${btnStyle(page>=pages)}" ${page>=pages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
       pgBtns.innerHTML = btns;
     } else if (pgEl) {
       pgEl.style.display = 'none';
@@ -10363,8 +10456,10 @@ function toggleEmailSubject(btn) {
 // ── IST-aware relative time ────────────────────────────────────────
 function _emRelTime(raw) {
   if (!raw) return '—';
-  // MySQL sends UTC — append 'Z' so browser parses as UTC, then converts to local time correctly
-  const normalized = String(raw).includes('T') ? raw : raw.replace(' ','T') + 'Z';
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ','T') + '+05:30';
+  }
   const d = new Date(normalized);
   if (isNaN(d)) return raw;
   const diff = Math.floor((Date.now() - d) / 1000);
@@ -12626,7 +12721,7 @@ async function sendWA(phone, message, tplName, inv, client) {
     const useTemplate = wa.msg_mode === 'template' && tplKey && wa['tpl_name_' + tplKey];
 
     // ── Fetch portal token BEFORE building params so portal_link is populated ──
-    if (inv) {
+    if (inv && inv.id) {
       const _pid = String(inv.id || inv._dbId || '');
       if (_pid && !_portalTokenCache[_pid]) {
         try {
@@ -14485,14 +14580,56 @@ function _buildReminderQueue() {
     const amtStr = paid > 0
       ? `<span style="font-size:13px;font-weight:700;color:#B45309;font-family:var(--mono)">₹${remaining.toLocaleString('en-IN')}</span><div style="font-size:10px;color:var(--muted)">due of ${fmt_money(total)}</div>`
       : `<span style="font-size:14px;font-weight:700;font-family:var(--mono)">${fmt_money(total)}</span>`;
+    const _invNumKey = q.inv.num || q.inv.invoice_number || '';
+    const _remCount  = (STATE.reminders||[]).filter(e=>e.invNum===_invNumKey&&e.status==='sent').length;
+    const _remPill   = _remCount > 0 ? `<div style="font-size:9px;color:#6D28D9;font-weight:700;margin-top:2px"><i class="fas fa-bell" style="font-size:8px"></i> ${_remCount} sent</div>` : '';
+    // ── Next Reminder Date calculation ────────────────────────────
+    let nextRemCell = '—';
+    const _sendHour   = cfg.sendHour   ?? 9;
+    const _sendMin    = cfg.sendMinute ?? 0;
+    const _sendLabel  = `${String(_sendHour).padStart(2,'0')}:${String(_sendMin).padStart(2,'0')}`;
+    if (q.urgency === 'high') {
+      // Overdue: next = last overdue/followup sent date + overdueFreq days
+      const _lastSent = (STATE.reminders || [])
+        .filter(e => e.invNum === (q.inv.num||q.inv.invoice_number) && ['overdue','followup','Overdue Alert'].includes(e.type) && e.status==='sent')
+        .map(e => new Date((e.ts||'').replace(' ','T')))
+        .filter(d => !isNaN(d))
+        .sort((a,b) => b-a)[0];
+      if (_lastSent) {
+        const _next = new Date(_lastSent);
+        _next.setDate(_next.getDate() + (cfg.overdueFreq || 7));
+        _next.setHours(_sendHour, _sendMin, 0, 0);
+        const _isToday = _next.toDateString() === new Date().toDateString();
+        const _isPast  = _next < new Date();
+        const _d = _next.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+        const _col = _isPast ? '#C0392B' : _isToday ? '#B45309' : '#1565C0';
+        const _bg  = _isPast ? '#FEF0EF' : _isToday ? '#FFF4E5' : '#E3F2FD';
+        const _lbl = _isPast ? 'Overdue now' : _isToday ? `Today ${_sendLabel}` : `${_d} ${_sendLabel}`;
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${_bg};color:${_col};white-space:nowrap">${_lbl}</span>`;
+      } else {
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FEF0EF;color:#C0392B;white-space:nowrap">Now</span>`;
+      }
+    } else if (q.urgency === 'medium') {
+      nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#FFF4E5;color:#B45309;white-space:nowrap">Today ${_sendLabel}</span>`;
+    } else {
+      // Due soon: scheduled send time on due date (or today if beforeDays window)
+      const _dueD = q.inv.due ? new Date(q.inv.due) : null;
+      if (_dueD) {
+        _dueD.setHours(_sendHour, _sendMin, 0, 0);
+        const _d = _dueD.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+        nextRemCell = `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#E3F2FD;color:#1565C0;white-space:nowrap">${_d} ${_sendLabel}</span>`;
+      }
+    }
+
     return `<tr style="${rowBg}border-bottom:1px solid var(--border)">
-      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}</td>
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:700;white-space:nowrap">${q.inv.num||q.inv.invoice_number||'—'}${_remPill}</td>
       <td style="padding:8px 6px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.client.name||q.inv.clientName||q.inv.client_name||'One-Time'}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bgPill};color:${col}">${q.label}</span>
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${q.inv.due||'—'}</div>
       </td>
       <td style="padding:8px 6px">${amtStr}</td>
+      <td style="padding:8px 6px;white-space:nowrap">${nextRemCell}</td>
       <td style="padding:8px 6px;white-space:nowrap">
         <div style="display:flex;gap:4px;align-items:center">
           ${hasContact ? `<button onclick="sendReminderNow('${q.inv.id}','${ch}','${q.type}')" style="display:inline-flex;align-items:center;gap:3px;padding:3px 9px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap"><i class="${chIcon}" style="font-size:10px"></i> Send</button>` : `<span style="font-size:10px;color:var(--muted);padding:3px 6px">No contact</span>`}
@@ -14525,6 +14662,7 @@ function _buildReminderQueue() {
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Client</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Status</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Amount</th>
+            <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Next Reminder</th>
             <th style="padding:5px 6px;font-size:10px;font-weight:700;color:var(--muted);text-align:left;text-transform:uppercase;letter-spacing:.4px">Actions</th>
           </tr></thead>
           <tbody>${items.map(q => qRow(q)).join('')}</tbody>
@@ -14608,7 +14746,7 @@ function sendReminderNow(invId, channel, qtype) {
   const _remMsgText = typeof msg !== 'undefined' ? (msg || '') : '';
   const entry = {
     id:         Date.now() + '',
-    ts:         new Date().toISOString(),
+    ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
     invNum:     inv.num || inv.invoice_number || '',
     clientName: _clientName,
     type:       _logType,
@@ -17044,7 +17182,7 @@ setTimeout(async () => {
       const _autoMsg  = typeof waMsg !== 'undefined' ? (waMsg || '') : '';
       const entry = {
         id:         Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        ts:         new Date().toISOString(),
+        ts:         new Date().toLocaleString('sv-SE', {timeZone:'Asia/Kolkata'}).replace('T', ' '),
         invNum,
         clientName: _cName,
         type:       _autoType,

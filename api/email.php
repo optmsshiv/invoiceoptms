@@ -14,6 +14,7 @@
 // ================================================================
 
 date_default_timezone_set('Asia/Kolkata');
+
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../config/db.php';
@@ -980,8 +981,6 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
 // ── Log sent email ───────────────────────────────────────────────
 function logEmailSent($db, ?int $invId, string $type, string $to, string $subject, string $status, string $error='', string $toName=''): void {
     try {
-        // Add to_name column if missing (safe migration)
-        try { $db->exec("ALTER TABLE email_logs ADD COLUMN `to_name` VARCHAR(200) NULL AFTER `to_email`"); } catch(\Exception $e2){}
         $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())")
            ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
@@ -1005,6 +1004,7 @@ function ensureEmailTables($db): void {
             invoice_id INT DEFAULT NULL,
             type       VARCHAR(32),
             to_email   VARCHAR(255),
+            to_name    VARCHAR(200) DEFAULT NULL,
             subject    VARCHAR(500),
             status     VARCHAR(20) DEFAULT 'sent',
             error_msg  TEXT,
@@ -1052,6 +1052,7 @@ function ensureEmailTables($db): void {
         ['smtp_profiles', 'updated_at', "ALTER TABLE smtp_profiles ADD COLUMN updated_at DATETIME NULL DEFAULT NULL"],
         ['smtp_profiles', 'created_at', "ALTER TABLE smtp_profiles ADD COLUMN created_at DATETIME NULL DEFAULT NULL"],
         ['smtp_profiles', 'api_key',    "ALTER TABLE smtp_profiles ADD COLUMN api_key VARCHAR(500) NULL DEFAULT NULL"],
+        ['email_logs',    'to_name',    "ALTER TABLE email_logs ADD COLUMN to_name VARCHAR(200) NULL DEFAULT NULL AFTER to_email"],
     ];
     foreach ($migrateColumns as [$table, $column, $alterSql]) {
         try {
