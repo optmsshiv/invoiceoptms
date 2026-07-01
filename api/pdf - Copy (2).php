@@ -39,20 +39,13 @@ function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
 
-// ── Resolve invoice from token OR from invoice_id (internal, authenticated) ──
-$rawToken        = $_GET['t'] ?? '';
-$invoiceIdParam  = isset($_GET['invoice_id']) ? (int)$_GET['invoice_id'] : 0;
-$inline          = !empty($_GET['inline']);
-$invoiceId       = 0;
-$error           = '';
+// ── Resolve invoice from token ────────────────────────────────
+$rawToken  = $_GET['t'] ?? '';
+$inline    = !empty($_GET['inline']);
+$invoiceId = 0;
+$error     = '';
 
-if ($invoiceIdParam > 0) {
-    // ── Internal download — used by the app's own "Print / Download PDF" buttons.
-    //    Requires an active login session (no public token needed).
-    require_once __DIR__ . '/../includes/auth.php';
-    requireLogin();
-    $invoiceId = $invoiceIdParam;
-} elseif (!$rawToken) {
+if (!$rawToken) {
     $error = 'Missing token';
 } elseif (preg_match('/^[0-9a-f]{32}$/', $rawToken)) {
     // Format A: hex token stored in portal_tokens
@@ -142,22 +135,6 @@ try {
     exit;
 }
 
-// ── Which template was selected for this invoice? ──────────────
-// Isolated on purpose: if the column name ever differs, this silently
-// falls back to '2' (canonical) rather than breaking the whole PDF.
-$templateId = '2';
-try {
-    $tStmt = $db->prepare('SELECT template_id FROM invoices WHERE id = :id LIMIT 1');
-    $tStmt->execute([':id' => $invoiceId]);
-    $tRow = $tStmt->fetch(PDO::FETCH_ASSOC);
-    if ($tRow && !empty($tRow['template_id'])) {
-        $templateId = (string)$tRow['template_id'];
-    }
-} catch (Exception $e) {
-    // column missing or any other issue — keep default '2'
-}
-$isFormal = ($templateId === 'F');
-
 // ── Computed values ────────────────────────────────────────────
 $sym          = $inv['currency'] ?: '₹';
 $isEstimate   = ($inv['status'] ?? '') === 'Estimate';
@@ -216,18 +193,6 @@ $stLabel = match($inv['status']) {
     default     => strtoupper($inv['status'] ?? '')
 };
 
-// ── Top accent bar colour — mirrors the status band used in the in-app preview ──
-$accentColors = [
-    'Paid'      => '#16A34A',
-    'Pending'   => '#00897B',
-    'Overdue'   => '#DC2626',
-    'Partial'   => '#D97706',
-    'Draft'     => '#2563EB',
-    'Cancelled' => '#6B7280',
-    'Estimate'  => '#3949AB',
-];
-$accentColor = $accentColors[$inv['status']] ?? '#00897B';
-
 // ── Build HTML for mPDF ───────────────────────────────────────
 ob_start();
 ?>
@@ -239,23 +204,18 @@ ob_start();
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1A1A2E; background: #fff; }
 
-/* Header — dark logo sidebar + white content panel (canonical design) */
-.hdr-accent { height: 5px; background: <?= $accentColor ?>; }
-.hdr-wrap { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-.hdr-logo-cell { background: #2A3580; width: 86px; text-align: center; vertical-align: middle; padding: 18px 8px; }
-.hdr-logo-mono { width: 40px; height: 40px; border-radius: 9px; background: rgba(255,255,255,0.15); color: #fff; font-size: 15px; font-weight: bold; text-align: center; line-height: 40px; }
-.hdr-content-cell { background: #fff; padding: 18px 26px; vertical-align: top; }
-.hdr-co-name { font-size: 16px; font-weight: bold; color: #1A1A2E; }
-.hdr-co-sub { font-size: 10px; color: #9CA3AF; margin-top: 2px; line-height: 1.6; }
-.hdr-inv-num { font-size: 18px; font-weight: bold; color: #1A1A2E; font-family: 'DejaVu Sans Mono', monospace; text-align: right; }
-.hdr-badges { text-align: right; margin-top: 6px; }
-.hdr-pill { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 8.5px; font-weight: bold; letter-spacing: .6px; margin-left: 5px; }
-.hdr-pill-outline { background: #F3F4F6; color: #4B5563; }
-.hdr-divider { height: 1px; background: #F0F1F3; margin: 13px 0 11px; }
-.hdr-contact-row { width: 100%; }
-.hdr-contact-row td { width: 33.33%; vertical-align: top; }
-.hdr-contact-lbl { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: .7px; color: #9CA3AF; margin-bottom: 2px; }
-.hdr-contact-val { font-size: 11px; font-weight: 600; color: #1A1A2E; }
+/* Header */
+.header { background: #00897B; padding: 20px 24px; color: #fff; margin-bottom: 0; }
+.header-inner { display: flex; justify-content: space-between; align-items: flex-start; }
+.company-name { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 3px; }
+.company-sub { font-size: 10px; color: rgba(255,255,255,0.8); line-height: 1.6; }
+.inv-block { text-align: right; }
+.inv-type { font-size: 9px; font-weight: bold; letter-spacing: 1.5px; color: rgba(255,255,255,0.7); text-transform: uppercase; margin-bottom: 4px; }
+.inv-num { font-size: 20px; font-weight: bold; color: #fff; font-family: 'DejaVu Sans Mono', monospace; }
+.status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 9px; font-weight: bold; letter-spacing: .8px; margin-top: 6px; background: <?= $stBg ?>; color: <?= $stFg ?>; }
+
+/* Divider */
+.header-bar { height: 4px; background: linear-gradient(90deg, #26A69A, #80CBC4); margin-bottom: 16px; }
 
 /* Cards */
 .card { border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
@@ -334,48 +294,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 /* Estimate banner */
 .estimate-banner { background: #E8EAF6; border: 1px solid #9FA8DA; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px; color: #3949AB; }
 .estimate-banner strong { color: #1A237E; }
-
-/* ── Formal Letterhead template (template_id = 'F') ──
-     Serif, monochrome, ruled — table-based layout for mPDF safety. */
-.flh-body { font-family: 'DejaVu Serif', Georgia, 'Times New Roman', serif; color: #1a1a1a; }
-.flh-head { text-align: center; padding: 24px 32px 14px; border-bottom: 2px solid #1a1a1a; }
-.flh-co-name { font-size: 17px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
-.flh-co-meta { font-size: 9px; letter-spacing: .5px; color: #555; line-height: 1.9; margin-top: 5px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-ref { width: 100%; padding: 14px 32px 11px; border-bottom: 0.5px solid #ccc; }
-.flh-ref-lbl { font-size: 9.5px; color: #444; line-height: 2; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-ref-lbl strong { color: #1a1a1a; font-family: 'DejaVu Sans Mono', monospace; }
-.flh-inv-type { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #888; font-family: 'DejaVu Sans', Arial, sans-serif; text-align: right; }
-.flh-inv-num { font-size: 18px; font-weight: bold; font-family: 'DejaVu Sans Mono', monospace; letter-spacing: .5px; text-align: right; }
-.flh-status-outline { display: inline-block; margin-top: 5px; padding: 2px 10px; border: 1px solid #374151; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-parties { width: 100%; padding: 12px 32px; border-bottom: 0.5px solid #ccc; }
-.flh-parties td { width: 50%; vertical-align: top; padding-right: 20px; }
-.flh-parties td:last-child { padding-right: 0; padding-left: 20px; border-left: 0.5px solid #ccc; }
-.flh-party-lbl { font-size: 8px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #888; margin-bottom: 5px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-party-name { font-size: 12px; font-weight: bold; }
-.flh-party-line { font-size: 10px; color: #555; line-height: 1.8; margin-top: 2px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-items { width: 100%; border-collapse: collapse; padding: 0 32px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-items th { padding: 6px 6px; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: bold; text-align: left; border-top: 1.5px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
-.flh-items th.r, .flh-items td.r { text-align: right; }
-.flh-items td { padding: 6px 6px; font-size: 10px; border-bottom: 0.5px solid #ddd; }
-.flh-tot-wrap { width: 100%; }
-.flh-tot-row td { padding: 4px 0; font-size: 10px; border-bottom: 0.5px solid #ddd; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-tot-row td.r { text-align: right; font-family: 'DejaVu Sans Mono', monospace; font-weight: 600; }
-.flh-tot-grand td { padding: 7px 0; border-top: 1.5px solid #333; border-bottom: none; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-tot-grand .flh-grand-lbl { font-size: 12px; font-weight: bold; }
-.flh-tot-grand .flh-grand-val { font-size: 14px; font-weight: bold; font-family: 'DejaVu Sans Mono', monospace; text-align: right; }
-.flh-pmt-title { font-size: 8px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #555; margin-bottom: 7px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-pmt-table { width: 100%; border-collapse: collapse; border-top: 1.5px solid #333; border-bottom: 1px solid #333; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-pmt-table th { padding: 5px 6px; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; text-align: left; border-bottom: 1px solid #333; }
-.flh-pmt-table th.r, .flh-pmt-table td.r { text-align: right; }
-.flh-pmt-table td { padding: 5px 6px; font-size: 10px; border-bottom: 0.5px solid #e5e5e5; }
-.flh-section { padding: 10px 32px 0; }
-.flh-bank-box { background: #fafafa; border: 0.5px solid #ccc; padding: 10px 12px; font-size: 10px; line-height: 1.7; color: #333; font-family: 'DejaVu Sans', Arial, sans-serif; margin-bottom: 10px; }
-.flh-notes-lbl { font-size: 8px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; color: #888; margin-bottom: 4px; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-sig-block { text-align: right; padding-top: 30px; }
-.flh-sig-line { width: 150px; border-bottom: 1px solid #666; margin-left: auto; margin-bottom: 4px; }
-.flh-sig-label { font-size: 9px; color: #888; font-family: 'DejaVu Sans', Arial, sans-serif; }
-.flh-footer-rule { margin: 14px 32px 0; padding-top: 10px; border-top: 0.5px solid #ccc; }
-.flh-footer-bar { height: 3px; background: #1a1a1a; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -384,244 +302,31 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 <div class="watermark">PAID</div>
 <?php endif; ?>
 
-<?php if ($isFormal):
-    // ── Computed values specific to the Formal Letterhead template ──
-    $refNo = ($isEstimate ? 'EST' : 'INV') . '/' . date('Y') . '/' .
-             str_pad(preg_replace('/[^0-9]/', '', $inv['invoice_number']) ?: '0', 4, '0', STR_PAD_LEFT);
-    $lastPaymentDate = $payments ? pdf_fmt_date(end($payments)['payment_date'] ?? '') : '';
-    $statusBorders = [
-        'Paid' => '#166534', 'Pending' => '#92400E', 'Overdue' => '#991B1B',
-        'Draft' => '#374151', 'Partial' => '#92400E', 'Cancelled' => '#6B7280', 'Estimate' => '#1E40AF',
-    ];
-    $sBdr = $statusBorders[$inv['status']] ?? '#374151';
-?>
-<div class="flh-body">
-
-  <!-- LETTERHEAD -->
-  <div class="flh-head">
-    <?php if ($companyLogo): ?>
-      <img src="<?= htmlspecialchars($companyLogo) ?>" style="height:44px;max-width:200px;object-fit:contain;display:block;margin:0 auto 8px" alt="Logo">
-    <?php else: ?>
-      <div class="flh-co-name"><?= htmlspecialchars($companyName) ?></div>
-    <?php endif; ?>
-    <div class="flh-co-meta">
-      <?= $companyAddress ? htmlspecialchars(str_replace("\n", ' · ', $companyAddress)) . ' &nbsp;|&nbsp; ' : '' ?>
-      <?= $companyGST ? 'GSTIN: ' . htmlspecialchars($companyGST) . ' &nbsp;|&nbsp; ' : '' ?>
-      <?= $companyPhone ? htmlspecialchars($companyPhone) : '' ?>
-      <?= $companyEmail ? ' &nbsp;|&nbsp; ' . htmlspecialchars($companyEmail) : '' ?>
-    </div>
-  </div>
-
-  <!-- REF BLOCK -->
-  <table class="flh-ref">
+<!-- Header -->
+<div class="header">
+  <table class="header-inner" width="100%">
     <tr>
-      <td style="width:60%;vertical-align:top">
-        <div class="flh-ref-lbl">Ref. No. &nbsp;<strong><?= htmlspecialchars($refNo) ?></strong></div>
-        <div class="flh-ref-lbl">Issue Date &nbsp;<strong><?= pdf_fmt_date($inv['issue_date']) ?></strong></div>
-        <div class="flh-ref-lbl"><?= $isEstimate ? 'Valid Until' : 'Due Date' ?> &nbsp;<strong><?= pdf_fmt_date($inv['due_date']) ?></strong></div>
-        <?php if ($inv['status'] === 'Paid' && $lastPaymentDate): ?>
-        <div class="flh-ref-lbl">Paid On &nbsp;<strong style="color:#166534"><?= $lastPaymentDate ?></strong></div>
+      <td style="vertical-align:top">
+        <?php if ($companyLogo): ?>
+        <img src="<?= htmlspecialchars($companyLogo) ?>" class="logo-img" alt="Logo"><br><br>
         <?php endif; ?>
+        <div class="company-name"><?= htmlspecialchars($companyName) ?></div>
+        <div class="company-sub">
+          <?php if ($companyAddress): ?><?= nl2br(htmlspecialchars($companyAddress)) ?><br><?php endif; ?>
+          <?php if ($companyPhone): ?><?= htmlspecialchars($companyPhone) ?><?php endif; ?>
+          <?php if ($companyEmail): ?>  <?= htmlspecialchars($companyEmail) ?><?php endif; ?>
+          <?php if ($companyGST): ?><br>GSTIN: <?= htmlspecialchars($companyGST) ?><?php endif; ?>
+        </div>
       </td>
-      <td style="width:40%;vertical-align:top;text-align:right">
-        <div class="flh-inv-type"><?= $isEstimate ? 'Estimate' : 'Invoice' ?></div>
-        <div class="flh-inv-num">#<?= htmlspecialchars($inv['invoice_number']) ?></div>
-        <div><span class="flh-status-outline" style="color:<?= $sBdr ?>;border-color:<?= $sBdr ?>"><?= $stLabel ?></span></div>
+      <td style="text-align:right;vertical-align:top">
+        <div class="inv-type"><?= $isEstimate ? 'Estimate / Quotation' : 'Tax Invoice' ?></div>
+        <div class="inv-num"><?= htmlspecialchars($inv['invoice_number']) ?></div>
+        <div><span class="status-badge"><?= $stLabel ?></span></div>
       </td>
     </tr>
   </table>
-
-  <!-- BILLED BY / BILLED TO -->
-  <table class="flh-parties">
-    <tr>
-      <td>
-        <div class="flh-party-lbl">Billed By</div>
-        <div class="flh-party-name"><?= htmlspecialchars($companyName) ?></div>
-        <div class="flh-party-line">
-          <?php if ($companyGST): ?><div>GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
-          <?php if ($companyAddress): ?><div><?= htmlspecialchars(str_replace("\n", ', ', $companyAddress)) ?></div><?php endif; ?>
-        </div>
-      </td>
-      <td>
-        <div class="flh-party-lbl">Billed To</div>
-        <div class="flh-party-name"><?= htmlspecialchars($client['name'] ?? '—') ?></div>
-        <div class="flh-party-line">
-          <?php if (!empty($client['email'])): ?><div><?= htmlspecialchars($client['email']) ?></div><?php endif; ?>
-          <?php if (!empty($client['phone'])): ?><div><?= htmlspecialchars($client['phone']) ?></div><?php endif; ?>
-          <?php if (!empty($client['address'])): ?><div><?= nl2br(htmlspecialchars($client['address'])) ?></div><?php endif; ?>
-          <?php if (!empty($client['gst_number'])): ?><div>GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
-        </div>
-      </td>
-    </tr>
-  </table>
-
-  <!-- ITEMS TABLE -->
-  <div class="flh-section">
-    <table class="flh-items">
-      <thead>
-        <tr>
-          <th style="width:22px">#</th>
-          <th>Description</th>
-          <th class="r" style="width:48px">Qty</th>
-          <th class="r" style="width:76px">Rate</th>
-          <th class="r" style="width:76px">Amount</th>
-          <th class="r" style="width:46px">GST</th>
-          <th class="r" style="width:82px">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-      <?php foreach ($items as $idx => $item):
-          $q   = (float)$item['qty'];
-          $r   = (float)$item['rate'];
-          $g   = (float)$item['gst'];
-          $amt = $q * $r;
-          $tot = $amt + $amt * $g / 100;
-      ?>
-      <tr>
-        <td><?= $idx + 1 ?></td>
-        <td><?= htmlspecialchars($item['description']) ?></td>
-        <td class="r"><?= number_format($q, 2) ?></td>
-        <td class="r"><?= pdf_fmt_money($r, '') ?></td>
-        <td class="r"><?= pdf_fmt_money($amt, '') ?></td>
-        <td class="r"><?= number_format($g, 2) ?>%</td>
-        <td class="r" style="font-weight:bold"><?= pdf_fmt_money($tot, $sym) ?></td>
-      </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-
-    <!-- TOTALS -->
-    <table class="flh-tot-wrap">
-      <tr><td style="width:65%"></td><td class="flh-tot-row" style="width:35%">
-        <table width="100%"><tr class="flh-tot-row"><td>Subtotal</td><td class="r"><?= pdf_fmt_money($calcSubtotal, $sym) ?></td></tr></table>
-      </td></tr>
-      <?php if ($discountAmt > 0): ?>
-      <tr><td></td><td>
-        <table width="100%"><tr class="flh-tot-row"><td>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td><td class="r" style="color:#b91c1c">− <?= pdf_fmt_money($discountAmt, $sym) ?></td></tr></table>
-      </td></tr>
-      <?php endif; ?>
-      <tr><td></td><td>
-        <table width="100%"><tr class="flh-tot-row"><td>GST</td><td class="r">+ <?= pdf_fmt_money($calcGstFinal, $sym) ?></td></tr></table>
-      </td></tr>
-      <tr><td></td><td>
-        <table width="100%" class="flh-tot-grand"><tr><td class="flh-grand-lbl">Total Due</td><td class="flh-grand-val"><?= pdf_fmt_money($calcGrand, $sym) ?></td></tr></table>
-      </td></tr>
-    </table>
-
-    <!-- PAYMENT RECORD -->
-    <?php if ($payments && in_array($inv['status'], ['Paid', 'Partial'])): ?>
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #ccc">
-      <div class="flh-pmt-title"><?= $inv['status'] === 'Paid' ? 'Payment Record' : 'Partial Payment Record' ?></div>
-      <table class="flh-pmt-table">
-        <thead><tr><th>Date</th><th>Mode</th><th>Ref / Txn ID</th><th class="r">Amount</th></tr></thead>
-        <tbody>
-        <?php foreach ($payments as $pmt): ?>
-        <tr>
-          <td><?= pdf_fmt_date($pmt['payment_date'] ?? '') ?></td>
-          <td><?= htmlspecialchars($pmt['method'] ?? '—') ?></td>
-          <td style="font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($pmt['transaction_id'] ?? '—') ?></td>
-          <td class="r" style="font-weight:bold;font-family:'DejaVu Sans Mono',monospace"><?= pdf_fmt_money((float)$pmt['amount'], $sym) ?></td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
-      <?php if ($inv['status'] === 'Partial'): ?>
-      <div style="margin-top:6px;font-size:10px;font-family:'DejaVu Sans',Arial,sans-serif;color:#92400E">
-        Balance outstanding: <strong><?= pdf_fmt_money($remaining, $sym) ?></strong>
-      </div>
-      <?php endif; ?>
-    </div>
-    <?php endif; ?>
-  </div>
-
-  <!-- BANK / NOTES / TERMS / SIGNATURE -->
-  <table class="flh-section" width="100%">
-    <tr>
-      <td style="width:60%;vertical-align:top;padding-right:24px">
-        <?php if (!empty($inv['bank_details'])): ?>
-        <div class="flh-bank-box"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
-        <?php endif; ?>
-        <?php if (!empty($inv['notes'])): ?>
-        <div class="flh-notes-lbl">Notes</div>
-        <div style="font-size:10px;color:#555;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif;margin-bottom:10px"><?= nl2br(htmlspecialchars($inv['notes'])) ?></div>
-        <?php endif; ?>
-        <?php if (!empty($inv['terms'])): ?>
-        <div class="flh-notes-lbl">Terms &amp; Conditions</div>
-        <div style="font-size:9.5px;color:#888;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif"><?= nl2br(htmlspecialchars($inv['terms'])) ?></div>
-        <?php endif; ?>
-      </td>
-      <td style="width:40%;vertical-align:bottom">
-        <?php if ($companySign): ?>
-        <div class="flh-sig-block">
-          <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:42px;max-width:140px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
-          <div class="flh-sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
-        </div>
-        <?php else: ?>
-        <div class="flh-sig-block">
-          <div class="flh-sig-line"></div>
-          <div class="flh-sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
-        </div>
-        <?php endif; ?>
-      </td>
-    </tr>
-  </table>
-
-  <!-- FOOTER -->
-  <div class="flh-footer-rule">
-    <div style="font-size:9px;color:#999;font-family:'DejaVu Sans',Arial,sans-serif">
-      This is a computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> and is valid without a physical signature. ·
-      Generated by <strong><?= htmlspecialchars($companyName) ?></strong> · OPTMS Invoice Manager · <?= date('d M Y') ?>
-    </div>
-  </div>
-  <div class="flh-footer-bar"></div>
-
 </div>
-<?php else: ?>
-
-<!-- Header: accent strip + dark logo sidebar + white content panel -->
-<div class="hdr-accent"></div>
-<table class="hdr-wrap" cellpadding="0" cellspacing="0">
-  <tr>
-    <td class="hdr-logo-cell">
-      <?php if ($companyLogo): ?>
-        <img src="<?= htmlspecialchars($companyLogo) ?>" style="max-width:54px;max-height:44px;display:inline-block" alt="Logo">
-      <?php else: ?>
-        <div class="hdr-logo-mono"><?= htmlspecialchars(strtoupper(substr($companyName, 0, 2))) ?></div>
-      <?php endif; ?>
-    </td>
-    <td class="hdr-content-cell">
-      <table width="100%">
-        <tr>
-          <td style="vertical-align:top">
-            <div class="hdr-co-name"><?= htmlspecialchars($companyName) ?></div>
-            <?php if ($companyAddress): ?><div class="hdr-co-sub"><?= htmlspecialchars(str_replace("\n", ', ', $companyAddress)) ?></div><?php endif; ?>
-          </td>
-          <td style="vertical-align:top;text-align:right;white-space:nowrap">
-            <div class="hdr-inv-num"><?= htmlspecialchars($inv['invoice_number']) ?></div>
-            <div class="hdr-badges">
-              <span class="hdr-pill hdr-pill-outline"><?= $isEstimate ? 'ESTIMATE' : 'TAX INVOICE' ?></span>
-              <span class="hdr-pill" style="background:<?= $stBg ?>;color:<?= $stFg ?>"><?= $stLabel ?></span>
-            </div>
-          </td>
-        </tr>
-      </table>
-      <div class="hdr-divider"></div>
-      <table class="hdr-contact-row">
-        <tr>
-          <?php if ($companyPhone): ?>
-          <td><div class="hdr-contact-lbl">Phone</div><div class="hdr-contact-val"><?= htmlspecialchars($companyPhone) ?></div></td>
-          <?php endif; ?>
-          <?php if ($companyEmail): ?>
-          <td><div class="hdr-contact-lbl">Email</div><div class="hdr-contact-val"><?= htmlspecialchars($companyEmail) ?></div></td>
-          <?php endif; ?>
-          <?php if ($companyGST): ?>
-          <td><div class="hdr-contact-lbl">GSTIN</div><div class="hdr-contact-val mono"><?= htmlspecialchars($companyGST) ?></div></td>
-          <?php endif; ?>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
+<div class="header-bar"></div>
 
 <?php if ($isEstimate): ?>
 <div class="estimate-banner">
@@ -827,8 +532,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
   This is a computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> and is valid without a physical signature.<br>
   Generated by <strong><?= htmlspecialchars($companyName) ?></strong> · OPTMS Invoice Manager · <?= date('d M Y') ?>
 </div>
-
-<?php endif; ?>
 
 </body>
 </html>

@@ -5591,7 +5591,8 @@ function rowMenuAction(action) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   closeAllDropdowns();
   if (!inv) return;
-  if (action === 'preview' || action === 'download') { openPreviewModal(id); return; }
+  if (action === 'preview')      { openPreviewModal(id); return; }
+  if (action === 'download')     { downloadInvoicePDF(id); return; }
   if (action === 'edit')         { editInvoice(id); return; }
   if (action === 'duplicate')    { duplicateInvoice(id); return; }
   if (action === 'wa')           { sendWAForInvoice(inv); return; }
@@ -5604,6 +5605,15 @@ function rowMenuAction(action) {
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
   if (action === 'make-recurring')   { openRecurringFromInvoice(inv); return; }
   if (action === 'balance-reminder') { openBalanceReminderModal(id); return; }
+}
+
+// ── Single source of truth for downloads: always hits the server-side
+//    mPDF renderer (api/pdf.php) so what you download here is identical
+//    to what a client sees via their portal link. Requires the invoice
+//    to already be saved (has a real numeric/db id).
+function downloadInvoicePDF(id) {
+  if (!id) { toast('⚠️ Save the invoice first','warning'); return; }
+  window.open('api/pdf.php?invoice_id=' + encodeURIComponent(id), '_blank');
 }
 
 function closeAllDropdowns(e) {
@@ -6028,7 +6038,7 @@ function buildInvoiceHTML(d, forPrint) {
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
 
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   return fn(d, sc, itemsHTML, gstColHeader, rowNumHeader);
 }
@@ -7052,36 +7062,48 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     Pending:   T.band
   };
   const activeBand = statusBands[d.status] || T.band;
-  const [b1,b2,b3] = activeBand.split(',');
-  const bandCSS = `repeating-linear-gradient(90deg,${b1} 0,${b1} 12px,${b2} 12px,${b2} 24px,${b3} 24px,${b3} 36px)`;
+  const [b1] = activeBand.split(',');
 
   const thStyle = `padding:10px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.thtext};text-align:left`;
   const thr = `${thStyle};text-align:right`;
+  const initials = (sc.company || '?').replace(/[^A-Za-z]/g,'').substring(0,2).toUpperCase() || '?';
 
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden;border:1.5px solid ${T.metabr};border-radius:0">
   ${tplWatermark(d)}
 
-  <!-- COLOR BAND -->
-  <div style="height:5px;background:${bandCSS}"></div>
+  <!-- ACCENT STRIP -->
+  <div style="height:5px;background:${b1}"></div>
 
-  <!-- HEADER -->
-  <div style="background:${T.hbg};padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
-    <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:110px;max-width:350px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}
-      <div style="font-size:20px;font-weight:800;color:${T.htext};letter-spacing:-.5px;line-height:1;margin-bottom:2px${sc.logo?';display:none':''}">${sc.company}</div>
-      ${sc.tagline?`<div style="font-size:10px;color:${T.htag};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600">${sc.tagline}</div>`:""}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
-        ${sc.phone?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.phone}</div>`:''}
-        ${sc.email?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.email}</div>`:''}
-        ${sc.website?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.website}</div>`:''}
-        ${sc.gst?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">GSTIN: ${sc.gst}</div>`:''}
-        ${sc.address?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9;grid-column:1/-1">${sc.address.replace(/\n/g,', ')}</div>`:''}
-      </div>
+  <!-- HEADER: dark logo sidebar + white content panel (canonical design — matches PDF download) -->
+  <div style="display:flex">
+    <div style="background:#2A3580;width:86px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:18px 8px">
+      ${sc.logo
+        ? `<img src="${sc.logo}" style="max-width:54px;max-height:44px;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+           <div style="display:none;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
+        : `<div style="width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
     </div>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div style="font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${T.htag};border:1px solid ${T.htag};padding:3px 10px;border-radius:3px;opacity:.8">Tax Invoice</div>
-      <div style="font-size:26px;font-weight:800;color:${T.hnum};font-family:monospace;letter-spacing:-1px;line-height:1.1">#${d.num}</div>
-      <span style="display:inline-block;padding:4px 14px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:4px;background:${pbg};color:${ptxt};margin-top:2px">${d.status.toUpperCase()}</span>
+    <div style="flex:1;background:#fff;padding:18px 26px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div style="min-width:0">
+          <div style="font-size:16px;font-weight:800;color:#1A1A2E">${sc.company}</div>
+          ${sc.tagline?`<div style="font-size:9px;color:#9CA3AF;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;font-weight:600">${sc.tagline}</div>`:''}
+          ${sc.address?`<div style="font-size:10px;color:#9CA3AF;margin-top:3px;line-height:1.6">${sc.address.replace(/\n/g,', ')}</div>`:''}
+        </div>
+        <div style="text-align:right;white-space:nowrap;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:#1A1A2E;font-family:monospace">#${d.num}</div>
+          <div style="margin-top:6px">
+            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:#F3F4F6;color:#4B5563">${d.status==='Estimate'?'ESTIMATE':'TAX INVOICE'}</span>
+            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:${pbg};color:${ptxt};margin-left:5px">${d.status.toUpperCase()}</span>
+          </div>
+        </div>
+      </div>
+      <div style="height:1px;background:#F0F1F3;margin:13px 0 11px"></div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap">
+        ${sc.phone?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Phone</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.phone}</div></div>`:''}
+        ${sc.email?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Email</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.email}</div></div>`:''}
+        ${sc.website?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Website</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.website}</div></div>`:''}
+        ${sc.gst?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">GSTIN</div><div style="font-size:11px;font-weight:600;color:#1A1A2E;font-family:monospace">${sc.gst}</div></div>`:''}
+      </div>
     </div>
   </div>
 
@@ -7360,7 +7382,7 @@ function openPrintWindow(d, items) {
     : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Ensure d has sym set (fallback for when called from create form)
   if (!d.sym) d.sym = '₹';
@@ -7406,9 +7428,17 @@ function printFromModal() {
   const id = titleEl?.dataset?.invId;
   if (id) {
     const inv = STATE.invoices.find(i=>String(i.id)===String(id));
-    if (inv) { printInvoiceById(inv); return; }
+    // Saved invoice → always use the canonical server-rendered PDF,
+    // so this is byte-identical to what a client gets via their portal link.
+    if (inv) { downloadInvoicePDF(id); return; }
   }
   printCurrentInvoice();
+}
+
+// Live draft (not yet saved, no invoice id) → no server PDF possible yet,
+// so fall back to the in-browser print preview built from the current form.
+function printCurrentInvoice() {
+  printInvoiceData({ items: formItems });
 }
 
 function printInvoiceById(inv) {
@@ -7468,7 +7498,7 @@ function printInvoiceById(inv) {
       return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:(inv.status==='Paid'||inv.status==='Cancelled'),paymentBlock:true,previousDue:true}, saved||{});
     })()
   };
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Snapshot STATE — must preserve invoices and payments for previousDueBlock
   const _printSc2 = Object.assign({}, sc);
@@ -7869,7 +7899,7 @@ function openPreviewModal(id) {
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
   const scaledH = Math.round(1123*scale);
@@ -9872,22 +9902,17 @@ function _renderRptCharts(){
 }
 
 // ══════════════════════════════════════════
-// TEMPLATES GRID
+// TEMPLATES GRID — two canonical templates, both ported into pdf.php
+// so the in-app preview always matches the real downloaded PDF.
 // ══════════════════════════════════════════
-const tplNames = ['Colorful Matte','Clean Minimal','Corporate Split','Dark Header','Formal Letterhead'];
-const tplColors = ['#6366F1'];
-const tplAccents = ['#A5B4FC'];
 
 function renderTemplatesGrid() {
   const grid = document.getElementById('templatesGrid');
   if (!grid) return;
   const active = STATE.settings.activeTemplate || '2';
   const templates = [
-    { id:'2', name:'Colorful Matte', desc:'8 built-in color themes', color:'#6366F1', accent:'#A5B4FC' },
-    { id:'A', name:'Clean Minimal',  desc:'Left accent · borderless', color:'#1E293B', accent:'#94A3B8' },
-    { id:'B', name:'Corporate Split',desc:'Two-column header',        color:'#1565C0', accent:'#BBDEFB' },
-    { id:'E', name:'Dark Header',    desc:'Full-width dark header',   color:'#0F172A', accent:'#38BDF8' },
-    { id:'F', name:'Formal Letterhead', desc:'Serif · B&W · Print-ready', color:'#1a1a1a', accent:'#888888' },
+    { id:'2', name:'Colorful Matte',     desc:'Navy logo panel · status accent bar · 8 built-in color themes', color:'#6366F1', accent:'#A5B4FC' },
+    { id:'F', name:'Formal Letterhead',  desc:'Serif · black & white · ruled, print-ready layout',             color:'#1a1a1a', accent:'#888888' },
   ];
   grid.innerHTML = templates.map(t => {
     const isActive = String(active) === String(t.id);
