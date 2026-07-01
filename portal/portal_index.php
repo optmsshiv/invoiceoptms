@@ -208,6 +208,13 @@ function fmt_date($d) {
     $ts = strtotime($d);
     return $ts ? date('d M Y', $ts) : htmlspecialchars($d);
 }
+function fmt_datetime($d) {
+    if (!$d || $d === '—') return '—';
+    $ts = strtotime($d);
+    if (!$ts) return htmlspecialchars($d);
+    $time = date('H:i', $ts);
+    return date('d M Y', $ts) . ($time !== '00:00' ? ', ' . $time : '');
+}
 function fmt_rel($d) {
     // Returns relative label for first_viewed: "Today", "Yesterday", "3 days ago", or "d M Y" for older
     if (!$d) return '';
@@ -261,6 +268,7 @@ function status_label($s) {
 
 $sym           = $inv['currency'] ?: '₹';
 $isEstimate    = ($inv['status'] ?? '') === 'Estimate';
+$isCancelled   = ($inv['status'] ?? '') === 'Cancelled';
 $totalAmt      = (float)($inv['amount'] ?? 0);
 $totalCash     = array_sum(array_column($payments, 'amount'));
 $totalSettle   = array_sum(array_column($payments, 'settlement_discount'));
@@ -733,14 +741,20 @@ body.src-email .card{border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 
 /* Hide interactive / WA-only elements */
 body.src-email .sticky-bar,
-body.src-email .upi-pay-btns,
 body.src-email .wa-contact-btn,
 body.src-email .lang-toggle,
 body.src-email .ive-paid-btn,
 body.src-email .partial-pay-box,
-body.src-email .upi-box,
-body.src-email .qr-section,
 body.src-email .wa-dot { display:none !important }
+
+/* Email portal: show UPI ID box + copy button always */
+body.src-email .upi-box { display:flex !important }
+body.src-email .copy-btn { display:inline-flex !important }
+
+/* Email portal on mobile: show UPI app buttons (GPay/PhonePe/Paytm) */
+@media (max-width:599px) {
+  body.src-email .upi-pay-btns { display:flex !important }
+}
 
 /* Prominent Download PDF button for email */
 body.src-email .pdf-btn{
@@ -937,13 +951,16 @@ $dueTotal       = array_sum(array_column($otherDues ?? [], 'amount'));
 $overdueCount   = count(array_filter($otherDues ?? [], fn($r) => $r['status'] === 'Overdue'));
 $today_ts       = strtotime('today');
 
-// Total count including current invoice
-$totalDueCount  = $dueCount + 1;
+// Total count: only include current invoice if it is itself a real due invoice
+$currentIsDue   = in_array($inv['status'] ?? '', ['Pending','Overdue','Partial']);
+$totalDueCount  = $dueCount + ($currentIsDue ? 1 : 0);
 // Overdue count including current invoice if it's overdue
 $totalOverdueCount = $overdueCount + (($inv['status'] ?? '') === 'Overdue' ? 1 : 0);
 $totalPendingCount = ($totalDueCount - $totalOverdueCount);
+// Total outstanding: only add $remaining if current invoice is a real due invoice
+$totalOutstanding = $dueTotal + ($currentIsDue ? $remaining : 0);
 ?>
-<?php if ($hasDues): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <div class="dues-banner" id="duesBanner">
   <div class="dues-banner-icon">
     <i class="fas fa-exclamation-circle"></i>
@@ -956,7 +973,7 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
     </div>
     <div class="dues-banner-sub">
       Total outstanding across all invoices:
-      <strong style="font-family:var(--mono)"><?= fmt_inr($dueTotal + $remaining, $sym) ?></strong>
+      <strong style="font-family:var(--mono)"><?= fmt_inr($totalOutstanding, $sym) ?></strong>
       <?php if ($totalOverdueCount > 0): ?>
       — please clear overdue amounts at the earliest.
       <?php endif; ?>
@@ -1118,10 +1135,10 @@ $tlProgressWidth = match(true) {
     <?php else: ?>
     <div class="amt-cell">
       <div class="lbl" data-t="Amount Paid">Amount Paid</div>
-      <div class="val" style="color:var(--green)"><?= fmt_inr($totalCovered, $sym) ?></div>
+      <div class="val" style="color:var(--green)"><?= fmt_inr($totalCash, $sym) ?></div>
       <?php if ($totalSettle > 0.01): ?>
       <div style="font-size:10px;color:#E65100;margin-top:2px">
-        <?= fmt_inr($totalCash, $sym) ?> cash + <?= fmt_inr($totalSettle, $sym) ?> discount
+        + <?= fmt_inr($totalSettle, $sym) ?> settlement discount
       </div>
       <?php endif; ?>
     </div>
@@ -1355,7 +1372,7 @@ if ($items):
       <div class="pmt-ic"><i class="fas fa-check"></i></div>
       <div class="pmt-info">
         <div class="pmt-method"><?= htmlspecialchars($p['method'] ?? 'Payment') ?></div>
-        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?></div>
+        <div class="pmt-date"><?= fmt_date($p['payment_date'] ?? '') ?><?php if (!empty($p['created_at'])): ?><span style="font-size:10px;color:var(--muted);margin-left:4px"><?= date('H:i', strtotime($p['created_at'])) ?></span><?php endif; ?></div>
         <?php if (!empty($p['transaction_id'])): ?>
         <div class="pmt-txn">Ref: <?= htmlspecialchars($p['transaction_id']) ?></div>
         <?php endif; ?>
@@ -1434,14 +1451,11 @@ if ($items):
     </div>
     <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px dashed #C8E6C9">
       <div style="font-size:11px;color:var(--muted)">This is an auto-generated payment receipt</div>
-      <button class="pdf-dl-btn" style="max-width:260px;margin:10px auto 0" onclick="downloadPDF()">
-        <i class="fas fa-file-download"></i> Download Receipt as PDF
-      </button>
     </div>
   </div>
 </div>
 <?php endif; ?>
-<?php if ($remaining > 0.01 && $companyUPI && !$isEstimate): ?>
+<?php if ($remaining > 0.01 && $companyUPI && !$isEstimate && !$isCancelled): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-mobile-alt"></i> <span data-t="Pay Now">Pay Now</span></div>
   <div class="card-body">
@@ -1614,7 +1628,7 @@ if (document.readyState === 'loading') {
 </div>
 <?php endif; ?>
 
-<?php if ($hasDues): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <!-- ── Other Outstanding Invoices ── -->
 <div class="card dues-card" id="otherDuesCard">
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
@@ -1649,7 +1663,9 @@ if (document.readyState === 'loading') {
         <?php elseif ($odPartial): ?>
         <div class="dues-age partial">Partial</div>
         <?php elseif ($odPending && $odDays > 0): ?>
-        <div class="dues-age pending">Due <?= $odDays ?>d ago</div>
+        <div class="dues-age pending"><?= $odDays ?>d overdue</div>
+        <?php elseif ($odPending): ?>
+        <div class="dues-age" style="background:#E3F2FD;color:#1565C0;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">Due soon</div>
         <?php endif; ?>
       </div>
       <div class="dues-amount" style="color:<?= $odOverdue ? 'var(--red)' : 'var(--text)' ?>">
@@ -1659,15 +1675,15 @@ if (document.readyState === 'loading') {
     <?php endforeach; ?>
 
     <!-- Previous outstanding subtotal -->
-    <?php if ($dueTotal > 0): ?>
+    <?php if ($dueCount > 1): ?>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--card-alt,#FAFAFA);border-top:1px dashed var(--border);margin:0 -18px;padding:8px 18px">
-      <span style="font-size:11px;color:var(--muted)">Previous outstanding (<?= $dueCount ?> invoice<?= $dueCount > 1 ? 's' : '' ?>)</span>
+      <span style="font-size:11px;color:var(--muted)">Other invoices (<?= $dueCount ?>)</span>
       <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><?= fmt_inr($dueTotal, $sym) ?></span>
     </div>
     <?php endif; ?>
 
-    <!-- Current invoice row -->
-    <?php if ($remaining > 0.01): ?>
+    <!-- Current invoice row: only show if real due invoice -->
+    <?php if ($remaining > 0.01 && $currentIsDue): ?>
     <div class="dues-row" style="background:#FFFDE7;margin:0 -18px;padding:12px 18px">
       <div class="dues-status-dot" style="background:<?= status_col($inv['status'] ?? '') ?>"></div>
       <div style="flex:1;min-width:0">
@@ -1675,25 +1691,38 @@ if (document.readyState === 'loading') {
         <div class="dues-service"><?= htmlspecialchars($inv['service_type'] ?? '—') ?></div>
         <div style="font-size:10px;color:#F9A825;font-weight:700;margin-top:2px">This invoice (remaining)</div>
       </div>
+      <?php
+        $curDueTs  = !empty($inv['due_date']) ? strtotime($inv['due_date']) : 0;
+        $curDueDays = $curDueTs ? (int)floor(($today_ts - $curDueTs) / 86400) : 0;
+        $curIsOverdue = ($inv['status'] ?? '') === 'Overdue';
+        $curIsPending = ($inv['status'] ?? '') === 'Pending';
+      ?>
       <div class="dues-due-date">
         <div style="font-size:11px;color:var(--muted)">Due</div>
-        <div style="font-size:12px;font-weight:600"><?= fmt_date($inv['due_date'] ?? '') ?></div>
+        <div style="font-size:12px;font-weight:600;color:<?= $curIsOverdue ? 'var(--red)' : 'inherit' ?>"><?= fmt_date($inv['due_date'] ?? '') ?></div>
+        <?php if ($curIsOverdue && $curDueDays > 0): ?>
+        <div class="dues-age overdue">+<?= $curDueDays ?>d overdue</div>
+        <?php elseif ($curIsPending && $curDueDays > 0): ?>
+        <div class="dues-age pending"><?= $curDueDays ?>d overdue</div>
+        <?php elseif ($curIsPending): ?>
+        <div class="dues-age" style="background:#E3F2FD;color:#1565C0;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">Due soon</div>
+        <?php endif; ?>
       </div>
-      <div class="dues-amount"><?= fmt_inr($remaining, $sym) ?></div>
+      <div class="dues-amount" style="color:<?= $curIsOverdue ? 'var(--red)' : 'var(--text)' ?>"><?= fmt_inr($remaining, $sym) ?></div>
     </div>
     <?php endif; ?>
 
     <!-- Grand total -->
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:2px solid var(--border);margin-top:4px">
       <span style="font-size:12px;font-weight:700;color:var(--muted)">Total Outstanding (all invoices)</span>
-      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($dueTotal + $remaining, $sym) ?></span>
+      <span style="font-family:var(--mono);font-weight:800;font-size:15px;color:#E65100"><?= fmt_inr($totalOutstanding, $sym) ?></span>
     </div>
 
     <?php if ($companyPhone): ?>
     <?php $waPhone2 = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone2)===10) $waPhone2='91'.$waPhone2;
-      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($dueTotal + $remaining, $sym) . '. Can you help me clear these?'); ?>
+      $duesMsg = urlencode('Hi ' . $companyName . ', I am viewing Invoice ' . ($inv['invoice_number'] ?? '') . ' and noticed I have ' . $totalDueCount . ' outstanding invoice' . ($totalDueCount>1?'s':'') . ' totalling ' . fmt_inr($totalOutstanding, $sym) . '. Can you help me clear these?'); ?>
     <a href="https://wa.me/<?= $waPhone2 ?>?text=<?= $duesMsg ?>" target="_blank"
-       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
+       style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;margin-bottom:12px;padding:11px;background:#25D366;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">
       <i class="fab fa-whatsapp" style="font-size:15px"></i> Contact us to clear dues
     </a>
     <?php endif; ?>
@@ -1713,13 +1742,7 @@ if (document.readyState === 'loading') {
       <?php if ($companyEmail): ?><div class="info-item"><label>Email</label><span class="val"><?= htmlspecialchars($companyEmail) ?></span></div><?php endif; ?>
       <?php if ($companyAddress): ?><div class="info-item" style="grid-column:1/-1"><label>Address</label><span class="val" style="font-weight:400"><?= nl2br(htmlspecialchars($companyAddress)) ?></span></div><?php endif; ?>
     </div>
-    <?php if ($companyPhone): ?>
-    <?php $waPhone = preg_replace('/\D/','',$companyPhone); if(strlen($waPhone)===10) $waPhone='91'.$waPhone; ?>
-    <a href="https://wa.me/<?= $waPhone ?>?text=<?= urlencode('Hi, I have a query regarding '.($isEstimate?'Estimate':'Invoice').' '.$inv['invoice_number']) ?>" class="wa-contact-btn" target="_blank">
-      <i class="fab fa-whatsapp" style="font-size:16px"></i> <span data-t="Chat with us on WhatsApp">Chat with us on WhatsApp</span>
-      <?php if (($inv['status'] ?? '') === 'Overdue'): ?><span class="wa-dot"></span><?php endif; ?>
-    </a>
-    <?php endif; ?>
+
 
     <?php if ($remaining > 0.01 && $companyPhone): ?>
     <?php
