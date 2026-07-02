@@ -9616,22 +9616,49 @@ async function saveNewClient() {
     tags:   JSON.stringify(_ncCurrentTags || []),
     extra_contacts: JSON.stringify(_getExtraContacts())
   };
+  const saveBtn = document.querySelector('#modal-addclient .modal-footer .btn-primary');
+  const cancelBtn = document.querySelector('#modal-addclient .modal-footer .btn-outline');
+  const isEdit = !!STATE._editCid;
+  const origLabel = saveBtn ? saveBtn.textContent : '';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.7';
+    saveBtn.style.cursor = 'not-allowed';
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  }
+  if (cancelBtn) cancelBtn.disabled = true;
   try {
+    let savedClient = null;
+    const logoNormalized = (payload.logo && (payload.logo.indexOf('data:image') === 0 || payload.logo.indexOf('http') === 0)) ? payload.logo : '';
     if (STATE._editCid) {
       const c = STATE.clients.find(x => x.id === STATE._editCid);
-      await api('api/clients.php?id=' + (parseInt(c?.id) || 0), 'PUT', payload);
+      const cId = parseInt(c?.id) || 0;
+      await api('api/clients.php?id=' + cId, 'PUT', payload);
       toast('✅ Client updated!', 'success');
       logActivity('client_edited', `Client edited: ${name}`, payload.email || '');
+      savedClient = {
+        id: String(cId), name: payload.name, person: payload.person, email: payload.email,
+        phone: c?.phone || '', wa: payload.wa, gst: payload.gst, addr: payload.addr,
+        landmark: payload.landmark, color: payload.color, image: logoNormalized,
+        active: c?.active ?? 1, tags: payload.tags, extra_contacts: payload.extra_contacts
+      };
+      const idx = STATE.clients.findIndex(x => String(x.id) === String(cId));
+      if (idx !== -1) STATE.clients[idx] = savedClient; else STATE.clients.push(savedClient);
       STATE._editCid = null;
       const hdr = document.querySelector('#modal-addclient .modal-header span');
       if (hdr) hdr.textContent = 'Add New Client';
     } else {
-      await api('api/clients.php', 'POST', payload);
+      const resp = await api('api/clients.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
       logActivity('client_added', `Client added: ${name}`, payload.email || '');
+      savedClient = {
+        id: String(resp?.id || ('tmp-' + Date.now())), name: payload.name, person: payload.person,
+        email: payload.email, phone: '', wa: payload.wa, gst: payload.gst, addr: payload.addr,
+        landmark: payload.landmark, color: payload.color, image: logoNormalized,
+        active: 1, tags: payload.tags, extra_contacts: payload.extra_contacts
+      };
+      STATE.clients.push(savedClient);
     }
-    const r = await api('api/clients.php');
-    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
     updateClientDropdown(); renderClients(); populateWAClientDropdown();
     closeModal('modal-addclient');
     ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(id => {
@@ -9642,7 +9669,17 @@ async function saveNewClient() {
     updateClientLogoInitials();
     _ncCurrentTags = []; _renderTagPills();
     const _ecwReset = document.getElementById('nc-extra-contacts'); if(_ecwReset) _ecwReset.innerHTML = '';
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '';
+      saveBtn.style.cursor = '';
+      saveBtn.textContent = origLabel || (isEdit ? 'Update Client' : 'Add Client');
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
 }
 
 function editClient(id) {

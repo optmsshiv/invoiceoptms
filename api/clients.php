@@ -5,10 +5,15 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
 
-// ── Auto-migrate: add new columns if missing ─────────────────────
-$cols = $db->query("SHOW COLUMNS FROM clients")->fetchAll(PDO::FETCH_COLUMN);
-if (!in_array('tags',           $cols)) $db->exec("ALTER TABLE clients ADD COLUMN `tags`           TEXT    NULL DEFAULT NULL");
-if (!in_array('extra_contacts', $cols)) $db->exec("ALTER TABLE clients ADD COLUMN `extra_contacts` TEXT    NULL DEFAULT NULL");
+// ── Auto-migrate: add new columns if missing (only needed before writes) ──
+function ensureClientTagColumns($db) {
+  static $checked = false;
+  if ($checked) return;
+  $checked = true;
+  $cols = $db->query("SHOW COLUMNS FROM clients")->fetchAll(PDO::FETCH_COLUMN);
+  if (!in_array('tags',           $cols)) $db->exec("ALTER TABLE clients ADD COLUMN `tags`           TEXT    NULL DEFAULT NULL");
+  if (!in_array('extra_contacts', $cols)) $db->exec("ALTER TABLE clients ADD COLUMN `extra_contacts` TEXT    NULL DEFAULT NULL");
+}
 
 switch ($method) {
   case 'GET':
@@ -24,6 +29,7 @@ switch ($method) {
     jsonResponse(['data'=>$clients]);
 
   case 'POST':
+    ensureClientTagColumns($db);
     $d    = json_decode(file_get_contents('php://input'), true);
     $logo = $d['logo'] ?? $d['image'] ?? '';
     $i    = $db->prepare('INSERT INTO clients (name,person,email,phone,whatsapp,gst_number,address,landmark,color,logo,tags,extra_contacts) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -39,6 +45,7 @@ switch ($method) {
     jsonResponse(['success'=>true,'id'=>$id]);
 
   case 'PUT':
+    ensureClientTagColumns($db);
     $d        = json_decode(file_get_contents('php://input'), true);
     $id       = (int)($_GET['id'] ?? $d['id'] ?? 0); if(!$id) jsonResponse(['error'=>'ID required'],400);
     $isActive = isset($d['active']) ? (int)$d['active'] : 1;
