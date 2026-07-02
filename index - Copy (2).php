@@ -4044,15 +4044,11 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Date + Time + Method (3-col) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <!-- Date + Method (2-col) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field">
           <label>Payment Date</label>
           <input type="date" id="paid-date">
-        </div>
-        <div class="field">
-          <label>Payment Time</label>
-          <input type="time" id="paid-time">
         </div>
         <div class="field">
           <label>Method</label>
@@ -8200,8 +8196,6 @@ function openPaidModal(id) {
 
   // Reset payment form
   document.getElementById('paid-date').value = fmt_date(new Date());
-  const _now = new Date();
-  document.getElementById('paid-time').value = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
   const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
@@ -8472,12 +8466,7 @@ function confirmPaid() {
     client_name:         (STATE.clients.find(c=>String(c.id)===String(inv.client))||{}).name||inv.client_name||'',
     amount:              amtReceived,
     settlement_discount: settleDiscAmt > 0 ? settleDiscAmt : 0,
-    payment_date:        (function(){
-                            const dVal = document.getElementById('paid-date').value;
-                            const tVal = document.getElementById('paid-time').value;
-                            if (!dVal) return '';
-                            return dVal + ' ' + (tVal || '00:00') + ':00';
-                          })(),
+    payment_date:        document.getElementById('paid-date').value,
     method: (document.getElementById('paid-method').value === 'Split')
               ? getSplitMethodLabel()
               : document.getElementById('paid-method').value,

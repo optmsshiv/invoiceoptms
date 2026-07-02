@@ -1,5 +1,4 @@
 <?php
-date_default_timezone_set('Asia/Kolkata');
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../includes/auth.php';
@@ -23,14 +22,6 @@ try {
 try {
   $db->exec("ALTER TABLE payments ADD COLUMN invoice_deleted TINYINT(1) NOT NULL DEFAULT 0");
 } catch(Exception $e) { /* already exists */ }
-
-// Ensure payment_date can actually store a time component.
-// If this column is currently DATE-typed, any time we send gets silently
-// dropped by MySQL. MODIFY to DATETIME is safe — existing DATE values
-// simply become midnight (which is what they already display as).
-try {
-  $db->exec("ALTER TABLE payments MODIFY COLUMN payment_date DATETIME NULL");
-} catch(Exception $e) { /* already DATETIME, or column differs — non-fatal */ }
 
 function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 
@@ -111,7 +102,7 @@ switch ($method) {
         $d['amount']         ?? 0,
         $settleDisc,
         $remainingAmt,
-        nullIfEmpty($d['payment_date'] ?? $d['date'] ?? date('Y-m-d H:i:s')),
+        nullIfEmpty($d['payment_date'] ?? $d['date'] ?? date('Y-m-d')),
         $d['method']         ?? '',
         $d['transaction_id'] ?? $d['txn'] ?? '',
         $d['status']         ?? 'Success',

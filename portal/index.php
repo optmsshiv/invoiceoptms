@@ -249,7 +249,7 @@ function fmt_payment_datetime($paymentDate, $createdAt) {
         $createdTs = strtotime($createdAt);
         if ($createdTs) $timeSrc = $createdTs;
     }
-    return date('d M Y', $dateTs) . ', ' . date('H:i', $timeSrc);
+    return date('d M Y', $dateTs) . ', ' . date('h:i:s A', $timeSrc);
 }
 function fmt_rel($d) {
     // Returns relative label for first_viewed: "Today", "Yesterday", "3 days ago", or "d M Y" for older
