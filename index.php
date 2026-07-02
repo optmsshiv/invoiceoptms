@@ -949,6 +949,7 @@ select { cursor: pointer; }
   background: var(--card); border-radius: 14px; width: 100%;
   box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .2s ease;
   display: flex; flex-direction: column;
+  max-height: 90vh;
 }
 @keyframes modalIn { from { opacity:0; transform:scale(.95) translateY(10px); } to { opacity:1; transform:none; } }
 .modal-sm  { max-width: 420px; }
@@ -958,16 +959,18 @@ select { cursor: pointer; }
   padding: 18px 22px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   font-size: 15px; font-weight: 700;
+  flex-shrink: 0;
 }
 .modal-close {
   width: 32px; height: 32px; border-radius: 7px; border: none;
   background: var(--bg); cursor: pointer; font-size: 14px; color: var(--muted); transition: .2s;
 }
 .modal-close:hover { background: var(--red-bg); color: var(--red); }
-.modal-body { flex: 1; }
+.modal-body { flex: 1; overflow-y: auto; }
 .modal-footer {
   padding: 14px 22px; border-top: 1px solid var(--border);
   display: flex; gap: 10px; justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════
