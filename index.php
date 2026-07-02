@@ -1858,6 +1858,12 @@ const SERVER = {
           <span id="inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
         </label>
         <div style="flex:1"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="client-search" placeholder="Search clients..." oninput="renderClients()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;min-width:160px">
+          <select id="client-tag-filter" onchange="renderClients()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg)">
+            <option value="">All Tags</option>
+          </select>
+        </div>
         <button class="btn btn-primary" onclick="openAddClientModal()"><i class="fas fa-plus"></i> Add Client</button>
       </div>
       <div class="clients-grid" id="clientsGrid"></div>
@@ -8934,15 +8940,190 @@ function onStatusChange(newStatus) {
 // ══════════════════════════════════════════
 // CLIENTS
 // ══════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════
+// CLIENT TAGS SYSTEM
+// ════════════════════════════════════════════════════════════════
+let _ncCurrentTags = [];
+
+const TAG_PALETTE = [
+  {bg:'#EDE9FE',text:'#5B21B6',border:'#C4B5FD'},
+  {bg:'#E0F2FE',text:'#0369A1',border:'#BAE6FD'},
+  {bg:'#DCFCE7',text:'#166534',border:'#BBF7D0'},
+  {bg:'#FEF3C7',text:'#92400E',border:'#FDE68A'},
+  {bg:'#FFE4E6',text:'#9F1239',border:'#FECDD3'},
+  {bg:'#F0FDF4',text:'#14532D',border:'#86EFAC'},
+  {bg:'#FFF7ED',text:'#9A3412',border:'#FDBA74'},
+  {bg:'#EFF6FF',text:'#1E40AF',border:'#BFDBFE'},
+];
+
+function _tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
+}
+
+function _renderTagPills() {
+  const wrap = document.getElementById('nc-tags-pills');
+  if (!wrap) return;
+  wrap.innerHTML = (_ncCurrentTags||[]).map(t => {
+    const col = _tagColor(t);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border}">${t}<span onclick="removeTag('${t}')" style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">&times;</span></span>`;
+  }).join('');
+}
+
+function removeTag(tag) {
+  _ncCurrentTags = (_ncCurrentTags||[]).filter(t => t !== tag);
+  _renderTagPills();
+}
+
+function handleTagInput(e) {
+  const input = e.target;
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = input.value.trim().replace(/,$/,'');
+    if (val && !(_ncCurrentTags||[]).includes(val)) {
+      _ncCurrentTags = [...(_ncCurrentTags||[]), val];
+      _renderTagPills();
+    }
+    input.value = '';
+    document.getElementById('nc-tag-suggestions').style.display = 'none';
+  } else if (e.key === 'Backspace' && !input.value && (_ncCurrentTags||[]).length) {
+    _ncCurrentTags = _ncCurrentTags.slice(0,-1);
+    _renderTagPills();
+  }
+}
+
+function showTagSuggestions(val) {
+  const box = document.getElementById('nc-tag-suggestions');
+  if (!box) return;
+  if (!val.trim()) { box.style.display='none'; return; }
+  // Collect all unique tags from existing clients
+  const allTags = [...new Set((STATE.clients||[]).flatMap(cl => { try { return JSON.parse(cl.tags||'[]'); } catch(e){ return []; } }))];
+  const matches = allTags.filter(t => t.toLowerCase().includes(val.toLowerCase()) && !(_ncCurrentTags||[]).includes(t));
+  if (!matches.length) { box.style.display='none'; return; }
+  const inputEl = document.getElementById('nc-tag-input');
+  if (inputEl) {
+    const rect = inputEl.getBoundingClientRect();
+    box.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+    box.style.left = (rect.left + window.scrollX) + 'px';
+    box.style.position = 'fixed';
+  }
+  box.innerHTML = matches.map(t => `<div onclick="selectTagSuggestion('${t}')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">${t}</div>`).join('');
+  box.style.display = 'block';
+}
+
+function selectTagSuggestion(tag) {
+  if (!(_ncCurrentTags||[]).includes(tag)) {
+    _ncCurrentTags = [...(_ncCurrentTags||[]), tag];
+    _renderTagPills();
+  }
+  const input = document.getElementById('nc-tag-input');
+  if (input) input.value = '';
+  document.getElementById('nc-tag-suggestions').style.display = 'none';
+}
+
+function _refreshTagFilterDropdown() {
+  const sel = document.getElementById('client-tag-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  const allTags = [...new Set((STATE.clients||[]).flatMap(cl => { try { return JSON.parse(cl.tags||'[]'); } catch(e){ return []; } }))].sort();
+  sel.innerHTML = '<option value="">All Tags</option>' + allTags.map(t => `<option value="${t}" ${t===cur?'selected':''}>${t}</option>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// EXTRA CONTACTS
+// ════════════════════════════════════════════════════════════════
+function addExtraContactRow(data) {
+  const wrap = document.getElementById('nc-extra-contacts');
+  if (!wrap) return;
+  const id = 'ec-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px';
+  row.innerHTML = `
+    <input placeholder="Name *" value="${(data&&data.name)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-name">
+    <input placeholder="Role (e.g. Accounts)" value="${(data&&data.role)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-role">
+    <input placeholder="WhatsApp" value="${(data&&data.wa)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-wa">
+    <button type="button" onclick="document.getElementById('${id}').remove()" style="width:28px;height:28px;border:none;background:var(--red-bg,#FFEBEE);color:#C62828;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">&times;</button>`;
+  wrap.appendChild(row);
+}
+
+function _getExtraContacts() {
+  const rows = document.querySelectorAll('#nc-extra-contacts > div');
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.ec-name')?.value?.trim();
+    const role = row.querySelector('.ec-role')?.value?.trim();
+    const wa   = row.querySelector('.ec-wa')?.value?.trim();
+    if (name) result.push({ name, role: role||'', wa: wa||'' });
+  });
+  return result;
+}
+
+// ════════════════════════════════════════════════════════════════
+// PAYMENT BEHAVIOUR SCORE
+// ════════════════════════════════════════════════════════════════
+function _clientPayBehaviour(clientId) {
+  const cid = String(clientId);
+  const paidInvs = (STATE.invoices||[]).filter(i => String(i.client) === cid && i.status === 'Paid');
+  if (!paidInvs.length) return { totalPaid: 0 };
+
+  // Calc avg days between issue and payment
+  const delays = [];
+  paidInvs.forEach(inv => {
+    const invPmts = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(inv.id));
+    if (!invPmts.length) return;
+    const lastPmt = invPmts.map(p => new Date((p.paid_on||p.created_at||'').replace(' ','T')+'Z')).sort((a,b)=>b-a)[0];
+    const issued  = new Date((inv.issued||inv.issued_date||inv.created_at||'').replace(' ','T')+'Z');
+    if (lastPmt && issued && !isNaN(lastPmt) && !isNaN(issued)) {
+      delays.push(Math.max(0, Math.floor((lastPmt - issued) / 864e5)));
+    }
+  });
+
+  const avgDays = delays.length ? Math.round(delays.reduce((s,d)=>s+d,0)/delays.length) : 0;
+  // Count overdue invoices ever
+  const allInvs  = (STATE.invoices||[]).filter(i => String(i.client) === cid);
+  const everLate = allInvs.filter(i => {
+    const due = new Date((i.due||i.due_date||'').replace(' ','T')+'Z');
+    const pmts = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(i.id));
+    if (!pmts.length) return false;
+    const lastPmt = pmts.map(p => new Date((p.paid_on||p.created_at||'').replace(' ','T')+'Z')).sort((a,b)=>b-a)[0];
+    return lastPmt && due && lastPmt > due;
+  }).length;
+
+  // Score: A (≤7d avg, 0 late) → B → C → D
+  let score, label, color, bg, border, icon;
+  if (avgDays <= 7 && everLate === 0)       { score='A'; label='Excellent payer'; color='#166534'; bg='#DCFCE7'; border='#BBF7D0'; icon='star'; }
+  else if (avgDays <= 15 && everLate <= 1)  { score='B'; label='Good payer';      color='#0369A1'; bg='#E0F2FE'; border='#BAE6FD'; icon='thumbs-up'; }
+  else if (avgDays <= 30 && everLate <= 3)  { score='C'; label='Slow payer';      color='#92400E'; bg='#FEF3C7'; border='#FDE68A'; icon='clock'; }
+  else                                       { score='D'; label='Poor payer';      color='#9F1239'; bg='#FFE4E6'; border='#FECDD3'; icon='exclamation-triangle'; }
+
+  return { score, label, color, bg, border, icon, avgDays, totalPaid: paidInvs.length, everLate };
+}
+
 function renderClients() {
   const grid = document.getElementById('clientsGrid');
   if (!grid) return;
-  const showInactive = document.getElementById('show-inactive-toggle')?.checked || false;
+  const showInactive  = document.getElementById('show-inactive-toggle')?.checked || false;
+  const searchVal     = (document.getElementById('client-search')?.value || '').toLowerCase().trim();
+  const tagFilter     = document.getElementById('client-tag-filter')?.value || '';
   const inactiveCount = STATE.clients.filter(c => parseInt(c.active) === 0 || c.status === 'inactive').length;
-  // Update inactive badge
   const badge = document.getElementById('inactive-count-badge');
   if (badge) { badge.textContent = inactiveCount; badge.style.display = inactiveCount ? 'inline-block' : 'none'; }
-  const visibleClients = showInactive ? STATE.clients : STATE.clients.filter(c => parseInt(c.active) !== 0 && c.status !== 'inactive');
+  // Populate tag filter dropdown
+  _refreshTagFilterDropdown();
+  let visibleClients = showInactive ? STATE.clients : STATE.clients.filter(c => parseInt(c.active) !== 0 && c.status !== 'inactive');
+  if (searchVal) visibleClients = visibleClients.filter(c =>
+    (c.name||'').toLowerCase().includes(searchVal) ||
+    (c.email||'').toLowerCase().includes(searchVal) ||
+    (c.wa||'').includes(searchVal) ||
+    (c.person||'').toLowerCase().includes(searchVal)
+  );
+  if (tagFilter) visibleClients = visibleClients.filter(c => {
+    let tags = []; try { tags = JSON.parse(c.tags||'[]'); } catch(e){}
+    return tags.includes(tagFilter);
+  });
   if (!visibleClients.length) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">${
       inactiveCount && !showInactive ? `All clients are inactive. <span onclick="document.getElementById('show-inactive-toggle').checked=true;renderClients()" style="color:var(--teal);cursor:pointer;text-decoration:underline">Show inactive</span>` : 'No clients yet'
@@ -8975,6 +9156,18 @@ function renderClients() {
       ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#F9A825;color:#fff;margin-left:6px;vertical-align:middle">INACTIVE</span>`
       : '';
 
+    // Tags
+    let _cTags = []; try { _cTags = JSON.parse(c.tags||'[]'); } catch(e){}
+    const _tagsHTML = _cTags.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + _cTags.map(t=>{const col=_tagColor(t);return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+col.bg+';color:'+col.text+';border:1px solid '+col.border+'">'+t+'</span>';}).join('') + '</div>'
+      : '';
+    // Extra contacts
+    let _eCons = []; try { _eCons = JSON.parse(c.extra_contacts||'[]'); } catch(e){}
+    const _extraHTML = _eCons.map(ct=>'<div style="font-size:11px;color:var(--muted);display:flex;gap:5px;align-items:center;margin-top:2px"><i class="fas fa-user-tie" style="font-size:9px;color:var(--teal)"></i><b style="color:var(--text)">'+(ct.name||'')+'</b>'+(ct.role?'<span style="opacity:.6">'+ct.role+'</span>':'')+(ct.wa?'<a href="https://wa.me/'+ct.wa.replace(/[^0-9]/g,'') + '" target="_blank" onclick="event.stopPropagation()" style="color:#25D366;margin-left:2px"><i class="fab fa-whatsapp"></i></a>':'')+'</div>').join('');
+    // Payment behaviour
+    const _beh = _clientPayBehaviour(c.id);
+    const _behHTML = _beh.totalPaid > 0 ? '<div style="margin-top:6px;padding:7px 11px;background:'+_beh.bg+';border-radius:8px;border:1px solid '+_beh.border+';display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:7px"><i class="fas fa-'+_beh.icon+'" style="color:'+_beh.color+';font-size:11px"></i><div><div style="font-size:10px;font-weight:700;color:'+_beh.color+';text-transform:uppercase;letter-spacing:.4px">'+_beh.label+'</div><div style="font-size:10px;color:var(--muted)">Avg '+_beh.avgDays+'d to pay · '+_beh.totalPaid+' paid</div></div></div><div style="font-size:17px;font-weight:800;color:'+_beh.color+'">'+_beh.score+'</div></div>' : '';
+
     return `<div class="client-card" style="--c:${c.color};${cardStyle}">
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${isInactive?'#F9A825':c.color}"></div>
       ${isInactive ? `<div style="position:absolute;top:8px;right:8px;background:#FFF3CD;border:1.5px solid #F9A825;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;color:#856404;z-index:2"><i class="fas fa-pause-circle"></i> Inactive</div>` : ''}
@@ -8987,6 +9180,8 @@ function renderClients() {
           <div class="cc-contact">${c.person||''}</div>
           <div class="cc-contact">${c.email||''}</div>
           ${c.landmark ? `<div class="cc-contact" style="font-size:11px;color:var(--muted)"><i class="fas fa-map-marker-alt" style="color:var(--teal);margin-right:3px;font-size:10px"></i>${c.landmark}</div>` : ''}
+          ${_tagsHTML}
+          ${_extraHTML}
         </div>
       </div>
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
@@ -8994,6 +9189,7 @@ function renderClients() {
         <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
       </div>
+      ${_behHTML}
       <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#E3F2FD;border-radius:8px;opacity:${isInactive?'.6':'1'}">
         <div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
         <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
@@ -9388,7 +9584,9 @@ async function saveNewClient() {
     color:  document.getElementById('nc-color')?.value  || '#00897B',
     addr:   document.getElementById('nc-addr')?.value   || '',
     landmark: document.getElementById('nc-landmark')?.value || '',
-    logo:   _ncLogoBase64 || ''
+    logo:   _ncLogoBase64 || '',
+    tags:   JSON.stringify(_ncCurrentTags || []),
+    extra_contacts: JSON.stringify(_getExtraContacts())
   };
   try {
     if (STATE._editCid) {
@@ -9414,6 +9612,8 @@ async function saveNewClient() {
     clearClientLogo();
     const col = document.getElementById('nc-color'); if (col) col.value = '#00897B';
     updateClientLogoInitials();
+    _ncCurrentTags = []; _renderTagPills();
+    const _ecwReset = document.getElementById('nc-extra-contacts'); if(_ecwReset) _ecwReset.innerHTML = '';
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -9433,6 +9633,19 @@ function editClient(id) {
     if (ui && (_ncLogoBase64.startsWith('http'))) ui.value = _ncLogoBase64;
   }
   updateClientLogoInitials();
+  // Load tags
+  _ncCurrentTags = [];
+  try { _ncCurrentTags = JSON.parse(c.tags || '[]'); } catch(e) { _ncCurrentTags = []; }
+  if (!Array.isArray(_ncCurrentTags)) _ncCurrentTags = [];
+  _renderTagPills();
+  // Load extra contacts
+  const _ecWrap = document.getElementById('nc-extra-contacts');
+  if (_ecWrap) {
+    _ecWrap.innerHTML = '';
+    let _ecList = [];
+    try { _ecList = JSON.parse(c.extra_contacts || '[]'); } catch(e) {}
+    if (Array.isArray(_ecList)) _ecList.forEach(ct => addExtraContactRow(ct));
+  }
   const hdr=document.querySelector('#modal-addclient .modal-header span'); if(hdr) hdr.textContent='Edit Client';
   const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary'); if(btn) btn.textContent='Update Client';
   openModal('modal-addclient');
