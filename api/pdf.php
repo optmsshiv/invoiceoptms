@@ -27,7 +27,24 @@ ini_set('memory_limit', '128M');
 require_once __DIR__ . '/../config/db.php';
 
 // ── Locate mPDF via autoloader ────────────────────────────────
-require_once '/home1/edrppymy/public_html/invoiceoptms/vendor/autoload.php';
+$autoloadPath = '/home1/edrppymy/public_html/invoiceoptms/vendor/autoload.php';
+if (!file_exists($autoloadPath)) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => "Composer autoloader not found at $autoloadPath — the vendor/ folder is missing or was not uploaded to this path."]);
+    exit;
+}
+require_once $autoloadPath;
+
+if (!class_exists('\Mpdf\Mpdf')) {
+    // The autoloader itself is fine (loaded above with no fatal error), but it has
+    // no knowledge of Mpdf\Mpdf — meaning mpdf/mpdf was never actually installed
+    // via Composer in this vendor/ directory (only other packages were).
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'mPDF library not installed. From /home1/edrppymy/public_html/invoiceoptms/ run: composer require mpdf/mpdf — then confirm vendor/mpdf/mpdf/ exists on the server.']);
+    exit;
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 function pdf_fmt_date($d) {

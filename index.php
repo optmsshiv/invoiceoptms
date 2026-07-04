@@ -6020,18 +6020,24 @@ function livePreview() {
   try {
     const d = getFormData();
     const scale = 0.685;
-    const scaledH = Math.round(1123 * scale);
-    wrap.style.cssText = `width:545px;height:${scaledH}px;overflow:hidden;position:relative;border-radius:6px;box-shadow:0 2px 16px rgba(0,0,0,.12);background:#fff`;
-    const inner = document.createElement('div');
-    inner.style.cssText = `width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0;pointer-events:none`;
     const html = buildInvoiceHTML(d, false);
     if (!html || html.trim() === '') {
       wrap.innerHTML = `<div style="padding:20px;color:#e53935;font-size:12px">Preview returned empty — template may not be loading correctly. Check console for errors.</div>`;
       return;
     }
+    // Lay the content out unscaled first so we can measure its true height —
+    // a fixed one-A4-page height here would clip invoices with enough items,
+    // notes, or terms to run longer than a single page.
+    wrap.style.cssText = `width:545px;position:relative;border-radius:6px;box-shadow:0 2px 16px rgba(0,0,0,.12);background:#fff;overflow:hidden`;
+    const inner = document.createElement('div');
+    inner.style.cssText = `width:794px;position:absolute;top:0;left:0;pointer-events:none`;
     inner.innerHTML = html;
     wrap.innerHTML = '';
     wrap.appendChild(inner);
+    const naturalH = Math.max(1123, inner.scrollHeight);
+    inner.style.transform = `scale(${scale})`;
+    inner.style.transformOrigin = 'top left';
+    wrap.style.height = Math.round(naturalH * scale) + 'px';
     // Sync template dropdowns
     const ps = document.getElementById('prevTplSelect');
     if (ps && ps.value !== String(d.tpl)) ps.value = d.tpl;
@@ -7943,9 +7949,15 @@ function openPreviewModal(id) {
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
-  const scaledH = Math.round(1123*scale);
-  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader)}</div></div>`;
-  document.getElementById('mp-body').innerHTML = previewWrap;
+  const innerHtml = fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader);
+  const mpBody = document.getElementById('mp-body');
+  // Measure the real, unscaled content height first — a fixed one-A4-page
+  // height would clip invoices with enough items/notes to run past one page.
+  mpBody.innerHTML = `<div id="mp-measure" style="width:794px;position:relative">${innerHtml}</div>`;
+  const naturalH = Math.max(1123, document.getElementById('mp-measure').scrollHeight);
+  const scaledH = Math.round(naturalH * scale);
+  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${innerHtml}</div></div>`;
+  mpBody.innerHTML = previewWrap;
   const titleEl = document.getElementById('mp-title');
   titleEl.textContent = `Invoice ${inv.num} — ${c.name||''}`;
   titleEl.dataset.invId = id;
