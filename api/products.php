@@ -5,6 +5,15 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
 
+// Restore a soft-deleted service. Kept separate from PUT so restoring never
+// overwrites name/rate/etc with blanks — it only flips is_active back on.
+if ($method === 'POST' && ($_GET['action'] ?? '') === 'restore') {
+  $id = (int)str_replace('p','',($_GET['id']??0)); if(!$id) jsonResponse(['error'=>'ID required'],400);
+  $db->prepare('UPDATE products SET is_active=1 WHERE id=?')->execute([$id]);
+  logActivity((int)$_SESSION['user_id'],'restore','product',$id,"Restored product #$id");
+  jsonResponse(['success'=>true]);
+}
+
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -12,19 +21,21 @@ switch ($method) {
       $p=$s->fetch(); if(!$p) jsonResponse(['error'=>'Not found'],404);
       jsonResponse(['data'=>$p]);
     }
+    $activeFlag = (($_GET['status'] ?? '') === 'archived') ? 0 : 1;
     $q = !empty($_GET['q']) ? '%'.$_GET['q'].'%' : null;
     $cat = $_GET['category']??'';
     if ($q && $cat) {
-      $s=$db->prepare('SELECT * FROM products WHERE is_active=1 AND (name LIKE ? OR category LIKE ? OR hsn_code LIKE ?) AND category=? ORDER BY name');
-      $s->execute([$q,$q,$q,$cat]);
+      $s=$db->prepare('SELECT * FROM products WHERE is_active=? AND (name LIKE ? OR category LIKE ? OR hsn_code LIKE ?) AND category=? ORDER BY name');
+      $s->execute([$activeFlag,$q,$q,$q,$cat]);
     } elseif ($q) {
-      $s=$db->prepare('SELECT * FROM products WHERE is_active=1 AND (name LIKE ? OR category LIKE ? OR hsn_code LIKE ?) ORDER BY name');
-      $s->execute([$q,$q,$q]);
+      $s=$db->prepare('SELECT * FROM products WHERE is_active=? AND (name LIKE ? OR category LIKE ? OR hsn_code LIKE ?) ORDER BY name');
+      $s->execute([$activeFlag,$q,$q,$q]);
     } elseif ($cat) {
-      $s=$db->prepare('SELECT * FROM products WHERE is_active=1 AND category=? ORDER BY name');
-      $s->execute([$cat]);
+      $s=$db->prepare('SELECT * FROM products WHERE is_active=? AND category=? ORDER BY name');
+      $s->execute([$activeFlag,$cat]);
     } else {
-      $s=$db->query('SELECT * FROM products WHERE is_active=1 ORDER BY category,name');
+      $s=$db->prepare('SELECT * FROM products WHERE is_active=? ORDER BY category,name');
+      $s->execute([$activeFlag]);
     }
     $products = $s->fetchAll();
     foreach ($products as &$p) {

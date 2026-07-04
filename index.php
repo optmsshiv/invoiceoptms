@@ -1881,7 +1881,8 @@ const SERVER = {
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
+        <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -4516,6 +4517,11 @@ function _moneyLocale() {
 function fmt_money(n, sym) {
   const s = sym !== undefined ? sym : ((STATE.settings && STATE.settings.currency) || '₹');
   return s + parseFloat(n||0).toLocaleString(_moneyLocale(),{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+// Escapes text before it's injected into innerHTML, to prevent stored-XSS
+// from product/client names, categories, HSN codes, etc.
+function escHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 // Locale-aware short date formatter (e.g. "15 Apr" or "Apr 15")
 function fmt_date_l(dateStr, opts) {
@@ -9788,9 +9794,27 @@ async function toggleClientActive(id, makeActive) {
 // ══════════════════════════════════════════
 // PRODUCTS
 // ══════════════════════════════════════════
-const PROD = { page:1, per:8, list:[] };
-function renderProducts() { updateProductCatDropdowns(); PROD.list=[...STATE.products]; PROD.page=1; _renderProdPage(); }
-function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=STATE.products.filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
+const PROD = { page:1, per:8, list:[], archived:false, archivedList:null };
+// Category → default HSN/SAC code. Editable suggestions only — never overrides
+// a value the user has already typed, and the field always stays manually editable.
+const HSN_DEFAULTS = {
+  'Service': '998314',   // IT design/development & other professional services (SAC)
+  'Labour':  '998719',   // Installation/maintenance/repair services (SAC)
+  'Product': '',         // goods vary too much for a safe default — leave blank
+  'Other':   ''
+};
+function suggestHsnForCategory(cat) {
+  if (HSN_DEFAULTS[cat] !== undefined) return HSN_DEFAULTS[cat];
+  // Fall back to the most recently used HSN for this category, if any exists
+  const match = (STATE.products||[]).slice().reverse().find(p => p.category === cat && p.hsn);
+  return match ? match.hsn : '998314';
+}
+function allKnownHsnCodes() {
+  return [...new Set((STATE.products||[]).map(p => p.hsn).filter(Boolean))];
+}
+function activeProdSource() { return PROD.archived ? (PROD.archivedList||[]) : STATE.products; }
+function renderProducts() { updateProductCatDropdowns(); PROD.list=[...activeProdSource()]; PROD.page=1; _renderProdPage(); }
+function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=activeProdSource().filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s)||(p.hsn||'').toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
 function filterProductsCat(v) { filterProducts(document.getElementById('productSearch')?.value||''); }
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
@@ -9798,46 +9822,67 @@ function _renderProdPage() {
   tbody.innerHTML = pg.map((p,i)=>{
     const catColor = getCatColor(p.category);
     const catTc = getCatTextColor(catColor);
-    return `<tr>
-    <td>${s+i+1}</td>
-    <td><strong>${p.name}</strong></td>
-    <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${p.category}</span></td>
-    <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
-    <td><code style="font-family:var(--mono)">${p.hsn}</code></td>
-    <td><strong>${p.gst}%</strong></td>
-    <td><div class="action-cell">
-      <button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
+    const actions = PROD.archived
+      ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
+      : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
+      <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
       <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
-      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>
-    </div></td>
-  </tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No services found</td></tr>';
+      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>`;
+    return `<tr data-id="${escHtml(p.id)}">
+    <td>${s+i+1}</td>
+    <td><strong>${escHtml(p.name)}</strong></td>
+    <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${escHtml(p.category)}</span></td>
+    <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
+    <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
+    <td><strong>${p.gst}%</strong></td>
+    <td><div class="action-cell">${actions}</div></td>
+  </tr>`}).join('')||`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
   const inf=document.getElementById('prodInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PROD.list.length)} of ${PROD.list.length}`;
-  const ci=document.getElementById('prodCountInfo'); if(ci)ci.textContent=`${STATE.products.length} total`;
+  const ci=document.getElementById('prodCountInfo'); if(ci)ci.textContent=PROD.archived ? `${(PROD.archivedList||[]).length} archived` : `${STATE.products.length} total`;
 }
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
-  const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${c.name}</option>`).join('');
-  document.querySelectorAll('#productsTbody tr').forEach(row=>{
-    if(row.innerHTML.includes(`editProduct('${id}')`)){
-      row.style.background='#f0fdf4';
-      row.innerHTML=`<td><span style="color:var(--teal);font-size:11px;font-weight:700">EDIT</span></td>
-      <td><input id="ep-name" class="table-search" style="width:100%" value="${p.name}"></td>
-      <td><select id="ep-cat" class="table-filter cat-select" style="min-width:120px">${catOpts}</select></td>
-      <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
-      <td><input id="ep-hsn" class="table-search" style="width:75px" value="${p.hsn}"></td>
-      <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
-      <td><div class="action-cell"><button class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
-    }
-  });
+  const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${escHtml(c.name)}</option>`).join('');
+  const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
+  if (!row) return;
+  row.style.background='#f0fdf4';
+  row.innerHTML=`<td><span style="color:var(--teal);font-size:11px;font-weight:700">EDIT</span></td>
+  <td><input id="ep-name" class="table-search" style="width:100%" value="${escHtml(p.name)}"></td>
+  <td><select id="ep-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('ep-cat','ep-hsn')">${catOpts}</select></td>
+  <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
+  <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
+  <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
+  <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
+  ensureHsnDatalist();
+}
+// Fills the HSN field with a suggested code when the category changes,
+// but only if the field is empty or still equal to a previous suggestion —
+// never overwrites text the user has actually typed themselves.
+function hsnPrefill(catSelId, hsnInputId) {
+  const catEl = document.getElementById(catSelId), hsnEl = document.getElementById(hsnInputId);
+  if (!catEl || !hsnEl) return;
+  if (!hsnEl.value.trim() || hsnEl.dataset.autofilled === '1') {
+    const suggestion = suggestHsnForCategory(catEl.value);
+    if (suggestion) { hsnEl.value = suggestion; hsnEl.dataset.autofilled = '1'; }
+  }
+}
+// Builds/refreshes a shared <datalist> of every HSN code already used,
+// so the HSN input offers autocomplete without forcing a fixed code list.
+function ensureHsnDatalist() {
+  let dl = document.getElementById('hsn-suggestions');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'hsn-suggestions'; document.body.appendChild(dl); }
+  dl.innerHTML = allKnownHsnCodes().map(h => `<option value="${escHtml(h)}">`).join('');
 }
 async function saveEditProd(id) {
   const idx = STATE.products.findIndex(x => x.id === id); if (idx < 0) return;
   const n = document.getElementById('ep-name')?.value?.trim();
   if (!n) { toast('Name required', 'warning'); return; }
+  const btn = document.getElementById('ep-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
@@ -9846,45 +9891,70 @@ async function saveEditProd(id) {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
     renderProducts(); updateServiceDropdown(); toast('✅ Updated!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); if (btn) btn.disabled = false; }
 }
 
 function openAddProductModal() {
-  // Create inline edit row or show a proper add form
-  const tbody = document.getElementById('productsTbody');
-  // Remove any existing add-row
+  if (PROD.archived) return; // Adding isn't relevant while viewing archived services
+  // Toggle: if the add-row is already open, close it instead of opening a fresh one
   const existing = document.getElementById('add-product-row');
   if (existing) { existing.remove(); return; }
+  _showAddProductRow();
+}
+// Builds the inline "add service" row. Pass `prefill` (an existing product)
+// to use this for cloning — always replaces any row already open.
+function _showAddProductRow(prefill) {
+  const tbody = document.getElementById('productsTbody');
+  document.getElementById('add-product-row')?.remove();
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
   row.innerHTML = `
-    <td><span style="color:var(--teal);font-size:12px;font-weight:700">NEW</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value=""></td>
-    <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px"></select></td>
-    <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="0"></td>
-    <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="998314"></td>
+    <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill?'COPY':'NEW'}</span></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
+    <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
+    <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill?prefill.rate:0}"></td>
+    <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill?escHtml(prefill.hsn):'998314'}" list="hsn-suggestions"></td>
     <td>
       <select id="np-gst" class="table-filter">
-        <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option>
+        <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
     </td>
     <td>
       <div class="action-cell">
-        <button class="btn btn-success" style="font-size:11px;padding:5px 12px" onclick="saveNewProduct()"><i class="fas fa-check"></i> Save</button>
+        <button id="np-save-btn" class="btn btn-success" style="font-size:11px;padding:5px 12px" onclick="saveNewProduct()"><i class="fas fa-check"></i> Save</button>
         <button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('add-product-row').remove()"><i class="fas fa-times"></i></button>
       </div>
     </td>`;
   tbody.insertBefore(row, tbody.firstChild);
   // Populate category dropdown
   const npCat = document.getElementById('np-cat');
-  if (npCat) { npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${c.name}</option>`).join(''); }
-  document.getElementById('np-name').focus();
+  if (npCat) {
+    npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${escHtml(c.name)}</option>`).join('');
+    if (prefill) npCat.value = prefill.category;
+  }
+  ensureHsnDatalist();
+  const npHsn = document.getElementById('np-hsn');
+  if (!prefill && npHsn && npCat && npCat.value) {
+    // Prefill HSN based on the first category in the dropdown (mirrors what the user will see selected)
+    npHsn.value = suggestHsnForCategory(npCat.value) || npHsn.value; npHsn.dataset.autofilled = '1';
+  }
+  const nameEl = document.getElementById('np-name');
+  nameEl.focus();
+  if (prefill) nameEl.select();
 }
+function cloneProduct(id) {
+  const p = STATE.products.find(x => x.id === id); if (!p) return;
+  _showAddProductRow(p);
+  toast('📋 Cloned — tweak the details and save', 'info');
+}
+
 
 async function saveNewProduct() {
   const n = document.getElementById('np-name')?.value?.trim();
   if (!n) { toast('⚠️ Name required', 'warning'); return; }
+  const btn = document.getElementById('np-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
@@ -9895,7 +9965,7 @@ async function saveNewProduct() {
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     document.getElementById('add-product-row')?.remove();
     renderProducts(); updateServiceDropdown(); toast('✅ "' + n + '" added!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); if (btn) btn.disabled = false; }
 }
 
 function addProductToInvoice(id) {
@@ -9912,11 +9982,60 @@ function addProductToInvoice(id) {
 
 async function deleteProduct(id) {
   const p = STATE.products.find(x => x.id === id); if (!p) return;
+  const result = await Swal.fire({
+    title: 'Delete this service?',
+    html: `<strong>${escHtml(p.name)}</strong> will be removed from your services list.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#E53935',
+    cancelButtonText: 'Cancel',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   const dbId = parseInt(id.replace('p','')) || 0;
   try {
     await api('api/products.php?id=' + dbId, 'DELETE');
     STATE.products = STATE.products.filter(x => x.id !== id);
     renderProducts(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// Switches the Services/Products page between the active catalog and the
+// archived (soft-deleted) list. Archived services are fetched on demand
+// rather than kept in STATE, since they're rarely needed.
+async function toggleArchivedView() {
+  document.getElementById('add-product-row')?.remove();
+  PROD.archived = !PROD.archived;
+  const btn = document.getElementById('prodArchiveToggleBtn');
+  const addBtn = document.getElementById('prodAddBtn');
+  if (PROD.archived) {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-open"></i> View Active';
+    if (addBtn) addBtn.style.display = 'none';
+    try {
+      const r = await api('api/products.php?status=archived');
+      PROD.archivedList = Array.isArray(r.data) ? r.data : [];
+    } catch(e) { toast('❌ ' + e.message, 'error'); PROD.archivedList = []; }
+  } else {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-archive"></i> View Archived';
+    if (addBtn) addBtn.style.display = '';
+  }
+  document.getElementById('productSearch') && (document.getElementById('productSearch').value = '');
+  renderProducts();
+}
+
+async function restoreProduct(id) {
+  const p = (PROD.archivedList||[]).find(x => x.id === id); if (!p) return;
+  const dbId = parseInt(id.replace('p','')) || 0;
+  try {
+    await api('api/products.php?action=restore&id=' + dbId, 'POST');
+    PROD.archivedList = (PROD.archivedList||[]).filter(x => x.id !== id);
+    // Refresh the active catalog so the restored service shows up immediately elsewhere (dropdowns, picker)
+    const r = await api('api/products.php');
+    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
+    updateServiceDropdown();
+    renderProducts();
+    toast(`✅ "${p.name}" restored`, 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -9926,7 +10045,7 @@ function openProductPicker() {
     list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-box-open" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3"></i>No services yet. Add from Services/Products page.</div>';
   } else {
     list.innerHTML = STATE.products.map(p => `<div class="pp-item" onclick="pickProduct('${p.id}')">
-      <div><div class="pp-name">${p.name}</div><div style="font-size:11px;color:var(--muted)">${p.category} · GST:${p.gst}%</div></div>
+      <div><div class="pp-name">${escHtml(p.name)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(p.category)} · GST:${p.gst}%</div></div>
       <div class="pp-rate">${fmt_money(p.rate)}</div>
     </div>`).join('');
   }
