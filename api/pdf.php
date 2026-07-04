@@ -257,9 +257,14 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .hdr-contact-lbl { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: .7px; color: #9CA3AF; margin-bottom: 2px; }
 .hdr-contact-val { font-size: 11px; font-weight: 600; color: #1A1A2E; }
 
-/* Cards */
-.card { border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-.card-head { padding: 9px 14px; background: #F8F9FA; border-bottom: 1px solid #E5E7EB; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #6B7280; }
+/* Cards
+   NOTE: no `overflow:hidden` here on purpose — mPDF cannot paginate a block
+   with overflow:hidden + border-radius across a page break, so any card
+   taller than one page (most often the Line Items card on invoices with
+   many items) would get silently clipped at the bottom instead of flowing
+   onto the next page. border-radius alone renders fine in mPDF without it. */
+.card { border: 1px solid #E5E7EB; border-radius: 8px; margin-bottom: 12px; }
+.card-head { padding: 9px 14px; background: #F8F9FA; border-bottom: 1px solid #E5E7EB; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #6B7280; border-radius: 7px 7px 0 0; }
 .card-body { padding: 12px 14px; }
 
 /* Two-column info grid */
@@ -296,6 +301,8 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .tfoot-lbl { font-size: 10px; color: #6B7280; }
 .tfoot-val { font-size: 11px; font-family: 'DejaVu Sans Mono', monospace; min-width: 90px; display: inline-block; }
 .tfoot-grand td { padding: 8px 10px; background: #F0FDF4; border-top: 2px solid #E5E7EB; }
+.tfoot-grand td:first-child { border-bottom-left-radius: 7px; }
+.tfoot-grand td:last-child { border-bottom-right-radius: 7px; }
 .tfoot-grand .tfoot-lbl { font-size: 12px; font-weight: bold; color: #1A1A2E; }
 .tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #00897B; }
 .disc-val { color: #C62828; }
