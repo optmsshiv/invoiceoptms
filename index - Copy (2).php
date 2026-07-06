@@ -21,10 +21,6 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
-// ── Effective per-role/tenant permission map (plan ceiling × role toggle) ──
-// Drives which sidebar menu items are shown. See includes/auth.php.
-$perms = getEffectivePermissions($user['tenant_id'] ?? null, $user['role'] ?? 'viewer');
-
 // ── Identity badges (topbar + dashboard): firm name + role ──────
 $ROLE_BADGE_COLORS = [
     'owner'       => ['bg' => '#E0F2F1', 'text' => '#00695C'],
@@ -1235,120 +1231,80 @@ const SERVER = {
 
   <nav class="sidebar-nav">
     <div class="nav-section-label">MAIN</div>
-    <?php if ($perms['menu.dashboard'] ?? true): ?>
     <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
       <i class="fas fa-th-large"></i><span>Dashboard</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.invoices'] ?? true): ?>
     <a class="nav-item" data-page="invoices" onclick="showPage('invoices',this)">
       <i class="fas fa-file-invoice"></i><span>Invoices</span>
       <span class="nav-badge" id="badge-invoices">0</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.create'] ?? true): ?>
     <a class="nav-item" data-page="create" onclick="showPage('create',this)">
       <i class="fas fa-plus-circle"></i><span>New Invoice</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.clients'] ?? true): ?>
     <a class="nav-item" data-page="clients" onclick="showPage('clients',this)">
       <i class="fas fa-users"></i><span>Clients</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.products'] ?? true): ?>
     <a class="nav-item" data-page="products" onclick="showPage('products',this)">
       <i class="fas fa-box"></i><span>Services / Products</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.payments'] ?? true): ?>
     <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.credit_notes'] ?? true): ?>
     <a class="nav-item" data-page="credit-notes" onclick="showPage('credit-notes',this)">
       <i class="fas fa-file-circle-minus"></i><span>Credit Notes</span>
       <span class="nav-badge" id="badge-credit-notes" style="display:none">0</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.reports'] ?? true): ?>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
       <i class="fas fa-chart-bar"></i><span>Reports</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.aging'] ?? true): ?>
     <a class="nav-item" data-page="aging" onclick="showPage('aging',this)">
       <i class="fas fa-hourglass-half"></i><span>Aging Report</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.expenses'] ?? true): ?>
     <a class="nav-item" data-page="expenses" onclick="showPage('expenses',this)">
       <i class="fas fa-wallet"></i><span>Expenses</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.tax'] ?? true): ?>
     <a class="nav-item" data-page="tax" onclick="showPage('tax',this)">
       <i class="fas fa-landmark"></i><span>Tax Summary</span>
     </a>
-    <?php endif; ?>
     <div class="nav-section-label">TOOLS</div>
-    <?php if ($perms['menu.reminders'] ?? true): ?>
     <a class="nav-item" data-page="reminders" onclick="showPage('reminders',this)">
       <i class="fas fa-bell"></i><span>Reminders</span>
       <span class="nav-badge" id="badge-reminders" style="display:none">0</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.recurring'] ?? true): ?>
     <a class="nav-item" data-page="recurring" onclick="showPage('recurring',this)">
       <i class="fas fa-sync-alt"></i><span>Recurring</span>
       <span class="nav-badge" id="badge-recurring" style="display:none">0</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.portal'] ?? true): ?>
     <a class="nav-item" data-page="portal" onclick="showPage('portal',this)">
       <i class="fas fa-link"></i><span>Client Portal</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.activity'] ?? true): ?>
     <a class="nav-item" data-page="activity" onclick="showPage('activity',this)">
       <i class="fas fa-history"></i><span>Activity Log</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.templates'] ?? true): ?>
     <a class="nav-item" data-page="templates" onclick="showPage('templates',this)">
       <i class="fas fa-palette"></i><span>PDF Templates</span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.whatsapp'] ?? true): ?>
     <a class="nav-item" data-page="whatsapp" onclick="showPage('whatsapp',this)">
       <i class="fab fa-whatsapp"></i><span>WhatsApp Setup</span>
       <span class="nav-dot dot-green"></span>
     </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.email_setup'] ?? true): ?>
     <a class="nav-item" data-page="email-setup" onclick="showPage('email-setup',this)">
       <i class="fas fa-envelope"></i><span>Email Setup</span>
     </a>
-    <?php endif; ?>
     <div class="nav-section-label">ACCOUNT</div>
-    <?php if ($perms['menu.team'] ?? (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin')): ?>
+    <?php if (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin'): ?>
     <a class="nav-item" data-page="team" onclick="showPage('team',this)">
       <i class="fas fa-user-friends"></i><span>Team</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.settings'] ?? true): ?>
     <a class="nav-item" data-page="settings" onclick="showPage('settings',this)">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
-    <?php endif; ?>
 
-    <?php if ($perms['menu.msglog'] ?? true): ?>
     <a class="nav-item" data-page="msglog" onclick="showPage('msglog',this)">
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
     </a>
-    <?php endif; ?>
 
   </nav>
 
