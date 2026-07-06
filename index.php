@@ -1338,7 +1338,7 @@ const SERVER = {
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
       <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:14px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
             <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
         <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
