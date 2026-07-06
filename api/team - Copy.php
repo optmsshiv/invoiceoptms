@@ -2,15 +2,10 @@
 // ================================================================
 //  api/team.php — Team Management (Owner only, own tenant only)
 //
-//  GET    ?action=list                 → list this tenant's users (active + inactive; excludes removed)
+//  GET    ?action=list                 → list this tenant's users
 //  POST   ?action=add                  → add a user to this tenant
-//  PATCH  ?action=update                → update role/status of a user (status: active|inactive)
-//  DELETE ?action=remove&user_id=N      → permanently hide a user from the team list (status=removed)
-//
-//  Status model:
-//    active   → normal, can log in, shown in team list
-//    inactive → "Deactivate" button — login blocked, still SHOWN in team list (greyed out), reversible via "Reactivate"
-//    removed  → "Remove" (trash) button — hidden from the team list entirely, not reversible from this UI
+//  PATCH  ?action=update                → update role/status of a user
+//  DELETE ?action=remove&user_id=N      → deactivate a user
 // ================================================================
 
 require_once __DIR__ . '/../config/db.php';
@@ -53,7 +48,7 @@ try {
     if ($method === 'GET' && $action === 'list') {
         $stmt = $master->prepare(
             'SELECT id, name, email, phone, address, role, status, avatar, tags, last_login, created_at
-             FROM users WHERE tenant_id = ? AND status != "removed" ORDER BY role, name'
+             FROM users WHERE tenant_id = ? ORDER BY role, name'
         );
         $stmt->execute([$tenantId]);
         $rows = $stmt->fetchAll();
@@ -119,7 +114,7 @@ try {
 
         if ($maxUsers > 0) {
             $countStmt = $master->prepare(
-                'SELECT COUNT(*) FROM users WHERE tenant_id=? AND status NOT IN ("inactive","removed")'
+                'SELECT COUNT(*) FROM users WHERE tenant_id=? AND status != "inactive"'
             );
             $countStmt->execute([$tenantId]);
             if ((int)$countStmt->fetchColumn() >= $maxUsers) {
@@ -370,7 +365,7 @@ try {
             jsonResponse(['error' => 'The tenant owner cannot be removed'], 403);
         }
 
-        $master->prepare('UPDATE users SET status="removed" WHERE id=? AND tenant_id=?')
+        $master->prepare('UPDATE users SET status="inactive" WHERE id=? AND tenant_id=?')
                ->execute([$userId, $tenantId]);
 
         logActivity($_SESSION['user_id'], 'team_user_removed', 'user', $userId, '');

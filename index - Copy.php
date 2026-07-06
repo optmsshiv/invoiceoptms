@@ -21,6 +21,21 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
+// ── Effective per-role/tenant permission map (plan ceiling × role toggle) ──
+// Drives which sidebar menu items are shown. See includes/auth.php.
+$perms = getEffectivePermissions($user['tenant_id'] ?? null, $user['role'] ?? 'viewer');
+
+// ── Recent login/logout activity (Profile → Activity Timeline card) ──
+$loginActivity = getRecentLoginActivity((int)$user['id'], 20);
+function optms_time_ago(string $datetime): string {
+    $diff = time() - strtotime($datetime);
+    if ($diff < 60)     return 'Just now';
+    if ($diff < 3600)   return floor($diff/60) . ' min ago';
+    if ($diff < 86400)  return floor($diff/3600) . ' hr ago';
+    if ($diff < 604800) { $d = floor($diff/86400); return $d . ' day' . ($d > 1 ? 's' : '') . ' ago'; }
+    return date('d M Y, h:i A', strtotime($datetime));
+}
+
 // ── Identity badges (topbar + dashboard): firm name + role ──────
 $ROLE_BADGE_COLORS = [
     'owner'       => ['bg' => '#E0F2F1', 'text' => '#00695C'],
@@ -192,7 +207,7 @@ canvas { max-width: 100% !important; }
   border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font); font-weight: 800; font-size: 14px; color: #fff;
-  flex-shrink: 0;
+  flex-shrink: 0; overflow: hidden;
 }
 .brand-name { font-weight: 700; font-size: 15px; color: #fff; display: block; }
 .brand-tagline { font-size: 10px; color: rgba(255,255,255,.4); display: block; }
@@ -1102,7 +1117,7 @@ select { cursor: pointer; }
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
 .user-chip:hover { background:var(--bg);border-color:var(--teal); }
-.user-chip-avatar { width:28px;height:28px;border-radius:7px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
+.user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
 
@@ -1110,8 +1125,8 @@ select { cursor: pointer; }
 .user-dropdown { position:absolute;top:calc(100% + 10px);right:0;width:240px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.13);z-index:700;display:none;overflow:hidden; }
 .user-dropdown.open { display:block; }
 .user-dropdown-header { padding:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
-.udh-avatar { width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
-.udh-name { font-size:13px;font-weight:700;color:#fff; }
+.udh-avatar { width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
+.udh-name { font-size:15px;font-weight:700;color:#fff; }
 .udh-email { font-size:10px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px; }
 .udh-role { display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;text-transform:uppercase;letter-spacing:.4px; }
 .user-dropdown-body { padding:6px; }
@@ -1130,14 +1145,20 @@ select { cursor: pointer; }
 .profile-banner { height:72px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
 .profile-left-body { padding:0 20px 20px; }
 .profile-av-wrap { margin-top:-38px;margin-bottom:12px; }
-.profile-av-lg { width:76px;height:76px;border-radius:16px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:3px solid var(--card);overflow:hidden;cursor:pointer;position:relative; }
+.profile-av-lg { width:76px;height:76px;border-radius:16px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:3px solid var(--card);overflow:hidden;cursor:pointer;position:relative;flex-shrink:0; }
 .profile-av-lg:hover .pav-overlay { opacity:1; }
 .pav-overlay { position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;opacity:0;transition:.2s;border-radius:13px; }
 .pav-overlay i { color:#fff;font-size:20px; }
+.profile-av-row { display:flex;align-items:center;gap:14px; }
+.profile-upload-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--border2);background:var(--card);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s; }
+.profile-upload-btn:hover { background:var(--bg);border-color:var(--teal);color:var(--teal); }
+.badge-verified { display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--blue-bg);color:var(--blue);text-transform:uppercase;letter-spacing:.5px; }
+.badge-verified i { font-size:9px; }
 .profile-stat { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px; }
 .profile-stat:last-child { border:none; }
 .profile-stat-label { color:var(--muted); }
 .profile-stat-val { font-weight:700;color:var(--text); }
+.profile-stat-val.expired { color:var(--red); }
 .profile-right { display:flex;flex-direction:column;gap:16px; }
 .pcard { background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden; }
 .pcard-header { padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px; }
@@ -1146,10 +1167,34 @@ select { cursor: pointer; }
 .pcard-body { padding:20px; }
 .pcard-body .field { margin-bottom:14px; }
 .pcard-body .field:last-of-type { margin-bottom:0; }
+.pcard-field-row { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px; }
+.pcard-field-row .field { margin-bottom:0; }
+@media(max-width:520px){ .pcard-field-row { grid-template-columns:1fr; gap:14px; } }
 .pcard-footer { padding:12px 20px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:flex-end;gap:10px; }
 .danger-zone { background:#FEF0EF;border:1px solid #F7C1C1;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
 .dz-text h4 { font-size:13px;font-weight:700;color:#C0392B;margin:0 0 3px; }
 .dz-text p { font-size:11px;color:#E57373;margin:0; }
+
+/* ── Activity Timeline card ── */
+.activity-list { display:flex;flex-direction:column; }
+.activity-item { display:flex;gap:12px;padding:12px 0;position:relative; }
+.activity-item:not(:last-child)::before { content:'';position:absolute;left:15px;top:38px;bottom:-12px;width:1px;background:var(--border); }
+.activity-item.hidden-row { display:none; }
+.activity-icon { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;z-index:1; }
+.activity-icon.login  { background:var(--teal-bg);color:var(--teal); }
+.activity-icon.logout { background:var(--red-bg);color:var(--red); }
+.activity-title { font-size:13px;font-weight:700;color:var(--text); }
+.activity-sub   { font-size:11.5px;color:var(--muted);margin-top:1px; }
+.activity-time  { font-size:10.5px;color:var(--muted2);margin-top:2px; }
+.activity-empty { font-size:12px;color:var(--muted);padding:6px 0; }
+.view-history-btn { width:100%;padding:10px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text2);font-size:12px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:.15s; }
+.view-history-btn:hover { background:var(--bg);border-color:var(--teal);color:var(--teal); }
+
+/* ── Account Security card ── */
+.acct-security-row { display:flex;align-items:center;gap:12px; }
+.acct-security-icon { width:38px;height:38px;border-radius:50%;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0; }
+.acct-security-title { font-size:13px;font-weight:700;color:var(--text); }
+.acct-security-sub { font-size:11.5px;color:var(--muted);margin-top:1px; }
 </style>
 </head>
 <body>
@@ -1218,7 +1263,13 @@ const SERVER = {
 ══════════════════════════════════════════ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo"><?= strtoupper(substr($companyName,0,2)) ?></div>
+    <div class="brand-logo">
+      <?php if (!empty($companyLogo)): ?>
+        <img src="<?= htmlspecialchars($companyLogo) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">
+      <?php else: ?>
+        <?= strtoupper(substr($companyName,0,2)) ?>
+      <?php endif; ?>
+    </div>
     <div class="brand-text">
       <span class="brand-name"><?= htmlspecialchars($companyName) ?></span>
       <span class="brand-tagline">Invoice Manager</span>
@@ -1231,80 +1282,120 @@ const SERVER = {
 
   <nav class="sidebar-nav">
     <div class="nav-section-label">MAIN</div>
+    <?php if ($perms['menu.dashboard'] ?? true): ?>
     <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
       <i class="fas fa-th-large"></i><span>Dashboard</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.invoices'] ?? true): ?>
     <a class="nav-item" data-page="invoices" onclick="showPage('invoices',this)">
       <i class="fas fa-file-invoice"></i><span>Invoices</span>
       <span class="nav-badge" id="badge-invoices">0</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.create'] ?? true): ?>
     <a class="nav-item" data-page="create" onclick="showPage('create',this)">
       <i class="fas fa-plus-circle"></i><span>New Invoice</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.clients'] ?? true): ?>
     <a class="nav-item" data-page="clients" onclick="showPage('clients',this)">
       <i class="fas fa-users"></i><span>Clients</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.products'] ?? true): ?>
     <a class="nav-item" data-page="products" onclick="showPage('products',this)">
       <i class="fas fa-box"></i><span>Services / Products</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.payments'] ?? true): ?>
     <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.credit_notes'] ?? true): ?>
     <a class="nav-item" data-page="credit-notes" onclick="showPage('credit-notes',this)">
       <i class="fas fa-file-circle-minus"></i><span>Credit Notes</span>
       <span class="nav-badge" id="badge-credit-notes" style="display:none">0</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.reports'] ?? true): ?>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
       <i class="fas fa-chart-bar"></i><span>Reports</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.aging'] ?? true): ?>
     <a class="nav-item" data-page="aging" onclick="showPage('aging',this)">
       <i class="fas fa-hourglass-half"></i><span>Aging Report</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.expenses'] ?? true): ?>
     <a class="nav-item" data-page="expenses" onclick="showPage('expenses',this)">
       <i class="fas fa-wallet"></i><span>Expenses</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.tax'] ?? true): ?>
     <a class="nav-item" data-page="tax" onclick="showPage('tax',this)">
       <i class="fas fa-landmark"></i><span>Tax Summary</span>
     </a>
+    <?php endif; ?>
     <div class="nav-section-label">TOOLS</div>
+    <?php if ($perms['menu.reminders'] ?? true): ?>
     <a class="nav-item" data-page="reminders" onclick="showPage('reminders',this)">
       <i class="fas fa-bell"></i><span>Reminders</span>
       <span class="nav-badge" id="badge-reminders" style="display:none">0</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.recurring'] ?? true): ?>
     <a class="nav-item" data-page="recurring" onclick="showPage('recurring',this)">
       <i class="fas fa-sync-alt"></i><span>Recurring</span>
       <span class="nav-badge" id="badge-recurring" style="display:none">0</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.portal'] ?? true): ?>
     <a class="nav-item" data-page="portal" onclick="showPage('portal',this)">
       <i class="fas fa-link"></i><span>Client Portal</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.activity'] ?? true): ?>
     <a class="nav-item" data-page="activity" onclick="showPage('activity',this)">
       <i class="fas fa-history"></i><span>Activity Log</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.templates'] ?? true): ?>
     <a class="nav-item" data-page="templates" onclick="showPage('templates',this)">
       <i class="fas fa-palette"></i><span>PDF Templates</span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.whatsapp'] ?? true): ?>
     <a class="nav-item" data-page="whatsapp" onclick="showPage('whatsapp',this)">
       <i class="fab fa-whatsapp"></i><span>WhatsApp Setup</span>
       <span class="nav-dot dot-green"></span>
     </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.email_setup'] ?? true): ?>
     <a class="nav-item" data-page="email-setup" onclick="showPage('email-setup',this)">
       <i class="fas fa-envelope"></i><span>Email Setup</span>
     </a>
+    <?php endif; ?>
     <div class="nav-section-label">ACCOUNT</div>
-    <?php if (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin'): ?>
+    <?php if ($perms['menu.team'] ?? (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin')): ?>
     <a class="nav-item" data-page="team" onclick="showPage('team',this)">
       <i class="fas fa-user-friends"></i><span>Team</span>
     </a>
     <?php endif; ?>
+    <?php if ($perms['menu.settings'] ?? true): ?>
     <a class="nav-item" data-page="settings" onclick="showPage('settings',this)">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
+    <?php endif; ?>
 
+    <?php if ($perms['menu.msglog'] ?? true): ?>
     <a class="nav-item" data-page="msglog" onclick="showPage('msglog',this)">
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
     </a>
+    <?php endif; ?>
 
   </nav>
 
@@ -1331,18 +1422,18 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
+    </div>
+    <div class="topbar-right">
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
         <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
       <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
             <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:10px"></i><?php endif; ?>
+        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
       </span>
-    </div>
-    <div class="topbar-right">
       <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
@@ -1414,35 +1505,61 @@ const SERVER = {
         </div>
         <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px 2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)">
-            <i class="fas fa-building" style="font-size:10px;color:var(--muted)"></i> <?= htmlspecialchars($firmName) ?>
-          </span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:11px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-                <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-            <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:9px"></i><?php endif; ?>
-            <?= htmlspecialchars($roleBadgeLabel) ?>
-          </span>
         </div>
       </div>
       <!-- Quick Actions -->
+      <?php
+        // Role-tailored quick-action order. Falls back to the default order
+        // for any role not explicitly listed. Each button is still gated by
+        // $perms so it always matches what that role can actually access.
+        $qaCatalog = [
+          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
+          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
+          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
+          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
+          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
+          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
+        ];
+        $qaOrderByRole = [
+          'accountant' => ['payments', 'tax', 'expenses', 'clients'],
+        ];
+        $qaOrder = $qaOrderByRole[$user['role'] ?? ''] ?? ['create', 'clients', 'payments', 'reports'];
+      ?>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-primary" onclick="showPage('create',null)"><i class="fas fa-plus"></i> New Invoice</button>
-        <button class="btn btn-outline" onclick="showPage('clients',null)"><i class="fas fa-users"></i> Clients</button>
-        <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-credit-card"></i> Payments</button>
-        <button class="btn btn-outline" onclick="showPage('reports',null)"><i class="fas fa-chart-bar"></i> Reports</button>
+        <?php foreach ($qaOrder as $qaKey):
+          $qa = $qaCatalog[$qaKey];
+          if (!($perms[$qa['perm']] ?? true)) continue;
+        ?>
+        <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
+        <?php endforeach; ?>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
           <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
           <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
         </div>
       </div>
-      <!-- WhatsApp Automation Card -->
+      <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
+           plan including Pro (the plan exclusion below only affects the
+           glowing automation banner beneath it). -->
+      <?php if ($perms['menu.whatsapp'] ?? true): ?>
+      <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
+      <?php endif; ?>
+      <!-- WhatsApp Automation banner (finance/accountant roles don't need this;
+           also hidden on the Pro plan specifically — a plan-tier decision,
+           independent of role permissions, so it doesn't touch the
+           WhatsApp Setup sidebar link, the KPI row above, or any other
+           role's access) -->
+      <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
+      <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
       <div id="dashWACard" style="margin-bottom:16px"></div>
+      <?php endif; ?>
+      <?php unset($hideWACardForPlan); ?>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card (60%) + WA Activity Card (40%) -->
-      <div style="display:grid;grid-template-columns:60fr 40fr;gap:14px;margin-bottom:16px;">
+      <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
+      <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
         <div id="s-outstanding-card" style="display:none"></div>
+        <?php if ($perms['menu.whatsapp'] ?? true): ?>
         <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
@@ -1450,6 +1567,7 @@ const SERVER = {
           </div>
           <div id="waActivityRows"></div>
         </div>
+        <?php endif; ?>
       </div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="amber">
@@ -1484,6 +1602,7 @@ const SERVER = {
             <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
           </div>
         </div>
+        <?php if ($perms['menu.whatsapp'] ?? true): ?>
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
           <div class="stat-body">
@@ -1492,6 +1611,7 @@ const SERVER = {
             <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
           </div>
         </div>
+        <?php endif; ?>
       </div>
 
       <!-- Row 1: Revenue Overview + Invoice Calendar + Status Split (all in one row) -->
@@ -3092,7 +3212,7 @@ View Invoice: {{6}}</pre></details>
         <div class="profile-left-card">
           <div class="profile-banner"></div>
           <div class="profile-left-body">
-            <div class="profile-av-wrap">
+            <div class="profile-av-wrap profile-av-row">
               <label style="cursor:pointer;display:inline-block" title="Click to change photo">
                 <div class="profile-av-lg" id="profile-avatar-preview">
                   <?php if(!empty($user['avatar'])): ?>
@@ -3102,13 +3222,21 @@ View Invoice: {{6}}</pre></details>
                   <?php endif; ?>
                   <div class="pav-overlay"><i class="fas fa-camera"></i></div>
                 </div>
-                <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
+                <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
               </label>
+              <button type="button" class="profile-upload-btn" onclick="document.getElementById('profile-photo-input').click()">
+                <i class="fas fa-upload"></i> Upload Photo
+              </button>
             </div>
-            <div style="margin-bottom:18px">
+            <div style="margin:16px 0 18px">
               <div id="profile-display-name" style="font-size:18px;font-weight:800;color:var(--text);line-height:1.2"><?= htmlspecialchars($user['name']) ?></div>
               <div style="font-size:12px;color:var(--muted);margin-top:3px"><?= htmlspecialchars($user['email']) ?></div>
-              <span style="display:inline-block;margin-top:6px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--teal-bg,#E0F2F1);color:var(--teal);text-transform:uppercase;letter-spacing:.5px"><?= ucfirst($user['role']) ?></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">
+                <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--teal-bg,#E0F2F1);color:var(--teal);text-transform:uppercase;letter-spacing:.5px"><?= ucfirst($user['role']) ?></span>
+                <?php if (!empty($user['is_verified'])): ?>
+                  <span class="badge-verified"><i class="fas fa-check-circle"></i> Verified</span>
+                <?php endif; ?>
+              </div>
             </div>
             <div>
               <div class="profile-stat">
@@ -3123,12 +3251,59 @@ View Invoice: {{6}}</pre></details>
                 <span class="profile-stat-label"><i class="fas fa-clock" style="width:14px;color:var(--muted)"></i> Member Since</span>
                 <span class="profile-stat-val"><?= isset($user['created_at']) ? date('M Y', strtotime($user['created_at'])) : 'N/A' ?></span>
               </div>
+              <?php if (!empty($user['license_no'])): ?>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-id-card" style="width:14px;color:var(--muted)"></i> License</span>
+                <span class="profile-stat-val"><?= htmlspecialchars($user['license_no']) ?></span>
+              </div>
+              <?php endif; ?>
+              <?php if (!empty($user['license_expiry'])):
+                $licExpired = strtotime($user['license_expiry']) < strtotime('today');
+              ?>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-calendar-times" style="width:14px;color:var(--muted)"></i> License Expiry</span>
+                <span class="profile-stat-val<?= $licExpired ? ' expired' : '' ?>"><?= date('d M Y', strtotime($user['license_expiry'])) ?><?= $licExpired ? ' (Expired)' : '' ?></span>
+              </div>
+              <?php endif; ?>
             </div>
           </div>
         </div>
 
         <!-- Right: edit cards -->
         <div class="profile-right">
+
+          <!-- Activity Timeline -->
+          <div class="pcard">
+            <div class="pcard-header">
+              <i class="fas fa-history"></i>
+              <span class="pcard-title">Activity Timeline</span>
+            </div>
+            <div class="pcard-body">
+              <?php if (empty($loginActivity)): ?>
+                <div class="activity-empty">No login activity recorded yet.</div>
+              <?php else: ?>
+                <div class="activity-list" id="activity-list">
+                  <?php foreach ($loginActivity as $i => $ev):
+                    $isLogin = $ev['action'] === 'login';
+                  ?>
+                    <div class="activity-item<?= $i >= 5 ? ' hidden-row' : '' ?>">
+                      <div class="activity-icon <?= $isLogin ? 'login' : 'logout' ?>">
+                        <i class="fas fa-<?= $isLogin ? 'sign-in-alt' : 'sign-out-alt' ?>"></i>
+                      </div>
+                      <div>
+                        <div class="activity-title"><?= $isLogin ? 'System Login' : 'System Logout' ?></div>
+                        <div class="activity-sub">Success from IP <?= htmlspecialchars($ev['ip'] ?: 'unknown') ?></div>
+                        <div class="activity-time"><?= htmlspecialchars(optms_time_ago($ev['created_at'])) ?></div>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+                <?php if (count($loginActivity) > 5): ?>
+                  <button type="button" class="view-history-btn" id="activity-toggle-btn" onclick="toggleActivityHistory()">VIEW FULL HISTORY</button>
+                <?php endif; ?>
+              <?php endif; ?>
+            </div>
+          </div>
 
           <!-- Account info -->
           <div class="pcard">
@@ -3137,8 +3312,14 @@ View Invoice: {{6}}</pre></details>
               <span class="pcard-title">Account Information</span>
             </div>
             <div class="pcard-body">
-              <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
-              <div class="field" style="margin-bottom:0"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+              <div class="pcard-field-row">
+                <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
+                <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+              </div>
+              <div class="pcard-field-row" style="margin-bottom:0">
+                <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+                <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+              </div>
             </div>
             <div class="pcard-footer">
               <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
@@ -3152,12 +3333,27 @@ View Invoice: {{6}}</pre></details>
               <span class="pcard-title">Change Password</span>
             </div>
             <div class="pcard-body">
-              <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
-              <div class="field" style="margin-bottom:0"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
+              <div class="pcard-field-row" style="margin-bottom:0">
+                <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
+                <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
+              </div>
             </div>
             <div class="pcard-footer">
               <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
               <button class="btn btn-primary" onclick="saveProfilePassword()"><i class="fas fa-key"></i> Update Password</button>
+            </div>
+          </div>
+
+          <!-- Account Security -->
+          <div class="pcard">
+            <div class="pcard-body">
+              <div class="acct-security-row">
+                <div class="acct-security-icon"><i class="fas fa-shield-alt"></i></div>
+                <div>
+                  <div class="acct-security-title">Account Security</div>
+                  <div class="acct-security-sub">You're signed in as <?= htmlspecialchars(ucfirst($user['role'])) ?></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3289,6 +3485,16 @@ View Invoice: {{6}}</pre></details>
               <input id="cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
               <input type="color" id="cat-new-color" value="#00897B" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
               <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addCategory()"><i class="fas fa-plus"></i> Add</button>
+            </div>
+          </div>
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-receipt" style="color:var(--teal)"></i> Expense Categories</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Create and color-code categories used when logging expenses.</p>
+            <div id="exp-cat-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="exp-cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
+              <input type="color" id="exp-cat-new-color" value="#1976D2" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+              <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addExpenseCategory()"><i class="fas fa-plus"></i> Add</button>
             </div>
           </div>
           <div class="settings-block">
@@ -3526,9 +3732,6 @@ View Invoice: {{6}}</pre></details>
           <input type="text" class="table-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
-            <option>Software / SaaS</option><option>Hardware</option><option>Travel</option>
-            <option>Office Supplies</option><option>Marketing</option><option>Salary</option>
-            <option>Utilities</option><option>Other</option>
           </select>
           <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
             <option value="">All Time</option>
@@ -4576,9 +4779,6 @@ View Invoice: {{6}}</pre></details>
         <div class="field" style="margin:0"><label>Category *</label>
           <select id="exp-category" style="width:100%">
             <option value="">— Select —</option>
-            <option>Software / SaaS</option><option>Hardware</option><option>Travel</option>
-            <option>Office Supplies</option><option>Marketing</option><option>Salary</option>
-            <option>Utilities</option><option>Other</option>
           </select>
         </div>
         <div class="field" style="margin:0"><label>Payment Method</label>
@@ -4684,6 +4884,16 @@ const STATE = {
     {name:'Hosting',         color:'#00897B'},
     {name:'Consulting',      color:'#455A64'},
     {name:'Other',           color:'#757575'},
+  ],
+  expenseCategories: [
+    {name:'Software / SaaS',  color:'#1976D2'},
+    {name:'Hardware',         color:'#7B1FA2'},
+    {name:'Travel',           color:'#E65100'},
+    {name:'Office Supplies',  color:'#388E3C'},
+    {name:'Marketing',        color:'#C62828'},
+    {name:'Salary',           color:'#455A64'},
+    {name:'Utilities',        color:'#F57F17'},
+    {name:'Other',            color:'#757575'},
   ],
   settings: {
     company:         <?= json_encode($companyName)    ?>,
@@ -12694,79 +12904,83 @@ function renderDashKpis() {
     <div><div style="font-size:10px;color:var(--muted)">${k.l}</div><div style="font-weight:700;font-size:13px">${k.v}</div></div>
   </div>`).join('');
 
-  // ── WhatsApp card ──────────────────────────────────────────────
+  // ── WhatsApp mini-KPI row (role-gated only; visible on every plan) ──
+  const waKpiEl = document.getElementById('dashWAKpiRow');
+  if (waKpiEl) {
+    const pendWA      = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
+    const overWA      = STATE.invoices.filter(i => i.status==='Overdue').length;
+    const paidTM      = STATE.invoices.filter(i => {
+      const d = new Date();
+      return i.status==='Paid' && i.issued &&
+             new Date(i.issued).getMonth()===d.getMonth() &&
+             new Date(i.issued).getFullYear()===d.getFullYear();
+    }).length;
+    const waClients   = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
+    const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
+    const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
+    const miniCards = [
+      {ic:'fa-paper-plane',         col:'#25D366', label:'Need Follow-up',    val:pendWA,      sub:'pending/overdue'},
+      {ic:'fa-exclamation-triangle',col:'#e53935', label:'Overdue Alerts',    val:overWA,      sub:'send now'},
+      {ic:'fa-check-circle',        col:'#00897B', label:'Paid This Month',   val:paidTM,      sub:'receipts sent'},
+      {ic:'fa-clock',               col:'#E65100', label:'Partial Invoices',  val:partialInvs, sub:'awaiting balance'},
+      {ic:'fa-code-branch',         col:'#7B1FA2', label:'Split Payments',    val:splitPmts,   sub:'recorded'},
+      {ic:'fa-address-book',        col:'#1565C0', label:'WA-Ready Clients',  val:waClients,   sub:'have phone #'},
+    ].map(c => `<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
+        <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
+      </div>
+      <div style="font-size:22px;font-weight:800;color:${c.col};line-height:1">${c.val}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
+    </div>`).join('');
+
+    waKpiEl.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>`;
+  }
+
+  // ── WhatsApp Automation banner (role-gated + hidden on Pro plan) ──
   const waEl = document.getElementById('dashWACard');
-  if (!waEl) return;
+  if (waEl) {
+    const wa     = STATE.settings.wa || {};
+    const hasAPI = !!(wa.token && wa.pid);
+    const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
+    const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
 
-  const wa     = STATE.settings.wa || {};
-  const hasAPI = !!(wa.token && wa.pid);
-  const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
-  const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
+    const toggles = [
+      {key:'auto_inv',      label:'New Invoice',     icon:'📄', val: wa.auto_inv==='1'},
+      {key:'auto_paid',     label:'Receipt',         icon:'✅', val: wa.auto_paid!=='0'},
+      {key:'auto_partial',  label:'Partial',         icon:'💛', val: wa.auto_partial!=='0'},
+      {key:'auto_remind',   label:'Due Reminder',    icon:'🔔', val: wa.auto_remind!=='0'},
+      {key:'auto_overdue',  label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue!=='0'},
+      {key:'auto_followup', label:'Follow-up',       icon:'📋', val: wa.auto_followup==='1'},
+    ];
+    const pillsHTML = toggles.map(t => `<div onclick="showPage('whatsapp',null)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val?'#25D36612':'var(--bg)'};border:1px solid ${t.val?'#25D36630':'var(--border)'}">
+      <span>${t.icon}</span>
+      <span style="font-size:11px;font-weight:600;color:${t.val?'#1a7a3c':'var(--muted)'}">${t.label}</span>
+      <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${t.val?'#25D366':'#ccc'}"></span>
+    </div>`).join('');
 
-  const pendWA   = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
-  const overWA   = STATE.invoices.filter(i => i.status==='Overdue').length;
-  const paidTM   = STATE.invoices.filter(i => {
-    const d = new Date();
-    return i.status==='Paid' && i.issued &&
-           new Date(i.issued).getMonth()===d.getMonth() &&
-           new Date(i.issued).getFullYear()===d.getFullYear();
-  }).length;
-  const waClients = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
-
-  const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
-  const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
-  const miniCards = [
-    {ic:'fa-paper-plane',         col:'#25D366', label:'Need Follow-up',    val:pendWA,      sub:'pending/overdue'},
-    {ic:'fa-exclamation-triangle',col:'#e53935', label:'Overdue Alerts',    val:overWA,      sub:'send now'},
-    {ic:'fa-check-circle',        col:'#00897B', label:'Paid This Month',   val:paidTM,      sub:'receipts sent'},
-    {ic:'fa-clock',               col:'#E65100', label:'Partial Invoices',  val:partialInvs, sub:'awaiting balance'},
-    {ic:'fa-code-branch',         col:'#7B1FA2', label:'Split Payments',    val:splitPmts,   sub:'recorded'},
-    {ic:'fa-address-book',        col:'#1565C0', label:'WA-Ready Clients',  val:waClients,   sub:'have phone #'},
-  ].map(c => `<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
-    <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-      <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
-      <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
-    </div>
-    <div style="font-size:22px;font-weight:800;color:${c.col};line-height:1">${c.val}</div>
-    <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
-  </div>`).join('');
-
-  const toggles = [
-    {key:'auto_inv',      label:'New Invoice',     icon:'📄', val: wa.auto_inv==='1'},
-    {key:'auto_paid',     label:'Receipt',         icon:'✅', val: wa.auto_paid!=='0'},
-    {key:'auto_partial',  label:'Partial',         icon:'💛', val: wa.auto_partial!=='0'},
-    {key:'auto_remind',   label:'Due Reminder',    icon:'🔔', val: wa.auto_remind!=='0'},
-    {key:'auto_overdue',  label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue!=='0'},
-    {key:'auto_followup', label:'Follow-up',       icon:'📋', val: wa.auto_followup==='1'},
-  ];
-  const pillsHTML = toggles.map(t => `<div onclick="showPage('whatsapp',null)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val?'#25D36612':'var(--bg)'};border:1px solid ${t.val?'#25D36630':'var(--border)'}">
-    <span>${t.icon}</span>
-    <span style="font-size:11px;font-weight:600;color:${t.val?'#1a7a3c':'var(--muted)'}">${t.label}</span>
-    <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${t.val?'#25D366':'#ccc'}"></span>
-  </div>`).join('');
-
-  waEl.innerHTML = `
-    <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#e8f5e9;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36640,0 0 28px #25D36618;animation:waGlow 2.5s ease-in-out infinite">
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
-        <div>
-          <div style="color:#1b5e20;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
-          <div style="color:#388E3C;font-size:10px">${mode}</div>
+    waEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#e8f5e9;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36640,0 0 28px #25D36618;animation:waGlow 2.5s ease-in-out infinite">
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
+          <div>
+            <div style="color:#1b5e20;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
+            <div style="color:#388E3C;font-size:10px">${mode}</div>
+          </div>
         </div>
-      </div>
-      <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
-        ${hasAPI ? '● Connected' : '○ No API'}
-      </div>
-      <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
-      ${pillsHTML}
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <span style="font-size:11px;color:#2e7d32;font-weight:600">${onCount}/6 active</span>
-        <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-          <i class="fas fa-cog"></i> Manage
-        </button>
-      </div>
-    </div>`;
+        <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
+          ${hasAPI ? '● Connected' : '○ No API'}
+        </div>
+        <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
+        ${pillsHTML}
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:11px;color:#2e7d32;font-weight:600">${onCount}/6 active</span>
+          <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+            <i class="fas fa-cog"></i> Manage
+          </button>
+        </div>
+      </div>`;
+  }
 
 
   // ── Partial payments card ──────────────────────────────
@@ -13133,6 +13347,10 @@ async function loadAllData() {
       if (s.item_types) {
         try { const iTypes = JSON.parse(s.item_types); if (Array.isArray(iTypes) && iTypes.length) STATE.itemTypes = iTypes; } catch(e) {}
       }
+      // Load expense categories from settings JSON if saved
+      if (s.expense_categories) {
+        try { const eCats = JSON.parse(s.expense_categories); if (Array.isArray(eCats) && eCats.length) STATE.expenseCategories = eCats; } catch(e) {}
+      }
       // TPL_CUSTOM already restored in PHP-bridge block above — just re-sync UI
       if (window.TPL_CUSTOM) {
         if (s.tpl_color1)        TPL_CUSTOM.color1        = s.tpl_color1;
@@ -13367,6 +13585,63 @@ function updateProductCatDropdowns() {
   if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
 }
 
+// ── Expense Category Management (pastel badges) ─────────────────
+function pastelBg(hex) {
+  hex = (hex||'#757575').replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const r = parseInt(hex.substr(0,2),16)||0, g = parseInt(hex.substr(2,2),16)||0, b = parseInt(hex.substr(4,2),16)||0;
+  const mix = c => Math.round(c + (255-c)*0.85).toString(16).padStart(2,'0');
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
+function getExpCatColor(name) {
+  const cat = (STATE.expenseCategories||[]).find(c => c.name === name);
+  return cat ? cat.color : '#757575';
+}
+function renderExpenseCategoryList() {
+  const el = document.getElementById('exp-cat-list'); if (!el) return;
+  const cats = STATE.expenseCategories || [];
+  if (!cats.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No categories yet.</span>'; return; }
+  el.innerHTML = cats.map((c,i) => {
+    const bg = pastelBg(c.color);
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:${bg};color:${c.color};font-size:12px;font-weight:700">
+      ${c.name}
+      <button onclick="deleteExpenseCategory(${i})" style="background:none;border:none;cursor:pointer;color:${c.color};opacity:.7;font-size:13px;line-height:1;padding:0 0 0 2px" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+async function addExpenseCategory() {
+  const nameEl = document.getElementById('exp-cat-new-name');
+  const colorEl = document.getElementById('exp-cat-new-color');
+  const name = nameEl?.value.trim();
+  if (!name) { toast('⚠️ Enter a category name', 'warning'); return; }
+  if (!STATE.expenseCategories) STATE.expenseCategories = [];
+  if (STATE.expenseCategories.find(c => c.name.toLowerCase() === name.toLowerCase())) { toast('⚠️ Category already exists', 'warning'); return; }
+  STATE.expenseCategories.push({ name, color: colorEl?.value || '#1976D2' });
+  nameEl.value = '';
+  renderExpenseCategoryList();
+  updateExpenseCatDropdowns();
+  await saveExpenseCategories();
+  toast('✅ Category added!', 'success');
+}
+async function deleteExpenseCategory(idx) {
+  STATE.expenseCategories.splice(idx, 1);
+  renderExpenseCategoryList();
+  updateExpenseCatDropdowns();
+  await saveExpenseCategories();
+  toast('🗑️ Category removed', 'info');
+}
+async function saveExpenseCategories() {
+  try { await api('api/settings.php','POST',{ expense_categories: JSON.stringify(STATE.expenseCategories) }); } catch(e) { console.warn('Exp cat save err',e); }
+}
+function updateExpenseCatDropdowns() {
+  const cats = STATE.expenseCategories || [];
+  const opts = cats.map(c => `<option>${escHtml(c.name)}</option>`).join('');
+  const sel = document.getElementById('exp-category');
+  if (sel) { const cur = sel.value; sel.innerHTML = `<option value="">— Select —</option>${opts}`; sel.value = cur; }
+  const filter = document.getElementById('exp-cat-filter');
+  if (filter) { const cur = filter.value; filter.innerHTML = `<option value="">All Categories</option>${opts}`; filter.value = cur; }
+}
+
 // ── Item Type Management ─────────────────────────────────────────
 function renderItemTypeList() {
   const el = document.getElementById('item-type-list'); if (!el) return;
@@ -13421,6 +13696,7 @@ function populateSettingsForm() {
   set('sc-web',     s.website);
   renderCategoryList();
   renderItemTypeList();
+  renderExpenseCategoryList();
   set('sc-prefix',  s.prefix);
   set('sc-estimate-prefix', s.estPrefix || SERVER.estPrefix || '');
   set('sc-upi',     s.upi);
@@ -13524,18 +13800,20 @@ window.renderProfilePage = function() {
 
 // Sync avatar + name everywhere after profile save
 function _syncProfileUI(name, avatarSrc) {
-  // Topbar chip
-  const chipName = document.querySelector('.user-chip-name');
-  if (chipName) chipName.textContent = name.split(' ')[0];
-  // Sidebar footer name
-  const sidebarName = document.querySelector('.sidebar-footer .user-name');
-  if (sidebarName) sidebarName.textContent = name;
-  // Profile left card display name
-  const dispName = document.getElementById('profile-display-name');
-  if (dispName) dispName.textContent = name;
-  // Dropdown header
-  const udName = document.querySelector('.udh-name');
-  if (udName) udName.textContent = name;
+  if (name) {
+    // Topbar chip
+    const chipName = document.querySelector('.user-chip-name');
+    if (chipName) chipName.textContent = name.split(' ')[0];
+    // Sidebar footer name
+    const sidebarName = document.querySelector('.sidebar-footer .user-name');
+    if (sidebarName) sidebarName.textContent = name;
+    // Profile left card display name
+    const dispName = document.getElementById('profile-display-name');
+    if (dispName) dispName.textContent = name;
+    // Dropdown header
+    const udName = document.querySelector('.udh-name');
+    if (udName) udName.textContent = name;
+  }
   // Avatar elements
   if (avatarSrc) {
     const img = `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
@@ -13545,12 +13823,29 @@ function _syncProfileUI(name, avatarSrc) {
   }
 }
 
+window.toggleActivityHistory = function() {
+  const btn = document.getElementById('activity-toggle-btn');
+  const list = document.getElementById('activity-list');
+  if (!list) return;
+  const hidden = list.querySelectorAll('.activity-item.hidden-row');
+  const expanded = btn?.dataset.expanded === '1';
+  if (!expanded) {
+    hidden.forEach(el => el.classList.remove('hidden-row'));
+    if (btn) { btn.textContent = 'SHOW LESS'; btn.dataset.expanded = '1'; }
+  } else {
+    list.querySelectorAll('.activity-item').forEach((el, i) => { if (i >= 5) el.classList.add('hidden-row'); });
+    if (btn) { btn.textContent = 'VIEW FULL HISTORY'; btn.dataset.expanded = '0'; }
+  }
+};
+
 window.saveProfileInfo = async function() {
-  const name  = document.getElementById('profile-name')?.value.trim();
-  const email = document.getElementById('profile-email')?.value.trim();
+  const name      = document.getElementById('profile-name')?.value.trim();
+  const email     = document.getElementById('profile-email')?.value.trim();
+  const mobile    = document.getElementById('profile-mobile')?.value.trim() || '';
+  const altPhone  = document.getElementById('profile-alt-phone')?.value.trim() || '';
   if (!name || !email) { toast('Name and email are required','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ name, email });
+    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone });
     _syncProfileUI(name, null);
     toast('✅ Profile updated!','success');
   } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }
@@ -13592,20 +13887,17 @@ window.uploadProfilePhoto = async function(input) {
     const res  = await fetch('api/upload.php', { method:'POST', body:fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
-    const prev = document.getElementById('profile-avatar-preview');
-    if (prev) prev.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover">`;
+
+    // Persist the URL to the DB immediately — without this the photo
+    // reverts on refresh since currentUser() re-reads from the DB.
+    await api('api/profile.php', 'POST', { avatar: data.url });
+
+    _syncProfileUI(null, data.url);
     SERVER.user = SERVER.user || {};
     SERVER.user._avatarUrl = data.url;
     toast('✅ Photo uploaded!', 'success');
   } catch(e) {
-    // fallback base64
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const prev = document.getElementById('profile-avatar-preview');
-      if (prev) prev.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover">`;
-      SERVER.user._avatarUrl = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    toast('❌ Photo upload failed: ' + e.message, 'error');
   }
 };
 
@@ -14893,6 +15185,7 @@ function exportAgingCSV() {
 const EXP = { list: [], page: 1, per: 20 };
 
 function renderExpenses() {
+  updateExpenseCatDropdowns();
   // Refresh from DB then render
   api('api/expenses.php').then(r=>{
     if(r&&r.data) STATE.expenses=r.data;
@@ -14950,12 +15243,11 @@ function _renderExpTable() {
     if(info) info.textContent = '0 expenses';
     return;
   }
-  const catColors = {'Software / SaaS':'#1976D2','Hardware':'#7B1FA2','Travel':'#E65100','Office Supplies':'#388E3C','Marketing':'#C62828','Salary':'#455A64','Utilities':'#F57F17','Other':'#757575'};
   tbody.innerHTML = pg.map(exp => {
-    const col = catColors[exp.category] || '#757575';
+    const col = getExpCatColor(exp.category);
     return `<tr>
       <td>${exp.date||'—'}</td>
-      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${col}15;color:${col}">${exp.category||'—'}</span></td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>

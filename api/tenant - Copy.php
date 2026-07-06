@@ -62,7 +62,8 @@ try {
     if ($method === 'GET' && $action === 'users') {
         $tid  = (int)($_GET['tenant_id'] ?? 0);
         $stmt = $master->prepare(
-            'SELECT id, name, email, role, status, last_login, created_at
+            'SELECT id, name, email, role, status, last_login, created_at,
+                    is_verified, license_no, license_expiry
              FROM users WHERE tenant_id = ? ORDER BY role, name'
         );
         $stmt->execute([$tid]);
@@ -257,6 +258,28 @@ try {
         jsonResponse(['success' => true]);
     }
 
+    // ── UPDATE user verification / license info (Super Admin only) ──
+    if ($method === 'PATCH' && $action === 'update_verification') {
+        $userId      = (int)($body['user_id'] ?? 0);
+        $isVerified  = !empty($body['is_verified']) ? 1 : 0;
+        $licenseNo   = trim($body['license_no'] ?? '');
+        $licenseExp  = trim($body['license_expiry'] ?? '');
+
+        if (!$userId) jsonResponse(['error' => 'user_id required'], 400);
+        if ($licenseExp && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $licenseExp)) {
+            jsonResponse(['error' => 'license_expiry must be YYYY-MM-DD'], 400);
+        }
+
+        $master->prepare(
+            'UPDATE users SET is_verified=?, license_no=?, license_expiry=? WHERE id=?'
+        )->execute([$isVerified, $licenseNo ?: null, $licenseExp ?: null, $userId]);
+
+        masterAuditLog($_SESSION['user_id'], null, 'user_verification_updated',
+            "Updated verification/license for user #{$userId}");
+
+        jsonResponse(['success' => true]);
+    }
+
     // ── REMOVE user ────────────────────────────────────────────────
     if (($method === 'DELETE' || $method === 'PATCH') && $action === 'remove_user') {
         $userId = (int)($body['user_id'] ?? $_GET['id'] ?? 0);
@@ -384,7 +407,12 @@ function _runTenantSchema(string $dbName): void {
     $sql = preg_replace('/^--.*$/m', '', $sql);
     $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
 
-    $statements = array_filter(array_map('trim', explode(';', $sql)), fn($s) => $s !== '');
+    // Naive explode(';', $sql) breaks any CREATE TRIGGER/PROCEDURE/FUNCTION
+    // body that contains its own internal ';' inside a BEGIN...END block
+    // (e.g. trg_backup_payment_before_delete) — it gets cut into two
+    // invalid fragments. _splitSqlStatements() only splits on ';' that are
+    // NOT inside a BEGIN...END block, so such statements stay intact.
+    $statements = _splitSqlStatements($sql);
     foreach ($statements as $stmt) {
         try {
             $pdo->exec($stmt);
@@ -393,6 +421,31 @@ function _runTenantSchema(string $dbName): void {
             if ($e->getCode() !== '42S01') throw $e;
         }
     }
+}
+
+// ── Split a SQL script into individual statements, respecting
+//    BEGIN...END blocks (triggers/procedures/functions) so a ';'
+//    inside a trigger body doesn't get treated as a statement end. ──
+function _splitSqlStatements(string $sql): array {
+    $statements = [];
+    $buffer     = '';
+    $depth      = 0;
+    foreach (preg_split('/\r\n|\r|\n/', $sql) as $line) {
+        $trimmed = trim($line);
+        if ($trimmed === '') continue;
+        $buffer .= $line . "\n";
+        if (preg_match('/\bBEGIN\b/i', $line)) $depth++;
+        if (preg_match('/\bEND\b/i', $line))   $depth--;
+        if ($depth <= 0 && str_ends_with(rtrim($trimmed), ';')) {
+            $clean = trim($buffer);
+            if ($clean !== '' && $clean !== ';') $statements[] = $clean;
+            $buffer = '';
+            $depth  = 0;
+        }
+    }
+    $clean = trim($buffer);
+    if ($clean !== '') $statements[] = $clean;
+    return $statements;
 }
 
 // ── Insert tenant + owner user rows once the DB + schema are ready ─
