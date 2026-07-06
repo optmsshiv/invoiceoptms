@@ -25,6 +25,17 @@ if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 // Drives which sidebar menu items are shown. See includes/auth.php.
 $perms = getEffectivePermissions($user['tenant_id'] ?? null, $user['role'] ?? 'viewer');
 
+// ── Recent login/logout activity (Profile → Activity Timeline card) ──
+$loginActivity = getRecentLoginActivity((int)$user['id'], 20);
+function optms_time_ago(string $datetime): string {
+    $diff = time() - strtotime($datetime);
+    if ($diff < 60)     return 'Just now';
+    if ($diff < 3600)   return floor($diff/60) . ' min ago';
+    if ($diff < 86400)  return floor($diff/3600) . ' hr ago';
+    if ($diff < 604800) { $d = floor($diff/86400); return $d . ' day' . ($d > 1 ? 's' : '') . ' ago'; }
+    return date('d M Y, h:i A', strtotime($datetime));
+}
+
 // ── Identity badges (topbar + dashboard): firm name + role ──────
 $ROLE_BADGE_COLORS = [
     'owner'       => ['bg' => '#E0F2F1', 'text' => '#00695C'],
@@ -1160,6 +1171,27 @@ select { cursor: pointer; }
 .danger-zone { background:#FEF0EF;border:1px solid #F7C1C1;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
 .dz-text h4 { font-size:13px;font-weight:700;color:#C0392B;margin:0 0 3px; }
 .dz-text p { font-size:11px;color:#E57373;margin:0; }
+
+/* ── Activity Timeline card ── */
+.activity-list { display:flex;flex-direction:column; }
+.activity-item { display:flex;gap:12px;padding:12px 0;position:relative; }
+.activity-item:not(:last-child)::before { content:'';position:absolute;left:15px;top:38px;bottom:-12px;width:1px;background:var(--border); }
+.activity-item.hidden-row { display:none; }
+.activity-icon { width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;z-index:1; }
+.activity-icon.login  { background:var(--teal-bg);color:var(--teal); }
+.activity-icon.logout { background:var(--red-bg);color:var(--red); }
+.activity-title { font-size:13px;font-weight:700;color:var(--text); }
+.activity-sub   { font-size:11.5px;color:var(--muted);margin-top:1px; }
+.activity-time  { font-size:10.5px;color:var(--muted2);margin-top:2px; }
+.activity-empty { font-size:12px;color:var(--muted);padding:6px 0; }
+.view-history-btn { width:100%;padding:10px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text2);font-size:12px;font-weight:700;letter-spacing:.3px;cursor:pointer;transition:.15s; }
+.view-history-btn:hover { background:var(--bg);border-color:var(--teal);color:var(--teal); }
+
+/* ── Account Security card ── */
+.acct-security-row { display:flex;align-items:center;gap:12px; }
+.acct-security-icon { width:38px;height:38px;border-radius:50%;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0; }
+.acct-security-title { font-size:13px;font-weight:700;color:var(--text); }
+.acct-security-sub { font-size:11.5px;color:var(--muted);margin-top:1px; }
 </style>
 </head>
 <body>
@@ -3231,6 +3263,39 @@ View Invoice: {{6}}</pre></details>
         <!-- Right: edit cards -->
         <div class="profile-right">
 
+          <!-- Activity Timeline -->
+          <div class="pcard">
+            <div class="pcard-header">
+              <i class="fas fa-history"></i>
+              <span class="pcard-title">Activity Timeline</span>
+            </div>
+            <div class="pcard-body">
+              <?php if (empty($loginActivity)): ?>
+                <div class="activity-empty">No login activity recorded yet.</div>
+              <?php else: ?>
+                <div class="activity-list" id="activity-list">
+                  <?php foreach ($loginActivity as $i => $ev):
+                    $isLogin = $ev['action'] === 'login';
+                  ?>
+                    <div class="activity-item<?= $i >= 5 ? ' hidden-row' : '' ?>">
+                      <div class="activity-icon <?= $isLogin ? 'login' : 'logout' ?>">
+                        <i class="fas fa-<?= $isLogin ? 'sign-in-alt' : 'sign-out-alt' ?>"></i>
+                      </div>
+                      <div>
+                        <div class="activity-title"><?= $isLogin ? 'System Login' : 'System Logout' ?></div>
+                        <div class="activity-sub">Success from IP <?= htmlspecialchars($ev['ip'] ?: 'unknown') ?></div>
+                        <div class="activity-time"><?= htmlspecialchars(optms_time_ago($ev['created_at'])) ?></div>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+                <?php if (count($loginActivity) > 5): ?>
+                  <button type="button" class="view-history-btn" id="activity-toggle-btn" onclick="toggleActivityHistory()">VIEW FULL HISTORY</button>
+                <?php endif; ?>
+              <?php endif; ?>
+            </div>
+          </div>
+
           <!-- Account info -->
           <div class="pcard">
             <div class="pcard-header">
@@ -3261,6 +3326,19 @@ View Invoice: {{6}}</pre></details>
             <div class="pcard-footer">
               <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
               <button class="btn btn-primary" onclick="saveProfilePassword()"><i class="fas fa-key"></i> Update Password</button>
+            </div>
+          </div>
+
+          <!-- Account Security -->
+          <div class="pcard">
+            <div class="pcard-body">
+              <div class="acct-security-row">
+                <div class="acct-security-icon"><i class="fas fa-shield-alt"></i></div>
+                <div>
+                  <div class="acct-security-title">Account Security</div>
+                  <div class="acct-security-sub">You're signed in as <?= htmlspecialchars(ucfirst($user['role'])) ?></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -13727,6 +13805,21 @@ function _syncProfileUI(name, avatarSrc) {
     });
   }
 }
+
+window.toggleActivityHistory = function() {
+  const btn = document.getElementById('activity-toggle-btn');
+  const list = document.getElementById('activity-list');
+  if (!list) return;
+  const hidden = list.querySelectorAll('.activity-item.hidden-row');
+  const expanded = btn?.dataset.expanded === '1';
+  if (!expanded) {
+    hidden.forEach(el => el.classList.remove('hidden-row'));
+    if (btn) { btn.textContent = 'SHOW LESS'; btn.dataset.expanded = '1'; }
+  } else {
+    list.querySelectorAll('.activity-item').forEach((el, i) => { if (i >= 5) el.classList.add('hidden-row'); });
+    if (btn) { btn.textContent = 'VIEW FULL HISTORY'; btn.dataset.expanded = '0'; }
+  }
+};
 
 window.saveProfileInfo = async function() {
   const name      = document.getElementById('profile-name')?.value.trim();

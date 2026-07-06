@@ -260,6 +260,28 @@ function masterAuditLog(int $userId, ?int $tenantId,
     } catch (Exception $e) { /* non-fatal */ }
 }
 
+// ── Recent login/logout activity for a user (master DB) ───────────
+// Feeds the "Activity Timeline" card on the profile page.
+// Assumes master_audit_log has a `created_at` timestamp column
+// (default CURRENT_TIMESTAMP) — adjust the ORDER BY/select if yours
+// is named differently.
+function getRecentLoginActivity(int $userId, int $limit = 20): array {
+    try {
+        $stmt = getMasterDB()->prepare(
+            'SELECT action, ip, created_at
+             FROM master_audit_log
+             WHERE user_id = ? AND action IN ("login","logout")
+             ORDER BY created_at DESC, id DESC
+             LIMIT ' . (int)$limit
+        );
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log('getRecentLoginActivity error: ' . $e->getMessage());
+        return [];
+    }
+}
+
 // ── Settings helper (reads from tenant DB) ────────────────────────
 function getSetting(string $key, string $default = ''): string {
     static $cache = [];
