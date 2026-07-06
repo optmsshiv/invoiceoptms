@@ -2414,12 +2414,12 @@ const SERVER = {
               </div>
               <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
             </div>
-            <div class="field" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px">
-              <input type="checkbox" id="wa-allow-web-fallback" style="margin-top:3px" <?= (($settings['wa_allow_web_fallback']??'0')==='1') ? 'checked' : '' ?> onchange="saveWASettings()">
-              <label for="wa-allow-web-fallback" style="font-weight:400;cursor:pointer">
-                Allow WhatsApp Web fallback
-                <span style="display:block;font-size:11px;color:var(--muted);font-weight:400">If unchecked (default), messages will NOT auto-open WhatsApp Web when the API isn't configured — sending will just fail with an error instead. Check this only if you're okay with WhatsApp Web popping open and needing a manual tap to send.</span>
-              </label>
+            <div class="toggle-item" style="border-bottom:none;padding-top:12px">
+              <span><strong>Allow WhatsApp Web Fallback</strong> — open wa.me if API isn't configured</span>
+              <div class="tog <?= (($settings['wa_allow_web_fallback']??'0')==='1')?'on':'' ?>" id="wa-allow-web-fallback" onclick="this.classList.toggle('on'); saveWASettings()"></div>
+            </div>
+            <div style="background:var(--amber-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:#8A5A00;margin-top:2px;margin-bottom:2px;line-height:1.7">
+              <i class="fas fa-info-circle"></i> Off by default — sending fails with an error instead of auto-opening WhatsApp Web. Turn this on only if you're fine with WhatsApp Web popping open and needing a manual tap to send.
             </div>
             <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
               <button class="btn btn-whatsapp" onclick="testWA()"><i class="fab fa-whatsapp"></i> Test &amp; Send</button>
@@ -11624,7 +11624,7 @@ window.saveWASettings = async function() {
     wa_bid:           val('wa-bid'),
     wa_webhook_token: val('wa-webhook-token'),
     wa_test_phone:    val('wa-test-phone'),
-    wa_allow_web_fallback: document.getElementById('wa-allow-web-fallback')?.checked ? '1' : '0',
+    wa_allow_web_fallback: tog('wa-allow-web-fallback'),
     wa_tpl_inv:       val('wa-tpl-inv'),
     wa_tpl_estimate:  val('wa-tpl-estimate'),
     wa_tpl_paid:      val('wa-tpl-paid'),
@@ -13999,8 +13999,7 @@ function populateWAPage() {
   setV('wa-pid',         wa.pid   || '');
   setV('wa-bid',         wa.bid   || '');
   setV('wa-test-phone',  wa.test_phone || '');
-  const _fbEl = document.getElementById('wa-allow-web-fallback');
-  if (_fbEl) _fbEl.checked = !!wa.allow_web_fallback;
+  setTog('wa-allow-web-fallback', !!wa.allow_web_fallback);
   // Update follow-up label from reminder settings (single source of truth)
   const _wfl = document.getElementById('wa-followup-days-label');
   if (_wfl) { const cfg = getReminderSettings(); _wfl.textContent = cfg.overdueFreq || 7; }
