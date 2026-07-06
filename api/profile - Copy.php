@@ -39,7 +39,7 @@ if (!empty($d['password'])) {
     $params[] = password_hash($d['password'], PASSWORD_BCRYPT, ['cost'=>12]);
 }
 if (!empty($d['avatar']))   { $sets[] = 'avatar=?';    $params[] = $d['avatar']; }
-if (isset($d['phone']))     { $sets[] = 'phone=?';     $params[] = trim($d['phone']); }
+if (isset($d['mobile']))    { $sets[] = 'mobile=?';    $params[] = trim($d['mobile']); }
 if (isset($d['alt_phone'])) { $sets[] = 'alt_phone=?'; $params[] = trim($d['alt_phone']); }
 
 if (empty($sets)) jsonResponse(['error'=>'Nothing to update'], 400);
