@@ -298,6 +298,8 @@ CREATE TABLE `payments` (
 --
 -- Triggers `payments`
 --
+DELIMITER $$
+
 CREATE TRIGGER `trg_backup_payment_before_delete` BEFORE DELETE ON `payments` FOR EACH ROW BEGIN
   INSERT INTO `deleted_payments` (
     original_id, invoice_id, invoice_number, client_name,
@@ -310,7 +312,10 @@ CREATE TRIGGER `trg_backup_payment_before_delete` BEFORE DELETE ON `payments` FO
     OLD.notes, OLD.settlement_discount, OLD.remaining_amt,
     OLD.invoice_deleted, OLD.created_at, 'trigger_auto'
   );
-END;
+END
+$$
+
+DELIMITER;
 
 -- --------------------------------------------------------
 
@@ -798,7 +803,8 @@ MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT for table `email_logs`
 --
-ALTER TABLE `email_logs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `email_logs`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `email_templates`
