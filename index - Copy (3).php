@@ -1270,11 +1270,6 @@ const SERVER = {
       <i class="fas fa-envelope"></i><span>Email Setup</span>
     </a>
     <div class="nav-section-label">ACCOUNT</div>
-    <?php if (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin'): ?>
-    <a class="nav-item" data-page="team" onclick="showPage('team',this)">
-      <i class="fas fa-user-friends"></i><span>Team</span>
-    </a>
-    <?php endif; ?>
     <a class="nav-item" data-page="settings" onclick="showPage('settings',this)">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
@@ -1875,27 +1870,6 @@ const SERVER = {
         <button class="btn btn-primary" onclick="openAddClientModal()"><i class="fas fa-plus"></i> Add Client</button>
       </div>
       <div class="clients-grid" id="clientsGrid"></div>
-    </div>
-
-    <!-- ─────────── TEAM ─────────── -->
-    <div id="page-team" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search team…" id="teamSearch" oninput="filterTeam(this.value)">
-        <div style="flex:1"></div>
-        <span id="teamCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="openAddTeamModal()"><i class="fas fa-user-plus"></i> Add Team Member</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr>
-            <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th>
-          </tr></thead>
-          <tbody id="teamTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="teamInfo"></div>
-        </div>
-      </div>
     </div>
 
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
@@ -4029,48 +4003,6 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
-<!-- Add Team Member Modal -->
-<div class="modal-overlay" id="modal-add-team">
-  <div class="modal" style="max-width:440px;max-height:90vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
-          <i class="fas fa-user-plus" style="color:var(--teal);font-size:14px"></i>
-        </div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)">Add Team Member</div>
-      </div>
-      <button class="modal-close" onclick="closeModal('modal-add-team')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body" style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Name *</label>
-        <input type="text" id="tm-name" class="table-search" style="width:100%" placeholder="Full name">
-      </div>
-      <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Email *</label>
-        <input type="email" id="tm-email" class="table-search" style="width:100%" placeholder="name@company.com">
-      </div>
-      <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Role *</label>
-        <select id="tm-role" class="table-filter" style="width:100%">
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="accountant">Accountant</option>
-          <option value="sales" selected>Sales</option>
-          <option value="viewer">Viewer</option>
-        </select>
-      </div>
-      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
-        <i class="fas fa-info-circle"></i> A temporary password will be generated. Share it with them securely — they should change it after first login.
-      </div>
-    </div>
-    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
-      <button class="btn btn-outline" onclick="closeModal('modal-add-team')">Cancel</button>
-      <button class="btn btn-primary" id="tm-save-btn" onclick="saveNewTeamMember()"><i class="fas fa-check"></i> Add Member</button>
-    </div>
-  </div>
-</div>
-
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
   <div class="modal" style="max-width:500px;max-height:92vh;display:flex;flex-direction:column;">
@@ -4653,7 +4585,7 @@ const breadcrumbs = {
   'email-setup':'Email Setup', settings:'Settings',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
-  activity:'Activity Log', profile:'My Profile', team:'Team'
+  activity:'Activity Log', profile:'My Profile'
 };
 
 function showPage(name, el) {
@@ -4672,7 +4604,6 @@ function showPage(name, el) {
   if (name === 'payments') renderPayments();
   if (name === 'products') renderProducts();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
-  if (name === 'team') renderTeam();
   if (name === 'dashboard') renderDashboard();
   if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
@@ -9895,156 +9826,6 @@ function allKnownHsnCodes() {
 }
 function activeProdSource() { return PROD.archived ? (PROD.archivedList||[]) : STATE.products; }
 function renderProducts() { updateProductCatDropdowns(); PROD.list=[...activeProdSource()]; PROD.page=1; _renderProdPage(); }
-
-// ══════════════════════════════════════════
-// TEAM PAGE
-// ══════════════════════════════════════════
-STATE.team = [];
-
-async function renderTeam() {
-  try {
-    const r = await api('api/team.php?action=list');
-    STATE.team = Array.isArray(r.data) ? r.data : [];
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-    STATE.team = [];
-  }
-  _renderTeamRows(STATE.team);
-}
-
-function filterTeam(q) {
-  q = (q || '').toLowerCase();
-  const filtered = !q ? STATE.team : STATE.team.filter(u =>
-    (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
-  );
-  _renderTeamRows(filtered);
-}
-
-function _renderTeamRows(list) {
-  const tbody = document.getElementById('teamTbody');
-  const roleLabels = { owner:'Owner', admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
-  const roleOptions = ['admin','manager','accountant','sales','viewer'];
-
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No team members yet.</td></tr>`;
-  } else {
-    tbody.innerHTML = list.map(u => {
-      const isOwner = u.role === 'owner';
-      const roleCell = isOwner
-        ? `<span class="badge">Owner</span>`
-        : `<select onchange="changeTeamRole(${u.id}, this.value)" class="table-filter" style="font-size:12px;padding:4px 8px">
-            ${roleOptions.map(r => `<option value="${r}" ${r===u.role?'selected':''}>${roleLabels[r]}</option>`).join('')}
-          </select>`;
-      const statusBadge = u.status === 'active'
-        ? `<span class="badge badge-success">Active</span>`
-        : `<span class="badge badge-muted">Inactive</span>`;
-      const actions = isOwner ? '' : `
-        <div class="action-cell">
-          ${u.status === 'active'
-            ? `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'inactive')" title="Deactivate"><i class="fas fa-user-slash"></i></button>`
-            : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'active')" title="Reactivate"><i class="fas fa-user-check"></i></button>`
-          }
-          <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#E53935" onclick="removeTeamMember(${u.id})" title="Remove"><i class="fas fa-trash"></i></button>
-        </div>`;
-      return `<tr>
-        <td>${escHtml(u.name)}</td>
-        <td>${escHtml(u.email)}</td>
-        <td>${roleCell}</td>
-        <td>${statusBadge}</td>
-        <td>${u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
-        <td>${actions}</td>
-      </tr>`;
-    }).join('');
-  }
-  document.getElementById('teamCountInfo').textContent = list.length + ' member' + (list.length === 1 ? '' : 's');
-}
-
-function openAddTeamModal() {
-  document.getElementById('tm-name').value = '';
-  document.getElementById('tm-email').value = '';
-  document.getElementById('tm-role').value = 'sales';
-  openModal('modal-add-team');
-}
-
-async function saveNewTeamMember() {
-  const name  = document.getElementById('tm-name').value.trim();
-  const email = document.getElementById('tm-email').value.trim();
-  const role  = document.getElementById('tm-role').value;
-  if (!name)  { toast('⚠️ Name required', 'warning'); return; }
-  if (!email) { toast('⚠️ Email required', 'warning'); return; }
-
-  const btn = document.getElementById('tm-save-btn');
-  if (btn.disabled) return;
-  btn.disabled = true;
-
-  try {
-    const r = await api('api/team.php?action=add', 'POST', { name, email, role });
-    closeModal('modal-add-team');
-    await renderTeam();
-    await Swal.fire({
-      title: 'Team member added',
-      html: `<strong>${escHtml(email)}</strong> can sign in with this temporary password:<br><br>
-             <code style="font-size:15px;background:var(--bg);padding:6px 12px;border-radius:6px;display:inline-block">${escHtml(r.temp_pass)}</code>
-             <br><br><span style="font-size:12px;color:var(--muted)">Share this securely — it won't be shown again.</span>`,
-      icon: 'success',
-      confirmButtonText: 'Got it',
-      customClass: { popup: 'swal-compact' }
-    });
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function changeTeamRole(userId, newRole) {
-  try {
-    await api('api/team.php?action=update', 'PATCH', { user_id: userId, field: 'role', value: newRole });
-    toast('✅ Role updated', 'success');
-    await renderTeam();
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-    renderTeam(); // revert the dropdown to the actual saved value
-  }
-}
-
-async function toggleTeamStatus(userId, newStatus) {
-  const verb = newStatus === 'active' ? 'reactivate' : 'deactivate';
-  const result = await Swal.fire({
-    title: `${verb.charAt(0).toUpperCase() + verb.slice(1)} this team member?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: verb.charAt(0).toUpperCase() + verb.slice(1),
-    confirmButtonColor: newStatus === 'active' ? '#0F6E56' : '#E53935',
-    cancelButtonText: 'Cancel',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!result.isConfirmed) return;
-  try {
-    await api('api/team.php?action=update', 'PATCH', { user_id: userId, field: 'status', value: newStatus });
-    toast('✅ Updated', 'success');
-    renderTeam();
-  } catch (e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function removeTeamMember(userId) {
-  const result = await Swal.fire({
-    title: 'Remove this team member?',
-    html: 'They will lose access immediately. This can be undone by reactivating them later.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Remove',
-    confirmButtonColor: '#E53935',
-    cancelButtonText: 'Cancel',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!result.isConfirmed) return;
-  try {
-    await api('api/team.php?action=remove', 'DELETE', { user_id: userId });
-    toast('🗑️ Removed', 'info');
-    renderTeam();
-  } catch (e) { toast('❌ ' + e.message, 'error'); }
-}
 function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=activeProdSource().filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s)||(p.hsn||'').toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
 function filterProductsCat(v) { filterProducts(document.getElementById('productSearch')?.value||''); }
 function _renderProdPage() {
