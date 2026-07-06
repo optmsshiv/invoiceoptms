@@ -4574,12 +4574,15 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Date + Method (2-col) — time moved to view-only display beside Settlement Discount -->
-      <input type="hidden" id="paid-time">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <!-- Date + Time + Method (3-col) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div class="field">
           <label>Payment Date</label>
           <input type="date" id="paid-date">
+        </div>
+        <div class="field">
+          <label>Payment Time</label>
+          <input type="time" id="paid-time">
         </div>
         <div class="field">
           <label>Method</label>
@@ -4608,12 +4611,9 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Settlement Discount -->
       <div class="field" id="paid-settle-disc-row">
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-          <span style="display:flex;align-items:center;gap:6px">
-            Settlement Discount
-            <span style="font-size:10px;font-weight:400;color:var(--muted);background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;padding:1px 6px">optional</span>
-          </span>
-          <span id="paid-time-display" title="Payment time (view only)" style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--mono);text-transform:none;letter-spacing:0"><i class="fas fa-clock" style="margin-right:4px;opacity:.7"></i></span>
+        <label style="display:flex;align-items:center;gap:6px">
+          Settlement Discount
+          <span style="font-size:10px;font-weight:400;color:var(--muted);background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;padding:1px 6px">optional</span>
         </label>
         <div style="display:flex;gap:6px;align-items:center">
           <select id="paid-settle-disc-type" style="width:90px;flex-shrink:0" onchange="onPaidSettleDiscInput()">
@@ -8778,12 +8778,6 @@ function openPaidModal(id) {
   document.getElementById('paid-date').value = fmt_date(new Date());
   const _now = new Date();
   document.getElementById('paid-time').value = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
-  const _timeDisp = document.getElementById('paid-time-display');
-  if (_timeDisp) {
-    const _h12 = ((_now.getHours() % 12) || 12);
-    const _ampm = _now.getHours() < 12 ? 'AM' : 'PM';
-    _timeDisp.innerHTML = '<i class="fas fa-clock" style="margin-right:4px;opacity:.7"></i>' + _h12 + ':' + String(_now.getMinutes()).padStart(2,'0') + ' ' + _ampm;
-  }
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
   const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
