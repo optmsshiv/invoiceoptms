@@ -1134,14 +1134,20 @@ select { cursor: pointer; }
 .profile-banner { height:72px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
 .profile-left-body { padding:0 20px 20px; }
 .profile-av-wrap { margin-top:-38px;margin-bottom:12px; }
-.profile-av-lg { width:76px;height:76px;border-radius:16px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:3px solid var(--card);overflow:hidden;cursor:pointer;position:relative; }
+.profile-av-lg { width:76px;height:76px;border-radius:16px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:3px solid var(--card);overflow:hidden;cursor:pointer;position:relative;flex-shrink:0; }
 .profile-av-lg:hover .pav-overlay { opacity:1; }
 .pav-overlay { position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;opacity:0;transition:.2s;border-radius:13px; }
 .pav-overlay i { color:#fff;font-size:20px; }
+.profile-av-row { display:flex;align-items:center;gap:14px; }
+.profile-upload-btn { display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;border:1.5px solid var(--border2);background:var(--card);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s; }
+.profile-upload-btn:hover { background:var(--bg);border-color:var(--teal);color:var(--teal); }
+.badge-verified { display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--blue-bg);color:var(--blue);text-transform:uppercase;letter-spacing:.5px; }
+.badge-verified i { font-size:9px; }
 .profile-stat { display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px; }
 .profile-stat:last-child { border:none; }
 .profile-stat-label { color:var(--muted); }
 .profile-stat-val { font-weight:700;color:var(--text); }
+.profile-stat-val.expired { color:var(--red); }
 .profile-right { display:flex;flex-direction:column;gap:16px; }
 .pcard { background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden; }
 .pcard-header { padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px; }
@@ -3165,7 +3171,7 @@ View Invoice: {{6}}</pre></details>
         <div class="profile-left-card">
           <div class="profile-banner"></div>
           <div class="profile-left-body">
-            <div class="profile-av-wrap">
+            <div class="profile-av-wrap profile-av-row">
               <label style="cursor:pointer;display:inline-block" title="Click to change photo">
                 <div class="profile-av-lg" id="profile-avatar-preview">
                   <?php if(!empty($user['avatar'])): ?>
@@ -3175,13 +3181,21 @@ View Invoice: {{6}}</pre></details>
                   <?php endif; ?>
                   <div class="pav-overlay"><i class="fas fa-camera"></i></div>
                 </div>
-                <input type="file" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
+                <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="uploadProfilePhoto(this)">
               </label>
+              <button type="button" class="profile-upload-btn" onclick="document.getElementById('profile-photo-input').click()">
+                <i class="fas fa-upload"></i> Upload Photo
+              </button>
             </div>
-            <div style="margin-bottom:18px">
+            <div style="margin:16px 0 18px">
               <div id="profile-display-name" style="font-size:18px;font-weight:800;color:var(--text);line-height:1.2"><?= htmlspecialchars($user['name']) ?></div>
               <div style="font-size:12px;color:var(--muted);margin-top:3px"><?= htmlspecialchars($user['email']) ?></div>
-              <span style="display:inline-block;margin-top:6px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--teal-bg,#E0F2F1);color:var(--teal);text-transform:uppercase;letter-spacing:.5px"><?= ucfirst($user['role']) ?></span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">
+                <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px;background:var(--teal-bg,#E0F2F1);color:var(--teal);text-transform:uppercase;letter-spacing:.5px"><?= ucfirst($user['role']) ?></span>
+                <?php if (!empty($user['is_verified'])): ?>
+                  <span class="badge-verified"><i class="fas fa-check-circle"></i> Verified</span>
+                <?php endif; ?>
+              </div>
             </div>
             <div>
               <div class="profile-stat">
@@ -3196,6 +3210,20 @@ View Invoice: {{6}}</pre></details>
                 <span class="profile-stat-label"><i class="fas fa-clock" style="width:14px;color:var(--muted)"></i> Member Since</span>
                 <span class="profile-stat-val"><?= isset($user['created_at']) ? date('M Y', strtotime($user['created_at'])) : 'N/A' ?></span>
               </div>
+              <?php if (!empty($user['license_no'])): ?>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-id-card" style="width:14px;color:var(--muted)"></i> License</span>
+                <span class="profile-stat-val"><?= htmlspecialchars($user['license_no']) ?></span>
+              </div>
+              <?php endif; ?>
+              <?php if (!empty($user['license_expiry'])):
+                $licExpired = strtotime($user['license_expiry']) < strtotime('today');
+              ?>
+              <div class="profile-stat">
+                <span class="profile-stat-label"><i class="fas fa-calendar-times" style="width:14px;color:var(--muted)"></i> License Expiry</span>
+                <span class="profile-stat-val<?= $licExpired ? ' expired' : '' ?>"><?= date('d M Y', strtotime($user['license_expiry'])) ?><?= $licExpired ? ' (Expired)' : '' ?></span>
+              </div>
+              <?php endif; ?>
             </div>
           </div>
         </div>
@@ -3211,7 +3239,9 @@ View Invoice: {{6}}</pre></details>
             </div>
             <div class="pcard-body">
               <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
-              <div class="field" style="margin-bottom:0"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+              <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+              <div class="field" style="margin-bottom:0"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
             </div>
             <div class="pcard-footer">
               <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
@@ -13699,11 +13729,13 @@ function _syncProfileUI(name, avatarSrc) {
 }
 
 window.saveProfileInfo = async function() {
-  const name  = document.getElementById('profile-name')?.value.trim();
-  const email = document.getElementById('profile-email')?.value.trim();
+  const name      = document.getElementById('profile-name')?.value.trim();
+  const email     = document.getElementById('profile-email')?.value.trim();
+  const mobile    = document.getElementById('profile-mobile')?.value.trim() || '';
+  const altPhone  = document.getElementById('profile-alt-phone')?.value.trim() || '';
   if (!name || !email) { toast('Name and email are required','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ name, email });
+    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone });
     _syncProfileUI(name, null);
     toast('✅ Profile updated!','success');
   } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }
