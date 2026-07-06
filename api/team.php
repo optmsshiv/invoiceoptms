@@ -60,6 +60,26 @@ try {
         jsonResponse(['success' => true, 'data' => $rows]);
     }
 
+    // ── GET a single user's full profile (for the Edit modal) ───────
+    if ($method === 'GET' && $action === 'get') {
+        $userId = (int)($_GET['user_id'] ?? 0);
+        $stmt = $master->prepare(
+            'SELECT id, name, email, phone, address, role, status, avatar, tags
+             FROM users WHERE id=? AND tenant_id=?'
+        );
+        $stmt->execute([$userId, $tenantId]);
+        $u = $stmt->fetch();
+        if (!$u) jsonResponse(['error' => 'User not found in your team'], 404);
+        $u['tags'] = $u['tags'] ? (json_decode($u['tags'], true) ?: []) : [];
+        $u['id']   = (int)$u['id'];
+
+        $cStmt = $master->prepare('SELECT id, name, phone, relation FROM user_contacts WHERE user_id=?');
+        $cStmt->execute([$userId]);
+        $contacts = $cStmt->fetchAll();
+
+        jsonResponse(['success' => true, 'data' => $u, 'contacts' => $contacts]);
+    }
+
     // ── ADD a user to this tenant ────────────────────────────────────
     if ($method === 'POST' && $action === 'add') {
         $email    = trim($body['email'] ?? '');
@@ -177,6 +197,125 @@ try {
             'role'      => $role,
             'temp_pass' => $password,
         ]);
+    }
+
+    // ── EDIT profile fields — scoped to THIS tenant only ────────────
+    if ($method === 'PATCH' && $action === 'edit') {
+        $userId      = (int)($body['user_id'] ?? 0);
+        $name        = trim($body['name'] ?? '');
+        $email       = trim($body['email'] ?? '');
+        $phone       = trim($body['mobile'] ?? $body['phone'] ?? '');
+        $address     = trim($body['address'] ?? '');
+        $tags        = is_array($body['tags'] ?? null) ? array_values(array_filter(array_map('trim', $body['tags']))) : [];
+        // contacts: null = leave untouched, array (possibly empty) = replace entirely
+        $contacts    = array_key_exists('contacts', $body) && is_array($body['contacts']) ? $body['contacts'] : null;
+        // avatar: absent key = leave untouched, '' = explicitly clear, data URL = replace
+        $avatarSent  = array_key_exists('avatar', $body);
+        $avatarB64   = $body['avatar'] ?? null;
+        $newPassword = trim($body['password'] ?? '');
+
+        if (!$name)  jsonResponse(['error' => 'Name required'], 400);
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(['error' => 'Valid email required'], 400);
+        }
+
+        $check = $master->prepare('SELECT id, role, avatar FROM users WHERE id=? AND tenant_id=?');
+        $check->execute([$userId, $tenantId]);
+        $target = $check->fetch();
+        if (!$target) jsonResponse(['error' => 'User not found in your team'], 404);
+        if ($target['role'] === 'owner') {
+            jsonResponse(['error' => 'The tenant owner cannot be edited here'], 403);
+        }
+
+        // Email must stay globally unique (excluding this user)
+        $emailCheck = $master->prepare('SELECT id FROM users WHERE email=? AND id != ?');
+        $emailCheck->execute([$email, $userId]);
+        if ($emailCheck->fetch()) jsonResponse(['error' => 'Email already in use'], 409);
+
+        $avatarPath = $target['avatar']; // keep existing unless changed
+        if ($avatarSent) {
+            if ($avatarB64 === '' || $avatarB64 === null) {
+                $avatarPath = null; // explicit clear
+            } elseif (preg_match('/^data:image\/(png|jpe?g|webp);base64,(.+)$/', $avatarB64, $m)) {
+                $ext  = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+                $blob = base64_decode($m[2]);
+                if ($blob !== false && strlen($blob) <= UPLOAD_MAX_SIZE) {
+                    $fname = 'u_' . $tenantId . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                    file_put_contents($avatarDir . '/' . $fname, $blob);
+                    $avatarPath = AVATAR_UPLOAD_URL . '/' . $fname;
+                }
+            }
+        }
+
+        $master->beginTransaction();
+        try {
+            $params = [
+                ':name'    => $name,
+                ':email'   => $email,
+                ':phone'   => $phone ?: null,
+                ':address' => $address ?: null,
+                ':avatar'  => $avatarPath,
+                ':tags'    => $tags ? json_encode($tags) : null,
+            ];
+            $sql = 'UPDATE users SET name=:name, email=:email, phone=:phone, address=:address, avatar=:avatar, tags=:tags';
+            if ($newPassword !== '') {
+                $sql .= ', password=:password';
+                $params[':password'] = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
+            }
+            $sql .= ' WHERE id=:id AND tenant_id=:tid';
+            $params[':id']  = $userId;
+            $params[':tid'] = $tenantId;
+            $master->prepare($sql)->execute($params);
+
+            if ($contacts !== null) {
+                $master->prepare('DELETE FROM user_contacts WHERE user_id=?')->execute([$userId]);
+                if ($contacts) {
+                    $cIns = $master->prepare(
+                        'INSERT INTO user_contacts (user_id, name, phone, relation, created_at)
+                         VALUES (?,?,?,?,NOW())'
+                    );
+                    foreach ($contacts as $c) {
+                        $cName  = trim($c['name'] ?? '');
+                        $cPhone = trim($c['phone'] ?? '');
+                        $cRel   = trim($c['relation'] ?? '');
+                        if ($cName === '' && $cPhone === '') continue;
+                        $cIns->execute([$userId, $cName ?: null, $cPhone ?: null, $cRel ?: null]);
+                    }
+                }
+            }
+
+            $master->commit();
+        } catch (Exception $e) {
+            $master->rollBack();
+            throw $e;
+        }
+
+        // Mirror name/email/password to the tenant's own DB — defensive,
+        // won't undo the master update above if the tenant DB differs.
+        try {
+            $tStmt2 = $master->prepare('SELECT db_name FROM tenants WHERE id=?');
+            $tStmt2->execute([$tenantId]);
+            $dbName = $tStmt2->fetchColumn();
+            if ($dbName) {
+                $tenantDb = getDBByName($dbName);
+                $upd2 = 'UPDATE users SET name=?, email=?';
+                $p2   = [$name, $email];
+                if ($newPassword !== '') {
+                    $upd2 .= ', password=?';
+                    $p2[] = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
+                }
+                $upd2 .= ' WHERE id=?';
+                $p2[] = $userId;
+                $tenantDb->prepare($upd2)->execute($p2);
+            }
+        } catch (Exception $e) {
+            error_log('team.php tenant-db mirror (edit) error: ' . $e->getMessage());
+        }
+
+        logActivity($_SESSION['user_id'], 'team_user_edited', 'user', $userId,
+            "Updated profile for {$email}");
+
+        jsonResponse(['success' => true]);
     }
 
     // ── UPDATE role/status — scoped to THIS tenant only ─────────────
