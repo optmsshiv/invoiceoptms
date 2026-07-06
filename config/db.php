@@ -22,7 +22,7 @@ define('APP_NAME',    'OPTMS Tech Invoice Manager');
 define('CPANEL_USER',  '');   // ← your cPanel username (e.g. 'edrppymy')
 define('CPANEL_TOKEN', '');   // ← your cPanel API token
 define('APP_VERSION', '2.0.0');
-define('APP_URL',     'https://praxio.optms.co.in');
+define('APP_URL',     'https://invcs.optms.co.in');
 
 define('SESSION_LIFETIME', 7200);
 define('UPLOAD_MAX_SIZE',  3145728);
