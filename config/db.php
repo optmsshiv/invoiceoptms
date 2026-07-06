@@ -9,18 +9,20 @@ if (!ob_get_level()) ob_start();
 // ── Master DB credentials ─────────────────────────────────────────
 define('MASTER_DB_HOST',    'localhost');
 define('MASTER_DB_NAME',    'edrppymy_optms_master');
-define('MASTER_DB_USER',    'edrppymy_optms_invoice');
-define('MASTER_DB_PASS',    '1234@Optmsdatabase');
+define('MASTER_DB_USER',    'edrppymy_optms_master');
+define('MASTER_DB_PASS',    '123@optms_master');
 define('MASTER_DB_CHARSET', 'utf8mb4');
+
+// ── cPanel API credentials (used for tenant DB provisioning) ───────
+// Fill these in with your NEW token — generate it fresh in
+// cPanel → Security → Manage API Tokens, since any token pasted
+// into a chat should be treated as compromised and revoked.
+define('CPANEL_HOST',      'https://invcs.optms.co.in:2083'); // confirm port (usually 2083)
+define('CPANEL_USERNAME',  'edrppymy');                         // confirm this is your cPanel login username
+define('CPANEL_API_TOKEN', 'BMN3WI0RGV07SO1GEHZCSTSLWP337Y97');
 
 // ── App constants ─────────────────────────────────────────────────
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
-
-// ── cPanel API credentials (for auto DB provisioning) ────────────
-// Get your API token from cPanel → Security → Manage API Tokens
-// Leave blank if on VPS/dedicated (CREATE DATABASE works directly)
-define('CPANEL_USER',  '');   // ← your cPanel username (e.g. 'edrppymy')
-define('CPANEL_TOKEN', '');   // ← your cPanel API token
 define('APP_VERSION', '2.0.0');
 define('APP_URL',     'https://invcs.optms.co.in');
 
