@@ -14,6 +14,13 @@ requireRole('owner'); // super_admin passes too, but has no tenant_id — see be
 
 header('Content-Type: application/json');
 
+// ── Avatar upload config (mirrors api/users.php) ────────────────
+if (!defined('AVATAR_UPLOAD_URL')) define('AVATAR_UPLOAD_URL', '/assets/uploads/avatars');
+$avatarDir = rtrim(UPLOAD_PATH, '/') . '/avatars';
+if (!is_dir($avatarDir)) {
+    @mkdir($avatarDir, 0755, true);
+}
+
 $method   = $_SERVER['REQUEST_METHOD'];
 $action   = $_GET['action'] ?? $_POST['action'] ?? '';
 $tenantId = $_SESSION['tenant_id'] ?? null;
@@ -40,19 +47,30 @@ try {
     // ── LIST this tenant's users ────────────────────────────────────
     if ($method === 'GET' && $action === 'list') {
         $stmt = $master->prepare(
-            'SELECT id, name, email, role, status, last_login, created_at
+            'SELECT id, name, email, phone, address, role, status, avatar, tags, last_login, created_at
              FROM users WHERE tenant_id = ? ORDER BY role, name'
         );
         $stmt->execute([$tenantId]);
-        jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
+        $rows = $stmt->fetchAll();
+        foreach ($rows as &$r) {
+            $r['tags'] = $r['tags'] ? (json_decode($r['tags'], true) ?: []) : [];
+            $r['id']   = (int)$r['id'];
+        }
+        unset($r);
+        jsonResponse(['success' => true, 'data' => $rows]);
     }
 
     // ── ADD a user to this tenant ────────────────────────────────────
     if ($method === 'POST' && $action === 'add') {
         $email    = trim($body['email'] ?? '');
         $name     = trim($body['name']  ?? '');
+        $phone    = trim($body['mobile'] ?? $body['phone'] ?? '');
+        $address  = trim($body['address'] ?? '');
         $role     = $body['role'] ?? 'sales';
-        $password = $body['password'] ?? bin2hex(random_bytes(6));
+        $tags     = is_array($body['tags'] ?? null) ? array_values(array_filter(array_map('trim', $body['tags']))) : [];
+        $contacts = is_array($body['contacts'] ?? null) ? $body['contacts'] : [];
+        $avatarB64 = $body['avatar'] ?? null;
+        $password = trim($body['password'] ?? '') !== '' ? trim($body['password']) : bin2hex(random_bytes(6));
 
         if (!in_array($role, $ASSIGNABLE_ROLES, true)) {
             jsonResponse(['error' => 'Invalid role'], 400);
@@ -91,18 +109,63 @@ try {
 
         $hashedPass = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-        $master->prepare(
-            'INSERT INTO users (tenant_id, name, email, password, role, status, created_by)
-             VALUES (?,?,?,?,?,?,?)'
-        )->execute([$tenantId, $name, $email, $hashedPass, $role, 'active', $_SESSION['user_id']]);
-        $userId = (int)$master->lastInsertId();
+        // Handle avatar (data URL -> file on disk)
+        $avatarPath = null;
+        if ($avatarB64 && preg_match('/^data:image\/(png|jpe?g|webp);base64,(.+)$/', $avatarB64, $m)) {
+            $ext  = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+            $blob = base64_decode($m[2]);
+            if ($blob !== false && strlen($blob) <= UPLOAD_MAX_SIZE) {
+                $fname = 'u_' . $tenantId . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                file_put_contents($avatarDir . '/' . $fname, $blob);
+                $avatarPath = AVATAR_UPLOAD_URL . '/' . $fname;
+            }
+        }
+
+        $master->beginTransaction();
+        try {
+            $master->prepare(
+                'INSERT INTO users (tenant_id, name, email, phone, address, password, role, status, avatar, tags, created_by)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+            )->execute([
+                $tenantId, $name, $email, $phone ?: null, $address ?: null,
+                $hashedPass, $role, 'active', $avatarPath,
+                $tags ? json_encode($tags) : null, $_SESSION['user_id']
+            ]);
+            $userId = (int)$master->lastInsertId();
+
+            if ($contacts) {
+                $cIns = $master->prepare(
+                    'INSERT INTO user_contacts (user_id, name, phone, relation, created_at)
+                     VALUES (?,?,?,?,NOW())'
+                );
+                foreach ($contacts as $c) {
+                    $cName  = trim($c['name'] ?? '');
+                    $cPhone = trim($c['phone'] ?? '');
+                    $cRel   = trim($c['relation'] ?? '');
+                    if ($cName === '' && $cPhone === '') continue; // skip empty rows
+                    $cIns->execute([$userId, $cName ?: null, $cPhone ?: null, $cRel ?: null]);
+                }
+            }
+
+            $master->commit();
+        } catch (Exception $e) {
+            $master->rollBack();
+            throw $e;
+        }
 
         // Mirror into the tenant's own DB (used for FKs like created_by within that DB)
-        $tenantDb = getDBByName($tenant['db_name']);
-        $tenantDb->prepare(
-            'INSERT IGNORE INTO users (id, name, email, password, role, is_active)
-             VALUES (?,?,?,?,?,1)'
-        )->execute([$userId, $name, $email, $hashedPass, $role]);
+        // Wrapped defensively — the tenant DB's users table may not have every
+        // column the master DB has (phone/avatar/tags), so failure here must
+        // not undo the master insert above.
+        try {
+            $tenantDb = getDBByName($tenant['db_name']);
+            $tenantDb->prepare(
+                'INSERT IGNORE INTO users (id, name, email, password, role, is_active)
+                 VALUES (?,?,?,?,?,1)'
+            )->execute([$userId, $name, $email, $hashedPass, $role]);
+        } catch (Exception $e) {
+            error_log('team.php tenant-db mirror error: ' . $e->getMessage());
+        }
 
         logActivity($_SESSION['user_id'], 'team_user_added', 'user', $userId,
             "Added {$email} ({$role})");

@@ -4031,7 +4031,7 @@ View Invoice: {{6}}</pre></details>
 
 <!-- Add Team Member Modal -->
 <div class="modal-overlay" id="modal-add-team">
-  <div class="modal" style="max-width:440px;max-height:90vh;display:flex;flex-direction:column;">
+  <div class="modal modal-md" style="max-width:560px;max-height:92vh;display:flex;flex-direction:column;">
     <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:10px">
         <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
@@ -4041,32 +4041,110 @@ View Invoice: {{6}}</pre></details>
       </div>
       <button class="modal-close" onclick="closeModal('modal-add-team')"><i class="fas fa-times"></i></button>
     </div>
-    <div class="modal-body" style="overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Name *</label>
-        <input type="text" id="tm-name" class="table-search" style="width:100%" placeholder="Full name">
+    <div class="modal-body" style="overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Avatar Upload -->
+      <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+        <div id="tm-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:#00897B;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;overflow:hidden;flex-shrink:0;border:3px solid var(--border);transition:border-color .3s,box-shadow .3s">
+          <i class="fas fa-user" id="tm-avatar-icon"></i>
+          <img id="tm-avatar-img" src="" style="width:100%;height:100%;object-fit:cover;display:none">
+        </div>
+        <div style="flex:1;min-width:0">
+          <label id="tm-avatar-upload-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);color:var(--text);border:1.5px solid var(--border);padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;position:relative;overflow:hidden;transition:.2s">
+            <i class="fas fa-camera" id="tm-avatar-upload-icon"></i>
+            <span id="tm-avatar-upload-text">Upload Photo</span>
+            <div id="tm-avatar-progress-bar" style="position:absolute;left:0;bottom:0;height:2px;width:0%;background:var(--teal);transition:width .05s linear"></div>
+            <input type="file" id="tm-avatar-file" accept="image/*" style="display:none" onchange="handleTeamAvatarUpload(this)">
+          </label>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">JPG or PNG, optional</div>
+        </div>
       </div>
-      <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Email *</label>
-        <input type="email" id="tm-email" class="table-search" style="width:100%" placeholder="name@company.com">
+
+      <div class="form-grid g2">
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Name *</label>
+          <input type="text" id="tm-name" class="table-search" style="width:100%" placeholder="Full name"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Email *</label>
+          <input type="email" id="tm-email" class="table-search" style="width:100%" placeholder="user@company.com"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Mobile Number</label>
+          <input type="text" id="tm-mobile" class="table-search" style="width:100%" placeholder="+91 98765 43210"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Role *</label>
+          <select id="tm-role" class="table-filter" style="width:100%">
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="accountant">Accountant</option>
+            <option value="sales" selected>Sales — create invoices + clients only</option>
+            <option value="viewer">Viewer</option>
+          </select></div>
       </div>
+
       <div>
-        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Role *</label>
-        <select id="tm-role" class="table-filter" style="width:100%">
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="accountant">Accountant</option>
-          <option value="sales" selected>Sales</option>
-          <option value="viewer">Viewer</option>
-        </select>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Address</label>
+        <textarea id="tm-address" class="table-search" style="width:100%;min-height:56px;resize:vertical" placeholder="Street, city, state, PIN"></textarea>
       </div>
+
+      <!-- Tags -->
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Tags / Labels <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional — press Enter to add)</span></label>
+        <div id="tm-tags-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <input id="tm-tag-input" class="table-search" style="width:100%" placeholder="e.g. Field Staff, Night Shift…" onkeydown="handleTeamTagInput(event)">
+      </div>
+
+      <!-- Additional Contacts -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Additional Contacts <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional)</span></label>
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:4px 10px" onclick="addTeamContactRow()"><i class="fas fa-plus"></i> Add Contact</button>
+        </div>
+        <div id="tm-extra-contacts" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Password <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(blank = auto-generate)</span></label>
+        <input type="text" id="tm-password" class="table-search" style="width:100%" placeholder="Leave blank to auto-generate">
+      </div>
+
       <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
-        <i class="fas fa-info-circle"></i> A temporary password will be generated. Share it with them securely — they should change it after first login.
+        <i class="fas fa-info-circle"></i> If left blank, a temporary password will be generated. Share it with them securely — they should change it after first login.
       </div>
     </div>
     <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
       <button class="btn btn-outline" onclick="closeModal('modal-add-team')">Cancel</button>
-      <button class="btn btn-primary" id="tm-save-btn" onclick="saveNewTeamMember()"><i class="fas fa-check"></i> Add Member</button>
+      <button class="btn btn-primary" id="tm-save-btn" onclick="saveNewTeamMember()"><i class="fas fa-user-plus"></i> Add User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Role Permissions Modal -->
+<div class="modal-overlay" id="modal-team-permissions">
+  <div class="modal modal-lg" style="max-width:720px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-shield-halved" style="color:var(--purple);font-size:14px"></i>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">Role Permissions</div>
+          <div id="tp-subtitle" style="font-size:11px;color:var(--muted);font-weight:400;margin-top:1px"></div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-team-permissions')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:12px 20px 0;flex-shrink:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Editing role:</label>
+      <select id="tp-role-select" class="table-filter" style="font-size:13px;padding:6px 10px" onchange="_tpSetActiveRole(this.value)">
+        <option value="admin">Admin</option>
+        <option value="manager">Manager</option>
+        <option value="accountant">Accountant</option>
+        <option value="sales">Sales</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <span style="font-size:11px;color:var(--muted)"><i class="fas fa-info-circle"></i> Changes apply to every user with this role.</span>
+    </div>
+    <div class="modal-body" id="tp-body" style="overflow-y:auto;padding:16px 20px;flex:1;min-height:0">
+      <div style="text-align:center;color:var(--muted);padding:30px"><i class="fas fa-spinner fa-spin"></i> Loading permissions…</div>
+    </div>
+    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
+      <button class="btn btn-outline" onclick="closeModal('modal-team-permissions')">Close</button>
     </div>
   </div>
 </div>
@@ -9938,8 +10016,10 @@ function _renderTeamRows(list) {
       const statusBadge = u.status === 'active'
         ? `<span class="badge badge-success">Active</span>`
         : `<span class="badge badge-muted">Inactive</span>`;
+      const permsBtn = isOwner ? '' : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#7B1FA2" onclick="openTeamPermissionsModal('${u.role}')" title="Permissions"><i class="fas fa-shield-halved"></i></button>`;
       const actions = isOwner ? '' : `
         <div class="action-cell">
+          ${permsBtn}
           ${u.status === 'active'
             ? `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'inactive')" title="Deactivate"><i class="fas fa-user-slash"></i></button>`
             : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'active')" title="Reactivate"><i class="fas fa-user-check"></i></button>`
@@ -9959,17 +10039,161 @@ function _renderTeamRows(list) {
   document.getElementById('teamCountInfo').textContent = list.length + ' member' + (list.length === 1 ? '' : 's');
 }
 
+// ── Add Team Member modal state ──────────────────────────────────
+let _tmAvatarBase64 = '';
+let _tmCurrentTags  = [];
+
 function openAddTeamModal() {
   document.getElementById('tm-name').value = '';
   document.getElementById('tm-email').value = '';
+  document.getElementById('tm-mobile').value = '';
+  document.getElementById('tm-address').value = '';
   document.getElementById('tm-role').value = 'sales';
+  document.getElementById('tm-password').value = '';
+  document.getElementById('tm-tag-input').value = '';
+  document.getElementById('tm-avatar-file').value = '';
+  const _ecw = document.getElementById('tm-extra-contacts'); if (_ecw) _ecw.innerHTML = '';
+  _tmAvatarBase64 = '';
+  _tmCurrentTags  = [];
+  _applyTeamAvatarPreview('');
+  _renderTeamTagPills();
   openModal('modal-add-team');
 }
 
+// ── Avatar upload (mirrors handleClientLogoUpload, resized client-side) ──
+function handleTeamAvatarUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('⚠️ Image must be under 5MB', 'warning'); return; }
+
+  const icon = document.getElementById('tm-avatar-upload-icon');
+  const text = document.getElementById('tm-avatar-upload-text');
+  const bar  = document.getElementById('tm-avatar-progress-bar');
+  if (icon) icon.className = 'fas fa-spinner fa-spin';
+  if (text) text.textContent = 'Processing…';
+  if (bar)  { bar.style.width = '0%'; bar.style.transition = 'none'; }
+
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct = pct < 85 ? pct + (85 - pct) * 0.08 : pct;
+    if (bar) bar.style.width = pct + '%';
+  }, 50);
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 200;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      let quality = 0.85, dataUrl;
+      do {
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+        quality -= 0.1;
+      } while (dataUrl.length > 50 * 1024 * 1.37 && quality > 0.1);
+
+      clearInterval(tick);
+      if (bar) { bar.style.transition = 'width .2s ease'; bar.style.width = '100%'; }
+
+      setTimeout(() => {
+        _tmAvatarBase64 = dataUrl;
+        _applyTeamAvatarPreview(dataUrl);
+        if (icon) icon.className = 'fas fa-check';
+        if (text) text.textContent = 'Uploaded!';
+        if (bar)  { bar.style.transition = 'width .4s ease'; bar.style.width = '0%'; }
+        setTimeout(() => {
+          if (icon) icon.className = 'fas fa-camera';
+          if (text) text.textContent = 'Upload Photo';
+        }, 2000);
+        toast('✅ Photo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+      }, 250);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _applyTeamAvatarPreview(src) {
+  const img     = document.getElementById('tm-avatar-img');
+  const icon    = document.getElementById('tm-avatar-icon');
+  const preview = document.getElementById('tm-avatar-preview');
+  if (src) {
+    img.src = src; img.style.display = 'block';
+    if (icon) icon.style.display = 'none';
+    if (preview) { preview.style.border = '3px solid #00897B'; preview.style.boxShadow = '0 0 0 3px rgba(0,137,123,.25)'; }
+  } else {
+    img.src = ''; img.style.display = 'none';
+    if (icon) icon.style.display = '';
+    if (preview) { preview.style.border = '3px solid var(--border)'; preview.style.boxShadow = 'none'; }
+  }
+}
+
+// ── Tags (mirrors client tag pills, namespaced to tm-) ───────────
+function _renderTeamTagPills() {
+  const wrap = document.getElementById('tm-tags-pills');
+  if (!wrap) return;
+  wrap.innerHTML = (_tmCurrentTags||[]).map(t => {
+    const col = _tagColor(t);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border}">${escHtml(t)}<span onclick="removeTeamTag('${escHtml(t)}')" style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">&times;</span></span>`;
+  }).join('');
+}
+function removeTeamTag(tag) {
+  _tmCurrentTags = (_tmCurrentTags||[]).filter(t => t !== tag);
+  _renderTeamTagPills();
+}
+function handleTeamTagInput(e) {
+  const input = e.target;
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = input.value.trim().replace(/,$/,'');
+    if (val && !(_tmCurrentTags||[]).includes(val)) {
+      _tmCurrentTags = [...(_tmCurrentTags||[]), val];
+      _renderTeamTagPills();
+    }
+    input.value = '';
+  } else if (e.key === 'Backspace' && !input.value && (_tmCurrentTags||[]).length) {
+    _tmCurrentTags = _tmCurrentTags.slice(0,-1);
+    _renderTeamTagPills();
+  }
+}
+
+// ── Additional contacts (mirrors addExtraContactRow, namespaced to tm-) ──
+function addTeamContactRow(data) {
+  const wrap = document.getElementById('tm-extra-contacts');
+  if (!wrap) return;
+  const id = 'tmec-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px';
+  row.innerHTML = `
+    <input placeholder="Name *" value="${(data&&data.name)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-name">
+    <input placeholder="Phone" value="${(data&&data.phone)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-phone">
+    <input placeholder="Relation (e.g. Emergency)" value="${(data&&data.relation)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-relation">
+    <button type="button" onclick="document.getElementById('${id}').remove()" style="width:28px;height:28px;border:none;background:var(--red-bg,#FFEBEE);color:#C62828;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">&times;</button>`;
+  wrap.appendChild(row);
+}
+function _getTeamContacts() {
+  const rows = document.querySelectorAll('#tm-extra-contacts > div');
+  const result = [];
+  rows.forEach(row => {
+    const name     = row.querySelector('.tmec-name')?.value?.trim();
+    const phone    = row.querySelector('.tmec-phone')?.value?.trim();
+    const relation = row.querySelector('.tmec-relation')?.value?.trim();
+    if (name || phone) result.push({ name: name||'', phone: phone||'', relation: relation||'' });
+  });
+  return result;
+}
+
 async function saveNewTeamMember() {
-  const name  = document.getElementById('tm-name').value.trim();
-  const email = document.getElementById('tm-email').value.trim();
-  const role  = document.getElementById('tm-role').value;
+  const name    = document.getElementById('tm-name').value.trim();
+  const email   = document.getElementById('tm-email').value.trim();
+  const mobile  = document.getElementById('tm-mobile').value.trim();
+  const address = document.getElementById('tm-address').value.trim();
+  const role    = document.getElementById('tm-role').value;
+  const password= document.getElementById('tm-password').value.trim();
   if (!name)  { toast('⚠️ Name required', 'warning'); return; }
   if (!email) { toast('⚠️ Email required', 'warning'); return; }
 
@@ -9978,7 +10202,14 @@ async function saveNewTeamMember() {
   btn.disabled = true;
 
   try {
-    const r = await api('api/team.php?action=add', 'POST', { name, email, role });
+    const payload = {
+      name, email, role, mobile, address,
+      password: password || undefined,
+      tags: _tmCurrentTags || [],
+      contacts: _getTeamContacts(),
+      avatar: _tmAvatarBase64 || undefined
+    };
+    const r = await api('api/team.php?action=add', 'POST', payload);
     closeModal('modal-add-team');
     await renderTeam();
     await Swal.fire({
@@ -9994,6 +10225,85 @@ async function saveNewTeamMember() {
     toast('❌ ' + e.message, 'error');
   } finally {
     btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════
+// ROLE PERMISSIONS MODAL (per-user Permissions button)
+// ══════════════════════════════════════════
+const TP = { catalog: [], plan: '', activeRole: 'sales' };
+
+async function openTeamPermissionsModal(role) {
+  TP.activeRole = role || 'sales';
+  document.getElementById('tp-role-select').value = TP.activeRole;
+  document.getElementById('tp-subtitle').textContent = 'Loading…';
+  document.getElementById('tp-body').innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px"><i class="fas fa-spinner fa-spin"></i> Loading permissions…</div>`;
+  openModal('modal-team-permissions');
+  try {
+    const r = await api('api/role_permissions.php?action=list');
+    TP.catalog = Array.isArray(r.data) ? r.data : [];
+    TP.plan = r.plan || '';
+    document.getElementById('tp-subtitle').textContent = `Plan: ${TP.plan}`;
+    _renderTeamPermissionsBody();
+  } catch (e) {
+    document.getElementById('tp-body').innerHTML = `<div style="text-align:center;color:var(--red);padding:30px">❌ ${escHtml(e.message)}</div>`;
+  }
+}
+
+function _tpSetActiveRole(role) {
+  TP.activeRole = role;
+  _renderTeamPermissionsBody();
+}
+
+function _renderTeamPermissionsBody() {
+  const body = document.getElementById('tp-body');
+  const roleLabels = { admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
+  const role = TP.activeRole;
+
+  if (!TP.catalog.length) {
+    body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:24px">No permissions defined yet.</div>`;
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  TP.catalog.forEach(p => { (groups[p.category || 'General'] = groups[p.category || 'General'] || []).push(p); });
+
+  body.innerHTML = Object.keys(groups).map(cat => `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${escHtml(cat)}</div>
+      <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        ${groups[cat].map(p => {
+          const enabled  = !!p.roles[role];
+          const ceiling  = !!p.ceiling;
+          const disabled = !ceiling && !enabled;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:${enabled ? 'var(--teal-bg)' : 'var(--card)'}">
+            <div style="font-size:13px;color:var(--text);${disabled?'opacity:.5':''}">
+              ${escHtml(p.label)}
+              ${!ceiling ? `<span style="font-size:10px;color:var(--amber);margin-left:6px"><i class="fas fa-lock"></i> not on ${escHtml(TP.plan)} plan</span>` : ''}
+            </div>
+            <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0">
+              <input type="checkbox" ${enabled?'checked':''} ${disabled?'disabled':''} onchange="toggleTeamPermission('${role}','${p.key}',this.checked)" style="opacity:0;width:0;height:0">
+              <span style="position:absolute;inset:0;background:${enabled?'#00897B':'#CBD5E1'};border-radius:22px;transition:.2s;cursor:${disabled?'not-allowed':'pointer'}"></span>
+              <span style="position:absolute;top:2px;left:${enabled?'18px':'2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+            </label>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleTeamPermission(role, key, enabled) {
+  try {
+    await api('api/role_permissions.php?action=set', 'POST', { role, permission_key: key, enabled });
+    const item = TP.catalog.find(p => p.key === key);
+    if (item) item.roles[role] = enabled;
+    toast('✅ Updated', 'success');
+    _renderTeamPermissionsBody();
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    _renderTeamPermissionsBody(); // revert toggle to actual saved state
   }
 }
 
