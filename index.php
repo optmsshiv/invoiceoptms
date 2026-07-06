@@ -2414,6 +2414,13 @@ const SERVER = {
               </div>
               <div class="field"><label>Test Phone Number</label><input id="wa-test-phone" placeholder="+91 XXXXX XXXXX" value="<?= htmlspecialchars($settings['wa_test_phone']??'') ?>"></div>
             </div>
+            <div class="field" style="margin-top:10px;display:flex;align-items:flex-start;gap:8px">
+              <input type="checkbox" id="wa-allow-web-fallback" style="margin-top:3px" <?= (($settings['wa_allow_web_fallback']??'0')==='1') ? 'checked' : '' ?> onchange="saveWASettings()">
+              <label for="wa-allow-web-fallback" style="font-weight:400;cursor:pointer">
+                Allow WhatsApp Web fallback
+                <span style="display:block;font-size:11px;color:var(--muted);font-weight:400">If unchecked (default), messages will NOT auto-open WhatsApp Web when the API isn't configured — sending will just fail with an error instead. Check this only if you're okay with WhatsApp Web popping open and needing a manual tap to send.</span>
+              </label>
+            </div>
             <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
               <button class="btn btn-whatsapp" onclick="testWA()"><i class="fab fa-whatsapp"></i> Test &amp; Send</button>
               <button class="btn btn-primary" onclick="saveWASettings()"><i class="fas fa-save"></i> Save</button>
@@ -11617,6 +11624,7 @@ window.saveWASettings = async function() {
     wa_bid:           val('wa-bid'),
     wa_webhook_token: val('wa-webhook-token'),
     wa_test_phone:    val('wa-test-phone'),
+    wa_allow_web_fallback: document.getElementById('wa-allow-web-fallback')?.checked ? '1' : '0',
     wa_tpl_inv:       val('wa-tpl-inv'),
     wa_tpl_estimate:  val('wa-tpl-estimate'),
     wa_tpl_paid:      val('wa-tpl-paid'),
@@ -11660,6 +11668,7 @@ window.saveWASettings = async function() {
   Object.assign(STATE.settings.wa, {
     token: payload.wa_token, pid: payload.wa_pid, bid: payload.wa_bid,
     test_phone: payload.wa_test_phone,
+    allow_web_fallback: payload.wa_allow_web_fallback === '1',
     tpl_inv: payload.wa_tpl_inv, tpl_estimate: payload.wa_tpl_estimate, tpl_paid: payload.wa_tpl_paid,
     tpl_partial: payload.wa_tpl_partial,
     tpl_remind: payload.wa_tpl_remind, tpl_overdue: payload.wa_tpl_overdue,
@@ -13990,6 +13999,8 @@ function populateWAPage() {
   setV('wa-pid',         wa.pid   || '');
   setV('wa-bid',         wa.bid   || '');
   setV('wa-test-phone',  wa.test_phone || '');
+  const _fbEl = document.getElementById('wa-allow-web-fallback');
+  if (_fbEl) _fbEl.checked = !!wa.allow_web_fallback;
   // Update follow-up label from reminder settings (single source of truth)
   const _wfl = document.getElementById('wa-followup-days-label');
   if (_wfl) { const cfg = getReminderSettings(); _wfl.textContent = cfg.overdueFreq || 7; }
@@ -14402,9 +14413,12 @@ async function sendWA(phone, message, tplName, inv, client) {
     } : null;
     return await sendWABusinessMsg(clean, message, token, pid, tplOpts);
   }
-  // Fallback: open wa.me
-  window.open('https://wa.me/' + (clean.length===10?'91'+clean:clean) + '?text=' + encodeURIComponent(message), '_blank');
-  return null;
+  // No API configured — only fall back to wa.me if explicitly allowed in settings
+  if (wa.allow_web_fallback) {
+    window.open('https://wa.me/' + (clean.length===10?'91'+clean:clean) + '?text=' + encodeURIComponent(message), '_blank');
+    return null;
+  }
+  throw new Error('WhatsApp Business API not configured (no auto-send, web fallback disabled)');
 }
 
 // ── Test Message ──────────────────────────────────────────────

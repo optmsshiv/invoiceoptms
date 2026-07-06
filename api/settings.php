@@ -30,6 +30,7 @@ switch ($method) {
       'generated_by'      => '',
       'default_currency'  => '₹',
       'wa_followup_days'  => '7',
+      'wa_allow_web_fallback' => '0',
       'tpl_logo_position'  => 'left',
       'tpl_watermark_text' => 'PAID',
       'tpl_color_theme'    => '1',
