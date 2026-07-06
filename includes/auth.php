@@ -154,6 +154,7 @@ function currentUser(): ?array {
     try {
         $stmt = getMasterDB()->prepare(
             'SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone,
+                    u.is_verified, u.license_no, u.license_expiry,
                     u.tenant_id, t.company_name, t.slug AS tenant_slug,
                     t.db_name AS tenant_db, t.plan, t.status AS tenant_status
              FROM users u

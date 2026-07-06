@@ -212,6 +212,31 @@ tr:hover td{background:#FAFAFA}
   </div>
 </div>
 
+<!-- ══ Edit Verification / License Modal ══════════════════════════ -->
+<div class="modal-overlay" id="modal-edit-license">
+  <div class="modal" style="max-width:420px">
+    <h3><i class="fas fa-id-card"></i> Verification &amp; License</h3>
+    <p id="el-user-label" style="font-size:12.5px;color:#6B7280;margin:-8px 0 14px"></p>
+    <div id="el-alert"></div>
+    <div class="field" style="margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="el-verified" style="width:16px;height:16px">
+      <label style="margin:0" for="el-verified">Mark as Verified</label>
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>License Number</label>
+      <input id="el-license-no" placeholder="e.g. LIC-2026-0042">
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>License Expiry Date</label>
+      <input id="el-license-expiry" type="date">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-license')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVerification()"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ Plan Defaults Modal ══════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-plan-defaults">
   <div class="modal" style="max-width:600px">
@@ -435,24 +460,71 @@ async function loadUsers() {
   const r    = await fetch(`/api/tenant.php?action=users&tenant_id=${ACTIVE_TENANT_ID}`);
   const data = await r.json();
   const users = data.data || [];
+  CURRENT_USERS = users; // cache for openEditLicense lookup
   const wrap  = document.getElementById('users-list');
   if (!users.length) {
     wrap.innerHTML = '<p style="color:#9CA3AF;font-size:13px">No users yet</p>'; return;
   }
   wrap.innerHTML = `<table>
-    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Verified</th><th>License</th><th></th></tr></thead>
     <tbody>` +
-    users.map(u => `<tr>
+    users.map(u => {
+      const licenseText = u.license_no
+        ? `${esc(u.license_no)}${u.license_expiry ? ' · ' + u.license_expiry.slice(0,10) : ''}`
+        : '<span style="color:#9CA3AF">—</span>';
+      return `<tr>
       <td>${esc(u.name)}</td>
       <td style="font-size:12px">${esc(u.email)}</td>
       <td><span class="badge badge-${u.role}">${u.role}</span></td>
       <td><span class="badge badge-${u.status}">${u.status}</span></td>
       <td style="font-size:11px;color:#9CA3AF">${u.last_login ? u.last_login.slice(0,10) : 'Never'}</td>
-      <td>
+      <td>${u.is_verified == 1
+        ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#E3F2FD;color:#1565C0">VERIFIED</span>'
+        : '<span style="font-size:10px;color:#9CA3AF">Unverified</span>'}</td>
+      <td style="font-size:11.5px">${licenseText}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="openEditLicense(${u.id})" title="Edit verification & license"><i class="fas fa-id-card"></i></button>
         <button class="btn btn-danger btn-sm" onclick="removeUser(${u.id})"><i class="fas fa-times"></i></button>
       </td>
-    </tr>`).join('') +
+    </tr>`;
+    }).join('') +
     '</tbody></table>';
+}
+
+// ── Edit verification / license ─────────────────────────────────
+let CURRENT_USERS = [];
+let ACTIVE_EDIT_USER_ID = null;
+
+function openEditLicense(userId) {
+  const u = CURRENT_USERS.find(x => x.id == userId);
+  if (!u) return;
+  ACTIVE_EDIT_USER_ID = userId;
+  document.getElementById('el-user-label').textContent = `${u.name} (${u.email})`;
+  document.getElementById('el-verified').checked = u.is_verified == 1;
+  document.getElementById('el-license-no').value = u.license_no || '';
+  document.getElementById('el-license-expiry').value = u.license_expiry ? u.license_expiry.slice(0,10) : '';
+  document.getElementById('el-alert').innerHTML = '';
+  document.getElementById('modal-edit-license').classList.add('open');
+}
+
+async function saveVerification() {
+  const payload = {
+    user_id: ACTIVE_EDIT_USER_ID,
+    is_verified: document.getElementById('el-verified').checked ? 1 : 0,
+    license_no: document.getElementById('el-license-no').value.trim(),
+    license_expiry: document.getElementById('el-license-expiry').value.trim(),
+  };
+  const r    = await fetch('/api/tenant.php?action=update_verification', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await r.json();
+  if (data.success) {
+    closeModal('modal-edit-license');
+    loadUsers();
+  } else {
+    showAlert('el-alert', data.error || 'Failed to save', 'error');
+  }
 }
 
 async function addUser() {
