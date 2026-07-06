@@ -1,58 +1,140 @@
 <?php
 // ================================================================
 //  OPTMS Invoice Manager — config/db.php
-//  Edit DB_NAME, DB_USER, DB_PASS before deploying
+//  Multi-tenant version — separate DB per tenant
 // ================================================================
 
-// Start output buffering immediately so no stray whitespace leaks into JSON responses
 if (!ob_get_level()) ob_start();
 
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'edrppymy_optms_invoice');   // ← your database name
-define('DB_USER',    'edrppymy_optms_invoice');            // ← your MySQL username
-define('DB_PASS',    '1234@Optmsdatabase');               // ← your MySQL password
-define('DB_CHARSET', 'utf8mb4');
+// ── Master DB credentials ─────────────────────────────────────────
+define('MASTER_DB_HOST',    'localhost');
+define('MASTER_DB_NAME',    'edrppymy_optms_master');
+define('MASTER_DB_USER',    'edrppymy_optms_invoice');
+define('MASTER_DB_PASS',    '1234@Optmsdatabase');
+define('MASTER_DB_CHARSET', 'utf8mb4');
 
+// ── App constants ─────────────────────────────────────────────────
 define('APP_NAME',    'OPTMS Tech Invoice Manager');
-define('APP_VERSION', '1.0.0');
-define('APP_URL',     'http://invcs.optms.co.in');  // ← your live domain
+
+// ── cPanel API credentials (for auto DB provisioning) ────────────
+// Get your API token from cPanel → Security → Manage API Tokens
+// Leave blank if on VPS/dedicated (CREATE DATABASE works directly)
+define('CPANEL_USER',  '');   // ← your cPanel username (e.g. 'edrppymy')
+define('CPANEL_TOKEN', '');   // ← your cPanel API token
+define('APP_VERSION', '2.0.0');
+define('APP_URL',     'https://praxio.optms.co.in');
 
 define('SESSION_LIFETIME', 7200);
 define('UPLOAD_MAX_SIZE',  3145728);
 define('UPLOAD_PATH',      __DIR__ . '/../assets/uploads/');
 
-function getDB(): PDO {
-    static $pdo = null;
-    if ($pdo !== null) return $pdo;
+// ── Role hierarchy ────────────────────────────────────────────────
+// Higher number = more permissions
+define('ROLE_WEIGHTS', [
+    'viewer'      => 1,
+    'sales'       => 2,
+    'accountant'  => 3,
+    'manager'     => 4,
+    'admin'       => 5,
+    'owner'       => 6,
+    'super_admin' => 99,
+]);
+
+// ── Master DB connection (always optms_master) ────────────────────
+function getMasterDB(): PDO {
+    static $masterPdo = null;
+    if ($masterPdo !== null) return $masterPdo;
     try {
-        $pdo = new PDO(
-            'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET,
-            DB_USER, DB_PASS,
+        $masterPdo = new PDO(
+            'mysql:host=' . MASTER_DB_HOST .
+            ';dbname='    . MASTER_DB_NAME .
+            ';charset='   . MASTER_DB_CHARSET,
+            MASTER_DB_USER, MASTER_DB_PASS,
             [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]
         );
-        // Set MySQL session timezone to IST so NOW(), CURRENT_TIMESTAMP are correct
-        $pdo->exec("SET time_zone = '+05:30'");
-        
     } catch (PDOException $e) {
-        error_log('DB connection failed: ' . $e->getMessage());
-        while (ob_get_level()) ob_end_clean();
-        $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false;
-        if ($isApi) {
-            http_response_code(500);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Database connection failed']);
-        } else {
-            http_response_code(500);
-            echo '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:40px">
-            <h2 style="color:#e53935">Database Error</h2>
-            <p>Cannot connect. Check <code>config/db.php</code> credentials.</p>
-            </body></html>';
-        }
-        exit;
+        error_log('Master DB connection failed: ' . $e->getMessage());
+        _dbError('Master database connection failed');
     }
-    return $pdo;
+    return $masterPdo;
+}
+
+// ── Tenant DB connection (switches per session) ───────────────────
+// Returns PDO connected to the current tenant's DB.
+// If no tenant in session (e.g. super_admin), returns master DB.
+function getDB(): PDO {
+    static $tenantPdo  = null;
+    static $currentDb  = null;
+
+    // Resolve which DB to use
+    $targetDb = null;
+    if (session_status() !== PHP_SESSION_NONE) {
+        $targetDb = $_SESSION['tenant_db'] ?? null;
+    }
+
+    // super_admin with no tenant context → use master
+    if (!$targetDb) return getMasterDB();
+
+    // Re-use if same DB
+    if ($tenantPdo !== null && $currentDb === $targetDb) return $tenantPdo;
+
+    try {
+        $tenantPdo = new PDO(
+            'mysql:host=' . MASTER_DB_HOST .
+            ';dbname='    . $targetDb .
+            ';charset=utf8mb4',
+            MASTER_DB_USER, MASTER_DB_PASS,
+            [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ]
+        );
+        $currentDb = $targetDb;
+    } catch (PDOException $e) {
+        error_log("Tenant DB [{$targetDb}] connection failed: " . $e->getMessage());
+        _dbError("Tenant database connection failed. Please contact support.");
+    }
+    return $tenantPdo;
+}
+
+// ── Connect to a specific DB by name (used during provisioning) ───
+function getDBByName(string $dbName): PDO {
+    try {
+        return new PDO(
+            'mysql:host=' . MASTER_DB_HOST .
+            ';dbname='    . $dbName .
+            ';charset=utf8mb4',
+            MASTER_DB_USER, MASTER_DB_PASS,
+            [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ]
+        );
+    } catch (PDOException $e) {
+        throw new RuntimeException("Cannot connect to [{$dbName}]: " . $e->getMessage());
+    }
+}
+
+// ── DB error handler ──────────────────────────────────────────────
+function _dbError(string $message): never {
+    while (ob_get_level()) ob_end_clean();
+    $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
+          || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+    if ($isApi) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => $message]);
+    } else {
+        http_response_code(500);
+        echo "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px'>
+        <h2 style='color:#e53935'>Database Error</h2>
+        <p>{$message}</p></body></html>";
+    }
+    exit;
 }
