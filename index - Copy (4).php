@@ -1491,15 +1491,10 @@ const SERVER = {
           <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
         </div>
       </div>
-      <!-- WhatsApp Automation Card (finance/accountant roles don't need this;
-           also hidden on the Pro plan specifically — a plan-tier decision,
-           independent of role permissions, so it doesn't touch the
-           WhatsApp Setup sidebar link or any other role's access) -->
-      <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
-      <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
+      <!-- WhatsApp Automation Card (finance/accountant roles don't need this) -->
+      <?php if ($perms['menu.whatsapp'] ?? true): ?>
       <div id="dashWACard" style="margin-bottom:16px"></div>
       <?php endif; ?>
-      <?php unset($hideWACardForPlan); ?>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
       <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
       <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
