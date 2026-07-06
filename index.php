@@ -1491,10 +1491,17 @@ const SERVER = {
           <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
         </div>
       </div>
-      <!-- WhatsApp Automation Card (finance/accountant roles don't need this;
+      <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
+           plan including Pro (the plan exclusion below only affects the
+           glowing automation banner beneath it). -->
+      <?php if ($perms['menu.whatsapp'] ?? true): ?>
+      <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
+      <?php endif; ?>
+      <!-- WhatsApp Automation banner (finance/accountant roles don't need this;
            also hidden on the Pro plan specifically — a plan-tier decision,
            independent of role permissions, so it doesn't touch the
-           WhatsApp Setup sidebar link or any other role's access) -->
+           WhatsApp Setup sidebar link, the KPI row above, or any other
+           role's access) -->
       <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
       <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
       <div id="dashWACard" style="margin-bottom:16px"></div>
@@ -12774,24 +12781,18 @@ function renderDashKpis() {
     <div><div style="font-size:10px;color:var(--muted)">${k.l}</div><div style="font-weight:700;font-size:13px">${k.v}</div></div>
   </div>`).join('');
 
-  // ── WhatsApp card (skipped entirely if role can't see WhatsApp) ──
-  const waEl = document.getElementById('dashWACard');
-  if (waEl) {
-    const wa     = STATE.settings.wa || {};
-    const hasAPI = !!(wa.token && wa.pid);
-    const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
-    const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
-
-    const pendWA   = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
-    const overWA   = STATE.invoices.filter(i => i.status==='Overdue').length;
-    const paidTM   = STATE.invoices.filter(i => {
+  // ── WhatsApp mini-KPI row (role-gated only; visible on every plan) ──
+  const waKpiEl = document.getElementById('dashWAKpiRow');
+  if (waKpiEl) {
+    const pendWA      = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
+    const overWA      = STATE.invoices.filter(i => i.status==='Overdue').length;
+    const paidTM      = STATE.invoices.filter(i => {
       const d = new Date();
       return i.status==='Paid' && i.issued &&
              new Date(i.issued).getMonth()===d.getMonth() &&
              new Date(i.issued).getFullYear()===d.getFullYear();
     }).length;
-    const waClients = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
-
+    const waClients   = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
     const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
     const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
     const miniCards = [
@@ -12810,6 +12811,17 @@ function renderDashKpis() {
       <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
     </div>`).join('');
 
+    waKpiEl.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>`;
+  }
+
+  // ── WhatsApp Automation banner (role-gated + hidden on Pro plan) ──
+  const waEl = document.getElementById('dashWACard');
+  if (waEl) {
+    const wa     = STATE.settings.wa || {};
+    const hasAPI = !!(wa.token && wa.pid);
+    const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
+    const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
+
     const toggles = [
       {key:'auto_inv',      label:'New Invoice',     icon:'📄', val: wa.auto_inv==='1'},
       {key:'auto_paid',     label:'Receipt',         icon:'✅', val: wa.auto_paid!=='0'},
@@ -12825,7 +12837,6 @@ function renderDashKpis() {
     </div>`).join('');
 
     waEl.innerHTML = `
-      <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#e8f5e9;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36640,0 0 28px #25D36618;animation:waGlow 2.5s ease-in-out infinite">
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
