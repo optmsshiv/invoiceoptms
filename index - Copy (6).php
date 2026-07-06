@@ -207,7 +207,7 @@ canvas { max-width: 100% !important; }
   border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font); font-weight: 800; font-size: 14px; color: #fff;
-  flex-shrink: 0; overflow: hidden;
+  flex-shrink: 0;
 }
 .brand-name { font-weight: 700; font-size: 15px; color: #fff; display: block; }
 .brand-tagline { font-size: 10px; color: rgba(255,255,255,.4); display: block; }
@@ -1117,7 +1117,7 @@ select { cursor: pointer; }
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
 .user-chip:hover { background:var(--bg);border-color:var(--teal); }
-.user-chip-avatar { width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
+.user-chip-avatar { width:28px;height:28px;border-radius:7px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
 
@@ -1125,7 +1125,7 @@ select { cursor: pointer; }
 .user-dropdown { position:absolute;top:calc(100% + 10px);right:0;width:240px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.13);z-index:700;display:none;overflow:hidden; }
 .user-dropdown.open { display:block; }
 .user-dropdown-header { padding:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
-.udh-avatar { width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
+.udh-avatar { width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
 .udh-name { font-size:13px;font-weight:700;color:#fff; }
 .udh-email { font-size:10px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px; }
 .udh-role { display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;text-transform:uppercase;letter-spacing:.4px; }
@@ -1167,9 +1167,6 @@ select { cursor: pointer; }
 .pcard-body { padding:20px; }
 .pcard-body .field { margin-bottom:14px; }
 .pcard-body .field:last-of-type { margin-bottom:0; }
-.pcard-field-row { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px; }
-.pcard-field-row .field { margin-bottom:0; }
-@media(max-width:520px){ .pcard-field-row { grid-template-columns:1fr; gap:14px; } }
 .pcard-footer { padding:12px 20px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:flex-end;gap:10px; }
 .danger-zone { background:#FEF0EF;border:1px solid #F7C1C1;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
 .dz-text h4 { font-size:13px;font-weight:700;color:#C0392B;margin:0 0 3px; }
@@ -1263,13 +1260,7 @@ const SERVER = {
 ══════════════════════════════════════════ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-logo">
-      <?php if (!empty($companyLogo)): ?>
-        <img src="<?= htmlspecialchars($companyLogo) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">
-      <?php else: ?>
-        <?= strtoupper(substr($companyName,0,2)) ?>
-      <?php endif; ?>
-    </div>
+    <div class="brand-logo"><?= strtoupper(substr($companyName,0,2)) ?></div>
     <div class="brand-text">
       <span class="brand-name"><?= htmlspecialchars($companyName) ?></span>
       <span class="brand-tagline">Invoice Manager</span>
@@ -3312,14 +3303,10 @@ View Invoice: {{6}}</pre></details>
               <span class="pcard-title">Account Information</span>
             </div>
             <div class="pcard-body">
-              <div class="pcard-field-row">
-                <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
-                <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
-              </div>
-              <div class="pcard-field-row" style="margin-bottom:0">
-                <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
-                <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
-              </div>
+              <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
+              <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+              <div class="field" style="margin-bottom:0"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
             </div>
             <div class="pcard-footer">
               <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
@@ -3333,10 +3320,8 @@ View Invoice: {{6}}</pre></details>
               <span class="pcard-title">Change Password</span>
             </div>
             <div class="pcard-body">
-              <div class="pcard-field-row" style="margin-bottom:0">
-                <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
-                <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
-              </div>
+              <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
+              <div class="field" style="margin-bottom:0"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
             </div>
             <div class="pcard-footer">
               <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
@@ -13800,20 +13785,18 @@ window.renderProfilePage = function() {
 
 // Sync avatar + name everywhere after profile save
 function _syncProfileUI(name, avatarSrc) {
-  if (name) {
-    // Topbar chip
-    const chipName = document.querySelector('.user-chip-name');
-    if (chipName) chipName.textContent = name.split(' ')[0];
-    // Sidebar footer name
-    const sidebarName = document.querySelector('.sidebar-footer .user-name');
-    if (sidebarName) sidebarName.textContent = name;
-    // Profile left card display name
-    const dispName = document.getElementById('profile-display-name');
-    if (dispName) dispName.textContent = name;
-    // Dropdown header
-    const udName = document.querySelector('.udh-name');
-    if (udName) udName.textContent = name;
-  }
+  // Topbar chip
+  const chipName = document.querySelector('.user-chip-name');
+  if (chipName) chipName.textContent = name.split(' ')[0];
+  // Sidebar footer name
+  const sidebarName = document.querySelector('.sidebar-footer .user-name');
+  if (sidebarName) sidebarName.textContent = name;
+  // Profile left card display name
+  const dispName = document.getElementById('profile-display-name');
+  if (dispName) dispName.textContent = name;
+  // Dropdown header
+  const udName = document.querySelector('.udh-name');
+  if (udName) udName.textContent = name;
   // Avatar elements
   if (avatarSrc) {
     const img = `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
@@ -13887,17 +13870,20 @@ window.uploadProfilePhoto = async function(input) {
     const res  = await fetch('api/upload.php', { method:'POST', body:fd });
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
-
-    // Persist the URL to the DB immediately — without this the photo
-    // reverts on refresh since currentUser() re-reads from the DB.
-    await api('api/profile.php', 'POST', { avatar: data.url });
-
-    _syncProfileUI(null, data.url);
+    const prev = document.getElementById('profile-avatar-preview');
+    if (prev) prev.innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover">`;
     SERVER.user = SERVER.user || {};
     SERVER.user._avatarUrl = data.url;
     toast('✅ Photo uploaded!', 'success');
   } catch(e) {
-    toast('❌ Photo upload failed: ' + e.message, 'error');
+    // fallback base64
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const prev = document.getElementById('profile-avatar-preview');
+      if (prev) prev.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+      SERVER.user._avatarUrl = ev.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 };
 
