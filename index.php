@@ -10350,7 +10350,7 @@ async function removeTeamMember(userId) {
   });
   if (!result.isConfirmed) return;
   try {
-    await api('api/team.php?action=remove', 'DELETE', { user_id: userId });
+    await api('api/team.php?action=remove', 'PATCH', { user_id: userId });
     toast('🗑️ Removed', 'info');
     renderTeam();
   } catch (e) { toast('❌ ' + e.message, 'error'); }
