@@ -142,6 +142,38 @@ tbody tr:hover td{background:#FAFBFD}
 .alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;line-height:1.5}
 .alert-success{background:#E7F7EF;color:#0B7A44;border:1px solid #B7EBCB}
 .alert-error{background:var(--danger-soft);color:var(--danger);border:1px solid #F7D3D0}
+
+/* Toggle switch */
+.switch{position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;cursor:pointer}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#D7DCE3;border-radius:22px;transition:.15s}
+.switch .slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(16,24,40,.25)}
+.switch input:checked + .slider{background:var(--accent)}
+.switch input:checked + .slider::before{transform:translateX(16px)}
+.switch input:focus-visible + .slider{box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* Plan tabs */
+.plan-tabs{display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border-soft)}
+.plan-tab{flex:1;padding:8px 6px;border-radius:7px;border:none;background:transparent;font-size:12.5px;font-weight:700;color:var(--text-mute);cursor:pointer;transition:.15s;font-family:inherit}
+.plan-tab.active{background:#fff;color:var(--text);box-shadow:var(--shadow-sm)}
+.plan-tab:hover:not(.active){color:var(--text-soft)}
+
+/* Permission group cards */
+.perm-card{border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.perm-card-head{padding:10px 14px;background:var(--surface);font-size:11px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center}
+.perm-card-head .count{font-size:10.5px;font-weight:700;color:var(--text-mute);text-transform:none;letter-spacing:0}
+.perm-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-top:1px solid var(--border-soft)}
+.perm-row .lbl{font-size:13px;color:var(--text-soft);font-weight:500;display:flex;align-items:center;gap:8px}
+.info-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border-soft);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--text-mute);margin-bottom:14px}
+.info-strip strong{color:var(--text);font-weight:700}
+.search-box{position:relative;margin-bottom:14px}
+.search-box i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-mute);font-size:12px}
+.search-box input{width:100%;padding:9px 12px 9px 32px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+.search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.user-row-card{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+.user-row-card:last-child{border-bottom:none}
+.contact-cell{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-soft)}
+.contact-cell i{color:var(--text-mute);font-size:11px;width:12px}
 </style>
 </head>
 <body>
@@ -218,12 +250,12 @@ tbody tr:hover td{background:#FAFBFD}
       <table>
         <thead>
           <tr>
-            <th>Company</th><th>Identifiers</th><th>Plan</th><th>Status</th>
+            <th>Company</th><th>Contact</th><th>Identifiers</th><th>Plan</th><th>Status</th>
             <th>Users</th><th>Created</th><th style="text-align:right">Actions</th>
           </tr>
         </thead>
         <tbody id="tenants-tbody">
-          <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
+          <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -294,18 +326,22 @@ tbody tr:hover td{background:#FAFBFD}
 
 <!-- Tenant Users Modal -->
 <div class="modal-overlay" id="modal-users">
-  <div class="modal" style="max-width:660px">
+  <div class="modal" style="max-width:680px">
     <button class="modal-close" onclick="closeModal('modal-users')"><i class="fas fa-times"></i></button>
     <div class="modal-head">
       <div class="modal-icon"><i class="fas fa-users"></i></div>
       <div>
         <h3 id="users-modal-title">Tenant Users</h3>
-        <p>Manage who has access to this tenant's workspace.</p>
+        <p id="users-modal-sub">Manage who has access to this tenant's workspace.</p>
       </div>
     </div>
     <div class="modal-body">
       <div id="users-alert"></div>
-      <div id="users-list" style="margin-bottom:22px"></div>
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input id="users-search" placeholder="Search by name or email…" oninput="renderUsersList()">
+      </div>
+      <div id="users-list" style="margin-bottom:20px"></div>
       <div class="divider"></div>
       <div class="section-label">Add New User</div>
       <div class="field-row">
@@ -368,7 +404,7 @@ tbody tr:hover td{background:#FAFBFD}
 
 <!-- ══ Plan Defaults Modal ══════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-plan-defaults">
-  <div class="modal" style="max-width:600px">
+  <div class="modal" style="max-width:620px">
     <button class="modal-close" onclick="closeModal('modal-plan-defaults')"><i class="fas fa-times"></i></button>
     <div class="modal-head">
       <div class="modal-icon"><i class="fas fa-sliders-h"></i></div>
@@ -379,15 +415,18 @@ tbody tr:hover td{background:#FAFBFD}
     </div>
     <div class="modal-body">
       <div id="plan-defaults-alert"></div>
-      <div class="field">
-        <label>Plan</label>
-        <select id="pd-plan" onchange="loadPlanDefaults()">
-          <option value="trial">Trial</option>
-          <option value="basic">Basic</option>
-          <option value="pro" selected>Pro</option>
-          <option value="enterprise">Enterprise</option>
-        </select>
+      <div class="plan-tabs" id="pd-plan-tabs" style="margin-bottom:16px">
+        <button type="button" class="plan-tab" data-plan="trial" onclick="selectPlanTab('trial')">Trial</button>
+        <button type="button" class="plan-tab" data-plan="basic" onclick="selectPlanTab('basic')">Basic</button>
+        <button type="button" class="plan-tab active" data-plan="pro" onclick="selectPlanTab('pro')">Pro</button>
+        <button type="button" class="plan-tab" data-plan="enterprise" onclick="selectPlanTab('enterprise')">Enterprise</button>
       </div>
+      <select id="pd-plan" style="display:none">
+        <option value="trial">Trial</option>
+        <option value="basic">Basic</option>
+        <option value="pro" selected>Pro</option>
+        <option value="enterprise">Enterprise</option>
+      </select>
       <div id="plan-defaults-list" style="max-height:420px;overflow-y:auto">Loading…</div>
     </div>
     <div class="modal-foot">
@@ -441,7 +480,7 @@ async function loadTenants() {
 
   const tbody = document.getElementById('tenants-tbody');
   if (!TENANTS.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
   tbody.innerHTML = TENANTS.map(t => `
@@ -454,6 +493,9 @@ async function loadTenants() {
             <div class="meta">${esc(t.owner_email)}</div>
           </div>
         </div>
+      </td>
+      <td>
+        ${t.phone ? `<div class="contact-cell"><i class="fas fa-phone"></i> ${esc(t.phone)}</div>` : '<span class="muted-date">—</span>'}
       </td>
       <td>
         <div class="id-stack">
@@ -604,7 +646,9 @@ async function activateTenant(id) {
 async function openUsers(tenantId, companyName) {
   ACTIVE_TENANT_ID = tenantId;
   document.getElementById('users-modal-title').textContent = `Users — ${companyName}`;
+  document.getElementById('users-modal-sub').textContent = 'Manage who has access to this tenant\'s workspace.';
   document.getElementById('users-alert').innerHTML = '';
+  document.getElementById('users-search').value = '';
   document.getElementById('modal-users').classList.add('open');
   await loadUsers();
 }
@@ -612,11 +656,22 @@ async function openUsers(tenantId, companyName) {
 async function loadUsers() {
   const r    = await fetch(`/api/tenant.php?action=users&tenant_id=${ACTIVE_TENANT_ID}`);
   const data = await r.json();
-  const users = data.data || [];
-  CURRENT_USERS = users; // cache for openEditLicense lookup
+  CURRENT_USERS = data.data || []; // cache for openEditLicense lookup and search
+  document.getElementById('users-modal-sub').textContent =
+    `${CURRENT_USERS.length} user${CURRENT_USERS.length===1?'':'s'} with access to this workspace`;
+  renderUsersList();
+}
+
+function renderUsersList() {
+  const q = (document.getElementById('users-search').value || '').toLowerCase().trim();
+  const users = CURRENT_USERS.filter(u =>
+    !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
   const wrap  = document.getElementById('users-list');
-  if (!users.length) {
+  if (!CURRENT_USERS.length) {
     wrap.innerHTML = '<p style="color:var(--text-mute);font-size:13px;padding:8px 0">No users yet</p>'; return;
+  }
+  if (!users.length) {
+    wrap.innerHTML = '<p style="color:var(--text-mute);font-size:13px;padding:8px 0">No users match your search</p>'; return;
   }
   wrap.innerHTML = `<div style="overflow-x:auto"><table>
     <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last Login</th><th>Verified</th><th>License</th><th style="text-align:right">Actions</th></tr></thead>
@@ -754,7 +809,15 @@ function _groupPermsByCategory(rows) {
 // ══ Plan Defaults ════════════════════════════════════════════════
 function openPlanDefaults() {
   document.getElementById('plan-defaults-alert').innerHTML = '';
+  selectPlanTab('pro');
   document.getElementById('modal-plan-defaults').classList.add('open');
+}
+
+function selectPlanTab(plan) {
+  document.getElementById('pd-plan').value = plan;
+  document.querySelectorAll('#pd-plan-tabs .plan-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.plan === plan);
+  });
   loadPlanDefaults();
 }
 
@@ -768,19 +831,27 @@ async function loadPlanDefaults() {
     if (!data.success) { list.innerHTML = `<div class="alert alert-error">${esc(data.error||'Failed to load')}</div>`; return; }
 
     const groups = _groupPermsByCategory(data.data);
-    list.innerHTML = Object.keys(groups).map(cat => `
-      <div style="margin-bottom:16px">
-        <div class="section-label">${esc(PERM_CATEGORY_LABEL[cat] || cat)}</div>
-        ${groups[cat].map(p => `
-          <label style="display:flex;align-items:center;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--border-soft);cursor:pointer">
-            <span style="font-size:13px;color:var(--text-soft);font-weight:500">${esc(p.label)}</span>
-            <input type="checkbox" ${p.enabled ? 'checked' : ''}
-                   onchange="setPlanPermission('${esc(p.key)}', this.checked)"
-                   style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-          </label>
+    list.innerHTML = Object.keys(groups).map(cat => {
+      const rows = groups[cat];
+      const enabledCount = rows.filter(p => p.enabled).length;
+      return `
+      <div class="perm-card">
+        <div class="perm-card-head">
+          <span>${esc(PERM_CATEGORY_LABEL[cat] || cat)}</span>
+          <span class="count">${enabledCount}/${rows.length} enabled</span>
+        </div>
+        ${rows.map(p => `
+          <div class="perm-row">
+            <span class="lbl">${esc(p.label)}</span>
+            <label class="switch">
+              <input type="checkbox" ${p.enabled ? 'checked' : ''}
+                     onchange="setPlanPermission('${esc(p.key)}', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
         `).join('')}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
     list.innerHTML = `<div class="alert alert-error">Network error: ${esc(e.message)}</div>`;
   }
@@ -820,29 +891,41 @@ async function loadTenantPermissions() {
     if (!data.success) { list.innerHTML = `<div class="alert alert-error">${esc(data.error||'Failed to load')}</div>`; return; }
 
     const groups = _groupPermsByCategory(data.data);
+    const total = data.data.length;
+    const overrideCount = data.data.filter(p => p.is_override).length;
+    const enabledCount = data.data.filter(p => p.effective).length;
     list.innerHTML = `
-      <div style="font-size:12px;color:var(--text-mute);margin-bottom:12px;background:var(--surface);border-radius:8px;padding:8px 12px">
-        Plan: <strong style="color:var(--text)">${esc(data.tenant.plan)}</strong>
+      <div class="info-strip">
+        <span>Plan: <strong>${esc(data.tenant.plan)}</strong></span>
+        <span><strong>${enabledCount}</strong>/${total} enabled</span>
+        <span>${overrideCount ? `<strong style="color:var(--warning)">${overrideCount}</strong> override${overrideCount===1?'':'s'}` : 'No overrides'}</span>
       </div>
-      ` + Object.keys(groups).map(cat => `
-      <div style="margin-bottom:16px">
-        <div class="section-label">${esc(PERM_CATEGORY_LABEL[cat] || cat)}</div>
-        ${groups[cat].map(p => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--border-soft)">
-            <span style="font-size:13px;color:var(--text-soft);font-weight:500;display:flex;align-items:center;gap:8px">
+      ` + Object.keys(groups).map(cat => {
+        const rows = groups[cat];
+        return `
+      <div class="perm-card">
+        <div class="perm-card-head">
+          <span>${esc(PERM_CATEGORY_LABEL[cat] || cat)}</span>
+          <span class="count">${rows.filter(p=>p.effective).length}/${rows.length} enabled</span>
+        </div>
+        ${rows.map(p => `
+          <div class="perm-row">
+            <span class="lbl">
               ${esc(p.label)}
               ${p.is_override ? '<span class="override-tag">OVERRIDE</span>' : ''}
             </span>
-            <div style="display:flex;align-items:center;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px">
               ${p.is_override ? `<button onclick="clearTenantOverride('${esc(p.key)}')" style="font-size:11px;color:var(--accent-dark);background:none;border:none;cursor:pointer;text-decoration:underline;font-weight:600">Reset</button>` : ''}
-              <input type="checkbox" ${p.effective ? 'checked' : ''}
-                     onchange="setTenantOverride('${esc(p.key)}', this.checked)"
-                     style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+              <label class="switch">
+                <input type="checkbox" ${p.effective ? 'checked' : ''}
+                       onchange="setTenantOverride('${esc(p.key)}', this.checked)">
+                <span class="slider"></span>
+              </label>
             </div>
           </div>
         `).join('')}
-      </div>
-    `).join('');
+      </div>`;
+      }).join('');
   } catch(e) {
     list.innerHTML = `<div class="alert alert-error">Network error: ${esc(e.message)}</div>`;
   }
