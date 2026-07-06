@@ -148,12 +148,17 @@ function can(string $key): bool {
 }
 
 // ── Current user (from master DB) ────────────────────────────────
+// NOTE: assumes `address` and `alt_phone` columns exist on the master
+// `users` table. If your schema predates the profile-page redesign,
+// run: ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL,
+//                        ADD COLUMN alt_phone VARCHAR(30) NULL;
 function currentUser(): ?array {
     startSession();
     if (empty($_SESSION['user_id'])) return null;
     try {
         $stmt = getMasterDB()->prepare(
-            'SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.created_at,
+            'SELECT u.id, u.name, u.email, u.role, u.avatar, u.phone, u.alt_phone,
+                    u.address, u.created_at,
                     u.is_verified, u.license_no, u.license_expiry,
                     u.tenant_id, t.company_name, t.slug AS tenant_slug,
                     t.db_name AS tenant_db, t.plan, t.status AS tenant_status

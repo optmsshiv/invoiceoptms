@@ -41,7 +41,6 @@ if (!empty($d['password'])) {
 if (!empty($d['avatar']))   { $sets[] = 'avatar=?';    $params[] = $d['avatar']; }
 if (isset($d['phone']))     { $sets[] = 'phone=?';     $params[] = trim($d['phone']); }
 if (isset($d['alt_phone'])) { $sets[] = 'alt_phone=?'; $params[] = trim($d['alt_phone']); }
-if (isset($d['address']))   { $sets[] = 'address=?';   $params[] = trim($d['address']); }
 
 if (empty($sets)) jsonResponse(['error'=>'Nothing to update'], 400);
 

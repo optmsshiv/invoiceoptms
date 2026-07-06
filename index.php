@@ -1150,8 +1150,11 @@ select { cursor: pointer; }
 .ud-divider { height:1px;background:var(--border);margin:4px 6px; }
 
 /* ── Profile page ── */
-.profile-page-wrap { display:grid;grid-template-columns:280px 1fr;gap:20px;max-width:900px;margin:0 auto;padding:4px 0 40px; }
-@media(max-width:700px){ .profile-page-wrap { grid-template-columns:1fr; } }
+.profile-page-wrap { display:flex;flex-direction:column;gap:16px;max-width:1120px;margin:0 auto;padding:4px 0 32px; }
+.profile-top-row { display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:stretch; }
+@media(max-width:760px){ .profile-top-row { grid-template-columns:1fr; } }
+.profile-bottom-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+@media(max-width:760px){ .profile-bottom-grid { grid-template-columns:1fr; } }
 .profile-left-card { background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;height:fit-content; }
 .profile-banner { height:72px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
 .profile-left-body { padding:0 20px 20px; }
@@ -1171,17 +1174,18 @@ select { cursor: pointer; }
 .profile-stat-val { font-weight:700;color:var(--text); }
 .profile-stat-val.expired { color:var(--red); }
 .profile-right { display:flex;flex-direction:column;gap:16px; }
-.pcard { background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden; }
-.pcard-header { padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px; }
-.pcard-header i { font-size:14px;color:var(--teal); }
-.pcard-title { font-size:14px;font-weight:700;color:var(--text); }
-.pcard-body { padding:20px; }
-.pcard-body .field { margin-bottom:14px; }
+.pcard { background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column; }
+.pcard-header { padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px; }
+.pcard-header i { font-size:13px;color:var(--teal); }
+.pcard-title { font-size:13.5px;font-weight:700;color:var(--text); }
+.pcard-body { padding:16px 18px;flex:1; }
+.pcard-body .field { margin-bottom:12px; }
 .pcard-body .field:last-of-type { margin-bottom:0; }
-.pcard-field-row { display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px; }
+.pcard-field-row { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px; }
 .pcard-field-row .field { margin-bottom:0; }
-@media(max-width:520px){ .pcard-field-row { grid-template-columns:1fr; gap:14px; } }
-.pcard-footer { padding:12px 20px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:flex-end;gap:10px; }
+@media(max-width:520px){ .pcard-field-row { grid-template-columns:1fr; gap:12px; } }
+.pcard-footer { padding:10px 18px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:flex-end;gap:10px; }
+.field.readonly input { background:var(--bg);color:var(--muted);cursor:not-allowed; }
 .danger-zone { background:#FEF0EF;border:1px solid #F7C1C1;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
 .dz-text h4 { font-size:13px;font-weight:700;color:#C0392B;margin:0 0 3px; }
 .dz-text p { font-size:11px;color:#E57373;margin:0; }
@@ -3214,6 +3218,8 @@ View Invoice: {{6}}</pre></details>
     <div id="page-profile" class="page">
       <div class="profile-page-wrap">
 
+       <div class="profile-top-row">
+
         <!-- Left: identity card -->
         <div class="profile-left-card">
           <div class="profile-banner"></div>
@@ -3275,106 +3281,112 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-        <!-- Right: edit cards -->
-        <div class="profile-right">
-
-          <!-- Activity Timeline -->
-          <div class="pcard">
-            <div class="pcard-header">
-              <i class="fas fa-history"></i>
-              <span class="pcard-title">Activity Timeline</span>
-            </div>
-            <div class="pcard-body">
-              <?php if (empty($loginActivity)): ?>
-                <div class="activity-empty">No login activity recorded yet.</div>
-              <?php else: ?>
-                <div class="activity-list" id="activity-list">
-                  <?php foreach ($loginActivity as $i => $ev):
-                    $isLogin = $ev['action'] === 'login';
-                  ?>
-                    <div class="activity-item<?= $i >= 5 ? ' hidden-row' : '' ?>">
-                      <div class="activity-icon <?= $isLogin ? 'login' : 'logout' ?>">
-                        <i class="fas fa-<?= $isLogin ? 'sign-in-alt' : 'sign-out-alt' ?>"></i>
-                      </div>
-                      <div>
-                        <div class="activity-title"><?= $isLogin ? 'System Login' : 'System Logout' ?></div>
-                        <div class="activity-sub">Success from IP <?= htmlspecialchars($ev['ip'] ?: 'unknown') ?></div>
-                        <div class="activity-time"><?= htmlspecialchars(optms_time_ago($ev['created_at'])) ?></div>
-                      </div>
+        <!-- Activity Timeline: standalone card, same row as identity card -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <i class="fas fa-history"></i>
+            <span class="pcard-title">Activity Timeline</span>
+          </div>
+          <div class="pcard-body">
+            <?php if (empty($loginActivity)): ?>
+              <div class="activity-empty">No login activity recorded yet.</div>
+            <?php else: ?>
+              <div class="activity-list" id="activity-list">
+                <?php foreach ($loginActivity as $i => $ev):
+                  $isLogin = $ev['action'] === 'login';
+                ?>
+                  <div class="activity-item<?= $i >= 5 ? ' hidden-row' : '' ?>">
+                    <div class="activity-icon <?= $isLogin ? 'login' : 'logout' ?>">
+                      <i class="fas fa-<?= $isLogin ? 'sign-in-alt' : 'sign-out-alt' ?>"></i>
                     </div>
-                  <?php endforeach; ?>
-                </div>
-                <?php if (count($loginActivity) > 5): ?>
-                  <button type="button" class="view-history-btn" id="activity-toggle-btn" onclick="toggleActivityHistory()">VIEW FULL HISTORY</button>
-                <?php endif; ?>
+                    <div>
+                      <div class="activity-title"><?= $isLogin ? 'System Login' : 'System Logout' ?></div>
+                      <div class="activity-sub">Success from IP <?= htmlspecialchars($ev['ip'] ?: 'unknown') ?></div>
+                      <div class="activity-time"><?= htmlspecialchars(optms_time_ago($ev['created_at'])) ?></div>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+              <?php if (count($loginActivity) > 5): ?>
+                <button type="button" class="view-history-btn" id="activity-toggle-btn" onclick="toggleActivityHistory()">VIEW FULL HISTORY</button>
               <?php endif; ?>
-            </div>
+            <?php endif; ?>
           </div>
-
-          <!-- Account info -->
-          <div class="pcard">
-            <div class="pcard-header">
-              <i class="fas fa-user"></i>
-              <span class="pcard-title">Account Information</span>
-            </div>
-            <div class="pcard-body">
-              <div class="pcard-field-row">
-                <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
-                <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
-              </div>
-              <div class="pcard-field-row" style="margin-bottom:0">
-                <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
-                <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
-              </div>
-            </div>
-            <div class="pcard-footer">
-              <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
-            </div>
-          </div>
-
-          <!-- Security -->
-          <div class="pcard">
-            <div class="pcard-header">
-              <i class="fas fa-lock"></i>
-              <span class="pcard-title">Change Password</span>
-            </div>
-            <div class="pcard-body">
-              <div class="pcard-field-row" style="margin-bottom:0">
-                <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
-                <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
-              </div>
-            </div>
-            <div class="pcard-footer">
-              <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
-              <button class="btn btn-primary" onclick="saveProfilePassword()"><i class="fas fa-key"></i> Update Password</button>
-            </div>
-          </div>
-
-          <!-- Account Security -->
-          <div class="pcard">
-            <div class="pcard-body">
-              <div class="acct-security-row">
-                <div class="acct-security-icon"><i class="fas fa-shield-alt"></i></div>
-                <div>
-                  <div class="acct-security-title">Account Security</div>
-                  <div class="acct-security-sub">You're signed in as <?= htmlspecialchars(ucfirst($user['role'])) ?></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Danger zone -->
-          <div class="danger-zone">
-            <div class="dz-text">
-              <h4><i class="fas fa-sign-out-alt" style="margin-right:5px"></i>Sign Out</h4>
-              <p>You will be logged out and redirected to the login page.</p>
-            </div>
-            <button onclick="confirmLogout()" style="padding:9px 20px;background:#E53935;color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0">
-              Sign Out
-            </button>
-          </div>
-
         </div>
+
+       </div>
+       <!-- /profile-top-row -->
+
+       <!-- Account info: full-width on its own, right below the top row -->
+       <div class="pcard">
+         <div class="pcard-header">
+           <i class="fas fa-user"></i>
+           <span class="pcard-title">Account Information</span>
+         </div>
+         <div class="pcard-body">
+           <div class="pcard-field-row">
+             <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
+             <div class="field"><label>Email Address</label><input type="email" id="profile-email" value="<?= htmlspecialchars($user['email']) ?>" placeholder="your@email.com"></div>
+           </div>
+           <div class="pcard-field-row">
+             <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+             <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+           </div>
+           <div class="pcard-field-row" style="margin-bottom:0">
+             <div class="field"><label>Address</label><input id="profile-address" value="<?= htmlspecialchars($user['address'] ?? '') ?>" placeholder="Street, city, state, PIN"></div>
+             <div class="field readonly"><label>User ID</label><input id="profile-user-id" value="<?= htmlspecialchars($user['id']) ?>" readonly disabled title="Your account ID (read-only)"></div>
+           </div>
+         </div>
+         <div class="pcard-footer">
+           <button class="btn btn-primary" onclick="saveProfileInfo()"><i class="fas fa-save"></i> Save Changes</button>
+         </div>
+       </div>
+
+       <!-- Password + Security: side by side to save vertical space -->
+       <div class="profile-bottom-grid">
+
+         <!-- Security -->
+         <div class="pcard">
+           <div class="pcard-header">
+             <i class="fas fa-lock"></i>
+             <span class="pcard-title">Change Password</span>
+           </div>
+           <div class="pcard-body">
+             <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
+             <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
+           </div>
+           <div class="pcard-footer">
+             <span style="font-size:11px;color:var(--muted)">Leave blank to keep current password</span>
+             <button class="btn btn-primary" onclick="saveProfilePassword()"><i class="fas fa-key"></i> Update Password</button>
+           </div>
+         </div>
+
+         <!-- Account Security -->
+         <div class="pcard">
+           <div class="pcard-body">
+             <div class="acct-security-row">
+               <div class="acct-security-icon"><i class="fas fa-shield-alt"></i></div>
+               <div>
+                 <div class="acct-security-title">Account Security</div>
+                 <div class="acct-security-sub">You're signed in as <?= htmlspecialchars(ucfirst($user['role'])) ?></div>
+               </div>
+             </div>
+           </div>
+         </div>
+
+       </div>
+
+       <!-- Danger zone -->
+       <div class="danger-zone">
+         <div class="dz-text">
+           <h4><i class="fas fa-sign-out-alt" style="margin-right:5px"></i>Sign Out</h4>
+           <p>You will be logged out and redirected to the login page.</p>
+         </div>
+         <button onclick="confirmLogout()" style="padding:9px 20px;background:#E53935;color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0">
+           Sign Out
+         </button>
+       </div>
+
       </div>
     </div>
 
@@ -13858,9 +13870,10 @@ window.saveProfileInfo = async function() {
   const email     = document.getElementById('profile-email')?.value.trim();
   const mobile    = document.getElementById('profile-mobile')?.value.trim() || '';
   const altPhone  = document.getElementById('profile-alt-phone')?.value.trim() || '';
+  const address   = document.getElementById('profile-address')?.value.trim() || '';
   if (!name || !email) { toast('Name and email are required','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone });
+    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone, address });
     _syncProfileUI(name, null);
     toast('✅ Profile updated!','success');
   } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }

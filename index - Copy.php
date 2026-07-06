@@ -564,6 +564,17 @@ canvas { max-width: 100% !important; }
 .badge-draft     { background: #F5F5F5; color: #616161; }
 .badge-cancelled { background: #FFCDD2; color: #B71C1C; font-weight:700; }
 .badge-estimate  { background: #E8EAF6; color: #3949AB; font-weight:700; }
+.badge-active    { background: #E8F5E9; color: #2E7D32; }
+.badge-inactive  { background: #FFF3E0; color: #B26A00; }
+
+/* Team table avatar */
+.team-avatar-img { width:34px; height:34px; border-radius:50%; object-fit:cover; display:block; border:1.5px solid var(--border); }
+.team-avatar-fallback {
+  width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700; color:#fff; font-family:var(--font); text-transform:uppercase; flex-shrink:0;
+}
+tr.team-row-inactive { opacity:.55; }
+tr.team-row-inactive td { filter: grayscale(35%); }
 
 /* ══════════════════════════════════════════
    CREATE INVOICE
@@ -2050,11 +2061,6 @@ const SERVER = {
     <div id="page-team" class="page">
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search team…" id="teamSearch" oninput="filterTeam(this.value)">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
-          <input type="checkbox" id="team-show-inactive-toggle" onchange="_renderTeamRows(STATE.team)" style="cursor:pointer">
-          Show Inactive
-          <span id="team-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
-        </label>
         <div style="flex:1"></div>
         <span id="teamCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-primary" onclick="openAddTeamModal()"><i class="fas fa-user-plus"></i> Add Team Member</button>
@@ -2062,7 +2068,7 @@ const SERVER = {
       <div class="table-card">
         <table class="data-table">
           <thead><tr>
-            <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th>
+            <th style="width:44px"></th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th>
           </tr></thead>
           <tbody id="teamTbody"></tbody>
         </table>
@@ -10341,37 +10347,44 @@ function filterTeam(q) {
   _renderTeamRows(filtered);
 }
 
+// Deterministic pastel colour for the initials-fallback avatar (based on name)
+const TEAM_AVATAR_PALETTE = ['#00897B','#1976D2','#7B1FA2','#E64A19','#546E7A','#00695C','#5E35B1','#C2185B'];
+function _teamAvatarColor(str) {
+  let h = 0;
+  for (let i = 0; i < (str || '').length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return TEAM_AVATAR_PALETTE[h % TEAM_AVATAR_PALETTE.length];
+}
+function _teamAvatarCell(u) {
+  if (u.avatar) {
+    return `<img src="${escHtml(u.avatar)}" class="team-avatar-img" alt="${escHtml(u.name)}">`;
+  }
+  const initial = (u.name || '?').trim().charAt(0);
+  return `<div class="team-avatar-fallback" style="background:${_teamAvatarColor(u.name || u.email || '')}">${escHtml(initial)}</div>`;
+}
+
 function _renderTeamRows(rawList) {
   const tbody = document.getElementById('teamTbody');
   const roleLabels = { owner:'Owner', admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
   const roleOptions = ['admin','manager','accountant','sales','viewer'];
 
-  const showInactive  = document.getElementById('team-show-inactive-toggle')?.checked || false;
-  const inactiveCount = rawList.filter(u => u.status === 'inactive').length;
-  const badge = document.getElementById('team-inactive-count-badge');
-  if (badge) {
-    if (inactiveCount) { badge.style.display = 'inline-block'; badge.textContent = inactiveCount; }
-    else { badge.style.display = 'none'; }
-  }
-  const list = showInactive ? rawList : rawList.filter(u => u.status !== 'inactive');
+  // 'removed' members are already excluded by the API — 'inactive' members
+  // stay visible here (greyed out); only Remove takes a row out of the list.
+  const list = rawList;
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">
-      ${inactiveCount && !showInactive
-        ? `All team members are inactive. <span onclick="document.getElementById('team-show-inactive-toggle').checked=true;_renderTeamRows(STATE.team)" style="color:var(--teal);cursor:pointer;text-decoration:underline">Show inactive</span>`
-        : 'No team members yet.'}
-    </td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No team members yet.</td></tr>`;
   } else {
     tbody.innerHTML = list.map(u => {
       const isOwner = u.role === 'owner';
+      const isInactive = u.status !== 'active';
       const roleCell = isOwner
         ? `<span class="badge">Owner</span>`
         : `<select onchange="changeTeamRole(${u.id}, this.value)" class="table-filter" style="font-size:12px;padding:4px 8px">
             ${roleOptions.map(r => `<option value="${r}" ${r===u.role?'selected':''}>${roleLabels[r]}</option>`).join('')}
           </select>`;
       const statusBadge = u.status === 'active'
-        ? `<span class="badge badge-success">Active</span>`
-        : `<span class="badge badge-muted">Inactive</span>`;
+        ? `<span class="badge badge-active">Active</span>`
+        : `<span class="badge badge-inactive">Inactive</span>`;
       const permsBtn = isOwner ? '' : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#7B1FA2" onclick="openTeamPermissionsModal('${u.role}')" title="Permissions"><i class="fas fa-shield-halved"></i></button>`;
       const editBtn  = isOwner ? '' : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#1976D2" onclick="openEditTeamModal(${u.id})" title="Edit"><i class="fas fa-pen"></i></button>`;
       const actions = isOwner ? '' : `
@@ -10384,9 +10397,11 @@ function _renderTeamRows(rawList) {
           }
           <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#E53935" onclick="removeTeamMember(${u.id})" title="Remove"><i class="fas fa-trash"></i></button>
         </div>`;
-      return `<tr>
+      return `<tr class="${isInactive ? 'team-row-inactive' : ''}">
+        <td>${_teamAvatarCell(u)}</td>
         <td>${escHtml(u.name)}</td>
         <td>${escHtml(u.email)}</td>
+        <td>${u.phone ? escHtml(u.phone) : '—'}</td>
         <td>${roleCell}</td>
         <td>${statusBadge}</td>
         <td>${u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
@@ -10906,7 +10921,7 @@ async function toggleTeamStatus(userId, newStatus) {
 async function removeTeamMember(userId) {
   const result = await Swal.fire({
     title: 'Remove this team member?',
-    html: 'They will lose access immediately. This can be undone by reactivating them later.',
+    html: 'They will lose access immediately and disappear from this list. Use "Deactivate" instead if you just want to pause their access and keep them visible.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Remove',
