@@ -8818,6 +8818,7 @@ function openPaidModal(id) {
   const amtFieldEl = document.getElementById('paid-amt');
   amtFieldEl.value = (remaining > 0 ? remaining : amt).toFixed(2);
   amtFieldEl.dataset.userEdited = '';
+  amtFieldEl.dataset.autoValue = amtFieldEl.value;
 
   // Show already-paid + remaining in summary bar
   const remRow = document.getElementById('paid-inv-remaining-row');
@@ -8883,12 +8884,14 @@ function onPaidAmtInput() {
     renderSplitBreakdown();
     return;
   }
-  // Mark field as manually edited — discount auto-fill will not override a user-typed value
+  // Mark field as manually edited — but only if the value actually differs from
+  // the amount the discount logic last auto-filled (retyping the same value shouldn't lock it)
   const amtElB = document.getElementById('paid-amt');
-  if (amtElB) amtElB.dataset.userEdited = 'true';
-  // Mark field as manually edited — discount auto-fill will not override a user-typed value
-  const amtElMark = document.getElementById('paid-amt');
-  if (amtElMark) amtElMark.dataset.userEdited = 'true';
+  if (amtElB) {
+    const typed = parseFloat(amtElB.value) || 0;
+    const auto  = parseFloat(amtElB.dataset.autoValue) || 0;
+    amtElB.dataset.userEdited = (Math.abs(typed - auto) > 0.001) ? 'true' : '';
+  }
   updatePaidRemaining();
 }
 
@@ -8929,6 +8932,7 @@ function onPaidSettleDiscInput() {
           .reduce((s,p) => s + parseFloat(p.amount||0), 0);
         const remainingDueReset = Math.max(0, totalAmt - prevPaidReset);
         amtEl.value = remainingDueReset.toFixed(2);
+        amtEl.dataset.autoValue = amtEl.value;
       }
       updatePaidRemaining();
     }
@@ -8953,6 +8957,7 @@ function onPaidSettleDiscInput() {
     const amtEl = document.getElementById('paid-amt');
     if (amtEl && amtEl.dataset.userEdited !== 'true') {
       amtEl.value = effAmt.toFixed(2);
+      amtEl.dataset.autoValue = amtEl.value;
     }
   }
   updatePaidRemaining();
@@ -9028,6 +9033,14 @@ function confirmPaid() {
   const prevPaid      = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const dueBeforeThis = Math.max(0, totalAmt - prevPaid);
+
+  // ── Validation: amount received cannot exceed what's actually due ──
+  if (amtReceived - dueBeforeThis > 0.01) {
+    toast(`⚠️ Amount received (${fmt_money(amtReceived,'₹')}) exceeds the amount due (${fmt_money(dueBeforeThis,'₹')}). Please correct the amount.`, 'warning');
+    return;
+  }
+
   const totalCovered  = prevPaid + amtReceived + settleDiscAmt;
   const remaining     = Math.max(0, totalAmt - totalCovered);
 
