@@ -1331,14 +1331,14 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
+    </div>
+    <div class="topbar-right">
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
         <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
-    </div>
-    <div class="topbar-right">
       <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:14px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:14px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
             <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
         <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
@@ -1414,9 +1414,6 @@ const SERVER = {
         </div>
         <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px 2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)">
-            <i class="fas fa-building" style="font-size:10px;color:var(--muted)"></i> <?= htmlspecialchars($firmName) ?>
-          </span>
         </div>
       </div>
       <!-- Quick Actions -->
@@ -3287,6 +3284,16 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
           <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-receipt" style="color:var(--teal)"></i> Expense Categories</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Create and color-code categories used when logging expenses.</p>
+            <div id="exp-cat-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="exp-cat-new-name" class="table-search" placeholder="Category name…" style="flex:1;min-width:140px;max-width:220px">
+              <input type="color" id="exp-cat-new-color" value="#1976D2" style="width:36px;height:36px;border:1.5px solid var(--border);border-radius:7px;padding:2px;cursor:pointer;background:var(--card)">
+              <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addExpenseCategory()"><i class="fas fa-plus"></i> Add</button>
+            </div>
+          </div>
+          <div class="settings-block">
             <div class="sb-title"><i class="fas fa-layer-group" style="color:var(--teal)"></i> Line Item Types</div>
             <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Manage item types shown in the invoice line-item "Type" dropdown.</p>
             <div id="item-type-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
@@ -3521,9 +3528,6 @@ View Invoice: {{6}}</pre></details>
           <input type="text" class="table-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
-            <option>Software / SaaS</option><option>Hardware</option><option>Travel</option>
-            <option>Office Supplies</option><option>Marketing</option><option>Salary</option>
-            <option>Utilities</option><option>Other</option>
           </select>
           <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
             <option value="">All Time</option>
@@ -4571,9 +4575,6 @@ View Invoice: {{6}}</pre></details>
         <div class="field" style="margin:0"><label>Category *</label>
           <select id="exp-category" style="width:100%">
             <option value="">— Select —</option>
-            <option>Software / SaaS</option><option>Hardware</option><option>Travel</option>
-            <option>Office Supplies</option><option>Marketing</option><option>Salary</option>
-            <option>Utilities</option><option>Other</option>
           </select>
         </div>
         <div class="field" style="margin:0"><label>Payment Method</label>
@@ -4679,6 +4680,16 @@ const STATE = {
     {name:'Hosting',         color:'#00897B'},
     {name:'Consulting',      color:'#455A64'},
     {name:'Other',           color:'#757575'},
+  ],
+  expenseCategories: [
+    {name:'Software / SaaS',  color:'#1976D2'},
+    {name:'Hardware',         color:'#7B1FA2'},
+    {name:'Travel',           color:'#E65100'},
+    {name:'Office Supplies',  color:'#388E3C'},
+    {name:'Marketing',        color:'#C62828'},
+    {name:'Salary',           color:'#455A64'},
+    {name:'Utilities',        color:'#F57F17'},
+    {name:'Other',            color:'#757575'},
   ],
   settings: {
     company:         <?= json_encode($companyName)    ?>,
@@ -13128,6 +13139,10 @@ async function loadAllData() {
       if (s.item_types) {
         try { const iTypes = JSON.parse(s.item_types); if (Array.isArray(iTypes) && iTypes.length) STATE.itemTypes = iTypes; } catch(e) {}
       }
+      // Load expense categories from settings JSON if saved
+      if (s.expense_categories) {
+        try { const eCats = JSON.parse(s.expense_categories); if (Array.isArray(eCats) && eCats.length) STATE.expenseCategories = eCats; } catch(e) {}
+      }
       // TPL_CUSTOM already restored in PHP-bridge block above — just re-sync UI
       if (window.TPL_CUSTOM) {
         if (s.tpl_color1)        TPL_CUSTOM.color1        = s.tpl_color1;
@@ -13362,6 +13377,63 @@ function updateProductCatDropdowns() {
   if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
 }
 
+// ── Expense Category Management (pastel badges) ─────────────────
+function pastelBg(hex) {
+  hex = (hex||'#757575').replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const r = parseInt(hex.substr(0,2),16)||0, g = parseInt(hex.substr(2,2),16)||0, b = parseInt(hex.substr(4,2),16)||0;
+  const mix = c => Math.round(c + (255-c)*0.85).toString(16).padStart(2,'0');
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
+function getExpCatColor(name) {
+  const cat = (STATE.expenseCategories||[]).find(c => c.name === name);
+  return cat ? cat.color : '#757575';
+}
+function renderExpenseCategoryList() {
+  const el = document.getElementById('exp-cat-list'); if (!el) return;
+  const cats = STATE.expenseCategories || [];
+  if (!cats.length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">No categories yet.</span>'; return; }
+  el.innerHTML = cats.map((c,i) => {
+    const bg = pastelBg(c.color);
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:${bg};color:${c.color};font-size:12px;font-weight:700">
+      ${c.name}
+      <button onclick="deleteExpenseCategory(${i})" style="background:none;border:none;cursor:pointer;color:${c.color};opacity:.7;font-size:13px;line-height:1;padding:0 0 0 2px" title="Remove">×</button>
+    </div>`;
+  }).join('');
+}
+async function addExpenseCategory() {
+  const nameEl = document.getElementById('exp-cat-new-name');
+  const colorEl = document.getElementById('exp-cat-new-color');
+  const name = nameEl?.value.trim();
+  if (!name) { toast('⚠️ Enter a category name', 'warning'); return; }
+  if (!STATE.expenseCategories) STATE.expenseCategories = [];
+  if (STATE.expenseCategories.find(c => c.name.toLowerCase() === name.toLowerCase())) { toast('⚠️ Category already exists', 'warning'); return; }
+  STATE.expenseCategories.push({ name, color: colorEl?.value || '#1976D2' });
+  nameEl.value = '';
+  renderExpenseCategoryList();
+  updateExpenseCatDropdowns();
+  await saveExpenseCategories();
+  toast('✅ Category added!', 'success');
+}
+async function deleteExpenseCategory(idx) {
+  STATE.expenseCategories.splice(idx, 1);
+  renderExpenseCategoryList();
+  updateExpenseCatDropdowns();
+  await saveExpenseCategories();
+  toast('🗑️ Category removed', 'info');
+}
+async function saveExpenseCategories() {
+  try { await api('api/settings.php','POST',{ expense_categories: JSON.stringify(STATE.expenseCategories) }); } catch(e) { console.warn('Exp cat save err',e); }
+}
+function updateExpenseCatDropdowns() {
+  const cats = STATE.expenseCategories || [];
+  const opts = cats.map(c => `<option>${escHtml(c.name)}</option>`).join('');
+  const sel = document.getElementById('exp-category');
+  if (sel) { const cur = sel.value; sel.innerHTML = `<option value="">— Select —</option>${opts}`; sel.value = cur; }
+  const filter = document.getElementById('exp-cat-filter');
+  if (filter) { const cur = filter.value; filter.innerHTML = `<option value="">All Categories</option>${opts}`; filter.value = cur; }
+}
+
 // ── Item Type Management ─────────────────────────────────────────
 function renderItemTypeList() {
   const el = document.getElementById('item-type-list'); if (!el) return;
@@ -13416,6 +13488,7 @@ function populateSettingsForm() {
   set('sc-web',     s.website);
   renderCategoryList();
   renderItemTypeList();
+  renderExpenseCategoryList();
   set('sc-prefix',  s.prefix);
   set('sc-estimate-prefix', s.estPrefix || SERVER.estPrefix || '');
   set('sc-upi',     s.upi);
@@ -14888,6 +14961,7 @@ function exportAgingCSV() {
 const EXP = { list: [], page: 1, per: 20 };
 
 function renderExpenses() {
+  updateExpenseCatDropdowns();
   // Refresh from DB then render
   api('api/expenses.php').then(r=>{
     if(r&&r.data) STATE.expenses=r.data;
@@ -14945,12 +15019,11 @@ function _renderExpTable() {
     if(info) info.textContent = '0 expenses';
     return;
   }
-  const catColors = {'Software / SaaS':'#1976D2','Hardware':'#7B1FA2','Travel':'#E65100','Office Supplies':'#388E3C','Marketing':'#C62828','Salary':'#455A64','Utilities':'#F57F17','Other':'#757575'};
   tbody.innerHTML = pg.map(exp => {
-    const col = catColors[exp.category] || '#757575';
+    const col = getExpCatColor(exp.category);
     return `<tr>
       <td>${exp.date||'—'}</td>
-      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${col}15;color:${col}">${exp.category||'—'}</span></td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
