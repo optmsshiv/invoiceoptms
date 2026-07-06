@@ -21,27 +21,6 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
-// ── Identity badges (topbar + dashboard): firm name + role ──────
-$ROLE_BADGE_COLORS = [
-    'owner'       => ['bg' => '#E0F2F1', 'text' => '#00695C'],
-    'admin'       => ['bg' => '#FFF8E1', 'text' => '#F57F17'],
-    'manager'     => ['bg' => '#E3F2FD', 'text' => '#1565C0'],
-    'accountant'  => ['bg' => '#E8F5E9', 'text' => '#2E7D32'],
-    'sales'       => ['bg' => '#F3E5F5', 'text' => '#7B1FA2'],
-    'viewer'      => ['bg' => '#F5F5F5', 'text' => '#616161'],
-    'super_admin' => ['bg' => '#FFEBEE', 'text' => '#C62828'],
-];
-$userRole      = $user['role'] ?? 'viewer';
-$isSuperAdmin  = $userRole === 'super_admin';
-$roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
-$roleBadgeLabel= $isSuperAdmin ? 'Super Admin' : ucfirst($userRole);
-
-// Adjust this if your super-admin panel lives at a different path.
-define('ADMIN_PANEL_URL', '/admin/');
-
-$hourNow  = (int)date('G');
-$greeting = $hourNow < 12 ? 'Good morning' : ($hourNow < 17 ? 'Good afternoon' : 'Good evening');
-
 // ── Load company settings ──────────────────────────────────────
 $settings = [];
 try {
@@ -51,7 +30,6 @@ try {
 } catch (Exception $e) {
     error_log('Settings load error: ' . $e->getMessage());
 }
-$firmName = $user['company_name'] ?? ($settings['company_name'] ?? 'OPTMS Tech'); // re-resolve now settings are loaded
 
 $companyName    = $settings['company_name']     ?? 'OPTMS Tech';
 $prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
@@ -1329,18 +1307,8 @@ const SERVER = {
 
   <!-- Top Bar -->
   <header class="topbar">
-    <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="topbar-left">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
-        <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
-        <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
-      </span>
-      <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:10px"></i><?php endif; ?>
-        <?= htmlspecialchars($roleBadgeLabel) ?>
-      </span>
     </div>
     <div class="topbar-right">
       <div class="search-bar">
@@ -1407,23 +1375,6 @@ const SERVER = {
 
     <!-- ─────────── DASHBOARD ─────────── -->
     <div id="page-dashboard" class="page active">
-      <!-- Greeting Header -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-          <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
-        </div>
-        <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px 2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)">
-            <i class="fas fa-building" style="font-size:10px;color:var(--muted)"></i> <?= htmlspecialchars($firmName) ?>
-          </span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:11px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-                <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-            <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:9px"></i><?php endif; ?>
-            <?= htmlspecialchars($roleBadgeLabel) ?>
-          </span>
-        </div>
-      </div>
       <!-- Quick Actions -->
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-primary" onclick="showPage('create',null)"><i class="fas fa-plus"></i> New Invoice</button>
