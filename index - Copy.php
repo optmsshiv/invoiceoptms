@@ -21,6 +21,27 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
+// ── Identity badges (topbar + dashboard): firm name + role ──────
+$ROLE_BADGE_COLORS = [
+    'owner'       => ['bg' => '#E0F2F1', 'text' => '#00695C'],
+    'admin'       => ['bg' => '#FFF8E1', 'text' => '#F57F17'],
+    'manager'     => ['bg' => '#E3F2FD', 'text' => '#1565C0'],
+    'accountant'  => ['bg' => '#E8F5E9', 'text' => '#2E7D32'],
+    'sales'       => ['bg' => '#F3E5F5', 'text' => '#7B1FA2'],
+    'viewer'      => ['bg' => '#F5F5F5', 'text' => '#616161'],
+    'super_admin' => ['bg' => '#FFEBEE', 'text' => '#C62828'],
+];
+$userRole      = $user['role'] ?? 'viewer';
+$isSuperAdmin  = $userRole === 'super_admin';
+$roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
+$roleBadgeLabel= $isSuperAdmin ? 'Super Admin' : ucfirst($userRole);
+
+// Adjust this if your super-admin panel lives at a different path.
+define('ADMIN_PANEL_URL', '/admin/');
+
+$hourNow  = (int)date('G');
+$greeting = $hourNow < 12 ? 'Good morning' : ($hourNow < 17 ? 'Good afternoon' : 'Good evening');
+
 // ── Load company settings ──────────────────────────────────────
 $settings = [];
 try {
@@ -30,6 +51,7 @@ try {
 } catch (Exception $e) {
     error_log('Settings load error: ' . $e->getMessage());
 }
+$firmName = $user['company_name'] ?? ($settings['company_name'] ?? 'OPTMS Tech'); // re-resolve now settings are loaded
 
 $companyName    = $settings['company_name']     ?? 'OPTMS Tech';
 $prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
@@ -949,6 +971,7 @@ select { cursor: pointer; }
   background: var(--card); border-radius: 14px; width: 100%;
   box-shadow: 0 20px 60px rgba(0,0,0,.2); animation: modalIn .2s ease;
   display: flex; flex-direction: column;
+  max-height: 90vh;
 }
 @keyframes modalIn { from { opacity:0; transform:scale(.95) translateY(10px); } to { opacity:1; transform:none; } }
 .modal-sm  { max-width: 420px; }
@@ -958,16 +981,18 @@ select { cursor: pointer; }
   padding: 18px 22px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   font-size: 15px; font-weight: 700;
+  flex-shrink: 0;
 }
 .modal-close {
   width: 32px; height: 32px; border-radius: 7px; border: none;
   background: var(--bg); cursor: pointer; font-size: 14px; color: var(--muted); transition: .2s;
 }
 .modal-close:hover { background: var(--red-bg); color: var(--red); }
-.modal-body { flex: 1; }
+.modal-body { flex: 1; overflow-y: auto; }
 .modal-footer {
   padding: 14px 22px; border-top: 1px solid var(--border);
   display: flex; gap: 10px; justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 /* ══════════════════════════════════════════
@@ -1267,6 +1292,11 @@ const SERVER = {
       <i class="fas fa-envelope"></i><span>Email Setup</span>
     </a>
     <div class="nav-section-label">ACCOUNT</div>
+    <?php if (($user['role'] ?? '') === 'owner' || ($user['role'] ?? '') === 'super_admin'): ?>
+    <a class="nav-item" data-page="team" onclick="showPage('team',this)">
+      <i class="fas fa-user-friends"></i><span>Team</span>
+    </a>
+    <?php endif; ?>
     <a class="nav-item" data-page="settings" onclick="showPage('settings',this)">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
@@ -1299,8 +1329,18 @@ const SERVER = {
 
   <!-- Top Bar -->
   <header class="topbar">
-    <div class="topbar-left">
+    <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
+        <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
+        <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
+      </span>
+      <span id="topbarRoleBadge"
+            style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
+        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:10px"></i><?php endif; ?>
+        <?= htmlspecialchars($roleBadgeLabel) ?>
+      </span>
     </div>
     <div class="topbar-right">
       <div class="search-bar">
@@ -1367,6 +1407,23 @@ const SERVER = {
 
     <!-- ─────────── DASHBOARD ─────────── -->
     <div id="page-dashboard" class="page active">
+      <!-- Greeting Header -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+          <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px 2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)">
+            <i class="fas fa-building" style="font-size:10px;color:var(--muted)"></i> <?= htmlspecialchars($firmName) ?>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:11px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+                <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
+            <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:9px"></i><?php endif; ?>
+            <?= htmlspecialchars($roleBadgeLabel) ?>
+          </span>
+        </div>
+      </div>
       <!-- Quick Actions -->
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-primary" onclick="showPage('create',null)"><i class="fas fa-plus"></i> New Invoice</button>
@@ -1858,9 +1915,41 @@ const SERVER = {
           <span id="inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
         </label>
         <div style="flex:1"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="client-search" placeholder="Search clients..." oninput="renderClients()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;min-width:160px">
+          <select id="client-tag-filter" onchange="renderClients()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg)">
+            <option value="">All Tags</option>
+          </select>
+        </div>
         <button class="btn btn-primary" onclick="openAddClientModal()"><i class="fas fa-plus"></i> Add Client</button>
       </div>
       <div class="clients-grid" id="clientsGrid"></div>
+    </div>
+
+    <!-- ─────────── TEAM ─────────── -->
+    <div id="page-team" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search team…" id="teamSearch" oninput="filterTeam(this.value)">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
+          <input type="checkbox" id="team-show-inactive-toggle" onchange="_renderTeamRows(STATE.team)" style="cursor:pointer">
+          Show Inactive
+          <span id="team-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
+        </label>
+        <div style="flex:1"></div>
+        <span id="teamCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="openAddTeamModal()"><i class="fas fa-user-plus"></i> Add Team Member</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr>
+            <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="teamTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="teamInfo"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
@@ -1872,7 +1961,8 @@ const SERVER = {
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
+        <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -3993,6 +4083,205 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
+<!-- Add Team Member Modal -->
+<div class="modal-overlay" id="modal-add-team">
+  <div class="modal modal-md" style="max-width:560px;max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-user-plus" style="color:var(--teal);font-size:14px"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Add Team Member</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-add-team')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Avatar Upload -->
+      <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+        <div id="tm-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:#00897B;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;overflow:hidden;flex-shrink:0;border:3px solid var(--border);transition:border-color .3s,box-shadow .3s">
+          <i class="fas fa-user" id="tm-avatar-icon"></i>
+          <img id="tm-avatar-img" src="" style="width:100%;height:100%;object-fit:cover;display:none">
+        </div>
+        <div style="flex:1;min-width:0">
+          <label id="tm-avatar-upload-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);color:var(--text);border:1.5px solid var(--border);padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;position:relative;overflow:hidden;transition:.2s">
+            <i class="fas fa-camera" id="tm-avatar-upload-icon"></i>
+            <span id="tm-avatar-upload-text">Upload Photo</span>
+            <div id="tm-avatar-progress-bar" style="position:absolute;left:0;bottom:0;height:2px;width:0%;background:var(--teal);transition:width .05s linear"></div>
+            <input type="file" id="tm-avatar-file" accept="image/*" style="display:none" onchange="handleTeamAvatarUpload(this)">
+          </label>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">JPG or PNG, optional</div>
+        </div>
+      </div>
+
+      <div class="form-grid g2">
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Name *</label>
+          <input type="text" id="tm-name" class="table-search" style="width:100%" placeholder="Full name"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Email *</label>
+          <input type="email" id="tm-email" class="table-search" style="width:100%" placeholder="user@company.com"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Mobile Number</label>
+          <input type="text" id="tm-mobile" class="table-search" style="width:100%" placeholder="+91 98765 43210"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Role *</label>
+          <select id="tm-role" class="table-filter" style="width:100%">
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="accountant">Accountant</option>
+            <option value="sales" selected>Sales — create invoices + clients only</option>
+            <option value="viewer">Viewer</option>
+          </select></div>
+      </div>
+
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Address</label>
+        <textarea id="tm-address" class="table-search" style="width:100%;min-height:56px;resize:vertical" placeholder="Street, city, state, PIN"></textarea>
+      </div>
+
+      <!-- Tags -->
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Tags / Labels <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional — press Enter to add)</span></label>
+        <div id="tm-tags-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <input id="tm-tag-input" class="table-search" style="width:100%" placeholder="e.g. Field Staff, Night Shift…" onkeydown="handleTeamTagInput(event)">
+      </div>
+
+      <!-- Additional Contacts -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Additional Contacts <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional)</span></label>
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:4px 10px" onclick="addTeamContactRow()"><i class="fas fa-plus"></i> Add Contact</button>
+        </div>
+        <div id="tm-extra-contacts" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Password <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(blank = auto-generate)</span></label>
+        <input type="text" id="tm-password" class="table-search" style="width:100%" placeholder="Leave blank to auto-generate">
+      </div>
+
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+        <i class="fas fa-info-circle"></i> If left blank, a temporary password will be generated. Share it with them securely — they should change it after first login.
+      </div>
+    </div>
+    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
+      <button class="btn btn-outline" onclick="closeModal('modal-add-team')">Cancel</button>
+      <button class="btn btn-primary" id="tm-save-btn" onclick="saveNewTeamMember()"><i class="fas fa-user-plus"></i> Add User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Team Member Modal -->
+<div class="modal-overlay" id="modal-edit-team">
+  <div class="modal modal-md" style="max-width:560px;max-height:92vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--blue-bg);display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-user-pen" style="color:var(--blue);font-size:14px"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Edit Team Member</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-edit-team')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Avatar Upload -->
+      <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+        <div id="tme-avatar-preview" style="width:64px;height:64px;border-radius:50%;background:#00897B;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;overflow:hidden;flex-shrink:0;border:3px solid var(--border);transition:border-color .3s,box-shadow .3s">
+          <i class="fas fa-user" id="tme-avatar-icon"></i>
+          <img id="tme-avatar-img" src="" style="width:100%;height:100%;object-fit:cover;display:none">
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <label id="tme-avatar-upload-btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:var(--card);color:var(--text);border:1.5px solid var(--border);padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;position:relative;overflow:hidden;transition:.2s">
+              <i class="fas fa-camera" id="tme-avatar-upload-icon"></i>
+              <span id="tme-avatar-upload-text">Change Photo</span>
+              <div id="tme-avatar-progress-bar" style="position:absolute;left:0;bottom:0;height:2px;width:0%;background:var(--teal);transition:width .05s linear"></div>
+              <input type="file" id="tme-avatar-file" accept="image/*" style="display:none" onchange="handleEditTeamAvatarUpload(this)">
+            </label>
+            <button type="button" class="btn btn-outline" style="font-size:12px;padding:6px 10px;color:var(--red)" onclick="clearEditTeamAvatar()"><i class="fas fa-times"></i> Remove</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">JPG or PNG, optional</div>
+        </div>
+      </div>
+
+      <div class="form-grid g2">
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Name *</label>
+          <input type="text" id="tme-name" class="table-search" style="width:100%" placeholder="Full name"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Email *</label>
+          <input type="email" id="tme-email" class="table-search" style="width:100%" placeholder="user@company.com"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Mobile Number</label>
+          <input type="text" id="tme-mobile" class="table-search" style="width:100%" placeholder="+91 98765 43210"></div>
+        <div class="field"><label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Role</label>
+          <input type="text" id="tme-role-display" class="table-search" style="width:100%;background:var(--bg);color:var(--muted)" disabled>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Change role from the Team table dropdown</div></div>
+      </div>
+
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Address</label>
+        <textarea id="tme-address" class="table-search" style="width:100%;min-height:56px;resize:vertical" placeholder="Street, city, state, PIN"></textarea>
+      </div>
+
+      <!-- Tags -->
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Tags / Labels <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional — press Enter to add)</span></label>
+        <div id="tme-tags-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <input id="tme-tag-input" class="table-search" style="width:100%" placeholder="e.g. Field Staff, Night Shift…" onkeydown="handleEditTeamTagInput(event)">
+      </div>
+
+      <!-- Additional Contacts -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Additional Contacts <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(optional)</span></label>
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:4px 10px" onclick="addEditTeamContactRow()"><i class="fas fa-plus"></i> Add Contact</button>
+        </div>
+        <div id="tme-extra-contacts" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <div>
+        <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">New Password <span style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none">(leave blank to keep current password)</span></label>
+        <input type="text" id="tme-password" class="table-search" style="width:100%" placeholder="Leave blank to keep current password">
+      </div>
+    </div>
+    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-team')">Cancel</button>
+      <button class="btn btn-primary" id="tme-save-btn" onclick="saveEditTeamMember()"><i class="fas fa-check"></i> Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Role Permissions Modal -->
+<div class="modal-overlay" id="modal-team-permissions">
+  <div class="modal modal-lg" style="max-width:720px;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center">
+          <i class="fas fa-shield-halved" style="color:var(--purple);font-size:14px"></i>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">Role Permissions</div>
+          <div id="tp-subtitle" style="font-size:11px;color:var(--muted);font-weight:400;margin-top:1px"></div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-team-permissions')"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:12px 20px 0;flex-shrink:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <label style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Editing role:</label>
+      <select id="tp-role-select" class="table-filter" style="font-size:13px;padding:6px 10px" onchange="_tpSetActiveRole(this.value)">
+        <option value="admin">Admin</option>
+        <option value="manager">Manager</option>
+        <option value="accountant">Accountant</option>
+        <option value="sales">Sales</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <span style="font-size:11px;color:var(--muted)"><i class="fas fa-info-circle"></i> Changes apply to every user with this role.</span>
+    </div>
+    <div class="modal-body" id="tp-body" style="overflow-y:auto;padding:16px 20px;flex:1;min-height:0">
+      <div style="text-align:center;color:var(--muted);padding:30px"><i class="fas fa-spinner fa-spin"></i> Loading permissions…</div>
+    </div>
+    <div class="modal-footer" style="flex-shrink:0;border-top:1px solid var(--border);padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;background:var(--card)">
+      <button class="btn btn-outline" onclick="closeModal('modal-team-permissions')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Mark Paid Modal -->
 <div class="modal-overlay" id="modal-paid">
   <div class="modal" style="max-width:500px;max-height:92vh;display:flex;flex-direction:column;">
@@ -4044,11 +4333,15 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Date + Method (2-col) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <!-- Date + Time + Method (3-col) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div class="field">
           <label>Payment Date</label>
           <input type="date" id="paid-date">
+        </div>
+        <div class="field">
+          <label>Payment Time</label>
+          <input type="time" id="paid-time">
         </div>
         <div class="field">
           <label>Method</label>
@@ -4224,6 +4517,23 @@ View Invoice: {{6}}</pre></details>
         <div class="field"><label>Avatar Color</label><input type="color" id="nc-color" value="#00897B" oninput="updateClientLogoInitials()"></div>
         <div class="field g-full"><label>Address</label><textarea id="nc-addr"></textarea></div>
         <div class="field g-full"><label>Landmark <span style="font-size:10px;color:var(--muted)">(optional — nearby area or landmark)</span></label><input id="nc-landmark" placeholder="e.g. Near City Mall, Sector 12"></div>
+      </div>
+
+      <!-- Tags / Labels -->
+      <div style="margin-top:18px">
+        <label style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--text);display:block">Tags / Labels <span style="font-size:10px;color:var(--muted);font-weight:400">(optional — press Enter to add)</span></label>
+        <div id="nc-tags-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <input id="nc-tag-input" placeholder="Type a tag and press Enter…" oninput="showTagSuggestions(this.value)" onkeydown="handleTagInput(event)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+        <div id="nc-tag-suggestions" style="display:none;position:fixed;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);max-height:180px;overflow-y:auto;min-width:160px"></div>
+      </div>
+
+      <!-- Multiple Contacts -->
+      <div style="margin-top:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="font-weight:600;font-size:13px;color:var(--text)">Additional Contacts <span style="font-size:10px;color:var(--muted);font-weight:400">(optional)</span></label>
+          <button type="button" class="btn btn-outline" style="font-size:12px;padding:4px 10px" onclick="addExtraContactRow()"><i class="fas fa-plus"></i> Add Contact</button>
+        </div>
+        <div id="nc-extra-contacts" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -4487,6 +4797,11 @@ function fmt_money(n, sym) {
   const s = sym !== undefined ? sym : ((STATE.settings && STATE.settings.currency) || '₹');
   return s + parseFloat(n||0).toLocaleString(_moneyLocale(),{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+// Escapes text before it's injected into innerHTML, to prevent stored-XSS
+// from product/client names, categories, HSN codes, etc.
+function escHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 // Locale-aware short date formatter (e.g. "15 Apr" or "Apr 15")
 function fmt_date_l(dateStr, opts) {
   if (!dateStr) return '';
@@ -4549,7 +4864,7 @@ const breadcrumbs = {
   'email-setup':'Email Setup', settings:'Settings',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
-  activity:'Activity Log', profile:'My Profile'
+  activity:'Activity Log', profile:'My Profile', team:'Team'
 };
 
 function showPage(name, el) {
@@ -4568,6 +4883,7 @@ function showPage(name, el) {
   if (name === 'payments') renderPayments();
   if (name === 'products') renderProducts();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
+  if (name === 'team') renderTeam();
   if (name === 'dashboard') renderDashboard();
   if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
@@ -5591,7 +5907,8 @@ function rowMenuAction(action) {
   const inv = STATE.invoices.find(i=>String(i.id)===String(id));
   closeAllDropdowns();
   if (!inv) return;
-  if (action === 'preview' || action === 'download') { openPreviewModal(id); return; }
+  if (action === 'preview')      { openPreviewModal(id); return; }
+  if (action === 'download')     { downloadInvoicePDF(id); return; }
   if (action === 'edit')         { editInvoice(id); return; }
   if (action === 'duplicate')    { duplicateInvoice(id); return; }
   if (action === 'wa')           { sendWAForInvoice(inv); return; }
@@ -5604,6 +5921,15 @@ function rowMenuAction(action) {
   if (action === 'cancel')       { confirmCancelInvoice(id); return; }
   if (action === 'make-recurring')   { openRecurringFromInvoice(inv); return; }
   if (action === 'balance-reminder') { openBalanceReminderModal(id); return; }
+}
+
+// ── Single source of truth for downloads: always hits the server-side
+//    mPDF renderer (api/pdf.php) so what you download here is identical
+//    to what a client sees via their portal link. Requires the invoice
+//    to already be saved (has a real numeric/db id).
+function downloadInvoicePDF(id) {
+  if (!id) { toast('⚠️ Save the invoice first','warning'); return; }
+  window.open('api/pdf.php?invoice_id=' + encodeURIComponent(id), '_blank');
 }
 
 function closeAllDropdowns(e) {
@@ -5866,6 +6192,10 @@ function switchToSaveClient() {
   const badge  = document.getElementById('onetime-badge');
   if (notice) notice.style.display = 'none';
   if (badge)  badge.style.display  = 'none';
+  clearClientLogo();
+  updateClientLogoInitials();
+  _ncCurrentTags = []; _renderTagPills();
+  const _ecwReset2 = document.getElementById('nc-extra-contacts'); if(_ecwReset2) _ecwReset2.innerHTML = '';
   openModal('modal-addclient');
 }
 
@@ -5970,18 +6300,24 @@ function livePreview() {
   try {
     const d = getFormData();
     const scale = 0.685;
-    const scaledH = Math.round(1123 * scale);
-    wrap.style.cssText = `width:545px;height:${scaledH}px;overflow:hidden;position:relative;border-radius:6px;box-shadow:0 2px 16px rgba(0,0,0,.12);background:#fff`;
-    const inner = document.createElement('div');
-    inner.style.cssText = `width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0;pointer-events:none`;
     const html = buildInvoiceHTML(d, false);
     if (!html || html.trim() === '') {
       wrap.innerHTML = `<div style="padding:20px;color:#e53935;font-size:12px">Preview returned empty — template may not be loading correctly. Check console for errors.</div>`;
       return;
     }
+    // Lay the content out unscaled first so we can measure its true height —
+    // a fixed one-A4-page height here would clip invoices with enough items,
+    // notes, or terms to run longer than a single page.
+    wrap.style.cssText = `width:545px;position:relative;border-radius:6px;box-shadow:0 2px 16px rgba(0,0,0,.12);background:#fff;overflow:hidden`;
+    const inner = document.createElement('div');
+    inner.style.cssText = `width:794px;position:absolute;top:0;left:0;pointer-events:none`;
     inner.innerHTML = html;
     wrap.innerHTML = '';
     wrap.appendChild(inner);
+    const naturalH = Math.max(1123, inner.scrollHeight);
+    inner.style.transform = `scale(${scale})`;
+    inner.style.transformOrigin = 'top left';
+    wrap.style.height = Math.round(naturalH * scale) + 'px';
     // Sync template dropdowns
     const ps = document.getElementById('prevTplSelect');
     if (ps && ps.value !== String(d.tpl)) ps.value = d.tpl;
@@ -6028,7 +6364,7 @@ function buildInvoiceHTML(d, forPrint) {
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
 
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   return fn(d, sc, itemsHTML, gstColHeader, rowNumHeader);
 }
@@ -7048,40 +7384,53 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     Overdue:   '#991B1B,#DC2626,#F87171',
     Cancelled: '#374151,#6B7280,#D1D5DB',
     Draft:     '#1E3A5F,#2563EB,#93C5FD',
-    Partial:   '#92400E,#D97706,#FCD34D',
+    Partial:   '#D97706,#F59E0B,#FDE68A',
     Pending:   T.band
   };
   const activeBand = statusBands[d.status] || T.band;
-  const [b1,b2,b3] = activeBand.split(',');
-  const bandCSS = `repeating-linear-gradient(90deg,${b1} 0,${b1} 12px,${b2} 12px,${b2} 24px,${b3} 24px,${b3} 36px)`;
+  const [b1, b2] = activeBand.split(',');
+  const accentStrip = b2 || b1; // use mid-tone so Partial amber is warm not muddy-brown
 
   const thStyle = `padding:10px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.thtext};text-align:left`;
   const thr = `${thStyle};text-align:right`;
+  const initials = (sc.company || '?').replace(/[^A-Za-z]/g,'').substring(0,2).toUpperCase() || '?';
 
   return `<div style="font-family:'Public Sans',sans-serif;background:#fff;width:794px;min-height:1123px;position:relative;overflow:hidden;border:1.5px solid ${T.metabr};border-radius:0">
   ${tplWatermark(d)}
 
-  <!-- COLOR BAND -->
-  <div style="height:5px;background:${bandCSS}"></div>
+  <!-- ACCENT STRIP -->
+  <div style="height:5px;background:${accentStrip}"></div>
 
-  <!-- HEADER -->
-  <div style="background:${T.hbg};padding:28px 36px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
-    <div>
-      ${sc.logo?`<img src="${sc.logo}" style="height:110px;max-width:350px;object-fit:contain;display:block;margin-bottom:8px;filter:brightness(0) invert(1)" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`:''}
-      <div style="font-size:20px;font-weight:800;color:${T.htext};letter-spacing:-.5px;line-height:1;margin-bottom:2px${sc.logo?';display:none':''}">${sc.company}</div>
-      ${sc.tagline?`<div style="font-size:10px;color:${T.htag};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600">${sc.tagline}</div>`:""}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
-        ${sc.phone?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.phone}</div>`:''}
-        ${sc.email?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.email}</div>`:''}
-        ${sc.website?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">${sc.website}</div>`:''}
-        ${sc.gst?`<div style="font-size:11px;color:#ffffff;font-weight:500;line-height:1.9">GSTIN: ${sc.gst}</div>`:''}
-        ${sc.address?`<div style="font-size:11px;color:${T.htag};font-weight:500;line-height:1.9;grid-column:1/-1">${sc.address.replace(/\n/g,', ')}</div>`:''}
-      </div>
+  <!-- HEADER: dark logo sidebar + white content panel (canonical design — matches PDF download) -->
+  <div style="display:flex">
+    <div style="background:#2A3580;width:86px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:18px 8px">
+      ${sc.logo
+        ? `<img src="${sc.logo}" style="max-width:54px;max-height:44px;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+           <div style="display:none;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
+        : `<div style="width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
     </div>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div style="font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:${T.htag};border:1px solid ${T.htag};padding:3px 10px;border-radius:3px;opacity:.8">Tax Invoice</div>
-      <div style="font-size:26px;font-weight:800;color:${T.hnum};font-family:monospace;letter-spacing:-1px;line-height:1.1">#${d.num}</div>
-      <span style="display:inline-block;padding:4px 14px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-radius:4px;background:${pbg};color:${ptxt};margin-top:2px">${d.status.toUpperCase()}</span>
+    <div style="flex:1;background:#fff;padding:18px 26px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div style="min-width:0">
+          <div style="font-size:16px;font-weight:800;color:#1A1A2E">${sc.company}</div>
+          ${sc.tagline?`<div style="font-size:9px;color:#9CA3AF;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;font-weight:600">${sc.tagline}</div>`:''}
+          ${sc.address?`<div style="font-size:10px;color:#9CA3AF;margin-top:3px;line-height:1.6">${sc.address.replace(/\n/g,', ')}</div>`:''}
+        </div>
+        <div style="text-align:right;white-space:nowrap;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:#1A1A2E;font-family:monospace">#${d.num}</div>
+          <div style="margin-top:6px">
+            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:#F3F4F6;color:#4B5563">${d.status==='Estimate'?'ESTIMATE':'TAX INVOICE'}</span>
+            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:${pbg};color:${ptxt};margin-left:5px">${d.status.toUpperCase()}</span>
+          </div>
+        </div>
+      </div>
+      <div style="height:1px;background:#F0F1F3;margin:13px 0 11px"></div>
+      <div style="display:flex;gap:28px;flex-wrap:wrap">
+        ${sc.phone?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Phone</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.phone}</div></div>`:''}
+        ${sc.email?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Email</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.email}</div></div>`:''}
+        ${sc.website?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Website</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.website}</div></div>`:''}
+        ${sc.gst?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">GSTIN</div><div style="font-size:11px;font-weight:600;color:#1A1A2E;font-family:monospace">${sc.gst}</div></div>`:''}
+      </div>
     </div>
   </div>
 
@@ -7360,7 +7709,7 @@ function openPrintWindow(d, items) {
     : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Ensure d has sym set (fallback for when called from create form)
   if (!d.sym) d.sym = '₹';
@@ -7406,9 +7755,17 @@ function printFromModal() {
   const id = titleEl?.dataset?.invId;
   if (id) {
     const inv = STATE.invoices.find(i=>String(i.id)===String(id));
-    if (inv) { printInvoiceById(inv); return; }
+    // Saved invoice → always use the canonical server-rendered PDF,
+    // so this is byte-identical to what a client gets via their portal link.
+    if (inv) { downloadInvoicePDF(id); return; }
   }
   printCurrentInvoice();
+}
+
+// Live draft (not yet saved, no invoice id) → no server PDF possible yet,
+// so fall back to the in-browser print preview built from the current form.
+function printCurrentInvoice() {
+  printInvoiceData({ items: formItems });
 }
 
 function printInvoiceById(inv) {
@@ -7468,7 +7825,7 @@ function printInvoiceById(inv) {
       return Object.assign({bank:true,qr:!!(inv.qr_code),sign:true,logo:true,clientLogo:false,notes:true,tnc:true,gstCol:true,footer:true,watermark:(inv.status==='Paid'||inv.status==='Cancelled'),paymentBlock:true,previousDue:true}, saved||{});
     })()
   };
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   // Snapshot STATE — must preserve invoices and payments for previousDueBlock
   const _printSc2 = Object.assign({}, sc);
@@ -7869,12 +8226,18 @@ function openPreviewModal(id) {
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const _tplMap = {'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE,'F':buildTplF};
+  const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
-  const scaledH = Math.round(1123*scale);
-  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader)}</div></div>`;
-  document.getElementById('mp-body').innerHTML = previewWrap;
+  const innerHtml = fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader);
+  const mpBody = document.getElementById('mp-body');
+  // Measure the real, unscaled content height first — a fixed one-A4-page
+  // height would clip invoices with enough items/notes to run past one page.
+  mpBody.innerHTML = `<div id="mp-measure" style="width:794px;position:relative">${innerHtml}</div>`;
+  const naturalH = Math.max(1123, document.getElementById('mp-measure').scrollHeight);
+  const scaledH = Math.round(naturalH * scale);
+  const previewWrap = `<div style="width:${Math.round(794*scale)}px;height:${scaledH}px;overflow:hidden;position:relative;margin:0 auto"><div style="width:794px;transform:scale(${scale});transform-origin:top left;position:absolute;top:0;left:0">${innerHtml}</div></div>`;
+  mpBody.innerHTML = previewWrap;
   const titleEl = document.getElementById('mp-title');
   titleEl.textContent = `Invoice ${inv.num} — ${c.name||''}`;
   titleEl.dataset.invId = id;
@@ -8165,6 +8528,8 @@ function openPaidModal(id) {
 
   // Reset payment form
   document.getElementById('paid-date').value = fmt_date(new Date());
+  const _now = new Date();
+  document.getElementById('paid-time').value = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
   const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
@@ -8435,7 +8800,12 @@ function confirmPaid() {
     client_name:         (STATE.clients.find(c=>String(c.id)===String(inv.client))||{}).name||inv.client_name||'',
     amount:              amtReceived,
     settlement_discount: settleDiscAmt > 0 ? settleDiscAmt : 0,
-    payment_date:        document.getElementById('paid-date').value,
+    payment_date:        (function(){
+                            const dVal = document.getElementById('paid-date').value;
+                            const tVal = document.getElementById('paid-time').value;
+                            if (!dVal) return '';
+                            return dVal + ' ' + (tVal || '00:00') + ':00';
+                          })(),
     method: (document.getElementById('paid-method').value === 'Split')
               ? getSplitMethodLabel()
               : document.getElementById('paid-method').value,
@@ -8892,15 +9262,190 @@ function onStatusChange(newStatus) {
 // ══════════════════════════════════════════
 // CLIENTS
 // ══════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════
+// CLIENT TAGS SYSTEM
+// ════════════════════════════════════════════════════════════════
+let _ncCurrentTags = [];
+
+const TAG_PALETTE = [
+  {bg:'#EDE9FE',text:'#5B21B6',border:'#C4B5FD'},
+  {bg:'#E0F2FE',text:'#0369A1',border:'#BAE6FD'},
+  {bg:'#DCFCE7',text:'#166534',border:'#BBF7D0'},
+  {bg:'#FEF3C7',text:'#92400E',border:'#FDE68A'},
+  {bg:'#FFE4E6',text:'#9F1239',border:'#FECDD3'},
+  {bg:'#F0FDF4',text:'#14532D',border:'#86EFAC'},
+  {bg:'#FFF7ED',text:'#9A3412',border:'#FDBA74'},
+  {bg:'#EFF6FF',text:'#1E40AF',border:'#BFDBFE'},
+];
+
+function _tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
+}
+
+function _renderTagPills() {
+  const wrap = document.getElementById('nc-tags-pills');
+  if (!wrap) return;
+  wrap.innerHTML = (_ncCurrentTags||[]).map(t => {
+    const col = _tagColor(t);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border}">${t}<span onclick="removeTag('${t}')" style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">&times;</span></span>`;
+  }).join('');
+}
+
+function removeTag(tag) {
+  _ncCurrentTags = (_ncCurrentTags||[]).filter(t => t !== tag);
+  _renderTagPills();
+}
+
+function handleTagInput(e) {
+  const input = e.target;
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = input.value.trim().replace(/,$/,'');
+    if (val && !(_ncCurrentTags||[]).includes(val)) {
+      _ncCurrentTags = [...(_ncCurrentTags||[]), val];
+      _renderTagPills();
+    }
+    input.value = '';
+    document.getElementById('nc-tag-suggestions').style.display = 'none';
+  } else if (e.key === 'Backspace' && !input.value && (_ncCurrentTags||[]).length) {
+    _ncCurrentTags = _ncCurrentTags.slice(0,-1);
+    _renderTagPills();
+  }
+}
+
+function showTagSuggestions(val) {
+  const box = document.getElementById('nc-tag-suggestions');
+  if (!box) return;
+  if (!val.trim()) { box.style.display='none'; return; }
+  // Collect all unique tags from existing clients
+  const allTags = [...new Set((STATE.clients||[]).flatMap(cl => { try { return JSON.parse(cl.tags||'[]'); } catch(e){ return []; } }))];
+  const matches = allTags.filter(t => t.toLowerCase().includes(val.toLowerCase()) && !(_ncCurrentTags||[]).includes(t));
+  if (!matches.length) { box.style.display='none'; return; }
+  const inputEl = document.getElementById('nc-tag-input');
+  if (inputEl) {
+    const rect = inputEl.getBoundingClientRect();
+    box.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+    box.style.left = (rect.left + window.scrollX) + 'px';
+    box.style.position = 'fixed';
+  }
+  box.innerHTML = matches.map(t => `<div onclick="selectTagSuggestion('${t}')" style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">${t}</div>`).join('');
+  box.style.display = 'block';
+}
+
+function selectTagSuggestion(tag) {
+  if (!(_ncCurrentTags||[]).includes(tag)) {
+    _ncCurrentTags = [...(_ncCurrentTags||[]), tag];
+    _renderTagPills();
+  }
+  const input = document.getElementById('nc-tag-input');
+  if (input) input.value = '';
+  document.getElementById('nc-tag-suggestions').style.display = 'none';
+}
+
+function _refreshTagFilterDropdown() {
+  const sel = document.getElementById('client-tag-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  const allTags = [...new Set((STATE.clients||[]).flatMap(cl => { try { return JSON.parse(cl.tags||'[]'); } catch(e){ return []; } }))].sort();
+  sel.innerHTML = '<option value="">All Tags</option>' + allTags.map(t => `<option value="${t}" ${t===cur?'selected':''}>${t}</option>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// EXTRA CONTACTS
+// ════════════════════════════════════════════════════════════════
+function addExtraContactRow(data) {
+  const wrap = document.getElementById('nc-extra-contacts');
+  if (!wrap) return;
+  const id = 'ec-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px';
+  row.innerHTML = `
+    <input placeholder="Name *" value="${(data&&data.name)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-name">
+    <input placeholder="Role (e.g. Accounts)" value="${(data&&data.role)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-role">
+    <input placeholder="WhatsApp" value="${(data&&data.wa)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="ec-wa">
+    <button type="button" onclick="document.getElementById('${id}').remove()" style="width:28px;height:28px;border:none;background:var(--red-bg,#FFEBEE);color:#C62828;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">&times;</button>`;
+  wrap.appendChild(row);
+}
+
+function _getExtraContacts() {
+  const rows = document.querySelectorAll('#nc-extra-contacts > div');
+  const result = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.ec-name')?.value?.trim();
+    const role = row.querySelector('.ec-role')?.value?.trim();
+    const wa   = row.querySelector('.ec-wa')?.value?.trim();
+    if (name) result.push({ name, role: role||'', wa: wa||'' });
+  });
+  return result;
+}
+
+// ════════════════════════════════════════════════════════════════
+// PAYMENT BEHAVIOUR SCORE
+// ════════════════════════════════════════════════════════════════
+function _clientPayBehaviour(clientId) {
+  const cid = String(clientId);
+  const paidInvs = (STATE.invoices||[]).filter(i => String(i.client) === cid && i.status === 'Paid');
+  if (!paidInvs.length) return { totalPaid: 0 };
+
+  // Calc avg days between issue and payment
+  const delays = [];
+  paidInvs.forEach(inv => {
+    const invPmts = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(inv.id));
+    if (!invPmts.length) return;
+    const lastPmt = invPmts.map(p => new Date((p.paid_on||p.created_at||'').replace(' ','T')+'Z')).sort((a,b)=>b-a)[0];
+    const issued  = new Date((inv.issued||inv.issued_date||inv.created_at||'').replace(' ','T')+'Z');
+    if (lastPmt && issued && !isNaN(lastPmt) && !isNaN(issued)) {
+      delays.push(Math.max(0, Math.floor((lastPmt - issued) / 864e5)));
+    }
+  });
+
+  const avgDays = delays.length ? Math.round(delays.reduce((s,d)=>s+d,0)/delays.length) : 0;
+  // Count overdue invoices ever
+  const allInvs  = (STATE.invoices||[]).filter(i => String(i.client) === cid);
+  const everLate = allInvs.filter(i => {
+    const due = new Date((i.due||i.due_date||'').replace(' ','T')+'Z');
+    const pmts = (STATE.payments||[]).filter(p => String(p.invoice_id) === String(i.id));
+    if (!pmts.length) return false;
+    const lastPmt = pmts.map(p => new Date((p.paid_on||p.created_at||'').replace(' ','T')+'Z')).sort((a,b)=>b-a)[0];
+    return lastPmt && due && lastPmt > due;
+  }).length;
+
+  // Score: A (≤7d avg, 0 late) → B → C → D
+  let score, label, color, bg, border, icon;
+  if (avgDays <= 7 && everLate === 0)       { score='A'; label='Excellent payer'; color='#166534'; bg='#DCFCE7'; border='#BBF7D0'; icon='star'; }
+  else if (avgDays <= 15 && everLate <= 1)  { score='B'; label='Good payer';      color='#0369A1'; bg='#E0F2FE'; border='#BAE6FD'; icon='thumbs-up'; }
+  else if (avgDays <= 30 && everLate <= 3)  { score='C'; label='Slow payer';      color='#92400E'; bg='#FEF3C7'; border='#FDE68A'; icon='clock'; }
+  else                                       { score='D'; label='Poor payer';      color='#9F1239'; bg='#FFE4E6'; border='#FECDD3'; icon='exclamation-triangle'; }
+
+  return { score, label, color, bg, border, icon, avgDays, totalPaid: paidInvs.length, everLate };
+}
+
 function renderClients() {
   const grid = document.getElementById('clientsGrid');
   if (!grid) return;
-  const showInactive = document.getElementById('show-inactive-toggle')?.checked || false;
+  const showInactive  = document.getElementById('show-inactive-toggle')?.checked || false;
+  const searchVal     = (document.getElementById('client-search')?.value || '').toLowerCase().trim();
+  const tagFilter     = document.getElementById('client-tag-filter')?.value || '';
   const inactiveCount = STATE.clients.filter(c => parseInt(c.active) === 0 || c.status === 'inactive').length;
-  // Update inactive badge
   const badge = document.getElementById('inactive-count-badge');
   if (badge) { badge.textContent = inactiveCount; badge.style.display = inactiveCount ? 'inline-block' : 'none'; }
-  const visibleClients = showInactive ? STATE.clients : STATE.clients.filter(c => parseInt(c.active) !== 0 && c.status !== 'inactive');
+  // Populate tag filter dropdown
+  _refreshTagFilterDropdown();
+  let visibleClients = showInactive ? STATE.clients : STATE.clients.filter(c => parseInt(c.active) !== 0 && c.status !== 'inactive');
+  if (searchVal) visibleClients = visibleClients.filter(c =>
+    (c.name||'').toLowerCase().includes(searchVal) ||
+    (c.email||'').toLowerCase().includes(searchVal) ||
+    (c.wa||'').includes(searchVal) ||
+    (c.person||'').toLowerCase().includes(searchVal)
+  );
+  if (tagFilter) visibleClients = visibleClients.filter(c => {
+    let tags = []; try { tags = JSON.parse(c.tags||'[]'); } catch(e){}
+    return tags.includes(tagFilter);
+  });
   if (!visibleClients.length) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">${
       inactiveCount && !showInactive ? `All clients are inactive. <span onclick="document.getElementById('show-inactive-toggle').checked=true;renderClients()" style="color:var(--teal);cursor:pointer;text-decoration:underline">Show inactive</span>` : 'No clients yet'
@@ -8933,6 +9478,18 @@ function renderClients() {
       ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#F9A825;color:#fff;margin-left:6px;vertical-align:middle">INACTIVE</span>`
       : '';
 
+    // Tags
+    let _cTags = []; try { _cTags = JSON.parse(c.tags||'[]'); } catch(e){}
+    const _tagsHTML = _cTags.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + _cTags.map(t=>{const col=_tagColor(t);return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+col.bg+';color:'+col.text+';border:1px solid '+col.border+'">'+t+'</span>';}).join('') + '</div>'
+      : '';
+    // Extra contacts
+    let _eCons = []; try { _eCons = JSON.parse(c.extra_contacts||'[]'); } catch(e){}
+    const _extraHTML = _eCons.map(ct=>'<div style="font-size:11px;color:var(--muted);display:flex;gap:5px;align-items:center;margin-top:2px"><i class="fas fa-user-tie" style="font-size:9px;color:var(--teal)"></i><b style="color:var(--text)">'+(ct.name||'')+'</b>'+(ct.role?'<span style="opacity:.6">'+ct.role+'</span>':'')+(ct.wa?'<a href="https://wa.me/'+ct.wa.replace(/[^0-9]/g,'') + '" target="_blank" onclick="event.stopPropagation()" style="color:#25D366;margin-left:2px"><i class="fab fa-whatsapp"></i></a>':'')+'</div>').join('');
+    // Payment behaviour
+    const _beh = _clientPayBehaviour(c.id);
+    const _behHTML = _beh.totalPaid > 0 ? '<div style="margin-top:6px;padding:7px 11px;background:'+_beh.bg+';border-radius:8px;border:1px solid '+_beh.border+';display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:7px"><i class="fas fa-'+_beh.icon+'" style="color:'+_beh.color+';font-size:11px"></i><div><div style="font-size:10px;font-weight:700;color:'+_beh.color+';text-transform:uppercase;letter-spacing:.4px">'+_beh.label+'</div><div style="font-size:10px;color:var(--muted)">Avg '+_beh.avgDays+'d to pay · '+_beh.totalPaid+' paid</div></div></div><div style="font-size:17px;font-weight:800;color:'+_beh.color+'">'+_beh.score+'</div></div>' : '';
+
     return `<div class="client-card" style="--c:${c.color};${cardStyle}">
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${isInactive?'#F9A825':c.color}"></div>
       ${isInactive ? `<div style="position:absolute;top:8px;right:8px;background:#FFF3CD;border:1.5px solid #F9A825;border-radius:8px;padding:3px 8px;font-size:10px;font-weight:700;color:#856404;z-index:2"><i class="fas fa-pause-circle"></i> Inactive</div>` : ''}
@@ -8945,6 +9502,8 @@ function renderClients() {
           <div class="cc-contact">${c.person||''}</div>
           <div class="cc-contact">${c.email||''}</div>
           ${c.landmark ? `<div class="cc-contact" style="font-size:11px;color:var(--muted)"><i class="fas fa-map-marker-alt" style="color:var(--teal);margin-right:3px;font-size:10px"></i>${c.landmark}</div>` : ''}
+          ${_tagsHTML}
+          ${_extraHTML}
         </div>
       </div>
       <div class="cc-stats" style="${isInactive?'opacity:.6':''}">
@@ -8952,6 +9511,7 @@ function renderClients() {
         <div class="cc-stat"><div class="cc-stat-val" style="color:${_remSentCount>0?(isInactive?'#F9A825':'#6D28D9'):'var(--muted)'}${_remSentCount>0?';font-size:14px':''}">${_remSentCount}</div><div class="cc-stat-lbl">Reminders</div></div>
         <div class="cc-stat"><div class="cc-stat-val" style="color:${isInactive?'#F9A825':c.color};font-size:12px">${c.wa||'—'}</div><div class="cc-stat-lbl">WhatsApp</div></div>
       </div>
+      ${_behHTML}
       <div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#E3F2FD;border-radius:8px;opacity:${isInactive?'.6':'1'}">
         <div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
         <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
@@ -9214,6 +9774,10 @@ function openAddClientModal() {
   STATE._editCid=null;
   ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); 
   const col=document.getElementById('nc-color');if(col)col.value='#00897B';
+  clearClientLogo();
+  updateClientLogoInitials();
+  _ncCurrentTags = []; _renderTagPills();
+  const _ecwReset = document.getElementById('nc-extra-contacts'); if(_ecwReset) _ecwReset.innerHTML = '';
   const hdr=document.querySelector('#modal-addclient .modal-header span');if(hdr)hdr.textContent='Add New Client';
   const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary');if(btn)btn.textContent='Add Client';
   openModal('modal-addclient');
@@ -9346,24 +9910,53 @@ async function saveNewClient() {
     color:  document.getElementById('nc-color')?.value  || '#00897B',
     addr:   document.getElementById('nc-addr')?.value   || '',
     landmark: document.getElementById('nc-landmark')?.value || '',
-    logo:   _ncLogoBase64 || ''
+    logo:   _ncLogoBase64 || '',
+    tags:   JSON.stringify(_ncCurrentTags || []),
+    extra_contacts: JSON.stringify(_getExtraContacts())
   };
+  const saveBtn = document.querySelector('#modal-addclient .modal-footer .btn-primary');
+  const cancelBtn = document.querySelector('#modal-addclient .modal-footer .btn-outline');
+  const isEdit = !!STATE._editCid;
+  const origLabel = saveBtn ? saveBtn.textContent : '';
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.7';
+    saveBtn.style.cursor = 'not-allowed';
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  }
+  if (cancelBtn) cancelBtn.disabled = true;
   try {
+    let savedClient = null;
+    const logoNormalized = (payload.logo && (payload.logo.indexOf('data:image') === 0 || payload.logo.indexOf('http') === 0)) ? payload.logo : '';
     if (STATE._editCid) {
       const c = STATE.clients.find(x => x.id === STATE._editCid);
-      await api('api/clients.php?id=' + (parseInt(c?.id) || 0), 'PUT', payload);
+      const cId = parseInt(c?.id) || 0;
+      await api('api/clients.php?id=' + cId, 'PUT', payload);
       toast('✅ Client updated!', 'success');
       logActivity('client_edited', `Client edited: ${name}`, payload.email || '');
+      savedClient = {
+        id: String(cId), name: payload.name, person: payload.person, email: payload.email,
+        phone: c?.phone || '', wa: payload.wa, gst: payload.gst, addr: payload.addr,
+        landmark: payload.landmark, color: payload.color, image: logoNormalized,
+        active: c?.active ?? 1, tags: payload.tags, extra_contacts: payload.extra_contacts
+      };
+      const idx = STATE.clients.findIndex(x => String(x.id) === String(cId));
+      if (idx !== -1) STATE.clients[idx] = savedClient; else STATE.clients.push(savedClient);
       STATE._editCid = null;
       const hdr = document.querySelector('#modal-addclient .modal-header span');
       if (hdr) hdr.textContent = 'Add New Client';
     } else {
-      await api('api/clients.php', 'POST', payload);
+      const resp = await api('api/clients.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
       logActivity('client_added', `Client added: ${name}`, payload.email || '');
+      savedClient = {
+        id: String(resp?.id || ('tmp-' + Date.now())), name: payload.name, person: payload.person,
+        email: payload.email, phone: '', wa: payload.wa, gst: payload.gst, addr: payload.addr,
+        landmark: payload.landmark, color: payload.color, image: logoNormalized,
+        active: 1, tags: payload.tags, extra_contacts: payload.extra_contacts
+      };
+      STATE.clients.push(savedClient);
     }
-    const r = await api('api/clients.php');
-    STATE.clients = Array.isArray(r.data) ? r.data : STATE.clients;
     updateClientDropdown(); renderClients(); populateWAClientDropdown();
     closeModal('modal-addclient');
     ['nc-name','nc-person','nc-wa','nc-email','nc-gst','nc-addr','nc-landmark'].forEach(id => {
@@ -9372,7 +9965,19 @@ async function saveNewClient() {
     clearClientLogo();
     const col = document.getElementById('nc-color'); if (col) col.value = '#00897B';
     updateClientLogoInitials();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+    _ncCurrentTags = []; _renderTagPills();
+    const _ecwReset = document.getElementById('nc-extra-contacts'); if(_ecwReset) _ecwReset.innerHTML = '';
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '';
+      saveBtn.style.cursor = '';
+      saveBtn.textContent = origLabel || (isEdit ? 'Update Client' : 'Add Client');
+    }
+    if (cancelBtn) cancelBtn.disabled = false;
+  }
 }
 
 function editClient(id) {
@@ -9391,6 +9996,19 @@ function editClient(id) {
     if (ui && (_ncLogoBase64.startsWith('http'))) ui.value = _ncLogoBase64;
   }
   updateClientLogoInitials();
+  // Load tags
+  _ncCurrentTags = [];
+  try { _ncCurrentTags = JSON.parse(c.tags || '[]'); } catch(e) { _ncCurrentTags = []; }
+  if (!Array.isArray(_ncCurrentTags)) _ncCurrentTags = [];
+  _renderTagPills();
+  // Load extra contacts
+  const _ecWrap = document.getElementById('nc-extra-contacts');
+  if (_ecWrap) {
+    _ecWrap.innerHTML = '';
+    let _ecList = [];
+    try { _ecList = JSON.parse(c.extra_contacts || '[]'); } catch(e) {}
+    if (Array.isArray(_ecList)) _ecList.forEach(ct => addExtraContactRow(ct));
+  }
   const hdr=document.querySelector('#modal-addclient .modal-header span'); if(hdr) hdr.textContent='Edit Client';
   const btn=document.querySelector('#modal-addclient .modal-footer .btn-primary'); if(btn) btn.textContent='Update Client';
   openModal('modal-addclient');
@@ -9468,9 +10086,632 @@ async function toggleClientActive(id, makeActive) {
 // ══════════════════════════════════════════
 // PRODUCTS
 // ══════════════════════════════════════════
-const PROD = { page:1, per:8, list:[] };
-function renderProducts() { updateProductCatDropdowns(); PROD.list=[...STATE.products]; PROD.page=1; _renderProdPage(); }
-function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=STATE.products.filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
+const PROD = { page:1, per:8, list:[], archived:false, archivedList:null };
+// Category → default HSN/SAC code. Editable suggestions only — never overrides
+// a value the user has already typed, and the field always stays manually editable.
+const HSN_DEFAULTS = {
+  'Service': '998314',   // IT design/development & other professional services (SAC)
+  'Labour':  '998719',   // Installation/maintenance/repair services (SAC)
+  'Product': '',         // goods vary too much for a safe default — leave blank
+  'Other':   ''
+};
+function suggestHsnForCategory(cat) {
+  if (HSN_DEFAULTS[cat] !== undefined) return HSN_DEFAULTS[cat];
+  // Fall back to the most recently used HSN for this category, if any exists
+  const match = (STATE.products||[]).slice().reverse().find(p => p.category === cat && p.hsn);
+  return match ? match.hsn : '998314';
+}
+function allKnownHsnCodes() {
+  return [...new Set((STATE.products||[]).map(p => p.hsn).filter(Boolean))];
+}
+function activeProdSource() { return PROD.archived ? (PROD.archivedList||[]) : STATE.products; }
+function renderProducts() { updateProductCatDropdowns(); PROD.list=[...activeProdSource()]; PROD.page=1; _renderProdPage(); }
+
+// ══════════════════════════════════════════
+// TEAM PAGE
+// ══════════════════════════════════════════
+STATE.team = [];
+
+async function renderTeam() {
+  try {
+    const r = await api('api/team.php?action=list');
+    STATE.team = Array.isArray(r.data) ? r.data : [];
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    STATE.team = [];
+  }
+  _renderTeamRows(STATE.team);
+}
+
+function filterTeam(q) {
+  q = (q || '').toLowerCase();
+  const filtered = !q ? STATE.team : STATE.team.filter(u =>
+    (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
+  );
+  _renderTeamRows(filtered);
+}
+
+function _renderTeamRows(rawList) {
+  const tbody = document.getElementById('teamTbody');
+  const roleLabels = { owner:'Owner', admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
+  const roleOptions = ['admin','manager','accountant','sales','viewer'];
+
+  const showInactive  = document.getElementById('team-show-inactive-toggle')?.checked || false;
+  const inactiveCount = rawList.filter(u => u.status === 'inactive').length;
+  const badge = document.getElementById('team-inactive-count-badge');
+  if (badge) {
+    if (inactiveCount) { badge.style.display = 'inline-block'; badge.textContent = inactiveCount; }
+    else { badge.style.display = 'none'; }
+  }
+  const list = showInactive ? rawList : rawList.filter(u => u.status !== 'inactive');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">
+      ${inactiveCount && !showInactive
+        ? `All team members are inactive. <span onclick="document.getElementById('team-show-inactive-toggle').checked=true;_renderTeamRows(STATE.team)" style="color:var(--teal);cursor:pointer;text-decoration:underline">Show inactive</span>`
+        : 'No team members yet.'}
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = list.map(u => {
+      const isOwner = u.role === 'owner';
+      const roleCell = isOwner
+        ? `<span class="badge">Owner</span>`
+        : `<select onchange="changeTeamRole(${u.id}, this.value)" class="table-filter" style="font-size:12px;padding:4px 8px">
+            ${roleOptions.map(r => `<option value="${r}" ${r===u.role?'selected':''}>${roleLabels[r]}</option>`).join('')}
+          </select>`;
+      const statusBadge = u.status === 'active'
+        ? `<span class="badge badge-success">Active</span>`
+        : `<span class="badge badge-muted">Inactive</span>`;
+      const permsBtn = isOwner ? '' : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#7B1FA2" onclick="openTeamPermissionsModal('${u.role}')" title="Permissions"><i class="fas fa-shield-halved"></i></button>`;
+      const editBtn  = isOwner ? '' : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#1976D2" onclick="openEditTeamModal(${u.id})" title="Edit"><i class="fas fa-pen"></i></button>`;
+      const actions = isOwner ? '' : `
+        <div class="action-cell">
+          ${editBtn}
+          ${permsBtn}
+          ${u.status === 'active'
+            ? `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'inactive')" title="Deactivate"><i class="fas fa-user-slash"></i></button>`
+            : `<button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="toggleTeamStatus(${u.id},'active')" title="Reactivate"><i class="fas fa-user-check"></i></button>`
+          }
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;color:#E53935" onclick="removeTeamMember(${u.id})" title="Remove"><i class="fas fa-trash"></i></button>
+        </div>`;
+      return `<tr>
+        <td>${escHtml(u.name)}</td>
+        <td>${escHtml(u.email)}</td>
+        <td>${roleCell}</td>
+        <td>${statusBadge}</td>
+        <td>${u.last_login ? new Date(u.last_login).toLocaleDateString() : '—'}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('teamCountInfo').textContent = list.length + ' member' + (list.length === 1 ? '' : 's');
+}
+
+// ── Add Team Member modal state ──────────────────────────────────
+let _tmAvatarBase64 = '';
+let _tmCurrentTags  = [];
+
+function openAddTeamModal() {
+  document.getElementById('tm-name').value = '';
+  document.getElementById('tm-email').value = '';
+  document.getElementById('tm-mobile').value = '';
+  document.getElementById('tm-address').value = '';
+  document.getElementById('tm-role').value = 'sales';
+  document.getElementById('tm-password').value = '';
+  document.getElementById('tm-tag-input').value = '';
+  document.getElementById('tm-avatar-file').value = '';
+  const _ecw = document.getElementById('tm-extra-contacts'); if (_ecw) _ecw.innerHTML = '';
+  _tmAvatarBase64 = '';
+  _tmCurrentTags  = [];
+  _applyTeamAvatarPreview('');
+  _renderTeamTagPills();
+  openModal('modal-add-team');
+}
+
+// ── Avatar upload (mirrors handleClientLogoUpload, resized client-side) ──
+function handleTeamAvatarUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('⚠️ Image must be under 5MB', 'warning'); return; }
+
+  const icon = document.getElementById('tm-avatar-upload-icon');
+  const text = document.getElementById('tm-avatar-upload-text');
+  const bar  = document.getElementById('tm-avatar-progress-bar');
+  if (icon) icon.className = 'fas fa-spinner fa-spin';
+  if (text) text.textContent = 'Processing…';
+  if (bar)  { bar.style.width = '0%'; bar.style.transition = 'none'; }
+
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct = pct < 85 ? pct + (85 - pct) * 0.08 : pct;
+    if (bar) bar.style.width = pct + '%';
+  }, 50);
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 200;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      let quality = 0.85, dataUrl;
+      do {
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+        quality -= 0.1;
+      } while (dataUrl.length > 50 * 1024 * 1.37 && quality > 0.1);
+
+      clearInterval(tick);
+      if (bar) { bar.style.transition = 'width .2s ease'; bar.style.width = '100%'; }
+
+      setTimeout(() => {
+        _tmAvatarBase64 = dataUrl;
+        _applyTeamAvatarPreview(dataUrl);
+        if (icon) icon.className = 'fas fa-check';
+        if (text) text.textContent = 'Uploaded!';
+        if (bar)  { bar.style.transition = 'width .4s ease'; bar.style.width = '0%'; }
+        setTimeout(() => {
+          if (icon) icon.className = 'fas fa-camera';
+          if (text) text.textContent = 'Upload Photo';
+        }, 2000);
+        toast('✅ Photo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+      }, 250);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _applyTeamAvatarPreview(src) {
+  const img     = document.getElementById('tm-avatar-img');
+  const icon    = document.getElementById('tm-avatar-icon');
+  const preview = document.getElementById('tm-avatar-preview');
+  if (src) {
+    img.src = src; img.style.display = 'block';
+    if (icon) icon.style.display = 'none';
+    if (preview) { preview.style.border = '3px solid #00897B'; preview.style.boxShadow = '0 0 0 3px rgba(0,137,123,.25)'; }
+  } else {
+    img.src = ''; img.style.display = 'none';
+    if (icon) icon.style.display = '';
+    if (preview) { preview.style.border = '3px solid var(--border)'; preview.style.boxShadow = 'none'; }
+  }
+}
+
+// ── Tags (mirrors client tag pills, namespaced to tm-) ───────────
+function _renderTeamTagPills() {
+  const wrap = document.getElementById('tm-tags-pills');
+  if (!wrap) return;
+  wrap.innerHTML = (_tmCurrentTags||[]).map(t => {
+    const col = _tagColor(t);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border}">${escHtml(t)}<span onclick="removeTeamTag('${escHtml(t)}')" style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">&times;</span></span>`;
+  }).join('');
+}
+function removeTeamTag(tag) {
+  _tmCurrentTags = (_tmCurrentTags||[]).filter(t => t !== tag);
+  _renderTeamTagPills();
+}
+function handleTeamTagInput(e) {
+  const input = e.target;
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = input.value.trim().replace(/,$/,'');
+    if (val && !(_tmCurrentTags||[]).includes(val)) {
+      _tmCurrentTags = [...(_tmCurrentTags||[]), val];
+      _renderTeamTagPills();
+    }
+    input.value = '';
+  } else if (e.key === 'Backspace' && !input.value && (_tmCurrentTags||[]).length) {
+    _tmCurrentTags = _tmCurrentTags.slice(0,-1);
+    _renderTeamTagPills();
+  }
+}
+
+// ── Additional contacts (mirrors addExtraContactRow, namespaced to tm-) ──
+function addTeamContactRow(data) {
+  const wrap = document.getElementById('tm-extra-contacts');
+  if (!wrap) return;
+  const id = 'tmec-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px';
+  row.innerHTML = `
+    <input placeholder="Name *" value="${(data&&data.name)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-name">
+    <input placeholder="Phone" value="${(data&&data.phone)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-phone">
+    <input placeholder="Relation (e.g. Emergency)" value="${(data&&data.relation)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmec-relation">
+    <button type="button" onclick="document.getElementById('${id}').remove()" style="width:28px;height:28px;border:none;background:var(--red-bg,#FFEBEE);color:#C62828;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">&times;</button>`;
+  wrap.appendChild(row);
+}
+function _getTeamContacts() {
+  const rows = document.querySelectorAll('#tm-extra-contacts > div');
+  const result = [];
+  rows.forEach(row => {
+    const name     = row.querySelector('.tmec-name')?.value?.trim();
+    const phone    = row.querySelector('.tmec-phone')?.value?.trim();
+    const relation = row.querySelector('.tmec-relation')?.value?.trim();
+    if (name || phone) result.push({ name: name||'', phone: phone||'', relation: relation||'' });
+  });
+  return result;
+}
+
+async function saveNewTeamMember() {
+  const name    = document.getElementById('tm-name').value.trim();
+  const email   = document.getElementById('tm-email').value.trim();
+  const mobile  = document.getElementById('tm-mobile').value.trim();
+  const address = document.getElementById('tm-address').value.trim();
+  const role    = document.getElementById('tm-role').value;
+  const password= document.getElementById('tm-password').value.trim();
+  if (!name)  { toast('⚠️ Name required', 'warning'); return; }
+  if (!email) { toast('⚠️ Email required', 'warning'); return; }
+
+  const btn = document.getElementById('tm-save-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+
+  try {
+    const payload = {
+      name, email, role, mobile, address,
+      password: password || undefined,
+      tags: _tmCurrentTags || [],
+      contacts: _getTeamContacts(),
+      avatar: _tmAvatarBase64 || undefined
+    };
+    const r = await api('api/team.php?action=add', 'POST', payload);
+    closeModal('modal-add-team');
+    await renderTeam();
+    await Swal.fire({
+      title: 'Team member added',
+      html: `<strong>${escHtml(email)}</strong> can sign in with this temporary password:<br><br>
+             <code style="font-size:15px;background:var(--bg);padding:6px 12px;border-radius:6px;display:inline-block">${escHtml(r.temp_pass)}</code>
+             <br><br><span style="font-size:12px;color:var(--muted)">Share this securely — it won't be shown again.</span>`,
+      icon: 'success',
+      confirmButtonText: 'Got it',
+      customClass: { popup: 'swal-compact' }
+    });
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════
+// EDIT TEAM MEMBER MODAL
+// ══════════════════════════════════════════
+let _tmeAvatarBase64 = undefined; // undefined = unchanged, '' = cleared, dataURL = new photo
+let _tmeCurrentTags  = [];
+let _tmeEditingId    = null;
+
+async function openEditTeamModal(userId) {
+  _tmeEditingId = userId;
+  _tmeAvatarBase64 = undefined;
+  _tmeCurrentTags  = [];
+  document.getElementById('tme-name').value = '';
+  document.getElementById('tme-email').value = '';
+  document.getElementById('tme-mobile').value = '';
+  document.getElementById('tme-address').value = '';
+  document.getElementById('tme-password').value = '';
+  document.getElementById('tme-tag-input').value = '';
+  document.getElementById('tme-avatar-file').value = '';
+  document.getElementById('tme-role-display').value = '';
+  const _ecw = document.getElementById('tme-extra-contacts'); if (_ecw) _ecw.innerHTML = '';
+  _applyEditTeamAvatarPreview('');
+  _renderEditTeamTagPills();
+  openModal('modal-edit-team');
+
+  try {
+    const r = await api('api/team.php?action=get&user_id=' + userId);
+    const u = r.data || {};
+    const roleLabels = { owner:'Owner', admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
+    document.getElementById('tme-name').value    = u.name || '';
+    document.getElementById('tme-email').value   = u.email || '';
+    document.getElementById('tme-mobile').value  = u.phone || '';
+    document.getElementById('tme-address').value = u.address || '';
+    document.getElementById('tme-role-display').value = roleLabels[u.role] || u.role || '';
+    _tmeCurrentTags = Array.isArray(u.tags) ? u.tags : [];
+    _renderEditTeamTagPills();
+    if (u.avatar) _applyEditTeamAvatarPreview(u.avatar);
+    (r.contacts || []).forEach(c => addEditTeamContactRow(c));
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    closeModal('modal-edit-team');
+  }
+}
+
+function handleEditTeamAvatarUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('⚠️ Image must be under 5MB', 'warning'); return; }
+
+  const icon = document.getElementById('tme-avatar-upload-icon');
+  const text = document.getElementById('tme-avatar-upload-text');
+  const bar  = document.getElementById('tme-avatar-progress-bar');
+  if (icon) icon.className = 'fas fa-spinner fa-spin';
+  if (text) text.textContent = 'Processing…';
+  if (bar)  { bar.style.width = '0%'; bar.style.transition = 'none'; }
+
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct = pct < 85 ? pct + (85 - pct) * 0.08 : pct;
+    if (bar) bar.style.width = pct + '%';
+  }, 50);
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 200;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      let quality = 0.85, dataUrl;
+      do {
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+        quality -= 0.1;
+      } while (dataUrl.length > 50 * 1024 * 1.37 && quality > 0.1);
+
+      clearInterval(tick);
+      if (bar) { bar.style.transition = 'width .2s ease'; bar.style.width = '100%'; }
+
+      setTimeout(() => {
+        _tmeAvatarBase64 = dataUrl;
+        _applyEditTeamAvatarPreview(dataUrl);
+        if (icon) icon.className = 'fas fa-check';
+        if (text) text.textContent = 'Updated!';
+        if (bar)  { bar.style.transition = 'width .4s ease'; bar.style.width = '0%'; }
+        setTimeout(() => {
+          if (icon) icon.className = 'fas fa-camera';
+          if (text) text.textContent = 'Change Photo';
+        }, 2000);
+        toast('✅ Photo ready (' + Math.round(dataUrl.length / 1024) + ' KB)', 'success');
+      }, 250);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearEditTeamAvatar() {
+  _tmeAvatarBase64 = ''; // explicit clear signal to backend
+  _applyEditTeamAvatarPreview('');
+  const fi = document.getElementById('tme-avatar-file'); if (fi) fi.value = '';
+}
+
+function _applyEditTeamAvatarPreview(src) {
+  const img     = document.getElementById('tme-avatar-img');
+  const icon    = document.getElementById('tme-avatar-icon');
+  const preview = document.getElementById('tme-avatar-preview');
+  if (src && isValidImg(src)) {
+    img.src = src; img.style.display = 'block';
+    if (icon) icon.style.display = 'none';
+    if (preview) { preview.style.border = '3px solid #00897B'; preview.style.boxShadow = '0 0 0 3px rgba(0,137,123,.25)'; }
+  } else {
+    img.src = ''; img.style.display = 'none';
+    if (icon) icon.style.display = '';
+    if (preview) { preview.style.border = '3px solid var(--border)'; preview.style.boxShadow = 'none'; }
+  }
+}
+
+function _renderEditTeamTagPills() {
+  const wrap = document.getElementById('tme-tags-pills');
+  if (!wrap) return;
+  wrap.innerHTML = (_tmeCurrentTags||[]).map(t => {
+    const col = _tagColor(t);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border}">${escHtml(t)}<span onclick="removeEditTeamTag('${escHtml(t)}')" style="cursor:pointer;opacity:.6;font-size:14px;line-height:1;margin-left:2px">&times;</span></span>`;
+  }).join('');
+}
+function removeEditTeamTag(tag) {
+  _tmeCurrentTags = (_tmeCurrentTags||[]).filter(t => t !== tag);
+  _renderEditTeamTagPills();
+}
+function handleEditTeamTagInput(e) {
+  const input = e.target;
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = input.value.trim().replace(/,$/,'');
+    if (val && !(_tmeCurrentTags||[]).includes(val)) {
+      _tmeCurrentTags = [...(_tmeCurrentTags||[]), val];
+      _renderEditTeamTagPills();
+    }
+    input.value = '';
+  } else if (e.key === 'Backspace' && !input.value && (_tmeCurrentTags||[]).length) {
+    _tmeCurrentTags = _tmeCurrentTags.slice(0,-1);
+    _renderEditTeamTagPills();
+  }
+}
+
+function addEditTeamContactRow(data) {
+  const wrap = document.getElementById('tme-extra-contacts');
+  if (!wrap) return;
+  const id = 'tmeec-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px';
+  row.innerHTML = `
+    <input placeholder="Name *" value="${(data&&data.name)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmeec-name">
+    <input placeholder="Phone" value="${(data&&data.phone)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmeec-phone">
+    <input placeholder="Relation (e.g. Emergency)" value="${(data&&data.relation)||''}" style="padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--font)" class="tmeec-relation">
+    <button type="button" onclick="document.getElementById('${id}').remove()" style="width:28px;height:28px;border:none;background:var(--red-bg,#FFEBEE);color:#C62828;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">&times;</button>`;
+  wrap.appendChild(row);
+}
+function _getEditTeamContacts() {
+  const rows = document.querySelectorAll('#tme-extra-contacts > div');
+  const result = [];
+  rows.forEach(row => {
+    const name     = row.querySelector('.tmeec-name')?.value?.trim();
+    const phone    = row.querySelector('.tmeec-phone')?.value?.trim();
+    const relation = row.querySelector('.tmeec-relation')?.value?.trim();
+    if (name || phone) result.push({ name: name||'', phone: phone||'', relation: relation||'' });
+  });
+  return result;
+}
+
+async function saveEditTeamMember() {
+  if (!_tmeEditingId) return;
+  const name    = document.getElementById('tme-name').value.trim();
+  const email   = document.getElementById('tme-email').value.trim();
+  const mobile  = document.getElementById('tme-mobile').value.trim();
+  const address = document.getElementById('tme-address').value.trim();
+  const password= document.getElementById('tme-password').value.trim();
+  if (!name)  { toast('⚠️ Name required', 'warning'); return; }
+  if (!email) { toast('⚠️ Email required', 'warning'); return; }
+
+  const btn = document.getElementById('tme-save-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+
+  try {
+    const payload = {
+      user_id: _tmeEditingId,
+      name, email, mobile, address,
+      tags: _tmeCurrentTags || [],
+      contacts: _getEditTeamContacts()
+    };
+    if (password) payload.password = password;
+    if (_tmeAvatarBase64 !== undefined) payload.avatar = _tmeAvatarBase64; // only send if changed/cleared
+    await api('api/team.php?action=edit', 'PATCH', payload);
+    closeModal('modal-edit-team');
+    toast('✅ Team member updated', 'success');
+    await renderTeam();
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+// ══════════════════════════════════════════
+// ROLE PERMISSIONS MODAL (per-user Permissions button)
+// ══════════════════════════════════════════
+const TP = { catalog: [], plan: '', activeRole: 'sales' };
+
+async function openTeamPermissionsModal(role) {
+  TP.activeRole = role || 'sales';
+  document.getElementById('tp-role-select').value = TP.activeRole;
+  document.getElementById('tp-subtitle').textContent = 'Loading…';
+  document.getElementById('tp-body').innerHTML = `<div style="text-align:center;color:var(--muted);padding:30px"><i class="fas fa-spinner fa-spin"></i> Loading permissions…</div>`;
+  openModal('modal-team-permissions');
+  try {
+    const r = await api('api/role_permissions.php?action=list');
+    TP.catalog = Array.isArray(r.data) ? r.data : [];
+    TP.plan = r.plan || '';
+    document.getElementById('tp-subtitle').textContent = `Plan: ${TP.plan}`;
+    _renderTeamPermissionsBody();
+  } catch (e) {
+    document.getElementById('tp-body').innerHTML = `<div style="text-align:center;color:var(--red);padding:30px">❌ ${escHtml(e.message)}</div>`;
+  }
+}
+
+function _tpSetActiveRole(role) {
+  TP.activeRole = role;
+  _renderTeamPermissionsBody();
+}
+
+function _renderTeamPermissionsBody() {
+  const body = document.getElementById('tp-body');
+  const roleLabels = { admin:'Admin', manager:'Manager', accountant:'Accountant', sales:'Sales', viewer:'Viewer' };
+  const role = TP.activeRole;
+
+  if (!TP.catalog.length) {
+    body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:24px">No permissions defined yet.</div>`;
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  TP.catalog.forEach(p => { (groups[p.category || 'General'] = groups[p.category || 'General'] || []).push(p); });
+
+  body.innerHTML = Object.keys(groups).map(cat => `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${escHtml(cat)}</div>
+      <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        ${groups[cat].map(p => {
+          const enabled  = !!p.roles[role];
+          const ceiling  = !!p.ceiling;
+          const disabled = !ceiling && !enabled;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:${enabled ? 'var(--teal-bg)' : 'var(--card)'}">
+            <div style="font-size:13px;color:var(--text);${disabled?'opacity:.5':''}">
+              ${escHtml(p.label)}
+              ${!ceiling ? `<span style="font-size:10px;color:var(--amber);margin-left:6px"><i class="fas fa-lock"></i> not on ${escHtml(TP.plan)} plan</span>` : ''}
+            </div>
+            <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0">
+              <input type="checkbox" ${enabled?'checked':''} ${disabled?'disabled':''} onchange="toggleTeamPermission('${role}','${p.key}',this.checked)" style="opacity:0;width:0;height:0">
+              <span style="position:absolute;inset:0;background:${enabled?'#00897B':'#CBD5E1'};border-radius:22px;transition:.2s;cursor:${disabled?'not-allowed':'pointer'}"></span>
+              <span style="position:absolute;top:2px;left:${enabled?'18px':'2px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+            </label>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleTeamPermission(role, key, enabled) {
+  try {
+    await api('api/role_permissions.php?action=set', 'POST', { role, permission_key: key, enabled });
+    const item = TP.catalog.find(p => p.key === key);
+    if (item) item.roles[role] = enabled;
+    toast('✅ Updated', 'success');
+    _renderTeamPermissionsBody();
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    _renderTeamPermissionsBody(); // revert toggle to actual saved state
+  }
+}
+
+async function changeTeamRole(userId, newRole) {
+  try {
+    await api('api/team.php?action=update', 'PATCH', { user_id: userId, field: 'role', value: newRole });
+    toast('✅ Role updated', 'success');
+    await renderTeam();
+  } catch (e) {
+    toast('❌ ' + e.message, 'error');
+    renderTeam(); // revert the dropdown to the actual saved value
+  }
+}
+
+async function toggleTeamStatus(userId, newStatus) {
+  const verb = newStatus === 'active' ? 'reactivate' : 'deactivate';
+  const result = await Swal.fire({
+    title: `${verb.charAt(0).toUpperCase() + verb.slice(1)} this team member?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: verb.charAt(0).toUpperCase() + verb.slice(1),
+    confirmButtonColor: newStatus === 'active' ? '#0F6E56' : '#E53935',
+    cancelButtonText: 'Cancel',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  try {
+    await api('api/team.php?action=update', 'PATCH', { user_id: userId, field: 'status', value: newStatus });
+    toast('✅ Updated', 'success');
+    renderTeam();
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function removeTeamMember(userId) {
+  const result = await Swal.fire({
+    title: 'Remove this team member?',
+    html: 'They will lose access immediately. This can be undone by reactivating them later.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Remove',
+    confirmButtonColor: '#E53935',
+    cancelButtonText: 'Cancel',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
+  try {
+    await api('api/team.php?action=remove', 'PATCH', { user_id: userId });
+    toast('🗑️ Removed', 'info');
+    renderTeam();
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+}
+function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=activeProdSource().filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s)||(p.hsn||'').toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
 function filterProductsCat(v) { filterProducts(document.getElementById('productSearch')?.value||''); }
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
@@ -9478,46 +10719,67 @@ function _renderProdPage() {
   tbody.innerHTML = pg.map((p,i)=>{
     const catColor = getCatColor(p.category);
     const catTc = getCatTextColor(catColor);
-    return `<tr>
-    <td>${s+i+1}</td>
-    <td><strong>${p.name}</strong></td>
-    <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${p.category}</span></td>
-    <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
-    <td><code style="font-family:var(--mono)">${p.hsn}</code></td>
-    <td><strong>${p.gst}%</strong></td>
-    <td><div class="action-cell">
-      <button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
+    const actions = PROD.archived
+      ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
+      : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
+      <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
       <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
-      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>
-    </div></td>
-  </tr>`}).join('')||'<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No services found</td></tr>';
+      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>`;
+    return `<tr data-id="${escHtml(p.id)}">
+    <td>${s+i+1}</td>
+    <td><strong>${escHtml(p.name)}</strong></td>
+    <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${escHtml(p.category)}</span></td>
+    <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
+    <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
+    <td><strong>${p.gst}%</strong></td>
+    <td><div class="action-cell">${actions}</div></td>
+  </tr>`}).join('')||`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
   const inf=document.getElementById('prodInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PROD.list.length)} of ${PROD.list.length}`;
-  const ci=document.getElementById('prodCountInfo'); if(ci)ci.textContent=`${STATE.products.length} total`;
+  const ci=document.getElementById('prodCountInfo'); if(ci)ci.textContent=PROD.archived ? `${(PROD.archivedList||[]).length} archived` : `${STATE.products.length} total`;
 }
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
-  const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${c.name}</option>`).join('');
-  document.querySelectorAll('#productsTbody tr').forEach(row=>{
-    if(row.innerHTML.includes(`editProduct('${id}')`)){
-      row.style.background='#f0fdf4';
-      row.innerHTML=`<td><span style="color:var(--teal);font-size:11px;font-weight:700">EDIT</span></td>
-      <td><input id="ep-name" class="table-search" style="width:100%" value="${p.name}"></td>
-      <td><select id="ep-cat" class="table-filter cat-select" style="min-width:120px">${catOpts}</select></td>
-      <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
-      <td><input id="ep-hsn" class="table-search" style="width:75px" value="${p.hsn}"></td>
-      <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
-      <td><div class="action-cell"><button class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
-    }
-  });
+  const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${escHtml(c.name)}</option>`).join('');
+  const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
+  if (!row) return;
+  row.style.background='#f0fdf4';
+  row.innerHTML=`<td><span style="color:var(--teal);font-size:11px;font-weight:700">EDIT</span></td>
+  <td><input id="ep-name" class="table-search" style="width:100%" value="${escHtml(p.name)}"></td>
+  <td><select id="ep-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('ep-cat','ep-hsn')">${catOpts}</select></td>
+  <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
+  <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
+  <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
+  <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
+  ensureHsnDatalist();
+}
+// Fills the HSN field with a suggested code when the category changes,
+// but only if the field is empty or still equal to a previous suggestion —
+// never overwrites text the user has actually typed themselves.
+function hsnPrefill(catSelId, hsnInputId) {
+  const catEl = document.getElementById(catSelId), hsnEl = document.getElementById(hsnInputId);
+  if (!catEl || !hsnEl) return;
+  if (!hsnEl.value.trim() || hsnEl.dataset.autofilled === '1') {
+    const suggestion = suggestHsnForCategory(catEl.value);
+    if (suggestion) { hsnEl.value = suggestion; hsnEl.dataset.autofilled = '1'; }
+  }
+}
+// Builds/refreshes a shared <datalist> of every HSN code already used,
+// so the HSN input offers autocomplete without forcing a fixed code list.
+function ensureHsnDatalist() {
+  let dl = document.getElementById('hsn-suggestions');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'hsn-suggestions'; document.body.appendChild(dl); }
+  dl.innerHTML = allKnownHsnCodes().map(h => `<option value="${escHtml(h)}">`).join('');
 }
 async function saveEditProd(id) {
   const idx = STATE.products.findIndex(x => x.id === id); if (idx < 0) return;
   const n = document.getElementById('ep-name')?.value?.trim();
   if (!n) { toast('Name required', 'warning'); return; }
+  const btn = document.getElementById('ep-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
@@ -9526,45 +10788,70 @@ async function saveEditProd(id) {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
     renderProducts(); updateServiceDropdown(); toast('✅ Updated!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); if (btn) btn.disabled = false; }
 }
 
 function openAddProductModal() {
-  // Create inline edit row or show a proper add form
-  const tbody = document.getElementById('productsTbody');
-  // Remove any existing add-row
+  if (PROD.archived) return; // Adding isn't relevant while viewing archived services
+  // Toggle: if the add-row is already open, close it instead of opening a fresh one
   const existing = document.getElementById('add-product-row');
   if (existing) { existing.remove(); return; }
+  _showAddProductRow();
+}
+// Builds the inline "add service" row. Pass `prefill` (an existing product)
+// to use this for cloning — always replaces any row already open.
+function _showAddProductRow(prefill) {
+  const tbody = document.getElementById('productsTbody');
+  document.getElementById('add-product-row')?.remove();
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
   row.innerHTML = `
-    <td><span style="color:var(--teal);font-size:12px;font-weight:700">NEW</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value=""></td>
-    <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px"></select></td>
-    <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="0"></td>
-    <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="998314"></td>
+    <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill?'COPY':'NEW'}</span></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
+    <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
+    <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill?prefill.rate:0}"></td>
+    <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill?escHtml(prefill.hsn):'998314'}" list="hsn-suggestions"></td>
     <td>
       <select id="np-gst" class="table-filter">
-        <option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option>
+        <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
     </td>
     <td>
       <div class="action-cell">
-        <button class="btn btn-success" style="font-size:11px;padding:5px 12px" onclick="saveNewProduct()"><i class="fas fa-check"></i> Save</button>
+        <button id="np-save-btn" class="btn btn-success" style="font-size:11px;padding:5px 12px" onclick="saveNewProduct()"><i class="fas fa-check"></i> Save</button>
         <button class="btn btn-outline" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('add-product-row').remove()"><i class="fas fa-times"></i></button>
       </div>
     </td>`;
   tbody.insertBefore(row, tbody.firstChild);
   // Populate category dropdown
   const npCat = document.getElementById('np-cat');
-  if (npCat) { npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${c.name}</option>`).join(''); }
-  document.getElementById('np-name').focus();
+  if (npCat) {
+    npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${escHtml(c.name)}</option>`).join('');
+    if (prefill) npCat.value = prefill.category;
+  }
+  ensureHsnDatalist();
+  const npHsn = document.getElementById('np-hsn');
+  if (!prefill && npHsn && npCat && npCat.value) {
+    // Prefill HSN based on the first category in the dropdown (mirrors what the user will see selected)
+    npHsn.value = suggestHsnForCategory(npCat.value) || npHsn.value; npHsn.dataset.autofilled = '1';
+  }
+  const nameEl = document.getElementById('np-name');
+  nameEl.focus();
+  if (prefill) nameEl.select();
 }
+function cloneProduct(id) {
+  const p = STATE.products.find(x => x.id === id); if (!p) return;
+  _showAddProductRow(p);
+  toast('📋 Cloned — tweak the details and save', 'info');
+}
+
 
 async function saveNewProduct() {
   const n = document.getElementById('np-name')?.value?.trim();
   if (!n) { toast('⚠️ Name required', 'warning'); return; }
+  const btn = document.getElementById('np-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
@@ -9575,7 +10862,7 @@ async function saveNewProduct() {
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     document.getElementById('add-product-row')?.remove();
     renderProducts(); updateServiceDropdown(); toast('✅ "' + n + '" added!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); if (btn) btn.disabled = false; }
 }
 
 function addProductToInvoice(id) {
@@ -9592,11 +10879,60 @@ function addProductToInvoice(id) {
 
 async function deleteProduct(id) {
   const p = STATE.products.find(x => x.id === id); if (!p) return;
+  const result = await Swal.fire({
+    title: 'Delete this service?',
+    html: `<strong>${escHtml(p.name)}</strong> will be removed from your services list.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    confirmButtonColor: '#E53935',
+    cancelButtonText: 'Cancel',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!result.isConfirmed) return;
   const dbId = parseInt(id.replace('p','')) || 0;
   try {
     await api('api/products.php?id=' + dbId, 'DELETE');
     STATE.products = STATE.products.filter(x => x.id !== id);
     renderProducts(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// Switches the Services/Products page between the active catalog and the
+// archived (soft-deleted) list. Archived services are fetched on demand
+// rather than kept in STATE, since they're rarely needed.
+async function toggleArchivedView() {
+  document.getElementById('add-product-row')?.remove();
+  PROD.archived = !PROD.archived;
+  const btn = document.getElementById('prodArchiveToggleBtn');
+  const addBtn = document.getElementById('prodAddBtn');
+  if (PROD.archived) {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-open"></i> View Active';
+    if (addBtn) addBtn.style.display = 'none';
+    try {
+      const r = await api('api/products.php?status=archived');
+      PROD.archivedList = Array.isArray(r.data) ? r.data : [];
+    } catch(e) { toast('❌ ' + e.message, 'error'); PROD.archivedList = []; }
+  } else {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-archive"></i> View Archived';
+    if (addBtn) addBtn.style.display = '';
+  }
+  document.getElementById('productSearch') && (document.getElementById('productSearch').value = '');
+  renderProducts();
+}
+
+async function restoreProduct(id) {
+  const p = (PROD.archivedList||[]).find(x => x.id === id); if (!p) return;
+  const dbId = parseInt(id.replace('p','')) || 0;
+  try {
+    await api('api/products.php?action=restore&id=' + dbId, 'POST');
+    PROD.archivedList = (PROD.archivedList||[]).filter(x => x.id !== id);
+    // Refresh the active catalog so the restored service shows up immediately elsewhere (dropdowns, picker)
+    const r = await api('api/products.php');
+    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
+    updateServiceDropdown();
+    renderProducts();
+    toast(`✅ "${p.name}" restored`, 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -9606,7 +10942,7 @@ function openProductPicker() {
     list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-box-open" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3"></i>No services yet. Add from Services/Products page.</div>';
   } else {
     list.innerHTML = STATE.products.map(p => `<div class="pp-item" onclick="pickProduct('${p.id}')">
-      <div><div class="pp-name">${p.name}</div><div style="font-size:11px;color:var(--muted)">${p.category} · GST:${p.gst}%</div></div>
+      <div><div class="pp-name">${escHtml(p.name)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(p.category)} · GST:${p.gst}%</div></div>
       <div class="pp-rate">${fmt_money(p.rate)}</div>
     </div>`).join('');
   }
@@ -9872,22 +11208,17 @@ function _renderRptCharts(){
 }
 
 // ══════════════════════════════════════════
-// TEMPLATES GRID
+// TEMPLATES GRID — two canonical templates, both ported into pdf.php
+// so the in-app preview always matches the real downloaded PDF.
 // ══════════════════════════════════════════
-const tplNames = ['Colorful Matte','Clean Minimal','Corporate Split','Dark Header','Formal Letterhead'];
-const tplColors = ['#6366F1'];
-const tplAccents = ['#A5B4FC'];
 
 function renderTemplatesGrid() {
   const grid = document.getElementById('templatesGrid');
   if (!grid) return;
   const active = STATE.settings.activeTemplate || '2';
   const templates = [
-    { id:'2', name:'Colorful Matte', desc:'8 built-in color themes', color:'#6366F1', accent:'#A5B4FC' },
-    { id:'A', name:'Clean Minimal',  desc:'Left accent · borderless', color:'#1E293B', accent:'#94A3B8' },
-    { id:'B', name:'Corporate Split',desc:'Two-column header',        color:'#1565C0', accent:'#BBDEFB' },
-    { id:'E', name:'Dark Header',    desc:'Full-width dark header',   color:'#0F172A', accent:'#38BDF8' },
-    { id:'F', name:'Formal Letterhead', desc:'Serif · B&W · Print-ready', color:'#1a1a1a', accent:'#888888' },
+    { id:'2', name:'Colorful Matte',     desc:'Navy logo panel · status accent bar · 8 built-in color themes', color:'#6366F1', accent:'#A5B4FC' },
+    { id:'F', name:'Formal Letterhead',  desc:'Serif · black & white · ruled, print-ready layout',             color:'#1a1a1a', accent:'#888888' },
   ];
   grid.innerHTML = templates.map(t => {
     const isActive = String(active) === String(t.id);
@@ -9933,7 +11264,7 @@ function previewTemplate(n) {
   const iHTML=`<tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Website Development Premium</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Service</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹75,000.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹88,500.00</td></tr><tr><td style="padding:9px 12px;border-bottom:1px solid #eee">Domain & Hosting</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#666">Product</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">1</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:right;border-bottom:1px solid #eee">₹4,500.00</td><td style="padding:9px 12px;text-align:center;border-bottom:1px solid #eee">18%</td><td style="padding:9px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">₹5,310.00</td></tr>`;
   const gH=`<th style="padding:10px 12px;text-align:center">GST%</th>`;
   sd._rawItems=[{desc:'Website Development Premium',qty:1,rate:75000,gst:18},{desc:'Domain & Hosting',qty:1,rate:4500,gst:18}];
-  const tpls={'2':buildTpl2,'A':buildTplA,'B':buildTplB,'E':buildTplE};
+  const tpls={'2':buildTpl2,'F':buildTplF};
   const fn=tpls[String(n)]||buildTpl2;
   const scale=Math.min(0.78,(window.innerWidth-280)/794);
   const sh=Math.round(1123*scale);

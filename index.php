@@ -1335,14 +1335,14 @@ const SERVER = {
         <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
-      <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:10px"></i><?php endif; ?>
-        <?= htmlspecialchars($roleBadgeLabel) ?>
-      </span>
     </div>
     <div class="topbar-right">
+      <span id="topbarRoleBadge"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:14px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
+        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
+        <?= htmlspecialchars($roleBadgeLabel) ?>
+      </span>
       <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
@@ -1416,11 +1416,6 @@ const SERVER = {
           <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
           <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px 2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)">
             <i class="fas fa-building" style="font-size:10px;color:var(--muted)"></i> <?= htmlspecialchars($firmName) ?>
-          </span>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:11px;font-weight:700;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-                <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-            <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:9px"></i><?php endif; ?>
-            <?= htmlspecialchars($roleBadgeLabel) ?>
           </span>
         </div>
       </div>
