@@ -1461,46 +1461,24 @@ const SERVER = {
         </div>
       </div>
       <!-- Quick Actions -->
-      <?php
-        // Role-tailored quick-action order. Falls back to the default order
-        // for any role not explicitly listed. Each button is still gated by
-        // $perms so it always matches what that role can actually access.
-        $qaCatalog = [
-          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
-          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
-          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
-          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
-          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
-          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
-        ];
-        $qaOrderByRole = [
-          'accountant' => ['payments', 'tax', 'expenses', 'clients'],
-        ];
-        $qaOrder = $qaOrderByRole[$user['role'] ?? ''] ?? ['create', 'clients', 'payments', 'reports'];
-      ?>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <?php foreach ($qaOrder as $qaKey):
-          $qa = $qaCatalog[$qaKey];
-          if (!($perms[$qa['perm']] ?? true)) continue;
-        ?>
-        <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
-        <?php endforeach; ?>
+        <button class="btn btn-primary" onclick="showPage('create',null)"><i class="fas fa-plus"></i> New Invoice</button>
+        <button class="btn btn-outline" onclick="showPage('clients',null)"><i class="fas fa-users"></i> Clients</button>
+        <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-credit-card"></i> Payments</button>
+        <button class="btn btn-outline" onclick="showPage('reports',null)"><i class="fas fa-chart-bar"></i> Reports</button>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
           <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
           <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
         </div>
       </div>
-      <!-- WhatsApp Automation Card (finance/accountant roles don't need this) -->
-      <?php if ($perms['menu.whatsapp'] ?? true): ?>
+      <!-- WhatsApp Automation Card -->
       <div id="dashWACard" style="margin-bottom:16px"></div>
-      <?php endif; ?>
       <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
-      <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
+      <!-- Revenue Card (60%) + WA Activity Card (40%) -->
+      <div style="display:grid;grid-template-columns:60fr 40fr;gap:14px;margin-bottom:16px;">
         <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
         <div id="s-outstanding-card" style="display:none"></div>
-        <?php if ($perms['menu.whatsapp'] ?? true): ?>
         <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
@@ -1508,7 +1486,6 @@ const SERVER = {
           </div>
           <div id="waActivityRows"></div>
         </div>
-        <?php endif; ?>
       </div>
       <div class="dash-stats-row">
         <div class="stat-card" data-color="amber">
@@ -1543,7 +1520,6 @@ const SERVER = {
             <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
           </div>
         </div>
-        <?php if ($perms['menu.whatsapp'] ?? true): ?>
         <div class="stat-card" data-color="teal">
           <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
           <div class="stat-body">
@@ -1552,7 +1528,6 @@ const SERVER = {
             <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
           </div>
         </div>
-        <?php endif; ?>
       </div>
 
       <!-- Row 1: Revenue Overview + Invoice Calendar + Status Split (all in one row) -->
@@ -12769,79 +12744,79 @@ function renderDashKpis() {
     <div><div style="font-size:10px;color:var(--muted)">${k.l}</div><div style="font-weight:700;font-size:13px">${k.v}</div></div>
   </div>`).join('');
 
-  // ── WhatsApp card (skipped entirely if role can't see WhatsApp) ──
+  // ── WhatsApp card ──────────────────────────────────────────────
   const waEl = document.getElementById('dashWACard');
-  if (waEl) {
-    const wa     = STATE.settings.wa || {};
-    const hasAPI = !!(wa.token && wa.pid);
-    const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
-    const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
+  if (!waEl) return;
 
-    const pendWA   = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
-    const overWA   = STATE.invoices.filter(i => i.status==='Overdue').length;
-    const paidTM   = STATE.invoices.filter(i => {
-      const d = new Date();
-      return i.status==='Paid' && i.issued &&
-             new Date(i.issued).getMonth()===d.getMonth() &&
-             new Date(i.issued).getFullYear()===d.getFullYear();
-    }).length;
-    const waClients = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
+  const wa     = STATE.settings.wa || {};
+  const hasAPI = !!(wa.token && wa.pid);
+  const mode   = wa.msg_mode === 'template' ? '✅ Template Mode' : '💬 Session Mode';
+  const onCount = [wa.auto_inv==='1', wa.auto_estimate==='1', wa.auto_paid!=='0', wa.auto_partial!=='0', wa.auto_remind!=='0', wa.auto_overdue!=='0', wa.auto_followup==='1'].filter(Boolean).length;
 
-    const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
-    const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
-    const miniCards = [
-      {ic:'fa-paper-plane',         col:'#25D366', label:'Need Follow-up',    val:pendWA,      sub:'pending/overdue'},
-      {ic:'fa-exclamation-triangle',col:'#e53935', label:'Overdue Alerts',    val:overWA,      sub:'send now'},
-      {ic:'fa-check-circle',        col:'#00897B', label:'Paid This Month',   val:paidTM,      sub:'receipts sent'},
-      {ic:'fa-clock',               col:'#E65100', label:'Partial Invoices',  val:partialInvs, sub:'awaiting balance'},
-      {ic:'fa-code-branch',         col:'#7B1FA2', label:'Split Payments',    val:splitPmts,   sub:'recorded'},
-      {ic:'fa-address-book',        col:'#1565C0', label:'WA-Ready Clients',  val:waClients,   sub:'have phone #'},
-    ].map(c => `<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
-      <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-        <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
-        <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
+  const pendWA   = STATE.invoices.filter(i => i.status==='Pending' || i.status==='Overdue').length;
+  const overWA   = STATE.invoices.filter(i => i.status==='Overdue').length;
+  const paidTM   = STATE.invoices.filter(i => {
+    const d = new Date();
+    return i.status==='Paid' && i.issued &&
+           new Date(i.issued).getMonth()===d.getMonth() &&
+           new Date(i.issued).getFullYear()===d.getFullYear();
+  }).length;
+  const waClients = STATE.clients.filter(c => c.wa || c.whatsapp || c.phone).length;
+
+  const partialInvs = STATE.invoices.filter(i => i.status === 'Partial').length;
+  const splitPmts   = STATE.payments.filter(p => (p.method||'').startsWith('Split')).length;
+  const miniCards = [
+    {ic:'fa-paper-plane',         col:'#25D366', label:'Need Follow-up',    val:pendWA,      sub:'pending/overdue'},
+    {ic:'fa-exclamation-triangle',col:'#e53935', label:'Overdue Alerts',    val:overWA,      sub:'send now'},
+    {ic:'fa-check-circle',        col:'#00897B', label:'Paid This Month',   val:paidTM,      sub:'receipts sent'},
+    {ic:'fa-clock',               col:'#E65100', label:'Partial Invoices',  val:partialInvs, sub:'awaiting balance'},
+    {ic:'fa-code-branch',         col:'#7B1FA2', label:'Split Payments',    val:splitPmts,   sub:'recorded'},
+    {ic:'fa-address-book',        col:'#1565C0', label:'WA-Ready Clients',  val:waClients,   sub:'have phone #'},
+  ].map(c => `<div onclick="showPage('whatsapp',null)" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+      <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
+      <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
+    </div>
+    <div style="font-size:22px;font-weight:800;color:${c.col};line-height:1">${c.val}</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
+  </div>`).join('');
+
+  const toggles = [
+    {key:'auto_inv',      label:'New Invoice',     icon:'📄', val: wa.auto_inv==='1'},
+    {key:'auto_paid',     label:'Receipt',         icon:'✅', val: wa.auto_paid!=='0'},
+    {key:'auto_partial',  label:'Partial',         icon:'💛', val: wa.auto_partial!=='0'},
+    {key:'auto_remind',   label:'Due Reminder',    icon:'🔔', val: wa.auto_remind!=='0'},
+    {key:'auto_overdue',  label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue!=='0'},
+    {key:'auto_followup', label:'Follow-up',       icon:'📋', val: wa.auto_followup==='1'},
+  ];
+  const pillsHTML = toggles.map(t => `<div onclick="showPage('whatsapp',null)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val?'#25D36612':'var(--bg)'};border:1px solid ${t.val?'#25D36630':'var(--border)'}">
+    <span>${t.icon}</span>
+    <span style="font-size:11px;font-weight:600;color:${t.val?'#1a7a3c':'var(--muted)'}">${t.label}</span>
+    <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${t.val?'#25D366':'#ccc'}"></span>
+  </div>`).join('');
+
+  waEl.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#e8f5e9;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36640,0 0 28px #25D36618;animation:waGlow 2.5s ease-in-out infinite">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
+        <div>
+          <div style="color:#1b5e20;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
+          <div style="color:#388E3C;font-size:10px">${mode}</div>
+        </div>
       </div>
-      <div style="font-size:22px;font-weight:800;color:${c.col};line-height:1">${c.val}</div>
-      <div style="font-size:9px;color:var(--muted);margin-top:1px">${c.sub}</div>
-    </div>`).join('');
-
-    const toggles = [
-      {key:'auto_inv',      label:'New Invoice',     icon:'📄', val: wa.auto_inv==='1'},
-      {key:'auto_paid',     label:'Receipt',         icon:'✅', val: wa.auto_paid!=='0'},
-      {key:'auto_partial',  label:'Partial',         icon:'💛', val: wa.auto_partial!=='0'},
-      {key:'auto_remind',   label:'Due Reminder',    icon:'🔔', val: wa.auto_remind!=='0'},
-      {key:'auto_overdue',  label:'Overdue Alert',   icon:'⚠️', val: wa.auto_overdue!=='0'},
-      {key:'auto_followup', label:'Follow-up',       icon:'📋', val: wa.auto_followup==='1'},
-    ];
-    const pillsHTML = toggles.map(t => `<div onclick="showPage('whatsapp',null)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val?'#25D36612':'var(--bg)'};border:1px solid ${t.val?'#25D36630':'var(--border)'}">
-      <span>${t.icon}</span>
-      <span style="font-size:11px;font-weight:600;color:${t.val?'#1a7a3c':'var(--muted)'}">${t.label}</span>
-      <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${t.val?'#25D366':'#ccc'}"></span>
-    </div>`).join('');
-
-    waEl.innerHTML = `
-      <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">${miniCards}</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#e8f5e9;border:1.5px solid #25D366;border-radius:10px;padding:10px 14px;box-shadow:0 0 12px #25D36640,0 0 28px #25D36618;animation:waGlow 2.5s ease-in-out infinite">
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <div style="width:32px;height:32px;background:#25D366;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px">📱</div>
-          <div>
-            <div style="color:#1b5e20;font-size:13px;font-weight:800;line-height:1.2">WhatsApp</div>
-            <div style="color:#388E3C;font-size:10px">${mode}</div>
-          </div>
-        </div>
-        <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
-          ${hasAPI ? '● Connected' : '○ No API'}
-        </div>
-        <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
-        ${pillsHTML}
-        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <span style="font-size:11px;color:#2e7d32;font-weight:600">${onCount}/6 active</span>
-          <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
-            <i class="fas fa-cog"></i> Manage
-          </button>
-        </div>
-      </div>`;
-  }
+      <div style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0;background:${hasAPI?'#25D36615':'#f5f5f5'};color:${hasAPI?'#1a7a3c':'#999'};border:1px solid ${hasAPI?'#25D36635':'#e0e0e0'}">
+        ${hasAPI ? '● Connected' : '○ No API'}
+      </div>
+      <div style="width:1px;height:28px;background:var(--border);flex-shrink:0"></div>
+      ${pillsHTML}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:11px;color:#2e7d32;font-weight:600">${onCount}/6 active</span>
+        <button onclick="showPage('whatsapp',null)" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          <i class="fas fa-cog"></i> Manage
+        </button>
+      </div>
+    </div>`;
 
 
   // ── Partial payments card ──────────────────────────────
