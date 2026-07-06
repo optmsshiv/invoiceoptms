@@ -1,0 +1,31 @@
+# ================================================================
+#  OPTMS Invoice Manager — /public_html/admin/.htaccess
+#  Extra protection for super admin panel
+#  (PHP also enforces requireSuperAdmin() — this is defence in depth)
+# ================================================================
+
+# No directory listing
+Options -Indexes
+
+# ── Only allow index.php — block everything else ──────────────
+<FilesMatch "^(?!index\.php$).+\.(php|inc|log|sql|env|bak|ini|conf)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Deny,Allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ── Security Headers ──────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "DENY"
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# ── Optional: Whitelist your IP only ─────────────────────────
+# Uncomment and replace with your actual IP to lock down admin
+# <IfModule mod_authz_core.c>
+#     Require ip 103.XXX.XXX.XXX
+# </IfModule>
