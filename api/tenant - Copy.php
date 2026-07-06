@@ -384,12 +384,7 @@ function _runTenantSchema(string $dbName): void {
     $sql = preg_replace('/^--.*$/m', '', $sql);
     $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
 
-    // Naive explode(';', $sql) breaks any CREATE TRIGGER/PROCEDURE/FUNCTION
-    // body that contains its own internal ';' inside a BEGIN...END block
-    // (e.g. trg_backup_payment_before_delete) — it gets cut into two
-    // invalid fragments. _splitSqlStatements() only splits on ';' that are
-    // NOT inside a BEGIN...END block, so such statements stay intact.
-    $statements = _splitSqlStatements($sql);
+    $statements = array_filter(array_map('trim', explode(';', $sql)), fn($s) => $s !== '');
     foreach ($statements as $stmt) {
         try {
             $pdo->exec($stmt);
@@ -398,31 +393,6 @@ function _runTenantSchema(string $dbName): void {
             if ($e->getCode() !== '42S01') throw $e;
         }
     }
-}
-
-// ── Split a SQL script into individual statements, respecting
-//    BEGIN...END blocks (triggers/procedures/functions) so a ';'
-//    inside a trigger body doesn't get treated as a statement end. ──
-function _splitSqlStatements(string $sql): array {
-    $statements = [];
-    $buffer     = '';
-    $depth      = 0;
-    foreach (preg_split('/\r\n|\r|\n/', $sql) as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '') continue;
-        $buffer .= $line . "\n";
-        if (preg_match('/\bBEGIN\b/i', $line)) $depth++;
-        if (preg_match('/\bEND\b/i', $line))   $depth--;
-        if ($depth <= 0 && str_ends_with(rtrim($trimmed), ';')) {
-            $clean = trim($buffer);
-            if ($clean !== '' && $clean !== ';') $statements[] = $clean;
-            $buffer = '';
-            $depth  = 0;
-        }
-    }
-    $clean = trim($buffer);
-    if ($clean !== '') $statements[] = $clean;
-    return $statements;
 }
 
 // ── Insert tenant + owner user rows once the DB + schema are ready ─
