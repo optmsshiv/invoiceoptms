@@ -1117,7 +1117,7 @@ select { cursor: pointer; }
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
 .user-chip:hover { background:var(--bg);border-color:var(--teal); }
-.user-chip-avatar { width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
+.user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
 
@@ -1125,8 +1125,8 @@ select { cursor: pointer; }
 .user-dropdown { position:absolute;top:calc(100% + 10px);right:0;width:240px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.13);z-index:700;display:none;overflow:hidden; }
 .user-dropdown.open { display:block; }
 .user-dropdown-header { padding:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%); }
-.udh-avatar { width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
-.udh-name { font-size:13px;font-weight:700;color:#fff; }
+.udh-avatar { width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.4); }
+.udh-name { font-size:15px;font-weight:700;color:#fff; }
 .udh-email { font-size:10px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px; }
 .udh-role { display:inline-block;margin-top:4px;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;text-transform:uppercase;letter-spacing:.4px; }
 .user-dropdown-body { padding:6px; }
