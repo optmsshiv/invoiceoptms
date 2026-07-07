@@ -1,5 +1,4 @@
 .env
-/vendor/
 /assets/uploads/*
 !/assets/uploads/.gitkeep
 config/db1.php
