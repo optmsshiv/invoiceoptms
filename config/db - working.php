@@ -6,38 +6,29 @@
 
 if (!ob_get_level()) ob_start();
 
-require_once __DIR__ . '/env.php';
-loadEnv(__DIR__ . '/../.env');
-
 // ── Master DB credentials ─────────────────────────────────────────
-define('MASTER_DB_HOST',    env('MASTER_DB_HOST', 'localhost'));
-define('MASTER_DB_NAME',    env('MASTER_DB_NAME'));
-define('MASTER_DB_USER',    env('MASTER_DB_USER'));
-define('MASTER_DB_PASS',    env('MASTER_DB_PASS'));
-define('MASTER_DB_CHARSET', env('MASTER_DB_CHARSET', 'utf8mb4'));
+define('MASTER_DB_HOST',    'localhost');
+define('MASTER_DB_NAME',    'edrppymy_optms_master');
+define('MASTER_DB_USER',    'edrppymy_optms_master');
+define('MASTER_DB_PASS',    '123@optms_master');
+define('MASTER_DB_CHARSET', 'utf8mb4');
 
 // ── cPanel API credentials (used for tenant DB provisioning) ───────
-define('CPANEL_HOST',      env('CPANEL_HOST'));
-define('CPANEL_USERNAME',  env('CPANEL_USERNAME'));
-define('CPANEL_API_TOKEN', env('CPANEL_API_TOKEN'));
+// Fill these in with your NEW token — generate it fresh in
+// cPanel → Security → Manage API Tokens, since any token pasted
+// into a chat should be treated as compromised and revoked.
+define('CPANEL_HOST',      'https://invcs.optms.co.in:2083'); // confirm port (usually 2083)
+define('CPANEL_USERNAME',  'edrppymy');                         // confirm this is your cPanel login username
+define('CPANEL_API_TOKEN', 'BMN3WI0RGV07SO1GEHZCSTSLWP337Y97');
 
 // ── App constants ─────────────────────────────────────────────────
-define('APP_NAME',    env('APP_NAME', 'OPTMS Tech Invoice Manager'));
-define('APP_VERSION', env('APP_VERSION', '2.0.0'));
-define('APP_URL',     env('APP_URL'));
+define('APP_NAME',    'OPTMS Tech Invoice Manager');
+define('APP_VERSION', '2.0.0');
+define('APP_URL',     'https://invcs.optms.co.in');
 
-define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 7200));
-define('UPLOAD_MAX_SIZE',  (int) env('UPLOAD_MAX_SIZE', 3145728));
+define('SESSION_LIFETIME', 7200);
+define('UPLOAD_MAX_SIZE',  3145728);
 define('UPLOAD_PATH',      __DIR__ . '/../assets/uploads/');
-
-// Fail loudly (in logs) rather than silently connecting to nothing
-// if required secrets are missing from .env
-foreach (['MASTER_DB_NAME', 'MASTER_DB_USER', 'MASTER_DB_PASS'] as $required) {
-    if (constant($required) === null || constant($required) === '') {
-        error_log("db.php: required env var {$required} is missing — check your .env file");
-    }
-}
-
 
 // ── Role hierarchy ────────────────────────────────────────────────
 // Higher number = more permissions

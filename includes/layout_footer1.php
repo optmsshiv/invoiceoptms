@@ -24,7 +24,5 @@ $__scripts = !empty($pageScripts) ? $pageScripts : (!empty($pageScript) ? [$page
 foreach ($__scripts as $__src): ?>
 <script src="<?= htmlspecialchars($__src) ?>"></script>
 <?php endforeach; ?>
-
-<?php renderSessionTimeoutAssets(); ?>
 </body>
 </html>
