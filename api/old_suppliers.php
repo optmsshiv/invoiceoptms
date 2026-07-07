@@ -6,7 +6,6 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
-try {
 switch ($method) {
   case 'GET':
     $status = $_GET['status'] ?? 'active';
@@ -88,7 +87,4 @@ switch ($method) {
 
   default:
     jsonResponse(['error' => 'Method not allowed'], 405);
-}
-} catch (Throwable $e) {
-  jsonResponse(['error' => 'Suppliers API error: ' . $e->getMessage()], 500);
 }

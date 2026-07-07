@@ -27,24 +27,6 @@ function clearStockForPurchase($db, $purchaseId) {
   $stmt->execute([$purchaseId]);
 }
 
-// Convert whatever the user typed (e.g. "500 g") into the product's base unit
-// (e.g. "0.5 kg") so Stock Ledger numbers always mean the same thing for a
-// product no matter which unit different purchase bills happened to use.
-// Rate is converted the opposite way so amount (entered_qty × entered_rate)
-// stays mathematically identical — only the ledger's internal bookkeeping unit changes.
-function normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUnit) {
-  if (!$productId) return [$enteredQty, $enteredRate, $enteredUnit ?: 'pcs']; // free-text line, no product to convert against
-  $stmt = $db->prepare('SELECT unit_family FROM products WHERE id = ?');
-  $stmt->execute([$productId]);
-  $fam = $stmt->fetch()['unit_family'] ?? 'count';
-  $unit = strtolower(trim((string)$enteredUnit));
-  $factor = 1; $base = 'pcs'; // count family: no conversion, tracked in pcs
-  if ($fam === 'weight') { $base = 'kg'; $factor = ($unit === 'g') ? 1000 : 1; }
-  elseif ($fam === 'volume') { $base = 'ltr'; $factor = ($unit === 'ml') ? 1000 : 1; }
-  return [ $enteredQty / $factor, $enteredRate * $factor, $base ];
-}
-
-try {
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -105,20 +87,18 @@ switch ($method) {
     ]);
     $purchaseId = (int)$db->lastInsertId();
 
-    $itemStmt = $db->prepare('INSERT INTO purchase_items (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    $itemStmt = $db->prepare('INSERT INTO purchase_items (purchase_id, product_id, description, hsn, qty, unit, rate, gst_pct, amount) VALUES (?,?,?,?,?,?,?,?,?)');
     foreach ($items as $it) {
-      $enteredQty  = (float)($it['qty'] ?? 0);
-      $enteredRate = (float)($it['rate'] ?? 0);
-      $enteredUnit = $it['unit'] ?? 'pcs';
-      $amt  = $enteredQty * $enteredRate; // invariant regardless of unit conversion
+      $qty  = (float)($it['qty'] ?? 0);
+      $rate = (float)($it['rate'] ?? 0);
+      $amt  = $qty * $rate;
       $productId = !empty($it['product_id']) ? (int)$it['product_id'] : null;
-      [$qtyBase, $rateBase, $baseUnit] = normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUnit);
       $itemStmt->execute([
         $purchaseId, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
-        $qtyBase, $baseUnit, $enteredQty, $enteredUnit, $enteredRate, (float)($it['gst_pct'] ?? 0), $amt,
+        $qty, $it['unit'] ?? 'pcs', $rate, (float)($it['gst_pct'] ?? 0), $amt,
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $purchaseId, $qtyBase, $rateBase, $d['purchase_date'], 'Purchase ' . $purchaseNo);
+        writeStockIn($db, $productId, $purchaseId, $qty, $rate, $d['purchase_date'], 'Purchase ' . $purchaseNo);
       }
     }
 
@@ -159,20 +139,18 @@ switch ($method) {
     clearStockForPurchase($db, $id);
     $db->prepare('DELETE FROM purchase_items WHERE purchase_id = ?')->execute([$id]);
 
-    $itemStmt = $db->prepare('INSERT INTO purchase_items (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    $itemStmt = $db->prepare('INSERT INTO purchase_items (purchase_id, product_id, description, hsn, qty, unit, rate, gst_pct, amount) VALUES (?,?,?,?,?,?,?,?,?)');
     foreach ($items as $it) {
-      $enteredQty  = (float)($it['qty'] ?? 0);
-      $enteredRate = (float)($it['rate'] ?? 0);
-      $enteredUnit = $it['unit'] ?? 'pcs';
-      $amt  = $enteredQty * $enteredRate;
+      $qty  = (float)($it['qty'] ?? 0);
+      $rate = (float)($it['rate'] ?? 0);
+      $amt  = $qty * $rate;
       $productId = !empty($it['product_id']) ? (int)$it['product_id'] : null;
-      [$qtyBase, $rateBase, $baseUnit] = normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUnit);
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
-        $qtyBase, $baseUnit, $enteredQty, $enteredUnit, $enteredRate, (float)($it['gst_pct'] ?? 0), $amt,
+        $qty, $it['unit'] ?? 'pcs', $rate, (float)($it['gst_pct'] ?? 0), $amt,
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $id, $qtyBase, $rateBase, $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)');
+        writeStockIn($db, $productId, $id, $qty, $rate, $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)');
       }
     }
 
@@ -192,7 +170,4 @@ switch ($method) {
 
   default:
     jsonResponse(['error' => 'Method not allowed'], 405);
-}
-} catch (Throwable $e) {
-  jsonResponse(['error' => 'Purchases API error: ' . $e->getMessage()], 500);
 }

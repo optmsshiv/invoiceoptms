@@ -6,7 +6,6 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
-try {
 switch ($method) {
   case 'GET':
     // Per-product movement history (chronological, with running balance recomputed live
@@ -80,9 +79,4 @@ switch ($method) {
 
   default:
     jsonResponse(['error' => 'Method not allowed'], 405);
-}
-} catch (Throwable $e) {
-  // Most likely cause here: the migration SQL wasn't run yet (stock_ledger/purchases
-  // tables don't exist), or a column name doesn't match your actual schema.
-  jsonResponse(['error' => 'Stock API error: ' . $e->getMessage()], 500);
 }

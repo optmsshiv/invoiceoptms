@@ -2120,7 +2120,7 @@ const SERVER = {
       </div>
       <div class="table-card">
         <table class="data-table">
-          <thead><tr><th>#</th><th>Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th>Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -11243,9 +11243,8 @@ function _renderProdPage() {
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
     <td><strong>${p.gst}%</strong></td>
-    <td><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${escHtml(p.unit_family || 'count')}</span></td>
     <td><div class="action-cell">${actions}</div></td>
-  </tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
+  </tr>`}).join('')||`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -11265,11 +11264,6 @@ function editProduct(id){
   <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
   <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
   <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
-  <td><select id="ep-unitfam" class="table-filter">
-    <option value="count" ${!p.unit_family||p.unit_family==='count'?'selected':''}>Count (pcs)</option>
-    <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
-    <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
-  </select></td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
   ensureHsnDatalist();
 }
@@ -11300,8 +11294,7 @@ async function saveEditProd(id) {
   const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
-    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
-    unit_family: document.getElementById('ep-unitfam')?.value || 'count' };
+    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18) };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -11334,13 +11327,6 @@ function _showAddProductRow(prefill) {
       <select id="np-gst" class="table-filter">
         <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
-    </td>
-    <td>
-      <select id="np-unitfam" class="table-filter">
-        <option value="count" ${!prefill||!prefill.unit_family||prefill.unit_family==='count'?'selected':''}>Count (pcs)</option>
-        <option value="weight" ${prefill&&prefill.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
-        <option value="volume" ${prefill&&prefill.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
-      </select>
     </td>
     <td>
       <div class="action-cell">
@@ -11380,8 +11366,7 @@ async function saveNewProduct() {
   const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
-    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
-    unit_family: document.getElementById('np-unitfam')?.value || 'count' };
+    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18) };
   try {
     await api('api/products.php', 'POST', payload);
     const r = await api('api/products.php');
@@ -11676,13 +11661,6 @@ function populatePurchaseSupplierDropdown() {
   if (cur) sel.value = cur;
 }
 
-// Units allowed per product family. 'count' has no conversion (kept as free-ish default 'pcs').
-const UNIT_OPTIONS = { weight: ['g','kg'], volume: ['ml','ltr'], count: ['pcs'] };
-function unitFamilyOf(productId) {
-  const p = STATE.products.find(x => String(x.id) === String(productId));
-  return (p && p.unit_family) ? p.unit_family : 'count';
-}
-
 function addPurchaseItem(prefill) {
   PUR.items.push(Object.assign({ id: purItemSeq++, product_id:'', description:'', hsn:'', qty:1, unit:'pcs', rate:0, gst_pct: STATE.settings.defaultGST ?? 18 }, prefill||{}));
   renderPurchaseItems();
@@ -11698,13 +11676,6 @@ function renderPurchaseItems() {
   if (!tbody) return;
   tbody.innerHTML = PUR.items.map(it => {
     const amt = (it.qty||0) * (it.rate||0);
-    const fam = it.product_id ? unitFamilyOf(it.product_id) : null;
-    const unitOpts = fam ? UNIT_OPTIONS[fam] : null;
-    const unitCell = unitOpts
-      ? `<select style="width:55px;font-size:12px" onchange="updatePurItem(${it.id},'unit',this.value)">
-           ${unitOpts.map(u => `<option value="${u}" ${it.unit===u?'selected':''}>${u}</option>`).join('')}
-         </select>`
-      : `<input style="width:55px;font-size:12px" value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value)">`;
     return `<tr>
       <td>
         <select style="width:100%;font-size:12px" onchange="onPurItemProductChange(${it.id}, this.value)">
@@ -11715,7 +11686,7 @@ function renderPurchaseItems() {
       </td>
       <td><input style="width:70px;font-size:12px" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value)"></td>
       <td><input type="number" style="width:60px;font-size:12px" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
-      <td>${unitCell}</td>
+      <td><input style="width:55px;font-size:12px" value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value)"></td>
       <td><input type="number" style="width:80px;font-size:12px" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" style="width:55px;font-size:12px" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
       <td style="font-weight:600;white-space:nowrap">${fmt_money(amt)}</td>
@@ -11730,12 +11701,7 @@ function onPurItemProductChange(id, productId) {
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) {
-      it.description = p.name; it.hsn = p.hsn || it.hsn; it.rate = parseFloat(p.rate)||it.rate; it.gst_pct = (p.gst!==undefined?p.gst:it.gst_pct);
-      const fam = p.unit_family || 'count';
-      const opts = UNIT_OPTIONS[fam];
-      if (!opts.includes(it.unit)) it.unit = opts[opts.length-1]; // default to the base unit (kg / ltr / pcs)
-    }
+    if (p) { it.description = p.name; it.hsn = p.hsn || it.hsn; it.rate = parseFloat(p.rate)||it.rate; it.gst_pct = (p.gst!==undefined?p.gst:it.gst_pct); }
   }
   renderPurchaseItems();
 }
@@ -11781,18 +11747,7 @@ async function editPurchase(id) {
     const r = await api('api/purchases.php?id=' + id);
     const p = r.data;
     PUR.editingId = id;
-    PUR.items = (p.items||[]).map(it => ({
-      id: purItemSeq++,
-      product_id: it.product_id||'',
-      description: it.description,
-      hsn: it.hsn,
-      // Prefer entered_qty/entered_unit (what was actually typed, e.g. "500 g") —
-      // falls back to qty/unit for older rows saved before unit conversion existed.
-      qty:  it.entered_qty  !== null && it.entered_qty  !== undefined ? parseFloat(it.entered_qty)  : parseFloat(it.qty),
-      unit: it.entered_unit || it.unit,
-      rate: parseFloat(it.rate),
-      gst_pct: parseFloat(it.gst_pct),
-    }));
+    PUR.items = (p.items||[]).map(it => ({ id: purItemSeq++, product_id: it.product_id||'', description: it.description, hsn: it.hsn, qty: parseFloat(it.qty), unit: it.unit, rate: parseFloat(it.rate), gst_pct: parseFloat(it.gst_pct) }));
     document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Edit Purchase';
     populatePurchaseSupplierDropdown();
     document.getElementById('pur-supplier').value = p.supplier_id;
