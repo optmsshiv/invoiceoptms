@@ -34,46 +34,24 @@ body{font-family:'Public Sans',sans-serif;background:var(--surface);min-height:1
 code,.mono{font-family:'JetBrains Mono',monospace}
 
 /* Topbar */
-.topbar{background:linear-gradient(180deg,var(--ink),#0E1B2C);color:#fff;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--ink-border);box-shadow:var(--shadow-md)}
-.topbar-main{padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;gap:20px}
-.topbar-left{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.topbar-brand{font-size:14px;font-weight:800;display:flex;align-items:center;gap:9px;letter-spacing:.2px;white-space:nowrap}
-.brand-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#1BC1AF);display:flex;align-items:center;justify-content:center;font-size:13px;color:#04211D;flex-shrink:0}
-.v-tag{font-size:10px;font-weight:700;color:#7C8AA0;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:5px;margin-left:4px}
-.role-pill{font-size:11px;font-weight:700;color:var(--accent);background:rgba(15,156,142,.14);padding:3px 9px;border-radius:20px;white-space:nowrap}
-.topbar-search{flex:1;max-width:420px;position:relative}
-.topbar-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#7C8AA0;font-size:13px;pointer-events:none}
-.topbar-search input{width:100%;height:34px;background:rgba(255,255,255,.06);border:1px solid var(--ink-border);border-radius:8px;color:#DCE1EA;font-size:13px;padding:0 30px 0 34px;font-family:inherit}
-.topbar-search input::placeholder{color:#7C8AA0}
-.topbar-search input:focus{outline:none;border-color:var(--accent)}
-.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;background:none;color:#7C8AA0;cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px}
-.search-clear:hover{color:#fff}
-.topbar-right{display:flex;align-items:center;gap:8px;font-size:13px;flex-shrink:0}
-.icon-btn{position:relative;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AEB9CC;background:rgba(255,255,255,.06);text-decoration:none;transition:.15s;border:none;cursor:pointer;font-size:14px}
-.icon-btn:hover{background:rgba(255,255,255,.12);color:#fff}
-.notif-dot{position:absolute;top:6px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--danger)}
-.topbar-divider{width:1px;height:22px;background:var(--ink-border);margin:0 2px}
-.user-menu{position:relative}
-.user-chip{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 4px;background:rgba(255,255,255,.06);border:none;border-radius:20px;cursor:pointer;transition:.15s}
-.user-chip:hover{background:rgba(255,255,255,.12)}
-.avatar-sm{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#1BC1AF);color:#04211D;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.user-chip span.uname{color:#DCE1EA;font-weight:600;font-size:12.5px}
-.user-chip i.ti-chevron-down{color:#7C8AA0;font-size:12px;transition:.15s}
-.user-menu.open .user-chip i.ti-chevron-down{transform:rotate(180deg)}
-.user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--ink-2);border:1px solid var(--ink-border);border-radius:10px;min-width:190px;box-shadow:var(--shadow-md);display:none;overflow:hidden;z-index:200}
-.user-menu.open .user-dropdown{display:block}
-.user-dropdown a,.user-dropdown button{display:flex;align-items:center;gap:9px;width:100%;padding:10px 14px;font-size:13px;color:#DCE1EA;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left}
-.user-dropdown a:hover,.user-dropdown button:hover{background:rgba(255,255,255,.06)}
-.user-dropdown i{font-size:14px;color:#7C8AA0;width:14px}
-.user-dropdown .logout-item{color:var(--danger)}
-.user-dropdown .logout-item i{color:var(--danger)}
-.user-dropdown .divider{height:1px;background:var(--ink-border);margin:4px 0}
-.topbar-crumb-strip{padding:9px 24px;display:flex;align-items:center;gap:8px;font-size:12px;color:#7C8AA0;border-top:1px solid rgba(255,255,255,.04)}
-.topbar-crumb-strip a{color:#AEB9CC;text-decoration:none}
-.topbar-crumb-strip a:hover{color:#fff}
-.topbar-crumb-strip i{font-size:10px;color:#4A5A73}
-.topbar-crumb-strip .current{color:#fff;font-weight:600}
-@media (max-width:900px){.topbar-search{display:none}}
+.topbar{background:linear-gradient(180deg,var(--ink),#0E1B2C);color:#fff;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--ink-border);box-shadow:var(--shadow-md)}
+.topbar-left{display:flex;align-items:center;gap:16px;min-width:0}
+.back-link{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AEB9CC;background:rgba(255,255,255,.06);text-decoration:none;flex-shrink:0;transition:.15s}
+.back-link:hover{background:rgba(255,255,255,.12);color:#fff}
+.topbar-brand{font-size:14px;font-weight:800;display:flex;align-items:center;gap:9px;flex-shrink:0;letter-spacing:.2px}
+.brand-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#1BC1AF);display:flex;align-items:center;justify-content:center;font-size:12px;color:#04211D}
+.v-tag{font-size:10px;font-weight:700;color:#7C8AA0;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:5px;margin-left:2px}
+.crumb{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#7C8AA0;min-width:0;white-space:nowrap;padding-left:14px;border-left:1px solid var(--ink-border)}
+.crumb a{color:#AEB9CC;text-decoration:none}
+.crumb a:hover{color:#fff}
+.crumb i{font-size:9px;color:#4A5A73}
+.crumb .current{color:#fff;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px;font-size:13px}
+.user-chip{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;background:rgba(255,255,255,.06);border-radius:20px}
+.avatar-sm{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#1BC1AF);color:#04211D;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-chip span:last-child{color:#DCE1EA;font-weight:600;font-size:12.5px}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AEB9CC;background:rgba(255,255,255,.06);text-decoration:none;transition:.15s;border:none;cursor:pointer;font-size:13px}
+.icon-btn:hover{background:var(--danger-soft);color:var(--danger)}
 
 /* Layout */
 .container{max-width:1240px;margin:0 auto;padding:32px 24px 60px}
@@ -200,46 +178,26 @@ tbody tr:hover td{background:#FAFBFD}
 </head>
 <body>
 <div class="topbar">
-  <div class="topbar-main">
-    <div class="topbar-left">
-      <div class="topbar-brand">
-        <span class="brand-mark"><i class="fas fa-shield-alt"></i></span>
-        OPTMS <span class="v-tag">v<?= APP_VERSION ?></span>
-      </div>
-      <span class="role-pill">Super Admin</span>
+  <div class="topbar-left">
+    <a href="/dashboard.php" class="back-link" title="Back to Dashboard">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <div class="topbar-brand">
+      <span class="brand-mark"><i class="fas fa-shield-alt"></i></span>
+      OPTMS <span class="v-tag">v<?= APP_VERSION ?></span>
     </div>
-
-    <div class="topbar-search">
-      <i class="fas fa-search"></i>
-      <input type="text" id="topbar-search-input" placeholder="Search tenants, owners, slugs..." autocomplete="off">
-      <button class="search-clear" id="topbar-search-clear" title="Clear"><i class="fas fa-times"></i></button>
-    </div>
-
-    <div class="topbar-right">
-      <button class="icon-btn" id="notif-btn" title="Notifications">
-        <i class="fas fa-bell"></i>
-        <span class="notif-dot"></span>
-      </button>
-      <div class="topbar-divider"></div>
-      <div class="user-menu" id="user-menu">
-        <button class="user-chip" id="user-chip-btn">
-          <span class="avatar-sm"><?= strtoupper(substr($user['name'] ?? 'S', 0, 1)) ?></span>
-          <span class="uname"><?= htmlspecialchars($user['name'] ?? 'Super Admin') ?></span>
-          <i class="fas fa-chevron-down"></i>
-        </button>
-        <div class="user-dropdown">
-          <a href="/dashboard.php"><i class="fas fa-arrow-left"></i> Back to dashboard</a>
-          <a href="/profile.php"><i class="fas fa-user"></i> Profile</a>
-          <div class="divider"></div>
-          <a href="/auth/logout.php" class="logout-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
-        </div>
-      </div>
+    <div class="crumb">
+      <a href="/dashboard.php">Dashboard</a>
+      <i class="fas fa-chevron-right"></i>
+      <span class="current">Tenant Management</span>
     </div>
   </div>
-  <div class="topbar-crumb-strip">
-    <a href="/dashboard.php">Dashboard</a>
-    <i class="fas fa-chevron-right"></i>
-    <span class="current">Tenant Management</span>
+  <div class="topbar-right">
+    <div class="user-chip">
+      <span class="avatar-sm"><?= strtoupper(substr($user['name'] ?? 'S', 0, 1)) ?></span>
+      <span><?= htmlspecialchars($user['name'] ?? 'Super Admin') ?></span>
+    </div>
+    <a href="/auth/logout.php" class="icon-btn" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
   </div>
 </div>
 
@@ -503,53 +461,6 @@ let TENANTS  = [];
 let ACTIVE_TENANT_ID = null;
 let PENDING_RESUME = null;
 
-// ── Topbar search ───────────────────────────────────────────────
-function filterTenants(query) {
-  const q = query.trim().toLowerCase();
-  const clearBtn = document.getElementById('topbar-search-clear');
-  clearBtn.style.display = q ? 'flex' : 'none';
-  if (!q) { renderTenants(TENANTS); return; }
-  const matches = TENANTS.filter(t => [t.company_name, t.owner_email, t.slug, t.db_name]
-    .some(v => (v || '').toLowerCase().includes(q)));
-  renderTenants(matches);
-}
-
-(function initTopbarSearch() {
-  const input = document.getElementById('topbar-search-input');
-  const clearBtn = document.getElementById('topbar-search-clear');
-  let debounce;
-  input.addEventListener('input', () => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => filterTenants(input.value), 150);
-  });
-  clearBtn.addEventListener('click', () => {
-    input.value = '';
-    filterTenants('');
-    input.focus();
-  });
-})();
-
-// ── User menu dropdown ──────────────────────────────────────────
-(function initUserMenu() {
-  const menu = document.getElementById('user-menu');
-  const btn  = document.getElementById('user-chip-btn');
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.classList.toggle('open');
-  });
-  document.addEventListener('click', (e) => {
-    if (!menu.contains(e.target)) menu.classList.remove('open');
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') menu.classList.remove('open');
-  });
-})();
-
-// Notifications: no backend endpoint exists yet for this — placeholder only.
-document.getElementById('notif-btn')?.addEventListener('click', () => {
-  console.log('Notifications: no backend wired yet.');
-});
-
 // ── Load tenants ────────────────────────────────────────────────
 async function loadTenants() {
   const r    = await fetch('/api/tenant.php?action=list');
@@ -564,31 +475,15 @@ async function loadTenants() {
   document.getElementById('stat-active').textContent    = active;
   document.getElementById('stat-suspended').textContent = suspended;
   document.getElementById('stat-users').textContent     = users;
+  document.getElementById('tenants-subtitle').textContent =
+    TENANTS.length ? `${TENANTS.length} tenant${TENANTS.length===1?'':'s'} · ${users} user${users===1?'':'s'} total` : 'No tenants yet';
 
-  renderTenants(TENANTS);
-}
-
-function renderTenants(list) {
   const tbody = document.getElementById('tenants-tbody');
-  const subtitle = document.getElementById('tenants-subtitle');
-  const q = (document.getElementById('topbar-search-input')?.value || '').trim();
-
   if (!TENANTS.length) {
-    subtitle.textContent = 'No tenants yet';
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
-  if (q && !list.length) {
-    subtitle.textContent = `No matches for "${q}"`;
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
-    return;
-  }
-  const totalUsers = list.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
-  subtitle.textContent = q
-    ? `${list.length} of ${TENANTS.length} tenants matching "${q}"`
-    : `${list.length} tenant${list.length===1?'':'s'} · ${totalUsers} user${totalUsers===1?'':'s'} total`;
-
-  tbody.innerHTML = list.map(t => `
+  tbody.innerHTML = TENANTS.map(t => `
     <tr>
       <td>
         <div class="cell-primary">
