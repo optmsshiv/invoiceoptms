@@ -11928,7 +11928,7 @@ async function saveStockAdjustment() {
   const btn = document.getElementById('adj-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
-    product_id: parseInt(productId),
+    product_id: productId, // keep as "p12"-style string — the API strips the prefix itself
     direction: document.getElementById('adj-direction').value,
     qty,
     rate: parseFloat(document.getElementById('adj-rate').value) || 0,

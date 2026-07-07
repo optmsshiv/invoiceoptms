@@ -44,6 +44,14 @@ function normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUn
   return [ $enteredQty / $factor, $enteredRate * $factor, $base ];
 }
 
+// Product IDs arrive from the frontend as "p12" (a "p"-prefixed string, matching
+// the Products page convention) — strip any non-digit characters before using as an int FK.
+function cleanProductId($v) {
+  if (empty($v)) return null;
+  $n = (int) preg_replace('/\D/', '', (string)$v);
+  return $n > 0 ? $n : null;
+}
+
 try {
 switch ($method) {
   case 'GET':
@@ -111,7 +119,7 @@ switch ($method) {
       $enteredRate = (float)($it['rate'] ?? 0);
       $enteredUnit = $it['unit'] ?? 'pcs';
       $amt  = $enteredQty * $enteredRate; // invariant regardless of unit conversion
-      $productId = !empty($it['product_id']) ? (int)$it['product_id'] : null;
+      $productId = cleanProductId($it['product_id'] ?? null);
       [$qtyBase, $rateBase, $baseUnit] = normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUnit);
       $itemStmt->execute([
         $purchaseId, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
@@ -165,7 +173,7 @@ switch ($method) {
       $enteredRate = (float)($it['rate'] ?? 0);
       $enteredUnit = $it['unit'] ?? 'pcs';
       $amt  = $enteredQty * $enteredRate;
-      $productId = !empty($it['product_id']) ? (int)$it['product_id'] : null;
+      $productId = cleanProductId($it['product_id'] ?? null);
       [$qtyBase, $rateBase, $baseUnit] = normalizeQtyRate($db, $productId, $enteredQty, $enteredRate, $enteredUnit);
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['hsn'] ?? '',

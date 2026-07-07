@@ -6,6 +6,14 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Product IDs arrive from the frontend as "p12" (Products page convention) —
+// strip any non-digit characters before using as an int FK.
+function cleanProductId($v) {
+  if (empty($v)) return null;
+  $n = (int) preg_replace('/\D/', '', (string)$v);
+  return $n > 0 ? $n : null;
+}
+
 try {
 switch ($method) {
   case 'GET':
@@ -28,12 +36,12 @@ switch ($method) {
 
     // Summary: current stock on hand per product
     $stmt = $db->query('SELECT
-        p.id AS product_id, p.name, p.category, p.hsn,
+        p.id AS product_id, p.name, p.category,
         COALESCE(SUM(CASE WHEN sl.direction="in" THEN sl.qty ELSE -sl.qty END), 0) AS current_stock,
         MAX(sl.movement_date) AS last_movement
       FROM products p
       LEFT JOIN stock_ledger sl ON sl.product_id = p.id
-      GROUP BY p.id, p.name, p.category, p.hsn
+      GROUP BY p.id, p.name, p.category
       HAVING current_stock <> 0 OR last_movement IS NOT NULL
       ORDER BY p.name ASC');
     jsonResponse(['data' => $stmt->fetchAll()]);
@@ -48,7 +56,8 @@ switch ($method) {
     if (empty($d['qty']) || (float)$d['qty'] <= 0) jsonResponse(['error' => 'Quantity must be greater than 0'], 400);
     if (empty($d['movement_date'])) jsonResponse(['error' => 'Date is required'], 400);
 
-    $pid = (int)$d['product_id'];
+    $pid = cleanProductId($d['product_id']);
+    if (!$pid) jsonResponse(['error' => 'Invalid product'], 400);
     $bal = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) AS bal FROM stock_ledger WHERE product_id = ?');
     $bal->execute([$pid]);
     $current = (float)$bal->fetch()['bal'];
