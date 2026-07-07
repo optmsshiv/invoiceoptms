@@ -2272,13 +2272,72 @@ const SERVER = {
     </div>
 
 
-    <!-- ─────────── STOCK LEDGER (built next) ─────────── -->
+    <!-- ─────────── STOCK LEDGER ─────────── -->
     <div id="page-stock" class="page">
       <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
         <div style="flex:1"></div>
-        <span style="font-size:12px;color:var(--muted)">Coming next — Stock Ledger module</span>
+        <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" onclick="openStockAdjustModal()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Last Movement</th><th>Actions</th></tr></thead>
+          <tbody id="stockTbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="stockInfo"></div></div>
       </div>
     </div>
+
+    <!-- Stock Adjustment Modal -->
+    <div class="modal-overlay" id="modal-stockadjust">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <span>Adjust Stock</span>
+          <button class="modal-close" onclick="closeModal('modal-stockadjust')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Product *</label>
+            <select id="adj-product"><option value="">Select product…</option></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Direction *</label>
+              <select id="adj-direction">
+                <option value="in">Stock In (+)</option>
+                <option value="out">Stock Out (−)</option>
+              </select>
+            </div>
+            <div class="field"><label>Quantity *</label><input type="number" id="adj-qty" min="0" step="0.001" placeholder="0"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Date *</label><input type="date" id="adj-date"></div>
+            <div class="field"><label>Rate (optional)</label><input type="number" id="adj-rate" min="0" step="0.01" placeholder="0.00"></div>
+          </div>
+          <div class="field"><label>Reason / Notes</label><input id="adj-notes" placeholder="e.g. Damaged in transit, physical recount"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-stockadjust')">Cancel</button>
+          <button class="btn btn-primary" id="adj-save-btn" onclick="saveStockAdjustment()"><i class="fas fa-check"></i> Save Adjustment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock History Modal -->
+    <div class="modal-overlay" id="modal-stockhistory">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <span id="sh-product-name">Stock History</span>
+          <button class="modal-close" onclick="closeModal('modal-stockhistory')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>Date</th><th>Source</th><th>Direction</th><th>Qty</th><th>Rate</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
+            <tbody id="sh-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
 
     <!-- ─────────── PAYMENTS ─────────── -->
     <div id="page-payments" class="page">
@@ -5074,6 +5133,7 @@ const STATE = {
   products: [],
   suppliers: [],
   purchases: [],
+  stock: [],
   payments: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
@@ -5299,6 +5359,7 @@ function showPage(name, el) {
   if (name === 'products') renderProducts();
   if (name === 'suppliers') renderSuppliers();
   if (name === 'purchases') renderPurchases();
+  if (name === 'stock') renderStock();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
   if (name === 'team') renderTeam();
   if (name === 'dashboard') renderDashboard();
@@ -11751,6 +11812,132 @@ async function deletePurchase(id) {
     STATE.purchases = STATE.purchases.filter(x => String(x.id) !== String(id));
     renderPurchases();
     toast('🗑️ Purchase deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// STOCK LEDGER  (read-only stock-on-hand view + manual adjustments)
+// ══════════════════════════════════════════
+let stockSearchTerm = '';
+
+function filterStock(q) { stockSearchTerm = (q||'').toLowerCase(); renderStockTable(); }
+
+async function renderStock() {
+  try {
+    const r = await api('api/stock.php');
+    STATE.stock = Array.isArray(r.data) ? r.data : [];
+    renderStockTable();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderStockTable() {
+  const tbody = document.getElementById('stockTbody');
+  if (!tbody) return;
+  let list = STATE.stock || [];
+  if (stockSearchTerm) list = list.filter(s => (s.name||'').toLowerCase().includes(stockSearchTerm) || (s.category||'').toLowerCase().includes(stockSearchTerm));
+  document.getElementById('stockInfo').textContent = list.length + ' product' + (list.length===1?'':'s') + ' with stock movement';
+  document.getElementById('stockCountInfo').textContent = (STATE.stock||[]).length + ' tracked';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase or add a manual adjustment</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(s => {
+    const stockNum = parseFloat(s.current_stock)||0;
+    const color = stockNum <= 0 ? '#E53935' : (stockNum < 10 ? '#E65100' : '#00897B');
+    return `<tr>
+      <td><strong>${escHtml(s.name)}</strong></td>
+      <td>${escHtml(s.category||'—')}</td>
+      <td><strong style="color:${color}">${stockNum.toLocaleString('en-IN')}</strong></td>
+      <td>${fmt_date_disp(s.last_movement)}</td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="View History" onclick="viewStockHistory(${s.product_id}, '${escHtml(s.name).replace(/'/g,"\\'")}')"><i class="fas fa-history"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function populateStockProductDropdown() {
+  const sel = document.getElementById('adj-product');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product…</option>' +
+    (STATE.products||[]).map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+}
+
+function openStockAdjustModal() {
+  populateStockProductDropdown();
+  document.getElementById('adj-direction').value = 'in';
+  document.getElementById('adj-qty').value = '';
+  document.getElementById('adj-date').value = fmt_date(new Date());
+  document.getElementById('adj-rate').value = '';
+  document.getElementById('adj-notes').value = '';
+  openModal('modal-stockadjust');
+}
+
+async function saveStockAdjustment() {
+  const productId = document.getElementById('adj-product').value;
+  const qty = parseFloat(document.getElementById('adj-qty').value);
+  if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
+  if (!qty || qty <= 0) { toast('⚠️ Enter a quantity greater than 0', 'warning'); return; }
+  const btn = document.getElementById('adj-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const payload = {
+    product_id: parseInt(productId),
+    direction: document.getElementById('adj-direction').value,
+    qty,
+    rate: parseFloat(document.getElementById('adj-rate').value) || 0,
+    movement_date: document.getElementById('adj-date').value,
+    notes: document.getElementById('adj-notes').value.trim() || 'Manual adjustment',
+  };
+  try {
+    await api('api/stock.php', 'POST', payload);
+    toast('✅ Stock adjustment recorded', 'success');
+    closeModal('modal-stockadjust');
+    renderStock();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Adjustment'; } }
+}
+
+async function viewStockHistory(productId, productName) {
+  document.getElementById('sh-product-name').textContent = 'Stock History — ' + productName;
+  const tbody = document.getElementById('sh-tbody');
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>`;
+  openModal('modal-stockhistory');
+  try {
+    const r = await api('api/stock.php?product_id=' + productId);
+    const rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No movement recorded</td></tr>`;
+      return;
+    }
+    const sourceLabel = { purchase: '🛒 Purchase', sale: '📤 Sale', adjustment: '⚖️ Adjustment' };
+    tbody.innerHTML = rows.map(row => `
+      <tr>
+        <td>${fmt_date_disp(row.movement_date)}</td>
+        <td>${sourceLabel[row.ref_type]||row.ref_type}</td>
+        <td style="color:${row.direction==='in'?'#00897B':'#E53935'};font-weight:700">${row.direction==='in'?'IN':'OUT'}</td>
+        <td>${parseFloat(row.qty).toLocaleString('en-IN')}</td>
+        <td>${row.rate ? fmt_money(row.rate) : '—'}</td>
+        <td><strong>${parseFloat(row.running_balance).toLocaleString('en-IN')}</strong></td>
+        <td style="color:var(--muted)">${escHtml(row.notes||'')}</td>
+        <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, ${productId}, '${escHtml(productName).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : ''}</td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red)">Failed to load: ${e.message}</td></tr>`; }
+}
+
+async function deleteStockAdjustment(id, productId, productName) {
+  const conf = await Swal.fire({
+    title: 'Delete this adjustment?', text: 'This manual stock entry will be removed.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/stock.php?id=' + id, 'DELETE');
+    toast('🗑️ Adjustment deleted', 'info');
+    viewStockHistory(productId, productName);
+    renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
