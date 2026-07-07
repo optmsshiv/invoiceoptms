@@ -85,7 +85,6 @@ $dueDays        = $settings['due_days']         ?? '';
 $activeTemplate = $settings['active_template']  ?? '';
 $defaultTnc     = $settings['default_tnc']      ?? '';
 $defaultCurrency= $settings['default_currency'] ?? '₹';
-$businessType   = $settings['business_type']    ?? 'both';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -496,24 +495,6 @@ canvas { max-width: 100% !important; }
 .data-table tbody tr:last-child td { border: none; }
 .data-table tbody tr:hover { background: #fafafa; }
 .data-table input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; }
-
-/* Purchase-modal line-items table: compact inputs that still match the app's field styling */
-.pit-card { margin: 0; }
-.pit-table { table-layout: fixed; }
-.pit-table th { padding: 9px 10px; font-size: 10.5px; }
-.pit-table td { padding: 7px 10px; vertical-align: middle; }
-.pit-table input, .pit-table select {
-  width: 100%; padding: 6px 8px; font-size: 12.5px; border-radius: 6px;
-}
-.pit-table td.pit-product { vertical-align: top; }
-.pit-table .pit-desc { margin-top: 5px; }
-.pit-table td.pit-amount { font-weight: 700; white-space: nowrap; color: var(--text); }
-.pit-table .item-del {
-  width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border);
-  background: var(--card); color: var(--muted); cursor: pointer; transition: .2s;
-  display: flex; align-items: center; justify-content: center;
-}
-.pit-table .item-del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -1348,7 +1329,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.products'] ?? true): ?>
     <a class="nav-item" data-page="products" onclick="showPage('products',this)">
-      <i class="fas fa-box"></i><span id="nav-products-label">Services / Products</span>
+      <i class="fas fa-box"></i><span>Services / Products</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.suppliers'] ?? true): ?>
@@ -2128,18 +2109,18 @@ const SERVER = {
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
     <div id="page-products" class="page">
       <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search…" oninput="filterProducts(this.value)" id="productSearch">
+        <input type="text" class="table-search" placeholder="Search services…" oninput="filterProducts(this.value)" id="productSearch">
         <select class="table-filter" onchange="filterProductsCat(this.value)" id="productCatFilter">
           <option value="">All Categories</option>
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> <span id="prodAddBtnLabel">Add Service</span></button>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
       </div>
       <div class="table-card">
         <table class="data-table">
-          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th>Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -2255,21 +2236,14 @@ const SERVER = {
           </div>
 
           <!-- Line items -->
-          <div style="margin-top:10px">
-            <div class="table-card pit-card">
-              <table class="data-table pit-table">
-                <colgroup>
-                  <col style="width:30%"><col style="width:11%"><col style="width:9%">
-                  <col style="width:9%"><col style="width:12%"><col style="width:8%">
-                  <col style="width:13%"><col style="width:34px">
-                </colgroup>
-                <thead><tr>
-                  <th>Product</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate</th><th>GST%</th><th>Amount</th><th></th>
-                </tr></thead>
-                <tbody id="pur-items-tbody"></tbody>
-              </table>
-            </div>
-            <button class="btn btn-outline" style="font-size:12px;margin-top:10px" onclick="addPurchaseItem()"><i class="fas fa-plus"></i> Add Item</button>
+          <div style="margin-top:6px">
+            <table class="data-table" style="font-size:12px">
+              <thead><tr>
+                <th style="width:26%">Product</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate</th><th>GST%</th><th>Amount</th><th></th>
+              </tr></thead>
+              <tbody id="pur-items-tbody"></tbody>
+            </table>
+            <button class="btn btn-outline" style="font-size:12px;margin-top:8px" onclick="addPurchaseItem()"><i class="fas fa-plus"></i> Add Item</button>
           </div>
 
           <!-- Totals -->
@@ -3688,14 +3662,6 @@ View Invoice: {{6}}</pre></details>
               </div>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
-              <div class="field">
-                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page)</span></label>
-                <select id="sc-business-type" onchange="applyBusinessTypeLabels(this.value)">
-                  <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
-                  <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
-                  <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
-                </select>
-              </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
               <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
                 <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
@@ -5212,8 +5178,7 @@ const STATE = {
     waPid:           <?= json_encode($settings['wa_pid']   ?? '') ?>,
     activeTemplate:  <?= json_encode($activeTemplate ?: '2') ?>,
     defaultGST:      <?= json_encode((float)($defaultGst ?: 18)) ?>,
-    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>,
-    businessType:    <?= json_encode($businessType) ?>
+    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>
   },
   currentPage: 1,
   invoicesPerPage: 10,
@@ -11353,27 +11318,6 @@ function openAddProductModal() {
 }
 // Builds the inline "add service" row. Pass `prefill` (an existing product)
 // to use this for cloning — always replaces any row already open.
-// Multi-tenant wording: different clients run service businesses (consulting, web dev)
-// vs product/trading businesses (import-export, retail) vs a mix of both — this swaps
-// the Products page's labels to match, driven by Settings → Company → Business Type.
-const BUSINESS_TYPE_LABELS = {
-  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
-  product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
-  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
-};
-function currentBizLabels() {
-  return BUSINESS_TYPE_LABELS[STATE.settings.businessType] || BUSINESS_TYPE_LABELS.both;
-}
-function applyBusinessTypeLabels(type) {
-  if (type) STATE.settings.businessType = type;
-  const L = currentBizLabels();
-  const navEl = document.getElementById('nav-products-label'); if (navEl) navEl.textContent = L.nav;
-  const btnEl = document.getElementById('prodAddBtnLabel');    if (btnEl) btnEl.textContent = L.addBtn;
-  const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
-  const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
-  const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
-}
-
 function _showAddProductRow(prefill) {
   const tbody = document.getElementById('productsTbody');
   document.getElementById('add-product-row')?.remove();
@@ -11382,7 +11326,7 @@ function _showAddProductRow(prefill) {
   row.style.background = '#f0fdf4';
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill?'COPY':'NEW'}</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="${currentBizLabels().namePlaceholder}" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
     <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill?prefill.rate:0}"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill?escHtml(prefill.hsn):'998314'}" list="hsn-suggestions"></td>
@@ -11757,24 +11701,24 @@ function renderPurchaseItems() {
     const fam = it.product_id ? unitFamilyOf(it.product_id) : null;
     const unitOpts = fam ? UNIT_OPTIONS[fam] : null;
     const unitCell = unitOpts
-      ? `<select onchange="updatePurItem(${it.id},'unit',this.value)">
+      ? `<select style="width:55px;font-size:12px" onchange="updatePurItem(${it.id},'unit',this.value)">
            ${unitOpts.map(u => `<option value="${u}" ${it.unit===u?'selected':''}>${u}</option>`).join('')}
          </select>`
-      : `<input value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value,true)">`;
-    return `<tr data-row="${it.id}">
-      <td class="pit-product">
-        <select onchange="onPurItemProductChange(${it.id}, this.value)">
+      : `<input style="width:55px;font-size:12px" value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value)">`;
+    return `<tr>
+      <td>
+        <select style="width:100%;font-size:12px" onchange="onPurItemProductChange(${it.id}, this.value)">
           <option value="">— free text —</option>
           ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
         </select>
-        ${!it.product_id ? `<input class="pit-desc" placeholder="Item description" value="${escHtml(it.description)}" oninput="updatePurItem(${it.id},'description',this.value,true)">` : ''}
+        ${!it.product_id ? `<input style="width:100%;font-size:12px;margin-top:4px" placeholder="Item description" value="${escHtml(it.description)}" oninput="updatePurItem(${it.id},'description',this.value)">` : ''}
       </td>
-      <td><input placeholder="HSN" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value,true)"></td>
-      <td><input type="number" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
-      <td class="pit-unit">${unitCell}</td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
-      <td class="pit-amount" id="pit-amt-${it.id}">${fmt_money(amt)}</td>
+      <td><input style="width:70px;font-size:12px" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value)"></td>
+      <td><input type="number" style="width:60px;font-size:12px" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
+      <td>${unitCell}</td>
+      <td><input type="number" style="width:80px;font-size:12px" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" style="width:55px;font-size:12px" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
+      <td style="font-weight:600;white-space:nowrap">${fmt_money(amt)}</td>
       <td><button class="item-del" onclick="removePurchaseItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
     </tr>`;
   }).join('');
@@ -11793,19 +11737,13 @@ function onPurItemProductChange(id, productId) {
       if (!opts.includes(it.unit)) it.unit = opts[opts.length-1]; // default to the base unit (kg / ltr / pcs)
     }
   }
-  renderPurchaseItems(); // structural change (unit dropdown ↔ free text, description field toggling) — full rebuild is correct here
+  renderPurchaseItems();
 }
 
-// Text/number edits must NOT trigger a full table rebuild — that destroys and
-// recreates the <input> DOM node on every keystroke, which drops focus after
-// a single character (the "input disables after one letter" bug). Only the
-// Amount cell and the totals footer need to reflect the change live.
-function updatePurItem(id, field, val, isText) {
+function updatePurItem(id, field, val) {
   const it = PUR.items.find(i => i.id === id); if (!it) return;
-  it[field] = isText ? val : (parseFloat(val)||0);
-  const amtCell = document.getElementById('pit-amt-' + id);
-  if (amtCell) amtCell.textContent = fmt_money((it.qty||0) * (it.rate||0));
-  calcPurchaseTotals();
+  it[field] = (field==='description' || field==='hsn' || field==='unit') ? val : (parseFloat(val)||0);
+  renderPurchaseItems();
 }
 
 function calcPurchaseTotals() {
@@ -12420,7 +12358,6 @@ async function saveCompanySettings() {
     company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
-    business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
@@ -12431,7 +12368,6 @@ async function saveCompanySettings() {
     signature: payload.company_sign || STATE.settings.signature,
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
-    businessType: payload.business_type,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -14332,7 +14268,6 @@ document.addEventListener('DOMContentLoaded', function() {
       renderInvoicesTable();
       renderClients();
       renderProducts();
-      applyBusinessTypeLabels();
       renderSuppliers();
       renderPurchases();
       renderPayments();
@@ -14620,9 +14555,6 @@ function populateSettingsForm() {
   // Restore currency dropdown
   const _scCur = document.getElementById('sc-cur');
   if (_scCur && s.currency) _scCur.value = s.currency;
-  // Restore business type dropdown
-  const _scBiz = document.getElementById('sc-business-type');
-  if (_scBiz && s.businessType) _scBiz.value = s.businessType;
   // ── Populate Email / SMTP fields ──
   const ec = s.email_cfg || {};
   set('em-host', ec.smtp_host || '');
