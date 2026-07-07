@@ -13,8 +13,10 @@
 
 const STATE = {
   invoices: [], clients: [], products: [], payments: [],
-  creditNotes: [], suppliers: [], purchases: [],
+  creditNotes: [], suppliers: [], purchases: [], activity: [],
   settings: {}, filteredInvoices: [],
+  currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
+  _clientFilter: '', activeMenuInvoiceId: null,
 };
 
 // ── Locale / formatting helpers (unchanged from the SPA) ─────────
@@ -147,6 +149,27 @@ const WA_LOG = {
     } catch (e) { toast('❌ Error: ' + e.message, 'error'); }
   },
 };
+
+// ── Activity log (unchanged from the SPA) ─────────────────────────
+// Used across invoices/clients/payments pages whenever something
+// changes, so it lives here rather than in any one page's JS.
+function logActivity(type, label, detail, invoiceId) {
+  const entry = {
+    id: Date.now() + Math.random(), type, label,
+    detail: detail || '', invoiceId: invoiceId || null,
+    ts: new Date().toISOString(),
+  };
+  STATE.activity.unshift(entry);
+  if (STATE.activity.length > 500) STATE.activity = STATE.activity.slice(0, 500);
+  api('api/activity.php', 'POST', {
+    type, label, detail: detail || '',
+    invoice_id: invoiceId ? parseInt(invoiceId) : null,
+  }).catch(e => console.warn('activity log write failed:', e.message));
+  // NOTE: renderActivityLog() lives on the activity page, not here.
+  if (typeof renderActivityLog === 'function' && document.getElementById('page-activity')?.classList.contains('active')) {
+    renderActivityLog();
+  }
+}
 
 // ══════════════════════════════════════════
 // PER-PAGE DATA LOADER
