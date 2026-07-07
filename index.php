@@ -8786,7 +8786,7 @@ function openPaidModal(id) {
   }
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
-  const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
+  const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) { sdEl.value = '0'; sdEl.dataset.wasApplied = ''; }
   const sdtEl = document.getElementById('paid-settle-disc-type'); if (sdtEl) sdtEl.value = 'pct';
   const sdDisp = document.getElementById('paid-settle-disc-display'); if (sdDisp) { sdDisp.style.display='none'; sdDisp.textContent=''; }
   const sdInfo = document.getElementById('paid-settle-disc-info'); if (sdInfo) { sdInfo.style.display='none'; sdInfo.textContent=''; }
@@ -8920,10 +8920,11 @@ function onPaidSettleDiscInput() {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Only refresh banner if a discount breakdown was previously visible (user just cleared a non-zero discount)
-    // This avoids false 100% jump when switching dropdown type while discount value is already 0
-    const breakdownWasVisible = document.getElementById('paid-rem-breakdown')?.style.display !== 'none';
-    if (breakdownWasVisible) {
+    // Only restore the amount if a discount was actually applied before (not on initial load
+    // or when toggling the % / Fixed dropdown while the value is already 0)
+    const discInputEl = document.getElementById('paid-settle-disc');
+    const wasApplied   = discInputEl?.dataset.wasApplied === 'true';
+    if (wasApplied) {
       // Reset amount field back to remaining due (undo the discount auto-fill) unless user manually edited it
       const amtEl = document.getElementById('paid-amt');
       if (amtEl && amtEl.dataset.userEdited !== 'true') {
@@ -8934,6 +8935,7 @@ function onPaidSettleDiscInput() {
         amtEl.value = remainingDueReset.toFixed(2);
         amtEl.dataset.autoValue = amtEl.value;
       }
+      if (discInputEl) discInputEl.dataset.wasApplied = '';
       updatePaidRemaining();
     }
     return;
@@ -8959,6 +8961,9 @@ function onPaidSettleDiscInput() {
       amtEl.value = effAmt.toFixed(2);
       amtEl.dataset.autoValue = amtEl.value;
     }
+    // Mark that a discount was applied so it can be reliably undone when cleared
+    const discInputEl = document.getElementById('paid-settle-disc');
+    if (discInputEl) discInputEl.dataset.wasApplied = 'true';
   }
   updatePaidRemaining();
 }
