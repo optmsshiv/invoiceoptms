@@ -1332,21 +1332,6 @@ const SERVER = {
       <i class="fas fa-box"></i><span>Services / Products</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.suppliers'] ?? true): ?>
-    <a class="nav-item" data-page="suppliers" onclick="showPage('suppliers',this)">
-      <i class="fas fa-truck-loading"></i><span>Suppliers</span>
-    </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.purchases'] ?? true): ?>
-    <a class="nav-item" data-page="purchases" onclick="showPage('purchases',this)">
-      <i class="fas fa-dolly"></i><span>Purchases</span>
-    </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.stock'] ?? true): ?>
-    <a class="nav-item" data-page="stock" onclick="showPage('stock',this)">
-      <i class="fas fa-warehouse"></i><span>Stock Ledger</span>
-    </a>
-    <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
     <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
@@ -2127,77 +2112,6 @@ const SERVER = {
           <div class="tf-info" id="prodInfo"></div>
           <div class="pagination" id="prodPagination"></div>
         </div>
-      </div>
-    </div>
-
-    <!-- ─────────── SUPPLIERS ─────────── -->
-    <div id="page-suppliers" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search suppliers…" oninput="filterSuppliers(this.value)" id="supplierSearch">
-        <div style="flex:1"></div>
-        <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i> Add Supplier</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Phone</th><th>Country</th><th>GST No.</th><th>Actions</th></tr></thead>
-          <tbody id="suppliersTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="supInfo"></div>
-          <div class="pagination" id="supPagination"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add/Edit Supplier Modal -->
-    <div class="modal-overlay" id="modal-addsupplier">
-      <div class="modal" style="max-width:520px">
-        <div class="modal-header">
-          <span>Add New Supplier</span>
-          <button class="modal-close" onclick="closeModal('modal-addsupplier')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Supplier / Company Name *</label><input id="sup-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
-            <div class="field"><label>Contact Person</label><input id="sup-person" placeholder="e.g. Rajeev Kumar"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Phone</label><input id="sup-phone" placeholder="+91 XXXXX XXXXX"></div>
-            <div class="field"><label>Email</label><input id="sup-email" type="email" placeholder="supplier@example.com"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>GST Number</label><input id="sup-gst" placeholder="22AAAAA0000A1Z5"></div>
-            <div class="field"><label>Country</label><input id="sup-country" value="India"></div>
-          </div>
-          <div class="field"><label>Address</label><input id="sup-address" placeholder="Full address"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Terms</label><input id="sup-terms" placeholder="e.g. Net 30, Advance"></div>
-            <div class="field"><label>Opening Balance (₹)</label><input id="sup-opening" type="number" value="0"></div>
-          </div>
-          <div class="field"><label>Notes</label><input id="sup-notes" placeholder="Optional"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-addsupplier')">Cancel</button>
-          <button class="btn btn-primary" id="sup-save-btn" onclick="saveSupplier()"><i class="fas fa-check"></i> Save Supplier</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── PURCHASES (built next) ─────────── -->
-    <div id="page-purchases" class="page">
-      <div class="page-toolbar">
-        <div style="flex:1"></div>
-        <span style="font-size:12px;color:var(--muted)">Coming next — Purchases module</span>
-      </div>
-    </div>
-
-    <!-- ─────────── STOCK LEDGER (built next) ─────────── -->
-    <div id="page-stock" class="page">
-      <div class="page-toolbar">
-        <div style="flex:1"></div>
-        <span style="font-size:12px;color:var(--muted)">Coming next — Stock Ledger module</span>
       </div>
     </div>
 
@@ -4993,7 +4907,6 @@ const STATE = {
   invoices: [],
   clients: [],
   products: [],
-  suppliers: [],
   payments: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
@@ -5217,7 +5130,6 @@ function showPage(name, el) {
   if (name === 'create') { if (!STATE._editingNext) { STATE.editingInvoiceId = null; resetCreateForm(); setTimeout(livePreview,50); } STATE._editingNext = false; updateServiceDropdown(); }
   if (name === 'payments') renderPayments();
   if (name === 'products') renderProducts();
-  if (name === 'suppliers') renderSuppliers();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
   if (name === 'team') renderTeam();
   if (name === 'dashboard') renderDashboard();
@@ -11305,160 +11217,6 @@ async function restoreProduct(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════
-// SUPPLIERS  (buy-side "clients")
-// ══════════════════════════════════════════
-const SUP = { archived: false, archivedList: [], search: '', editingId: null };
-
-function activeSupSource() {
-  const list = SUP.archived ? (SUP.archivedList || []) : STATE.suppliers;
-  if (!SUP.search) return list;
-  const q = SUP.search.toLowerCase();
-  return list.filter(s =>
-    (s.name||'').toLowerCase().includes(q) ||
-    (s.contact_person||'').toLowerCase().includes(q) ||
-    (s.phone||'').toLowerCase().includes(q) ||
-    (s.gst_number||'').toLowerCase().includes(q)
-  );
-}
-
-function filterSuppliers(q) { SUP.search = q || ''; renderSuppliers(); }
-
-function renderSuppliers() {
-  const tbody = document.getElementById('suppliersTbody');
-  if (!tbody) return;
-  const list = activeSupSource();
-  document.getElementById('supInfo').textContent = list.length + ' supplier' + (list.length===1?'':'s');
-  document.getElementById('supCountInfo').textContent = STATE.suppliers.length + ' active';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">
-      ${SUP.archived ? 'No archived suppliers' : 'No suppliers yet — click "Add Supplier" to get started'}</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = list.map((s, i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${escHtml(s.name)}</strong></td>
-      <td>${escHtml(s.contact_person || '—')}</td>
-      <td>${escHtml(s.phone || '—')}</td>
-      <td>${escHtml(s.country || '—')}</td>
-      <td>${escHtml(s.gst_number || '—')}</td>
-      <td>
-        <div class="action-cell">
-          ${SUP.archived
-            ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
-            : `<button class="act-btn" title="Edit" onclick="editSupplier(${s.id})"><i class="fas fa-pen"></i></button>
-               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>`}
-        </div>
-      </td>
-    </tr>`).join('');
-}
-
-function openAddSupplierModal() {
-  SUP.editingId = null;
-  document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
-  ['sup-name','sup-person','sup-phone','sup-email','sup-gst','sup-address','sup-terms','sup-notes'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('sup-country').value = 'India';
-  document.getElementById('sup-opening').value = '0';
-  openModal('modal-addsupplier');
-}
-
-function editSupplier(id) {
-  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
-  SUP.editingId = id;
-  document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
-  document.getElementById('sup-name').value    = s.name || '';
-  document.getElementById('sup-person').value  = s.contact_person || '';
-  document.getElementById('sup-phone').value   = s.phone || '';
-  document.getElementById('sup-email').value   = s.email || '';
-  document.getElementById('sup-gst').value     = s.gst_number || '';
-  document.getElementById('sup-country').value = s.country || 'India';
-  document.getElementById('sup-address').value = s.address || '';
-  document.getElementById('sup-terms').value   = s.payment_terms || '';
-  document.getElementById('sup-opening').value = s.opening_balance || 0;
-  document.getElementById('sup-notes').value   = s.notes || '';
-  openModal('modal-addsupplier');
-}
-
-async function saveSupplier() {
-  const name = document.getElementById('sup-name')?.value?.trim();
-  if (!name) { toast('⚠️ Supplier name required', 'warning'); return; }
-  const btn = document.getElementById('sup-save-btn');
-  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
-  const payload = {
-    name,
-    contact_person:  document.getElementById('sup-person').value.trim(),
-    phone:           document.getElementById('sup-phone').value.trim(),
-    email:           document.getElementById('sup-email').value.trim(),
-    gst_number:      document.getElementById('sup-gst').value.trim(),
-    country:         document.getElementById('sup-country').value.trim() || 'India',
-    address:         document.getElementById('sup-address').value.trim(),
-    payment_terms:   document.getElementById('sup-terms').value.trim(),
-    opening_balance: parseFloat(document.getElementById('sup-opening').value) || 0,
-    notes:           document.getElementById('sup-notes').value.trim(),
-  };
-  try {
-    if (SUP.editingId) {
-      await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
-      toast('✅ Supplier updated!', 'success');
-    } else {
-      await api('api/suppliers.php', 'POST', payload);
-      toast('✅ "' + name + '" added!', 'success');
-    }
-    const r = await api('api/suppliers.php');
-    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
-    SUP.editingId = null;
-    closeModal('modal-addsupplier');
-    renderSuppliers();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Supplier'; } }
-}
-
-async function archiveSupplier(id) {
-  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
-  const conf = await Swal.fire({
-    title: 'Archive supplier?', text: `"${s.name}" will be moved to archived suppliers.`,
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Archive', customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/suppliers.php?id=' + id, 'DELETE');
-    STATE.suppliers = STATE.suppliers.filter(x => String(x.id) !== String(id));
-    renderSuppliers();
-    toast('🗑️ Archived', 'info');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function restoreSupplier(id) {
-  const s = (SUP.archivedList||[]).find(x => String(x.id) === String(id)); if (!s) return;
-  try {
-    await api('api/suppliers.php?action=restore&id=' + id, 'POST');
-    SUP.archivedList = (SUP.archivedList||[]).filter(x => String(x.id) !== String(id));
-    const r = await api('api/suppliers.php');
-    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
-    renderSuppliers();
-    toast(`✅ "${s.name}" restored`, 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function toggleSupplierArchivedView() {
-  SUP.archived = !SUP.archived;
-  const btn = document.getElementById('supArchiveToggleBtn');
-  if (SUP.archived) {
-    if (btn) btn.innerHTML = '<i class="fas fa-box-open"></i> View Active';
-    try {
-      const r = await api('api/suppliers.php?status=archived');
-      SUP.archivedList = Array.isArray(r.data) ? r.data : [];
-    } catch(e) { toast('❌ ' + e.message, 'error'); SUP.archivedList = []; }
-  } else {
-    if (btn) btn.innerHTML = '<i class="fas fa-box-archive"></i> View Archived';
-  }
-  document.getElementById('supplierSearch') && (document.getElementById('supplierSearch').value = '');
-  renderSuppliers();
-}
-
 function openProductPicker() {
   const list = document.getElementById('productPickerList');
   if (!STATE.products.length) {
@@ -13534,21 +13292,19 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn, sup] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
       api('api/payments.php'),
       api('api/settings.php'),
       api('api/credit_notes.php').catch(() => ({ data: [] })),
-      api('api/suppliers.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products    = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments    = Array.isArray(pmt.data)  ? pmt.data  : [];
     STATE.creditNotes = Array.isArray(cn.data)   ? cn.data   : [];
-    STATE.suppliers   = Array.isArray(sup.data)  ? sup.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
@@ -13739,7 +13495,6 @@ document.addEventListener('DOMContentLoaded', function() {
       renderInvoicesTable();
       renderClients();
       renderProducts();
-      renderSuppliers();
       renderPayments();
       renderTemplatesGrid();
       populateTemplateForm();
