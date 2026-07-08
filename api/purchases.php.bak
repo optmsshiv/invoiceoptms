@@ -44,10 +44,8 @@ function computeItemWeights($it) {
   $gross = (float)($it['gross_weight'] ?? 0);
   $tare  = (float)($it['tare_weight']  ?? 0);
   $net   = max(0, $gross - $tare);
-  // Dhalta Kg is what's actually entered (matches how it's weighed at the mandi);
-  // Dhalta % is derived from it purely for display/reporting.
-  $dhaltaKg  = max(0, round((float)($it['dhalta_kg'] ?? 0), 3));
-  $dhaltaPct = $net > 0 ? round($dhaltaKg / $net * 100, 2) : 0;
+  $dhaltaPct = (float)($it['dhalta_pct'] ?? 0);
+  $dhaltaKg  = round($net * $dhaltaPct / 100, 3);
   $billable  = max(0, $net - $dhaltaKg);
   $rate      = (float)($it['rate'] ?? 0);
   $discPct   = (float)($it['discount_pct'] ?? 0);

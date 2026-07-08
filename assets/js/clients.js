@@ -28,21 +28,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderClients();
 });
 
-const TAG_PALETTE = [
-  { bg: '#EDE9FE', text: '#5B21B6', border: '#C4B5FD' },
-  { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' },
-  { bg: '#DCFCE7', text: '#166534', border: '#BBF7D0' },
-  { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' },
-  { bg: '#FFE4E6', text: '#9F1239', border: '#FECDD3' },
-  { bg: '#F0FDF4', text: '#14532D', border: '#86EFAC' },
-  { bg: '#FFF7ED', text: '#9A3412', border: '#FDBA74' },
-  { bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE' },
-];
-function _tagColor(tag) {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
-}
+// TAG_PALETTE and _tagColor moved to shared-data.js — team.js needs
+// them too, and duplicating a const declaration across two files
+// loaded on the same page would throw.
 
 let _ncCurrentTags = [];
 function _renderTagPills() {

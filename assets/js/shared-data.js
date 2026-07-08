@@ -13,7 +13,7 @@
 
 const STATE = {
   invoices: [], clients: [], products: [], payments: [],
-  creditNotes: [], suppliers: [], purchases: [], activity: [],
+  creditNotes: [], suppliers: [], purchases: [], activity: [], expenses: [],
   settings: {}, filteredInvoices: [],
   currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
   _clientFilter: '', activeMenuInvoiceId: null,
@@ -82,6 +82,34 @@ function getCatColor(name) {
 function getCatTextColor(hex) {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#222' : '#fff';
+}
+function pastelBg(hex) {
+  hex = (hex || '#757575').replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const r = parseInt(hex.substr(0, 2), 16) || 0, g = parseInt(hex.substr(2, 2), 16) || 0, b = parseInt(hex.substr(4, 2), 16) || 0;
+  const mix = c => Math.round(c + (255 - c) * 0.85).toString(16).padStart(2, '0');
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
+function getExpCatColor(name) {
+  const cat = (STATE.expenseCategories || []).find(c => c.name === name);
+  return cat ? cat.color : '#757575';
+}
+
+// Used by clients.js (client tags) and team.js (team member tags)
+const TAG_PALETTE = [
+  { bg: '#EDE9FE', text: '#5B21B6', border: '#C4B5FD' },
+  { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' },
+  { bg: '#DCFCE7', text: '#166534', border: '#BBF7D0' },
+  { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' },
+  { bg: '#FFE4E6', text: '#9F1239', border: '#FECDD3' },
+  { bg: '#F0FDF4', text: '#14532D', border: '#86EFAC' },
+  { bg: '#FFF7ED', text: '#9A3412', border: '#FDBA74' },
+  { bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE' },
+];
+function _tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
 }
 // Escapes text before it's injected into innerHTML — prevents stored-XSS
 // from product/client names, categories, HSN codes, etc.
@@ -228,6 +256,7 @@ const CORE_ENDPOINTS = {
   creditNotes: 'api/credit_notes.php',
   suppliers:   'api/suppliers.php',
   purchases:   'api/purchases.php',
+  expenses:    'api/expenses.php',
 };
 
 async function loadCoreData(keys) {
