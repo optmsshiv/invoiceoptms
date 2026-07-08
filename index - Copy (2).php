@@ -554,12 +554,12 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1200px; border: 1px solid var(--border); table-layout: fixed; }
+.pne-items-table { font-size: 12px; min-width: 1100px; border: 1px solid var(--border); }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
 .pne-items-table th { padding: 8px 8px; font-size: 10px; text-align: center; }
 .pne-items-table td { padding: 6px 6px; vertical-align: top; text-align: center; }
 .pne-items-table td:nth-child(2) { text-align: left; }
-.pne-items-table input, .pne-items-table select { width: 100%; min-width: 0; padding: 7px 6px; font-size: 12.5px; border-radius: 6px; text-align: center; box-sizing: border-box; }
+.pne-items-table input, .pne-items-table select { width: 100%; padding: 6px 6px; font-size: 12px; border-radius: 6px; text-align: center; }
 .pne-items-table td:nth-child(2) input { text-align: left; }
 .pne-computed { background: var(--bg); color: var(--muted); font-weight: 600; padding: 6px 4px; border-radius: 6px; font-size: 12px; }
 .pne-amount-cell { font-weight: 700; color: var(--teal); white-space: nowrap; }
@@ -2402,25 +2402,13 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
               <span><span class="pne-num">2</span> Items Details</span>
-              <span style="display:flex;gap:8px;align-items:center">
+              <span style="display:flex;gap:8px">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <select id="pne-entry-mode" class="table-filter" style="font-size:12px" title="New items will use this entry mode">
-                  <option value="catalog">Catalog product</option>
-                  <option value="freetext">Free text (misc. line)</option>
-                </select>
               </span>
             </div>
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table">
-                <colgroup>
-                  <col style="width:36px"><col style="width:150px"><col style="width:100px">
-                  <col style="width:75px"><col style="width:95px">
-                  <col style="width:85px"><col style="width:85px"><col style="width:85px">
-                  <col style="width:60px"><col style="width:70px">
-                  <col style="width:95px">
-                  <col style="width:80px"><col style="width:70px"><col style="width:95px"><col style="width:56px">
-                </colgroup>
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
@@ -12065,8 +12053,7 @@ function setGstApplicable(applicable) {
 }
 
 function pneEmptyItem() {
-  const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
-  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
+  return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
     gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
 }
 
@@ -12089,11 +12076,7 @@ function editPNEItem(id) {
 
 function donePNEItem(id) {
   const it = PNE.items.find(i => i.id === id); if (!it) return;
-  if (it.mode === 'freetext') {
-    if (!it.description || !it.description.trim()) { toast('⚠️ Enter a description for this line', 'warning'); return; }
-  } else if (!it.product_id) {
-    toast('⚠️ Select a product for this line', 'warning'); return;
-  }
+  if (!it.product_id) { toast('⚠️ Select a product for this line', 'warning'); return; }
   it.editing = false;
   renderPNEItemsTable();
 }
@@ -12148,12 +12131,10 @@ function renderPNEItemsTable() {
     return `<tr data-row="${it.id}">
       <td>${idx+1}</td>
       <td>
-        ${it.mode === 'freetext'
-          ? `<input value="${escHtml(it.description)}" placeholder="e.g. Gunny bags, Labour advance" oninput="updatePNEItem(${it.id},'description',this.value,true)">`
-          : `<select onchange="onPNEProductChange(${it.id}, this.value)">
-               <option value="">Select product…</option>
-               ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
-             </select>`}
+        <select onchange="onPNEProductChange(${it.id}, this.value)">
+          <option value="">Select product…</option>
+          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
       </td>
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
@@ -12284,24 +12265,7 @@ function removePNESplitRow(btn) {
 }
 
 function updatePNESplitTotal() {
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-amt');
-
-  // Auto-deduct: with exactly 2 rows, editing one auto-fills the other with
-  // the remainder against Amount Paid — mirrors the invoice payment split behavior.
-  if (rows.length === 2) {
-    const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-    const focusedRow = document.activeElement?.closest('.pne-split-row');
-    const focusedIdx = focusedRow ? Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row')).indexOf(focusedRow) : -1;
-    if (target > 0 && focusedIdx === 0) {
-      const remainder = Math.max(0, target - (parseFloat(rows[0].value)||0));
-      rows[1].value = remainder > 0 ? remainder.toFixed(2) : '';
-    } else if (target > 0 && focusedIdx === 1) {
-      const remainder = Math.max(0, target - (parseFloat(rows[1].value)||0));
-      rows[0].value = remainder > 0 ? remainder.toFixed(2) : '';
-    }
-  }
-
-  const amts = Array.from(rows).map(el => parseFloat(el.value)||0);
+  const amts = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-amt')).map(el => parseFloat(el.value)||0);
   const sum = amts.reduce((s,v) => s+v, 0);
   document.getElementById('pne-split-total').textContent = fmt_money(sum);
   updatePNESplitMismatch();
@@ -12341,7 +12305,7 @@ async function editPurchase(id) {
     PNE.attachmentDataUrl = null;
     PNE.attachmentExisting = p.attachment_path || null;
     PNE.items = (p.items||[]).map(it => ({
-      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id || '', description: it.description,
+      id: pneItemSeq++, product_id: it.product_id || '', description: it.description,
       variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
@@ -12410,9 +12374,8 @@ async function savePurchaseEntry(mode) {
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
   if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
   if (!PNE.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
-  const badItem = PNE.items.find(it => it.mode === 'freetext' ? !(it.description||'').trim() : !it.product_id);
-  if (badItem) {
-    toast('⚠️ Every item needs a product (or a description for free-text lines)', 'warning'); return;
+  if (PNE.items.some(it => !it.product_id)) {
+    toast('⚠️ Every item needs a product selected from the catalog', 'warning'); return;
   }
 
   const attachment = await pneReadAttachment();
