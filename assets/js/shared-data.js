@@ -17,6 +17,33 @@ const STATE = {
   settings: {}, filteredInvoices: [],
   currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
   _clientFilter: '', activeMenuInvoiceId: null,
+  // Defaults — overridden by whatever's saved in settings.product_categories
+  // / settings.item_types once loadCoreData(['settings']) runs.
+  itemTypes: [
+    { name: 'Service', color: '#00897B' },
+    { name: 'Product', color: '#1976D2' },
+    { name: 'Labour',  color: '#E65100' },
+    { name: 'Other',   color: '#757575' },
+  ],
+  categories: [
+    { name: 'Web Development', color: '#1976D2' },
+    { name: 'Mobile App',      color: '#7B1FA2' },
+    { name: 'SEO / Marketing', color: '#F57F17' },
+    { name: 'Design',          color: '#E53935' },
+    { name: 'Hosting',         color: '#00897B' },
+    { name: 'Consulting',      color: '#455A64' },
+    { name: 'Other',           color: '#757575' },
+  ],
+  expenseCategories: [
+    { name: 'Software / SaaS', color: '#1976D2' },
+    { name: 'Hardware',        color: '#7B1FA2' },
+    { name: 'Travel',          color: '#E65100' },
+    { name: 'Office Supplies', color: '#388E3C' },
+    { name: 'Marketing',       color: '#C62828' },
+    { name: 'Salary',          color: '#455A64' },
+    { name: 'Utilities',       color: '#F57F17' },
+    { name: 'Other',           color: '#757575' },
+  ],
 };
 
 // ── Locale / formatting helpers (unchanged from the SPA) ─────────
@@ -30,6 +57,14 @@ function fmt_money(n, sym) {
   const s = sym !== undefined ? sym : ((STATE.settings && STATE.settings.currency) || '₹');
   return s + parseFloat(n || 0).toLocaleString(_moneyLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function fmt_date(d) { return d.toISOString().split('T')[0]; }
+function fmt_date_disp(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return String(dt.getDate()).padStart(2, '0') + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + dt.getFullYear();
+}
+function fmt_money_sym(n, sym) { return (sym || '₹') + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmt_date_l(dateStr, opts) {
   if (!dateStr) return '';
   opts = opts || { day: '2-digit', month: 'short' };
@@ -39,6 +74,14 @@ function isValidImg(src) {
   if (!src || typeof src !== 'string') return false;
   const s = src.trim();
   return s.startsWith('data:image') || s.startsWith('http://') || s.startsWith('https://');
+}
+function getCatColor(name) {
+  const cat = STATE.categories.find(c => c.name === name);
+  return cat ? cat.color : '#757575';
+}
+function getCatTextColor(hex) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#222' : '#fff';
 }
 // Escapes text before it's injected into innerHTML — prevents stored-XSS
 // from product/client names, categories, HSN codes, etc.
@@ -204,6 +247,20 @@ async function loadCoreData(keys) {
         STATE.settings.estPrefix   = s.estimate_prefix || STATE.settings.estPrefix;
         STATE.settings.dueDays     = s.due_days || STATE.settings.dueDays;
         STATE.settings.defaultNotes = s.default_notes || STATE.settings.defaultNotes;
+        // Additional fields used by receipts, reports, and other pages
+        STATE.settings.gst          = s.gst_number || s.gst || '';
+        STATE.settings.phone        = s.company_phone || s.phone || '';
+        STATE.settings.email        = s.company_email || s.email || '';
+        STATE.settings.website      = s.company_website || s.website || '';
+        STATE.settings.prefix       = s.invoice_prefix || STATE.settings.prefix || 'OT-' + new Date().getFullYear() + '-';
+        STATE.settings.upi          = s.upi_id || s.upi || '';
+        STATE.settings.address      = s.company_address || s.address || '';
+        STATE.settings.logo         = s.company_logo || s.logo || '';
+        STATE.settings.sign         = s.company_sign || s.sign || '';
+        STATE.settings.defaultBank  = s.default_bank || s.bank_details || '';
+        STATE.settings.tnc          = s.default_tnc || s.tnc || '';
+        STATE.settings.activeTemplate = s.active_template || '2';
+        STATE.settings.defaultGST   = parseFloat(s.default_gst) || 18;
         // WA config — needed by the dashboard's WhatsApp card
         STATE.settings.wa = {
           token: s.wa_token || '', pid: s.wa_pid || '',
@@ -215,6 +272,16 @@ async function loadCoreData(keys) {
           auto_overdue: s.wa_auto_overdue !== undefined ? s.wa_auto_overdue : '1',
           auto_followup: s.wa_auto_followup !== undefined ? s.wa_auto_followup : '0',
         };
+        // Category / item-type lists — saved as JSON strings in settings.
+        if (s.product_categories) {
+          try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch (e) {}
+        }
+        if (s.item_types) {
+          try { const iTypes = JSON.parse(s.item_types); if (Array.isArray(iTypes) && iTypes.length) STATE.itemTypes = iTypes; } catch (e) {}
+        }
+        if (s.expense_categories) {
+          try { const eCats = JSON.parse(s.expense_categories); if (Array.isArray(eCats) && eCats.length) STATE.expenseCategories = eCats; } catch (e) {}
+        }
       }
     } else {
       STATE[key] = Array.isArray(payload.data) ? payload.data : [];
