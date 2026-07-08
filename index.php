@@ -12326,7 +12326,7 @@ async function printPurchaseEntry(id) {
       <table><thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Gross</th><th>Tare</th><th>Net</th><th>Dhalta Kg</th><th>Billable</th><th>Rate</th><th>Amount</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="tot">Grand Total: ${fmt_money(p.total)}</div>
-      <script>window.print();</script>
+      <script>window.print();<\/script>
     </body></html>`);
     win.document.close();
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
