@@ -22,7 +22,7 @@ define('CPANEL_USERNAME',  env('CPANEL_USERNAME'));
 define('CPANEL_API_TOKEN', env('CPANEL_API_TOKEN'));
 
 // ── App constants ─────────────────────────────────────────────────
-define('APP_NAME',    env('APP_NAME', 'OPTMS Tech Invoice Manager'));
+define('APP_NAME',    env('APP_NAME', 'OPTMS Tech'));
 define('APP_VERSION', env('APP_VERSION', '2.0.0'));
 define('APP_URL',     env('APP_URL'));
 
