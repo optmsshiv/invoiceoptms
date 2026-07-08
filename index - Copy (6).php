@@ -85,6 +85,7 @@ $dueDays        = $settings['due_days']         ?? '';
 $activeTemplate = $settings['active_template']  ?? '';
 $defaultTnc     = $settings['default_tnc']      ?? '';
 $defaultCurrency= $settings['default_currency'] ?? '₹';
+$businessType   = $settings['business_type']    ?? 'both';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -495,6 +496,24 @@ canvas { max-width: 100% !important; }
 .data-table tbody tr:last-child td { border: none; }
 .data-table tbody tr:hover { background: #fafafa; }
 .data-table input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; }
+
+/* Purchase-modal line-items table: compact inputs that still match the app's field styling */
+.pit-card { margin: 0; }
+.pit-table { table-layout: fixed; }
+.pit-table td { padding: 7px 10px; vertical-align: top; padding-top: 10px; }
+.pit-table th { padding: 9px 10px; font-size: 10.5px; }
+.pit-table input, .pit-table select {
+  width: 100%; padding: 6px 8px; font-size: 12.5px; border-radius: 6px;
+}
+.pit-table td.pit-product { vertical-align: top; }
+.pit-table .pit-desc { margin-top: 5px; }
+.pit-table td.pit-amount { font-weight: 700; white-space: nowrap; color: var(--text); }
+.pit-table .item-del {
+  width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border);
+  background: var(--card); color: var(--muted); cursor: pointer; transition: .2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.pit-table .item-del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -1329,7 +1348,22 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.products'] ?? true): ?>
     <a class="nav-item" data-page="products" onclick="showPage('products',this)">
-      <i class="fas fa-box"></i><span>Services / Products</span>
+      <i class="fas fa-box"></i><span id="nav-products-label">Services / Products</span>
+    </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.suppliers'] ?? true): ?>
+    <a class="nav-item" data-page="suppliers" onclick="showPage('suppliers',this)">
+      <i class="fas fa-truck-loading"></i><span>Suppliers</span>
+    </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.purchases'] ?? true): ?>
+    <a class="nav-item" data-page="purchases" onclick="showPage('purchases',this)">
+      <i class="fas fa-dolly"></i><span>Purchases</span>
+    </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.stock'] ?? true): ?>
+    <a class="nav-item" data-page="stock" onclick="showPage('stock',this)">
+      <i class="fas fa-warehouse"></i><span>Stock Ledger</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
@@ -2094,18 +2128,18 @@ const SERVER = {
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
     <div id="page-products" class="page">
       <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search services…" oninput="filterProducts(this.value)" id="productSearch">
+        <input type="text" class="table-search" placeholder="Search…" oninput="filterProducts(this.value)" id="productSearch">
         <select class="table-filter" onchange="filterProductsCat(this.value)" id="productCatFilter">
           <option value="">All Categories</option>
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> <span id="prodAddBtnLabel">Add Service</span></button>
       </div>
       <div class="table-card">
         <table class="data-table">
-          <thead><tr><th>#</th><th>Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -2114,6 +2148,222 @@ const SERVER = {
         </div>
       </div>
     </div>
+
+    <!-- ─────────── SUPPLIERS ─────────── -->
+    <div id="page-suppliers" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search suppliers…" oninput="filterSuppliers(this.value)" id="supplierSearch">
+        <div style="flex:1"></div>
+        <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <button class="btn btn-primary" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i> Add Supplier</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Phone</th><th>Country</th><th>GST No.</th><th>Actions</th></tr></thead>
+          <tbody id="suppliersTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="supInfo"></div>
+          <div class="pagination" id="supPagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Supplier Modal -->
+    <div class="modal-overlay" id="modal-addsupplier">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <span>Add New Supplier</span>
+          <button class="modal-close" onclick="closeModal('modal-addsupplier')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Supplier / Company Name *</label><input id="sup-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
+            <div class="field"><label>Contact Person</label><input id="sup-person" placeholder="e.g. Rajeev Kumar"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Phone</label><input id="sup-phone" placeholder="+91 XXXXX XXXXX"></div>
+            <div class="field"><label>Email</label><input id="sup-email" type="email" placeholder="supplier@example.com"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>GST Number</label><input id="sup-gst" placeholder="22AAAAA0000A1Z5"></div>
+            <div class="field"><label>Country</label><input id="sup-country" value="India"></div>
+          </div>
+          <div class="field"><label>Address</label><input id="sup-address" placeholder="Full address"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Payment Terms</label><input id="sup-terms" placeholder="e.g. Net 30, Advance"></div>
+            <div class="field"><label>Opening Balance (₹)</label><input id="sup-opening" type="number" value="0"></div>
+          </div>
+          <div class="field"><label>Notes</label><input id="sup-notes" placeholder="Optional"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-addsupplier')">Cancel</button>
+          <button class="btn btn-primary" id="sup-save-btn" onclick="saveSupplier()"><i class="fas fa-check"></i> Save Supplier</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── PURCHASES ─────────── -->
+    <div id="page-purchases" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search purchases…" oninput="filterPurchases(this.value)" id="purchaseSearch">
+        <select class="table-filter" onchange="renderPurchases()" id="purStatusFilter">
+          <option value="">All Status</option>
+          <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="purCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="openAddPurchaseModal()"><i class="fas fa-plus"></i> Add Purchase</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>PO No.</th><th>Supplier</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="purchasesTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="purInfo"></div>
+          <div class="pagination" id="purPagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Purchase Modal -->
+    <div class="modal-overlay" id="modal-addpurchase">
+      <div class="modal" style="max-width:820px">
+        <div class="modal-header">
+          <span>Add New Purchase</span>
+          <button class="modal-close" onclick="closeModal('modal-addpurchase')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field"><label>Supplier *</label>
+              <select id="pur-supplier"><option value="">Select supplier…</option></select>
+            </div>
+            <div class="field"><label>Purchase Date *</label><input type="date" id="pur-date"></div>
+            <div class="field"><label>Supplier Invoice Ref</label><input id="pur-invref" placeholder="Their bill/invoice no."></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field"><label>PO Number <span style="font-weight:400;color:var(--muted)">(auto if blank)</span></label><input id="pur-no" placeholder="Auto-generated"></div>
+            <div class="field"><label>Currency</label>
+              <select id="pur-currency" onchange="calcPurchaseTotals()">
+                <option value="INR">INR (₹)</option><option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+            <div class="field"><label>Exchange Rate (→ ₹)</label><input type="number" id="pur-fx" value="1" min="0" step="0.0001" oninput="calcPurchaseTotals()"></div>
+          </div>
+
+          <!-- Line items -->
+          <div style="margin-top:10px">
+            <div class="table-card pit-card">
+              <table class="data-table pit-table">
+                <colgroup>
+                  <col style="width:30%"><col style="width:11%"><col style="width:9%">
+                  <col style="width:9%"><col style="width:12%"><col style="width:8%">
+                  <col style="width:13%"><col style="width:34px">
+                </colgroup>
+                <thead><tr>
+                  <th>Product</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate</th><th>GST%</th><th>Amount</th><th></th>
+                </tr></thead>
+                <tbody id="pur-items-tbody"></tbody>
+              </table>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;margin-top:10px" onclick="addPurchaseItem()"><i class="fas fa-plus"></i> Add Item</button>
+          </div>
+
+          <!-- Totals -->
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <div style="width:260px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Subtotal</span><strong id="pur-subtotal">₹0.00</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>GST</span><strong id="pur-gst">₹0.00</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:15px"><span>Total</span><strong id="pur-total">₹0.00</strong></div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+            <div class="field"><label>Status</label>
+              <select id="pur-status">
+                <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
+              </select>
+            </div>
+            <div class="field"><label>Notes</label><input id="pur-notes" placeholder="Optional"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-addpurchase')">Cancel</button>
+          <button class="btn btn-primary" id="pur-save-btn" onclick="savePurchase()"><i class="fas fa-check"></i> Save Purchase</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─────────── STOCK LEDGER ─────────── -->
+    <div id="page-stock" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
+        <div style="flex:1"></div>
+        <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" onclick="openStockAdjustModal()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Last Movement</th><th>Actions</th></tr></thead>
+          <tbody id="stockTbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="stockInfo"></div></div>
+      </div>
+    </div>
+
+    <!-- Stock Adjustment Modal -->
+    <div class="modal-overlay" id="modal-stockadjust">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <span>Adjust Stock</span>
+          <button class="modal-close" onclick="closeModal('modal-stockadjust')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="field"><label>Product *</label>
+            <select id="adj-product"><option value="">Select product…</option></select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Direction *</label>
+              <select id="adj-direction">
+                <option value="in">Stock In (+)</option>
+                <option value="out">Stock Out (−)</option>
+              </select>
+            </div>
+            <div class="field"><label>Quantity *</label><input type="number" id="adj-qty" min="0" step="0.001" placeholder="0"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Date *</label><input type="date" id="adj-date"></div>
+            <div class="field"><label>Rate (optional)</label><input type="number" id="adj-rate" min="0" step="0.01" placeholder="0.00"></div>
+          </div>
+          <div class="field"><label>Reason / Notes</label><input id="adj-notes" placeholder="e.g. Damaged in transit, physical recount"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-stockadjust')">Cancel</button>
+          <button class="btn btn-primary" id="adj-save-btn" onclick="saveStockAdjustment()"><i class="fas fa-check"></i> Save Adjustment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock History Modal -->
+    <div class="modal-overlay" id="modal-stockhistory">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <span id="sh-product-name">Stock History</span>
+          <button class="modal-close" onclick="closeModal('modal-stockhistory')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>Date</th><th>Source</th><th>Direction</th><th>Qty</th><th>Rate</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
+            <tbody id="sh-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
 
     <!-- ─────────── PAYMENTS ─────────── -->
     <div id="page-payments" class="page">
@@ -3438,6 +3688,14 @@ View Invoice: {{6}}</pre></details>
               </div>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
+              <div class="field">
+                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page)</span></label>
+                <select id="sc-business-type" onchange="applyBusinessTypeLabels(this.value)">
+                  <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
+                  <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
+                  <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
+                </select>
+              </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
               <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
                 <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
@@ -4574,15 +4832,12 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Date + Time + Method (3-col) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <!-- Date + Method (2-col) — time moved to view-only display beside Settlement Discount -->
+      <input type="hidden" id="paid-time">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field">
           <label>Payment Date</label>
           <input type="date" id="paid-date">
-        </div>
-        <div class="field">
-          <label>Payment Time</label>
-          <input type="time" id="paid-time">
         </div>
         <div class="field">
           <label>Method</label>
@@ -4611,9 +4866,12 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Settlement Discount -->
       <div class="field" id="paid-settle-disc-row">
-        <label style="display:flex;align-items:center;gap:6px">
-          Settlement Discount
-          <span style="font-size:10px;font-weight:400;color:var(--muted);background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;padding:1px 6px">optional</span>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <span style="display:flex;align-items:center;gap:6px">
+            Settlement Discount
+            <span style="font-size:10px;font-weight:400;color:var(--muted);background:var(--amber-bg);border:1px solid var(--amber);border-radius:4px;padding:1px 6px">optional</span>
+          </span>
+          <span id="paid-time-display" title="Payment time (view only)" style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--mono);text-transform:none;letter-spacing:0"><i class="fas fa-clock" style="margin-right:4px;opacity:.7"></i></span>
         </label>
         <div style="display:flex;gap:6px;align-items:center">
           <select id="paid-settle-disc-type" style="width:90px;flex-shrink:0" onchange="onPaidSettleDiscInput()">
@@ -4907,6 +5165,9 @@ const STATE = {
   invoices: [],
   clients: [],
   products: [],
+  suppliers: [],
+  purchases: [],
+  stock: [],
   payments: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
@@ -4951,7 +5212,8 @@ const STATE = {
     waPid:           <?= json_encode($settings['wa_pid']   ?? '') ?>,
     activeTemplate:  <?= json_encode($activeTemplate ?: '2') ?>,
     defaultGST:      <?= json_encode((float)($defaultGst ?: 18)) ?>,
-    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>
+    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>,
+    businessType:    <?= json_encode($businessType) ?>
   },
   currentPage: 1,
   invoicesPerPage: 10,
@@ -5130,6 +5392,9 @@ function showPage(name, el) {
   if (name === 'create') { if (!STATE._editingNext) { STATE.editingInvoiceId = null; resetCreateForm(); setTimeout(livePreview,50); } STATE._editingNext = false; updateServiceDropdown(); }
   if (name === 'payments') renderPayments();
   if (name === 'products') renderProducts();
+  if (name === 'suppliers') renderSuppliers();
+  if (name === 'purchases') renderPurchases();
+  if (name === 'stock') renderStock();
   if (name === 'clients') { updateClientDropdown(); renderClients(); }
   if (name === 'team') renderTeam();
   if (name === 'dashboard') renderDashboard();
@@ -8778,9 +9043,15 @@ function openPaidModal(id) {
   document.getElementById('paid-date').value = fmt_date(new Date());
   const _now = new Date();
   document.getElementById('paid-time').value = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0');
+  const _timeDisp = document.getElementById('paid-time-display');
+  if (_timeDisp) {
+    const _h12 = ((_now.getHours() % 12) || 12);
+    const _ampm = _now.getHours() < 12 ? 'AM' : 'PM';
+    _timeDisp.innerHTML = '<i class="fas fa-clock" style="margin-right:4px;opacity:.7"></i>' + _h12 + ':' + String(_now.getMinutes()).padStart(2,'0') + ' ' + _ampm;
+  }
   document.getElementById('paid-txn').value  = '';
   document.getElementById('paid-notes').value = '';
-  const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) sdEl.value = '0';
+  const sdEl = document.getElementById('paid-settle-disc'); if (sdEl) { sdEl.value = '0'; sdEl.dataset.wasApplied = ''; }
   const sdtEl = document.getElementById('paid-settle-disc-type'); if (sdtEl) sdtEl.value = 'pct';
   const sdDisp = document.getElementById('paid-settle-disc-display'); if (sdDisp) { sdDisp.style.display='none'; sdDisp.textContent=''; }
   const sdInfo = document.getElementById('paid-settle-disc-info'); if (sdInfo) { sdInfo.style.display='none'; sdInfo.textContent=''; }
@@ -8812,6 +9083,7 @@ function openPaidModal(id) {
   const amtFieldEl = document.getElementById('paid-amt');
   amtFieldEl.value = (remaining > 0 ? remaining : amt).toFixed(2);
   amtFieldEl.dataset.userEdited = '';
+  amtFieldEl.dataset.autoValue = amtFieldEl.value;
 
   // Show already-paid + remaining in summary bar
   const remRow = document.getElementById('paid-inv-remaining-row');
@@ -8877,12 +9149,14 @@ function onPaidAmtInput() {
     renderSplitBreakdown();
     return;
   }
-  // Mark field as manually edited — discount auto-fill will not override a user-typed value
+  // Mark field as manually edited — but only if the value actually differs from
+  // the amount the discount logic last auto-filled (retyping the same value shouldn't lock it)
   const amtElB = document.getElementById('paid-amt');
-  if (amtElB) amtElB.dataset.userEdited = 'true';
-  // Mark field as manually edited — discount auto-fill will not override a user-typed value
-  const amtElMark = document.getElementById('paid-amt');
-  if (amtElMark) amtElMark.dataset.userEdited = 'true';
+  if (amtElB) {
+    const typed = parseFloat(amtElB.value) || 0;
+    const auto  = parseFloat(amtElB.dataset.autoValue) || 0;
+    amtElB.dataset.userEdited = (Math.abs(typed - auto) > 0.001) ? 'true' : '';
+  }
   updatePaidRemaining();
 }
 
@@ -8911,10 +9185,11 @@ function onPaidSettleDiscInput() {
     if (dispEl) { dispEl.style.display = 'none'; dispEl.textContent = ''; }
     if (infoEl) { infoEl.style.display = 'none'; infoEl.textContent = ''; }
     if (noteEl) noteEl.textContent = '';
-    // Only refresh banner if a discount breakdown was previously visible (user just cleared a non-zero discount)
-    // This avoids false 100% jump when switching dropdown type while discount value is already 0
-    const breakdownWasVisible = document.getElementById('paid-rem-breakdown')?.style.display !== 'none';
-    if (breakdownWasVisible) {
+    // Only restore the amount if a discount was actually applied before (not on initial load
+    // or when toggling the % / Fixed dropdown while the value is already 0)
+    const discInputEl = document.getElementById('paid-settle-disc');
+    const wasApplied   = discInputEl?.dataset.wasApplied === 'true';
+    if (wasApplied) {
       // Reset amount field back to remaining due (undo the discount auto-fill) unless user manually edited it
       const amtEl = document.getElementById('paid-amt');
       if (amtEl && amtEl.dataset.userEdited !== 'true') {
@@ -8923,7 +9198,9 @@ function onPaidSettleDiscInput() {
           .reduce((s,p) => s + parseFloat(p.amount||0), 0);
         const remainingDueReset = Math.max(0, totalAmt - prevPaidReset);
         amtEl.value = remainingDueReset.toFixed(2);
+        amtEl.dataset.autoValue = amtEl.value;
       }
+      if (discInputEl) discInputEl.dataset.wasApplied = '';
       updatePaidRemaining();
     }
     return;
@@ -8947,7 +9224,11 @@ function onPaidSettleDiscInput() {
     const amtEl = document.getElementById('paid-amt');
     if (amtEl && amtEl.dataset.userEdited !== 'true') {
       amtEl.value = effAmt.toFixed(2);
+      amtEl.dataset.autoValue = amtEl.value;
     }
+    // Mark that a discount was applied so it can be reliably undone when cleared
+    const discInputEl = document.getElementById('paid-settle-disc');
+    if (discInputEl) discInputEl.dataset.wasApplied = 'true';
   }
   updatePaidRemaining();
 }
@@ -9022,6 +9303,14 @@ function confirmPaid() {
   const prevPaid      = STATE.payments
     .filter(p => p.invoice_id && String(p.invoice_id) === mid)
     .reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const dueBeforeThis = Math.max(0, totalAmt - prevPaid);
+
+  // ── Validation: amount received cannot exceed what's actually due ──
+  if (amtReceived - dueBeforeThis > 0.01) {
+    toast(`⚠️ Amount received (${fmt_money(amtReceived,'₹')}) exceeds the amount due (${fmt_money(dueBeforeThis,'₹')}). Please correct the amount.`, 'warning');
+    return;
+  }
+
   const totalCovered  = prevPaid + amtReceived + settleDiscAmt;
   const remaining     = Math.max(0, totalAmt - totalCovered);
 
@@ -10989,8 +11278,9 @@ function _renderProdPage() {
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
     <td><strong>${p.gst}%</strong></td>
+    <td><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${escHtml(p.unit_family || 'count')}</span></td>
     <td><div class="action-cell">${actions}</div></td>
-  </tr>`}).join('')||`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
+  </tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -11010,6 +11300,11 @@ function editProduct(id){
   <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
   <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
   <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
+  <td><select id="ep-unitfam" class="table-filter">
+    <option value="count" ${!p.unit_family||p.unit_family==='count'?'selected':''}>Count (pcs)</option>
+    <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
+    <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
+  </select></td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
   ensureHsnDatalist();
 }
@@ -11040,7 +11335,8 @@ async function saveEditProd(id) {
   const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
-    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18) };
+    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
+    unit_family: document.getElementById('ep-unitfam')?.value || 'count' };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -11057,6 +11353,27 @@ function openAddProductModal() {
 }
 // Builds the inline "add service" row. Pass `prefill` (an existing product)
 // to use this for cloning — always replaces any row already open.
+// Multi-tenant wording: different clients run service businesses (consulting, web dev)
+// vs product/trading businesses (import-export, retail) vs a mix of both — this swaps
+// the Products page's labels to match, driven by Settings → Company → Business Type.
+const BUSINESS_TYPE_LABELS = {
+  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
+  product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
+  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
+};
+function currentBizLabels() {
+  return BUSINESS_TYPE_LABELS[STATE.settings.businessType] || BUSINESS_TYPE_LABELS.both;
+}
+function applyBusinessTypeLabels(type) {
+  if (type) STATE.settings.businessType = type;
+  const L = currentBizLabels();
+  const navEl = document.getElementById('nav-products-label'); if (navEl) navEl.textContent = L.nav;
+  const btnEl = document.getElementById('prodAddBtnLabel');    if (btnEl) btnEl.textContent = L.addBtn;
+  const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
+  const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
+  const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
+}
+
 function _showAddProductRow(prefill) {
   const tbody = document.getElementById('productsTbody');
   document.getElementById('add-product-row')?.remove();
@@ -11065,7 +11382,7 @@ function _showAddProductRow(prefill) {
   row.style.background = '#f0fdf4';
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill?'COPY':'NEW'}</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="${currentBizLabels().namePlaceholder}" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
     <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill?prefill.rate:0}"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill?escHtml(prefill.hsn):'998314'}" list="hsn-suggestions"></td>
@@ -11073,6 +11390,13 @@ function _showAddProductRow(prefill) {
       <select id="np-gst" class="table-filter">
         <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
+    </td>
+    <td>
+      <select id="np-unitfam" class="table-filter">
+        <option value="count" ${!prefill||!prefill.unit_family||prefill.unit_family==='count'?'selected':''}>Count (pcs)</option>
+        <option value="weight" ${prefill&&prefill.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
+        <option value="volume" ${prefill&&prefill.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
+      </select>
     </td>
     <td>
       <div class="action-cell">
@@ -11112,7 +11436,8 @@ async function saveNewProduct() {
   const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
-    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18) };
+    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
+    unit_family: document.getElementById('np-unitfam')?.value || 'count' };
   try {
     await api('api/products.php', 'POST', payload);
     const r = await api('api/products.php');
@@ -11190,6 +11515,536 @@ async function restoreProduct(id) {
     updateServiceDropdown();
     renderProducts();
     toast(`✅ "${p.name}" restored`, 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// SUPPLIERS  (buy-side "clients")
+// ══════════════════════════════════════════
+const SUP = { archived: false, archivedList: [], search: '', editingId: null };
+
+function activeSupSource() {
+  const list = SUP.archived ? (SUP.archivedList || []) : STATE.suppliers;
+  if (!SUP.search) return list;
+  const q = SUP.search.toLowerCase();
+  return list.filter(s =>
+    (s.name||'').toLowerCase().includes(q) ||
+    (s.contact_person||'').toLowerCase().includes(q) ||
+    (s.phone||'').toLowerCase().includes(q) ||
+    (s.gst_number||'').toLowerCase().includes(q)
+  );
+}
+
+function filterSuppliers(q) { SUP.search = q || ''; renderSuppliers(); }
+
+function renderSuppliers() {
+  const tbody = document.getElementById('suppliersTbody');
+  if (!tbody) return;
+  const list = activeSupSource();
+  document.getElementById('supInfo').textContent = list.length + ' supplier' + (list.length===1?'':'s');
+  document.getElementById('supCountInfo').textContent = STATE.suppliers.length + ' active';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">
+      ${SUP.archived ? 'No archived suppliers' : 'No suppliers yet — click "Add Supplier" to get started'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((s, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${escHtml(s.name)}</strong></td>
+      <td>${escHtml(s.contact_person || '—')}</td>
+      <td>${escHtml(s.phone || '—')}</td>
+      <td>${escHtml(s.country || '—')}</td>
+      <td>${escHtml(s.gst_number || '—')}</td>
+      <td>
+        <div class="action-cell">
+          ${SUP.archived
+            ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
+            : `<button class="act-btn" title="Edit" onclick="editSupplier(${s.id})"><i class="fas fa-pen"></i></button>
+               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>`}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function openAddSupplierModal() {
+  SUP.editingId = null;
+  document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
+  ['sup-name','sup-person','sup-phone','sup-email','sup-gst','sup-address','sup-terms','sup-notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('sup-country').value = 'India';
+  document.getElementById('sup-opening').value = '0';
+  openModal('modal-addsupplier');
+}
+
+function editSupplier(id) {
+  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
+  SUP.editingId = id;
+  document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
+  document.getElementById('sup-name').value    = s.name || '';
+  document.getElementById('sup-person').value  = s.contact_person || '';
+  document.getElementById('sup-phone').value   = s.phone || '';
+  document.getElementById('sup-email').value   = s.email || '';
+  document.getElementById('sup-gst').value     = s.gst_number || '';
+  document.getElementById('sup-country').value = s.country || 'India';
+  document.getElementById('sup-address').value = s.address || '';
+  document.getElementById('sup-terms').value   = s.payment_terms || '';
+  document.getElementById('sup-opening').value = s.opening_balance || 0;
+  document.getElementById('sup-notes').value   = s.notes || '';
+  openModal('modal-addsupplier');
+}
+
+async function saveSupplier() {
+  const name = document.getElementById('sup-name')?.value?.trim();
+  if (!name) { toast('⚠️ Supplier name required', 'warning'); return; }
+  const btn = document.getElementById('sup-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const payload = {
+    name,
+    contact_person:  document.getElementById('sup-person').value.trim(),
+    phone:           document.getElementById('sup-phone').value.trim(),
+    email:           document.getElementById('sup-email').value.trim(),
+    gst_number:      document.getElementById('sup-gst').value.trim(),
+    country:         document.getElementById('sup-country').value.trim() || 'India',
+    address:         document.getElementById('sup-address').value.trim(),
+    payment_terms:   document.getElementById('sup-terms').value.trim(),
+    opening_balance: parseFloat(document.getElementById('sup-opening').value) || 0,
+    notes:           document.getElementById('sup-notes').value.trim(),
+  };
+  try {
+    if (SUP.editingId) {
+      await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
+      toast('✅ Supplier updated!', 'success');
+    } else {
+      await api('api/suppliers.php', 'POST', payload);
+      toast('✅ "' + name + '" added!', 'success');
+    }
+    const r = await api('api/suppliers.php');
+    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
+    SUP.editingId = null;
+    closeModal('modal-addsupplier');
+    renderSuppliers();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Supplier'; } }
+}
+
+async function archiveSupplier(id) {
+  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
+  const conf = await Swal.fire({
+    title: 'Archive supplier?', text: `"${s.name}" will be moved to archived suppliers.`,
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Archive', customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/suppliers.php?id=' + id, 'DELETE');
+    STATE.suppliers = STATE.suppliers.filter(x => String(x.id) !== String(id));
+    renderSuppliers();
+    toast('🗑️ Archived', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function restoreSupplier(id) {
+  const s = (SUP.archivedList||[]).find(x => String(x.id) === String(id)); if (!s) return;
+  try {
+    await api('api/suppliers.php?action=restore&id=' + id, 'POST');
+    SUP.archivedList = (SUP.archivedList||[]).filter(x => String(x.id) !== String(id));
+    const r = await api('api/suppliers.php');
+    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
+    renderSuppliers();
+    toast(`✅ "${s.name}" restored`, 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function toggleSupplierArchivedView() {
+  SUP.archived = !SUP.archived;
+  const btn = document.getElementById('supArchiveToggleBtn');
+  if (SUP.archived) {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-open"></i> View Active';
+    try {
+      const r = await api('api/suppliers.php?status=archived');
+      SUP.archivedList = Array.isArray(r.data) ? r.data : [];
+    } catch(e) { toast('❌ ' + e.message, 'error'); SUP.archivedList = []; }
+  } else {
+    if (btn) btn.innerHTML = '<i class="fas fa-box-archive"></i> View Archived';
+  }
+  document.getElementById('supplierSearch') && (document.getElementById('supplierSearch').value = '');
+  renderSuppliers();
+}
+
+// ══════════════════════════════════════════
+// PURCHASES  (buy from supplier → stock IN)
+// ══════════════════════════════════════════
+const PUR = { search: '', editingId: null, items: [] };
+let purItemSeq = 1;
+
+function fmt_money_sym(n, sym) { return (sym||'₹') + Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function filterPurchases(q) { PUR.search = q || ''; renderPurchases(); }
+
+function renderPurchases() {
+  const tbody = document.getElementById('purchasesTbody');
+  if (!tbody) return;
+  const statusF = document.getElementById('purStatusFilter')?.value || '';
+  let list = STATE.purchases || [];
+  if (PUR.search) {
+    const q = PUR.search.toLowerCase();
+    list = list.filter(p => (p.purchase_no||'').toLowerCase().includes(q) || (p.supplier_name||'').toLowerCase().includes(q) || (p.supplier_invoice_ref||'').toLowerCase().includes(q));
+  }
+  if (statusF) list = list.filter(p => p.status === statusF);
+  document.getElementById('purInfo').textContent = list.length + ' purchase' + (list.length===1?'':'s');
+  document.getElementById('purCountInfo').textContent = (STATE.purchases||[]).length + ' total';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No purchases yet — click "Add Purchase" to record one</td></tr>`;
+    return;
+  }
+  const statusColor = { Pending:'#FFA000', Received:'#1976D2', Partial:'#E65100', Paid:'#00897B' };
+  tbody.innerHTML = list.map(p => `
+    <tr>
+      <td><strong>${escHtml(p.purchase_no)}</strong></td>
+      <td>${escHtml(p.supplier_name||'—')}</td>
+      <td>${fmt_date_disp(p.purchase_date)}</td>
+      <td>${p.item_count ?? ''}</td>
+      <td>${fmt_money_sym(p.total, p.currency==='INR'?'₹':(p.currency==='USD'?'$':(p.currency==='EUR'?'€':(p.currency==='GBP'?'£':''))))}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function fmt_date_disp(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
+}
+
+function populatePurchaseSupplierDropdown() {
+  const sel = document.getElementById('pur-supplier');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select supplier…</option>' +
+    (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+// Units allowed per product family. 'count' has no conversion (kept as free-ish default 'pcs').
+const UNIT_OPTIONS = { weight: ['g','kg'], volume: ['ml','ltr'], count: ['pcs'] };
+function unitFamilyOf(productId) {
+  const p = STATE.products.find(x => String(x.id) === String(productId));
+  return (p && p.unit_family) ? p.unit_family : 'count';
+}
+
+function addPurchaseItem(prefill) {
+  PUR.items.push(Object.assign({ id: purItemSeq++, product_id:'', description:'', hsn:'', qty:1, unit:'pcs', rate:0, gst_pct: STATE.settings.defaultGST ?? 18 }, prefill||{}));
+  renderPurchaseItems();
+}
+
+function removePurchaseItem(id) {
+  PUR.items = PUR.items.filter(i => i.id !== id);
+  renderPurchaseItems();
+}
+
+function renderPurchaseItems() {
+  const tbody = document.getElementById('pur-items-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = PUR.items.map(it => {
+    const amt = (it.qty||0) * (it.rate||0);
+    const fam = it.product_id ? unitFamilyOf(it.product_id) : null;
+    const unitOpts = fam ? UNIT_OPTIONS[fam] : null;
+    const unitCell = unitOpts
+      ? `<select onchange="updatePurItem(${it.id},'unit',this.value)">
+           ${unitOpts.map(u => `<option value="${u}" ${it.unit===u?'selected':''}>${u}</option>`).join('')}
+         </select>`
+      : `<input value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value,true)">`;
+    return `<tr data-row="${it.id}">
+      <td class="pit-product">
+        <select onchange="onPurItemProductChange(${it.id}, this.value)">
+          <option value="">— free text —</option>
+          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+        ${!it.product_id ? `<input class="pit-desc" placeholder="Item description" value="${escHtml(it.description)}" oninput="updatePurItem(${it.id},'description',this.value,true)">` : ''}
+      </td>
+      <td><input placeholder="HSN" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value,true)"></td>
+      <td><input type="number" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
+      <td class="pit-unit">${unitCell}</td>
+      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
+      <td class="pit-amount" id="pit-amt-${it.id}">${fmt_money(amt)}</td>
+      <td><button class="item-del" onclick="removePurchaseItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+    </tr>`;
+  }).join('');
+  calcPurchaseTotals();
+}
+
+function onPurItemProductChange(id, productId) {
+  const it = PUR.items.find(i => i.id === id); if (!it) return;
+  it.product_id = productId || '';
+  if (productId) {
+    const p = STATE.products.find(x => String(x.id) === String(productId));
+    if (p) {
+      it.description = p.name; it.hsn = p.hsn || it.hsn; it.rate = parseFloat(p.rate)||it.rate; it.gst_pct = (p.gst!==undefined?p.gst:it.gst_pct);
+      const fam = p.unit_family || 'count';
+      const opts = UNIT_OPTIONS[fam];
+      if (!opts.includes(it.unit)) it.unit = opts[opts.length-1]; // default to the base unit (kg / ltr / pcs)
+    }
+  }
+  renderPurchaseItems(); // structural change (unit dropdown ↔ free text, description field toggling) — full rebuild is correct here
+}
+
+// Text/number edits must NOT trigger a full table rebuild — that destroys and
+// recreates the <input> DOM node on every keystroke, which drops focus after
+// a single character (the "input disables after one letter" bug). Only the
+// Amount cell and the totals footer need to reflect the change live.
+function updatePurItem(id, field, val, isText) {
+  const it = PUR.items.find(i => i.id === id); if (!it) return;
+  it[field] = isText ? val : (parseFloat(val)||0);
+  const amtCell = document.getElementById('pit-amt-' + id);
+  if (amtCell) amtCell.textContent = fmt_money((it.qty||0) * (it.rate||0));
+  calcPurchaseTotals();
+}
+
+function calcPurchaseTotals() {
+  const sym = { INR:'₹', USD:'$', EUR:'€', GBP:'£' }[document.getElementById('pur-currency')?.value] || '₹';
+  let subtotal = 0, gst = 0;
+  PUR.items.forEach(it => {
+    const amt = (it.qty||0) * (it.rate||0);
+    subtotal += amt;
+    gst += amt * ((it.gst_pct||0)/100);
+  });
+  document.getElementById('pur-subtotal').textContent = fmt_money_sym(subtotal, sym);
+  document.getElementById('pur-gst').textContent       = fmt_money_sym(gst, sym);
+  document.getElementById('pur-total').textContent     = fmt_money_sym(subtotal+gst, sym);
+}
+
+function openAddPurchaseModal() {
+  PUR.editingId = null;
+  PUR.items = [];
+  document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Add New Purchase';
+  populatePurchaseSupplierDropdown();
+  document.getElementById('pur-supplier').value = '';
+  document.getElementById('pur-date').value = fmt_date(new Date());
+  document.getElementById('pur-invref').value = '';
+  document.getElementById('pur-no').value = '';
+  document.getElementById('pur-currency').value = 'INR';
+  document.getElementById('pur-fx').value = '1';
+  document.getElementById('pur-status').value = 'Pending';
+  document.getElementById('pur-notes').value = '';
+  addPurchaseItem();
+  openModal('modal-addpurchase');
+}
+
+async function editPurchase(id) {
+  try {
+    const r = await api('api/purchases.php?id=' + id);
+    const p = r.data;
+    PUR.editingId = id;
+    PUR.items = (p.items||[]).map(it => ({
+      id: purItemSeq++,
+      product_id: it.product_id||'',
+      description: it.description,
+      hsn: it.hsn,
+      // Prefer entered_qty/entered_unit (what was actually typed, e.g. "500 g") —
+      // falls back to qty/unit for older rows saved before unit conversion existed.
+      qty:  it.entered_qty  !== null && it.entered_qty  !== undefined ? parseFloat(it.entered_qty)  : parseFloat(it.qty),
+      unit: it.entered_unit || it.unit,
+      rate: parseFloat(it.rate),
+      gst_pct: parseFloat(it.gst_pct),
+    }));
+    document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Edit Purchase';
+    populatePurchaseSupplierDropdown();
+    document.getElementById('pur-supplier').value = p.supplier_id;
+    document.getElementById('pur-date').value = p.purchase_date;
+    document.getElementById('pur-invref').value = p.supplier_invoice_ref || '';
+    document.getElementById('pur-no').value = p.purchase_no;
+    document.getElementById('pur-currency').value = p.currency || 'INR';
+    document.getElementById('pur-fx').value = p.exchange_rate || 1;
+    document.getElementById('pur-status').value = p.status;
+    document.getElementById('pur-notes').value = p.notes || '';
+    renderPurchaseItems();
+    openModal('modal-addpurchase');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function savePurchase() {
+  const supplierId = document.getElementById('pur-supplier').value;
+  if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
+  if (!PUR.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
+  const btn = document.getElementById('pur-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const payload = {
+    supplier_id: parseInt(supplierId),
+    purchase_no: document.getElementById('pur-no').value.trim(),
+    supplier_invoice_ref: document.getElementById('pur-invref').value.trim(),
+    purchase_date: document.getElementById('pur-date').value,
+    currency: document.getElementById('pur-currency').value,
+    exchange_rate: parseFloat(document.getElementById('pur-fx').value) || 1,
+    status: document.getElementById('pur-status').value,
+    notes: document.getElementById('pur-notes').value.trim(),
+    items: PUR.items.map(it => ({ product_id: it.product_id || null, description: it.description, hsn: it.hsn, qty: it.qty, unit: it.unit, rate: it.rate, gst_pct: it.gst_pct })),
+  };
+  try {
+    if (PUR.editingId) {
+      await api('api/purchases.php?id=' + PUR.editingId, 'PUT', payload);
+      toast('✅ Purchase updated!', 'success');
+    } else {
+      await api('api/purchases.php', 'POST', payload);
+      toast('✅ Purchase recorded!', 'success');
+    }
+    const [r, prd] = await Promise.all([api('api/purchases.php'), api('api/products.php')]);
+    STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
+    STATE.products  = Array.isArray(prd.data) ? prd.data : STATE.products;
+    PUR.editingId = null;
+    closeModal('modal-addpurchase');
+    renderPurchases();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Purchase'; } }
+}
+
+async function deletePurchase(id) {
+  const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
+  const conf = await Swal.fire({
+    title: 'Delete this purchase?',
+    text: `"${p.purchase_no}" and its stock-in entries will be permanently removed. This cannot be undone.`,
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/purchases.php?id=' + id, 'DELETE');
+    STATE.purchases = STATE.purchases.filter(x => String(x.id) !== String(id));
+    renderPurchases();
+    toast('🗑️ Purchase deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// STOCK LEDGER  (read-only stock-on-hand view + manual adjustments)
+// ══════════════════════════════════════════
+let stockSearchTerm = '';
+
+function filterStock(q) { stockSearchTerm = (q||'').toLowerCase(); renderStockTable(); }
+
+async function renderStock() {
+  try {
+    const r = await api('api/stock.php');
+    STATE.stock = Array.isArray(r.data) ? r.data : [];
+    renderStockTable();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderStockTable() {
+  const tbody = document.getElementById('stockTbody');
+  if (!tbody) return;
+  let list = STATE.stock || [];
+  if (stockSearchTerm) list = list.filter(s => (s.name||'').toLowerCase().includes(stockSearchTerm) || (s.category||'').toLowerCase().includes(stockSearchTerm));
+  document.getElementById('stockInfo').textContent = list.length + ' product' + (list.length===1?'':'s') + ' with stock movement';
+  document.getElementById('stockCountInfo').textContent = (STATE.stock||[]).length + ' tracked';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase or add a manual adjustment</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(s => {
+    const stockNum = parseFloat(s.current_stock)||0;
+    const color = stockNum <= 0 ? '#E53935' : (stockNum < 10 ? '#E65100' : '#00897B');
+    return `<tr>
+      <td><strong>${escHtml(s.name)}</strong></td>
+      <td>${escHtml(s.category||'—')}</td>
+      <td><strong style="color:${color}">${stockNum.toLocaleString('en-IN')}</strong></td>
+      <td>${fmt_date_disp(s.last_movement)}</td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="View History" onclick="viewStockHistory(${s.product_id}, '${escHtml(s.name).replace(/'/g,"\\'")}')"><i class="fas fa-history"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function populateStockProductDropdown() {
+  const sel = document.getElementById('adj-product');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product…</option>' +
+    (STATE.products||[]).map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+}
+
+function openStockAdjustModal() {
+  populateStockProductDropdown();
+  document.getElementById('adj-direction').value = 'in';
+  document.getElementById('adj-qty').value = '';
+  document.getElementById('adj-date').value = fmt_date(new Date());
+  document.getElementById('adj-rate').value = '';
+  document.getElementById('adj-notes').value = '';
+  openModal('modal-stockadjust');
+}
+
+async function saveStockAdjustment() {
+  const productId = document.getElementById('adj-product').value;
+  const qty = parseFloat(document.getElementById('adj-qty').value);
+  if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
+  if (!qty || qty <= 0) { toast('⚠️ Enter a quantity greater than 0', 'warning'); return; }
+  const btn = document.getElementById('adj-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const payload = {
+    product_id: productId, // keep as "p12"-style string — the API strips the prefix itself
+    direction: document.getElementById('adj-direction').value,
+    qty,
+    rate: parseFloat(document.getElementById('adj-rate').value) || 0,
+    movement_date: document.getElementById('adj-date').value,
+    notes: document.getElementById('adj-notes').value.trim() || 'Manual adjustment',
+  };
+  try {
+    await api('api/stock.php', 'POST', payload);
+    toast('✅ Stock adjustment recorded', 'success');
+    closeModal('modal-stockadjust');
+    renderStock();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Adjustment'; } }
+}
+
+async function viewStockHistory(productId, productName) {
+  document.getElementById('sh-product-name').textContent = 'Stock History — ' + productName;
+  const tbody = document.getElementById('sh-tbody');
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>`;
+  openModal('modal-stockhistory');
+  try {
+    const r = await api('api/stock.php?product_id=' + productId);
+    const rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No movement recorded</td></tr>`;
+      return;
+    }
+    const sourceLabel = { purchase: '🛒 Purchase', sale: '📤 Sale', adjustment: '⚖️ Adjustment' };
+    tbody.innerHTML = rows.map(row => `
+      <tr>
+        <td>${fmt_date_disp(row.movement_date)}</td>
+        <td>${sourceLabel[row.ref_type]||row.ref_type}</td>
+        <td style="color:${row.direction==='in'?'#00897B':'#E53935'};font-weight:700">${row.direction==='in'?'IN':'OUT'}</td>
+        <td>${parseFloat(row.qty).toLocaleString('en-IN')}</td>
+        <td>${row.rate ? fmt_money(row.rate) : '—'}</td>
+        <td><strong>${parseFloat(row.running_balance).toLocaleString('en-IN')}</strong></td>
+        <td style="color:var(--muted)">${escHtml(row.notes||'')}</td>
+        <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, ${productId}, '${escHtml(productName).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : ''}</td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red)">Failed to load: ${e.message}</td></tr>`; }
+}
+
+async function deleteStockAdjustment(id, productId, productName) {
+  const conf = await Swal.fire({
+    title: 'Delete this adjustment?', text: 'This manual stock entry will be removed.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/stock.php?id=' + id, 'DELETE');
+    toast('🗑️ Adjustment deleted', 'info');
+    viewStockHistory(productId, productName);
+    renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -11565,6 +12420,7 @@ async function saveCompanySettings() {
     company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
+    business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
@@ -11575,6 +12431,7 @@ async function saveCompanySettings() {
     signature: payload.company_sign || STATE.settings.signature,
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
+    businessType: payload.business_type,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -13268,19 +14125,23 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn, sup, pur] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
       api('api/payments.php'),
       api('api/settings.php'),
       api('api/credit_notes.php').catch(() => ({ data: [] })),
+      api('api/suppliers.php').catch(() => ({ data: [] })),
+      api('api/purchases.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
     STATE.products    = Array.isArray(prd.data)  ? prd.data  : [];
     STATE.payments    = Array.isArray(pmt.data)  ? pmt.data  : [];
     STATE.creditNotes = Array.isArray(cn.data)   ? cn.data   : [];
+    STATE.suppliers   = Array.isArray(sup.data)  ? sup.data  : [];
+    STATE.purchases   = Array.isArray(pur.data)  ? pur.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
@@ -13471,6 +14332,9 @@ document.addEventListener('DOMContentLoaded', function() {
       renderInvoicesTable();
       renderClients();
       renderProducts();
+      applyBusinessTypeLabels();
+      renderSuppliers();
+      renderPurchases();
       renderPayments();
       renderTemplatesGrid();
       populateTemplateForm();
@@ -13756,6 +14620,9 @@ function populateSettingsForm() {
   // Restore currency dropdown
   const _scCur = document.getElementById('sc-cur');
   if (_scCur && s.currency) _scCur.value = s.currency;
+  // Restore business type dropdown
+  const _scBiz = document.getElementById('sc-business-type');
+  if (_scBiz && s.businessType) _scBiz.value = s.businessType;
   // ── Populate Email / SMTP fields ──
   const ec = s.email_cfg || {};
   set('em-host', ec.smtp_host || '');

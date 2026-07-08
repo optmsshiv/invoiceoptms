@@ -515,6 +515,83 @@ canvas { max-width: 100% !important; }
 }
 .pit-table .item-del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
 
+/* ══════ New Purchase Entry (full page) ══════ */
+.pne-topbar {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.pne-actions { display: flex; gap: 8px; }
+.pne-btn-save, .pne-btn-savenew, .pne-btn-print { background: var(--teal); color: #fff; border: none; }
+.pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
+.pne-split { display: flex; }
+
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 24px 60px; align-items: start; }
+.pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.pne-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.pne-card-head {
+  display: flex; align-items: center; gap: 9px; font-size: 14.5px; font-weight: 700;
+  color: var(--text); margin-bottom: 16px;
+}
+.pne-num {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--teal); color: #fff;
+  font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.pne-small-btn { font-size: 12px; padding: 6px 12px; }
+
+.pne-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.pne-grid4:last-child { margin-bottom: 0; }
+@media (max-width: 1100px) { .pne-grid4 { grid-template-columns: repeat(2, 1fr); } .pne-layout { grid-template-columns: 1fr; } }
+
+.pne-pill-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); }
+.pne-pill {
+  flex: 1; padding: 9px 0; border: none; background: var(--bg); color: var(--muted);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: .2s; font-family: var(--font);
+}
+.pne-pill.active { background: var(--teal); color: #fff; }
+
+.pne-items-table { font-size: 12px; min-width: 1100px; }
+.pne-items-table th { padding: 8px 8px; font-size: 10px; text-align: center; }
+.pne-items-table td { padding: 6px 6px; vertical-align: top; text-align: center; }
+.pne-items-table td:nth-child(2) { text-align: left; }
+.pne-items-table input, .pne-items-table select { width: 100%; padding: 6px 6px; font-size: 12px; border-radius: 6px; text-align: center; }
+.pne-items-table td:nth-child(2) input { text-align: left; }
+.pne-computed { background: var(--bg); color: var(--muted); font-weight: 600; padding: 6px 4px; border-radius: 6px; font-size: 12px; }
+.pne-amount-cell { font-weight: 700; color: var(--teal); white-space: nowrap; }
+
+.pne-items-footer {
+  display: flex; gap: 26px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted);
+}
+.pne-items-footer strong { color: var(--text); margin-left: 5px; }
+.pne-total-amt { color: var(--teal) !important; font-size: 15px; }
+.pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
+
+.pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
+.pne-row3 .field { margin-bottom: 10px; }
+.pne-charge-total {
+  display: flex; justify-content: space-between; padding-top: 10px; margin-top: 4px;
+  border-top: 1px solid var(--border); font-size: 13px; font-weight: 700;
+}
+.pne-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; }
+.pne-summary-strong { border-top: 1px dashed var(--border); font-weight: 700; margin-top: 4px; padding-top: 10px; }
+.pne-inline-num { width: 90px; padding: 4px 8px; font-size: 13px; text-align: right; }
+.pne-inline-num-sm { width: 44px; padding: 2px 4px; font-size: 12px; text-align: center; }
+.pne-gst-note { font-size: 11px; color: var(--muted); text-align: right; margin-top: -4px; margin-bottom: 6px; }
+.pne-grand-total {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px;
+  border-top: 2px solid var(--teal); font-size: 17px; font-weight: 800; color: var(--teal);
+}
+
+.pne-summary-empty { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; color: var(--muted); }
+.pne-kv strong { color: var(--text); font-weight: 700; }
+
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
 .cc-avatar {
@@ -2214,7 +2291,7 @@ const SERVER = {
         </select>
         <div style="flex:1"></div>
         <span id="purCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="openAddPurchaseModal()"><i class="fas fa-plus"></i> Add Purchase</button>
+        <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> Add Purchase</button>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -2228,71 +2305,189 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Add/Edit Purchase Modal -->
-    <div class="modal-overlay" id="modal-addpurchase">
-      <div class="modal" style="max-width:820px">
-        <div class="modal-header">
-          <span>Add New Purchase</span>
-          <button class="modal-close" onclick="closeModal('modal-addpurchase')"><i class="fas fa-times"></i></button>
+    <!-- ═══════════ NEW PURCHASE ENTRY (full page) ═══════════ -->
+    <div id="page-purchase-new" class="page">
+      <div class="pne-topbar">
+        <div>
+          <div class="pne-title" id="pne-title">New Purchase Entry</div>
+          <div class="pne-subtitle" id="pne-subtitle">Local Purchase — grains, spices &amp; other produce</div>
         </div>
-        <div class="modal-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-            <div class="field"><label>Supplier *</label>
-              <select id="pur-supplier"><option value="">Select supplier…</option></select>
-            </div>
-            <div class="field"><label>Purchase Date *</label><input type="date" id="pur-date"></div>
-            <div class="field"><label>Supplier Invoice Ref</label><input id="pur-invref" placeholder="Their bill/invoice no."></div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelPurchaseEntry()">Cancel</button>
+          <button class="btn pne-btn-save" onclick="savePurchaseEntry('stay')">Save</button>
+          <button class="btn pne-btn-savenew" onclick="savePurchaseEntry('new')">Save &amp; New</button>
+          <div class="pne-split">
+            <button class="btn pne-btn-print" onclick="savePurchaseEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-            <div class="field"><label>PO Number <span style="font-weight:400;color:var(--muted)">(auto if blank)</span></label><input id="pur-no" placeholder="Auto-generated"></div>
-            <div class="field"><label>Currency</label>
-              <select id="pur-currency" onchange="calcPurchaseTotals()">
-                <option value="INR">INR (₹)</option><option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option>
-              </select>
+        </div>
+      </div>
+
+      <div class="pne-layout">
+        <div class="pne-main">
+
+          <!-- 1. Purchase Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">1</span> Purchase Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
+              <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
+              <div class="field"><label>Supplier Type *</label>
+                <select id="pn-suppliertype" onchange="onSupplierTypeChange()">
+                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
+                </select>
+              </div>
+              <div class="field"><label>Reference (PO No.)</label><input id="pn-refpo" placeholder="Enter (Optional)"></div>
             </div>
-            <div class="field"><label>Exchange Rate (→ ₹)</label><input type="number" id="pur-fx" value="1" min="0" step="0.0001" oninput="calcPurchaseTotals()"></div>
+            <div class="pne-grid4">
+              <div class="field" style="grid-column:span 1;position:relative">
+                <label>Supplier / Farmer Name *</label>
+                <div style="display:flex;gap:6px">
+                  <select id="pn-supplier" style="flex:1" onchange="onSupplierPicked()"><option value="">Select or add supplier…</option></select>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new supplier" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i></button>
+                </div>
+              </div>
+              <div class="field"><label>Mobile No.</label><input id="pn-mobile" placeholder="+91 XXXXX XXXXX" readonly></div>
+              <div class="field"><label>State *</label><input id="pn-state" placeholder="—" readonly></div>
+              <div class="field"><label>District</label><input id="pn-district" placeholder="—" readonly></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Address</label><input id="pn-address" placeholder="—" readonly></div>
+              <div class="field"><label>GST Applicable?</label>
+                <div class="pne-pill-toggle">
+                  <button type="button" class="pne-pill active" id="pn-gst-no" onclick="setGstApplicable(false)">No (Exempt)</button>
+                  <button type="button" class="pne-pill" id="pn-gst-yes" onclick="setGstApplicable(true)">Yes</button>
+                </div>
+              </div>
+              <div class="field"><label>Supplier GSTIN</label><input id="pn-gstin" placeholder="Enter GSTIN (If applicable)" disabled></div>
+              <div class="field"><label>Supply Type</label>
+                <select id="pn-supplytype" disabled>
+                  <option>Intra-State</option><option>Inter-State</option>
+                </select>
+              </div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Invoice / Bill No. <i class="fas fa-info-circle" title="Supplier's own invoice number, if any" style="color:var(--muted)"></i></label><input id="pn-invno" placeholder="NA (Farmer Purchase)"></div>
+              <div class="field"><label>Transport Mode</label>
+                <select id="pn-transportmode"><option>Road</option><option>Rail</option><option>Air</option><option>Self Pickup</option></select>
+              </div>
+              <div class="field"><label>Vehicle No.</label><input id="pn-vehicleno" placeholder="e.g. BR-07-GA-1234"></div>
+              <div class="field"><label>Driver Name</label><input id="pn-drivername" placeholder="Optional"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Warehouse *</label>
+                <select id="pn-warehouse"><option>Main Warehouse</option></select>
+              </div>
+              <div class="field"><label>Payment Terms</label>
+                <select id="pn-paymentterms"><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
+              </div>
+              <div class="field"><label>Payment Type</label>
+                <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select>
+              </div>
+              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
+            </div>
           </div>
 
-          <!-- Line items -->
-          <div style="margin-top:10px">
-            <div class="table-card pit-card">
-              <table class="data-table pit-table">
-                <colgroup>
-                  <col style="width:30%"><col style="width:11%"><col style="width:9%">
-                  <col style="width:9%"><col style="width:12%"><col style="width:8%">
-                  <col style="width:13%"><col style="width:34px">
-                </colgroup>
-                <thead><tr>
-                  <th>Product</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate</th><th>GST%</th><th>Amount</th><th></th>
-                </tr></thead>
-                <tbody id="pur-items-tbody"></tbody>
+          <!-- 2. Items Details -->
+          <div class="pne-card">
+            <div class="pne-card-head" style="justify-content:space-between">
+              <span><span class="pne-num">2</span> Items Details</span>
+              <span style="display:flex;gap:8px">
+                <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
+                <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
+              </span>
+            </div>
+            <div class="table-card pit-card" style="overflow-x:auto">
+              <table class="data-table pne-items-table">
+                <thead>
+                  <tr>
+                    <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
+                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
+                    <th colspan="3">Weight Details (in Kg)</th>
+                    <th colspan="2">Dhalta</th>
+                    <th rowspan="2">Billable Weight (Auto)</th>
+                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2"></th>
+                  </tr>
+                  <tr>
+                    <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
+                    <th>%</th><th>Kg</th>
+                  </tr>
+                </thead>
+                <tbody id="pne-items-tbody"></tbody>
               </table>
             </div>
-            <button class="btn btn-outline" style="font-size:12px;margin-top:10px" onclick="addPurchaseItem()"><i class="fas fa-plus"></i> Add Item</button>
+            <div class="pne-items-footer">
+              <span>Total Net Weight <strong id="pne-total-net">0.00 Kg</strong></span>
+              <span>Total Dhalta <strong id="pne-total-dhalta">0.00 Kg</strong></span>
+              <span>Total Billable Weight <strong id="pne-total-billable">0.00 Kg</strong></span>
+              <span>Total Amount <strong id="pne-total-amount" class="pne-total-amt">₹0.00</strong></span>
+            </div>
+            <div class="pne-note">Note: Net Weight = Gross Weight − Tare Weight &nbsp;|&nbsp; Billable Weight = Net Weight − Dhalta</div>
           </div>
 
-          <!-- Totals -->
-          <div style="display:flex;justify-content:flex-end;margin-top:12px">
-            <div style="width:260px;font-size:13px">
-              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Subtotal</span><strong id="pur-subtotal">₹0.00</strong></div>
-              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>GST</span><strong id="pur-gst">₹0.00</strong></div>
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:15px"><span>Total</span><strong id="pur-total">₹0.00</strong></div>
+          <!-- 3/4/5 row -->
+          <div class="pne-row3">
+            <div class="pne-card">
+              <div class="pne-card-head"><span class="pne-num">3</span> Additional Charges</div>
+              <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
+              <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
+              <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
+              <div class="field"><label>Other Charges (₹)</label><input type="number" id="pn-othercharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
+              <div class="pne-charge-total"><span>Total Additional Charges</span><strong id="pn-addcharges-total">₹0.00</strong></div>
             </div>
-          </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
-            <div class="field"><label>Status</label>
-              <select id="pur-status">
-                <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
-              </select>
+            <div class="pne-card">
+              <div class="pne-card-head"><span class="pne-num">4</span> Tax &amp; Amount Summary</div>
+              <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
+              <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
+              <div class="pne-summary-row">
+                <span>GST / Tax <span id="pn-gst-rate-wrap" style="display:none">(<input type="number" id="pn-gst-pct" value="0" min="0" max="28" class="pne-inline-num-sm" oninput="calcPurchaseNewTotals()">%)</span></span>
+                <strong id="pn-sum-gst">₹0.00</strong>
+              </div>
+              <div class="pne-gst-note" id="pn-gst-note">(Purchase is Exempt from GST)</div>
+              <div class="pne-grand-total"><span>Grand Total (₹)</span><strong id="pn-sum-grand">₹0.00</strong></div>
             </div>
-            <div class="field"><label>Notes</label><input id="pur-notes" placeholder="Optional"></div>
+
+            <div class="pne-card">
+              <div class="pne-card-head"><span class="pne-num">5</span> Payment Information</div>
+              <div class="field"><label>Payment Status</label>
+                <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
+              </div>
+              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0"></div>
+              <div class="field"><label>Payment Mode</label>
+                <select id="pn-paymode"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select>
+              </div>
+              <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
+            </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-addpurchase')">Cancel</button>
-          <button class="btn btn-primary" id="pur-save-btn" onclick="savePurchase()"><i class="fas fa-check"></i> Save Purchase</button>
+
+        <!-- Right sidebar -->
+        <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Supplier Summary</div>
+            <div id="pne-supplier-summary" class="pne-summary-empty">Select a supplier to see their purchase history.</div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-box"></i> Product Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Selected Items)</span></div>
+            <div class="pne-kv"><span>Total Items</span><strong id="pne-sb-items">0</strong></div>
+            <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Invoice / Bill (Optional)</div>
+            <input type="file" id="pn-attachment" accept="image/png,image/jpeg,application/pdf" style="font-size:12px">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
+            <textarea id="pn-notes" placeholder="Type any additional notes here…" style="min-height:80px"></textarea>
+          </div>
         </div>
       </div>
     </div>
@@ -11723,187 +11918,420 @@ function fmt_date_disp(d) {
   return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
 }
 
-function populatePurchaseSupplierDropdown() {
-  const sel = document.getElementById('pur-supplier');
+
+// ══════════════════════════════════════════
+// NEW PURCHASE ENTRY (full page)
+// ══════════════════════════════════════════
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null };
+let pneItemSeq = 1;
+
+function pneEmptyItem() {
+  return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
+    gross_weight: 0, tare_weight: 0, dhalta_pct: 0, rate: 0, discount_pct: 0 };
+}
+
+function goToNewPurchase() {
+  PNE.editingId = null;
+  PNE.items = [pneEmptyItem()];
+  PNE.attachmentDataUrl = null;
+  PNE.attachmentExisting = null;
+  document.getElementById('pne-title').textContent = 'New Purchase Entry';
+  document.getElementById('pne-subtitle').textContent = 'Local Purchase — grains, spices & other produce';
+  document.getElementById('pn-no').value = '';
+  document.getElementById('pn-date').value = fmt_date(new Date());
+  document.getElementById('pn-suppliertype').value = 'Farmer';
+  document.getElementById('pn-refpo').value = '';
+  populatePNESupplierDropdown();
+  document.getElementById('pn-supplier').value = '';
+  clearSupplierAutofill();
+  document.getElementById('pn-invno').value = '';
+  document.getElementById('pn-transportmode').value = 'Road';
+  document.getElementById('pn-vehicleno').value = '';
+  document.getElementById('pn-drivername').value = '';
+  document.getElementById('pn-warehouse').value = 'Main Warehouse';
+  document.getElementById('pn-paymentterms').value = 'Immediate';
+  document.getElementById('pn-paymenttype').value = 'Cash';
+  document.getElementById('pn-remarks').value = '';
+  setGstApplicable(false);
+  document.getElementById('pn-transportcharge').value = 0;
+  document.getElementById('pn-loadingcharge').value = 0;
+  document.getElementById('pn-packingcharge').value = 0;
+  document.getElementById('pn-othercharge').value = 0;
+  document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-gst-pct').value = 0;
+  document.getElementById('pn-paystatus').value = 'Pending';
+  document.getElementById('pn-amountpaid').value = 0;
+  document.getElementById('pn-paymode').value = 'Cash';
+  document.getElementById('pn-transactionno').value = '';
+  document.getElementById('pn-paydate').value = fmt_date(new Date());
+  document.getElementById('pn-notes').value = '';
+  document.getElementById('pn-attachment').value = '';
+  document.getElementById('pne-supplier-summary').innerHTML = '<div class="pne-summary-empty">Select a supplier to see their purchase history.</div>';
+  renderPNEItemsTable();
+  showPage('purchase-new');
+  document.querySelector('.nav-item[data-page="purchases"]')?.classList.add('active');
+}
+
+function cancelPurchaseEntry() {
+  showPage('purchases');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
+}
+
+function clearSupplierAutofill() {
+  document.getElementById('pn-mobile').value = '';
+  document.getElementById('pn-state').value = '';
+  document.getElementById('pn-district').value = '';
+  document.getElementById('pn-address').value = '';
+  document.getElementById('pn-gstin').value = '';
+}
+
+function populatePNESupplierDropdown() {
+  const sel = document.getElementById('pn-supplier');
   if (!sel) return;
   const cur = sel.value;
-  sel.innerHTML = '<option value="">Select supplier…</option>' +
+  sel.innerHTML = '<option value="">Select or add supplier…</option>' +
     (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
   if (cur) sel.value = cur;
 }
 
-// Units allowed per product family. 'count' has no conversion (kept as free-ish default 'pcs').
-const UNIT_OPTIONS = { weight: ['g','kg'], volume: ['ml','ltr'], count: ['pcs'] };
-function unitFamilyOf(productId) {
-  const p = STATE.products.find(x => String(x.id) === String(productId));
-  return (p && p.unit_family) ? p.unit_family : 'count';
+function onSupplierTypeChange() {
+  // Convenience default: farmer purchases are conventionally GST-exempt in mandi trade
+  if (document.getElementById('pn-suppliertype').value === 'Farmer') setGstApplicable(false);
 }
 
-function addPurchaseItem(prefill) {
-  PUR.items.push(Object.assign({ id: purItemSeq++, product_id:'', description:'', hsn:'', qty:1, unit:'pcs', rate:0, gst_pct: STATE.settings.defaultGST ?? 18 }, prefill||{}));
-  renderPurchaseItems();
+async function onSupplierPicked() {
+  const id = document.getElementById('pn-supplier').value;
+  if (!id) { clearSupplierAutofill(); document.getElementById('pne-supplier-summary').innerHTML = '<div class="pne-summary-empty">Select a supplier to see their purchase history.</div>'; return; }
+  const s = STATE.suppliers.find(x => String(x.id) === String(id));
+  if (s) {
+    document.getElementById('pn-mobile').value   = s.phone || '';
+    document.getElementById('pn-state').value    = s.state || '';
+    document.getElementById('pn-district').value = s.district || '';
+    document.getElementById('pn-address').value  = s.address || '';
+    document.getElementById('pn-gstin').value    = s.gst_number || '';
+    if (s.supplier_type) document.getElementById('pn-suppliertype').value = s.supplier_type;
+  }
+  try {
+    const r = await api('api/suppliers.php?summary_for=' + id);
+    const sm = r.data || {};
+    document.getElementById('pne-supplier-summary').innerHTML = `
+      <div class="pne-kv"><span>Supplier Name</span><strong>${escHtml(s?.name||'—')}</strong></div>
+      <div class="pne-kv"><span>Supplier Type</span><strong>${escHtml(s?.supplier_type||'—')}</strong></div>
+      <div class="pne-kv"><span>Mobile No.</span><strong>${escHtml(s?.phone||'—')}</strong></div>
+      <div class="pne-kv"><span>State</span><strong>${escHtml(s?.state||'—')}</strong></div>
+      <div class="pne-kv"><span>GSTIN</span><strong>${escHtml(s?.gst_number||'Not Applicable')}</strong></div>
+      <div class="pne-kv" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><span>Previous Purchases</span><strong>${fmt_money(sm.total_purchases||0)}</strong></div>
+      <div class="pne-kv"><span>Total Paid</span><strong>${fmt_money(sm.total_paid||0)}</strong></div>
+      <div class="pne-kv"><span>Outstanding</span><strong style="color:${(sm.outstanding||0)>0?'#E53935':'inherit'}">${fmt_money(sm.outstanding||0)}</strong></div>`;
+  } catch(e) { /* non-fatal — sidebar just stays on basic info */ }
 }
 
-function removePurchaseItem(id) {
-  PUR.items = PUR.items.filter(i => i.id !== id);
-  renderPurchaseItems();
+function setGstApplicable(applicable) {
+  document.getElementById('pn-gst-no').classList.toggle('active', !applicable);
+  document.getElementById('pn-gst-yes').classList.toggle('active', applicable);
+  document.getElementById('pn-gstin').disabled = !applicable;
+  document.getElementById('pn-supplytype').disabled = !applicable;
+  document.getElementById('pn-gst-rate-wrap').style.display = applicable ? 'inline' : 'none';
+  document.getElementById('pn-gst-note').style.display = applicable ? 'none' : 'block';
+  calcPurchaseNewTotals();
 }
 
-function renderPurchaseItems() {
-  const tbody = document.getElementById('pur-items-tbody');
+function addPurchaseNewItem() {
+  PNE.items.push(pneEmptyItem());
+  renderPNEItemsTable();
+}
+
+function removePNEItem(id) {
+  if (PNE.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
+  PNE.items = PNE.items.filter(i => i.id !== id);
+  renderPNEItemsTable();
+}
+
+function pneCalcRow(it) {
+  const gross = parseFloat(it.gross_weight) || 0;
+  const tare  = parseFloat(it.tare_weight)  || 0;
+  const net   = Math.max(0, gross - tare);
+  const dhaltaPct = parseFloat(it.dhalta_pct) || 0;
+  const dhaltaKg  = +(net * dhaltaPct / 100).toFixed(3);
+  const billable  = Math.max(0, net - dhaltaKg);
+  const rate      = parseFloat(it.rate) || 0;
+  const discPct   = parseFloat(it.discount_pct) || 0;
+  const amount    = +(billable * rate * (1 - discPct/100)).toFixed(2);
+  return { net, dhaltaKg, billable, amount };
+}
+
+function renderPNEItemsTable() {
+  const tbody = document.getElementById('pne-items-tbody');
   if (!tbody) return;
-  tbody.innerHTML = PUR.items.map(it => {
-    const amt = (it.qty||0) * (it.rate||0);
-    const fam = it.product_id ? unitFamilyOf(it.product_id) : null;
-    const unitOpts = fam ? UNIT_OPTIONS[fam] : null;
-    const unitCell = unitOpts
-      ? `<select onchange="updatePurItem(${it.id},'unit',this.value)">
-           ${unitOpts.map(u => `<option value="${u}" ${it.unit===u?'selected':''}>${u}</option>`).join('')}
-         </select>`
-      : `<input value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value,true)">`;
+  tbody.innerHTML = PNE.items.map((it, idx) => {
+    const c = pneCalcRow(it);
     return `<tr data-row="${it.id}">
-      <td class="pit-product">
-        <select onchange="onPurItemProductChange(${it.id}, this.value)">
+      <td>${idx+1}</td>
+      <td>
+        <select onchange="onPNEProductChange(${it.id}, this.value)">
           <option value="">— free text —</option>
           ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
         </select>
-        ${!it.product_id ? `<input class="pit-desc" placeholder="Item description" value="${escHtml(it.description)}" oninput="updatePurItem(${it.id},'description',this.value,true)">` : ''}
+        ${!it.product_id ? `<input placeholder="Product name" value="${escHtml(it.description)}" style="margin-top:4px" oninput="updatePNEItem(${it.id},'description',this.value,true)">` : ''}
       </td>
-      <td><input placeholder="HSN" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value,true)"></td>
-      <td><input type="number" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
-      <td class="pit-unit">${unitCell}</td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
-      <td class="pit-amount" id="pit-amt-${it.id}">${fmt_money(amt)}</td>
-      <td><button class="item-del" onclick="removePurchaseItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+      <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
+      <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
+      <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
+      <td><input type="number" value="${it.gross_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
+      <td><input type="number" value="${it.tare_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
+      <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
+      <td><input type="number" value="${it.dhalta_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_pct',this.value)"></td>
+      <td><span class="pne-computed" id="pne-dhaltakg-${it.id}">${c.dhaltaKg.toFixed(2)}</span></td>
+      <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
+      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
+      <td class="pne-amount-cell" id="pne-amt-${it.id}">${fmt_money(c.amount)}</td>
+      <td><button class="item-del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
     </tr>`;
   }).join('');
-  calcPurchaseTotals();
+  calcPurchaseNewTotals();
 }
 
-function onPurItemProductChange(id, productId) {
-  const it = PUR.items.find(i => i.id === id); if (!it) return;
+function onPNEProductChange(id, productId) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) {
-      it.description = p.name; it.hsn = p.hsn || it.hsn; it.rate = parseFloat(p.rate)||it.rate; it.gst_pct = (p.gst!==undefined?p.gst:it.gst_pct);
-      const fam = p.unit_family || 'count';
-      const opts = UNIT_OPTIONS[fam];
-      if (!opts.includes(it.unit)) it.unit = opts[opts.length-1]; // default to the base unit (kg / ltr / pcs)
-    }
+    if (p) { it.description = p.name; if (!it.rate) it.rate = parseFloat(p.rate) || 0; }
   }
-  renderPurchaseItems(); // structural change (unit dropdown ↔ free text, description field toggling) — full rebuild is correct here
+  renderPNEItemsTable(); // structural change (free-text input toggling) — full rebuild is correct here
 }
 
-// Text/number edits must NOT trigger a full table rebuild — that destroys and
-// recreates the <input> DOM node on every keystroke, which drops focus after
-// a single character (the "input disables after one letter" bug). Only the
-// Amount cell and the totals footer need to reflect the change live.
-function updatePurItem(id, field, val, isText) {
-  const it = PUR.items.find(i => i.id === id); if (!it) return;
-  it[field] = isText ? val : (parseFloat(val)||0);
-  const amtCell = document.getElementById('pit-amt-' + id);
-  if (amtCell) amtCell.textContent = fmt_money((it.qty||0) * (it.rate||0));
-  calcPurchaseTotals();
+// Non-destructive update: recompute this row's derived cells (Net/Dhalta Kg/Billable/Amount)
+// directly via DOM instead of re-rendering the whole table — keeps focus in the input
+// the person is actively typing in (see the earlier "disables after one letter" fix).
+function updatePNEItem(id, field, val, isText) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
+  it[field] = isText ? val : val;
+  const c = pneCalcRow(it);
+  const netEl = document.getElementById('pne-net-' + id);           if (netEl) netEl.textContent = c.net.toFixed(2);
+  const dkEl  = document.getElementById('pne-dhaltakg-' + id);      if (dkEl) dkEl.textContent = c.dhaltaKg.toFixed(2);
+  const bwEl  = document.getElementById('pne-billable-' + id);      if (bwEl) bwEl.textContent = c.billable.toFixed(2);
+  const amtEl = document.getElementById('pne-amt-' + id);           if (amtEl) amtEl.textContent = fmt_money(c.amount);
+  calcPurchaseNewTotals();
 }
 
-function calcPurchaseTotals() {
-  const sym = { INR:'₹', USD:'$', EUR:'€', GBP:'£' }[document.getElementById('pur-currency')?.value] || '₹';
-  let subtotal = 0, gst = 0;
-  PUR.items.forEach(it => {
-    const amt = (it.qty||0) * (it.rate||0);
-    subtotal += amt;
-    gst += amt * ((it.gst_pct||0)/100);
+function calcPurchaseNewTotals() {
+  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0;
+  PNE.items.forEach(it => {
+    const c = pneCalcRow(it);
+    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount;
   });
-  document.getElementById('pur-subtotal').textContent = fmt_money_sym(subtotal, sym);
-  document.getElementById('pur-gst').textContent       = fmt_money_sym(gst, sym);
-  document.getElementById('pur-total').textContent     = fmt_money_sym(subtotal+gst, sym);
-}
+  document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
+  document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
+  document.getElementById('pne-total-billable').textContent = totalBillable.toFixed(2) + ' Kg';
+  document.getElementById('pne-total-amount').textContent = fmt_money(subtotal);
+  document.getElementById('pne-sb-items').textContent = PNE.items.length;
+  document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
-function openAddPurchaseModal() {
-  PUR.editingId = null;
-  PUR.items = [];
-  document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Add New Purchase';
-  populatePurchaseSupplierDropdown();
-  document.getElementById('pur-supplier').value = '';
-  document.getElementById('pur-date').value = fmt_date(new Date());
-  document.getElementById('pur-invref').value = '';
-  document.getElementById('pur-no').value = '';
-  document.getElementById('pur-currency').value = 'INR';
-  document.getElementById('pur-fx').value = '1';
-  document.getElementById('pur-status').value = 'Pending';
-  document.getElementById('pur-notes').value = '';
-  addPurchaseItem();
-  openModal('modal-addpurchase');
+  const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
+    + (parseFloat(document.getElementById('pn-loadingcharge').value)||0)
+    + (parseFloat(document.getElementById('pn-packingcharge').value)||0)
+    + (parseFloat(document.getElementById('pn-othercharge').value)||0);
+  document.getElementById('pn-addcharges-total').textContent = fmt_money(addCharges);
+  document.getElementById('pn-sum-subtotal').textContent = fmt_money(subtotal);
+  document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
+
+  const discount = parseFloat(document.getElementById('pn-discount').value) || 0;
+  const taxable = Math.max(0, subtotal + addCharges - discount);
+  document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
+
+  const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
+  const gstPct = gstApplicable ? (parseFloat(document.getElementById('pn-gst-pct').value) || 0) : 0;
+  const gstAmt = gstApplicable ? +(taxable * gstPct / 100).toFixed(2) : 0;
+  document.getElementById('pn-sum-gst').textContent = fmt_money(gstAmt);
+
+  const grand = +(taxable + gstAmt).toFixed(2);
+  document.getElementById('pn-sum-grand').textContent = fmt_money(grand);
+
+  // Keep Amount Paid sane if Payment Status is set to Paid
+  const payStatus = document.getElementById('pn-paystatus').value;
+  if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
 }
 
 async function editPurchase(id) {
   try {
     const r = await api('api/purchases.php?id=' + id);
     const p = r.data;
-    PUR.editingId = id;
-    PUR.items = (p.items||[]).map(it => ({
-      id: purItemSeq++,
-      product_id: it.product_id||'',
-      description: it.description,
-      hsn: it.hsn,
-      // Prefer entered_qty/entered_unit (what was actually typed, e.g. "500 g") —
-      // falls back to qty/unit for older rows saved before unit conversion existed.
-      qty:  it.entered_qty  !== null && it.entered_qty  !== undefined ? parseFloat(it.entered_qty)  : parseFloat(it.qty),
-      unit: it.entered_unit || it.unit,
-      rate: parseFloat(it.rate),
-      gst_pct: parseFloat(it.gst_pct),
+    PNE.editingId = id;
+    PNE.attachmentDataUrl = null;
+    PNE.attachmentExisting = p.attachment_path || null;
+    PNE.items = (p.items||[]).map(it => ({
+      id: pneItemSeq++, product_id: it.product_id || '', description: it.description,
+      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
+      gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_pct: it.dhalta_pct || 0,
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0,
     }));
-    document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Edit Purchase';
-    populatePurchaseSupplierDropdown();
-    document.getElementById('pur-supplier').value = p.supplier_id;
-    document.getElementById('pur-date').value = p.purchase_date;
-    document.getElementById('pur-invref').value = p.supplier_invoice_ref || '';
-    document.getElementById('pur-no').value = p.purchase_no;
-    document.getElementById('pur-currency').value = p.currency || 'INR';
-    document.getElementById('pur-fx').value = p.exchange_rate || 1;
-    document.getElementById('pur-status').value = p.status;
-    document.getElementById('pur-notes').value = p.notes || '';
-    renderPurchaseItems();
-    openModal('modal-addpurchase');
+    document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
+    document.getElementById('pne-subtitle').textContent = p.purchase_no;
+    document.getElementById('pn-no').value = p.purchase_no;
+    document.getElementById('pn-date').value = p.purchase_date;
+    document.getElementById('pn-suppliertype').value = p.supplier_type || 'Farmer';
+    document.getElementById('pn-refpo').value = p.reference_po_no || '';
+    populatePNESupplierDropdown();
+    document.getElementById('pn-supplier').value = p.supplier_id;
+    await onSupplierPicked();
+    document.getElementById('pn-invno').value = p.supplier_invoice_ref || '';
+    document.getElementById('pn-transportmode').value = p.transport_mode || 'Road';
+    document.getElementById('pn-vehicleno').value = p.vehicle_no || '';
+    document.getElementById('pn-drivername').value = p.driver_name || '';
+    document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
+    document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
+    document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
+    document.getElementById('pn-remarks').value = p.remarks || '';
+    setGstApplicable(!!parseInt(p.gst_applicable));
+    document.getElementById('pn-supplytype').value = p.supply_type || 'Intra-State';
+    document.getElementById('pn-gst-pct').value = p.gst_pct || 0;
+    document.getElementById('pn-transportcharge').value = p.transport_charge || 0;
+    document.getElementById('pn-loadingcharge').value = p.loading_charge || 0;
+    document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
+    document.getElementById('pn-othercharge').value = p.other_charges || 0;
+    document.getElementById('pn-discount').value = p.discount_amount || 0;
+    document.getElementById('pn-paystatus').value = p.status || 'Pending';
+    document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
+    document.getElementById('pn-paymode').value = p.payment_mode || 'Cash';
+    document.getElementById('pn-transactionno').value = p.transaction_no || '';
+    document.getElementById('pn-paydate').value = p.payment_date || '';
+    document.getElementById('pn-notes').value = p.notes || '';
+    renderPNEItemsTable();
+    showPage('purchase-new');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-async function savePurchase() {
-  const supplierId = document.getElementById('pur-supplier').value;
+function pneReadAttachment() {
+  return new Promise(resolve => {
+    const f = document.getElementById('pn-attachment')?.files?.[0];
+    if (!f) return resolve(null);
+    if (f.size > 5*1024*1024) { toast('⚠️ Attachment must be under 5MB — skipping upload', 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(f);
+  });
+}
+
+async function savePurchaseEntry(mode) {
+  const supplierId = document.getElementById('pn-supplier').value;
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
-  if (!PUR.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
-  const btn = document.getElementById('pur-save-btn');
-  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
+  if (!PNE.items.length || PNE.items.every(it => !it.gross_weight && !it.description && !it.product_id)) {
+    toast('⚠️ Add at least one item with a weight', 'warning'); return;
+  }
+
+  const attachment = await pneReadAttachment();
+  const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
+
   const payload = {
+    purchase_no: document.getElementById('pn-no').value.trim(),
     supplier_id: parseInt(supplierId),
-    purchase_no: document.getElementById('pur-no').value.trim(),
-    supplier_invoice_ref: document.getElementById('pur-invref').value.trim(),
-    purchase_date: document.getElementById('pur-date').value,
-    currency: document.getElementById('pur-currency').value,
-    exchange_rate: parseFloat(document.getElementById('pur-fx').value) || 1,
-    status: document.getElementById('pur-status').value,
-    notes: document.getElementById('pur-notes').value.trim(),
-    items: PUR.items.map(it => ({ product_id: it.product_id || null, description: it.description, hsn: it.hsn, qty: it.qty, unit: it.unit, rate: it.rate, gst_pct: it.gst_pct })),
+    purchase_date: document.getElementById('pn-date').value,
+    supplier_type: document.getElementById('pn-suppliertype').value,
+    reference_po_no: document.getElementById('pn-refpo').value.trim(),
+    invoice_bill_no: document.getElementById('pn-invno').value.trim(),
+    gst_applicable: gstApplicable,
+    gst_pct: parseFloat(document.getElementById('pn-gst-pct').value) || 0,
+    supply_type: document.getElementById('pn-supplytype').value,
+    transport_mode: document.getElementById('pn-transportmode').value,
+    vehicle_no: document.getElementById('pn-vehicleno').value.trim(),
+    driver_name: document.getElementById('pn-drivername').value.trim(),
+    warehouse: document.getElementById('pn-warehouse').value,
+    payment_terms: document.getElementById('pn-paymentterms').value,
+    payment_type: document.getElementById('pn-paymenttype').value,
+    remarks: document.getElementById('pn-remarks').value.trim(),
+    transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
+    loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
+    packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
+    other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
+    discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    payment_status: document.getElementById('pn-paystatus').value,
+    amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
+    payment_mode: document.getElementById('pn-paymode').value,
+    transaction_no: document.getElementById('pn-transactionno').value.trim(),
+    payment_date: document.getElementById('pn-paydate').value || null,
+    notes: document.getElementById('pn-notes').value.trim(),
+    attachment: attachment || undefined,
+    items: PNE.items.map(it => ({
+      product_id: it.product_id || null, description: it.description, hsn: '',
+      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade,
+      gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
+      dhalta_pct: parseFloat(it.dhalta_pct)||0, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
+    })),
   };
+
+  const btn = event?.target?.closest('button');
+  if (btn) { btn.disabled = true; }
   try {
-    if (PUR.editingId) {
-      await api('api/purchases.php?id=' + PUR.editingId, 'PUT', payload);
+    let savedId = PNE.editingId;
+    if (PNE.editingId) {
+      await api('api/purchases.php?id=' + PNE.editingId, 'PUT', payload);
       toast('✅ Purchase updated!', 'success');
     } else {
-      await api('api/purchases.php', 'POST', payload);
-      toast('✅ Purchase recorded!', 'success');
+      const res = await api('api/purchases.php', 'POST', payload);
+      savedId = res.id;
+      toast('✅ Purchase saved!', 'success');
     }
     const [r, prd] = await Promise.all([api('api/purchases.php'), api('api/products.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
     STATE.products  = Array.isArray(prd.data) ? prd.data : STATE.products;
-    PUR.editingId = null;
-    closeModal('modal-addpurchase');
-    renderPurchases();
+
+    if (mode === 'print') {
+      printPurchaseEntry(savedId);
+      showPage('purchases');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
+      renderPurchases();
+    } else if (mode === 'new') {
+      goToNewPurchase();
+    } else {
+      showPage('purchases');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
+      renderPurchases();
+    }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Purchase'; } }
+  finally { if (btn) btn.disabled = false; }
 }
+
+async function printPurchaseEntry(id) {
+  try {
+    const r = await api('api/purchases.php?id=' + id);
+    const p = r.data;
+    const rows = (p.items||[]).map((it,i) => `
+      <tr>
+        <td>${i+1}</td><td>${escHtml(it.description||'')}</td><td>${escHtml(it.variety_grade||'')}</td>
+        <td style="text-align:right">${parseFloat(it.gross_weight).toFixed(2)}</td>
+        <td style="text-align:right">${parseFloat(it.tare_weight).toFixed(2)}</td>
+        <td style="text-align:right">${parseFloat(it.qty).toFixed(2)}</td>
+        <td style="text-align:right">${parseFloat(it.dhalta_kg).toFixed(2)}</td>
+        <td style="text-align:right">${parseFloat(it.billable_weight).toFixed(2)}</td>
+        <td style="text-align:right">${fmt_money(it.rate)}</td>
+        <td style="text-align:right">${fmt_money(it.amount)}</td>
+      </tr>`).join('');
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
+      body{font-family:Arial,sans-serif;padding:30px;color:#222} h2{margin-bottom:2px}
+      table{width:100%;border-collapse:collapse;margin-top:14px} th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px}
+      th{background:#f2f2f2;text-align:left} .tot{text-align:right;font-weight:700;margin-top:14px;font-size:15px}
+      .meta{font-size:12px;color:#555;margin-top:4px}
+    </style></head><body>
+      <h2>Purchase Entry — ${escHtml(p.purchase_no)}</h2>
+      <div class="meta">Supplier: ${escHtml(p.supplier_name)} &nbsp;|&nbsp; Date: ${fmt_date_disp(p.purchase_date)} &nbsp;|&nbsp; Warehouse: ${escHtml(p.warehouse||'')}</div>
+      <table><thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Gross</th><th>Tare</th><th>Net</th><th>Dhalta Kg</th><th>Billable</th><th>Rate</th><th>Amount</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="tot">Grand Total: ${fmt_money(p.total)}</div>
+      <script>window.print();</script>
+    </body></html>`);
+    win.document.close();
+  } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
+}
+
 
 async function deletePurchase(id) {
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
