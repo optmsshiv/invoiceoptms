@@ -9,20 +9,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 try {
 switch ($method) {
   case 'GET':
-    // Supplier ledger summary for the Purchase page sidebar:
-    // previous purchases total, total paid, outstanding balance.
-    if (!empty($_GET['summary_for'])) {
-      $sid = (int)$_GET['summary_for'];
-      $stmt = $db->prepare('SELECT
-          COALESCE(SUM(total), 0)       AS total_purchases,
-          COALESCE(SUM(amount_paid), 0) AS total_paid,
-          COALESCE(SUM(total - amount_paid), 0) AS outstanding
-        FROM purchases WHERE supplier_id = ?');
-      $stmt->execute([$sid]);
-      jsonResponse(['data' => $stmt->fetch()]);
-      break;
-    }
-
     $status = $_GET['status'] ?? 'active';
     $stmt = $db->prepare('SELECT * FROM suppliers WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
@@ -45,8 +31,8 @@ switch ($method) {
     if (empty($d['name'])) jsonResponse(['error' => 'Supplier name is required'], 400);
 
     $stmt = $db->prepare('INSERT INTO suppliers
-      (name, contact_person, phone, email, gst_number, country, address, payment_terms, opening_balance, notes, supplier_type, state, district)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (name, contact_person, phone, email, gst_number, country, address, payment_terms, opening_balance, notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?)');
     $stmt->execute([
       $d['name'],
       $d['contact_person'] ?? '',
@@ -58,9 +44,6 @@ switch ($method) {
       $d['payment_terms'] ?? '',
       $d['opening_balance'] ?? 0,
       $d['notes'] ?? '',
-      $d['supplier_type'] ?? 'Trader',
-      $d['state'] ?? '',
-      $d['district'] ?? '',
     ]);
     $id = $db->lastInsertId();
     logActivity((int)$_SESSION['user_id'], 'create', 'supplier', (int)$id, 'Supplier added: ' . $d['name']);
@@ -74,8 +57,7 @@ switch ($method) {
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
 
     $stmt = $db->prepare('UPDATE suppliers SET
-      name=?, contact_person=?, phone=?, email=?, gst_number=?, country=?, address=?, payment_terms=?, opening_balance=?, notes=?,
-      supplier_type=?, state=?, district=?
+      name=?, contact_person=?, phone=?, email=?, gst_number=?, country=?, address=?, payment_terms=?, opening_balance=?, notes=?
       WHERE id=?');
     $stmt->execute([
       $d['name'] ?? '',
@@ -88,9 +70,6 @@ switch ($method) {
       $d['payment_terms'] ?? '',
       $d['opening_balance'] ?? 0,
       $d['notes'] ?? '',
-      $d['supplier_type'] ?? 'Trader',
-      $d['state'] ?? '',
-      $d['district'] ?? '',
       $id,
     ]);
     logActivity((int)$_SESSION['user_id'], 'update', 'supplier', $id, 'Supplier updated');
