@@ -500,8 +500,8 @@ canvas { max-width: 100% !important; }
 /* Purchase-modal line-items table: compact inputs that still match the app's field styling */
 .pit-card { margin: 0; }
 .pit-table { table-layout: fixed; }
+.pit-table td { padding: 7px 10px; vertical-align: top; padding-top: 10px; }
 .pit-table th { padding: 9px 10px; font-size: 10.5px; }
-.pit-table td { padding: 7px 10px; vertical-align: middle; }
 .pit-table input, .pit-table select {
   width: 100%; padding: 6px 8px; font-size: 12.5px; border-radius: 6px;
 }
