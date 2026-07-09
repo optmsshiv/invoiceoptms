@@ -2698,7 +2698,7 @@ const SERVER = {
 
 
     <!-- ─────────── STOCK LEDGER ─────────── -->
-    <div id="page-stock" class="page">
+    <div id="page-stock" class="page" style="overflow-x:hidden;max-width:100%">
       <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock</span></div>
       <div class="page-toolbar" style="padding:14px 24px 0;align-items:flex-end">
         <div class="field" style="min-width:160px"><label>Product</label><select id="ps-f-product" class="table-filter" onchange="renderProductStock()"><option value="">All Products</option></select></div>
