@@ -580,9 +580,12 @@ canvas { max-width: 100% !important; }
 .pne-trust-icon {
   flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
   background: var(--teal-bg, #e6f7f4); color: var(--teal);
-  display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1;
+  position: relative; font-size: 13px;
 }
-.pne-trust-icon i { line-height: 1; }
+.pne-trust-icon i {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  line-height: 1; width: 1em; text-align: center;
+}
 .pne-trust-item strong { display: block; font-size: 12.5px; color: var(--text); }
 .pne-trust-item span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 /* Muted grid border for the items table, matching the reference design */
@@ -2438,8 +2441,8 @@ const SERVER = {
               <span style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto">
                 <button class="btn btn-outline pne-small-btn" style="white-space:nowrap" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" style="white-space:nowrap" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <select id="pne-entrymode-select" class="pne-small-btn" style="border-radius:6px;border:1.5px solid var(--border);background:var(--card);padding:0 10px;height:32px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0" onchange="setPNEEntryMode(this.value)">
-                  <option value="catalog">Catalog Product</option>
+                <select id="pne-entrymode-select" class="pne-small-btn" style="width:118px;border-radius:6px;border:1.5px solid var(--border);background:var(--card);padding:0 6px;height:32px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0" onchange="setPNEEntryMode(this.value)">
+                  <option value="catalog">Catalog</option>
                   <option value="freetext">Free Text</option>
                 </select>
               </span>
