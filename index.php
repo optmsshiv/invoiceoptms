@@ -528,7 +528,7 @@ canvas { max-width: 100% !important; }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 24px 60px; align-items: start; }
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
 
