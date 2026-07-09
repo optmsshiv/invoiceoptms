@@ -572,16 +572,17 @@ canvas { max-width: 100% !important; }
 .pne-mode-switch { font-size: 9.5px; color: var(--teal); cursor: pointer; margin-top: 3px; text-align: left; user-select: none; }
 .pne-mode-switch:hover { text-decoration: underline; }
 .pne-trust-footer {
-  display: flex; flex-wrap: wrap; gap: 22px; align-items: center;
+  display: flex; flex-wrap: wrap; gap: 22px; align-items: center; justify-content: center;
   background: var(--card); border-top: 1px solid var(--border);
   padding: 16px 24px; margin-top: 4px;
 }
-.pne-trust-item { display: flex; align-items: center; gap: 10px; flex: 1 1 180px; min-width: 180px; }
+.pne-trust-item { display: flex; align-items: center; gap: 10px; flex: 0 1 220px; }
 .pne-trust-icon {
   flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
   background: var(--teal-bg, #e6f7f4); color: var(--teal);
-  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1;
 }
+.pne-trust-icon i { line-height: 1; }
 .pne-trust-item strong { display: block; font-size: 12.5px; color: var(--text); }
 .pne-trust-item span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 /* Muted grid border for the items table, matching the reference design */
@@ -2370,7 +2371,7 @@ const SERVER = {
 
           <!-- 1. Purchase Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">1</span> Purchase Information</div>
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-file-invoice"></i></span> Purchase Information</div>
             <div class="pne-grid4">
               <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
@@ -2433,11 +2434,11 @@ const SERVER = {
           <!-- 2. Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
-              <span><span class="pne-num">2</span> Items Details</span>
-              <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
-                <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <select id="pne-entrymode-select" class="pne-small-btn" style="border-radius:6px;border:1.5px solid var(--border);background:var(--card);padding:0 10px;height:32px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer" onchange="setPNEEntryMode(this.value)">
+              <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
+              <span style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;overflow-x:auto">
+                <button class="btn btn-outline pne-small-btn" style="white-space:nowrap" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
+                <button class="btn btn-outline pne-small-btn" style="white-space:nowrap" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
+                <select id="pne-entrymode-select" class="pne-small-btn" style="border-radius:6px;border:1.5px solid var(--border);background:var(--card);padding:0 10px;height:32px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0" onchange="setPNEEntryMode(this.value)">
                   <option value="catalog">Catalog Product</option>
                   <option value="freetext">Free Text</option>
                 </select>
@@ -2459,7 +2460,7 @@ const SERVER = {
                     <th colspan="3">Weight Details (in Kg)</th>
                     <th colspan="2">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
-                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2"></th>
+                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
                   </tr>
                   <tr>
                     <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
@@ -2481,7 +2482,7 @@ const SERVER = {
           <!-- 3/4/5 row -->
           <div class="pne-row3">
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">3</span> Additional Charges</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-truck-loading"></i></span> Additional Charges</div>
               <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
@@ -2490,7 +2491,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">4</span> Tax &amp; Amount Summary</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-calculator"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
@@ -2504,7 +2505,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">5</span> Payment Information</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-wallet"></i></span> Payment Information</div>
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
@@ -2522,8 +2523,8 @@ const SERVER = {
                 <div id="pn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
                 <div class="pne-split-footer">
                   <div class="pne-split-footer-totals">
-                    <span>Split Total <strong id="pn-split-total">₹0.00</strong></span>
-                    <span>Received Amount <strong id="pn-split-target">₹0.00</strong></span>
+                    <span>Split Total <strong id="pn-split-total" style="color:var(--teal);font-size:14px">₹0.00</strong></span>
+                    <span>Received Amount <strong id="pn-split-target" style="color:var(--blue);font-size:14px">₹0.00</strong></span>
                   </div>
                   <div class="pne-split-footer-badges" id="pn-split-badges"></div>
                 </div>
@@ -12206,7 +12207,7 @@ function renderPNEItemsTable() {
         <td>
           <div class="action-cell">
             <button class="act-btn" title="Edit" onclick="togglePNERowEdit(${it.id}, true)"><i class="fas fa-pen"></i></button>
-            <button class="act-btn" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
+            <button class="act-btn del" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
           </div>
         </td>
       </tr>`;
@@ -12239,7 +12240,7 @@ function renderPNEItemsTable() {
       <td>
         <div class="action-cell">
           <button class="act-btn" title="Save" onclick="togglePNERowEdit(${it.id}, false)"><i class="fas fa-check"></i></button>
-          <button class="act-btn" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
+          <button class="act-btn del" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
         </div>
       </td>
     </tr>`;
