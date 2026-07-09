@@ -554,7 +554,7 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; width: 1180px; min-width: 1180px; table-layout: fixed; }
+.pne-items-table { font-size: 12px; width: 1240px; min-width: 1240px; table-layout: fixed; }
 .pne-items-table th {
   padding: 8px 6px; font-size: 10px; text-align: center;
   white-space: normal; word-break: break-word; line-height: 1.3;
@@ -2434,7 +2434,32 @@ const SERVER = {
             </div>
           </div>
 
-          <!-- 2. Items Details -->
+          <!-- 2. Weight Information (Kanta / Dharam Kanta) -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Weighing Type *</label>
+                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Electronic Weighbridge</option><option>Manual Scale</option></select>
+              </div>
+              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-dknamed" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
+              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
+              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-weightdatetime"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Gross Weight (Kg)</label><input type="number" id="pn-wb-gross" min="0" step="0.01" value="0" oninput="calcPNWeighbridgeNet()"></div>
+              <div class="field"><label>Tare Weight (Kg)</label><input type="number" id="pn-wb-tare" min="0" step="0.01" value="0" oninput="calcPNWeighbridgeNet()"></div>
+              <div class="field"><label>Net Weight (Kg)</label><input readonly id="pn-wb-net" value="0.00" style="background:var(--teal-bg,#e6f7f4);color:var(--teal);font-weight:700;border:none"></div>
+              <div class="field"><label>Operator Name</label><input id="pn-wb-operator" placeholder="Optional"></div>
+            </div>
+            <div class="field">
+              <label>Upload Weight Slip</label>
+              <input type="file" id="pn-weightslip" accept="image/png,image/jpeg,application/pdf" style="font-size:12px">
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
+            </div>
+            <div class="pne-note"><i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)</div>
+          </div>
+
+          <!-- 3. Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
               <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
@@ -2451,7 +2476,7 @@ const SERVER = {
               <table class="data-table pne-items-table">
                 <colgroup>
                   <col style="width:32px"><col style="width:150px"><col style="width:100px">
-                  <col style="width:70px"><col style="width:90px">
+                  <col style="width:60px"><col style="width:60px"><col style="width:90px">
                   <col style="width:82px"><col style="width:82px"><col style="width:82px">
                   <col style="width:58px"><col style="width:64px">
                   <col style="width:92px"><col style="width:72px"><col style="width:62px"><col style="width:92px"><col style="width:56px">
@@ -2459,7 +2484,7 @@ const SERVER = {
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
-                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
+                    <th rowspan="2">Moisture %</th><th rowspan="2">Impurity %</th><th rowspan="2">Quality Grade</th>
                     <th colspan="3">Weight Details (in Kg)</th>
                     <th colspan="2">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
@@ -2477,6 +2502,7 @@ const SERVER = {
               <span>Total Net Weight <strong id="pne-total-net">0.00 Kg</strong></span>
               <span>Total Dhalta <strong id="pne-total-dhalta">0.00 Kg</strong></span>
               <span>Total Billable Weight <strong id="pne-total-billable">0.00 Kg</strong></span>
+              <span>Total Discount <strong id="pne-total-discount" style="color:var(--red)">₹0.00</strong></span>
               <span>Total Amount <strong id="pne-total-amount" class="pne-total-amt">₹0.00</strong></span>
             </div>
             <div class="pne-note">Note: Net Weight = Gross Weight − Tare Weight &nbsp;|&nbsp; Billable Weight = Net Weight − Dhalta</div>
@@ -2545,10 +2571,13 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-box"></i> Product Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Selected Items)</span></div>
             <div class="pne-kv"><span>Total Items</span><strong id="pne-sb-items">0</strong></div>
+            <div class="pne-kv"><span>Total Gross Weight</span><strong id="pne-sb-gross">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Tare Weight</span><strong id="pne-sb-tare">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
+            <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:var(--red)">₹0.00</strong></div>
+            <div class="pne-kv" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span>Total Amount</span><strong id="pne-sb-amount" class="pne-total-amt">₹0.00</strong></div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
@@ -12023,7 +12052,7 @@ let PNE_SPLITS = [];
 let pneSplitSeq = 1;
 
 function pneEmptyItem() {
-  return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
+  return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', impurity_pct: '', quality_grade: '',
     gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, entry_mode: PNE.entryMode, editing: true };
 }
 
@@ -12069,6 +12098,15 @@ function goToNewPurchase() {
   document.getElementById('pn-paymentterms').value = 'Immediate';
   document.getElementById('pn-paymenttype').value = 'Cash';
   document.getElementById('pn-remarks').value = '';
+  document.getElementById('pn-weighingtype').value = 'Dharam Kanta';
+  document.getElementById('pn-dknamed').value = '';
+  document.getElementById('pn-slipno').value = '';
+  document.getElementById('pn-weightdatetime').value = '';
+  document.getElementById('pn-wb-operator').value = '';
+  document.getElementById('pn-wb-gross').value = 0;
+  document.getElementById('pn-wb-tare').value = 0;
+  document.getElementById('pn-wb-net').value = '0.00';
+  document.getElementById('pn-weightslip').value = '';
   setGstApplicable(false);
   document.getElementById('pn-transportcharge').value = 0;
   document.getElementById('pn-loadingcharge').value = 0;
@@ -12177,8 +12215,10 @@ function pneCalcRow(it) {
   const billable  = Math.max(0, net - dhaltaKg);
   const rate      = parseFloat(it.rate) || 0;
   const discPct   = parseFloat(it.discount_pct) || 0;
-  const amount    = +(billable * rate * (1 - discPct/100)).toFixed(2);
-  return { net, dhaltaKg, dhaltaPct, billable, amount };
+  const grossAmt  = +(billable * rate).toFixed(2);
+  const discountAmt = +(grossAmt * discPct / 100).toFixed(2);
+  const amount    = +(grossAmt - discountAmt).toFixed(2);
+  return { net, dhaltaKg, dhaltaPct, billable, grossAmt, discountAmt, amount };
 }
 
 function renderPNEItemsTable() {
@@ -12197,6 +12237,7 @@ function renderPNEItemsTable() {
         <td>${escHtml(productName)}</td>
         <td>${escHtml(it.variety_grade) || '—'}</td>
         <td>${it.moisture_pct !== '' && it.moisture_pct != null ? parseFloat(it.moisture_pct) + '%' : '—'}</td>
+        <td>${it.impurity_pct !== '' && it.impurity_pct != null ? parseFloat(it.impurity_pct) + '%' : '—'}</td>
         <td>${escHtml(it.quality_grade) || '—'}</td>
         <td>${parseFloat(it.gross_weight || 0).toFixed(2)}</td>
         <td>${parseFloat(it.tare_weight || 0).toFixed(2)}</td>
@@ -12230,6 +12271,7 @@ function renderPNEItemsTable() {
       </td>
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
+      <td><input type="number" value="${it.impurity_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'impurity_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
       <td><input type="number" value="${it.gross_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
       <td><input type="number" value="${it.tare_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
@@ -12276,19 +12318,26 @@ function updatePNEItem(id, field, val, isText) {
 }
 
 function calcPurchaseNewTotals() {
-  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0;
+  let totalGross = 0, totalTare = 0, totalNet = 0, totalDhalta = 0, totalBillable = 0, totalDiscount = 0, subtotal = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
-    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount;
+    totalGross += parseFloat(it.gross_weight) || 0;
+    totalTare  += parseFloat(it.tare_weight) || 0;
+    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable;
+    totalDiscount += c.discountAmt; subtotal += c.amount;
   });
   document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-total-billable').textContent = totalBillable.toFixed(2) + ' Kg';
+  document.getElementById('pne-total-discount').textContent = fmt_money(totalDiscount);
   document.getElementById('pne-total-amount').textContent = fmt_money(subtotal);
   document.getElementById('pne-sb-items').textContent = PNE.items.length;
+  document.getElementById('pne-sb-gross').textContent = totalGross.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-tare').textContent = totalTare.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-discount').textContent = fmt_money(totalDiscount);
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
@@ -12444,7 +12493,7 @@ async function editPurchase(id) {
       const dhaltaKg = it.dhalta_kg != null ? parseFloat(it.dhalta_kg) : +(net * (parseFloat(it.dhalta_pct) || 0) / 100).toFixed(3);
       return {
         id: pneItemSeq++, product_id: it.product_id || '', description: it.description,
-        variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
+        variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, impurity_pct: it.impurity_pct || 0, quality_grade: it.quality_grade || '',
         gross_weight: gross, tare_weight: tare, dhalta_kg: dhaltaKg,
         rate: it.rate || 0, discount_pct: it.discount_pct || 0,
         entry_mode: it.product_id ? 'catalog' : 'freetext',
@@ -12468,6 +12517,14 @@ async function editPurchase(id) {
     document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
     document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
     document.getElementById('pn-remarks').value = p.remarks || '';
+    document.getElementById('pn-weighingtype').value = p.weighing_type || 'Dharam Kanta';
+    document.getElementById('pn-dknamed').value = p.dharamkanta_name || '';
+    document.getElementById('pn-slipno').value = p.weighbridge_slip_no || '';
+    document.getElementById('pn-weightdatetime').value = p.weight_datetime ? p.weight_datetime.replace(' ', 'T').slice(0,16) : '';
+    document.getElementById('pn-wb-operator').value = p.weight_operator_name || '';
+    document.getElementById('pn-wb-gross').value = p.weighbridge_gross || 0;
+    document.getElementById('pn-wb-tare').value = p.weighbridge_tare || 0;
+    calcPNWeighbridgeNet();
     setGstApplicable(!!parseInt(p.gst_applicable));
     document.getElementById('pn-supplytype').value = p.supply_type || 'Intra-State';
     document.getElementById('pn-gst-pct').value = p.gst_pct || 0;
@@ -12504,6 +12561,24 @@ async function editPurchase(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+function calcPNWeighbridgeNet() {
+  const gross = parseFloat(document.getElementById('pn-wb-gross').value) || 0;
+  const tare  = parseFloat(document.getElementById('pn-wb-tare').value) || 0;
+  document.getElementById('pn-wb-net').value = Math.max(0, gross - tare).toFixed(2);
+}
+
+function pneReadWeightSlip() {
+  return new Promise(resolve => {
+    const f = document.getElementById('pn-weightslip')?.files?.[0];
+    if (!f) return resolve(null);
+    if (f.size > 5*1024*1024) { toast('⚠️ Weight slip file must be under 5MB — skipping upload', 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(f);
+  });
+}
+
 function pneReadAttachment() {
   return new Promise(resolve => {
     const f = document.getElementById('pn-attachment')?.files?.[0];
@@ -12525,6 +12600,7 @@ async function savePurchaseEntry(mode) {
   }
 
   const attachment = await pneReadAttachment();
+  const weightSlip = await pneReadWeightSlip();
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
 
   const payload = {
@@ -12544,6 +12620,14 @@ async function savePurchaseEntry(mode) {
     payment_terms: document.getElementById('pn-paymentterms').value,
     payment_type: document.getElementById('pn-paymenttype').value,
     remarks: document.getElementById('pn-remarks').value.trim(),
+    weighing_type: document.getElementById('pn-weighingtype').value,
+    dharamkanta_name: document.getElementById('pn-dknamed').value.trim(),
+    weighbridge_slip_no: document.getElementById('pn-slipno').value.trim(),
+    weight_datetime: document.getElementById('pn-weightdatetime').value || null,
+    weight_operator_name: document.getElementById('pn-wb-operator').value.trim(),
+    weighbridge_gross: parseFloat(document.getElementById('pn-wb-gross').value) || 0,
+    weighbridge_tare: parseFloat(document.getElementById('pn-wb-tare').value) || 0,
+    weight_slip: weightSlip || undefined,
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
@@ -12563,7 +12647,7 @@ async function savePurchaseEntry(mode) {
       const c = pneCalcRow(it);
       return {
         product_id: it.product_id || null, description: it.description, hsn: '',
-        variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade,
+        variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, impurity_pct: parseFloat(it.impurity_pct)||0, quality_grade: it.quality_grade,
         gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
         dhalta_kg: c.dhaltaKg, dhalta_pct: c.dhaltaPct, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
       };
