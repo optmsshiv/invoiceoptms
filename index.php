@@ -2379,23 +2379,23 @@ const SERVER = {
         </div>
         <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Supplier / Company Name *</label><input id="sup-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
-            <div class="field"><label>Contact Person</label><input id="sup-person" placeholder="e.g. Rajeev Kumar"></div>
+            <div class="field"><label>Supplier / Company Name *</label><input id="supq-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
+            <div class="field"><label>Contact Person</label><input id="supq-person" placeholder="e.g. Rajeev Kumar"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Phone</label><input id="sup-phone" placeholder="+91 XXXXX XXXXX"></div>
-            <div class="field"><label>Email</label><input id="sup-email" type="email" placeholder="supplier@example.com"></div>
+            <div class="field"><label>Phone</label><input id="supq-phone" placeholder="+91 XXXXX XXXXX"></div>
+            <div class="field"><label>Email</label><input id="supq-email" type="email" placeholder="supplier@example.com"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>GST Number</label><input id="sup-gst" placeholder="22AAAAA0000A1Z5"></div>
-            <div class="field"><label>Country</label><input id="sup-country" value="India"></div>
+            <div class="field"><label>GST Number</label><input id="supq-gst" placeholder="22AAAAA0000A1Z5"></div>
+            <div class="field"><label>Country</label><input id="supq-country" value="India"></div>
           </div>
-          <div class="field"><label>Address</label><input id="sup-address" placeholder="Full address"></div>
+          <div class="field"><label>Address</label><input id="supq-address" placeholder="Full address"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Terms</label><input id="sup-terms" placeholder="e.g. Net 30, Advance"></div>
-            <div class="field"><label>Opening Balance (₹)</label><input id="sup-opening" type="number" value="0"></div>
+            <div class="field"><label>Payment Terms</label><input id="supq-terms" placeholder="e.g. Net 30, Advance"></div>
+            <div class="field"><label>Opening Balance (₹)</label><input id="supq-opening" type="number" value="0"></div>
           </div>
-          <div class="field"><label>Notes</label><input id="sup-notes" placeholder="Optional"></div>
+          <div class="field"><label>Notes</label><input id="supq-notes" placeholder="Optional"></div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addsupplier')">Cancel</button>
@@ -13144,11 +13144,11 @@ function renderSuppliers() {
 function openAddSupplierModal() {
   SUP.editingId = null;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
-  ['sup-name','sup-person','sup-phone','sup-email','sup-gst','sup-address','sup-terms','sup-notes'].forEach(id => {
+  ['supq-name','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('sup-country').value = 'India';
-  document.getElementById('sup-opening').value = '0';
+  document.getElementById('supq-country').value = 'India';
+  document.getElementById('supq-opening').value = '0';
   openModal('modal-addsupplier');
 }
 
@@ -13156,35 +13156,35 @@ function editSupplier(id) {
   const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
   SUP.editingId = id;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
-  document.getElementById('sup-name').value    = s.name || '';
-  document.getElementById('sup-person').value  = s.contact_person || '';
-  document.getElementById('sup-phone').value   = s.phone || '';
-  document.getElementById('sup-email').value   = s.email || '';
-  document.getElementById('sup-gst').value     = s.gst_number || '';
-  document.getElementById('sup-country').value = s.country || 'India';
-  document.getElementById('sup-address').value = s.address || '';
-  document.getElementById('sup-terms').value   = s.payment_terms || '';
-  document.getElementById('sup-opening').value = s.opening_balance || 0;
-  document.getElementById('sup-notes').value   = s.notes || '';
+  document.getElementById('supq-name').value    = s.name || '';
+  document.getElementById('supq-person').value  = s.contact_person || '';
+  document.getElementById('supq-phone').value   = s.phone || '';
+  document.getElementById('supq-email').value   = s.email || '';
+  document.getElementById('supq-gst').value     = s.gst_number || '';
+  document.getElementById('supq-country').value = s.country || 'India';
+  document.getElementById('supq-address').value = s.address || '';
+  document.getElementById('supq-terms').value   = s.payment_terms || '';
+  document.getElementById('supq-opening').value = s.opening_balance || 0;
+  document.getElementById('supq-notes').value   = s.notes || '';
   openModal('modal-addsupplier');
 }
 
 async function saveSupplier() {
-  const name = document.getElementById('sup-name')?.value?.trim();
+  const name = document.getElementById('supq-name')?.value?.trim();
   if (!name) { toast('⚠️ Supplier name required', 'warning'); return; }
   const btn = document.getElementById('sup-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
     name,
-    contact_person:  document.getElementById('sup-person').value.trim(),
-    phone:           document.getElementById('sup-phone').value.trim(),
-    email:           document.getElementById('sup-email').value.trim(),
-    gst_number:      document.getElementById('sup-gst').value.trim(),
-    country:         document.getElementById('sup-country').value.trim() || 'India',
-    address:         document.getElementById('sup-address').value.trim(),
-    payment_terms:   document.getElementById('sup-terms').value.trim(),
-    opening_balance: parseFloat(document.getElementById('sup-opening').value) || 0,
-    notes:           document.getElementById('sup-notes').value.trim(),
+    contact_person:  document.getElementById('supq-person').value.trim(),
+    phone:           document.getElementById('supq-phone').value.trim(),
+    email:           document.getElementById('supq-email').value.trim(),
+    gst_number:      document.getElementById('supq-gst').value.trim(),
+    country:         document.getElementById('supq-country').value.trim() || 'India',
+    address:         document.getElementById('supq-address').value.trim(),
+    payment_terms:   document.getElementById('supq-terms').value.trim(),
+    opening_balance: parseFloat(document.getElementById('supq-opening').value) || 0,
+    notes:           document.getElementById('supq-notes').value.trim(),
   };
   try {
     if (SUP.editingId) {
