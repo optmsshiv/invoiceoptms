@@ -3171,9 +3171,15 @@ const SERVER = {
                 <select id="sn-paystatus" onchange="calcSaleNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
               <div class="field"><label>Payment Method *</label>
-                <select id="sn-paymethod"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select>
+                <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
               <div class="field"><label>Amount Received (₹)</label><input type="number" id="sn-amountreceived" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div id="sn-split-panel" style="display:none;background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px">
+                <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                <button type="button" class="btn btn-outline pne-small-btn" style="margin-top:8px" onclick="addSNSplitRow(false); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Split</button>
+                <div id="sn-split-footer" class="pne-split-footer"></div>
+                <div id="sn-split-mismatch" style="display:none;font-size:11px;color:#E65100;margin-top:4px"></div>
+              </div>
               <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
               <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
@@ -3948,7 +3954,7 @@ const SERVER = {
       <div class="table-card">
         <table class="data-table">
           <thead><tr>
-            <th>Date</th><th>Invoice #</th><th>Client</th>
+            <th>Date</th><th>Source</th><th>Invoice #</th><th>Client</th>
             <th>Method</th><th>Txn ID</th><th>Amount</th><th>Status</th><th>Action</th>
           </tr></thead>
           <tbody id="paymentsTbody"></tbody>
@@ -14804,6 +14810,8 @@ function goToNewSale() {
   document.getElementById('sn-discount').value = 0;
   document.getElementById('sn-paystatus').value = 'Pending';
   document.getElementById('sn-paymethod').value = 'Cash';
+  document.getElementById('sn-split-panel').style.display = 'none';
+  document.getElementById('sn-split-rows').innerHTML = '';
   document.getElementById('sn-amountreceived').value = 0;
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
@@ -15052,6 +15060,134 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
   document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
   document.getElementById('sn-sb-netpayable').textContent = fmt_money(grand);
+  syncSNSplitAutoRow();
+}
+
+// ── Split Payment (Sale Entry Payment Information) ────────────────
+// Mirrors the Purchase Entry split-payment design exactly: row 0 is
+// always the AUTO row, recomputed as (Amount Received − every other row),
+// so the split always reconciles by construction.
+const SN_SPLIT_COLORS = { 'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100' };
+function snSplitColor(method) { return SN_SPLIT_COLORS[method] || '#455A64'; }
+
+function toggleSNSplitPayment() {
+  const isSplit = document.getElementById('sn-paymethod').value === 'Split Payment';
+  const panel = document.getElementById('sn-split-panel');
+  panel.style.display = isSplit ? 'block' : 'none';
+  if (isSplit && document.getElementById('sn-split-rows').children.length === 0) {
+    addSNSplitRow(true);
+    addSNSplitRow(false);
+    syncSNSplitAutoRow();
+  }
+}
+
+function syncSNSplitAutoRow() {
+  updateSNSplitMismatch();
+  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
+  if (document.getElementById('sn-paymethod')?.value !== 'Split Payment' || rows.length < 2) return;
+  const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+  let othersSum = 0;
+  for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+  const remainder = target - othersSum;
+  const autoInput = rows[0].querySelector('.pne-split-amt');
+  autoInput.value = target > 0 || othersSum > 0 ? Math.max(0, remainder).toFixed(2) : '';
+  rows[0].classList.toggle('pne-split-over', remainder < -0.005);
+  renderSNSplitFooter();
+}
+
+function addSNSplitRow(isAuto) {
+  const container = document.getElementById('sn-split-rows');
+  const row = document.createElement('div');
+  row.className = 'pne-split-row' + (isAuto ? ' pne-split-row-auto' : '');
+  row.innerHTML = `<span class="pne-split-dot" style="background:${snSplitColor('Cash')}"></span>
+    <select class="pne-split-method" onchange="this.previousElementSibling.style.background=snSplitColor(this.value); renderSNSplitFooter()">
+      <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+    </select>
+    <input type="number" class="pne-split-amt" placeholder="0.00" ${isAuto ? 'readonly title="Auto-calculated: Amount Received minus the other methods"' : ''}
+      oninput="syncSNSplitAutoRow()">
+    ${isAuto ? '<span class="pne-split-auto-tag"><i class="fas fa-bolt"></i> Auto</span>' : '<button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>'}`;
+  container.appendChild(row);
+  renderSNSplitFooter();
+}
+
+function removeSNSplitRow(btn) {
+  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
+  if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
+  btn.closest('.pne-split-row').remove();
+  syncSNSplitAutoRow();
+}
+
+function renderSNSplitFooter() {
+  const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+  const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
+  const breakdown = rows.map(r => {
+    const method = r.querySelector('.pne-split-method')?.value || '';
+    const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
+    const color = snSplitColor(method);
+    return `<span class="pne-split-chip" style="background:${color}18;color:${color}">${escHtml(method)}: <strong>${fmt_money(amt)}</strong></span>`;
+  }).join('');
+  const footer = document.getElementById('sn-split-footer');
+  if (footer) {
+    footer.innerHTML = `
+      <div class="pne-split-footer-total">Amount Received <strong>${fmt_money(target)}</strong></div>
+      <div class="pne-split-footer-breakdown">${breakdown}</div>`;
+  }
+}
+
+function updateSNSplitMismatch() {
+  const warnEl = document.getElementById('sn-split-mismatch');
+  if (!warnEl || document.getElementById('sn-paymethod')?.value !== 'Split Payment') { if(warnEl) warnEl.style.display='none'; return; }
+  const amts = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-amt')).map(el => parseFloat(el.value)||0);
+  const splitSum = amts.reduce((s,v) => s+v, 0);
+  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+  if (received > 0 && Math.abs(splitSum - received) > 0.01) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = splitSum > received
+      ? `⚠️ Split total (${fmt_money(splitSum)}) exceeds Amount Received`
+      : `⚠️ Split total (${fmt_money(splitSum)}) is less than Amount Received`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function getSNSplitLabel() {
+  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
+  const parts = Array.from(rows).map(r => {
+    const m = r.querySelector('.pne-split-method')?.value || '';
+    const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
+    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+  }).filter(Boolean);
+  return 'Split: ' + parts.join(' + ');
+}
+
+function restoreSNSplitFromLabel(label) {
+  const body = label.replace(/^Split:\s*/, '');
+  const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
+    const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
+    return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
+  }).filter(Boolean);
+
+  if (parts.length === 0) { addSNSplitRow(true); addSNSplitRow(false); syncSNSplitAutoRow(); return; }
+
+  addSNSplitRow(true);
+  setSNSplitRowMethod(0, parts[0].method);
+  for (let i = 1; i < parts.length; i++) {
+    addSNSplitRow(false);
+    setSNSplitRowMethod(i, parts[i].method);
+    const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
+    rows[i].querySelector('.pne-split-amt').value = parts[i].amount.toFixed(2);
+  }
+  if (parts.length === 1) addSNSplitRow(false);
+  syncSNSplitAutoRow();
+}
+function setSNSplitRowMethod(rowIndex, method) {
+  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
+  const sel = rows[rowIndex]?.querySelector('.pne-split-method');
+  if (sel && Array.from(sel.options).some(o => o.value === method)) {
+    sel.value = method;
+    const dot = rows[rowIndex]?.querySelector('.pne-split-dot');
+    if (dot) dot.style.background = snSplitColor(method);
+  }
 }
 
 function snFileToDataUrl(file) {
@@ -15108,7 +15244,7 @@ async function saveSaleEntry(mode) {
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
     payment_status: document.getElementById('sn-paystatus').value,
-    payment_method: document.getElementById('sn-paymethod').value,
+    payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
     transaction_no: document.getElementById('sn-transactionno').value.trim(),
     payment_date: document.getElementById('sn-paydate').value || null,
@@ -15192,7 +15328,11 @@ async function editSale(id) {
     document.getElementById('sn-roundoff').value = s.round_off || 0;
     document.getElementById('sn-discount').value = s.discount_amount || 0;
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
-    document.getElementById('sn-paymethod').value = s.payment_method || 'Cash';
+    const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
+    document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
+    document.getElementById('sn-split-panel').style.display = isSNSplitSaved ? 'block' : 'none';
+    document.getElementById('sn-split-rows').innerHTML = '';
+    if (isSNSplitSaved) restoreSNSplitFromLabel(s.payment_method);
     document.getElementById('sn-amountreceived').value = s.amount_received || 0;
     document.getElementById('sn-transactionno').value = s.transaction_no || '';
     document.getElementById('sn-paydate').value = s.payment_date || '';
@@ -16261,9 +16401,28 @@ function pickProduct(id) {
 // PAYMENTS
 // ══════════════════════════════════════════
 const PMT = { page:1, per:10, list:[] };
-function renderPayments() { PMT.list=[...STATE.payments]; PMT.page=1; _renderPmtPage(); _renderPmtSummary(); }
-function filterPayments(v){ const s=v.toLowerCase(); PMT.list=STATE.payments.filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMT.page=1; _renderPmtPage(); }
-function filterPaymentsByMethod(v){ PMT.list=v?STATE.payments.filter(p=>p.method===v):[...STATE.payments]; PMT.page=1; _renderPmtPage(); }
+function buildMergedPaymentsList() {
+  const invoicePmts = STATE.payments.map(p => ({ ...p, source: 'invoice' }));
+  const purchasePmts = (STATE.purchases||[]).filter(p => (parseFloat(p.amount_paid)||0) > 0).map(p => ({
+    id: 'pur-' + p.id, date: p.purchase_date, inv: p.purchase_no, client: p.supplier_name || '—',
+    method: p.payment_mode || '—', txn: p.transaction_no || '', amount: p.amount_paid, status: p.payment_status || 'Pending',
+    source: 'purchase',
+  }));
+  const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
+    id: 'sale-' + s.id, date: s.sale_date, inv: s.invoice_no, client: s.customer_name || '—',
+    method: s.payment_method || '—', txn: s.transaction_no || '', amount: s.amount_received, status: s.payment_status || 'Pending',
+    source: 'sale',
+  }));
+  return [...invoicePmts, ...purchasePmts, ...salePmts].sort((a,b) => new Date(b.date) - new Date(a.date));
+}
+
+function renderPayments() {
+  PMT.list = buildMergedPaymentsList();
+  PMT.page = 1;
+  _renderPmtPage(); _renderPmtSummary();
+}
+function filterPayments(v){ const s=v.toLowerCase(); PMT.list=buildMergedPaymentsList().filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMT.page=1; _renderPmtPage(); }
+function filterPaymentsByMethod(v){ const all=buildMergedPaymentsList(); PMT.list=v?all.filter(p=>p.method===v||(p.method&&p.method.startsWith('Split:')&&p.method.includes(v))):all; PMT.page=1; _renderPmtPage(); }
 function setPmtRange(r){
   const t=new Date(); let f=new Date(),to=new Date();
   if(r==='today'){f=new Date(t);to=new Date(t);}
@@ -16278,27 +16437,48 @@ function setPmtRange(r){
 }
 function filterPmtByDate(){
   const f=document.getElementById('pmtFrom')?.value||'', t=document.getElementById('pmtTo')?.value||'';
-  PMT.list=STATE.payments.filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
+  PMT.list=buildMergedPaymentsList().filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
   PMT.page=1; _renderPmtPage();
 }
 function exportPmtCSV(){
-  const h=['Date','Invoice','Client','Method','Txn ID','Amount','Status'];
-  const r=STATE.payments.map(p=>[p.date,p.inv,p.client,p.method,p.txn||'',p.amount,p.status].map(v=>`"${v}"`).join(','));
+  const h=['Date','Source','Invoice','Client','Method','Txn ID','Amount','Status'];
+  const list = PMT.list && PMT.list.length ? PMT.list : buildMergedPaymentsList();
+  const srcLabel = { invoice: 'Invoice', purchase: 'Purchase', sale: 'Sale' };
+  const r=list.map(p=>[p.date,srcLabel[p.source]||'Invoice',p.inv,p.client,p.method,p.txn||'',p.amount,p.status].map(v=>`"${v}"`).join(','));
   downloadFile('payments.csv',[h.join(','),...r].join('\n'),'text/csv');
   toast('✅ Exported!','success');
 }
 function _renderPmtSummary(){
   const el=document.getElementById('pmtSummary'); if(!el) return;
-  const tot=STATE.payments.reduce((s,p)=>s+p.amount,0);
-  const upi=STATE.payments.filter(p=>p.method&&p.method.toLowerCase().includes('upi')).reduce((s,p)=>s+p.amount,0);
-  const neft=STATE.payments.filter(p=>p.method&&(p.method.toLowerCase().includes('neft')||p.method.toLowerCase().includes('bank'))).reduce((s,p)=>s+p.amount,0);
-  const tod=fmt_date(new Date()); const todAmt=STATE.payments.filter(p=>p.date===tod).reduce((s,p)=>s+p.amount,0);
+  const list = PMT.list && PMT.list.length ? PMT.list : STATE.payments;
+  const tot=list.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const upi=list.filter(p=>p.method&&p.method.toLowerCase().includes('upi')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const neft=list.filter(p=>p.method&&(p.method.toLowerCase().includes('neft')||p.method.toLowerCase().includes('bank'))).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const tod=fmt_date(new Date()); const todAmt=list.filter(p=>p.date===tod).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   el.innerHTML=`
-    <div class="stat-card"><div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(tot)}</div><div class="stat-lbl">Total Collected</div><div class="stat-trend neutral">${STATE.payments.length} txns</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(tot)}</div><div class="stat-lbl">Total Collected</div><div class="stat-trend neutral">${list.length} txns</div></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-mobile-alt"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(upi)}</div><div class="stat-lbl">Via UPI</div></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-university"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(neft)}</div><div class="stat-lbl">Via Bank</div></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-calendar-day"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(todAmt)}</div><div class="stat-lbl">Today</div></div></div>`;
 }
+function renderPaymentMethodCell(method, iconClass) {
+  if (method && method.startsWith('Split:')) {
+    const body = method.replace(/^Split:\s*/, '');
+    const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
+      const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
+      return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
+    }).filter(Boolean);
+    if (parts.length) {
+      const colors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100' };
+      return `<div style="display:flex;flex-wrap:wrap;gap:4px">` + parts.map(p => {
+        const c = colors[p.method] || '#455A64';
+        return `<span style="font-size:10px;font-weight:700;color:${c};background:${c}18;padding:2px 7px;border-radius:9px">${escHtml(p.method)}: ${fmt_money(p.amount)}</span>`;
+      }).join('') + `</div>`;
+    }
+  }
+  return `<span style="display:flex;align-items:center;gap:5px"><i class="fas ${iconClass}" style="color:var(--muted2);font-size:11px"></i>${escHtml(method||'—')}</span>`;
+}
+
 function _renderPmtPage(){
   const tbody=document.getElementById('paymentsTbody'); if(!tbody) return;
   const s=(PMT.page-1)*PMT.per, e=s+PMT.per, pg=PMT.list.slice(s,e);
@@ -16319,11 +16499,16 @@ function _renderPmtPage(){
     const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
     const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
+    const srcMap = { invoice: ['Invoice','#1976D2','#E3F2FD'], purchase: ['Purchase','#6A4C93','#F3E8FF'], sale: ['Sale','#00897B','#E8F5E9'] };
+    const [srcLabel, srcColor, srcBg] = srcMap[p.source] || srcMap.invoice;
+    const srcBadge = `<span style="font-size:10px;font-weight:700;color:${srcColor};background:${srcBg};padding:2px 8px;border-radius:10px">${srcLabel}</span>`;
+    const methodCell = renderPaymentMethodCell(p.method, mi);
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : isMulti ? 'border-left:3px solid '+chipColor+';background:'+chipColor+'08' : ''}">
       <td style="font-size:12px">${df}</td>
+      <td>${srcBadge}</td>
       <td>${invChip}</td>
       <td><strong>${p.client}</strong></td>
-      <td><span style="display:flex;align-items:center;gap:5px"><i class="fas ${mi}" style="color:var(--muted2);font-size:11px"></i>${p.method}</span></td>
+      <td>${methodCell}</td>
       <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
       <td><strong style="font-family:var(--mono);color:${isDeleted?'var(--muted)':'var(--green)'}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
       <td><span class="badge ${isDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${isDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${isDeleted ? '🗑️ Invoice Deleted' : p.status}</span></td>
@@ -16332,7 +16517,7 @@ function _renderPmtPage(){
         ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
   const pg2=document.getElementById('pmtPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="pmtPage(${PMT.page-1})" ${PMT.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMT.page?'active':''}" onclick="pmtPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtPage(${PMT.page+1})" ${PMT.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
