@@ -541,6 +541,12 @@ canvas { max-width: 100% !important; }
   width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff;
   font-size: 11px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.pne-head-blue .pne-num   { background: #1976D2; }
+.pne-head-amber .pne-num  { background: #E65100; }
+.pne-head-purple .pne-num { background: #6A4C93; }
+.pne-head-rose .pne-num   { background: #C2185B; }
+.pne-head-green .pne-num  { background: #2E7D32; }
+.pne-head-indigo .pne-num { background: #3949AB; }
 .pne-small-btn { font-size: 12px; padding: 6px 12px; }
 
 .pne-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
@@ -679,6 +685,13 @@ canvas { max-width: 100% !important; }
 .pne-kanta-summary-head span { font-weight: 400; color: var(--muted); font-size: 11px; }
 .pne-kanta-summary-billable { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 8px; }
 .pne-kanta-summary-billable strong { color: var(--teal); font-size: 14px; }
+
+.pne-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .pne-grid3 { grid-template-columns: 1fr; } }
+.pne-signature-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .pne-signature-row { grid-template-columns: repeat(2, 1fr); } }
+.pne-sig-block label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.pne-sig-line { border-bottom: 1.5px dashed var(--border); height: 34px; }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -1529,6 +1542,11 @@ const SERVER = {
     <?php if ($perms['menu.stock'] ?? true): ?>
     <a class="nav-item" data-page="stock" onclick="showPage('stock',this)">
       <i class="fas fa-warehouse"></i><span>Stock Ledger</span>
+    </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.sales'] ?? true): ?>
+    <a class="nav-item" data-page="sales-list" id="nav-sales-item" onclick="showPage('sales-list',this); renderSales();" style="display:none">
+      <i class="fas fa-file-invoice-dollar"></i><span>Sales</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
@@ -2477,7 +2495,7 @@ const SERVER = {
 
           <!-- Weight Information (Kanta / Dharam Kanta) -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
                 <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
@@ -2505,22 +2523,24 @@ const SERVER = {
                 <input type="file" id="pn-kanta-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="pneKantaSlipChange(this.files[0])">
               </div>
             </div>
+          </div>
 
-            <!-- Summary (Auto Calculated) -->
-            <div class="pne-kanta-summary">
-              <div class="pne-kanta-summary-head"><i class="fas fa-calculator"></i> Summary <span>(Auto Calculated)</span></div>
-              <div class="pne-kv"><span>Gross Weight</span><strong id="pnk-sum-gross">0.00 Kg</strong></div>
-              <div class="pne-kv"><span>Tare Weight</span><strong id="pnk-sum-tare">0.00 Kg</strong></div>
-              <div class="pne-kv"><span>Net Weight</span><strong id="pnk-sum-net">0.00 Kg</strong></div>
-              <div class="pne-kv"><span>Dhalta Weight</span><strong id="pnk-sum-dhalta">0.00 Kg</strong></div>
-              <div class="pne-kv pne-kanta-summary-billable"><span>Billable Weight</span><strong id="pnk-sum-billable">0.00 Kg</strong></div>
+          <!-- Quality, Moisture & Dhalta -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality, Moisture &amp; Dhalta</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" min="0" max="100" step="0.01" oninput="calcPNEQualitySummary()"></div>
+              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" oninput="calcPNEQualitySummary()"></div>
+              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" min="0" max="100" step="0.01" oninput="calcPNEQualitySummary()"></div>
+              <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-q-dhaltakg" readonly></div>
+              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
           </div>
 
           <!-- Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
-              <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
+              <span class="pne-head-purple"><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
               <span style="display:flex;gap:8px;align-items:center">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
@@ -2547,7 +2567,7 @@ const SERVER = {
                     <th colspan="3">Weight Details (in Kg)</th>
                     <th colspan="2">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
-                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2"></th>
+                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
                   </tr>
                   <tr>
                     <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
@@ -2569,7 +2589,7 @@ const SERVER = {
           <!-- 3/4/5 row -->
           <div class="pne-row3">
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
+              <div class="pne-card-head pne-head-rose"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
               <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
@@ -2578,7 +2598,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
+              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
@@ -2592,7 +2612,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
+              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
@@ -2614,6 +2634,14 @@ const SERVER = {
 
         <!-- Right sidebar -->
         <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><i class="fas fa-calculator"></i> Weight Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Auto Calculated)</span></div>
+            <div class="pne-kv"><span>Gross Weight</span><strong id="pnk-sum-gross">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Tare Weight</span><strong id="pnk-sum-tare">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Net Weight</span><strong id="pnk-sum-net">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Dhalta Weight</span><strong id="pnk-sum-dhalta">0.00 Kg</strong></div>
+            <div class="pne-kv pne-kanta-summary-billable"><span>Billable Weight</span><strong id="pnk-sum-billable">0.00 Kg</strong></div>
+          </div>
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-user-circle"></i> Supplier Summary</div>
             <div id="pne-supplier-summary" class="pne-summary-empty">Select a supplier to see their purchase history.</div>
@@ -2717,6 +2745,8 @@ const SERVER = {
 
     <!-- ═══════════ NEW PRODUCT ENTRY (full page, business_type='product' only) ═══════════ -->
     <div id="page-product-new" class="page">
+
+
       <div class="pne-topbar">
         <div>
           <div class="pne-title" id="pnp-title">New Product</div>
@@ -2892,6 +2922,269 @@ const SERVER = {
             <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
             <div id="pp-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ NEW SALE ENTRY (full page, business_type='product' only) ═══════════ -->
+    <div id="page-sale-new" class="page">
+      <div class="pne-topbar">
+        <div>
+          <div class="pne-title" id="psn-title">New Sale Entry</div>
+          <div class="pne-subtitle" id="psn-subtitle">Create an export / local sale invoice</div>
+        </div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelSaleEntry()">Cancel</button>
+          <button class="btn btn-outline" onclick="saveSaleEntry('draft')">Save Draft</button>
+          <button class="btn pne-btn-save" onclick="saveSaleEntry('stay')">Save</button>
+          <button class="btn pne-btn-print" onclick="saveSaleEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
+          <button class="btn pne-btn-savenew" onclick="toast('🚚 E-Way Bill generation needs GST-portal integration — coming soon','info')"><i class="fas fa-truck"></i> Generate E-Way Bill</button>
+        </div>
+      </div>
+
+      <div class="pne-layout">
+        <div class="pne-main">
+
+          <!-- 1. Customer Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-user"></i></span> Customer Information</div>
+            <div class="pne-grid4">
+              <div class="field">
+                <label>Customer Name *</label>
+                <div style="display:flex;gap:6px">
+                  <select id="sn-customer" style="flex:1" onchange="onCustomerPicked()"><option value="">Select or add customer…</option></select>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="openAddCustomerModal()"><i class="fas fa-plus"></i></button>
+                </div>
+              </div>
+              <div class="field"><label>Customer Type *</label>
+                <select id="sn-customertype"><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
+              </div>
+              <div class="field"><label>Customer Mobile</label><input id="sn-mobile" readonly></div>
+              <div class="field"><label>GSTIN *</label><input id="sn-gstin" placeholder="—" readonly></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>State *</label><input id="sn-state" readonly></div>
+              <div class="field"><label>District *</label><input id="sn-district" readonly></div>
+              <div class="field"><label>Billing Address *</label><input id="sn-billing" readonly></div>
+              <div class="field"><label>Shipping Address *</label><input id="sn-shipping"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Sales Executive</label><input id="sn-salesexec" placeholder="Optional"></div>
+              <div class="field"><label>Invoice No.</label><input id="sn-invno" placeholder="Auto-generated"></div>
+              <div class="field"><label>Invoice Date *</label><input type="date" id="sn-invdate"></div>
+              <div class="field"><label>Due Date</label><input type="date" id="sn-duedate"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Payment Terms</label>
+                <select id="sn-paymentterms"><option>Immediate</option><option>7 Days</option><option>15 Days</option><option>30 Days</option><option>Advance</option></select>
+              </div>
+              <div class="field"><label>Sales Type</label>
+                <select id="sn-salestype" onchange="onSalesTypeChange()"><option>Local Sales</option><option>Export Sales</option><option>Interstate Sales</option></select>
+              </div>
+              <div class="field"><label>Place of Supply</label><input id="sn-placeofsupply" readonly></div>
+              <div class="field"><label>Currency</label>
+                <select id="sn-currency"><option value="INR">INR</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Product Details -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-purple" style="justify-content:space-between">
+              <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Product Details</span>
+              <span style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-outline pne-small-btn" onclick="addSaleNewItem()"><i class="fas fa-plus"></i> Add Item</button>
+                <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
+                <button class="btn btn-outline pne-small-btn" onclick="toast('📊 Excel import — coming soon','info')"><i class="fas fa-file-excel"></i> Import Excel</button>
+              </span>
+            </div>
+            <div class="table-card pit-card" style="overflow-x:auto">
+              <table class="data-table pne-items-table" id="sn-items-table">
+                <colgroup>
+                  <col style="width:30px"><col style="width:130px"><col style="width:90px">
+                  <col style="width:85px"><col style="width:65px"><col style="width:80px">
+                  <col style="width:90px"><col style="width:100px"><col style="width:75px">
+                  <col style="width:55px"><col style="width:80px"><col style="width:70px">
+                  <col style="width:55px"><col style="width:85px"><col style="width:90px"><col style="width:56px">
+                </colgroup>
+                <thead><tr>
+                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th>
+                  <th>Available Stock (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th><th>Unit</th>
+                  <th>Rate (₹/Kg)</th><th>Discount (%)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
+                </tr></thead>
+                <tbody id="sn-items-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pne-items-footer">
+              <span>Total Items <strong id="sn-total-items">0</strong></span>
+              <span>Total Quantity <strong id="sn-total-qty">0.00 Kg</strong></span>
+            </div>
+          </div>
+
+          <!-- 3/4/5 row -->
+          <div class="pne-row3">
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-rose"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
+              <div class="field"><label>Transport Charges (₹)</label><input type="number" id="sn-transportcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Loading Charges (₹)</label><input type="number" id="sn-loadingcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Packing Charges (₹)</label><input type="number" id="sn-packingcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Insurance (₹)</label><input type="number" id="sn-insurance" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Other Charges (₹)</label><input type="number" id="sn-othercharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Round Off (₹)</label><input type="number" id="sn-roundoff" value="0" step="0.01" oninput="calcSaleNewTotals()"></div>
+              <div class="pne-charge-total"><span>Total Additional Charges</span><strong id="sn-addcharges-total">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
+              <div class="field"><label>Payment Status *</label>
+                <select id="sn-paystatus" onchange="calcSaleNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
+              </div>
+              <div class="field"><label>Payment Method *</label>
+                <select id="sn-paymethod"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option></select>
+              </div>
+              <div class="field"><label>Amount Received (₹)</label><input type="number" id="sn-amountreceived" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate"></div>
+              <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
+              <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
+              <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
+              <div class="pne-summary-row" id="sn-cgst-row"><span>CGST</span><strong id="sn-sum-cgst">₹0.00</strong></div>
+              <div class="pne-summary-row" id="sn-sgst-row"><span>SGST</span><strong id="sn-sum-sgst">₹0.00</strong></div>
+              <div class="pne-summary-row" id="sn-igst-row"><span>IGST</span><strong id="sn-sum-igst">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Total Tax</span><strong id="sn-sum-totaltax">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Additional Charges</span><strong id="sn-sum-addcharges2">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Round Off</span><strong id="sn-sum-roundoff">₹0.00</strong></div>
+              <div class="pne-grand-total"><span>Grand Total (₹)</span><strong id="sn-sum-grand">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Amount Received</span><strong id="sn-sum-received">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Balance Due</span><strong id="sn-sum-balance" style="color:#E53935">₹0.00</strong></div>
+            </div>
+          </div>
+
+          <!-- Attachments -->
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
+            <label class="pp-dropzone" for="sn-attachments-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop files here<br>or click to upload</div>
+            </label>
+            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
+            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+
+          <!-- Notes -->
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
+            <div class="pne-grid3">
+              <div class="field"><label>Customer Notes</label><textarea id="sn-customernotes" style="min-height:70px" placeholder="Visible to customer on the invoice"></textarea></div>
+              <div class="field"><label>Internal Notes</label><textarea id="sn-internalnotes" style="min-height:70px" placeholder="Internal use only"></textarea></div>
+              <div class="field"><label>Delivery Instructions</label><textarea id="sn-deliveryinstructions" style="min-height:70px" placeholder="e.g. Deliver before 5 PM"></textarea></div>
+            </div>
+          </div>
+
+          <!-- Signatures -->
+          <div class="pne-card">
+            <div class="pne-signature-row">
+              <div class="pne-sig-block"><label>Prepared By</label><input id="sn-preparedby" placeholder="Name"></div>
+              <div class="pne-sig-block"><label>Checked By</label><input id="sn-checkedby" placeholder="Name"></div>
+              <div class="pne-sig-block"><label>Approved By</label><input id="sn-approvedby" placeholder="Name"></div>
+              <div class="pne-sig-block"><label>Customer Signature</label><div class="pne-sig-line"></div></div>
+              <div class="pne-sig-block"><label>Authorised Signatory</label><div class="pne-sig-line"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right sidebar -->
+        <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Customer Summary</div>
+            <div id="sn-customer-summary" class="pne-summary-empty">Select a customer to see their sales history.</div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
+            <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
+            <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
+            <div class="pne-kv"><span>Invoice Value</span><strong id="sn-sb-invvalue">₹0.00</strong></div>
+            <div class="pne-kv"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><i class="fas fa-bolt"></i> Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-outline" onclick="showPage('sales-list'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page==='sales-list'))">View Previous Sales</button>
+              <button class="btn btn-outline" onclick="toast('🧾 Payment receipt creation — coming soon','info')">Create Payment Receipt</button>
+              <button class="btn btn-outline" onclick="window.print()">Print Invoice</button>
+              <button class="btn btn-outline" onclick="toast('📤 Sharing via Email/WhatsApp — coming soon','info')">Share Invoice (Email/WhatsApp)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── SALES LIST ─────────── -->
+    <div id="page-sales-list" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search sales…" oninput="filterSales(this.value)" id="saleSearch">
+        <select class="table-filter" onchange="renderSales()" id="saleStatusFilter">
+          <option value="">All Status</option>
+          <option>Pending</option><option>Partial</option><option>Paid</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="saleCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> Add Sale</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="salesTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="saleInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Customer Modal -->
+    <div class="modal-overlay" id="modal-addcustomer">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <span>Add New Customer</span>
+          <button class="modal-close" onclick="closeModal('modal-addcustomer')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Customer Name *</label><input id="cus-name" placeholder="e.g. Patel Exports"></div>
+            <div class="field"><label>Customer Type</label>
+              <select id="cus-type"><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Mobile</label><input id="cus-mobile" placeholder="+91 XXXXX XXXXX"></div>
+            <div class="field"><label>Email</label><input id="cus-email" type="email"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>GSTIN</label><input id="cus-gstin" placeholder="Optional"></div>
+            <div class="field"><label>State</label><input id="cus-state"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>District</label><input id="cus-district"></div>
+            <div class="field"><label>Credit Limit (₹)</label><input id="cus-creditlimit" type="number" value="0" min="0"></div>
+          </div>
+          <div class="field"><label>Billing Address</label><input id="cus-billing"></div>
+          <div class="field"><label>Shipping Address</label><input id="cus-shipping"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Payment Terms</label><input id="cus-paymentterms" placeholder="e.g. 15 Days"></div>
+            <div class="field"><label>Sales Executive</label><input id="cus-salesexec" placeholder="Optional"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-addcustomer')">Cancel</button>
+          <button class="btn btn-primary" id="cus-save-btn" onclick="saveCustomer()"><i class="fas fa-check"></i> Save Customer</button>
         </div>
       </div>
     </div>
@@ -5700,6 +5993,8 @@ const STATE = {
   suppliers: [],
   purchases: [],
   stock: [],
+  customers: [],
+  sales: [],
   payments: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
@@ -11906,6 +12201,7 @@ function applyBusinessTypeLabels(type) {
   const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
   const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
   const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
+  const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
 }
 
 // ══════════════════════════════════════════
@@ -12521,6 +12817,9 @@ function goToNewPurchase() {
   document.getElementById('pn-kanta-slip-input').value = '';
   document.getElementById('pn-kanta-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
   PNE.kantaSlipDataUrl = null;
+  document.getElementById('pn-q-moisture').value = '';
+  document.getElementById('pn-q-impurity').value = '';
+  document.getElementById('pn-q-dhaltapct').value = '';
   calcPNEKantaSummary();
   populatePNESupplierDropdown();
   document.getElementById('pn-supplier').value = '';
@@ -12948,6 +13247,9 @@ async function editPurchase(id) {
     if (p.kanta_slip_path) {
       document.getElementById('pn-kanta-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
     }
+    document.getElementById('pn-q-moisture').value = p.header_moisture_pct ?? '';
+    document.getElementById('pn-q-impurity').value = p.header_impurity_pct ?? '';
+    document.getElementById('pn-q-dhaltapct').value = p.header_dhalta_pct ?? '';
     calcPNEKantaSummary();
     populatePNESupplierDropdown();
     document.getElementById('pn-supplier').value = p.supplier_id;
@@ -13008,6 +13310,19 @@ function calcPNEKantaSummary() {
   document.getElementById('pnk-sum-net').textContent = net.toFixed(2) + ' Kg';
   document.getElementById('pnk-sum-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pnk-sum-billable').textContent = billable.toFixed(2) + ' Kg';
+  calcPNEQualitySummary();
+}
+
+// Quality, Moisture & Dhalta — a header-level quality/dhalta reading for the
+// whole load (independent of the per-item dhalta entered in Items Details),
+// based against the weighbridge's Net Weight.
+function calcPNEQualitySummary() {
+  const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
+  const dhaltaPct = parseFloat(document.getElementById('pn-q-dhaltapct').value) || 0;
+  const dhaltaKg = +(net * dhaltaPct / 100).toFixed(2);
+  const billable = Math.max(0, net - dhaltaKg);
+  document.getElementById('pn-q-dhaltakg').value = dhaltaKg.toFixed(2);
+  document.getElementById('pn-q-billable').value = billable.toFixed(2);
 }
 
 function pneKantaSlipChange(file) {
@@ -13059,6 +13374,11 @@ async function savePurchaseEntry(mode) {
     kanta_tare_weight: parseFloat(document.getElementById('pn-kanta-tare').value) || 0,
     kanta_operator_name: document.getElementById('pn-kanta-operator').value.trim(),
     kanta_slip: PNE.kantaSlipDataUrl || undefined,
+    header_moisture_pct: document.getElementById('pn-q-moisture').value || null,
+    header_impurity_pct: document.getElementById('pn-q-impurity').value || null,
+    header_dhalta_pct: document.getElementById('pn-q-dhaltapct').value || null,
+    header_dhalta_kg: document.getElementById('pn-q-dhaltakg').value || null,
+    header_billable_weight: document.getElementById('pn-q-billable').value || null,
     invoice_bill_no: document.getElementById('pn-invno').value.trim(),
     gst_applicable: gstApplicable,
     gst_pct: parseFloat(document.getElementById('pn-gst-pct').value) || 0,
@@ -13149,6 +13469,503 @@ async function printPurchaseEntry(id) {
       <table><thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Gross</th><th>Tare</th><th>Net</th><th>Dhalta Kg</th><th>Billable</th><th>Rate</th><th>Amount</th></tr></thead>
       <tbody>${rows}</tbody></table>
       <div class="tot">Grand Total: ${fmt_money(p.total)}</div>
+      <script>window.print();<\/script>
+    </body></html>`);
+    win.document.close();
+  } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════
+// SALES MODULE (full page) — new & separate from the original Invoices
+// system, gated behind business_type='product'. Writes stock OUT via
+// api/sales.php, closing the loop with Purchases' stock IN.
+// ══════════════════════════════════════════
+const SN = { editingId: null, items: [], attachments: [] };
+let snItemSeq = 1;
+
+function snEmptyItem() {
+  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '',
+    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
+}
+
+function goToNewSale() {
+  SN.editingId = null;
+  SN.items = [snEmptyItem()];
+  SN.attachments = [];
+  document.getElementById('psn-title').textContent = 'New Sale Entry';
+  document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
+  populateSaleCustomerDropdown();
+  document.getElementById('sn-customer').value = '';
+  clearCustomerAutofill();
+  document.getElementById('sn-customertype').value = 'Domestic';
+  document.getElementById('sn-shipping').value = '';
+  document.getElementById('sn-salesexec').value = '';
+  document.getElementById('sn-invno').value = '';
+  document.getElementById('sn-invdate').value = fmt_date(new Date());
+  document.getElementById('sn-duedate').value = '';
+  document.getElementById('sn-paymentterms').value = 'Immediate';
+  document.getElementById('sn-salestype').value = 'Local Sales';
+  document.getElementById('sn-placeofsupply').value = '';
+  document.getElementById('sn-currency').value = 'INR';
+  document.getElementById('sn-transportcharge').value = 0;
+  document.getElementById('sn-loadingcharge').value = 0;
+  document.getElementById('sn-packingcharge').value = 0;
+  document.getElementById('sn-insurance').value = 0;
+  document.getElementById('sn-othercharge').value = 0;
+  document.getElementById('sn-roundoff').value = 0;
+  document.getElementById('sn-discount').value = 0;
+  document.getElementById('sn-paystatus').value = 'Pending';
+  document.getElementById('sn-paymethod').value = 'Cash';
+  document.getElementById('sn-amountreceived').value = 0;
+  document.getElementById('sn-transactionno').value = '';
+  document.getElementById('sn-paydate').value = fmt_date(new Date());
+  document.getElementById('sn-customernotes').value = '';
+  document.getElementById('sn-internalnotes').value = '';
+  document.getElementById('sn-deliveryinstructions').value = '';
+  document.getElementById('sn-preparedby').value = STATE.user?.name || '';
+  document.getElementById('sn-checkedby').value = '';
+  document.getElementById('sn-approvedby').value = '';
+  document.getElementById('sn-attachments-input').value = '';
+  document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
+  renderSNItemsTable(); renderSNAttachments();
+  showPage('sale-new');
+  document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
+}
+
+function cancelSaleEntry() {
+  showPage('sales-list');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
+  renderSales();
+}
+
+function clearCustomerAutofill() {
+  document.getElementById('sn-mobile').value = '';
+  document.getElementById('sn-gstin').value = '';
+  document.getElementById('sn-state').value = '';
+  document.getElementById('sn-district').value = '';
+  document.getElementById('sn-billing').value = '';
+}
+
+function populateSaleCustomerDropdown() {
+  const sel = document.getElementById('sn-customer');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select or add customer…</option>' +
+    (STATE.customers||[]).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function onSalesTypeChange() {
+  calcSaleNewTotals();
+}
+
+async function onCustomerPicked() {
+  const id = document.getElementById('sn-customer').value;
+  if (!id) { clearCustomerAutofill(); document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>'; return; }
+  const c = STATE.customers.find(x => String(x.id) === String(id));
+  if (c) {
+    document.getElementById('sn-mobile').value = c.mobile || '';
+    document.getElementById('sn-gstin').value = c.gstin || '';
+    document.getElementById('sn-state').value = c.state || '';
+    document.getElementById('sn-district').value = c.district || '';
+    document.getElementById('sn-billing').value = c.billing_address || '';
+    document.getElementById('sn-shipping').value = c.shipping_address || c.billing_address || '';
+    document.getElementById('sn-placeofsupply').value = c.state || '';
+    if (c.customer_type) document.getElementById('sn-customertype').value = c.customer_type;
+    if (c.sales_executive) document.getElementById('sn-salesexec').value = c.sales_executive;
+    if (c.payment_terms) document.getElementById('sn-paymentterms').value = c.payment_terms;
+  }
+  calcSaleNewTotals();
+  try {
+    const r = await api('api/customers.php?summary_for=' + id);
+    const sm = r.data || {};
+    const outColor = (sm.outstanding||0) > 0 ? '#E53935' : 'inherit';
+    document.getElementById('sn-customer-summary').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong>${escHtml(c?.name||'—')}</strong>
+        <span class="badge-verified" style="background:#E8F5E9;color:#2E7D32">Active</span>
+      </div>
+      <div class="pne-kv"><span>Type</span><strong>${escHtml(c?.customer_type||'—')}</strong></div>
+      <div class="pne-kv"><span>Credit Limit</span><strong>${fmt_money(c?.credit_limit||0)}</strong></div>
+      <div class="pne-kv"><span>Outstanding Balance</span><strong style="color:${outColor}">${fmt_money(sm.outstanding||0)}</strong></div>
+      <div class="pne-kv"><span>Last Invoice</span><strong>${escHtml(sm.last_invoice_no||'—')}</strong></div>
+      <div class="pne-kv"><span>Total Sales (YTD)</span><strong>${fmt_money(sm.total_sales_ytd||0)}</strong></div>
+      <div class="pne-kv"><span>Avg. Payment Days</span><strong>${sm.avg_payment_days ?? '—'}</strong></div>`;
+  } catch(e) { /* non-fatal */ }
+}
+
+function openAddCustomerModal() {
+  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms','cus-salesexec']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('cus-type').value = 'Domestic';
+  document.getElementById('cus-creditlimit').value = 0;
+  openModal('modal-addcustomer');
+}
+
+async function saveCustomer() {
+  const name = document.getElementById('cus-name').value.trim();
+  if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
+  const payload = {
+    name, customer_type: document.getElementById('cus-type').value,
+    mobile: document.getElementById('cus-mobile').value.trim(), email: document.getElementById('cus-email').value.trim(),
+    gstin: document.getElementById('cus-gstin').value.trim(), state: document.getElementById('cus-state').value.trim(),
+    district: document.getElementById('cus-district').value.trim(), billing_address: document.getElementById('cus-billing').value.trim(),
+    shipping_address: document.getElementById('cus-shipping').value.trim(),
+    credit_limit: parseFloat(document.getElementById('cus-creditlimit').value) || 0,
+    payment_terms: document.getElementById('cus-paymentterms').value.trim(), sales_executive: document.getElementById('cus-salesexec').value.trim(),
+  };
+  try {
+    const res = await api('api/customers.php', 'POST', payload);
+    const r = await api('api/customers.php');
+    STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
+    closeModal('modal-addcustomer');
+    populateSaleCustomerDropdown();
+    document.getElementById('sn-customer').value = res.id;
+    onCustomerPicked();
+    toast('✅ "' + name + '" added!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function addSaleNewItem() { SN.items.push(snEmptyItem()); renderSNItemsTable(); }
+function removeSNItem(id) {
+  if (SN.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
+  SN.items = SN.items.filter(i => i.id !== id);
+  renderSNItemsTable();
+}
+
+function snAvailableStock(productId) {
+  const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
+  return s ? parseFloat(s.current_stock)||0 : 0;
+}
+
+function snCalcRow(it) {
+  const qty = parseFloat(it.qty) || 0;
+  const rate = parseFloat(it.rate) || 0;
+  const disc = parseFloat(it.discount_pct) || 0;
+  const gst = parseFloat(it.gst_pct) || 0;
+  const lineSubtotal = +(qty * rate * (1 - disc/100)).toFixed(2);
+  const taxAmount = +(lineSubtotal * gst / 100).toFixed(2);
+  const lineTotal = +(lineSubtotal + taxAmount).toFixed(2);
+  return { lineSubtotal, taxAmount, lineTotal };
+}
+
+function renderSNItemsTable() {
+  const tbody = document.getElementById('sn-items-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = SN.items.map((it, idx) => {
+    const c = snCalcRow(it);
+    const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
+    const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
+    return `<tr data-row="${it.id}">
+      <td>${idx+1}</td>
+      <td>
+        <select onchange="onSNProductChange(${it.id}, this.value)">
+          <option value="">Select product…</option>
+          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+      </td>
+      <td>${escHtml(prod?.category || '—')}</td>
+      <td><input value="${escHtml(it.variety_grade)}" oninput="updateSNItem(${it.id},'variety_grade',this.value,true)"></td>
+      <td>${escHtml(prod?.grade || '—')}</td>
+      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
+      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':(avail<(parseFloat(it.qty)||0)?'#E65100':'#00897B')}">${avail.toFixed(2)}</span></td>
+      <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
+      <td><input type="number" value="${it.qty}" min="0" step="0.01" oninput="updateSNItem(${it.id},'qty',this.value)"></td>
+      <td><input value="${escHtml(it.unit)}" oninput="updateSNItem(${it.id},'unit',this.value,true)"></td>
+      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updateSNItem(${it.id},'discount_pct',this.value)"></td>
+      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
+      <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
+      <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
+      <td><button class="item-del" onclick="removeSNItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+    </tr>`;
+  }).join('');
+  calcSaleNewTotals();
+}
+
+function onSNProductChange(id, productId) {
+  const it = SN.items.find(i => i.id === id); if (!it) return;
+  it.product_id = productId || '';
+  if (productId) {
+    const p = STATE.products.find(x => String(x.id) === String(productId));
+    if (p) { it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct; }
+  }
+  renderSNItemsTable();
+}
+
+function updateSNItem(id, field, val, isText) {
+  const it = SN.items.find(i => i.id === id); if (!it) return;
+  it[field] = val;
+  const c = snCalcRow(it);
+  const taxEl = document.getElementById('sn-tax-' + id);     if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
+  const totEl = document.getElementById('sn-total-' + id);   if (totEl) totEl.textContent = fmt_money(c.lineTotal);
+  calcSaleNewTotals();
+}
+
+function calcSaleNewTotals() {
+  let totalQty = 0, subtotal = 0, itemsTax = 0;
+  SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
+
+  document.getElementById('sn-total-items').textContent = SN.items.length;
+  document.getElementById('sn-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
+  document.getElementById('sn-sb-items').textContent = SN.items.length;
+  document.getElementById('sn-sb-qty').textContent = totalQty.toFixed(2) + ' Kg';
+
+  const addCharges = (parseFloat(document.getElementById('sn-transportcharge').value)||0)
+    + (parseFloat(document.getElementById('sn-loadingcharge').value)||0)
+    + (parseFloat(document.getElementById('sn-packingcharge').value)||0)
+    + (parseFloat(document.getElementById('sn-insurance').value)||0)
+    + (parseFloat(document.getElementById('sn-othercharge').value)||0);
+  document.getElementById('sn-addcharges-total').textContent = fmt_money(addCharges);
+  document.getElementById('sn-sum-addcharges2').textContent = fmt_money(addCharges);
+  document.getElementById('sn-sum-subtotal').textContent = fmt_money(subtotal);
+
+  const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
+  const taxable = Math.max(0, subtotal + addCharges - discount);
+  document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
+
+  const totalTax = subtotal > 0 ? +(itemsTax * (taxable / subtotal)).toFixed(2) : 0;
+  const isInterstate = document.getElementById('sn-salestype').value !== 'Local Sales';
+  document.getElementById('sn-cgst-row').style.display = isInterstate ? 'none' : 'flex';
+  document.getElementById('sn-sgst-row').style.display = isInterstate ? 'none' : 'flex';
+  document.getElementById('sn-igst-row').style.display = isInterstate ? 'flex' : 'none';
+  const cgst = isInterstate ? 0 : +(totalTax/2).toFixed(2);
+  const sgst = isInterstate ? 0 : +(totalTax/2).toFixed(2);
+  const igst = isInterstate ? totalTax : 0;
+  document.getElementById('sn-sum-cgst').textContent = fmt_money(cgst);
+  document.getElementById('sn-sum-sgst').textContent = fmt_money(sgst);
+  document.getElementById('sn-sum-igst').textContent = fmt_money(igst);
+  document.getElementById('sn-sum-totaltax').textContent = fmt_money(totalTax);
+
+  const roundOff = parseFloat(document.getElementById('sn-roundoff').value) || 0;
+  document.getElementById('sn-sum-roundoff').textContent = fmt_money(roundOff);
+
+  const grand = +(taxable + totalTax + roundOff).toFixed(2);
+  document.getElementById('sn-sum-grand').textContent = fmt_money(grand);
+
+  const payStatus = document.getElementById('sn-paystatus').value;
+  if (payStatus === 'Paid') document.getElementById('sn-amountreceived').value = grand.toFixed(2);
+  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+  const balance = Math.max(0, grand - received);
+  document.getElementById('sn-sum-received').textContent = fmt_money(received);
+  document.getElementById('sn-sum-balance').textContent = fmt_money(balance);
+  document.getElementById('sn-outstanding-amount').textContent = fmt_money(balance);
+
+  document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
+  document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
+  document.getElementById('sn-sb-netpayable').textContent = fmt_money(grand);
+}
+
+function snFileToDataUrl(file) {
+  return new Promise(resolve => {
+    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+async function snAddAttachments(files) {
+  for (const f of Array.from(files)) { const url = await snFileToDataUrl(f); if (url) SN.attachments.push({ name: f.name, url }); }
+  document.getElementById('sn-attachments-input').value = '';
+  renderSNAttachments();
+}
+function snRemoveAttachment(idx) { SN.attachments.splice(idx, 1); renderSNAttachments(); }
+function renderSNAttachments() {
+  document.getElementById('sn-attachments-list').innerHTML = SN.attachments.map((a, i) => `
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="snRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+}
+
+async function saveSaleEntry(mode) {
+  const customerId = document.getElementById('sn-customer').value;
+  if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
+  if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
+  if (SN.items.some(it => !it.product_id)) { toast('⚠️ Every item needs a product selected', 'warning'); return; }
+
+  const payload = {
+    invoice_no: document.getElementById('sn-invno').value.trim(),
+    customer_id: parseInt(customerId),
+    sale_date: document.getElementById('sn-invdate').value,
+    due_date: document.getElementById('sn-duedate').value || null,
+    sales_executive: document.getElementById('sn-salesexec').value.trim(),
+    payment_terms: document.getElementById('sn-paymentterms').value,
+    sales_type: document.getElementById('sn-salestype').value,
+    place_of_supply: document.getElementById('sn-placeofsupply').value,
+    currency: document.getElementById('sn-currency').value,
+    is_interstate: document.getElementById('sn-salestype').value !== 'Local Sales',
+    transport_charge: parseFloat(document.getElementById('sn-transportcharge').value) || 0,
+    loading_charge: parseFloat(document.getElementById('sn-loadingcharge').value) || 0,
+    packing_charge: parseFloat(document.getElementById('sn-packingcharge').value) || 0,
+    insurance_charge: parseFloat(document.getElementById('sn-insurance').value) || 0,
+    other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
+    round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
+    discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
+    payment_status: document.getElementById('sn-paystatus').value,
+    payment_method: document.getElementById('sn-paymethod').value,
+    amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
+    transaction_no: document.getElementById('sn-transactionno').value.trim(),
+    payment_date: document.getElementById('sn-paydate').value || null,
+    customer_notes: document.getElementById('sn-customernotes').value.trim(),
+    internal_notes: document.getElementById('sn-internalnotes').value.trim(),
+    delivery_instructions: document.getElementById('sn-deliveryinstructions').value.trim(),
+    prepared_by: document.getElementById('sn-preparedby').value.trim(),
+    checked_by: document.getElementById('sn-checkedby').value.trim(),
+    approved_by: document.getElementById('sn-approvedby').value.trim(),
+    status: mode === 'draft' ? 'Draft' : 'Confirmed',
+    attachments: SN.attachments.map(a => a.url),
+    items: SN.items.map(it => ({
+      product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
+      batch_no: it.batch_no, warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
+      rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
+    })),
+  };
+
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
+  try {
+    let savedId = SN.editingId;
+    if (SN.editingId) {
+      await api('api/sales.php?id=' + SN.editingId, 'PUT', payload);
+      toast('✅ Sale updated!', 'success');
+    } else {
+      const res = await api('api/sales.php', 'POST', payload);
+      savedId = res.id;
+      toast('✅ Sale saved!', 'success');
+    }
+    const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
+    STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
+    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+
+    if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
+    else { cancelSaleEntry(); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+async function editSale(id) {
+  try {
+    const r = await api('api/sales.php?id=' + id);
+    const s = r.data;
+    SN.editingId = id;
+    SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
+    SN.items = (s.items||[]).map(it => ({
+      id: snItemSeq++, product_id: it.product_id || '', description: it.description, variety_grade: it.variety_grade || '',
+      batch_no: it.batch_no || '', warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
+    }));
+    document.getElementById('psn-title').textContent = 'Edit Sale Entry';
+    document.getElementById('psn-subtitle').textContent = s.invoice_no;
+    populateSaleCustomerDropdown();
+    document.getElementById('sn-customer').value = s.customer_id;
+    await onCustomerPicked();
+    document.getElementById('sn-shipping').value = s.shipping_address || document.getElementById('sn-shipping').value;
+    document.getElementById('sn-salesexec').value = s.sales_executive || '';
+    document.getElementById('sn-invno').value = s.invoice_no;
+    document.getElementById('sn-invdate').value = s.sale_date;
+    document.getElementById('sn-duedate').value = s.due_date || '';
+    document.getElementById('sn-paymentterms').value = s.payment_terms || 'Immediate';
+    document.getElementById('sn-salestype').value = s.sales_type || 'Local Sales';
+    document.getElementById('sn-placeofsupply').value = s.place_of_supply || '';
+    document.getElementById('sn-currency').value = s.currency || 'INR';
+    document.getElementById('sn-transportcharge').value = s.transport_charge || 0;
+    document.getElementById('sn-loadingcharge').value = s.loading_charge || 0;
+    document.getElementById('sn-packingcharge').value = s.packing_charge || 0;
+    document.getElementById('sn-insurance').value = s.insurance_charge || 0;
+    document.getElementById('sn-othercharge').value = s.other_charges || 0;
+    document.getElementById('sn-roundoff').value = s.round_off || 0;
+    document.getElementById('sn-discount').value = s.discount_amount || 0;
+    document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
+    document.getElementById('sn-paymethod').value = s.payment_method || 'Cash';
+    document.getElementById('sn-amountreceived').value = s.amount_received || 0;
+    document.getElementById('sn-transactionno').value = s.transaction_no || '';
+    document.getElementById('sn-paydate').value = s.payment_date || '';
+    document.getElementById('sn-customernotes').value = s.customer_notes || '';
+    document.getElementById('sn-internalnotes').value = s.internal_notes || '';
+    document.getElementById('sn-deliveryinstructions').value = s.delivery_instructions || '';
+    document.getElementById('sn-preparedby').value = s.prepared_by || '';
+    document.getElementById('sn-checkedby').value = s.checked_by || '';
+    document.getElementById('sn-approvedby').value = s.approved_by || '';
+    renderSNItemsTable(); renderSNAttachments();
+    showPage('sale-new');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteSale(id) {
+  const s = (STATE.sales||[]).find(x => String(x.id) === String(id)); if (!s) return;
+  const conf = await Swal.fire({
+    title: 'Delete this sale?', text: `"${s.invoice_no}" and its stock-out entries will be permanently removed. This cannot be undone.`,
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/sales.php?id=' + id, 'DELETE');
+    STATE.sales = STATE.sales.filter(x => String(x.id) !== String(id));
+    const stk = await api('api/stock.php');
+    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    renderSales();
+    toast('🗑️ Sale deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function filterSales(q) { SALES_SEARCH = q || ''; renderSales(); }
+let SALES_SEARCH = '';
+function renderSales() {
+  const tbody = document.getElementById('salesTbody');
+  if (!tbody) return;
+  const statusF = document.getElementById('saleStatusFilter')?.value || '';
+  let list = STATE.sales || [];
+  if (SALES_SEARCH) {
+    const q = SALES_SEARCH.toLowerCase();
+    list = list.filter(s => (s.invoice_no||'').toLowerCase().includes(q) || (s.customer_name||'').toLowerCase().includes(q));
+  }
+  if (statusF) list = list.filter(s => s.payment_status === statusF);
+  document.getElementById('saleInfo').textContent = list.length + ' sale' + (list.length===1?'':'s');
+  document.getElementById('saleCountInfo').textContent = (STATE.sales||[]).length + ' total';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No sales yet — click "Add Sale" to create one</td></tr>`;
+    return;
+  }
+  const statusColor = { Pending:'#FFA000', Partial:'#E65100', Paid:'#00897B' };
+  tbody.innerHTML = list.map(s => `
+    <tr>
+      <td><strong>${escHtml(s.invoice_no)}</strong></td>
+      <td>${escHtml(s.customer_name||'—')}</td>
+      <td>${fmt_date_disp(s.sale_date)}</td>
+      <td>${s.item_count ?? ''}</td>
+      <td>${fmt_money(s.total)}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${statusColor[s.payment_status]||'#888'};background:${statusColor[s.payment_status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(s.payment_status)}</span></td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="Edit" onclick="editSale(${s.id})"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Delete" onclick="deleteSale(${s.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function printSaleEntry(id) {
+  try {
+    const r = await api('api/sales.php?id=' + id);
+    const s = r.data;
+    const rows = (s.items||[]).map((it,i) => `
+      <tr><td>${i+1}</td><td>${escHtml(it.product_name||it.description||'')}</td>
+        <td style="text-align:right">${parseFloat(it.qty).toFixed(2)}</td><td>${escHtml(it.unit)}</td>
+        <td style="text-align:right">${fmt_money(it.rate)}</td><td style="text-align:right">${fmt_money(it.tax_amount)}</td>
+        <td style="text-align:right">${fmt_money(it.line_total)}</td></tr>`).join('');
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
+      body{font-family:Arial,sans-serif;padding:30px;color:#222} h2{margin-bottom:2px}
+      table{width:100%;border-collapse:collapse;margin-top:14px} th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px}
+      th{background:#f2f2f2;text-align:left} .tot{text-align:right;font-weight:700;margin-top:14px;font-size:15px}
+      .meta{font-size:12px;color:#555;margin-top:4px}
+    </style></head><body>
+      <h2>Sale Invoice — ${escHtml(s.invoice_no)}</h2>
+      <div class="meta">Customer: ${escHtml(s.customer_name)} &nbsp;|&nbsp; Date: ${fmt_date_disp(s.sale_date)}</div>
+      <table><thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Tax</th><th>Line Total</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="tot">Grand Total: ${fmt_money(s.total)}</div>
       <script>window.print();<\/script>
     </body></html>`);
     win.document.close();
@@ -15376,7 +16193,7 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn, sup, pur] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
@@ -15385,6 +16202,8 @@ async function loadAllData() {
       api('api/credit_notes.php').catch(() => ({ data: [] })),
       api('api/suppliers.php').catch(() => ({ data: [] })),
       api('api/purchases.php').catch(() => ({ data: [] })),
+      api('api/customers.php').catch(() => ({ data: [] })),
+      api('api/sales.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
@@ -15393,6 +16212,8 @@ async function loadAllData() {
     STATE.creditNotes = Array.isArray(cn.data)   ? cn.data   : [];
     STATE.suppliers   = Array.isArray(sup.data)  ? sup.data  : [];
     STATE.purchases   = Array.isArray(pur.data)  ? pur.data  : [];
+    STATE.customers   = Array.isArray(cus.data)  ? cus.data  : [];
+    STATE.sales       = Array.isArray(sal.data)  ? sal.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
