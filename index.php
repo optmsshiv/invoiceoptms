@@ -674,6 +674,9 @@ canvas { max-width: 100% !important; }
 
 .ps-tab { padding: 10px 4px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
 .ps-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+@media (max-width: 1200px) { .ps-stats-row { grid-template-columns: repeat(3, 1fr) !important; } }
+@media (max-width: 700px)  { .ps-stats-row { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 1000px) { .ps-bottom-grid { grid-template-columns: 1fr !important; } }
 
 .pne-feature-footer {
   display: flex; flex-wrap: wrap; gap: 22px; padding: 16px 24px; margin: 0 4px;
@@ -2712,7 +2715,7 @@ const SERVER = {
         Stock as on: <span id="ps-asof"></span> <i class="fas fa-rotate" style="cursor:pointer" onclick="renderProductStock()"></i>
       </div>
 
-      <div style="padding:14px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
+      <div class="ps-stats-row" style="padding:14px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
         <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:38px;height:38px"><i class="fas fa-clipboard-list"></i></span>
           <div><span style="display:block;font-size:11px;color:var(--muted)">Total Products</span><strong id="ps-stat-products" style="font-size:18px">0</strong></div>
@@ -2743,8 +2746,13 @@ const SERVER = {
       </div>
 
       <div style="padding:14px 24px 0">
-        <div class="table-card">
-          <table class="data-table">
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:1400px">
+            <colgroup>
+              <col style="width:36px"><col style="width:160px"><col style="width:110px"><col style="width:130px"><col style="width:120px">
+              <col style="width:130px"><col style="width:120px"><col style="width:110px"><col style="width:120px">
+              <col style="width:110px"><col style="width:120px"><col style="width:120px"><col style="width:70px">
+            </colgroup>
             <thead><tr>
               <th>#</th><th>Product</th><th>Variety / Grade</th><th>Warehouse</th><th id="ps-batch-col">Batch / Lot No.</th>
               <th>Available Stock (Kg)</th><th>Reserved Stock (Kg)</th><th>In Transit (Kg)</th><th>Total Stock (Kg)</th>
@@ -2759,13 +2767,15 @@ const SERVER = {
         </div>
       </div>
 
-      <div style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
+      <div class="ps-bottom-grid" style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
         <div class="pne-card">
           <div class="pne-card-head">Stock Movement Summary (Last 7 Days)</div>
-          <table class="data-table" style="font-size:12.5px">
-            <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
-            <tbody id="ps-movement-tbody"></tbody>
-          </table>
+          <div style="overflow-x:auto">
+            <table class="data-table" style="font-size:12.5px;min-width:640px">
+              <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+              <tbody id="ps-movement-tbody"></tbody>
+            </table>
+          </div>
         </div>
         <div class="pne-card">
           <div class="pne-card-head">Stock Trend (Last 7 Days)</div>
