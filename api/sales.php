@@ -22,11 +22,11 @@ function currentStock($db, $productId) {
 // Write one stock-ledger OUT row — the sell-side counterpart to Purchases'
 // writeStockIn(), finally closing the loop: stock now moves in from
 // Purchases and out from Sales, so "current stock" is trustworthy end to end.
-function writeStockOut($db, $productId, $saleId, $qty, $rate, $date, $note) {
+function writeStockOut($db, $productId, $saleId, $qty, $rate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
   $bal = currentStock($db, $productId) - $qty;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes) VALUES (?,"sale",?,"out",?,?,?,?,?)');
-  $stmt->execute([$productId, $saleId, $qty, $rate, $bal, $date, $note]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"sale",?,"out",?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $saleId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function clearStockForSale($db, $saleId) {
@@ -161,7 +161,7 @@ switch ($method) {
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);
       if ($productId) {
-        writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo);
+        writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo, $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
       }
     }
 
@@ -240,7 +240,7 @@ switch ($method) {
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);
       if ($productId) {
-        writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)');
+        writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)', $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
       }
     }
 

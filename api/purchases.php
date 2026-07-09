@@ -26,11 +26,11 @@ function currentStock($db, $productId) {
 // not goods that vanished from the warehouse. Rate is the effective cost
 // per physical kg (item amount ÷ net weight), so dhalta's cost impact is
 // correctly amortized into the stock's cost basis.
-function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note) {
+function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note, $warehouse = 'Main Warehouse') {
   if ($netWeight <= 0) return;
   $bal = currentStock($db, $productId) + $netWeight;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes) VALUES (?,"purchase",?,"in",?,?,?,?,?)');
-  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,"")');
+  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse]);
 }
 
 function clearStockForPurchase($db, $purchaseId) {
@@ -134,8 +134,9 @@ switch ($method) {
        transport_charge, loading_charge, packing_charge, other_charges, discount_amount,
        attachment_path, payment_mode, transaction_no, payment_date,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
-       kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?)');
+       kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
+       header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight)
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -148,6 +149,8 @@ switch ($method) {
       $attachmentPath, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '', $kantaSlipPath,
+      $d['header_moisture_pct'] ?? null, $d['header_impurity_pct'] ?? null, $d['header_dhalta_pct'] ?? null,
+      $d['header_dhalta_kg'] ?? null, $d['header_billable_weight'] ?? null,
     ]);
     $purchaseId = (int)$db->lastInsertId();
 
@@ -165,7 +168,7 @@ switch ($method) {
         $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'],
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $purchaseId, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . $purchaseNo);
+        writeStockIn($db, $productId, $purchaseId, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . $purchaseNo, $d['warehouse'] ?? 'Main Warehouse');
       }
     }
 
@@ -209,7 +212,8 @@ switch ($method) {
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?,
       payment_mode=?, transaction_no=?, payment_date=?,
       weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?,
-      kanta_gross_weight=?, kanta_tare_weight=?, kanta_operator_name=?'
+      kanta_gross_weight=?, kanta_tare_weight=?, kanta_operator_name=?,
+      header_moisture_pct=?, header_impurity_pct=?, header_dhalta_pct=?, header_dhalta_kg=?, header_billable_weight=?'
       . ($newAttachment ? ', attachment_path=?' : '') . ($newKantaSlip ? ', kanta_slip_path=?' : '') . '
       WHERE id=?';
     $params = [
@@ -224,6 +228,8 @@ switch ($method) {
       $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '',
+      $d['header_moisture_pct'] ?? null, $d['header_impurity_pct'] ?? null, $d['header_dhalta_pct'] ?? null,
+      $d['header_dhalta_kg'] ?? null, $d['header_billable_weight'] ?? null,
     ];
     if ($newAttachment) $params[] = $newAttachment;
     if ($newKantaSlip) $params[] = $newKantaSlip;
@@ -248,7 +254,7 @@ switch ($method) {
         $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'],
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $id, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)');
+        writeStockIn($db, $productId, $id, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', $d['warehouse'] ?? 'Main Warehouse');
       }
     }
 

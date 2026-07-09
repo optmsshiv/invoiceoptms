@@ -16,11 +16,11 @@ function currentStock($db, $productId) {
   $stmt->execute([$productId]);
   return (float)$stmt->fetch()['bal'];
 }
-function writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $date, $note) {
+function writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
   $bal = currentStock($db, $productId) + $qty;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes) VALUES (?,"stock_in",?,"in",?,?,?,?,?)');
-  $stmt->execute([$productId, $stockInId, $qty, $rate, $bal, $date, $note]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"stock_in",?,"in",?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $stockInId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo]);
 }
 function clearStockForEntry($db, $stockInId) {
   $db->prepare('DELETE FROM stock_ledger WHERE ref_type = "stock_in" AND ref_id = ?')->execute([$stockInId]);
@@ -106,7 +106,7 @@ switch ($method) {
       $rate = (float)($it['rate'] ?? 0);
       $amount = round($qty * $rate, 2);
       $itemStmt->execute([$stockInId, $productId, $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['mfg_date'] ?: null, $it['expiry_date'] ?: null, $qty, $rate, $amount]);
-      writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $d['reference_date'], 'Stock In ' . $refNo);
+      writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $d['reference_date'], 'Stock In ' . $refNo, $d['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
     }
 
     logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'stock_in', $stockInId, 'Stock In: ' . $refNo);

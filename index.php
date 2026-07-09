@@ -672,6 +672,9 @@ canvas { max-width: 100% !important; }
 }
 .pne-split-chip strong { color: #4A2C7A; }
 
+.ps-tab { padding: 10px 4px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.ps-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
 .pne-feature-footer {
   display: flex; flex-wrap: wrap; gap: 22px; padding: 16px 24px; margin: 0 4px;
   border-top: 1px solid var(--border); background: var(--card);
@@ -2693,20 +2696,84 @@ const SERVER = {
 
     <!-- ─────────── STOCK LEDGER ─────────── -->
     <div id="page-stock" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
+      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock</span></div>
+      <div class="page-toolbar" style="padding:14px 24px 0;align-items:flex-end">
+        <div class="field" style="min-width:160px"><label>Product</label><select id="ps-f-product" class="table-filter" onchange="renderProductStock()"><option value="">All Products</option></select></div>
+        <div class="field" style="min-width:160px"><label>Warehouse</label><select id="ps-f-warehouse" class="table-filter" onchange="renderProductStock()"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+        <div class="field" style="min-width:160px"><label>Batch / Lot No.</label><input class="table-search" id="ps-f-batch" placeholder="Enter batch / lot no." oninput="renderProductStock()"></div>
+        <div class="field"><label>Date</label><input type="date" class="table-search" id="ps-f-date"></div>
         <div style="flex:1"></div>
-        <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" onclick="goToNewStockAdjustment()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
+        <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
+        <button class="btn btn-outline" onclick="exportProductStockCsv()"><i class="fas fa-download"></i> Export</button>
         <button class="btn btn-primary" onclick="goToNewStockIn()"><i class="fas fa-plus"></i> Add Stock</button>
       </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Last Movement</th><th>Actions</th></tr></thead>
-          <tbody id="stockTbody"></tbody>
-        </table>
-        <div class="table-footer"><div class="tf-info" id="stockInfo"></div></div>
+      <div style="padding:6px 24px 0;text-align:right;font-size:11.5px;color:var(--muted)">
+        Stock as on: <span id="ps-asof"></span> <i class="fas fa-rotate" style="cursor:pointer" onclick="renderProductStock()"></i>
       </div>
+
+      <div style="padding:14px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:38px;height:38px"><i class="fas fa-clipboard-list"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Products</span><strong id="ps-stat-products" style="font-size:18px">0</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:38px;height:38px"><i class="fas fa-cubes"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Stock (Kg)</span><strong id="ps-stat-stock" style="font-size:18px">0.00</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:38px;height:38px"><i class="fas fa-sack-dollar"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Value (₹)</span><strong id="ps-stat-value" style="font-size:18px">₹0.00</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:38px;height:38px"><i class="fas fa-clipboard-check"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">In Stock</span><strong id="ps-stat-instock" style="font-size:18px">0</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:38px;height:38px"><i class="fas fa-triangle-exclamation"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Low Stock Items</span><strong id="ps-stat-lowstock" style="font-size:18px">0</strong></div>
+        </div>
+      </div>
+
+      <div style="padding:18px 24px 0">
+        <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
+          <span class="ps-tab active" id="ps-tab-summary" onclick="switchProductStockTab('summary')">Stock Summary</span>
+          <span class="ps-tab" id="ps-tab-batch" onclick="switchProductStockTab('batch')">Batch Wise Stock</span>
+        </div>
+      </div>
+
+      <div style="padding:14px 24px 0">
+        <div class="table-card">
+          <table class="data-table">
+            <thead><tr>
+              <th>#</th><th>Product</th><th>Variety / Grade</th><th>Warehouse</th><th id="ps-batch-col">Batch / Lot No.</th>
+              <th>Available Stock (Kg)</th><th>Reserved Stock (Kg)</th><th>In Transit (Kg)</th><th>Total Stock (Kg)</th>
+              <th>Avg. Cost (₹/Kg)</th><th>Stock Value (₹)</th><th>Last Inward Date</th><th>Action</th>
+            </tr></thead>
+            <tbody id="ps-tbody"></tbody>
+          </table>
+          <div class="table-footer">
+            <div class="tf-info" id="ps-info"></div>
+            <div class="pagination" id="ps-pagination"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
+        <div class="pne-card">
+          <div class="pne-card-head">Stock Movement Summary (Last 7 Days)</div>
+          <table class="data-table" style="font-size:12.5px">
+            <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+            <tbody id="ps-movement-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Stock Trend (Last 7 Days)</div>
+          <canvas id="ps-trend-chart" height="220"></canvas>
+        </div>
+      </div>
+
+      <div style="padding:14px 24px 30px;font-size:11px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Stock values are calculated based on average cost method.</div>
     </div>
 
     <!-- Stock Adjustment Modal -->
@@ -15105,44 +15172,158 @@ async function deletePurchase(id) {
 // ══════════════════════════════════════════
 // STOCK LEDGER  (read-only stock-on-hand view + manual adjustments)
 // ══════════════════════════════════════════
-let stockSearchTerm = '';
+// ══════════════════════════════════════════
+// PRODUCT STOCK (dashboard) — batch/warehouse-level stock report
+// ══════════════════════════════════════════
+const PS = { tab: 'summary', page: 1, pageSize: 10, rows: [] };
+let psTrendChart = null;
 
-function filterStock(q) { stockSearchTerm = (q||'').toLowerCase(); renderStockTable(); }
+// Kept for backward compatibility — every Purchase/Sale/Stock In/Adjustment
+// save calls renderStock() to refresh; it now just drives the new dashboard.
+async function renderStock() { await renderProductStock(); }
 
-async function renderStock() {
-  try {
-    const r = await api('api/stock.php');
-    STATE.stock = Array.isArray(r.data) ? r.data : [];
-    renderStockTable();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+function populatePSProductFilter() {
+  const sel = document.getElementById('ps-f-product');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Products</option>' + STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
-function renderStockTable() {
-  const tbody = document.getElementById('stockTbody');
+function switchProductStockTab(tab) {
+  PS.tab = tab; PS.page = 1;
+  document.getElementById('ps-tab-summary').classList.toggle('active', tab === 'summary');
+  document.getElementById('ps-tab-batch').classList.toggle('active', tab === 'batch');
+  document.getElementById('ps-batch-col').style.display = tab === 'batch' ? '' : 'none';
+  renderPSTable();
+}
+
+async function renderProductStock() {
+  populatePSProductFilter();
+  document.getElementById('ps-asof').textContent = new Date().toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  try {
+    const params = new URLSearchParams();
+    const pid = document.getElementById('ps-f-product')?.value; if (pid) params.set('product_id', pid);
+    const wh  = document.getElementById('ps-f-warehouse')?.value; if (wh) params.set('warehouse', wh);
+    const batch = document.getElementById('ps-f-batch')?.value; if (batch) params.set('batch_no', batch);
+    const r = await api('api/product_stock.php?' + params.toString());
+    PS.rows = Array.isArray(r.data) ? r.data : [];
+    STATE.stock = PS.rows; // keep legacy consumers (Sale Entry's Available Stock lookup) working
+    const s = r.stats || {};
+    document.getElementById('ps-stat-products').textContent = s.total_products || 0;
+    document.getElementById('ps-stat-stock').textContent = (s.total_stock||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('ps-stat-value').textContent = fmt_money(s.total_value||0);
+    document.getElementById('ps-stat-instock').textContent = s.in_stock || 0;
+    document.getElementById('ps-stat-lowstock').textContent = s.low_stock || 0;
+    PS.page = 1;
+    renderPSTable();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  renderPSMovementAndTrend();
+}
+
+function psGroupedForSummaryTab() {
+  // Stock Summary tab: same data, collapsed across batches (summed per product+warehouse)
+  const map = {};
+  PS.rows.forEach(r => {
+    const key = r.product_id + '|' + r.warehouse;
+    if (!map[key]) map[key] = { ...r, batch_no: '—', available_stock: 0, reserved_stock: 0, in_transit: 0, total_stock: 0, stock_value: 0, _costSum: 0, _qtySum: 0 };
+    const g = map[key];
+    g.available_stock += parseFloat(r.available_stock)||0;
+    g.reserved_stock  += parseFloat(r.reserved_stock)||0;
+    g.in_transit      += parseFloat(r.in_transit)||0;
+    g.total_stock     += parseFloat(r.total_stock)||0;
+    g.stock_value     += parseFloat(r.stock_value)||0;
+    if (r.last_inward_date && (!g.last_inward_date || r.last_inward_date > g.last_inward_date)) g.last_inward_date = r.last_inward_date;
+  });
+  return Object.values(map).map(g => ({ ...g, avg_cost: g.available_stock > 0 ? g.stock_value / g.available_stock : 0 }));
+}
+
+function renderPSTable() {
+  const tbody = document.getElementById('ps-tbody');
   if (!tbody) return;
-  let list = STATE.stock || [];
-  if (stockSearchTerm) list = list.filter(s => (s.name||'').toLowerCase().includes(stockSearchTerm) || (s.category||'').toLowerCase().includes(stockSearchTerm));
-  document.getElementById('stockInfo').textContent = list.length + ' product' + (list.length===1?'':'s') + ' with stock movement';
-  document.getElementById('stockCountInfo').textContent = (STATE.stock||[]).length + ' tracked';
+  const list = PS.tab === 'summary' ? psGroupedForSummaryTab() : PS.rows;
+  const totalPages = Math.max(1, Math.ceil(list.length / PS.pageSize));
+  PS.page = Math.min(PS.page, totalPages);
+  const pageRows = list.slice((PS.page-1)*PS.pageSize, PS.page*PS.pageSize);
+
+  document.getElementById('ps-info').textContent = `Showing ${list.length?((PS.page-1)*PS.pageSize+1):0} to ${Math.min(PS.page*PS.pageSize,list.length)} of ${list.length} entries`;
+
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase or add a manual adjustment</td></tr>`;
-    return;
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase, Stock In, or manual adjustment</td></tr>`;
+  } else {
+    tbody.innerHTML = pageRows.map((r, i) => {
+      const avail = parseFloat(r.available_stock)||0;
+      const color = avail <= 0 ? '#E53935' : ((r.reorder_level && avail < parseFloat(r.reorder_level)) ? '#E65100' : '#00897B');
+      return `<tr>
+        <td>${(PS.page-1)*PS.pageSize+i+1}</td>
+        <td style="text-align:left"><strong>${escHtml(r.name)}</strong></td>
+        <td>${escHtml(r.variety||'—')}</td>
+        <td>${escHtml(r.warehouse||'Main Warehouse')}</td>
+        <td id="ps-batch-col-${i}" style="${PS.tab==='summary'?'display:none':''}">${escHtml(r.batch_no||'—')}</td>
+        <td><strong style="color:${color}">${avail.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></td>
+        <td>${(parseFloat(r.reserved_stock)||0).toFixed(2)}</td>
+        <td>${(parseFloat(r.in_transit)||0).toFixed(2)}</td>
+        <td>${(parseFloat(r.total_stock)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        <td>${fmt_money(r.avg_cost||0)}</td>
+        <td>${fmt_money(r.stock_value||0)}</td>
+        <td>${r.last_inward_date ? fmt_date_disp(r.last_inward_date) : '—'}</td>
+        <td><button class="act-btn" title="View History" onclick="viewStockHistory(${r.product_id}, '${escHtml(r.name).replace(/'/g,"\\'")}')"><i class="fas fa-eye"></i></button></td>
+      </tr>`;
+    }).join('');
+    // batch column visibility per-cell (th toggled globally already; keep cells consistent)
+    document.querySelectorAll('#ps-tbody td[id^="ps-batch-col-"]').forEach(td => td.style.display = PS.tab === 'summary' ? 'none' : '');
   }
-  tbody.innerHTML = list.map(s => {
-    const stockNum = parseFloat(s.current_stock)||0;
-    const color = stockNum <= 0 ? '#E53935' : (stockNum < 10 ? '#E65100' : '#00897B');
-    return `<tr>
-      <td><strong>${escHtml(s.name)}</strong></td>
-      <td>${escHtml(s.category||'—')}</td>
-      <td><strong style="color:${color}">${stockNum.toLocaleString('en-IN')}</strong></td>
-      <td>${fmt_date_disp(s.last_movement)}</td>
-      <td>
-        <div class="action-cell">
-          <button class="act-btn" title="View History" onclick="viewStockHistory(${s.product_id}, '${escHtml(s.name).replace(/'/g,"\\'")}')"><i class="fas fa-history"></i></button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+
+  document.getElementById('ps-pagination').innerHTML = Array.from({length: totalPages}, (_, i) => i+1).map(p => `
+    <button class="pg-btn ${p===PS.page?'active':''}" onclick="PS.page=${p};renderPSTable()">${p}</button>`).join('');
+}
+
+async function renderPSMovementAndTrend() {
+  try {
+    const r = await api('api/product_stock.php?movement_summary=1');
+    const rows = Array.isArray(r.data) ? r.data : [];
+    document.getElementById('ps-movement-tbody').innerHTML = rows.map(m => `
+      <tr>
+        <td>${fmt_date_disp(m.date)}</td>
+        <td>${m.opening_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        <td style="color:#00897B">${m.stock_in.toFixed(2)}</td>
+        <td style="color:#E53935">${m.stock_out.toFixed(2)}</td>
+        <td>${m.adjustment > 0 ? '-'+m.adjustment.toFixed(2) : '-'}</td>
+        <td><strong>${m.closing_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></td>
+      </tr>`).join('');
+
+    const ctx = document.getElementById('ps-trend-chart');
+    if (ctx && window.Chart) {
+      if (psTrendChart) psTrendChart.destroy();
+      psTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: rows.map(m => fmt_date_disp(m.date).slice(0,5)),
+          datasets: [{
+            label: 'Closing Stock (Kg)', data: rows.map(m => m.closing_stock),
+            borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.12)', fill: true, tension: .35, pointBackgroundColor: '#00897B',
+          }],
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { ticks: { callback: v => v.toLocaleString('en-IN') } } },
+        },
+      });
+    }
+  } catch(e) { /* non-fatal */ }
+}
+
+function exportProductStockCsv() {
+  const list = PS.tab === 'summary' ? psGroupedForSummaryTab() : PS.rows;
+  if (!list.length) { toast('⚠️ Nothing to export', 'warning'); return; }
+  const headers = ['Product','Variety/Grade','Warehouse','Batch/Lot No.','Available Stock (Kg)','Reserved (Kg)','In Transit (Kg)','Total Stock (Kg)','Avg Cost (₹/Kg)','Stock Value (₹)','Last Inward Date'];
+  const csvRows = list.map(r => [r.name, r.variety||'', r.warehouse||'', r.batch_no||'', r.available_stock, r.reserved_stock, r.in_transit, r.total_stock, r.avg_cost, r.stock_value, r.last_inward_date||''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...csvRows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'product-stock-' + fmt_date(new Date()) + '.csv';
+  a.click();
 }
 
 function populateStockProductDropdown() {

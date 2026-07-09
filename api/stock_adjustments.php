@@ -18,11 +18,11 @@ function currentStock($db, $productId) {
   return (float)$stmt->fetch()['bal'];
 }
 
-function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $note) {
+function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
   $bal = currentStock($db, $productId) - $qty;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes) VALUES (?,"adjustment",?,"out",?,0,?,?,?)');
-  $stmt->execute([$productId, $adjustmentId, $qty, $bal, $date, $note]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"adjustment",?,"out",?,0,?,?,?,?,?)');
+  $stmt->execute([$productId, $adjustmentId, $qty, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function saveAttachment($dataUrl) {
@@ -97,7 +97,7 @@ switch ($method) {
     ]);
     $adjId = (int)$db->lastInsertId();
 
-    writeAdjustmentLedger($db, $productId, $adjId, $weightLoss, $d['adjustment_date'], ($d['adjustment_type'] ?? 'Adjustment') . ' — ' . $adjustmentNo);
+    writeAdjustmentLedger($db, $productId, $adjId, $weightLoss, $d['adjustment_date'], ($d['adjustment_type'] ?? 'Adjustment') . ' — ' . $adjustmentNo, $d['warehouse'] ?? 'Main Warehouse', $d['batch_no'] ?? '');
 
     logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'stock_adjustment', $adjId, 'Stock adjustment: ' . $adjustmentNo);
     jsonResponse(['success' => true, 'id' => $adjId, 'adjustment_no' => $adjustmentNo, 'final_stock' => $finalStock]);
