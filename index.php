@@ -13145,9 +13145,8 @@ function togglePNESplitPayment() {
 
 // Called from Amount Paid's oninput, and from every editable row's oninput.
 function syncPNESplitAutoRow() {
-  updatePNESplitMismatch();
   const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
-  if (document.getElementById('pn-paymode').value !== 'Split Payment' || rows.length < 2) return;
+  if (document.getElementById('pn-paymode').value !== 'Split Payment' || rows.length < 2) { updatePNESplitMismatch(); return; }
   const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
   let othersSum = 0;
   for (let i = 1; i < rows.length; i++) {
@@ -13159,6 +13158,7 @@ function syncPNESplitAutoRow() {
   // If the manually-entered rows exceed Amount Paid, flag it visually right on the auto row
   rows[0].classList.toggle('pne-split-over', remainder < -0.005);
   renderPNESplitFooter();
+  updatePNESplitMismatch(); // read AFTER the auto row is updated, so this reflects reality not a stale value
 }
 
 // Reconstructs real, editable rows from a saved "Split: Cash: ₹X + UPI: ₹Y"
