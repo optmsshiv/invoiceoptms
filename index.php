@@ -538,8 +538,8 @@ canvas { max-width: 100% !important; }
   color: var(--text); margin-bottom: 16px;
 }
 .pne-num {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--teal); color: #fff;
-  font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff;
+  font-size: 11px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .pne-small-btn { font-size: 12px; padding: 6px 12px; }
 
@@ -639,6 +639,17 @@ canvas { max-width: 100% !important; }
 .pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
 .pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
 
+.pne-split-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.pne-split-row:last-child { margin-bottom: 0; }
+.pne-split-method { flex: 1; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
+.pne-split-amt { width: 110px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
+.pne-split-row-auto .pne-split-amt { background: #E8F5E9; color: #00897B; font-weight: 700; cursor: not-allowed; }
+.pne-split-row.pne-split-over .pne-split-amt { background: #FFEBEE; color: #C62828; }
+.pne-split-auto-tag {
+  font-size: 10px; font-weight: 700; color: #00897B; background: #E8F5E9; border-radius: 6px;
+  padding: 6px 10px; white-space: nowrap;
+}
+.pne-split-row button { padding: 6px 10px; background: #FFEBEE; color: #C62828; border: none; border-radius: 7px; cursor: pointer; font-size: 12px; }
 .pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 .pne-split-footer-total {
   font-size: 13px; font-weight: 700; color: var(--teal); background: rgba(0,137,123,.08);
@@ -662,6 +673,12 @@ canvas { max-width: 100% !important; }
 }
 .pne-feature-item strong { display: block; font-size: 12px; color: var(--text); }
 .pne-feature-item span { display: block; font-size: 10.5px; color: var(--muted); }
+
+.pne-kanta-summary { margin-top: 14px; background: var(--bg); border-radius: 10px; padding: 14px 16px; }
+.pne-kanta-summary-head { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--teal); margin-bottom: 8px; }
+.pne-kanta-summary-head span { font-weight: 400; color: var(--muted); font-size: 11px; }
+.pne-kanta-summary-billable { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 8px; }
+.pne-kanta-summary-billable strong { color: var(--teal); font-size: 14px; }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -2398,7 +2415,7 @@ const SERVER = {
 
           <!-- 1. Purchase Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">1</span> Purchase Information</div>
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-file-invoice"></i></span> Purchase Information</div>
             <div class="pne-grid4">
               <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
@@ -2458,10 +2475,52 @@ const SERVER = {
             </div>
           </div>
 
-          <!-- 2. Items Details -->
+          <!-- Weight Information (Kanta / Dharam Kanta) -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Weighing Type *</label>
+                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+              </div>
+              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
+              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
+              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-weightdatetime"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="pn-kanta-gross" min="0" step="0.01" oninput="calcPNEKantaSummary()"></div>
+              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="pn-kanta-tare" min="0" step="0.01" oninput="calcPNEKantaSummary()"></div>
+              <div class="field"><label>Net Weight (Kg)</label><input id="pn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
+              <div class="field"><label>Operator Name</label><input id="pn-kanta-operator" placeholder="Optional"></div>
+            </div>
+            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
+              <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
+            </div>
+            <div class="pne-grid4" style="margin-top:12px">
+              <div class="field" style="grid-column:span 2">
+                <label>Upload Weight Slip</label>
+                <label class="pp-dropzone" for="pn-kanta-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="pn-kanta-slip-label">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
+                </label>
+                <input type="file" id="pn-kanta-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="pneKantaSlipChange(this.files[0])">
+              </div>
+            </div>
+
+            <!-- Summary (Auto Calculated) -->
+            <div class="pne-kanta-summary">
+              <div class="pne-kanta-summary-head"><i class="fas fa-calculator"></i> Summary <span>(Auto Calculated)</span></div>
+              <div class="pne-kv"><span>Gross Weight</span><strong id="pnk-sum-gross">0.00 Kg</strong></div>
+              <div class="pne-kv"><span>Tare Weight</span><strong id="pnk-sum-tare">0.00 Kg</strong></div>
+              <div class="pne-kv"><span>Net Weight</span><strong id="pnk-sum-net">0.00 Kg</strong></div>
+              <div class="pne-kv"><span>Dhalta Weight</span><strong id="pnk-sum-dhalta">0.00 Kg</strong></div>
+              <div class="pne-kv pne-kanta-summary-billable"><span>Billable Weight</span><strong id="pnk-sum-billable">0.00 Kg</strong></div>
+            </div>
+          </div>
+
+          <!-- Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
-              <span><span class="pne-num">2</span> Items Details</span>
+              <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
               <span style="display:flex;gap:8px;align-items:center">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
@@ -2510,7 +2569,7 @@ const SERVER = {
           <!-- 3/4/5 row -->
           <div class="pne-row3">
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">3</span> Additional Charges</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
               <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
@@ -2519,7 +2578,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">4</span> Tax &amp; Amount Summary</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
@@ -2533,17 +2592,17 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">5</span> Payment Information</div>
+              <div class="pne-card-head"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
-              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="onPNEAmountPaidChange()"></div>
+              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="syncPNESplitAutoRow()"></div>
               <div class="field"><label>Payment Mode</label>
                 <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
               <div id="pne-split-panel" style="display:none;background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px">
                 <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                <button type="button" class="btn btn-outline pne-small-btn" style="margin-top:8px" onclick="addPNESplitRow()"><i class="fas fa-plus"></i> Add Split</button>
+                <button type="button" class="btn btn-outline pne-small-btn" style="margin-top:8px" onclick="addPNESplitRow(false); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Split</button>
                 <div id="pne-split-footer" class="pne-split-footer"></div>
                 <div id="pne-split-mismatch" style="display:none;font-size:11px;color:#E65100;margin-top:4px"></div>
               </div>
@@ -12451,6 +12510,18 @@ function goToNewPurchase() {
   document.getElementById('pn-date').value = fmt_date(new Date());
   document.getElementById('pn-suppliertype').value = 'Farmer';
   document.getElementById('pn-refpo').value = '';
+  document.getElementById('pn-weighingtype').value = 'Dharam Kanta';
+  document.getElementById('pn-kantaname').value = '';
+  document.getElementById('pn-slipno').value = '';
+  document.getElementById('pn-weightdatetime').value = '';
+  document.getElementById('pn-kanta-gross').value = '';
+  document.getElementById('pn-kanta-tare').value = '';
+  document.getElementById('pn-kanta-net').value = '';
+  document.getElementById('pn-kanta-operator').value = '';
+  document.getElementById('pn-kanta-slip-input').value = '';
+  document.getElementById('pn-kanta-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
+  PNE.kantaSlipDataUrl = null;
+  calcPNEKantaSummary();
   populatePNESupplierDropdown();
   document.getElementById('pn-supplier').value = '';
   clearSupplierAutofill();
@@ -12705,6 +12776,7 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-discount').textContent = fmt_money(totalDiscount);
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
+  calcPNEKantaSummary();
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
     + (parseFloat(document.getElementById('pn-loadingcharge').value)||0)
@@ -12736,82 +12808,80 @@ function calcPurchaseNewTotals() {
 // ── Split Payment (Payment Information) ──────────────────────────
 // Mirrors the existing invoice Record-Payment split pattern, scoped with a
 // "pne" prefix so it doesn't collide with that modal's own split UI.
+// ── Split Payment (Payment Information) ──────────────────────────
+// Mirrors the existing invoice Record-Payment split pattern, scoped with a
+// "pne" prefix so it doesn't collide with that modal's own split UI.
+//
+// Design: row 0 is always the AUTO row — its amount is never typed directly,
+// it's continuously recomputed as (Amount Paid − sum of every other row).
+// Rows 1+ are freely editable. This guarantees the split always reconciles
+// to Amount Paid by construction, rather than hoping the user's manual
+// entries happen to add up.
+const PNE_SPLIT_COLORS = {
+  'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100',
+};
+function pneSplitColor(method) { return PNE_SPLIT_COLORS[method] || '#455A64'; }
+
 function togglePNESplitPayment() {
   const isSplit = document.getElementById('pn-paymode').value === 'Split Payment';
   const panel = document.getElementById('pne-split-panel');
   panel.style.display = isSplit ? 'block' : 'none';
   if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
-    addPNESplitRow(0);
-    addPNESplitRow(0);
-    onPNEAmountPaidChange(); // immediately sync row 1 with whatever Amount Paid already holds
+    addPNESplitRow(true);  // row 0 — auto
+    addPNESplitRow(false); // row 1 — editable
+    syncPNESplitAutoRow();
   }
 }
 
-// Amount Paid is the source of truth for what Split Payment is dividing up.
-// Called on every keystroke in Amount Paid, and once right when Split mode opens.
-function onPNEAmountPaidChange() {
+// Called from Amount Paid's oninput, and from every editable row's oninput.
+function syncPNESplitAutoRow() {
   updatePNESplitMismatch();
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-amt');
-  if (document.getElementById('pn-paymode').value !== 'Split Payment' || rows.length !== 2) return;
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
+  if (document.getElementById('pn-paymode').value !== 'Split Payment' || rows.length < 2) return;
   const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-  const other = parseFloat(rows[1].value) || 0;
-  const remainder = Math.max(0, target - other);
-  rows[0].value = target > 0 ? remainder.toFixed(2) : '';
-  updatePNESplitTotal();
+  let othersSum = 0;
+  for (let i = 1; i < rows.length; i++) {
+    othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+  }
+  const remainder = target - othersSum;
+  const autoInput = rows[0].querySelector('.pne-split-amt');
+  autoInput.value = target > 0 || othersSum > 0 ? Math.max(0, remainder).toFixed(2) : '';
+  // If the manually-entered rows exceed Amount Paid, flag it visually right on the auto row
+  rows[0].classList.toggle('pne-split-over', remainder < -0.005);
+  renderPNESplitFooter();
 }
 
-function addPNESplitRow(prefillAmt) {
+function addPNESplitRow(isAuto) {
   const container = document.getElementById('pne-split-rows');
   const row = document.createElement('div');
-  row.className = 'pne-split-row';
-  row.style.cssText = 'display:flex;gap:8px;align-items:center';
-  row.innerHTML = `<select class="pne-split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" onchange="renderPNESplitFooter()">
+  row.className = 'pne-split-row' + (isAuto ? ' pne-split-row-auto' : '');
+  row.innerHTML = `<select class="pne-split-method" onchange="renderPNESplitFooter()">
       <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" value="${prefillAmt ? prefillAmt.toFixed(2) : ''}" style="width:110px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updatePNESplitTotal()">
-    <button type="button" onclick="removePNESplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>`;
+    <input type="number" class="pne-split-amt" placeholder="0.00" ${isAuto ? 'readonly title="Auto-calculated: Amount Paid minus the other methods"' : ''}
+      oninput="syncPNESplitAutoRow()">
+    ${isAuto ? '<span class="pne-split-auto-tag">Auto</span>' : '<button type="button" onclick="removePNESplitRow(this)">✕</button>'}`;
   container.appendChild(row);
-  updatePNESplitTotal();
+  renderPNESplitFooter();
 }
 
 function removePNESplitRow(btn) {
   const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
   if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
   btn.closest('.pne-split-row').remove();
-  updatePNESplitTotal();
+  syncPNESplitAutoRow();
 }
 
-function updatePNESplitTotal() {
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-amt');
-
-  // Auto-deduct: with exactly 2 rows, editing one auto-fills the other with
-  // the remainder against Amount Paid — mirrors the invoice payment split behavior.
-  if (rows.length === 2) {
-    const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-    const focusedRow = document.activeElement?.closest('.pne-split-row');
-    const focusedIdx = focusedRow ? Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row')).indexOf(focusedRow) : -1;
-    if (target > 0 && focusedIdx === 0) {
-      const remainder = Math.max(0, target - (parseFloat(rows[0].value)||0));
-      rows[1].value = remainder > 0 ? remainder.toFixed(2) : '';
-    } else if (target > 0 && focusedIdx === 1) {
-      const remainder = Math.max(0, target - (parseFloat(rows[1].value)||0));
-      rows[0].value = remainder > 0 ? remainder.toFixed(2) : '';
-    }
-  }
-
-  renderPNESplitFooter();
-  updatePNESplitMismatch();
-}
-
-// Colored footer: Amount Paid (target) in one color, live per-method
-// breakdown in another — so it's obvious at a glance whether they match.
+// Colored footer: Amount Paid (target) highlighted, per-method breakdown
+// as badges — each payment method keeps a consistent color across the app.
 function renderPNESplitFooter() {
   const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
   const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
   const breakdown = rows.map(r => {
     const method = r.querySelector('.pne-split-method')?.value || '';
     const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
-    return `<span class="pne-split-chip">${escHtml(method)}: <strong>${fmt_money(amt)}</strong></span>`;
+    const color = pneSplitColor(method);
+    return `<span class="pne-split-chip" style="background:${color}18;color:${color}">${escHtml(method)}: <strong>${fmt_money(amt)}</strong></span>`;
   }).join('');
   const footer = document.getElementById('pne-split-footer');
   if (footer) {
@@ -12847,6 +12917,7 @@ function getPNESplitLabel() {
   return 'Split: ' + parts.join(' + ');
 }
 
+
 async function editPurchase(id) {
   try {
     const r = await api('api/purchases.php?id=' + id);
@@ -12866,6 +12937,18 @@ async function editPurchase(id) {
     document.getElementById('pn-date').value = p.purchase_date;
     document.getElementById('pn-suppliertype').value = p.supplier_type || 'Farmer';
     document.getElementById('pn-refpo').value = p.reference_po_no || '';
+    document.getElementById('pn-weighingtype').value = p.weighing_type || 'Dharam Kanta';
+    document.getElementById('pn-kantaname').value = p.kanta_name || '';
+    document.getElementById('pn-slipno').value = p.weighbridge_slip_no || '';
+    document.getElementById('pn-weightdatetime').value = p.weight_datetime ? p.weight_datetime.replace(' ', 'T').slice(0,16) : '';
+    document.getElementById('pn-kanta-gross').value = p.kanta_gross_weight || '';
+    document.getElementById('pn-kanta-tare').value = p.kanta_tare_weight || '';
+    document.getElementById('pn-kanta-operator').value = p.kanta_operator_name || '';
+    PNE.kantaSlipDataUrl = null;
+    if (p.kanta_slip_path) {
+      document.getElementById('pn-kanta-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
+    }
+    calcPNEKantaSummary();
     populatePNESupplierDropdown();
     document.getElementById('pn-supplier').value = p.supplier_id;
     await onSupplierPicked();
@@ -12896,7 +12979,8 @@ async function editPurchase(id) {
       // read-only context and let a fresh split be entered if amounts changed.
       document.getElementById('pne-split-rows').innerHTML =
         `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Previously saved as: "${escHtml(p.payment_mode)}" — re-enter splits below if amounts changed.</div>`;
-      addPNESplitRow(0); addPNESplitRow(0);
+      addPNESplitRow(true); addPNESplitRow(false);
+      syncPNESplitAutoRow();
     }
     document.getElementById('pn-transactionno').value = p.transaction_no || '';
     document.getElementById('pn-paydate').value = p.payment_date || '';
@@ -12905,6 +12989,35 @@ async function editPurchase(id) {
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
   } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function calcPNEKantaSummary() {
+  const gross = parseFloat(document.getElementById('pn-kanta-gross').value) || 0;
+  const tare  = parseFloat(document.getElementById('pn-kanta-tare').value) || 0;
+  const net   = Math.max(0, gross - tare);
+  document.getElementById('pn-kanta-net').value = net.toFixed(2);
+
+  // Dhalta mirrors the aggregate from Items Details (dhalta is set per-product
+  // there) — this card is a consolidated cross-check against the weighbridge slip.
+  let totalDhalta = 0;
+  PNE.items.forEach(it => { totalDhalta += pneCalcRow(it).dhaltaKg; });
+  const billable = Math.max(0, net - totalDhalta);
+
+  document.getElementById('pnk-sum-gross').textContent = gross.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-tare').textContent = tare.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-net').textContent = net.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-billable').textContent = billable.toFixed(2) + ' Kg';
+}
+
+function pneKantaSlipChange(file) {
+  if (!file) return;
+  if (file.size > 5*1024*1024) { toast('⚠️ Weight slip must be under 5MB', 'warning'); return; }
+  const label = document.getElementById('pn-kanta-slip-label');
+  label.innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">${escHtml(file.name)}<br><span style="font-size:10px">${(file.size/1024).toFixed(0)} KB</span></div>`;
+  const reader = new FileReader();
+  reader.onload = () => { PNE.kantaSlipDataUrl = reader.result; };
+  reader.readAsDataURL(file);
 }
 
 function pneReadAttachment() {
@@ -12938,6 +13051,14 @@ async function savePurchaseEntry(mode) {
     purchase_date: document.getElementById('pn-date').value,
     supplier_type: document.getElementById('pn-suppliertype').value,
     reference_po_no: document.getElementById('pn-refpo').value.trim(),
+    weighing_type: document.getElementById('pn-weighingtype').value,
+    kanta_name: document.getElementById('pn-kantaname').value.trim(),
+    weighbridge_slip_no: document.getElementById('pn-slipno').value.trim(),
+    weight_datetime: document.getElementById('pn-weightdatetime').value || null,
+    kanta_gross_weight: parseFloat(document.getElementById('pn-kanta-gross').value) || 0,
+    kanta_tare_weight: parseFloat(document.getElementById('pn-kanta-tare').value) || 0,
+    kanta_operator_name: document.getElementById('pn-kanta-operator').value.trim(),
+    kanta_slip: PNE.kantaSlipDataUrl || undefined,
     invoice_bill_no: document.getElementById('pn-invno').value.trim(),
     gst_applicable: gstApplicable,
     gst_pct: parseFloat(document.getElementById('pn-gst-pct').value) || 0,

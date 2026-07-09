@@ -124,6 +124,7 @@ switch ($method) {
     $total = round($taxable + $gstAmount, 2);
 
     $attachmentPath = saveAttachment($d['attachment'] ?? null);
+    $kantaSlipPath  = saveAttachment($d['kanta_slip'] ?? null);
 
     $stmt = $db->prepare('INSERT INTO purchases
       (purchase_no, supplier_id, supplier_invoice_ref, purchase_date, currency, exchange_rate,
@@ -131,8 +132,10 @@ switch ($method) {
        reference_po_no, supplier_type, gst_applicable, supply_type,
        transport_mode, vehicle_no, driver_name, warehouse, payment_terms, payment_type, remarks,
        transport_charge, loading_charge, packing_charge, other_charges, discount_amount,
-       attachment_path, payment_mode, transaction_no, payment_date)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
+       attachment_path, payment_mode, transaction_no, payment_date,
+       weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
+       kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path)
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -143,6 +146,8 @@ switch ($method) {
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount,
       $attachmentPath, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
+      $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
+      (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '', $kantaSlipPath,
     ]);
     $purchaseId = (int)$db->lastInsertId();
 
@@ -192,8 +197,9 @@ switch ($method) {
     $gstAmount = $gstApplicable ? round($taxable * $gstPct / 100, 2) : 0;
     $total = round($taxable + $gstAmount, 2);
 
-    // Only overwrite the attachment if a new one was sent
+    // Only overwrite the attachment/slip if a new one was sent
     $newAttachment = saveAttachment($d['attachment'] ?? null);
+    $newKantaSlip  = saveAttachment($d['kanta_slip'] ?? null);
 
     $sql = 'UPDATE purchases SET
       supplier_id=?, supplier_invoice_ref=?, purchase_date=?, currency=?, exchange_rate=?,
@@ -201,7 +207,10 @@ switch ($method) {
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
       transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, remarks=?,
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?,
-      payment_mode=?, transaction_no=?, payment_date=?' . ($newAttachment ? ', attachment_path=?' : '') . '
+      payment_mode=?, transaction_no=?, payment_date=?,
+      weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?,
+      kanta_gross_weight=?, kanta_tare_weight=?, kanta_operator_name=?'
+      . ($newAttachment ? ', attachment_path=?' : '') . ($newKantaSlip ? ', kanta_slip_path=?' : '') . '
       WHERE id=?';
     $params = [
       (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
@@ -213,8 +222,11 @@ switch ($method) {
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount,
       $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
+      $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
+      (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '',
     ];
     if ($newAttachment) $params[] = $newAttachment;
+    if ($newKantaSlip) $params[] = $newKantaSlip;
     $params[] = $id;
     $db->prepare($sql)->execute($params);
 
