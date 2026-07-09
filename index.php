@@ -2350,7 +2350,7 @@ const SERVER = {
         <div style="flex:1"></div>
         <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i> Add Supplier</button>
+        <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add Supplier</button>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -2775,7 +2775,7 @@ const SERVER = {
 
           <!-- 1. Product Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">1</span> Product Information</div>
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
             <div class="pne-grid4">
               <div class="field"><label>Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
               <div class="field"><label>Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
@@ -2819,7 +2819,7 @@ const SERVER = {
 
           <!-- 2. Product Specifications -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">2</span> Product Specifications</div>
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-flask"></i></span> Product Specifications</div>
             <div class="pne-grid4">
               <div class="field"><label>Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
               <div class="field"><label>Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
@@ -2843,7 +2843,7 @@ const SERVER = {
 
           <!-- 3. Pricing & Tax Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">3</span> Pricing &amp; Tax Information</div>
+            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-tags"></i></span> Pricing &amp; Tax Information</div>
             <div class="pne-grid5">
               <div class="field"><label>Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
               <div class="field"><label>Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
@@ -2859,7 +2859,7 @@ const SERVER = {
 
           <!-- 4. Inventory Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">4</span> Inventory Information</div>
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-warehouse"></i></span> Inventory Information</div>
             <div class="pne-grid4">
               <div class="field"><label>Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
               <div class="field"><label>Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
@@ -2874,7 +2874,7 @@ const SERVER = {
 
           <!-- 5. Product Description -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">5</span> Product Description</div>
+            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-align-left"></i></span> Product Description</div>
             <div class="pne-grid2">
               <div class="field">
                 <label>Short Description</label>
@@ -2996,6 +2996,30 @@ const SERVER = {
               <div class="field"><label>Currency</label>
                 <select id="sn-currency"><option value="INR">INR</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
               </div>
+            </div>
+          </div>
+
+          <!-- Weight / Measurement Details -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Weighing Type *</label>
+                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+              </div>
+              <div class="field"><label>Dharam Kanta Name</label><input id="sn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
+              <div class="field"><label>Weighbridge Slip No. *</label><input id="sn-slipno" placeholder="e.g. DK-24581"></div>
+              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="sn-weightdatetime"></div>
+              <div class="field"><label>Operator Name</label><input id="sn-kantaoperator" placeholder="Optional"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="sn-kanta-gross" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
+              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="sn-kanta-tare" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
+              <div class="field"><label>Net Weight (Kg)</label><input id="sn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
+              <div class="field"><label>Moisture %</label><input type="number" id="sn-kanta-moisture" min="0" max="100" step="0.01" oninput="calcSNWeightSummary()"></div>
+              <div class="field"><label>Dhalta (Kg)</label><input type="number" id="sn-kanta-dhaltakg" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Billable Weight (Kg)</label><input id="sn-kanta-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
           </div>
 
@@ -3327,6 +3351,135 @@ const SERVER = {
               <a href="#" style="font-size:11px;color:var(--teal)" onclick="event.preventDefault()">View All</a>
             </div>
             <div id="sa-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ADD SUPPLIER / FARMER (full page) ═══════════ -->
+    <div id="page-supplier-new" class="page">
+      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Masters &gt; Supplier / Farmer &gt; <strong style="color:var(--text)" id="supn-crumb">Add New</strong></span></div>
+      <div class="pne-topbar">
+        <div><div class="pne-title" id="supn-title">Add Supplier / Farmer</div></div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
+          <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
+        </div>
+      </div>
+
+      <div class="pne-layout" style="grid-template-columns:1fr">
+        <div class="pne-main">
+
+          <!-- 1. Basic Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Type *</label>
+                <select id="sup-type" onchange="onSupplierTypeChangeRich()">
+                  <option value="">Select Type</option>
+                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
+                </select>
+              </div>
+              <div class="field"><label>Name / Company / Organization *</label><input id="sup-name" placeholder="Enter name"></div>
+              <div class="field"><label>Contact Person *</label><input id="sup-contactperson" placeholder="Enter contact person"></div>
+              <div class="field"><label>Mobile No. *</label><input id="sup-mobile" placeholder="Enter mobile number"></div>
+              <div class="field"><label>Email ID</label><input id="sup-email" type="email" placeholder="Enter email id"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Date of Registration</label><input type="date" id="sup-regdate"></div>
+              <div class="field"><label>Business Nature</label>
+                <select id="sup-bizNature"><option value="">Select business nature</option><option>Wholesale</option><option>Retail</option><option>Farming</option><option>Processing</option><option>Export/Import</option></select>
+              </div>
+              <div class="field"><label>Website</label><input id="sup-website" placeholder="Enter website (optional)"></div>
+            </div>
+          </div>
+
+          <div class="pne-row3" style="grid-template-columns:1fr 1fr">
+            <!-- 2. Address Information -->
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-location-dot"></i></span> Address Information</div>
+              <div class="field"><label>Address *</label><textarea id="sup-address" style="min-height:60px" placeholder="Enter full address"></textarea></div>
+              <div class="pne-grid2">
+                <div class="field"><label>City *</label><input id="sup-city" placeholder="Enter city"></div>
+                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>Pincode *</label><input id="sup-pincode" placeholder="Enter pincode"></div>
+                <div class="field"><label>Country</label><select id="sup-country"><option>India</option></select></div>
+              </div>
+            </div>
+
+            <!-- 3. Tax & Registration -->
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-file-invoice"></i></span> Tax &amp; Registration</div>
+              <div class="pne-grid2" id="sup-gstin-wrap">
+                <div class="field"><label>GSTIN / ID No.</label><input id="sup-gstin" placeholder="Enter GSTIN or ID number"></div>
+                <div class="field"><label>PAN No.</label><input id="sup-pan" placeholder="Enter PAN number"></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>Aadhaar No.</label><input id="sup-aadhaar" placeholder="Enter Aadhaar number"></div>
+                <div class="field"><label>State Code</label><input id="sup-statecode" placeholder="Enter state code"></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>TAN No.</label><input id="sup-tan" placeholder="Enter TAN number"></div>
+                <div class="field"><label>MSME No.</label><input id="sup-msme" placeholder="Enter MSME number"></div>
+              </div>
+              <div class="field"><label>FSSAI No.</label><input id="sup-fssai" placeholder="Enter FSSAI number (if any)"></div>
+              <div id="sup-farmer-note" class="pne-note" style="display:none;background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal;margin-top:6px">
+                <i class="fas fa-info-circle"></i> Farmer purchases are typically GST-exempt — GSTIN hidden for this supplier type.
+              </div>
+            </div>
+          </div>
+
+          <div class="pne-row3" style="grid-template-columns:1fr 1fr">
+            <!-- 4. Additional Information -->
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-building-columns"></i></span> Additional Information</div>
+              <div class="pne-grid2">
+                <div class="field"><label>Bank Name</label><input id="sup-bankname" placeholder="Enter bank name"></div>
+                <div class="field"><label>Bank Account No.</label><input id="sup-bankacc" placeholder="Enter account number"></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>IFSC Code</label><input id="sup-ifsc" placeholder="Enter IFSC code"></div>
+                <div class="field"><label>Account Holder Name</label><input id="sup-accholder" placeholder="Enter account holder name"></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>Credit Limit (₹)</label><input type="number" id="sup-creditlimit" min="0" step="0.01" placeholder="Enter credit limit"></div>
+                <div class="field"><label>Opening Balance (₹)</label><input type="number" id="sup-openingbal" min="0" step="0.01" value="0"></div>
+              </div>
+              <div class="pne-grid2">
+                <div class="field"><label>Payment Terms</label>
+                  <select id="sup-paymentterms"><option value="">Select payment terms</option><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
+                </div>
+                <div class="field"><label>Default Price List</label>
+                  <select id="sup-pricelist"><option value="">Select price list</option><option>Standard</option><option>Wholesale</option><option>Premium</option></select>
+                </div>
+              </div>
+              <div class="field"><label>Notes</label><textarea id="sup-notes" style="min-height:44px" placeholder="Enter notes (optional)"></textarea></div>
+            </div>
+
+            <!-- 5. Status & Documents -->
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-shield-halved"></i></span> Status &amp; Documents</div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                <div class="tog on" id="sup-status" onclick="this.classList.toggle('on')"></div>
+                <span style="font-size:13px;font-weight:600">Active</span>
+              </div>
+              <label>Upload Documents</label>
+              <label class="pp-dropzone" for="sup-docs-input" style="margin-top:6px">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div>Drag &amp; drop files here<br>or click to upload</div>
+              </label>
+              <input type="file" id="sup-docs-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="supAddDocs(this.files)">
+              <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
+              <div id="sup-docs-list" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+            </div>
+          </div>
+
+          <div style="font-size:11.5px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Fields marked with * are mandatory</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
+            <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
           </div>
         </div>
       </div>
@@ -12768,7 +12921,7 @@ function renderSuppliers() {
         <div class="action-cell">
           ${SUP.archived
             ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
-            : `<button class="act-btn" title="Edit" onclick="editSupplier(${s.id})"><i class="fas fa-pen"></i></button>
+            : `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>
                <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>`}
         </div>
       </td>
@@ -13689,6 +13842,18 @@ function goToNewSale() {
   document.getElementById('sn-salestype').value = 'Local Sales';
   document.getElementById('sn-placeofsupply').value = '';
   document.getElementById('sn-currency').value = 'INR';
+  document.getElementById('sn-weighingtype').value = 'Dharam Kanta';
+  document.getElementById('sn-kantaname').value = '';
+  document.getElementById('sn-slipno').value = '';
+  document.getElementById('sn-weightdatetime').value = '';
+  document.getElementById('sn-kantaoperator').value = '';
+  document.getElementById('sn-kanta-gross').value = '';
+  document.getElementById('sn-kanta-tare').value = '';
+  document.getElementById('sn-kanta-net').value = '';
+  document.getElementById('sn-kanta-moisture').value = '';
+  document.getElementById('sn-kanta-dhaltakg').value = '';
+  document.getElementById('sn-kanta-billable').value = '';
+  calcSNWeightSummary();
   document.getElementById('sn-transportcharge').value = 0;
   document.getElementById('sn-loadingcharge').value = 0;
   document.getElementById('sn-packingcharge').value = 0;
@@ -13884,6 +14049,16 @@ function updateSNItem(id, field, val, isText) {
   calcSaleNewTotals();
 }
 
+function calcSNWeightSummary() {
+  const gross = parseFloat(document.getElementById('sn-kanta-gross').value) || 0;
+  const tare  = parseFloat(document.getElementById('sn-kanta-tare').value) || 0;
+  const net   = Math.max(0, gross - tare);
+  const dhaltaKg = Math.max(0, parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0);
+  const billable = Math.max(0, net - dhaltaKg);
+  document.getElementById('sn-kanta-net').value = net.toFixed(2);
+  document.getElementById('sn-kanta-billable').value = billable.toFixed(2);
+}
+
 function calcSaleNewTotals() {
   let totalQty = 0, subtotal = 0, itemsTax = 0;
   SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
@@ -13972,6 +14147,15 @@ async function saveSaleEntry(mode) {
     sales_executive: document.getElementById('sn-salesexec').value.trim(),
     payment_terms: document.getElementById('sn-paymentterms').value,
     sales_type: document.getElementById('sn-salestype').value,
+    weighing_type: document.getElementById('sn-weighingtype').value,
+    kanta_name: document.getElementById('sn-kantaname').value.trim(),
+    weighbridge_slip_no: document.getElementById('sn-slipno').value.trim(),
+    weight_datetime: document.getElementById('sn-weightdatetime').value || null,
+    kanta_operator_name: document.getElementById('sn-kantaoperator').value.trim(),
+    kanta_gross_weight: parseFloat(document.getElementById('sn-kanta-gross').value) || 0,
+    kanta_tare_weight: parseFloat(document.getElementById('sn-kanta-tare').value) || 0,
+    kanta_moisture_pct: document.getElementById('sn-kanta-moisture').value || null,
+    kanta_dhalta_kg: parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0,
     place_of_supply: document.getElementById('sn-placeofsupply').value,
     currency: document.getElementById('sn-currency').value,
     is_interstate: document.getElementById('sn-salestype').value !== 'Local Sales',
@@ -14047,6 +14231,16 @@ async function editSale(id) {
     document.getElementById('sn-duedate').value = s.due_date || '';
     document.getElementById('sn-paymentterms').value = s.payment_terms || 'Immediate';
     document.getElementById('sn-salestype').value = s.sales_type || 'Local Sales';
+    document.getElementById('sn-weighingtype').value = s.weighing_type || 'Dharam Kanta';
+    document.getElementById('sn-kantaname').value = s.kanta_name || '';
+    document.getElementById('sn-slipno').value = s.weighbridge_slip_no || '';
+    document.getElementById('sn-weightdatetime').value = s.weight_datetime ? s.weight_datetime.replace(' ', 'T').slice(0,16) : '';
+    document.getElementById('sn-kantaoperator').value = s.kanta_operator_name || '';
+    document.getElementById('sn-kanta-gross').value = s.kanta_gross_weight || '';
+    document.getElementById('sn-kanta-tare').value = s.kanta_tare_weight || '';
+    document.getElementById('sn-kanta-moisture').value = s.kanta_moisture_pct ?? '';
+    document.getElementById('sn-kanta-dhaltakg').value = s.kanta_dhalta_kg || '';
+    calcSNWeightSummary();
     document.getElementById('sn-placeofsupply').value = s.place_of_supply || '';
     document.getElementById('sn-currency').value = s.currency || 'INR';
     document.getElementById('sn-transportcharge').value = s.transport_charge || 0;
@@ -14343,6 +14537,159 @@ async function renderSARecentAdjustments() {
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.adjustment_date)}</div>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
+}
+
+// ══════════════════════════════════════════
+// ADD SUPPLIER / FARMER (full page)
+// ══════════════════════════════════════════
+const SUPN = { editingId: null, docs: [] };
+const INDIA_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana',
+  'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
+  'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand',
+  'West Bengal','Delhi','Jammu and Kashmir','Ladakh','Chandigarh','Puducherry'];
+
+function populateSupStateDropdown() {
+  const sel = document.getElementById('sup-state');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select state</option>' + INDIA_STATES.map(s => `<option>${s}</option>`).join('');
+}
+
+function onSupplierTypeChangeRich() {
+  const isFarmer = document.getElementById('sup-type').value === 'Farmer';
+  document.getElementById('sup-gstin-wrap').style.display = isFarmer ? 'none' : 'grid';
+  document.getElementById('sup-farmer-note').style.display = isFarmer ? 'block' : 'none';
+  if (isFarmer) document.getElementById('sup-gstin').value = '';
+}
+
+function goToNewSupplierPage() {
+  SUPN.editingId = null;
+  SUPN.docs = [];
+  document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
+  document.getElementById('supn-crumb').textContent = 'Add New';
+  document.getElementById('sup-type').value = '';
+  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-pincode',
+   'sup-gstin','sup-pan','sup-aadhaar','sup-statecode','sup-tan','sup-msme','sup-fssai','sup-bankname','sup-bankacc',
+   'sup-ifsc','sup-accholder','sup-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('sup-regdate').value = '';
+  document.getElementById('sup-bizNature').value = '';
+  populateSupStateDropdown();
+  document.getElementById('sup-state').value = '';
+  document.getElementById('sup-country').value = 'India';
+  document.getElementById('sup-creditlimit').value = '';
+  document.getElementById('sup-openingbal').value = 0;
+  document.getElementById('sup-paymentterms').value = '';
+  document.getElementById('sup-pricelist').value = '';
+  document.getElementById('sup-status').classList.add('on');
+  document.getElementById('sup-docs-input').value = '';
+  onSupplierTypeChangeRich();
+  renderSupDocs();
+  showPage('supplier-new');
+  document.querySelector('.nav-item[data-page="suppliers"]')?.classList.add('active');
+}
+
+function cancelSupplierEntry() {
+  showPage('suppliers');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'suppliers'));
+}
+
+async function editSupplierRich(id) {
+  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
+  SUPN.editingId = id;
+  SUPN.docs = Array.isArray(s.documents) ? [...s.documents] : [];
+  document.getElementById('supn-title').textContent = 'Edit Supplier / Farmer';
+  document.getElementById('supn-crumb').textContent = s.name;
+  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
+  set('sup-type', s.supplier_type || ''); set('sup-name', s.name); set('sup-contactperson', s.contact_person);
+  set('sup-mobile', s.phone); set('sup-email', s.email); set('sup-regdate', s.date_of_registration);
+  set('sup-bizNature', s.business_nature); set('sup-website', s.website);
+  populateSupStateDropdown();
+  set('sup-address', s.address); set('sup-city', s.city); set('sup-state', s.state); set('sup-pincode', s.pincode);
+  set('sup-country', s.country || 'India');
+  set('sup-gstin', s.gst_number); set('sup-pan', s.pan_no); set('sup-aadhaar', s.aadhaar_no);
+  set('sup-statecode', s.state_code); set('sup-tan', s.tan_no); set('sup-msme', s.msme_no); set('sup-fssai', s.fssai_no);
+  set('sup-bankname', s.bank_name); set('sup-bankacc', s.bank_account_no); set('sup-ifsc', s.ifsc_code);
+  set('sup-accholder', s.account_holder_name); set('sup-creditlimit', s.credit_limit);
+  set('sup-openingbal', s.opening_balance || 0); set('sup-paymentterms', s.payment_terms); set('sup-pricelist', s.default_price_list);
+  set('sup-notes', s.notes);
+  document.getElementById('sup-status').classList.toggle('on', (s.status||'active') === 'active');
+  onSupplierTypeChangeRich();
+  renderSupDocs();
+  showPage('supplier-new');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'suppliers'));
+}
+
+function supFileToDataUrl(file) {
+  return new Promise(resolve => {
+    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+async function supAddDocs(files) {
+  for (const f of Array.from(files)) { const url = await supFileToDataUrl(f); if (url) SUPN.docs.push({ name: f.name, url }); }
+  document.getElementById('sup-docs-input').value = '';
+  renderSupDocs();
+}
+function supRemoveDoc(idx) { SUPN.docs.splice(idx, 1); renderSupDocs(); }
+function renderSupDocs() {
+  document.getElementById('sup-docs-list').innerHTML = SUPN.docs.map((d, i) => {
+    const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="supRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+  }).join('');
+}
+
+async function saveSupplierEntry() {
+  const name = document.getElementById('sup-name').value.trim();
+  if (!document.getElementById('sup-type').value) { toast('⚠️ Select a supplier type', 'warning'); return; }
+  if (!name) { toast('⚠️ Name / Company / Organization is required', 'warning'); return; }
+  if (!document.getElementById('sup-contactperson').value.trim()) { toast('⚠️ Contact person is required', 'warning'); return; }
+  if (!document.getElementById('sup-mobile').value.trim()) { toast('⚠️ Mobile number is required', 'warning'); return; }
+  if (!document.getElementById('sup-address').value.trim()) { toast('⚠️ Address is required', 'warning'); return; }
+  if (!document.getElementById('sup-city').value.trim()) { toast('⚠️ City is required', 'warning'); return; }
+  if (!document.getElementById('sup-state').value) { toast('⚠️ State is required', 'warning'); return; }
+  if (!document.getElementById('sup-pincode').value.trim()) { toast('⚠️ Pincode is required', 'warning'); return; }
+
+  const payload = {
+    name, supplier_type: document.getElementById('sup-type').value,
+    contact_person: document.getElementById('sup-contactperson').value.trim(),
+    phone: document.getElementById('sup-mobile').value.trim(), email: document.getElementById('sup-email').value.trim(),
+    date_of_registration: document.getElementById('sup-regdate').value || null,
+    business_nature: document.getElementById('sup-bizNature').value, website: document.getElementById('sup-website').value.trim(),
+    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(),
+    state: document.getElementById('sup-state').value, pincode: document.getElementById('sup-pincode').value.trim(),
+    country: document.getElementById('sup-country').value,
+    gst_number: document.getElementById('sup-gstin').value.trim(), pan_no: document.getElementById('sup-pan').value.trim(),
+    aadhaar_no: document.getElementById('sup-aadhaar').value.trim(), state_code: document.getElementById('sup-statecode').value.trim(),
+    tan_no: document.getElementById('sup-tan').value.trim(), msme_no: document.getElementById('sup-msme').value.trim(),
+    fssai_no: document.getElementById('sup-fssai').value.trim(),
+    bank_name: document.getElementById('sup-bankname').value.trim(), bank_account_no: document.getElementById('sup-bankacc').value.trim(),
+    ifsc_code: document.getElementById('sup-ifsc').value.trim(), account_holder_name: document.getElementById('sup-accholder').value.trim(),
+    credit_limit: parseFloat(document.getElementById('sup-creditlimit').value) || 0,
+    opening_balance: parseFloat(document.getElementById('sup-openingbal').value) || 0,
+    payment_terms: document.getElementById('sup-paymentterms').value, default_price_list: document.getElementById('sup-pricelist').value,
+    notes: document.getElementById('sup-notes').value.trim(),
+    status: document.getElementById('sup-status').classList.contains('on') ? 'active' : 'archived',
+    documents: SUPN.docs.map(d => d.url || d),
+  };
+
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
+  try {
+    if (SUPN.editingId) {
+      await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
+      toast('✅ Supplier updated!', 'success');
+    } else {
+      await api('api/suppliers.php', 'POST', payload);
+      toast('✅ "' + name + '" added!', 'success');
+    }
+    const r = await api('api/suppliers.php');
+    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
+    cancelSupplierEntry();
+    renderSuppliers();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 

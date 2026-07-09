@@ -132,8 +132,10 @@ switch ($method) {
        taxable_amount, cgst_amount, sgst_amount, igst_amount, total_tax, total,
        payment_status, payment_method, amount_received, transaction_no, payment_date,
        customer_notes, internal_notes, delivery_instructions, attachments,
-       prepared_by, checked_by, approved_by, status)
-      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?)');
+       prepared_by, checked_by, approved_by, status,
+       weighing_type, kanta_name, weighbridge_slip_no, weight_datetime, kanta_operator_name,
+       kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg)
+      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
     $stmt->execute([
       $invoiceNo, (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
@@ -142,6 +144,8 @@ switch ($method) {
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
       $d['prepared_by'] ?? '', $d['checked_by'] ?? '', $d['approved_by'] ?? '', $d['status'] ?? 'Confirmed',
+      $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null, $d['kanta_operator_name'] ?? '',
+      (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_moisture_pct'] ?? null, (float)($d['kanta_dhalta_kg'] ?? 0),
     ]);
     $saleId = (int)$db->lastInsertId();
 
@@ -205,7 +209,9 @@ switch ($method) {
       taxable_amount=?, cgst_amount=?, sgst_amount=?, igst_amount=?, total_tax=?, total=?,
       payment_status=?, payment_method=?, amount_received=?, transaction_no=?, payment_date=?,
       customer_notes=?, internal_notes=?, delivery_instructions=?, attachments=?,
-      prepared_by=?, checked_by=?, approved_by=?, status=?
+      prepared_by=?, checked_by=?, approved_by=?, status=?,
+      weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?, kanta_operator_name=?,
+      kanta_gross_weight=?, kanta_tare_weight=?, kanta_moisture_pct=?, kanta_dhalta_kg=?
       WHERE id=?')->execute([
       (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
@@ -214,6 +220,8 @@ switch ($method) {
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
       $d['prepared_by'] ?? '', $d['checked_by'] ?? '', $d['approved_by'] ?? '', $d['status'] ?? 'Confirmed',
+      $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null, $d['kanta_operator_name'] ?? '',
+      (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_moisture_pct'] ?? null, (float)($d['kanta_dhalta_kg'] ?? 0),
       $id,
     ]);
 

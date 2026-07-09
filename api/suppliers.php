@@ -6,11 +6,36 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+function saveSupplierDoc($dataUrl) {
+  if (!$dataUrl || !preg_match('/^data:(image\/(png|jpe?g|webp)|application\/pdf);base64,(.+)$/', $dataUrl, $m)) return null;
+  $ext  = str_contains($m[1], 'pdf') ? 'pdf' : ($m[2] === 'jpeg' ? 'jpg' : $m[2]);
+  $blob = base64_decode($m[3]);
+  if ($blob === false || strlen($blob) > (defined('UPLOAD_MAX_SIZE') ? UPLOAD_MAX_SIZE : 5242880)) return null;
+  $dir = rtrim(defined('UPLOAD_PATH') ? UPLOAD_PATH : (__DIR__ . '/../assets/uploads/'), '/') . '/suppliers';
+  if (!is_dir($dir)) @mkdir($dir, 0755, true);
+  $fname = 'sup_' . bin2hex(random_bytes(8)) . '.' . $ext;
+  file_put_contents($dir . '/' . $fname, $blob);
+  return '/assets/uploads/suppliers/' . $fname;
+}
+function processDocArray($items) {
+  $out = [];
+  foreach ((array)$items as $it) {
+    if (is_string($it) && str_starts_with($it, 'data:')) { $saved = saveSupplierDoc($it); if ($saved) $out[] = $saved; }
+    elseif (is_string($it) && $it !== '') { $out[] = $it; }
+  }
+  return $out;
+}
+
+$FIELDS = [
+  'name','contact_person','phone','email','gst_number','country','address','payment_terms','opening_balance','notes',
+  'supplier_type','state','district','date_of_registration','business_nature','website','city','pincode',
+  'pan_no','aadhaar_no','state_code','tan_no','msme_no','fssai_no',
+  'bank_name','bank_account_no','ifsc_code','account_holder_name','credit_limit','default_price_list',
+];
+
 try {
 switch ($method) {
   case 'GET':
-    // Supplier ledger summary for the Purchase page sidebar:
-    // previous purchases total, total paid, outstanding balance.
     if (!empty($_GET['summary_for'])) {
       $sid = (int)$_GET['summary_for'];
       $stmt = $db->prepare('SELECT
@@ -26,14 +51,16 @@ switch ($method) {
     $status = $_GET['status'] ?? 'active';
     $stmt = $db->prepare('SELECT * FROM suppliers WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
-    jsonResponse(['data' => $stmt->fetchAll()]);
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$r) { $r['documents'] = $r['documents'] ? json_decode($r['documents'], true) : []; }
+    unset($r);
+    jsonResponse(['data' => $rows]);
     break;
 
   case 'POST':
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
 
-    // Restore from archive
     if (($_GET['action'] ?? '') === 'restore' && !empty($_GET['id'])) {
       $stmt = $db->prepare('UPDATE suppliers SET status = "active" WHERE id = ?');
       $stmt->execute([(int)$_GET['id']]);
@@ -44,24 +71,15 @@ switch ($method) {
 
     if (empty($d['name'])) jsonResponse(['error' => 'Supplier name is required'], 400);
 
-    $stmt = $db->prepare('INSERT INTO suppliers
-      (name, contact_person, phone, email, gst_number, country, address, payment_terms, opening_balance, notes, supplier_type, state, district)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
-    $stmt->execute([
-      $d['name'],
-      $d['contact_person'] ?? '',
-      $d['phone'] ?? '',
-      $d['email'] ?? '',
-      $d['gst_number'] ?? '',
-      $d['country'] ?? 'India',
-      $d['address'] ?? '',
-      $d['payment_terms'] ?? '',
-      $d['opening_balance'] ?? 0,
-      $d['notes'] ?? '',
-      $d['supplier_type'] ?? 'Trader',
-      $d['state'] ?? '',
-      $d['district'] ?? '',
-    ]);
+    $docs = processDocArray($d['documents'] ?? []);
+    $cols = array_merge($FIELDS, ['documents']);
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
+    $vals[] = json_encode($docs);
+
+    $placeholders = implode(',', array_fill(0, count($cols), '?'));
+    $colList = implode(',', array_map(fn($c) => "`$c`", $cols));
+    $stmt = $db->prepare("INSERT INTO suppliers ($colList) VALUES ($placeholders)");
+    $stmt->execute($vals);
     $id = $db->lastInsertId();
     logActivity((int)$_SESSION['user_id'], 'create', 'supplier', (int)$id, 'Supplier added: ' . $d['name']);
     jsonResponse(['success' => true, 'id' => $id]);
@@ -73,26 +91,13 @@ switch ($method) {
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
 
-    $stmt = $db->prepare('UPDATE suppliers SET
-      name=?, contact_person=?, phone=?, email=?, gst_number=?, country=?, address=?, payment_terms=?, opening_balance=?, notes=?,
-      supplier_type=?, state=?, district=?
-      WHERE id=?');
-    $stmt->execute([
-      $d['name'] ?? '',
-      $d['contact_person'] ?? '',
-      $d['phone'] ?? '',
-      $d['email'] ?? '',
-      $d['gst_number'] ?? '',
-      $d['country'] ?? 'India',
-      $d['address'] ?? '',
-      $d['payment_terms'] ?? '',
-      $d['opening_balance'] ?? 0,
-      $d['notes'] ?? '',
-      $d['supplier_type'] ?? 'Trader',
-      $d['state'] ?? '',
-      $d['district'] ?? '',
-      $id,
-    ]);
+    $docs = processDocArray($d['documents'] ?? []);
+    $setSql = implode(',', array_map(fn($f) => "`$f`=?", $FIELDS)) . ', documents=?';
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
+    $vals[] = json_encode($docs);
+    $vals[] = $id;
+
+    $db->prepare("UPDATE suppliers SET $setSql WHERE id=?")->execute($vals);
     logActivity((int)$_SESSION['user_id'], 'update', 'supplier', $id, 'Supplier updated');
     jsonResponse(['success' => true]);
     break;
@@ -100,7 +105,6 @@ switch ($method) {
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);
-    // Soft delete (archive) — never hard-delete, purchases may reference this supplier
     $stmt = $db->prepare('UPDATE suppliers SET status = "archived" WHERE id = ?');
     $stmt->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'archive', 'supplier', $id, 'Supplier archived');
