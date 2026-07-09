@@ -15206,7 +15206,6 @@ function switchProductStockTab(tab) {
   PS.tab = tab; PS.page = 1;
   document.getElementById('ps-tab-summary').classList.toggle('active', tab === 'summary');
   document.getElementById('ps-tab-batch').classList.toggle('active', tab === 'batch');
-  document.getElementById('ps-batch-col').style.display = tab === 'batch' ? '' : 'none';
   renderPSTable();
 }
 
@@ -15261,7 +15260,7 @@ function renderPSTable() {
   document.getElementById('ps-info').textContent = `Showing ${list.length?((PS.page-1)*PS.pageSize+1):0} to ${Math.min(PS.page*PS.pageSize,list.length)} of ${list.length} entries`;
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase, Stock In, or manual adjustment</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase, Stock In, or manual adjustment</td></tr>`;
   } else {
     tbody.innerHTML = pageRows.map((r, i) => {
       const avail = parseFloat(r.available_stock)||0;
@@ -15271,7 +15270,7 @@ function renderPSTable() {
         <td style="text-align:left"><strong>${escHtml(r.name)}</strong></td>
         <td>${escHtml(r.variety||'—')}</td>
         <td>${escHtml(r.warehouse||'Main Warehouse')}</td>
-        <td id="ps-batch-col-${i}" style="${PS.tab==='summary'?'display:none':''}">${escHtml(r.batch_no||'—')}</td>
+        <td>${escHtml(r.batch_no||'—')}</td>
         <td><strong style="color:${color}">${avail.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></td>
         <td>${(parseFloat(r.reserved_stock)||0).toFixed(2)}</td>
         <td>${(parseFloat(r.in_transit)||0).toFixed(2)}</td>
@@ -15282,8 +15281,6 @@ function renderPSTable() {
         <td><button class="act-btn" title="View History" onclick="viewStockHistory(${r.product_id}, '${escHtml(r.name).replace(/'/g,"\\'")}')"><i class="fas fa-eye"></i></button></td>
       </tr>`;
     }).join('');
-    // batch column visibility per-cell (th toggled globally already; keep cells consistent)
-    document.querySelectorAll('#ps-tbody td[id^="ps-batch-col-"]').forEach(td => td.style.display = PS.tab === 'summary' ? 'none' : '');
   }
 
   document.getElementById('ps-pagination').innerHTML = Array.from({length: totalPages}, (_, i) => i+1).map(p => `
