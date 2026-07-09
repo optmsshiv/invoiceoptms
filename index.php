@@ -335,7 +335,7 @@ canvas { max-width: 100% !important; }
    PAGES
 ══════════════════════════════════════════ */
 .pages-container { flex: 1; overflow-y: auto; }
-.page { display: none; padding: 24px 28px; }
+.page { display: none; padding: 24px 12px; }
 .page.active { display: block; }
 
 /* ══════════════════════════════════════════
