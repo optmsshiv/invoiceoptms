@@ -554,12 +554,23 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1100px; }
-.pne-items-table th { padding: 8px 8px; font-size: 10px; text-align: center; }
-.pne-items-table td { padding: 6px 6px; vertical-align: top; text-align: center; }
+.pne-items-table { font-size: 12px; width: 1180px; min-width: 1180px; table-layout: fixed; }
+.pne-items-table th {
+  padding: 8px 6px; font-size: 10px; text-align: center;
+  white-space: normal; word-break: break-word; line-height: 1.3;
+}
+.pne-items-table td { padding: 6px 4px; vertical-align: middle; text-align: center; overflow: hidden; }
 .pne-items-table td:nth-child(2) { text-align: left; }
-.pne-items-table input, .pne-items-table select { width: 100%; padding: 6px 6px; font-size: 12px; border-radius: 6px; text-align: center; }
+.pne-items-table input, .pne-items-table select {
+  width: 100%; padding: 6px 4px; font-size: 12px; border-radius: 6px; text-align: center;
+  border: 1px solid transparent; background: transparent; transition: border-color .15s, background-color .15s;
+}
+.pne-items-table input:focus, .pne-items-table select:focus {
+  border-color: var(--border2); background: var(--card); outline: none;
+}
 .pne-items-table td:nth-child(2) input { text-align: left; }
+.pne-mode-switch { font-size: 9.5px; color: var(--teal); cursor: pointer; margin-top: 3px; text-align: left; user-select: none; }
+.pne-mode-switch:hover { text-decoration: underline; }
 /* Muted grid border for the items table, matching the reference design */
 .pne-items-table { border-collapse: collapse; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
@@ -2401,13 +2412,24 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
               <span><span class="pne-num">2</span> Items Details</span>
-              <span style="display:flex;gap:8px">
+              <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
+                <div class="pne-pill-toggle" id="pne-entrymode-toggle">
+                  <button type="button" class="pne-pill active" id="pne-mode-catalog-btn" onclick="setPNEEntryMode('catalog')">Catalog Product</button>
+                  <button type="button" class="pne-pill" id="pne-mode-freetext-btn" onclick="setPNEEntryMode('freetext')">Free Text</button>
+                </div>
               </span>
             </div>
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table">
+                <colgroup>
+                  <col style="width:32px"><col style="width:150px"><col style="width:100px">
+                  <col style="width:70px"><col style="width:90px">
+                  <col style="width:82px"><col style="width:82px"><col style="width:82px">
+                  <col style="width:58px"><col style="width:64px">
+                  <col style="width:92px"><col style="width:72px"><col style="width:62px"><col style="width:92px"><col style="width:56px">
+                </colgroup>
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
@@ -2464,7 +2486,7 @@ const SERVER = {
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
-              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0"></div>
+              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="onPNAmountPaidChanged()"></div>
               <div class="field"><label>Payment Mode</label>
                 <div style="display:flex;gap:6px">
                   <select id="pn-paymode" style="flex:1" onchange="onPNPaymodeChange()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option>Split</option></select>
@@ -2476,8 +2498,10 @@ const SERVER = {
               <div class="field" id="pn-split-wrap" style="display:none">
                 <label>Split Payment</label>
                 <div id="pn-split-rows" style="display:flex;flex-direction:column;gap:6px"></div>
-                <div style="font-size:11px;color:var(--muted);margin-top:6px">
-                  Split Total: <strong id="pn-split-total">₹0.00</strong> &nbsp;/&nbsp; Grand Total: <strong id="pn-split-target">₹0.00</strong>
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+                  <span>Split Total: <strong id="pn-split-total">₹0.00</strong></span>
+                  <span>Received Amount: <strong id="pn-split-target">₹0.00</strong></span>
+                  <span id="pn-split-badges" style="display:flex;flex-wrap:wrap;gap:12px"></span>
                 </div>
               </div>
             </div>
@@ -11942,18 +11966,32 @@ function fmt_date_disp(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, entryMode: 'catalog' };
 let pneItemSeq = 1;
 let PNE_SPLITS = [];
 let pneSplitSeq = 1;
 
 function pneEmptyItem() {
   return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
-    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0 };
+    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, entry_mode: PNE.entryMode };
+}
+
+function setPNEEntryMode(mode) {
+  PNE.entryMode = mode;
+  document.getElementById('pne-mode-catalog-btn')?.classList.toggle('active', mode === 'catalog');
+  document.getElementById('pne-mode-freetext-btn')?.classList.toggle('active', mode === 'freetext');
+}
+
+function togglePNERowMode(id) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
+  it.entry_mode = it.entry_mode === 'freetext' ? 'catalog' : 'freetext';
+  if (it.entry_mode === 'catalog') { it.product_id = ''; }
+  renderPNEItemsTable();
 }
 
 function goToNewPurchase() {
   PNE.editingId = null;
+  setPNEEntryMode('catalog');
   PNE.items = [pneEmptyItem()];
   PNE.attachmentDataUrl = null;
   PNE.attachmentExisting = null;
@@ -11984,6 +12022,9 @@ function goToNewPurchase() {
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
   document.getElementById('pn-paymode').value = 'Cash';
+  PNE_SPLITS = [];
+  document.getElementById('pn-split-wrap').style.display = 'none';
+  document.getElementById('pn-split-addbtn').style.display = 'none';
   document.getElementById('pn-transactionno').value = '';
   document.getElementById('pn-paydate').value = fmt_date(new Date());
   document.getElementById('pn-notes').value = '';
@@ -12091,10 +12132,16 @@ function renderPNEItemsTable() {
     return `<tr data-row="${it.id}">
       <td>${idx+1}</td>
       <td>
+        ${it.entry_mode === 'freetext' ? `
+        <input placeholder="Product name" value="${escHtml(it.description)}" oninput="updatePNEItem(${it.id},'description',this.value,true)">
+        <div class="pne-mode-switch" onclick="togglePNERowMode(${it.id})"><i class="fas fa-list"></i> Use catalog</div>
+        ` : `
         <select onchange="onPNEProductChange(${it.id}, this.value)">
           <option value="" disabled ${!it.product_id ? 'selected' : ''}>Select product…</option>
           ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
         </select>
+        <div class="pne-mode-switch" onclick="togglePNERowMode(${it.id})"><i class="fas fa-pen"></i> Free text</div>
+        `}
       </td>
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
@@ -12176,7 +12223,7 @@ function calcPurchaseNewTotals() {
 
   // Keep Amount Paid sane if Payment Status is set to Paid
   const payStatus = document.getElementById('pn-paystatus').value;
-  if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
+  if (payStatus === 'Paid') { document.getElementById('pn-amountpaid').value = grand.toFixed(2); onPNAmountPaidChanged(); }
 
   updatePNSplitTotals();
 }
@@ -12185,6 +12232,12 @@ function pneParseMoney(str) {
   return parseFloat(String(str||'').replace(/[^0-9.]/g, '')) || 0;
 }
 
+function pnReceivedAmount() {
+  return parseFloat(document.getElementById('pn-amountpaid')?.value) || 0;
+}
+
+const PNE_SPLIT_COLORS = ['#0d9488', '#7c3aed', '#d97706', '#2563eb', '#db2777', '#059669'];
+
 function onPNPaymodeChange() {
   const mode = document.getElementById('pn-paymode').value;
   const wrap = document.getElementById('pn-split-wrap');
@@ -12192,14 +12245,26 @@ function onPNPaymodeChange() {
   if (mode === 'Split') {
     wrap.style.display = 'block';
     addBtn.style.display = 'inline-flex';
-    if (!PNE_SPLITS.length) {
-      const grand = pneParseMoney(document.getElementById('pn-sum-grand').textContent);
-      PNE_SPLITS = [{ id: pneSplitSeq++, mode: 'Cash', amount: grand.toFixed(2), transaction_no: '' }];
-    }
+    const total = pnReceivedAmount();
+    PNE_SPLITS = [
+      { id: pneSplitSeq++, mode: 'Cash', amount: total.toFixed(2), transaction_no: '' },
+      { id: pneSplitSeq++, mode: 'Bank Transfer', amount: 0, transaction_no: '' },
+    ];
     renderPNSplitRows();
   } else {
     wrap.style.display = 'none';
     addBtn.style.display = 'none';
+  }
+}
+
+// Called when the "Amount Paid (₹)" field changes — the split system is keyed to this
+// received amount, so re-seed the first split with the new total and zero the second.
+function onPNAmountPaidChanged() {
+  if (document.getElementById('pn-paymode').value === 'Split' && PNE_SPLITS.length === 2) {
+    const total = pnReceivedAmount();
+    PNE_SPLITS[0].amount = total.toFixed(2);
+    PNE_SPLITS[1].amount = 0;
+    renderPNSplitRows();
   }
 }
 
@@ -12215,8 +12280,23 @@ function removePNSplitRow(id) {
 }
 
 function updatePNSplit(id, field, val) {
-  const s = PNE_SPLITS.find(x => x.id === id); if (!s) return;
-  s[field] = val;
+  const idx = PNE_SPLITS.findIndex(x => x.id === id); if (idx === -1) return;
+  const s = PNE_SPLITS[idx];
+  if (field === 'amount' && PNE_SPLITS.length === 2) {
+    // Exactly two splits: they auto-balance against each other so they always add up
+    // to the received amount — editing one instantly deducts from the other.
+    const total = pnReceivedAmount();
+    let amt = parseFloat(val) || 0;
+    if (amt > total) amt = total;
+    if (amt < 0) amt = 0;
+    s.amount = amt;
+    const other = PNE_SPLITS[idx === 0 ? 1 : 0];
+    other.amount = +(total - amt).toFixed(2);
+    const otherInput = document.querySelector(`[data-split="${other.id}"] input[data-field="amount"]`);
+    if (otherInput) otherInput.value = other.amount;
+  } else {
+    s[field] = val;
+  }
   updatePNSplitTotals();
 }
 
@@ -12225,11 +12305,11 @@ function renderPNSplitRows() {
   if (!wrap) return;
   wrap.innerHTML = PNE_SPLITS.map(s => `
     <div class="pne-split-row" data-split="${s.id}">
-      <select onchange="updatePNSplit(${s.id},'mode',this.value)">
+      <select data-field="mode" onchange="updatePNSplit(${s.id},'mode',this.value)">
         ${['Cash','Bank Transfer','UPI','Cheque'].map(m => `<option ${s.mode===m?'selected':''}>${m}</option>`).join('')}
       </select>
-      <input type="number" placeholder="Amount" min="0" value="${s.amount}" oninput="updatePNSplit(${s.id},'amount',this.value)">
-      <input placeholder="Txn No. (optional)" value="${escHtml(s.transaction_no||'')}" oninput="updatePNSplit(${s.id},'transaction_no',this.value)">
+      <input type="number" data-field="amount" placeholder="Amount" min="0" value="${s.amount}" oninput="updatePNSplit(${s.id},'amount',this.value)">
+      <input data-field="transaction_no" placeholder="Txn No. (optional)" value="${escHtml(s.transaction_no||'')}" oninput="updatePNSplit(${s.id},'transaction_no',this.value)">
       <button type="button" class="item-del" title="Remove split" onclick="removePNSplitRow(${s.id})"><i class="fas fa-times"></i></button>
     </div>`).join('');
   updatePNSplitTotals();
@@ -12239,12 +12319,20 @@ function updatePNSplitTotals() {
   const totalEl = document.getElementById('pn-split-total');
   if (!totalEl) return;
   const sum = PNE_SPLITS.reduce((a, s) => a + (parseFloat(s.amount) || 0), 0);
-  const grand = pneParseMoney(document.getElementById('pn-sum-grand')?.textContent);
+  const target = pnReceivedAmount();
   totalEl.textContent = fmt_money(sum);
   const targetEl = document.getElementById('pn-split-target');
-  if (targetEl) targetEl.textContent = fmt_money(grand);
-  totalEl.classList.toggle('pne-split-total-bad', Math.abs(sum - grand) > 0.01);
-  totalEl.classList.toggle('pne-split-total-ok', Math.abs(sum - grand) <= 0.01);
+  if (targetEl) targetEl.textContent = fmt_money(target);
+  totalEl.classList.toggle('pne-split-total-bad', Math.abs(sum - target) > 0.01);
+  totalEl.classList.toggle('pne-split-total-ok', Math.abs(sum - target) <= 0.01);
+
+  const badgesEl = document.getElementById('pn-split-badges');
+  if (badgesEl) {
+    badgesEl.innerHTML = PNE_SPLITS.map((s, i) => `
+      <span style="color:${PNE_SPLIT_COLORS[i % PNE_SPLIT_COLORS.length]};font-weight:700">
+        ${escHtml(s.mode)}: ${fmt_money(parseFloat(s.amount)||0)}
+      </span>`).join('');
+  }
 }
 
 async function editPurchase(id) {
@@ -12264,6 +12352,7 @@ async function editPurchase(id) {
         variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
         gross_weight: gross, tare_weight: tare, dhalta_kg: dhaltaKg,
         rate: it.rate || 0, discount_pct: it.discount_pct || 0,
+        entry_mode: it.product_id ? 'catalog' : 'freetext',
       };
     });
     document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
@@ -12297,6 +12386,22 @@ async function editPurchase(id) {
     document.getElementById('pn-transactionno').value = p.transaction_no || '';
     document.getElementById('pn-paydate').value = p.payment_date || '';
     document.getElementById('pn-notes').value = p.notes || '';
+    if ((p.payment_mode || '') === 'Split') {
+      const saved = Array.isArray(p.payment_splits) ? p.payment_splits : null;
+      PNE_SPLITS = saved && saved.length
+        ? saved.map(s => ({ id: pneSplitSeq++, mode: s.mode || 'Cash', amount: parseFloat(s.amount) || 0, transaction_no: s.transaction_no || '' }))
+        : [
+            { id: pneSplitSeq++, mode: 'Cash', amount: (parseFloat(p.amount_paid) || 0).toFixed(2), transaction_no: '' },
+            { id: pneSplitSeq++, mode: 'Bank Transfer', amount: 0, transaction_no: '' },
+          ];
+      document.getElementById('pn-split-wrap').style.display = 'block';
+      document.getElementById('pn-split-addbtn').style.display = 'inline-flex';
+      renderPNSplitRows();
+    } else {
+      PNE_SPLITS = [];
+      document.getElementById('pn-split-wrap').style.display = 'none';
+      document.getElementById('pn-split-addbtn').style.display = 'none';
+    }
     renderPNEItemsTable();
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
@@ -12351,6 +12456,9 @@ async function savePurchaseEntry(mode) {
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
     payment_mode: document.getElementById('pn-paymode').value,
+    payment_splits: document.getElementById('pn-paymode').value === 'Split'
+      ? PNE_SPLITS.map(s => ({ mode: s.mode, amount: parseFloat(s.amount) || 0, transaction_no: s.transaction_no || '' }))
+      : undefined,
     transaction_no: document.getElementById('pn-transactionno').value.trim(),
     payment_date: document.getElementById('pn-paydate').value || null,
     notes: document.getElementById('pn-notes').value.trim(),
