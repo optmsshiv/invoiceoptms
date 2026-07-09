@@ -698,6 +698,13 @@ canvas { max-width: 100% !important; }
 .pne-sig-block label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
 .pne-sig-line { border-bottom: 1.5px dashed var(--border); height: 34px; }
 
+.sa-summary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.sa-summary-chip { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 10px; padding: 10px 14px; }
+.sa-summary-chip span { display: block; font-size: 10.5px; color: var(--muted); }
+.sa-summary-chip strong { display: block; font-size: 15px; color: var(--text); }
+.sa-chip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; flex-shrink: 0; }
+.sa-op { font-size: 16px; font-weight: 700; color: var(--muted); }
+
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
 .cc-avatar {
@@ -2688,7 +2695,7 @@ const SERVER = {
         <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
         <div style="flex:1"></div>
         <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-outline" onclick="openStockAdjustModal()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
+        <button class="btn btn-outline" onclick="goToNewStockAdjustment()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -3190,6 +3197,138 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addcustomer')">Cancel</button>
           <button class="btn btn-primary" id="cus-save-btn" onclick="saveCustomer()"><i class="fas fa-check"></i> Save Customer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ STOCK ADJUSTMENT / MOISTURE ADJUSTMENT (full page) ═══════════ -->
+    <div id="page-stock-adjust-new" class="page">
+      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Stock Adjustment &gt; <strong style="color:var(--text)">Add New</strong></span></div>
+      <div class="pne-topbar">
+        <div>
+          <div class="pne-title">Stock Adjustment / Moisture Adjustment</div>
+        </div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
+          <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
+        </div>
+      </div>
+
+      <div class="pne-layout">
+        <div class="pne-main">
+
+          <!-- 1. Adjustment Details -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-sliders-h"></i></span> Adjustment Details</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Adjustment No.</label><input id="sa-no" placeholder="Auto-generated"></div>
+              <div class="field"><label>Adjustment Date *</label><input type="date" id="sa-date"></div>
+              <div class="field"><label>Adjustment Type *</label>
+                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Other</option></select>
+              </div>
+              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option></select></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Reference No.</label><input id="sa-refno" placeholder="Enter reference no. (optional)"></div>
+              <div class="field"><label>Reference Date</label><input type="date" id="sa-refdate"></div>
+            </div>
+          </div>
+
+          <!-- 2. Product & Batch Details -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-box"></i></span> Product &amp; Batch Details</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Product *</label>
+                <select id="sa-product" onchange="onSAProductChange()"><option value="">Select product…</option></select>
+              </div>
+              <div class="field"><label>Variety</label><input id="sa-variety" placeholder="Optional"></div>
+              <div class="field"><label>Grade</label><input id="sa-grade" placeholder="Optional"></div>
+              <div class="field"><label>Unit</label><input id="sa-unit" readonly></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Batch / Lot No.</label><input id="sa-batchno" placeholder="Optional"></div>
+              <div class="field"><label>Manufacture Date</label><input type="date" id="sa-mfgdate"></div>
+              <div class="field"><label>Expiry Date</label><input type="date" id="sa-expdate"></div>
+              <div class="field"><label>Supplier / Farmer</label><select id="sa-supplier"><option value="">Select or —</option></select></div>
+            </div>
+          </div>
+
+          <!-- 3. Stock & Moisture Details -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-tint"></i></span> Stock &amp; Moisture Details</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Opening Stock (Kg) *</label><input type="number" id="sa-openingstock" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label>Moisture Before (%)</label><input type="number" id="sa-moistbefore" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label>Moisture After (%)</label><input type="number" id="sa-moistafter" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label>Moisture Loss (%)</label><input id="sa-moistloss" readonly></div>
+              <div class="field"><label>Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label>Final Stock (Kg) *</label><input id="sa-finalstock" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
+            </div>
+            <div class="pne-grid2">
+              <div class="field"><label>Reason / Description *</label>
+                <select id="sa-reason"><option>Drying / Moisture Loss</option><option>Physical Damage</option><option>Cleaning / Impurity Removal</option><option>Physical Recount</option><option>Pest / Spoilage</option><option>Other</option></select>
+              </div>
+              <div class="field"><label>Remarks (optional)</label><textarea id="sa-remarks" style="min-height:44px" placeholder="Optional notes"></textarea></div>
+            </div>
+          </div>
+
+          <!-- 4. Summary -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-calculator"></i></span> Summary</div>
+            <div class="sa-summary-row">
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-box"></i></span><div><span>Opening Stock (Kg)</span><strong id="sa-sum-opening">0.00</strong></div></div>
+              <span class="sa-op">−</span>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span>Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
+              <span class="sa-op">=</span>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B"><i class="fas fa-check-circle"></i></span><div><span>Final Stock (Kg)</span><strong id="sa-sum-final">0.00</strong></div></div>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-tint"></i></span><div><span>Moisture Before</span><strong id="sa-sum-mbefore">0.00 %</strong></div></div>
+              <span class="sa-op"><i class="fas fa-arrow-right"></i></span>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-tint-slash"></i></span><div><span>Moisture After</span><strong id="sa-sum-mafter">0.00 %</strong></div></div>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828"><i class="fas fa-chart-line"></i></span><div><span>Moisture Loss</span><strong id="sa-sum-mloss">0.00 %</strong></div></div>
+            </div>
+          </div>
+
+          <!-- 5. Attachment & Approval -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-paperclip"></i></span> Attachment &amp; Approval</div>
+            <div class="pne-grid4">
+              <div class="field" style="grid-column:span 1">
+                <label>Attachment (optional)</label>
+                <label class="pp-dropzone" for="sa-attachment-input" id="sa-attachment-label">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <div>Drag &amp; drop files here<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
+                </label>
+                <input type="file" id="sa-attachment-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="saAttachmentChange(this.files[0])">
+              </div>
+              <div class="field"><label>Approved By</label><select id="sa-approvedby"><option value="">Select…</option></select></div>
+              <div class="field"><label>Approval Date</label><input type="date" id="sa-approvaldate"></div>
+              <div class="field"><label>Notes (optional)</label><textarea id="sa-notes" style="min-height:44px" placeholder="Optional"></textarea></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
+            <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
+          </div>
+        </div>
+
+        <!-- Right sidebar -->
+        <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-green"><i class="fas fa-bullseye"></i> Adjustment Impact</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">This adjustment will affect the available stock.</div>
+            <div class="pne-kv" style="display:block;padding-top:8px"><span>Warehouse</span><br><strong id="sa-imp-warehouse">Main Warehouse</strong></div>
+            <div class="pne-kv" style="display:block;padding-top:8px"><span>Product</span><br><strong id="sa-imp-product">—</strong></div>
+            <div class="pne-kv" style="display:block;padding-top:8px"><span>Batch / Lot No.</span><br><strong id="sa-imp-batch">—</strong></div>
+            <div class="pne-kv" style="display:block;padding-top:8px"><span>Impact</span><br><strong style="color:#E53935">Stock Decrease</strong></div>
+            <div class="pne-kv" style="display:block;padding-top:8px"><span>Accounting Impact</span><br><strong>Inventory Adjustment (Loss)</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head" style="justify-content:space-between">
+              <span><i class="fas fa-history"></i> Recent Adjustments</span>
+              <a href="#" style="font-size:11px;color:var(--teal)" onclick="event.preventDefault()">View All</a>
+            </div>
+            <div id="sa-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -14016,8 +14155,198 @@ async function printSaleEntry(id) {
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
 }
 
+// ══════════════════════════════════════════
+// STOCK ADJUSTMENT / MOISTURE ADJUSTMENT (full page)
+// ══════════════════════════════════════════
+const SA = { attachmentDataUrl: null };
 
-async function deletePurchase(id) {
+function populateSAProductDropdown() {
+  const sel = document.getElementById('sa-product');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product…</option>' +
+    STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+}
+function populateSASupplierDropdown() {
+  const sel = document.getElementById('sa-supplier');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select or —</option>' +
+    (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+}
+async function populateSAApprovedByDropdown() {
+  const sel = document.getElementById('sa-approvedby');
+  if (!sel) return;
+  try {
+    if (!STATE.team || !STATE.team.length) {
+      const r = await api('api/team.php?action=list');
+      STATE.team = Array.isArray(r.data) ? r.data : [];
+    }
+    sel.innerHTML = '<option value="">Select…</option>' +
+      STATE.team.map(u => `<option value="${escHtml(u.name)}">${escHtml(u.name)}</option>`).join('');
+  } catch(e) { sel.innerHTML = '<option value="">Select…</option>'; }
+}
+
+function goToNewStockAdjustment() {
+  SA.attachmentDataUrl = null;
+  document.getElementById('sa-no').value = '';
+  document.getElementById('sa-date').value = fmt_date(new Date());
+  document.getElementById('sa-type').value = 'Moisture Loss';
+  document.getElementById('sa-warehouse').value = 'Main Warehouse';
+  document.getElementById('sa-refno').value = '';
+  document.getElementById('sa-refdate').value = '';
+  populateSAProductDropdown();
+  document.getElementById('sa-product').value = '';
+  document.getElementById('sa-variety').value = '';
+  document.getElementById('sa-grade').value = '';
+  document.getElementById('sa-unit').value = 'Kg';
+  document.getElementById('sa-batchno').value = '';
+  document.getElementById('sa-mfgdate').value = '';
+  document.getElementById('sa-expdate').value = '';
+  populateSASupplierDropdown();
+  document.getElementById('sa-supplier').value = '';
+  document.getElementById('sa-openingstock').value = '';
+  document.getElementById('sa-moistbefore').value = '';
+  document.getElementById('sa-moistafter').value = '';
+  document.getElementById('sa-moistloss').value = '';
+  document.getElementById('sa-weightloss').value = '';
+  document.getElementById('sa-finalstock').value = '';
+  document.getElementById('sa-reason').value = 'Drying / Moisture Loss';
+  document.getElementById('sa-remarks').value = '';
+  document.getElementById('sa-attachment-input').value = '';
+  document.getElementById('sa-attachment-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div>Drag &amp; drop files here<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
+  populateSAApprovedByDropdown();
+  document.getElementById('sa-approvaldate').value = fmt_date(new Date());
+  document.getElementById('sa-notes').value = '';
+  document.getElementById('sa-imp-warehouse').textContent = 'Main Warehouse';
+  document.getElementById('sa-imp-product').textContent = '—';
+  document.getElementById('sa-imp-batch').textContent = '—';
+  calcStockAdjustment();
+  renderSARecentAdjustments();
+  showPage('stock-adjust-new');
+  document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
+}
+
+function cancelStockAdjustment() {
+  showPage('stock');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
+}
+
+function onSAProductChange() {
+  const id = document.getElementById('sa-product').value;
+  const p = STATE.products.find(x => String(x.id) === String(id));
+  document.getElementById('sa-imp-product').textContent = p ? p.name : '—';
+  if (p) {
+    document.getElementById('sa-unit').value = (p.unit_family === 'volume') ? 'Ltr' : (p.unit_family === 'count' ? 'Pcs' : 'Kg');
+    if (p.variety) document.getElementById('sa-variety').value = p.variety;
+    if (p.grade) document.getElementById('sa-grade').value = p.grade;
+    // Pull current stock as the default Opening Stock
+    const s = (STATE.stock||[]).find(x => String(x.product_id) === String(id).replace(/\D/g,''));
+    document.getElementById('sa-openingstock').value = s ? parseFloat(s.current_stock).toFixed(2) : '0.00';
+  }
+  calcStockAdjustment();
+}
+
+function calcStockAdjustment() {
+  const opening = parseFloat(document.getElementById('sa-openingstock').value) || 0;
+  const before = document.getElementById('sa-moistbefore').value;
+  const after  = document.getElementById('sa-moistafter').value;
+  const moistLoss = (before !== '' && after !== '') ? (parseFloat(before) - parseFloat(after)) : null;
+  document.getElementById('sa-moistloss').value = moistLoss !== null ? moistLoss.toFixed(2) : '';
+  const weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
+  const finalStock = Math.max(0, opening - weightLoss);
+  document.getElementById('sa-finalstock').value = finalStock.toFixed(2);
+
+  document.getElementById('sa-sum-opening').textContent = opening.toFixed(2);
+  document.getElementById('sa-sum-loss').textContent = weightLoss.toFixed(2);
+  document.getElementById('sa-sum-final').textContent = finalStock.toFixed(2);
+  document.getElementById('sa-sum-mbefore').textContent = (parseFloat(before)||0).toFixed(2) + ' %';
+  document.getElementById('sa-sum-mafter').textContent = (parseFloat(after)||0).toFixed(2) + ' %';
+  document.getElementById('sa-sum-mloss').textContent = (moistLoss !== null ? moistLoss : 0).toFixed(2) + ' %';
+
+  document.getElementById('sa-imp-warehouse').textContent = document.getElementById('sa-warehouse').value;
+  document.getElementById('sa-imp-batch').textContent = document.getElementById('sa-batchno').value || '—';
+}
+
+function saAttachmentChange(file) {
+  if (!file) return;
+  if (file.size > 5*1024*1024) { toast('⚠️ Attachment must be under 5MB', 'warning'); return; }
+  document.getElementById('sa-attachment-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div>${escHtml(file.name)}<br><span style="font-size:10px">${(file.size/1024).toFixed(0)} KB</span></div>`;
+  const reader = new FileReader();
+  reader.onload = () => { SA.attachmentDataUrl = reader.result; };
+  reader.readAsDataURL(file);
+}
+
+async function saveStockAdjustmentEntry() {
+  const productId = document.getElementById('sa-product').value;
+  if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
+  if (!document.getElementById('sa-date').value) { toast('⚠️ Adjustment date is required', 'warning'); return; }
+  if (!document.getElementById('sa-openingstock').value) { toast('⚠️ Opening Stock is required', 'warning'); return; }
+  if (!document.getElementById('sa-weightloss').value) { toast('⚠️ Weight Loss is required', 'warning'); return; }
+  if (!document.getElementById('sa-reason').value) { toast('⚠️ Reason / Description is required', 'warning'); return; }
+
+  const payload = {
+    adjustment_no: document.getElementById('sa-no').value.trim(),
+    adjustment_date: document.getElementById('sa-date').value,
+    adjustment_type: document.getElementById('sa-type').value,
+    warehouse: document.getElementById('sa-warehouse').value,
+    reference_no: document.getElementById('sa-refno').value.trim(),
+    reference_date: document.getElementById('sa-refdate').value || null,
+    product_id: productId,
+    variety_grade: document.getElementById('sa-variety').value.trim(),
+    grade: document.getElementById('sa-grade').value.trim(),
+    unit: document.getElementById('sa-unit').value,
+    batch_no: document.getElementById('sa-batchno').value.trim(),
+    manufacture_date: document.getElementById('sa-mfgdate').value || null,
+    expiry_date: document.getElementById('sa-expdate').value || null,
+    supplier_id: document.getElementById('sa-supplier').value || null,
+    opening_stock: parseFloat(document.getElementById('sa-openingstock').value) || 0,
+    moisture_before_pct: document.getElementById('sa-moistbefore').value || '',
+    moisture_after_pct: document.getElementById('sa-moistafter').value || '',
+    weight_loss_kg: parseFloat(document.getElementById('sa-weightloss').value) || 0,
+    reason: document.getElementById('sa-reason').value,
+    remarks: document.getElementById('sa-remarks').value.trim(),
+    attachment: SA.attachmentDataUrl || undefined,
+    approved_by: document.getElementById('sa-approvedby').value,
+    approval_date: document.getElementById('sa-approvaldate').value || null,
+    notes: document.getElementById('sa-notes').value.trim(),
+  };
+
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
+  try {
+    await api('api/stock_adjustments.php', 'POST', payload);
+    toast('✅ Stock adjustment saved!', 'success');
+    const stk = await api('api/stock.php');
+    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    cancelStockAdjustment();
+    renderStock();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+async function renderSARecentAdjustments() {
+  const box = document.getElementById('sa-recent-list');
+  if (!box) return;
+  box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Loading…</div>';
+  try {
+    const r = await api('api/stock_adjustments.php?limit=5');
+    const rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No adjustments yet</div>'; return; }
+    const typeColor = { 'Moisture Loss':'#E65100', 'Damage Loss':'#C62828', 'Cleaning Loss':'#1976D2', 'Recount':'#6A4C93', 'Other':'#455A64' };
+    box.innerHTML = rows.map(r => `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:12.5px">${escHtml(r.adjustment_no)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
+          <span style="font-size:11px;color:var(--muted)">${escHtml(r.adjustment_type)}</span>
+          <span style="font-size:10.5px;font-weight:700;color:${typeColor[r.adjustment_type]||'#455A64'};background:${typeColor[r.adjustment_type]||'#455A64'}18;padding:2px 8px;border-radius:10px">${parseFloat(r.weight_loss_kg).toFixed(2)} Kg</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.adjustment_date)}</div>
+      </div>`).join('');
+  } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
+}
+
+
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
   const conf = await Swal.fire({
     title: 'Delete this purchase?',
