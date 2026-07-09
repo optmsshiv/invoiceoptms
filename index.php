@@ -13060,10 +13060,13 @@ function updatePNEItem(id, field, val, isText) {
 
 
 function calcPurchaseNewTotals() {
-  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalDiscount = 0;
+  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalItemDiscount = 0;
+  let sumGross = 0, sumTare = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
-    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount; totalDiscount += c.discountAmt;
+    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount; totalItemDiscount += c.discountAmt;
+    sumGross += parseFloat(it.gross_weight) || 0;
+    sumTare  += parseFloat(it.tare_weight)  || 0;
   });
   document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
@@ -13073,8 +13076,14 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
-  document.getElementById('pne-sb-discount').textContent = fmt_money(totalDiscount);
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
+
+  // Weight Information's Gross/Tare auto-fetch from what's already entered
+  // per item in the Items table, so it's never typed twice. Only takes over
+  // once items actually have weight data — a standalone manual entry (e.g.
+  // before any items are filled in) is left alone rather than wiped to blank.
+  if (sumGross > 0) document.getElementById('pn-kanta-gross').value = sumGross.toFixed(2);
+  if (sumTare  > 0) document.getElementById('pn-kanta-tare').value  = sumTare.toFixed(2);
   calcPNEKantaSummary();
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
@@ -13085,9 +13094,13 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-sum-subtotal').textContent = fmt_money(subtotal);
   document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
 
-  const discount = parseFloat(document.getElementById('pn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount);
+  const headerDiscount = parseFloat(document.getElementById('pn-discount').value) || 0;
+  const taxable = Math.max(0, subtotal + addCharges - headerDiscount);
   document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
+
+  // Total Discount in Product Summary = per-item discounts + the header-level
+  // "Less: Discount" from Tax & Amount Summary, so both cards agree.
+  document.getElementById('pne-sb-discount').textContent = fmt_money(totalItemDiscount + headerDiscount);
 
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
   const gstPct = gstApplicable ? (parseFloat(document.getElementById('pn-gst-pct').value) || 0) : 0;
@@ -13104,9 +13117,6 @@ function calcPurchaseNewTotals() {
   updatePNESplitMismatch();
 }
 
-// ── Split Payment (Payment Information) ──────────────────────────
-// Mirrors the existing invoice Record-Payment split pattern, scoped with a
-// "pne" prefix so it doesn't collide with that modal's own split UI.
 // ── Split Payment (Payment Information) ──────────────────────────
 // Mirrors the existing invoice Record-Payment split pattern, scoped with a
 // "pne" prefix so it doesn't collide with that modal's own split UI.
