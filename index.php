@@ -14347,6 +14347,7 @@ async function renderSARecentAdjustments() {
 }
 
 
+async function deletePurchase(id) {
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
   const conf = await Swal.fire({
     title: 'Delete this purchase?',
