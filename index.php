@@ -651,9 +651,10 @@ canvas { max-width: 100% !important; }
 .pne-split-amt { width: 110px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
 .pne-split-row-auto .pne-split-amt { background: #E8F5E9; color: #00897B; font-weight: 700; cursor: not-allowed; }
 .pne-split-row.pne-split-over .pne-split-amt { background: #FFEBEE; color: #C62828; }
+.pne-split-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #2E7D32; }
 .pne-split-auto-tag {
   font-size: 10px; font-weight: 700; color: #00897B; background: #E8F5E9; border-radius: 6px;
-  padding: 6px 10px; white-space: nowrap;
+  padding: 6px 10px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
 }
 .pne-split-row button { padding: 6px 10px; background: #FFEBEE; color: #C62828; border: none; border-radius: 7px; cursor: pointer; font-size: 12px; }
 .pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
@@ -13160,16 +13161,50 @@ function syncPNESplitAutoRow() {
   renderPNESplitFooter();
 }
 
+// Reconstructs real, editable rows from a saved "Split: Cash: ₹X + UPI: ₹Y"
+// label — so editing a split-paid purchase shows exactly what was saved,
+// not a text hint asking the person to re-type it from memory.
+function restorePNESplitFromLabel(label) {
+  const body = label.replace(/^Split:\s*/, '');
+  const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
+    const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
+    return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
+  }).filter(Boolean);
+
+  if (parts.length === 0) { addPNESplitRow(true); addPNESplitRow(false); syncPNESplitAutoRow(); return; }
+
+  addPNESplitRow(true); // row 0 — auto, amount recomputed live
+  setPNESplitRowMethod(0, parts[0].method);
+  for (let i = 1; i < parts.length; i++) {
+    addPNESplitRow(false);
+    setPNESplitRowMethod(i, parts[i].method);
+    const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
+    rows[i].querySelector('.pne-split-amt').value = parts[i].amount.toFixed(2);
+  }
+  if (parts.length === 1) addPNESplitRow(false); // keep the minimum of 2 rows
+  syncPNESplitAutoRow();
+}
+function setPNESplitRowMethod(rowIndex, method) {
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
+  const sel = rows[rowIndex]?.querySelector('.pne-split-method');
+  if (sel && Array.from(sel.options).some(o => o.value === method)) {
+    sel.value = method;
+    const dot = rows[rowIndex]?.querySelector('.pne-split-dot');
+    if (dot) dot.style.background = pneSplitColor(method);
+  }
+}
+
 function addPNESplitRow(isAuto) {
   const container = document.getElementById('pne-split-rows');
   const row = document.createElement('div');
   row.className = 'pne-split-row' + (isAuto ? ' pne-split-row-auto' : '');
-  row.innerHTML = `<select class="pne-split-method" onchange="renderPNESplitFooter()">
+  row.innerHTML = `<span class="pne-split-dot" style="background:${pneSplitColor('Cash')}"></span>
+    <select class="pne-split-method" onchange="this.previousElementSibling.style.background=pneSplitColor(this.value); renderPNESplitFooter()">
       <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
     </select>
     <input type="number" class="pne-split-amt" placeholder="0.00" ${isAuto ? 'readonly title="Auto-calculated: Amount Paid minus the other methods"' : ''}
       oninput="syncPNESplitAutoRow()">
-    ${isAuto ? '<span class="pne-split-auto-tag">Auto</span>' : '<button type="button" onclick="removePNESplitRow(this)">✕</button>'}`;
+    ${isAuto ? '<span class="pne-split-auto-tag"><i class="fas fa-bolt"></i> Auto</span>' : '<button type="button" onclick="removePNESplitRow(this)"><i class="fas fa-times"></i></button>'}`;
   container.appendChild(row);
   renderPNESplitFooter();
 }
@@ -13287,12 +13322,7 @@ async function editPurchase(id) {
     document.getElementById('pne-split-panel').style.display = isSplitSaved ? 'block' : 'none';
     document.getElementById('pne-split-rows').innerHTML = '';
     if (isSplitSaved) {
-      // We only stored the composed label, not structured rows — show it as
-      // read-only context and let a fresh split be entered if amounts changed.
-      document.getElementById('pne-split-rows').innerHTML =
-        `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Previously saved as: "${escHtml(p.payment_mode)}" — re-enter splits below if amounts changed.</div>`;
-      addPNESplitRow(true); addPNESplitRow(false);
-      syncPNESplitAutoRow();
+      restorePNESplitFromLabel(p.payment_mode);
     }
     document.getElementById('pn-transactionno').value = p.transaction_no || '';
     document.getElementById('pn-paydate').value = p.payment_date || '';
