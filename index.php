@@ -528,7 +528,7 @@ canvas { max-width: 100% !important; }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 24px 60px; align-items: start; }
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
 
@@ -571,6 +571,19 @@ canvas { max-width: 100% !important; }
 .pne-items-table td:nth-child(2) input { text-align: left; }
 .pne-mode-switch { font-size: 9.5px; color: var(--teal); cursor: pointer; margin-top: 3px; text-align: left; user-select: none; }
 .pne-mode-switch:hover { text-decoration: underline; }
+.pne-trust-footer {
+  display: flex; flex-wrap: wrap; gap: 22px; align-items: center;
+  background: var(--card); border-top: 1px solid var(--border);
+  padding: 16px 24px; margin-top: 4px;
+}
+.pne-trust-item { display: flex; align-items: center; gap: 10px; flex: 1 1 180px; min-width: 180px; }
+.pne-trust-icon {
+  flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--teal-bg, #e6f7f4); color: var(--teal);
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+}
+.pne-trust-item strong { display: block; font-size: 12.5px; color: var(--text); }
+.pne-trust-item span { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
 /* Muted grid border for the items table, matching the reference design */
 .pne-items-table { border-collapse: collapse; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
@@ -2543,6 +2556,29 @@ const SERVER = {
             <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
             <textarea id="pn-notes" placeholder="Type any additional notes here…" style="min-height:80px"></textarea>
           </div>
+        </div>
+      </div>
+
+      <div class="pne-trust-footer">
+        <div class="pne-trust-item">
+          <span class="pne-trust-icon"><i class="fas fa-shield-alt"></i></span>
+          <div><strong>No GST (Farmer Purchase)</strong><span>Purchase is GST Exempt</span></div>
+        </div>
+        <div class="pne-trust-item">
+          <span class="pne-trust-icon"><i class="fas fa-award"></i></span>
+          <div><strong>Quality First</strong><span>Moisture &amp; Grade Tracked</span></div>
+        </div>
+        <div class="pne-trust-item">
+          <span class="pne-trust-icon"><i class="fas fa-warehouse"></i></span>
+          <div><strong>Stock Updated</strong><span>Real-time Inventory Update</span></div>
+        </div>
+        <div class="pne-trust-item">
+          <span class="pne-trust-icon"><i class="fas fa-chart-line"></i></span>
+          <div><strong>Reports &amp; Analytics</strong><span>Better Purchase Insights</span></div>
+        </div>
+        <div class="pne-trust-item">
+          <span class="pne-trust-icon"><i class="fas fa-file-invoice"></i></span>
+          <div><strong>Audit Ready</strong><span>Complete Purchase Trail</span></div>
         </div>
       </div>
     </div>
@@ -12181,13 +12217,11 @@ function renderPNEItemsTable() {
       <td>
         ${it.entry_mode === 'freetext' ? `
         <input placeholder="Product name" value="${escHtml(it.description)}" oninput="updatePNEItem(${it.id},'description',this.value,true)">
-        <div class="pne-mode-switch" onclick="togglePNERowMode(${it.id})"><i class="fas fa-list"></i> Use catalog</div>
         ` : `
         <select onchange="onPNEProductChange(${it.id}, this.value)">
           <option value="" disabled ${!it.product_id ? 'selected' : ''}>Select product…</option>
           ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
         </select>
-        <div class="pne-mode-switch" onclick="togglePNERowMode(${it.id})"><i class="fas fa-pen"></i> Free text</div>
         `}
       </td>
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
