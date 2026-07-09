@@ -3373,7 +3373,7 @@ const SERVER = {
           <!-- 1. Basic Information -->
           <div class="pne-card">
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
-            <div class="pne-grid5">
+            <div class="pne-grid4">
               <div class="field"><label>Type *</label>
                 <select id="sup-type" onchange="onSupplierTypeChangeRich()">
                   <option value="">Select Type</option>
@@ -3385,7 +3385,7 @@ const SERVER = {
               <div class="field"><label>Mobile No. *</label><input id="sup-mobile" placeholder="Enter mobile number"></div>
               <div class="field"><label>Email ID</label><input id="sup-email" type="email" placeholder="Enter email id"></div>
             </div>
-            <div class="pne-grid3">
+            <div class="pne-grid4">
               <div class="field"><label>Date of Registration</label><input type="date" id="sup-regdate"></div>
               <div class="field"><label>Business Nature</label>
                 <select id="sup-bizNature"><option value="">Select business nature</option><option>Wholesale</option><option>Retail</option><option>Farming</option><option>Processing</option><option>Export/Import</option></select>
