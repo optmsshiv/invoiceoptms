@@ -676,9 +676,12 @@ canvas { max-width: 100% !important; }
 .ps-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
 .ps-stock-table th { white-space: normal; word-break: break-word; line-height: 1.3; padding: 8px 6px; font-size: 10px; }
 .ps-stock-table td { padding: 8px 6px; font-size: 12px; word-break: break-word; }
+.sh-history-table th { white-space: normal; word-break: break-word; line-height: 1.3; padding: 8px 6px; font-size: 10px; }
+.sh-history-table td { padding: 8px 6px; font-size: 11.5px; word-break: break-word; }
 @media (max-width: 1200px) { .ps-stats-row { grid-template-columns: repeat(3, 1fr) !important; } }
 @media (max-width: 700px)  { .ps-stats-row { grid-template-columns: repeat(2, 1fr) !important; } }
 @media (max-width: 1000px) { .ps-bottom-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 1100px) { .fr-mid-grid { grid-template-columns: 1fr !important; } }
 
 .pne-feature-footer {
   display: flex; flex-wrap: wrap; gap: 22px; padding: 16px 24px; margin: 0 4px;
@@ -1566,6 +1569,11 @@ const SERVER = {
       <i class="fas fa-warehouse"></i><span>Stock Ledger</span>
     </a>
     <?php endif; ?>
+    <?php if ($perms['menu.stock'] ?? true): ?>
+    <a class="nav-item" data-page="stock-history" onclick="showPage('stock-history',this); goToStockHistory();">
+      <i class="fas fa-clock-rotate-left"></i><span>Stock History</span>
+    </a>
+    <?php endif; ?>
     <?php if ($perms['menu.sales'] ?? true): ?>
     <a class="nav-item" data-page="sales-list" id="nav-sales-item" onclick="showPage('sales-list',this); renderSales();" style="display:none">
       <i class="fas fa-file-invoice-dollar"></i><span>Sales</span>
@@ -1585,6 +1593,11 @@ const SERVER = {
     <?php if ($perms['menu.reports'] ?? true): ?>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
       <i class="fas fa-chart-bar"></i><span>Reports</span>
+    </a>
+    <?php endif; ?>
+    <?php if ($perms['menu.finance_report'] ?? true): ?>
+    <a class="nav-item" data-page="finance-report" onclick="showPage('finance-report',this); renderFinanceReport();">
+      <i class="fas fa-sack-dollar"></i><span>Finance Report</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.aging'] ?? true): ?>
@@ -3706,6 +3719,205 @@ const SERVER = {
             </div>
             <div id="sti-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ FINANCE REPORT ═══════════ -->
+    <div id="page-finance-report" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Finance Report</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Reports &gt; Finance Report</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="toast('📤 Export — coming soon','info')"><i class="fas fa-download"></i> Export</button>
+        </div>
+      </div>
+
+      <div class="pne-card" style="margin-top:16px">
+        <div class="pne-grid4">
+          <div class="field"><label>Report Type</label><select id="fr-type"><option>Finance Summary</option></select></div>
+          <div class="field"><label>Date Range</label>
+            <div style="display:flex;gap:6px">
+              <input type="date" id="fr-from" class="table-search" style="max-width:none;flex:1">
+              <input type="date" id="fr-to" class="table-search" style="max-width:none;flex:1">
+            </div>
+          </div>
+          <div class="field"><label>Warehouse</label><select id="fr-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field" style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn pne-btn-save" style="flex:1" onclick="renderFinanceReport()">Apply Filter</button>
+            <button class="btn btn-outline" onclick="resetFinanceFilter()"><i class="fas fa-rotate-left"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (₹)</div>
+          <div style="font-size:17px;font-weight:800" id="fr-stat-sales">₹0.00</div>
+          <div style="font-size:10.5px;color:#00897B" id="fr-chg-sales"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchase (₹)</div>
+          <div style="font-size:17px;font-weight:800" id="fr-stat-purchase">₹0.00</div>
+          <div style="font-size:10.5px;color:#00897B" id="fr-chg-purchase"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Collections (₹)</div>
+          <div style="font-size:17px;font-weight:800" id="fr-stat-collections">₹0.00</div>
+          <div style="font-size:10.5px;color:#00897B" id="fr-chg-collections"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-file-invoice-dollar"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Payments (₹)</div>
+          <div style="font-size:17px;font-weight:800" id="fr-stat-payments">₹0.00</div>
+          <div style="font-size:10.5px;color:#00897B" id="fr-chg-payments"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:34px;height:34px"><i class="fas fa-piggy-bank"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Total Sales − Total Purchase (gross margin; doesn't include operating expenses not tracked in Purchases)" style="cursor:help">ⓘ</span></div>
+          <div style="font-size:17px;font-weight:800" id="fr-stat-profit">₹0.00</div>
+          <div style="font-size:10.5px;color:#00897B" id="fr-chg-profit"></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-top:16px;align-items:start" class="fr-mid-grid">
+        <div class="pne-card">
+          <div class="pne-card-head">Income vs Expense Trend</div>
+          <canvas id="fr-trend-chart" height="230"></canvas>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Income Distribution (₹)</div>
+          <canvas id="fr-income-chart" height="230"></canvas>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Cash Flow Summary</div>
+          <div class="pne-kv"><span>Total Collections</span><strong style="color:#00897B" id="fr-cf-collections">₹0.00</strong></div>
+          <div class="pne-kv"><span>Total Payments</span><strong style="color:#E53935" id="fr-cf-payments">₹0.00</strong></div>
+          <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:10px"><span>Net Cash Flow</span><strong id="fr-cf-net" style="font-size:15px">₹0.00</strong></div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5"><i class="fas fa-circle-info"></i> Opening/Closing balances need bank &amp; cash account tracking, not yet built — showing period cash movement only.</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px;align-items:start" class="fr-mid-grid">
+        <div class="pne-card">
+          <div class="pne-card-head">Top Income Heads</div>
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>#</th><th>Income Head</th><th>Amount (₹)</th><th>%</th></tr></thead>
+            <tbody id="fr-income-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Top Expense Heads</div>
+          <table class="data-table" style="font-size:12px">
+            <thead><tr><th>#</th><th>Expense Head</th><th>Amount (₹)</th><th>%</th></tr></thead>
+            <tbody id="fr-expense-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Expense Summary (₹)</div>
+          <canvas id="fr-expense-chart" height="220"></canvas>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px">
+        <div class="pne-card">
+          <div class="pne-card-head">Payment Mode Summary</div>
+          <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+      </div>
+
+      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
+    </div>
+
+    <!-- ═══════════ STOCK HISTORY ═══════════ -->
+    <div id="page-stock-history" class="page">
+      <div style="font-size:20px;font-weight:800;color:var(--text)">Stock History</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;margin-bottom:16px">Dashboard &gt; Inventory &gt; Stock History</div>
+
+      <div class="pne-card">
+        <div class="pne-grid4" style="grid-template-columns:repeat(3,1fr)">
+          <div class="field"><label>Product</label><select id="sh-f-product" onchange="onSHProductChange()"><option value="">All Products</option></select></div>
+          <div class="field"><label>Batch / Lot No.</label><select id="sh-f-batch"><option value="">Select Batch / Lot</option></select></div>
+          <div class="field"><label>Warehouse</label><select id="sh-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+        </div>
+        <div class="pne-grid4" style="grid-template-columns:repeat(3,1fr)">
+          <div class="field"><label>Date Range</label>
+            <div style="display:flex;gap:6px">
+              <input type="date" id="sh-f-from" class="table-search" style="max-width:none;flex:1">
+              <input type="date" id="sh-f-to" class="table-search" style="max-width:none;flex:1">
+            </div>
+          </div>
+          <div class="field"><label>Transaction Type</label><select id="sh-f-txntype"><option value="">All</option><option value="in">Stock In</option><option value="out">Stock Out</option><option value="adjustment">Stock Adjustment</option></select></div>
+          <div class="field"><label>Reference Type</label><select id="sh-f-reftype"><option value="">All</option><option value="purchase">Purchase Entry</option><option value="stock_in">Stock In Entry</option><option value="sale">Sales Invoice</option><option value="adjustment">Stock Adjustment</option></select></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-outline" onclick="resetSHFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          <button class="btn pne-btn-save" onclick="renderStockHistory()"><i class="fas fa-filter"></i> Apply Filter</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-box"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-opening">0.00 Kg</div>
+          <div style="font-size:10px;color:var(--muted)" id="sh-stat-opening-date"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-right-to-bracket"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Stock In</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-in">0.00 Kg</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-right-from-bracket"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Stock Out</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-out">0.00 Kg</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-boxes-packing"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Closing Stock</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-closing">0.00 Kg</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-coins"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Current Stock Value</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-value">₹0.00</div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:10px">
+        <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
+          <span class="ps-tab active">Stock History</span>
+          <span class="ps-tab" onclick="showPage('stock',document.querySelector('.nav-item[data-page=&quot;stock&quot;]')); renderStock();">Stock Summary</span>
+        </div>
+        <button class="btn btn-outline" onclick="exportStockHistoryCsv()"><i class="fas fa-file-excel"></i> Export Excel</button>
+      </div>
+
+      <div class="table-card" style="overflow-x:auto">
+        <table class="data-table sh-history-table" style="min-width:1100px;table-layout:fixed">
+          <colgroup>
+            <col style="width:30px"><col style="width:110px"><col style="width:100px"><col style="width:100px"><col style="width:95px">
+            <col style="width:90px"><col style="width:90px"><col style="width:75px"><col style="width:75px"><col style="width:80px">
+            <col style="width:130px"><col style="width:45px">
+          </colgroup>
+          <thead><tr>
+            <th>#</th><th>Date &amp; Time</th><th>Transaction Type</th><th>Reference Type</th><th>Reference No.</th>
+            <th>Batch / Lot No.</th><th>Warehouse</th><th>In (Kg)</th><th>Out (Kg)</th><th>Balance (Kg)</th>
+            <th>Remarks</th><th>Action</th>
+          </tr></thead>
+          <tbody id="sh-history-tbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="sh-history-info"></div></div>
+      </div>
+
+      <div style="padding:16px 0 30px">
+        <div style="background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:10px 16px;font-size:11.5px;border-left:3px solid var(--blue)">
+          <i class="fas fa-circle-info"></i> <strong>Note:</strong> In (Kg) increases stock. Out (Kg) decreases stock.
         </div>
       </div>
     </div>
@@ -14297,6 +14509,249 @@ function numToWordsINR(amount) {
 }
 
 // ══════════════════════════════════════════
+// FINANCE REPORT — real data from Sales + Purchases. Deliberately does NOT
+// include a Finance Ledger / bank-account section: this app has no bank or
+// cash-account tracking anywhere, so fabricating opening/closing balances
+// would just be made-up numbers. Cash Flow here shows real period movement
+// (Collections vs Payments) instead.
+// ══════════════════════════════════════════
+let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
+
+function resetFinanceFilter() {
+  document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+  document.getElementById('fr-to').value = fmt_date(new Date());
+  document.getElementById('fr-warehouse').value = '';
+  renderFinanceReport();
+}
+
+async function renderFinanceReport() {
+  if (!document.getElementById('fr-from').value) {
+    document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('fr-to').value = fmt_date(new Date());
+  }
+  const from = document.getElementById('fr-from').value;
+  const to = document.getElementById('fr-to').value;
+  const wh = document.getElementById('fr-warehouse').value;
+
+  try {
+    const params = new URLSearchParams({ date_from: from, date_to: to });
+    if (wh) params.set('warehouse', wh);
+    const r = await api('api/finance_report.php?' + params.toString());
+
+    const s = r.stats;
+    const setStat = (id, val, chgId, chg) => {
+      document.getElementById(id).textContent = fmt_money(val.value !== undefined ? val.value : val);
+      const chgEl = document.getElementById(chgId);
+      const pct = val.change ?? chg ?? 0;
+      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs Previous Period`;
+      chgEl.style.color = pct >= 0 ? '#00897B' : '#E53935';
+    };
+    setStat('fr-stat-sales', s.total_sales, 'fr-chg-sales');
+    setStat('fr-stat-purchase', s.total_purchase, 'fr-chg-purchase');
+    setStat('fr-stat-collections', s.total_collections, 'fr-chg-collections');
+    setStat('fr-stat-payments', s.total_payments, 'fr-chg-payments');
+    setStat('fr-stat-profit', s.net_profit, 'fr-chg-profit');
+
+    // Cash flow
+    document.getElementById('fr-cf-collections').textContent = fmt_money(r.cash_flow.total_collections);
+    document.getElementById('fr-cf-payments').textContent = fmt_money(r.cash_flow.total_payments);
+    const netEl = document.getElementById('fr-cf-net');
+    netEl.textContent = fmt_money(r.cash_flow.net_flow);
+    netEl.style.color = r.cash_flow.net_flow >= 0 ? '#00897B' : '#E53935';
+
+    // Income / Expense tables
+    const incTotal = r.income_heads.reduce((s,h)=>s+h.amount, 0);
+    document.getElementById('fr-income-tbody').innerHTML = r.income_heads.map((h,i) => `
+      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${incTotal?((h.amount/incTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
+      + `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(incTotal)}</td><td>100.0%</td></tr>`;
+
+    const expTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
+    document.getElementById('fr-expense-tbody').innerHTML = (r.expense_heads.length ? r.expense_heads.map((h,i) => `
+      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expTotal?((h.amount/expTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
+      : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
+      + (expTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expTotal)}</td><td>100.0%</td></tr>` : '');
+
+    // Payment mode summary
+    const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
+    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64' };
+    document.getElementById('fr-paymode-list').innerHTML = r.payment_modes.length ? r.payment_modes.map(m => `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
+        <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${pmTotal?((m.amount/pmTotal)*100).toFixed(2):'0.00'}%)</span></span>
+      </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
+        <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
+      : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
+
+    renderFRCharts(r);
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderFRCharts(r) {
+  if (!window.Chart) return;
+
+  // Trend
+  const trendCtx = document.getElementById('fr-trend-chart');
+  if (frTrendChart) frTrendChart.destroy();
+  frTrendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: r.trend.map(t => fmt_date_disp(t.date).slice(0,5)),
+      datasets: [
+        { label: 'Income', data: r.trend.map(t => t.income), borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.1)', fill: true, tension: .35 },
+        { label: 'Expense', data: r.trend.map(t => t.expense), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: true, tension: .35 },
+      ],
+    },
+    options: { plugins: { legend: { position: 'top', labels: { boxWidth: 10 } } }, scales: { y: { ticks: { callback: v => (v/1000)+'L' } } } },
+  });
+
+  // Income distribution donut
+  const incCtx = document.getElementById('fr-income-chart');
+  if (frIncomeChart) frIncomeChart.destroy();
+  frIncomeChart = new Chart(incCtx, {
+    type: 'doughnut',
+    data: { labels: r.income_heads.map(h=>h.head), datasets: [{ data: r.income_heads.map(h=>h.amount), backgroundColor: ['#00897B','#1976D2','#6A4C93','#E65100','#2E7D32'] }] },
+    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '65%' },
+  });
+
+  // Expense distribution donut
+  const expCtx = document.getElementById('fr-expense-chart');
+  if (frExpenseChart) frExpenseChart.destroy();
+  frExpenseChart = new Chart(expCtx, {
+    type: 'doughnut',
+    data: { labels: r.expense_heads.map(h=>h.head), datasets: [{ data: r.expense_heads.map(h=>h.amount), backgroundColor: ['#2E7D32','#1976D2','#6A4C93','#C62828','#E65100'] }] },
+    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '65%' },
+  });
+}
+
+// ══════════════════════════════════════════
+// STOCK HISTORY — full transaction-level ledger view across all products,
+// with real running balances and reference numbers pulled from whichever
+// source (Purchase/Sale/Adjustment/Stock In) generated each entry.
+// ══════════════════════════════════════════
+function populateSHProductDropdown() {
+  const sel = document.getElementById('sh-f-product');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Products</option>' + STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function onSHProductChange() {
+  const pid = document.getElementById('sh-f-product').value;
+  const batchSel = document.getElementById('sh-f-batch');
+  const batches = (STATE.stock||[]).filter(s => String(s.product_id) === String(pid).replace(/\D/g,'') && s.batch_no && s.batch_no !== '—').map(s => s.batch_no);
+  const unique = [...new Set(batches)];
+  batchSel.innerHTML = '<option value="">Select Batch / Lot</option>' + unique.map(b => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join('');
+}
+
+function resetSHFilter() {
+  document.getElementById('sh-f-product').value = '';
+  document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
+  document.getElementById('sh-f-warehouse').value = '';
+  document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+  document.getElementById('sh-f-to').value = fmt_date(new Date());
+  document.getElementById('sh-f-txntype').value = '';
+  document.getElementById('sh-f-reftype').value = '';
+  renderStockHistory();
+}
+
+function goToStockHistory(productId, productName) {
+  populateSHProductDropdown();
+  if (!document.getElementById('sh-f-from').value) {
+    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-to').value = fmt_date(new Date());
+  }
+  if (productId) {
+    document.getElementById('sh-f-product').value = String(productId).replace(/\D/g,'');
+    onSHProductChange();
+  }
+  showPage('stock-history');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock-history'));
+  renderStockHistory();
+}
+
+let SH_LAST_ROWS = [];
+
+async function renderStockHistory() {
+  populateSHProductDropdown();
+  if (!document.getElementById('sh-f-from').value) {
+    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-to').value = fmt_date(new Date());
+  }
+  try {
+    const params = new URLSearchParams({
+      date_from: document.getElementById('sh-f-from').value,
+      date_to: document.getElementById('sh-f-to').value,
+    });
+    const pid = document.getElementById('sh-f-product').value; if (pid) params.set('product_id', pid);
+    const batch = document.getElementById('sh-f-batch').value; if (batch) params.set('batch_no', batch);
+    const wh = document.getElementById('sh-f-warehouse').value; if (wh) params.set('warehouse', wh);
+    const txn = document.getElementById('sh-f-txntype').value; if (txn) params.set('transaction_type', txn);
+    const ref = document.getElementById('sh-f-reftype').value; if (ref) params.set('reference_type', ref);
+
+    const r = await api('api/stock_history.php?' + params.toString());
+    SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
+    const stats = r.stats || {};
+
+    document.getElementById('sh-stat-opening').textContent = (stats.opening_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    document.getElementById('sh-stat-opening-date').textContent = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value);
+    document.getElementById('sh-stat-in').textContent = (stats.total_in||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    document.getElementById('sh-stat-value').textContent = fmt_money(stats.current_stock_value||0);
+
+    renderSHTable();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderSHTable() {
+  const tbody = document.getElementById('sh-history-tbody');
+  const rows = SH_LAST_ROWS;
+  document.getElementById('sh-history-info').textContent = `Showing 1 to ${rows.length} of ${rows.length} entries`;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement in this period</td></tr>`;
+    return;
+  }
+  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
+  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
+  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
+  // reverse chronological for display (most recent first), matching the rest of the app
+  const display = [...rows].reverse();
+  tbody.innerHTML = display.map((row, idx) => `
+    <tr>
+      <td>${idx+1}</td>
+      <td>${fmt_date_disp(row.movement_date)}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[row.ref_type]||'#889'};background:${typeColor[row.ref_type]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[row.ref_type]||row.ref_type}</span></td>
+      <td>${refLabel[row.ref_type]||row.ref_type}</td>
+      <td>${escHtml(row.reference_no||'—')}</td>
+      <td>${escHtml(row.batch_no||'—')}</td>
+      <td>${escHtml(row.warehouse||'Main Warehouse')}</td>
+      <td style="color:#00897B;font-weight:600">${row.direction==='in'?parseFloat(row.qty).toFixed(2):'—'}</td>
+      <td style="color:#E53935;font-weight:600">${row.direction==='out'?parseFloat(row.qty).toFixed(2):'—'}</td>
+      <td><strong>${parseFloat(row.running_balance).toFixed(2)}</strong></td>
+      <td style="color:var(--muted);font-size:11px">${escHtml((row.notes||'').replace(/^(Purchase|Sale|Stock In)\s*/,'').trim() || row.notes || '—')}</td>
+      <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`}</td>
+    </tr>`).join('');
+}
+
+function exportStockHistoryCsv() {
+  if (!SH_LAST_ROWS.length) { toast('⚠️ Nothing to export', 'warning'); return; }
+  const headers = ['Date','Transaction Type','Reference Type','Reference No.','Batch/Lot No.','Warehouse','In (Kg)','Out (Kg)','Balance (Kg)','Remarks'];
+  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
+  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
+  const csvRows = SH_LAST_ROWS.map(r => [
+    r.movement_date, typeLabel[r.ref_type]||r.ref_type, refLabel[r.ref_type]||r.ref_type, r.reference_no||'',
+    r.batch_no||'', r.warehouse||'', r.direction==='in'?r.qty:'', r.direction==='out'?r.qty:'', r.running_balance, r.notes||'',
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = [headers.join(','), ...csvRows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stock-history-' + fmt_date(new Date()) + '.csv';
+  a.click();
+}
+
+// ══════════════════════════════════════════
 // SALES MODULE (full page) — new & separate from the original Invoices
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
@@ -14810,28 +15265,125 @@ function renderSales() {
 async function printSaleEntry(id) {
   try {
     const r = await api('api/sales.php?id=' + id);
-    const s = r.data;
-    const rows = (s.items||[]).map((it,i) => `
-      <tr><td>${i+1}</td><td>${escHtml(it.product_name||it.description||'')}</td>
-        <td style="text-align:right">${parseFloat(it.qty).toFixed(2)}</td><td>${escHtml(it.unit)}</td>
-        <td style="text-align:right">${fmt_money(it.rate)}</td><td style="text-align:right">${fmt_money(it.tax_amount)}</td>
-        <td style="text-align:right">${fmt_money(it.line_total)}</td></tr>`).join('');
-    const win = window.open('', '_blank');
-    win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
-      body{font-family:Arial,sans-serif;padding:30px;color:#222} h2{margin-bottom:2px}
-      table{width:100%;border-collapse:collapse;margin-top:14px} th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px}
-      th{background:#f2f2f2;text-align:left} .tot{text-align:right;font-weight:700;margin-top:14px;font-size:15px}
-      .meta{font-size:12px;color:#555;margin-top:4px}
-    </style></head><body>
-      <h2>Sale Invoice — ${escHtml(s.invoice_no)}</h2>
-      <div class="meta">Customer: ${escHtml(s.customer_name)} &nbsp;|&nbsp; Date: ${fmt_date_disp(s.sale_date)}</div>
-      <table><thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Tax</th><th>Line Total</th></tr></thead>
-      <tbody>${rows}</tbody></table>
-      <div class="tot">Grand Total: ${fmt_money(s.total)}</div>
-      <script>window.print();<\/script>
-    </body></html>`);
-    win.document.close();
+    printSaleInvoice(r.data);
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
+}
+
+function printSaleInvoice(s) {
+  const co = pneCompanyInfo();
+  const items = s.items || [];
+  const rows = items.map(it => `
+    <tr>
+      <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
+      <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+      <td class="r">${fmt_money(it.rate)}</td>
+      <td class="r">${parseFloat(it.discount_pct||0).toFixed(1)}%</td>
+      <td class="r">${fmt_money((it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100))}</td>
+      <td class="r">${parseFloat(it.gst_pct||0).toFixed(0)}%</td>
+      <td class="r">${fmt_money(it.tax_amount)}</td>
+      <td class="r"><strong>${fmt_money(it.line_total)}</strong></td>
+    </tr>`).join('');
+  const isInterstate = s.sales_type !== 'Local Sales';
+  const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
+
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
+    .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
+    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
+    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
+    .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
+    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
+    .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
+    .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
+    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
+    .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
+    .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
+    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
+    table.items th { background: #f3f5f7; color: #445; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #dde3ea; }
+    table.items td { padding: 8px 7px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
+    table.items td.r, table.items th.r { text-align: right; }
+    .muted { color: #99a; font-size: 10px; }
+    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
+    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
+    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
+    .grand { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .grand span { font-size: 11px; text-transform: uppercase; } .grand b { font-size: 20px; }
+    .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
+    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
+  </style></head><body>
+    <div class="head">
+      <div>
+        <div class="co-name">${escHtml(co.name)}</div>
+        <div class="co-sub">AGRICULTURE ERP SOLUTIONS</div>
+        <div class="co-meta">
+          ${co.address?escHtml(co.address)+'<br>':''}
+          ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+          ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+        </div>
+      </div>
+      <div>
+        <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
+        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="box">
+        <h3>BILL TO</h3>
+        <div class="kv"><b>${escHtml(s.customer_name||'')}</b></div>
+        <div class="kv">GSTIN<b>${escHtml(s.customer_gstin||'—')}</b></div>
+        <div class="kv">Place of Supply<b>${escHtml(s.place_of_supply||'—')}</b></div>
+      </div>
+      <div class="box">
+        <h3>PAYMENT</h3>
+        <div class="kv">Status<b>${escHtml(s.payment_status||'—')}</b></div>
+        <div class="kv">Method<b>${escHtml(s.payment_method||'—')}</b></div>
+        <div class="kv">Balance Due<b style="color:${(s.total-s.amount_received)>0?'#c0392b':'#0d7a3f'}">${fmt_money((s.total||0)-(s.amount_received||0))}</b></div>
+      </div>
+    </div>
+
+    <table class="items">
+      <thead><tr><th>Product</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="row3">
+      <div class="box">
+        <h3>TAX SUMMARY</h3>
+        <div class="tax-row"><span>Taxable Value</span><span>${fmt_money(s.taxable_amount)}</span></div>
+        ${isInterstate
+          ? `<div class="tax-row"><span>IGST</span><span>${fmt_money(s.igst_amount)}</span></div>`
+          : `<div class="tax-row"><span>CGST</span><span>${fmt_money(s.cgst_amount)}</span></div>
+             <div class="tax-row"><span>SGST</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
+        ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges</span><span>${fmt_money(addCharges)}</span></div>` : ''}
+      </div>
+      <div class="box">
+        <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
+        <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
+        <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
+        <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
+      </div>
+    </div>
+    <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
+
+    <div class="sig-row">
+      <div class="sig">Customer Signature</div>
+      <div class="sig">${escHtml(s.prepared_by||'Prepared By')}</div>
+      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
+    </div>
+    <div class="footer">
+      <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
+      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+    </div>
+    <script>window.print();<\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 // ══════════════════════════════════════════
@@ -15637,31 +16189,8 @@ async function saveStockAdjustment() {
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Adjustment'; } }
 }
 
-async function viewStockHistory(productId, productName) {
-  document.getElementById('sh-product-name').textContent = 'Stock History — ' + productName;
-  const tbody = document.getElementById('sh-tbody');
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>`;
-  openModal('modal-stockhistory');
-  try {
-    const r = await api('api/stock.php?product_id=' + productId);
-    const rows = Array.isArray(r.data) ? r.data : [];
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No movement recorded</td></tr>`;
-      return;
-    }
-    const sourceLabel = { purchase: '🛒 Purchase', sale: '📤 Sale', adjustment: '⚖️ Adjustment' };
-    tbody.innerHTML = rows.map(row => `
-      <tr>
-        <td>${fmt_date_disp(row.movement_date)}</td>
-        <td>${sourceLabel[row.ref_type]||row.ref_type}</td>
-        <td style="color:${row.direction==='in'?'#00897B':'#E53935'};font-weight:700">${row.direction==='in'?'IN':'OUT'}</td>
-        <td>${parseFloat(row.qty).toLocaleString('en-IN')}</td>
-        <td>${row.rate ? fmt_money(row.rate) : '—'}</td>
-        <td><strong>${parseFloat(row.running_balance).toLocaleString('en-IN')}</strong></td>
-        <td style="color:var(--muted)">${escHtml(row.notes||'')}</td>
-        <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, ${productId}, '${escHtml(productName).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : ''}</td>
-      </tr>`).join('');
-  } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red)">Failed to load: ${e.message}</td></tr>`; }
+function viewStockHistory(productId, productName) {
+  goToStockHistory(productId, productName);
 }
 
 async function deleteStockAdjustment(id, productId, productName) {
@@ -15674,7 +16203,7 @@ async function deleteStockAdjustment(id, productId, productName) {
   try {
     await api('api/stock.php?id=' + id, 'DELETE');
     toast('🗑️ Adjustment deleted', 'info');
-    viewStockHistory(productId, productName);
+    if (document.getElementById('page-stock-history')?.classList.contains('active')) renderStockHistory();
     renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
