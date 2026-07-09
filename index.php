@@ -539,10 +539,9 @@ canvas { max-width: 100% !important; }
 }
 .pne-num {
   width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff;
-  font-size: 11px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-  line-height: 1;
+  font-size: 11px; flex-shrink: 0; position: relative; display: inline-flex;
 }
-.pne-num i { line-height: 1; display: block; }
+.pne-num i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
 .pne-head-blue .pne-num   { background: #1976D2; }
 .pne-head-amber .pne-num  { background: #E65100; }
 .pne-head-purple .pne-num { background: #6A4C93; }
@@ -678,10 +677,9 @@ canvas { max-width: 100% !important; }
 .pne-feature-item { display: flex; align-items: center; gap: 10px; }
 .pne-feature-icon {
   width: 30px; height: 30px; border-radius: 50%; background: rgba(0,137,123,.1); color: var(--teal);
-  display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
-  line-height: 1;
+  display: flex; font-size: 13px; flex-shrink: 0; position: relative;
 }
-.pne-feature-icon i { line-height: 1; display: block; }
+.pne-feature-icon i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
 .pne-feature-item strong { display: block; font-size: 12px; color: var(--text); }
 .pne-feature-item span { display: block; font-size: 10.5px; color: var(--muted); }
 
@@ -702,7 +700,8 @@ canvas { max-width: 100% !important; }
 .sa-summary-chip { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 10px; padding: 10px 14px; }
 .sa-summary-chip span { display: block; font-size: 10.5px; color: var(--muted); }
 .sa-summary-chip strong { display: block; font-size: 15px; color: var(--text); }
-.sa-chip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; flex-shrink: 0; }
+.sa-chip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; font-size: 13px; flex-shrink: 0; position: relative; }
+.sa-chip-icon i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
 .sa-op { font-size: 16px; font-weight: 700; color: var(--muted); }
 
 /* Client avatar in table */
