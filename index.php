@@ -540,7 +540,9 @@ canvas { max-width: 100% !important; }
 .pne-num {
   width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff;
   font-size: 11px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  line-height: 1;
 }
+.pne-num i { line-height: 1; display: block; }
 .pne-head-blue .pne-num   { background: #1976D2; }
 .pne-head-amber .pne-num  { background: #E65100; }
 .pne-head-purple .pne-num { background: #6A4C93; }
@@ -677,7 +679,9 @@ canvas { max-width: 100% !important; }
 .pne-feature-icon {
   width: 30px; height: 30px; border-radius: 50%; background: rgba(0,137,123,.1); color: var(--teal);
   display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  line-height: 1;
 }
+.pne-feature-icon i { line-height: 1; display: block; }
 .pne-feature-item strong { display: block; font-size: 12px; color: var(--text); }
 .pne-feature-item span { display: block; font-size: 10.5px; color: var(--muted); }
 
