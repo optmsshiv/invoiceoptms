@@ -554,14 +554,10 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1280px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
-.pne-items-table thead { background: #EEF1FA; }
+.pne-items-table { font-size: 12px; min-width: 1200px; border: 1px solid var(--border); table-layout: fixed; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
-.pne-items-table th {
-  padding: 9px 6px; font-size: 11px; text-align: center; white-space: normal;
-  text-transform: none; letter-spacing: 0; line-height: 1.35; color: #2E3A59; font-weight: 700;
-}
-.pne-items-table td { padding: 8px 6px; vertical-align: middle; text-align: center; white-space: normal; word-break: break-word; }
+.pne-items-table th { padding: 8px 8px; font-size: 10px; text-align: center; }
+.pne-items-table td { padding: 6px 6px; vertical-align: top; text-align: center; }
 .pne-items-table td:nth-child(2) { text-align: left; }
 .pne-items-table input, .pne-items-table select { width: 100%; min-width: 0; padding: 7px 6px; font-size: 12.5px; border-radius: 6px; text-align: center; box-sizing: border-box; }
 .pne-items-table td:nth-child(2) input { text-align: left; }
@@ -606,38 +602,6 @@ canvas { max-width: 100% !important; }
 .pne-summary-empty { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; color: var(--muted); }
 .pne-kv strong { color: var(--text); font-weight: 700; }
-
-.pne-grid5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-.pne-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 1100px) { .pne-grid5 { grid-template-columns: repeat(2, 1fr); } .pne-grid2 { grid-template-columns: 1fr; } }
-
-.pp-dropzone {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  border: 2px dashed var(--border); border-radius: 10px; padding: 26px 12px; cursor: pointer;
-  color: var(--muted); font-size: 12px; text-align: center; transition: .2s;
-}
-.pp-dropzone:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,137,123,.04); }
-.pp-dropzone i { font-size: 22px; color: var(--muted); }
-.pp-dropzone:hover i { color: var(--teal); }
-.pp-thumb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-.pp-thumb { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 1; border: 1px solid var(--border); }
-.pp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pp-thumb-remove {
-  position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(0,0,0,.6); color: #fff; border: none; font-size: 10px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.pp-qr-box {
-  width: 100%; height: 38px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg);
-  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px;
-}
-.pp-tag-chip {
-  display: inline-flex; align-items: center; gap: 6px; background: #FFF3E0; color: #E65100;
-  padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600;
-}
-.pp-tag-chip button { background: none; border: none; color: #E65100; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
-.pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
-.pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -2450,12 +2414,12 @@ const SERVER = {
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table">
                 <colgroup>
-                  <col style="width:34px"><col style="width:150px"><col style="width:105px">
-                  <col style="width:75px"><col style="width:100px">
-                  <col style="width:95px"><col style="width:100px"><col style="width:90px">
-                  <col style="width:60px"><col style="width:65px">
-                  <col style="width:105px">
-                  <col style="width:90px"><col style="width:75px"><col style="width:100px"><col style="width:60px">
+                  <col style="width:36px"><col style="width:150px"><col style="width:100px">
+                  <col style="width:75px"><col style="width:95px">
+                  <col style="width:85px"><col style="width:85px"><col style="width:85px">
+                  <col style="width:60px"><col style="width:70px">
+                  <col style="width:95px">
+                  <col style="width:80px"><col style="width:70px"><col style="width:95px"><col style="width:56px">
                 </colgroup>
                 <thead>
                   <tr>
@@ -2622,187 +2586,6 @@ const SERVER = {
             <thead><tr><th>Date</th><th>Source</th><th>Direction</th><th>Qty</th><th>Rate</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
             <tbody id="sh-tbody"></tbody>
           </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ NEW PRODUCT ENTRY (full page, business_type='product' only) ═══════════ -->
-    <div id="page-product-new" class="page">
-      <div class="pne-topbar">
-        <div>
-          <div class="pne-title" id="pnp-title">New Product</div>
-          <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
-        </div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
-        </div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Product Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">1</span> Product Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
-              <div class="field"><label>Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
-              <div class="field"><label>Unit *</label>
-                <select id="pp-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
-              </div>
-              <div class="field"><label>Brand</label><input id="pp-brand" placeholder="e.g. AgriTrade"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Category *</label>
-                <select id="pp-category"></select>
-              </div>
-              <div class="field"><label>HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
-              <div class="field"><label>Base Unit</label><input id="pp-baseunit" readonly></div>
-              <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Variety</label><input id="pp-variety" placeholder="e.g. Premium"></div>
-              <div class="field"><label>Barcode</label>
-                <div style="display:flex;gap:6px">
-                  <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
-                  <button type="button" class="btn btn-outline" style="padding:0 12px" title="Scan barcode" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i></button>
-                </div>
-              </div>
-              <div class="field"><label>Sale Unit</label><input id="pp-saleunit" readonly></div>
-              <div class="field"><label>Storage Type</label>
-                <select id="pp-storagetype"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
-              </div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Grade</label>
-                <select id="pp-grade"><option value="">—</option><option>A Grade</option><option>B Grade</option><option>Premium</option><option>Standard</option></select>
-              </div>
-              <div class="field"><label>QR Code</label>
-                <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
-              </div>
-              <div class="field"><label>Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
-              <div class="field"><label>Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
-            </div>
-          </div>
-
-          <!-- 2. Product Specifications -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">2</span> Product Specifications</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
-              <div class="field"><label>Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
-              <div class="field"><label>Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
-              <div class="field"><label>Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
-              <div class="field"><label>Color</label><input id="pp-color" placeholder="e.g. White"></div>
-              <div class="field"><label>Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
-              <div class="field"><label>Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Packing Type</label>
-                <select id="pp-packingtype"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
-              </div>
-              <div class="field"><label>Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
-              <div></div><div></div>
-            </div>
-          </div>
-
-          <!-- 3. Pricing & Tax Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">3</span> Pricing &amp; Tax Information</div>
-            <div class="pne-grid5">
-              <div class="field"><label>Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>GST % *</label>
-                <select id="pp-gst"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option></select>
-              </div>
-              <div class="field"><label>Tax Type</label>
-                <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Inventory Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">4</span> Inventory Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
-            </div>
-            <div style="display:flex;gap:28px;margin-top:4px">
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Batch</span><div class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></div></div>
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Serial No.</span><div class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></div></div>
-            </div>
-          </div>
-
-          <!-- 5. Product Description -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">5</span> Product Description</div>
-            <div class="pne-grid2">
-              <div class="field">
-                <label>Short Description</label>
-                <textarea id="pp-shortdesc" maxlength="200" style="min-height:90px" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',200)" placeholder="One-line summary shown in listings"></textarea>
-                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-shortdesc-count">0</span>/200</div>
-              </div>
-              <div class="field">
-                <label>Detailed Description</label>
-                <textarea id="pp-detaildesc" maxlength="500" style="min-height:90px" oninput="pnpCharCount('pp-detaildesc','pp-detaildesc-count',500)" placeholder="Full description for the product page / export documents"></textarea>
-                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-detaildesc-count">0</span>/500</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-image"></i> Product Images</div>
-            <label class="pp-dropzone" for="pp-images-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop images here<br>or click to upload</div>
-            </label>
-            <input type="file" id="pp-images-input" accept="image/png,image/jpeg,image/webp" multiple style="display:none" onchange="pnpAddImages(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Recommended size: 800x800px (Max 5MB each)</div>
-            <div id="pp-images-preview" class="pp-thumb-grid"></div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
-            <div class="field"><label>Country of Origin</label><input id="pp-country" value="India"></div>
-            <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
-            <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
-            <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-              <span style="font-size:12.5px;font-weight:600">Product Status</span>
-              <div style="display:flex;align-items:center;gap:8px">
-                <div class="tog on" id="pp-status"></div><span id="pp-status-label" style="font-size:12px;color:var(--muted)">Active</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
-            <input id="pp-tags-input" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
-            <div id="pp-tags-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <label class="pp-dropzone" for="pp-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here<br>or click to upload</div>
-            </label>
-            <input type="file" id="pp-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="pnpAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="pp-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -11732,7 +11515,6 @@ function _renderProdPage() {
 }
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
-  if (STATE.settings.businessType === 'product') { editProductRich(id); return; }
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
   const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${escHtml(c.name)}</option>`).join('');
   const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
@@ -11789,7 +11571,6 @@ async function saveEditProd(id) {
 }
 
 function openAddProductModal() {
-  if (STATE.settings.businessType === 'product') { goToNewProductPage(); return; }
   if (PROD.archived) return; // Adding isn't relevant while viewing archived services
   // Toggle: if the add-row is already open, close it instead of opening a fresh one
   const existing = document.getElementById('add-product-row');
@@ -11817,241 +11598,6 @@ function applyBusinessTypeLabels(type) {
   const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
   const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
   const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
-}
-
-// ══════════════════════════════════════════
-// NEW PRODUCT ENTRY (full page) — only used when Settings → Business Type
-// is "product". Service/Both tenants keep the original inline add-row.
-// ══════════════════════════════════════════
-const PNP = { editingId: null, images: [], attachments: [], tags: [] };
-
-function populateProductCategoryDropdown() {
-  const sel = document.getElementById('pp-category');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = (STATE.categories||[]).map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`).join('') || '<option value="Other">Other</option>';
-  if (cur) sel.value = cur;
-}
-
-function pnpSyncUnits() {
-  const u = document.getElementById('pp-unit').value;
-  document.getElementById('pp-baseunit').value = u;
-  document.getElementById('pp-saleunit').value = u;
-  document.getElementById('pp-purchaseunit').value = u;
-}
-
-function pnpCharCount(fieldId, countId, max) {
-  const val = document.getElementById(fieldId).value || '';
-  document.getElementById(countId).textContent = Math.min(val.length, max);
-}
-
-function pnpFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function pnpAddImages(files) {
-  for (const f of Array.from(files)) {
-    const url = await pnpFileToDataUrl(f);
-    if (url) PNP.images.push(url);
-  }
-  document.getElementById('pp-images-input').value = '';
-  renderPNPImages();
-}
-function pnpRemoveImage(idx) { PNP.images.splice(idx, 1); renderPNPImages(); }
-function renderPNPImages() {
-  document.getElementById('pp-images-preview').innerHTML = PNP.images.map((src, i) => `
-    <div class="pp-thumb"><img src="${src}"><button class="pp-thumb-remove" onclick="pnpRemoveImage(${i})">✕</button></div>`).join('');
-}
-
-async function pnpAddAttachments(files) {
-  for (const f of Array.from(files)) {
-    const url = await pnpFileToDataUrl(f);
-    if (url) PNP.attachments.push({ name: f.name, url });
-  }
-  document.getElementById('pp-attachments-input').value = '';
-  renderPNPAttachments();
-}
-function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
-function renderPNPAttachments() {
-  document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="pnpRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
-}
-
-function pnpTagKeydown(e) {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  const val = e.target.value.trim();
-  if (!val) return;
-  if (!PNP.tags.includes(val)) PNP.tags.push(val);
-  e.target.value = '';
-  renderPNPTags();
-}
-function pnpRemoveTag(i) { PNP.tags.splice(i, 1); renderPNPTags(); }
-function renderPNPTags() {
-  document.getElementById('pp-tags-chips').innerHTML = PNP.tags.map((t, i) => `
-    <span class="pp-tag-chip">${escHtml(t)} <button onclick="pnpRemoveTag(${i})">✕</button></span>`).join('');
-}
-
-function toggleProductStatus() {
-  const el = document.getElementById('pp-status');
-  el.classList.toggle('on');
-  document.getElementById('pp-status-label').textContent = el.classList.contains('on') ? 'Active' : 'Inactive';
-}
-
-function goToNewProductPage() {
-  PNP.editingId = null;
-  PNP.images = []; PNP.attachments = []; PNP.tags = [];
-  document.getElementById('pnp-title').textContent = 'New Product';
-  document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
-  ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
-   'pp-manufacturer','pp-fssai','pp-iec','pp-shortdesc','pp-detaildesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('pp-unit').value = 'Kg'; pnpSyncUnits();
-  populateProductCategoryDropdown();
-  document.getElementById('pp-shelflife').value = '';
-  document.getElementById('pp-storagetype').value = 'Dry';
-  document.getElementById('pp-grade').value = '';
-  document.getElementById('pp-minorderqty').value = 0;
-  ['pp-moisture','pp-foreignmatter','pp-brokendamage','pp-oilcontent','pp-admixture'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('pp-packingtype').value = 'PP Bag';
-  document.getElementById('pp-purchaserate').value = 0;
-  document.getElementById('pp-salerate').value = 0;
-  document.getElementById('pp-mrp').value = 0;
-  document.getElementById('pp-gst').value = '18';
-  document.getElementById('pp-taxtype').value = 'Intra-State (CGST+SGST)';
-  document.getElementById('pp-openingstock').value = 0;
-  document.getElementById('pp-reorderlevel').value = 0;
-  document.getElementById('pp-maxstock').value = 0;
-  document.getElementById('pp-warehouse').value = 'Main Warehouse';
-  document.getElementById('pp-trackbatch').classList.remove('on');
-  document.getElementById('pp-trackserial').classList.remove('on');
-  document.getElementById('pp-country').value = 'India';
-  document.getElementById('pp-status').classList.add('on');
-  document.getElementById('pp-status-label').textContent = 'Active';
-  document.getElementById('pp-status').onclick = toggleProductStatus;
-  document.getElementById('pp-shortdesc-count').textContent = 0;
-  document.getElementById('pp-detaildesc-count').textContent = 0;
-  document.getElementById('pp-images-input').value = '';
-  document.getElementById('pp-attachments-input').value = '';
-  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
-  showPage('product-new');
-  document.querySelector('.nav-item[data-page="products"]')?.classList.add('active');
-}
-
-function cancelProductEntry() {
-  showPage('products');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-}
-
-function editProductRich(id) {
-  const p = STATE.products.find(x => x.id === id); if (!p) return;
-  PNP.editingId = id;
-  PNP.images = Array.isArray(p.images) ? [...p.images] : [];
-  PNP.attachments = Array.isArray(p.attachments) ? p.attachments.map(url => ({ name: url.split('/').pop(), url })) : [];
-  PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
-  document.getElementById('pnp-title').textContent = 'Edit Product';
-  document.getElementById('pnp-subtitle').textContent = p.name;
-  populateProductCategoryDropdown();
-  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
-  set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
-  set('pp-category', p.category); set('pp-hsn', p.hsn); set('pp-shelflife', p.shelf_life_months);
-  set('pp-variety', p.variety); set('pp-barcode', p.barcode); set('pp-storagetype', p.storage_type || 'Dry');
-  set('pp-grade', p.grade); set('pp-minorderqty', p.min_order_qty || 0);
-  pnpSyncUnits();
-  set('pp-moisture', p.moisture_limit); set('pp-foreignmatter', p.foreign_matter_limit);
-  set('pp-brokendamage', p.broken_damage_limit); set('pp-oilcontent', p.oil_content); set('pp-admixture', p.admixture_limit);
-  set('pp-color', p.color); set('pp-aroma', p.aroma); set('pp-shapesize', p.shape_size);
-  set('pp-packingtype', p.packing_type || 'PP Bag'); set('pp-packingsize', p.packing_size);
-  set('pp-purchaserate', p.purchase_rate || 0); set('pp-salerate', p.sale_rate || 0); set('pp-mrp', p.mrp || 0);
-  set('pp-gst', p.gst ?? 18); set('pp-taxtype', p.tax_type || 'Intra-State (CGST+SGST)');
-  set('pp-openingstock', p.opening_stock || 0); set('pp-reorderlevel', p.reorder_level || 0);
-  set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
-  document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
-  document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
-  pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
-  set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
-  set('pp-fssai', p.fssai_license); set('pp-iec', p.iec_code);
-  document.getElementById('pp-status').classList.toggle('on', (p.status||'active') === 'active');
-  document.getElementById('pp-status-label').textContent = (p.status||'active') === 'active' ? 'Active' : 'Inactive';
-  document.getElementById('pp-status').onclick = toggleProductStatus;
-  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
-  showPage('product-new');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-}
-
-async function saveProductEntry(mode) {
-  const name = document.getElementById('pp-name').value.trim();
-  const sku  = document.getElementById('pp-sku').value.trim();
-  if (!name) { toast('⚠️ Product name is required', 'warning'); return; }
-  if (!sku)  { toast('⚠️ Product Code / SKU is required', 'warning'); return; }
-  if (!document.getElementById('pp-moisture').value) { toast('⚠️ Moisture Limit (%) is required', 'warning'); return; }
-
-  const payload = {
-    name, sku, category: document.getElementById('pp-category').value || 'Other',
-    unit: document.getElementById('pp-unit').value, brand: document.getElementById('pp-brand').value.trim(),
-    hsn: document.getElementById('pp-hsn').value.trim(),
-    base_unit_label: document.getElementById('pp-baseunit').value, shelf_life_months: document.getElementById('pp-shelflife').value || null,
-    variety: document.getElementById('pp-variety').value.trim(), barcode: document.getElementById('pp-barcode').value.trim(),
-    sale_unit: document.getElementById('pp-saleunit').value, storage_type: document.getElementById('pp-storagetype').value,
-    grade: document.getElementById('pp-grade').value, purchase_unit: document.getElementById('pp-purchaseunit').value,
-    min_order_qty: parseFloat(document.getElementById('pp-minorderqty').value) || 0,
-    moisture_limit: parseFloat(document.getElementById('pp-moisture').value) || 0,
-    foreign_matter_limit: parseFloat(document.getElementById('pp-foreignmatter').value) || 0,
-    broken_damage_limit: parseFloat(document.getElementById('pp-brokendamage').value) || 0,
-    oil_content: document.getElementById('pp-oilcontent').value ? parseFloat(document.getElementById('pp-oilcontent').value) : null,
-    admixture_limit: parseFloat(document.getElementById('pp-admixture').value) || 0,
-    color: document.getElementById('pp-color').value.trim(), aroma: document.getElementById('pp-aroma').value.trim(),
-    shape_size: document.getElementById('pp-shapesize').value.trim(), packing_type: document.getElementById('pp-packingtype').value,
-    packing_size: document.getElementById('pp-packingsize').value.trim(),
-    purchase_rate: parseFloat(document.getElementById('pp-purchaserate').value) || 0,
-    sale_rate: parseFloat(document.getElementById('pp-salerate').value) || 0,
-    rate: parseFloat(document.getElementById('pp-salerate').value) || 0, // legacy 'rate' column mirrors sale rate for compatibility
-    mrp: parseFloat(document.getElementById('pp-mrp').value) || 0,
-    gst: parseInt(document.getElementById('pp-gst').value) || 0,
-    tax_type: document.getElementById('pp-taxtype').value,
-    opening_stock: parseFloat(document.getElementById('pp-openingstock').value) || 0,
-    reorder_level: parseFloat(document.getElementById('pp-reorderlevel').value) || 0,
-    max_stock: parseFloat(document.getElementById('pp-maxstock').value) || 0,
-    default_warehouse: document.getElementById('pp-warehouse').value,
-    track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
-    track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
-    short_description: document.getElementById('pp-shortdesc').value.trim(),
-    detailed_description: document.getElementById('pp-detaildesc').value.trim(),
-    country_of_origin: document.getElementById('pp-country').value.trim() || 'India',
-    manufacturer: document.getElementById('pp-manufacturer').value.trim(),
-    fssai_license: document.getElementById('pp-fssai').value.trim(), iec_code: document.getElementById('pp-iec').value.trim(),
-    unit_family: 'weight', // AgriTrade-style products are always weight-tracked (Kg base) for Stock Ledger purposes
-    status: document.getElementById('pp-status').classList.contains('on') ? 'active' : 'inactive',
-    tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    if (PNP.editingId) {
-      await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
-      toast('✅ Product updated!', 'success');
-    } else {
-      await api('api/products.php', 'POST', payload);
-      toast('✅ Product saved!', 'success');
-    }
-    const r = await api('api/products.php');
-    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
-    updateServiceDropdown();
-    if (mode === 'new') {
-      goToNewProductPage();
-    } else {
-      cancelProductEntry();
-      renderProducts();
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
 }
 
 function _showAddProductRow(prefill) {
