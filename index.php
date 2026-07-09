@@ -674,6 +674,8 @@ canvas { max-width: 100% !important; }
 
 .ps-tab { padding: 10px 4px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
 .ps-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+.ps-stock-table th { white-space: normal; word-break: break-word; line-height: 1.3; padding: 8px 6px; font-size: 10px; }
+.ps-stock-table td { padding: 8px 6px; font-size: 12px; word-break: break-word; }
 @media (max-width: 1200px) { .ps-stats-row { grid-template-columns: repeat(3, 1fr) !important; } }
 @media (max-width: 700px)  { .ps-stats-row { grid-template-columns: repeat(2, 1fr) !important; } }
 @media (max-width: 1000px) { .ps-bottom-grid { grid-template-columns: 1fr !important; } }
@@ -2747,11 +2749,11 @@ const SERVER = {
 
       <div style="padding:14px 24px 0">
         <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:1400px">
+          <table class="data-table ps-stock-table" style="min-width:1100px;table-layout:fixed">
             <colgroup>
-              <col style="width:36px"><col style="width:160px"><col style="width:110px"><col style="width:130px"><col style="width:120px">
-              <col style="width:130px"><col style="width:120px"><col style="width:110px"><col style="width:120px">
-              <col style="width:110px"><col style="width:120px"><col style="width:120px"><col style="width:70px">
+              <col style="width:30px"><col style="width:130px"><col style="width:85px"><col style="width:95px"><col style="width:85px">
+              <col style="width:90px"><col style="width:85px"><col style="width:75px"><col style="width:85px">
+              <col style="width:80px"><col style="width:90px"><col style="width:85px"><col style="width:45px">
             </colgroup>
             <thead><tr>
               <th>#</th><th>Product</th><th>Variety / Grade</th><th>Warehouse</th><th id="ps-batch-col">Batch / Lot No.</th>
