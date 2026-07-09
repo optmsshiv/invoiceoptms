@@ -576,11 +576,20 @@ canvas { max-width: 100% !important; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
 .pne-items-table.data-table tbody tr:last-child td { border: 1px solid var(--border); }
 .pit-card { border: 1px solid var(--border); border-radius: var(--r); }
-.pne-split-row { display: flex; gap: 6px; align-items: center; }
-.pne-split-row select { flex: 1.1; }
-.pne-split-row input { flex: 1; }
+.pne-split-row { display: flex; gap: 8px; align-items: center; }
+.pne-split-row select { flex: 1; min-width: 110px; }
+.pne-split-row input { flex: 1; min-width: 90px; }
+.pne-split-row .item-del { flex: 0 0 auto; }
 .pne-split-total-bad { color: #d33 !important; }
 .pne-split-total-ok { color: #1a7f37 !important; }
+.pne-split-footer {
+  margin-top: 10px; padding: 10px 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.pne-split-footer-totals { display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: var(--muted); }
+.pne-split-footer-totals strong { color: var(--text); font-size: 13px; margin-left: 5px; }
+.pne-split-footer-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pne-split-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; white-space: nowrap; }
 .pne-computed { background: var(--bg); color: var(--muted); font-weight: 600; padding: 6px 4px; border-radius: 6px; font-size: 12px; }
 .pne-amount-cell { font-weight: 700; color: var(--teal); white-space: nowrap; }
 
@@ -2415,10 +2424,10 @@ const SERVER = {
               <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <div class="pne-pill-toggle" id="pne-entrymode-toggle">
-                  <button type="button" class="pne-pill active" id="pne-mode-catalog-btn" onclick="setPNEEntryMode('catalog')">Catalog Product</button>
-                  <button type="button" class="pne-pill" id="pne-mode-freetext-btn" onclick="setPNEEntryMode('freetext')">Free Text</button>
-                </div>
+                <select id="pne-entrymode-select" class="pne-small-btn" style="border-radius:6px;border:1.5px solid var(--border);background:var(--card);padding:0 10px;height:32px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer" onchange="setPNEEntryMode(this.value)">
+                  <option value="catalog">Catalog Product</option>
+                  <option value="freetext">Free Text</option>
+                </select>
               </span>
             </div>
             <div class="table-card pit-card" style="overflow-x:auto">
@@ -2497,11 +2506,13 @@ const SERVER = {
               <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
               <div class="field" id="pn-split-wrap" style="display:none">
                 <label>Split Payment</label>
-                <div id="pn-split-rows" style="display:flex;flex-direction:column;gap:6px"></div>
-                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-                  <span>Split Total: <strong id="pn-split-total">₹0.00</strong></span>
-                  <span>Received Amount: <strong id="pn-split-target">₹0.00</strong></span>
-                  <span id="pn-split-badges" style="display:flex;flex-wrap:wrap;gap:12px"></span>
+                <div id="pn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                <div class="pne-split-footer">
+                  <div class="pne-split-footer-totals">
+                    <span>Split Total <strong id="pn-split-total">₹0.00</strong></span>
+                    <span>Received Amount <strong id="pn-split-target">₹0.00</strong></span>
+                  </div>
+                  <div class="pne-split-footer-badges" id="pn-split-badges"></div>
                 </div>
               </div>
             </div>
@@ -11973,13 +11984,19 @@ let pneSplitSeq = 1;
 
 function pneEmptyItem() {
   return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
-    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, entry_mode: PNE.entryMode };
+    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, entry_mode: PNE.entryMode, editing: true };
+}
+
+function togglePNERowEdit(id, editing) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
+  it.editing = editing;
+  renderPNEItemsTable();
 }
 
 function setPNEEntryMode(mode) {
   PNE.entryMode = mode;
-  document.getElementById('pne-mode-catalog-btn')?.classList.toggle('active', mode === 'catalog');
-  document.getElementById('pne-mode-freetext-btn')?.classList.toggle('active', mode === 'freetext');
+  const sel = document.getElementById('pne-entrymode-select');
+  if (sel) sel.value = mode;
 }
 
 function togglePNERowMode(id) {
@@ -12129,6 +12146,36 @@ function renderPNEItemsTable() {
   if (!tbody) return;
   tbody.innerHTML = PNE.items.map((it, idx) => {
     const c = pneCalcRow(it);
+
+    if (!it.editing) {
+      // Read-only row: plain values + pencil (edit) / trash (delete) actions, matching the reference design.
+      const productName = it.product_id
+        ? (STATE.products.find(p => String(p.id) === String(it.product_id))?.name || it.description || '—')
+        : (it.description || '—');
+      return `<tr data-row="${it.id}">
+        <td>${idx+1}</td>
+        <td>${escHtml(productName)}</td>
+        <td>${escHtml(it.variety_grade) || '—'}</td>
+        <td>${it.moisture_pct !== '' && it.moisture_pct != null ? parseFloat(it.moisture_pct) + '%' : '—'}</td>
+        <td>${escHtml(it.quality_grade) || '—'}</td>
+        <td>${parseFloat(it.gross_weight || 0).toFixed(2)}</td>
+        <td>${parseFloat(it.tare_weight || 0).toFixed(2)}</td>
+        <td>${c.net.toFixed(2)}</td>
+        <td>${c.dhaltaPct.toFixed(2)}</td>
+        <td>${c.dhaltaKg.toFixed(2)}</td>
+        <td>${c.billable.toFixed(2)}</td>
+        <td>${parseFloat(it.rate || 0).toFixed(2)}</td>
+        <td>${parseFloat(it.discount_pct || 0).toFixed(2)}</td>
+        <td class="pne-amount-cell">${fmt_money(c.amount)}</td>
+        <td>
+          <div class="action-cell">
+            <button class="act-btn" title="Edit" onclick="togglePNERowEdit(${it.id}, true)"><i class="fas fa-pen"></i></button>
+            <button class="act-btn" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }
+
     return `<tr data-row="${it.id}">
       <td>${idx+1}</td>
       <td>
@@ -12155,7 +12202,12 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
       <td class="pne-amount-cell" id="pne-amt-${it.id}">${fmt_money(c.amount)}</td>
-      <td><button class="item-del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="Save" onclick="togglePNERowEdit(${it.id}, false)"><i class="fas fa-check"></i></button>
+          <button class="act-btn" title="Delete" onclick="removePNEItem(${it.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
   calcPurchaseNewTotals();
@@ -12294,10 +12346,15 @@ function updatePNSplit(id, field, val) {
     other.amount = +(total - amt).toFixed(2);
     const otherInput = document.querySelector(`[data-split="${other.id}"] input[data-field="amount"]`);
     if (otherInput) otherInput.value = other.amount;
-  } else {
-    s[field] = val;
+    updatePNSplitTotals();
+    return;
   }
-  updatePNSplitTotals();
+  s[field] = val;
+  if (field === 'mode') {
+    renderPNSplitRows(); // rebuild so the Txn No. field shows/hides correctly (hidden for Cash)
+  } else {
+    updatePNSplitTotals();
+  }
 }
 
 function renderPNSplitRows() {
@@ -12309,7 +12366,7 @@ function renderPNSplitRows() {
         ${['Cash','Bank Transfer','UPI','Cheque'].map(m => `<option ${s.mode===m?'selected':''}>${m}</option>`).join('')}
       </select>
       <input type="number" data-field="amount" placeholder="Amount" min="0" value="${s.amount}" oninput="updatePNSplit(${s.id},'amount',this.value)">
-      <input data-field="transaction_no" placeholder="Txn No. (optional)" value="${escHtml(s.transaction_no||'')}" oninput="updatePNSplit(${s.id},'transaction_no',this.value)">
+      ${s.mode !== 'Cash' ? `<input data-field="transaction_no" placeholder="Txn No. (optional)" value="${escHtml(s.transaction_no||'')}" oninput="updatePNSplit(${s.id},'transaction_no',this.value)">` : ''}
       <button type="button" class="item-del" title="Remove split" onclick="removePNSplitRow(${s.id})"><i class="fas fa-times"></i></button>
     </div>`).join('');
   updatePNSplitTotals();
@@ -12328,10 +12385,10 @@ function updatePNSplitTotals() {
 
   const badgesEl = document.getElementById('pn-split-badges');
   if (badgesEl) {
-    badgesEl.innerHTML = PNE_SPLITS.map((s, i) => `
-      <span style="color:${PNE_SPLIT_COLORS[i % PNE_SPLIT_COLORS.length]};font-weight:700">
-        ${escHtml(s.mode)}: ${fmt_money(parseFloat(s.amount)||0)}
-      </span>`).join('');
+    badgesEl.innerHTML = PNE_SPLITS.map((s, i) => {
+      const color = PNE_SPLIT_COLORS[i % PNE_SPLIT_COLORS.length];
+      return `<span class="pne-split-badge" style="color:${color};background:${color}1a;border:1px solid ${color}40">${escHtml(s.mode)}: ${fmt_money(parseFloat(s.amount)||0)}</span>`;
+    }).join('');
   }
 }
 
@@ -12353,6 +12410,7 @@ async function editPurchase(id) {
         gross_weight: gross, tare_weight: tare, dhalta_kg: dhaltaKg,
         rate: it.rate || 0, discount_pct: it.discount_pct || 0,
         entry_mode: it.product_id ? 'catalog' : 'freetext',
+        editing: false,
       };
     });
     document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
