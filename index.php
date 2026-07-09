@@ -17710,7 +17710,7 @@ document.addEventListener('DOMContentLoaded', function() {
       renderFestivalCampaigns();
       resetCreateForm();
       STATE.filteredInvoices = [...STATE.invoices];
-      document.getElementById('badge-invoices').textContent = STATE.invoices.length;
+      const _badgeInvBoot = document.getElementById('badge-invoices'); if (_badgeInvBoot) _badgeInvBoot.textContent = STATE.invoices.length;
       // Mark payments whose invoice no longer exists as deleted
       const invoiceIds = new Set(STATE.invoices.map(i => String(i.id)));
       STATE.payments.forEach(p => {
