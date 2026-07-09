@@ -3249,7 +3249,7 @@ const SERVER = {
             <div style="display:flex;flex-direction:column;gap:8px">
               <button class="btn btn-outline" onclick="showPage('sales-list'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page==='sales-list'))">View Previous Sales</button>
               <button class="btn btn-outline" onclick="toast('🧾 Payment receipt creation — coming soon','info')">Create Payment Receipt</button>
-              <button class="btn btn-outline" onclick="window.print()">Print Invoice</button>
+              <button class="btn btn-outline" onclick="printCurrentSaleInvoice()">Print Invoice</button>
               <button class="btn btn-outline" onclick="toast('📤 Sharing via Email/WhatsApp — coming soon','info')">Share Invoice (Email/WhatsApp)</button>
             </div>
           </div>
@@ -15260,6 +15260,15 @@ function renderSales() {
         </div>
       </td>
     </tr>`).join('');
+}
+
+// Quick Actions "Print Invoice" — prints the real saved invoice if we're
+// editing an existing sale; for a not-yet-saved draft there's no server-
+// computed totals to print accurately, so it asks to save first instead
+// of guessing at unsaved/unvalidated numbers.
+function printCurrentSaleInvoice() {
+  if (SN.editingId) { printSaleEntry(SN.editingId); return; }
+  toast('⚠️ Save this sale first, then Print Invoice will open the actual invoice', 'warning');
 }
 
 async function printSaleEntry(id) {
