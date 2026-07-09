@@ -528,7 +528,7 @@ canvas { max-width: 100% !important; }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 24px 60px; align-items: start; }
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
 
@@ -554,25 +554,29 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1100px; border: 1px solid var(--border); }
-.pne-items-table th { padding: 8px 8px; font-size: 10px; text-align: center; border: 1px solid var(--border); }
-.pne-items-table td { padding: 6px 6px; vertical-align: top; text-align: center; border: 1px solid var(--border); }
-.pne-items-table tbody tr:last-child td { border: 1px solid var(--border); }
+.pne-items-table { font-size: 12px; min-width: 1280px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
+.pne-items-table thead { background: #EEF1FA; }
+.pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
+.pne-items-table th {
+  padding: 9px 6px; font-size: 11px; text-align: center; white-space: normal;
+  text-transform: none; letter-spacing: 0; line-height: 1.35; color: #2E3A59; font-weight: 700;
+}
+.pne-items-table td { padding: 8px 6px; vertical-align: middle; text-align: center; white-space: normal; word-break: break-word; }
 .pne-items-table td:nth-child(2) { text-align: left; }
-.pne-items-table input, .pne-items-table select { width: 100%; padding: 6px 6px; font-size: 12px; border-radius: 6px; text-align: center; }
+.pne-items-table input, .pne-items-table select { width: 100%; min-width: 0; padding: 7px 6px; font-size: 12.5px; border-radius: 6px; text-align: center; box-sizing: border-box; }
 .pne-items-table td:nth-child(2) input { text-align: left; }
 .pne-computed { background: var(--bg); color: var(--muted); font-weight: 600; padding: 6px 4px; border-radius: 6px; font-size: 12px; }
 .pne-amount-cell { font-weight: 700; color: var(--teal); white-space: nowrap; }
-.pne-action-cell { display: flex; gap: 5px; justify-content: center; align-items: center; }
-.pne-edit-btn, .pne-del-btn {
+.pne-view-cell { padding: 10px 8px; font-size: 12.5px; color: var(--text); }
+.pne-row-actions { display: flex; gap: 6px; justify-content: center; }
+.pne-icon-btn {
   width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border);
-  background: var(--card); cursor: pointer; transition: .2s;
-  display: flex; align-items: center; justify-content: center; font-size: 12px;
+  background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: .2s; color: var(--muted);
 }
-.pne-edit-btn { color: var(--muted); }
-.pne-edit-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
-.pne-del-btn { color: #C62828; }
-.pne-del-btn:hover { border-color: #E53935; background: #FEF2F2; }
+.pne-icon-btn.edit:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,137,123,.08); }
+.pne-icon-btn.done:hover { border-color: #00897B; color: #00897B; background: rgba(0,137,123,.08); }
+.pne-icon-btn.del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
 
 .pne-items-footer {
   display: flex; gap: 26px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px;
@@ -581,21 +585,6 @@ canvas { max-width: 100% !important; }
 .pne-items-footer strong { color: var(--text); margin-left: 5px; }
 .pne-total-amt { color: var(--teal) !important; font-size: 15px; }
 .pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
-
-.pne-auto-field { background: #E8F5E9; color: #2E7D32; font-weight: 700; border: 1px solid #C8E6C9 !important; }
-input.pne-auto-field[readonly] { cursor: default; }
-.pne-auto-box.pne-auto-field { padding: 9px 12px; border-radius: 8px; font-size: 14px; }
-.pne-file-preview {
-  display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 12px;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 12px;
-}
-.pne-file-preview .pne-file-icon { font-size: 18px; color: #E53935; flex-shrink: 0; }
-.pne-file-preview .pne-file-name { font-weight: 600; color: var(--text); }
-.pne-file-preview .pne-file-size { color: var(--muted); font-size: 11px; }
-.pne-file-preview .pne-file-remove {
-  margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px;
-}
-.pne-file-preview .pne-file-remove:hover { color: #E53935; }
 
 .pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 @media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
@@ -617,6 +606,62 @@ input.pne-auto-field[readonly] { cursor: default; }
 .pne-summary-empty { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; color: var(--muted); }
 .pne-kv strong { color: var(--text); font-weight: 700; }
+
+.pne-grid5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.pne-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .pne-grid5 { grid-template-columns: repeat(2, 1fr); } .pne-grid2 { grid-template-columns: 1fr; } }
+
+.pp-dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  border: 2px dashed var(--border); border-radius: 10px; padding: 26px 12px; cursor: pointer;
+  color: var(--muted); font-size: 12px; text-align: center; transition: .2s;
+}
+.pp-dropzone:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,137,123,.04); }
+.pp-dropzone i { font-size: 22px; color: var(--muted); }
+.pp-dropzone:hover i { color: var(--teal); }
+.pp-thumb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.pp-thumb { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 1; border: 1px solid var(--border); }
+.pp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pp-thumb-remove {
+  position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,.6); color: #fff; border: none; font-size: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pp-qr-box {
+  width: 100%; height: 38px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg);
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px;
+}
+.pp-tag-chip {
+  display: inline-flex; align-items: center; gap: 6px; background: #FFF3E0; color: #E65100;
+  padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600;
+}
+.pp-tag-chip button { background: none; border: none; color: #E65100; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+.pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
+.pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
+
+.pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.pne-split-footer-total {
+  font-size: 13px; font-weight: 700; color: var(--teal); background: rgba(0,137,123,.08);
+  border-radius: 7px; padding: 6px 10px; display: flex; justify-content: space-between; margin-bottom: 8px;
+}
+.pne-split-footer-breakdown { display: flex; flex-wrap: wrap; gap: 6px; }
+.pne-split-chip {
+  font-size: 11.5px; font-weight: 600; color: #6A4C93; background: #F3E8FF;
+  border-radius: 12px; padding: 4px 10px;
+}
+.pne-split-chip strong { color: #4A2C7A; }
+
+.pne-feature-footer {
+  display: flex; flex-wrap: wrap; gap: 22px; padding: 16px 24px; margin: 0 4px;
+  border-top: 1px solid var(--border); background: var(--card);
+}
+.pne-feature-item { display: flex; align-items: center; gap: 10px; }
+.pne-feature-icon {
+  width: 30px; height: 30px; border-radius: 50%; background: rgba(0,137,123,.1); color: var(--teal);
+  display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+}
+.pne-feature-item strong { display: block; font-size: 12px; color: var(--text); }
+.pne-feature-item span { display: block; font-size: 10.5px; color: var(--muted); }
 
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -2407,67 +2452,35 @@ const SERVER = {
                 <select id="pn-paymentterms"><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
               </div>
               <div class="field"><label>Payment Type</label>
-                <select id="pn-paymenttype" onchange="pnToggleSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">⚡ Split Payment</option></select>
+                <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">Split</option></select>
               </div>
               <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
             </div>
           </div>
 
-          <!-- 2. Weight Information (Kanta / Dharam Kanta) -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">2</span> Weight Information (Kanta / Dharam Kanta)</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Weighing Type *</label>
-                <select id="pn-hw-weighingtype">
-                  <option>Dharam Kanta</option><option>Weighbridge</option><option>Electronic Scale</option><option>Manual</option>
-                </select>
-              </div>
-              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-hw-dharamkantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
-              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-hw-weighslipno" placeholder="e.g. DK-24581"></div>
-              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-hw-weightdatetime"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="pn-hw-grossweight" min="0" step="0.01" value="0" oninput="pnCalcWeightSection()"></div>
-              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="pn-hw-tareweight" min="0" step="0.01" value="0" oninput="pnCalcWeightSection()"></div>
-              <div class="field"><label>Net Weight (Kg)</label><input id="pn-hw-netweight" class="pne-auto-field" readonly value="0.00"></div>
-              <div class="field"><label>Operator Name</label><input id="pn-hw-operatorname" placeholder="Optional"></div>
-            </div>
-            <div class="field" style="margin-bottom:0">
-              <label>Upload Weight Slip</label>
-              <input type="file" id="pn-hw-weightslip" accept="image/png,image/jpeg,application/pdf" style="font-size:12px" onchange="pnPreviewWeightSlip(this)">
-              <div id="pn-hw-weightslip-preview" class="pne-file-preview" style="display:none"></div>
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-            </div>
-            <div class="pne-note">Note: Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)</div>
-          </div>
-
-          <!-- 3. Quality, Moisture & Dhalta -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num">3</span> Quality, Moisture &amp; Dhalta</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-hw-moisture" min="0" max="100" step="0.01" value="0" oninput="pnCalcWeightSection()"></div>
-              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-hw-impurity" min="0" max="100" step="0.01" value="0" oninput="pnCalcWeightSection()"></div>
-              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-hw-dhaltapct" min="0" max="100" step="0.01" value="0" oninput="pnCalcWeightSection()"></div>
-              <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-hw-dhaltaweight" class="pne-auto-field" readonly value="0.00"></div>
-            </div>
-            <div class="field" style="max-width:260px;margin-bottom:0">
-              <label>Billable Weight (Kg)</label>
-              <div class="pne-auto-field pne-auto-box" id="pn-hw-billableweight">0.00</div>
-              <div style="font-size:10px;color:#2E7D32;font-weight:600;margin-top:4px">Auto Calculated</div>
-            </div>
-          </div>
-
-          <!-- 4. Items Details -->
+          <!-- 2. Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
-              <span><span class="pne-num">4</span> Items Details</span>
-              <span style="display:flex;gap:8px">
+              <span><span class="pne-num">2</span> Items Details</span>
+              <span style="display:flex;gap:8px;align-items:center">
                 <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
                 <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
+                <select id="pne-entry-mode" class="table-filter" style="font-size:12px" title="New items will use this entry mode">
+                  <option value="catalog">Catalog product</option>
+                  <option value="freetext">Free text (misc. line)</option>
+                </select>
               </span>
             </div>
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table">
+                <colgroup>
+                  <col style="width:34px"><col style="width:150px"><col style="width:105px">
+                  <col style="width:75px"><col style="width:100px">
+                  <col style="width:95px"><col style="width:100px"><col style="width:90px">
+                  <col style="width:60px"><col style="width:65px">
+                  <col style="width:105px">
+                  <col style="width:90px"><col style="width:75px"><col style="width:100px"><col style="width:60px">
+                </colgroup>
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
@@ -2475,7 +2488,7 @@ const SERVER = {
                     <th colspan="3">Weight Details (in Kg)</th>
                     <th colspan="2">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
-                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
+                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2"></th>
                   </tr>
                   <tr>
                     <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
@@ -2497,7 +2510,7 @@ const SERVER = {
           <!-- 3/4/5 row -->
           <div class="pne-row3">
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">5</span> Additional Charges</div>
+              <div class="pne-card-head"><span class="pne-num">3</span> Additional Charges</div>
               <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
@@ -2506,7 +2519,7 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">6</span> Tax &amp; Amount Summary</div>
+              <div class="pne-card-head"><span class="pne-num">4</span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
@@ -2520,44 +2533,28 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head"><span class="pne-num">7</span> Payment Information</div>
+              <div class="pne-card-head"><span class="pne-num">5</span> Payment Information</div>
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
-              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="pnUpdateSplitTotal()"></div>
+              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="onPNEAmountPaidChange()"></div>
               <div class="field"><label>Payment Mode</label>
-                <select id="pn-paymode" onchange="pnToggleSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">⚡ Split Payment</option></select>
+                <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
+              </div>
+              <div id="pne-split-panel" style="display:none;background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px">
+                <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                <button type="button" class="btn btn-outline pne-small-btn" style="margin-top:8px" onclick="addPNESplitRow()"><i class="fas fa-plus"></i> Add Split</button>
+                <div id="pne-split-footer" class="pne-split-footer"></div>
+                <div id="pne-split-mismatch" style="display:none;font-size:11px;color:#E65100;margin-top:4px"></div>
               </div>
               <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
               <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
-
-              <!-- Split Payment Panel -->
-              <div id="pn-split-panel" style="display:none;background:#F8F9FA;border-radius:10px;padding:12px;border:1.5px solid #E65100;margin-top:6px">
-                <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-                  <i class="fas fa-bolt"></i> Split Payment — Amount per method
-                </div>
-                <div style="display:flex;flex-direction:column;gap:7px" id="pn-split-rows"></div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-                  <button type="button" onclick="pnAddSplitRow()" style="padding:5px 12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">+ Add Method</button>
-                  <div style="font-size:12px;color:var(--muted)">Total: <strong id="pn-split-total" style="color:#E65100;font-family:var(--mono)">₹0.00</strong></div>
-                </div>
-                <div id="pn-split-breakdown-bar" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding:7px 10px;background:#fff;border-radius:7px;border:1px solid #e0e0e0;font-size:12px"></div>
-                <div id="pn-split-mismatch-warn" style="display:none;margin-top:8px;font-size:11px;color:#C62828;background:#FFEBEE;border-radius:6px;padding:6px 10px;font-weight:600"></div>
-              </div>
             </div>
           </div>
         </div>
 
         <!-- Right sidebar -->
         <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-balance-scale"></i> Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Auto Calculated)</span></div>
-            <div class="pne-kv"><span>Gross Weight</span><strong id="pn-wsum-gross">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Tare Weight</span><strong id="pn-wsum-tare">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Net Weight</span><strong id="pn-wsum-net">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Dhalta Weight</span><strong id="pn-wsum-dhalta">0.00 Kg</strong></div>
-            <div class="pne-kv" style="border-top:1px dashed var(--border);padding-top:8px;margin-top:4px"><span>Billable Weight</span><strong id="pn-wsum-billable" style="color:#2E7D32">0.00 Kg</strong></div>
-          </div>
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-user-circle"></i> Supplier Summary</div>
             <div id="pne-supplier-summary" class="pne-summary-empty">Select a supplier to see their purchase history.</div>
@@ -2568,6 +2565,7 @@ const SERVER = {
             <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
           </div>
           <div class="pne-card">
@@ -2581,6 +2579,13 @@ const SERVER = {
             <textarea id="pn-notes" placeholder="Type any additional notes here…" style="min-height:80px"></textarea>
           </div>
         </div>
+      </div>
+      <div class="pne-feature-footer">
+        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-shield-alt"></i></span><div><strong>No GST (Farmer Purchase)</strong><span>Purchase is GST Exempt</span></div></div>
+        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-award"></i></span><div><strong>Quality First</strong><span>Moisture &amp; Grade Tracked</span></div></div>
+        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-warehouse"></i></span><div><strong>Stock Updated</strong><span>Real-time Inventory Update</span></div></div>
+        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-chart-bar"></i></span><div><strong>Reports &amp; Analytics</strong><span>Better Purchase Insights</span></div></div>
+        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-file-shield"></i></span><div><strong>Audit Ready</strong><span>Complete Purchase Trail</span></div></div>
       </div>
     </div>
 
@@ -2647,6 +2652,187 @@ const SERVER = {
             <thead><tr><th>Date</th><th>Source</th><th>Direction</th><th>Qty</th><th>Rate</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
             <tbody id="sh-tbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ NEW PRODUCT ENTRY (full page, business_type='product' only) ═══════════ -->
+    <div id="page-product-new" class="page">
+      <div class="pne-topbar">
+        <div>
+          <div class="pne-title" id="pnp-title">New Product</div>
+          <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
+        </div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelProductEntry()">Cancel</button>
+          <button class="btn pne-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
+        </div>
+      </div>
+
+      <div class="pne-layout">
+        <div class="pne-main">
+
+          <!-- 1. Product Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">1</span> Product Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
+              <div class="field"><label>Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
+              <div class="field"><label>Unit *</label>
+                <select id="pp-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
+              </div>
+              <div class="field"><label>Brand</label><input id="pp-brand" placeholder="e.g. AgriTrade"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Category *</label>
+                <select id="pp-category"></select>
+              </div>
+              <div class="field"><label>HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
+              <div class="field"><label>Base Unit</label><input id="pp-baseunit" readonly></div>
+              <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Variety</label><input id="pp-variety" placeholder="e.g. Premium"></div>
+              <div class="field"><label>Barcode</label>
+                <div style="display:flex;gap:6px">
+                  <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
+                  <button type="button" class="btn btn-outline" style="padding:0 12px" title="Scan barcode" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i></button>
+                </div>
+              </div>
+              <div class="field"><label>Sale Unit</label><input id="pp-saleunit" readonly></div>
+              <div class="field"><label>Storage Type</label>
+                <select id="pp-storagetype"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
+              </div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Grade</label>
+                <select id="pp-grade"><option value="">—</option><option>A Grade</option><option>B Grade</option><option>Premium</option><option>Standard</option></select>
+              </div>
+              <div class="field"><label>QR Code</label>
+                <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
+              </div>
+              <div class="field"><label>Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
+              <div class="field"><label>Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
+            </div>
+          </div>
+
+          <!-- 2. Product Specifications -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">2</span> Product Specifications</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
+              <div class="field"><label>Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
+              <div class="field"><label>Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
+              <div class="field"><label>Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
+              <div class="field"><label>Color</label><input id="pp-color" placeholder="e.g. White"></div>
+              <div class="field"><label>Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
+              <div class="field"><label>Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Packing Type</label>
+                <select id="pp-packingtype"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
+              </div>
+              <div class="field"><label>Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
+              <div></div><div></div>
+            </div>
+          </div>
+
+          <!-- 3. Pricing & Tax Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">3</span> Pricing &amp; Tax Information</div>
+            <div class="pne-grid5">
+              <div class="field"><label>Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>GST % *</label>
+                <select id="pp-gst"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option></select>
+              </div>
+              <div class="field"><label>Tax Type</label>
+                <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Inventory Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">4</span> Inventory Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
+            </div>
+            <div style="display:flex;gap:28px;margin-top:4px">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Batch</span><div class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></div></div>
+              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Serial No.</span><div class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></div></div>
+            </div>
+          </div>
+
+          <!-- 5. Product Description -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num">5</span> Product Description</div>
+            <div class="pne-grid2">
+              <div class="field">
+                <label>Short Description</label>
+                <textarea id="pp-shortdesc" maxlength="200" style="min-height:90px" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',200)" placeholder="One-line summary shown in listings"></textarea>
+                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-shortdesc-count">0</span>/200</div>
+              </div>
+              <div class="field">
+                <label>Detailed Description</label>
+                <textarea id="pp-detaildesc" maxlength="500" style="min-height:90px" oninput="pnpCharCount('pp-detaildesc','pp-detaildesc-count',500)" placeholder="Full description for the product page / export documents"></textarea>
+                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-detaildesc-count">0</span>/500</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right sidebar -->
+        <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-image"></i> Product Images</div>
+            <label class="pp-dropzone" for="pp-images-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop images here<br>or click to upload</div>
+            </label>
+            <input type="file" id="pp-images-input" accept="image/png,image/jpeg,image/webp" multiple style="display:none" onchange="pnpAddImages(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Recommended size: 800x800px (Max 5MB each)</div>
+            <div id="pp-images-preview" class="pp-thumb-grid"></div>
+          </div>
+
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
+            <div class="field"><label>Country of Origin</label><input id="pp-country" value="India"></div>
+            <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
+            <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
+            <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+              <span style="font-size:12.5px;font-weight:600">Product Status</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="tog on" id="pp-status"></div><span id="pp-status-label" style="font-size:12px;color:var(--muted)">Active</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
+            <input id="pp-tags-input" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
+            <div id="pp-tags-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+          </div>
+
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
+            <label class="pp-dropzone" for="pp-attachments-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop files here<br>or click to upload</div>
+            </label>
+            <input type="file" id="pp-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="pnpAddAttachments(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
+            <div id="pp-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -11576,6 +11762,7 @@ function _renderProdPage() {
 }
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
+  if (STATE.settings.businessType === 'product') { editProductRich(id); return; }
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
   const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${escHtml(c.name)}</option>`).join('');
   const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
@@ -11632,6 +11819,7 @@ async function saveEditProd(id) {
 }
 
 function openAddProductModal() {
+  if (STATE.settings.businessType === 'product') { goToNewProductPage(); return; }
   if (PROD.archived) return; // Adding isn't relevant while viewing archived services
   // Toggle: if the add-row is already open, close it instead of opening a fresh one
   const existing = document.getElementById('add-product-row');
@@ -11659,6 +11847,241 @@ function applyBusinessTypeLabels(type) {
   const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
   const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
   const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
+}
+
+// ══════════════════════════════════════════
+// NEW PRODUCT ENTRY (full page) — only used when Settings → Business Type
+// is "product". Service/Both tenants keep the original inline add-row.
+// ══════════════════════════════════════════
+const PNP = { editingId: null, images: [], attachments: [], tags: [] };
+
+function populateProductCategoryDropdown() {
+  const sel = document.getElementById('pp-category');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = (STATE.categories||[]).map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`).join('') || '<option value="Other">Other</option>';
+  if (cur) sel.value = cur;
+}
+
+function pnpSyncUnits() {
+  const u = document.getElementById('pp-unit').value;
+  document.getElementById('pp-baseunit').value = u;
+  document.getElementById('pp-saleunit').value = u;
+  document.getElementById('pp-purchaseunit').value = u;
+}
+
+function pnpCharCount(fieldId, countId, max) {
+  const val = document.getElementById(fieldId).value || '';
+  document.getElementById(countId).textContent = Math.min(val.length, max);
+}
+
+function pnpFileToDataUrl(file) {
+  return new Promise(resolve => {
+    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function pnpAddImages(files) {
+  for (const f of Array.from(files)) {
+    const url = await pnpFileToDataUrl(f);
+    if (url) PNP.images.push(url);
+  }
+  document.getElementById('pp-images-input').value = '';
+  renderPNPImages();
+}
+function pnpRemoveImage(idx) { PNP.images.splice(idx, 1); renderPNPImages(); }
+function renderPNPImages() {
+  document.getElementById('pp-images-preview').innerHTML = PNP.images.map((src, i) => `
+    <div class="pp-thumb"><img src="${src}"><button class="pp-thumb-remove" onclick="pnpRemoveImage(${i})">✕</button></div>`).join('');
+}
+
+async function pnpAddAttachments(files) {
+  for (const f of Array.from(files)) {
+    const url = await pnpFileToDataUrl(f);
+    if (url) PNP.attachments.push({ name: f.name, url });
+  }
+  document.getElementById('pp-attachments-input').value = '';
+  renderPNPAttachments();
+}
+function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
+function renderPNPAttachments() {
+  document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="pnpRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+}
+
+function pnpTagKeydown(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const val = e.target.value.trim();
+  if (!val) return;
+  if (!PNP.tags.includes(val)) PNP.tags.push(val);
+  e.target.value = '';
+  renderPNPTags();
+}
+function pnpRemoveTag(i) { PNP.tags.splice(i, 1); renderPNPTags(); }
+function renderPNPTags() {
+  document.getElementById('pp-tags-chips').innerHTML = PNP.tags.map((t, i) => `
+    <span class="pp-tag-chip">${escHtml(t)} <button onclick="pnpRemoveTag(${i})">✕</button></span>`).join('');
+}
+
+function toggleProductStatus() {
+  const el = document.getElementById('pp-status');
+  el.classList.toggle('on');
+  document.getElementById('pp-status-label').textContent = el.classList.contains('on') ? 'Active' : 'Inactive';
+}
+
+function goToNewProductPage() {
+  PNP.editingId = null;
+  PNP.images = []; PNP.attachments = []; PNP.tags = [];
+  document.getElementById('pnp-title').textContent = 'New Product';
+  document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
+  ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
+   'pp-manufacturer','pp-fssai','pp-iec','pp-shortdesc','pp-detaildesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('pp-unit').value = 'Kg'; pnpSyncUnits();
+  populateProductCategoryDropdown();
+  document.getElementById('pp-shelflife').value = '';
+  document.getElementById('pp-storagetype').value = 'Dry';
+  document.getElementById('pp-grade').value = '';
+  document.getElementById('pp-minorderqty').value = 0;
+  ['pp-moisture','pp-foreignmatter','pp-brokendamage','pp-oilcontent','pp-admixture'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pp-packingtype').value = 'PP Bag';
+  document.getElementById('pp-purchaserate').value = 0;
+  document.getElementById('pp-salerate').value = 0;
+  document.getElementById('pp-mrp').value = 0;
+  document.getElementById('pp-gst').value = '18';
+  document.getElementById('pp-taxtype').value = 'Intra-State (CGST+SGST)';
+  document.getElementById('pp-openingstock').value = 0;
+  document.getElementById('pp-reorderlevel').value = 0;
+  document.getElementById('pp-maxstock').value = 0;
+  document.getElementById('pp-warehouse').value = 'Main Warehouse';
+  document.getElementById('pp-trackbatch').classList.remove('on');
+  document.getElementById('pp-trackserial').classList.remove('on');
+  document.getElementById('pp-country').value = 'India';
+  document.getElementById('pp-status').classList.add('on');
+  document.getElementById('pp-status-label').textContent = 'Active';
+  document.getElementById('pp-status').onclick = toggleProductStatus;
+  document.getElementById('pp-shortdesc-count').textContent = 0;
+  document.getElementById('pp-detaildesc-count').textContent = 0;
+  document.getElementById('pp-images-input').value = '';
+  document.getElementById('pp-attachments-input').value = '';
+  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
+  showPage('product-new');
+  document.querySelector('.nav-item[data-page="products"]')?.classList.add('active');
+}
+
+function cancelProductEntry() {
+  showPage('products');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
+}
+
+function editProductRich(id) {
+  const p = STATE.products.find(x => x.id === id); if (!p) return;
+  PNP.editingId = id;
+  PNP.images = Array.isArray(p.images) ? [...p.images] : [];
+  PNP.attachments = Array.isArray(p.attachments) ? p.attachments.map(url => ({ name: url.split('/').pop(), url })) : [];
+  PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
+  document.getElementById('pnp-title').textContent = 'Edit Product';
+  document.getElementById('pnp-subtitle').textContent = p.name;
+  populateProductCategoryDropdown();
+  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
+  set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
+  set('pp-category', p.category); set('pp-hsn', p.hsn); set('pp-shelflife', p.shelf_life_months);
+  set('pp-variety', p.variety); set('pp-barcode', p.barcode); set('pp-storagetype', p.storage_type || 'Dry');
+  set('pp-grade', p.grade); set('pp-minorderqty', p.min_order_qty || 0);
+  pnpSyncUnits();
+  set('pp-moisture', p.moisture_limit); set('pp-foreignmatter', p.foreign_matter_limit);
+  set('pp-brokendamage', p.broken_damage_limit); set('pp-oilcontent', p.oil_content); set('pp-admixture', p.admixture_limit);
+  set('pp-color', p.color); set('pp-aroma', p.aroma); set('pp-shapesize', p.shape_size);
+  set('pp-packingtype', p.packing_type || 'PP Bag'); set('pp-packingsize', p.packing_size);
+  set('pp-purchaserate', p.purchase_rate || 0); set('pp-salerate', p.sale_rate || 0); set('pp-mrp', p.mrp || 0);
+  set('pp-gst', p.gst ?? 18); set('pp-taxtype', p.tax_type || 'Intra-State (CGST+SGST)');
+  set('pp-openingstock', p.opening_stock || 0); set('pp-reorderlevel', p.reorder_level || 0);
+  set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
+  document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
+  document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
+  set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
+  pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
+  set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
+  set('pp-fssai', p.fssai_license); set('pp-iec', p.iec_code);
+  document.getElementById('pp-status').classList.toggle('on', (p.status||'active') === 'active');
+  document.getElementById('pp-status-label').textContent = (p.status||'active') === 'active' ? 'Active' : 'Inactive';
+  document.getElementById('pp-status').onclick = toggleProductStatus;
+  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
+  showPage('product-new');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
+}
+
+async function saveProductEntry(mode) {
+  const name = document.getElementById('pp-name').value.trim();
+  const sku  = document.getElementById('pp-sku').value.trim();
+  if (!name) { toast('⚠️ Product name is required', 'warning'); return; }
+  if (!sku)  { toast('⚠️ Product Code / SKU is required', 'warning'); return; }
+  if (!document.getElementById('pp-moisture').value) { toast('⚠️ Moisture Limit (%) is required', 'warning'); return; }
+
+  const payload = {
+    name, sku, category: document.getElementById('pp-category').value || 'Other',
+    unit: document.getElementById('pp-unit').value, brand: document.getElementById('pp-brand').value.trim(),
+    hsn: document.getElementById('pp-hsn').value.trim(),
+    base_unit_label: document.getElementById('pp-baseunit').value, shelf_life_months: document.getElementById('pp-shelflife').value || null,
+    variety: document.getElementById('pp-variety').value.trim(), barcode: document.getElementById('pp-barcode').value.trim(),
+    sale_unit: document.getElementById('pp-saleunit').value, storage_type: document.getElementById('pp-storagetype').value,
+    grade: document.getElementById('pp-grade').value, purchase_unit: document.getElementById('pp-purchaseunit').value,
+    min_order_qty: parseFloat(document.getElementById('pp-minorderqty').value) || 0,
+    moisture_limit: parseFloat(document.getElementById('pp-moisture').value) || 0,
+    foreign_matter_limit: parseFloat(document.getElementById('pp-foreignmatter').value) || 0,
+    broken_damage_limit: parseFloat(document.getElementById('pp-brokendamage').value) || 0,
+    oil_content: document.getElementById('pp-oilcontent').value ? parseFloat(document.getElementById('pp-oilcontent').value) : null,
+    admixture_limit: parseFloat(document.getElementById('pp-admixture').value) || 0,
+    color: document.getElementById('pp-color').value.trim(), aroma: document.getElementById('pp-aroma').value.trim(),
+    shape_size: document.getElementById('pp-shapesize').value.trim(), packing_type: document.getElementById('pp-packingtype').value,
+    packing_size: document.getElementById('pp-packingsize').value.trim(),
+    purchase_rate: parseFloat(document.getElementById('pp-purchaserate').value) || 0,
+    sale_rate: parseFloat(document.getElementById('pp-salerate').value) || 0,
+    rate: parseFloat(document.getElementById('pp-salerate').value) || 0, // legacy 'rate' column mirrors sale rate for compatibility
+    mrp: parseFloat(document.getElementById('pp-mrp').value) || 0,
+    gst: parseInt(document.getElementById('pp-gst').value) || 0,
+    tax_type: document.getElementById('pp-taxtype').value,
+    opening_stock: parseFloat(document.getElementById('pp-openingstock').value) || 0,
+    reorder_level: parseFloat(document.getElementById('pp-reorderlevel').value) || 0,
+    max_stock: parseFloat(document.getElementById('pp-maxstock').value) || 0,
+    default_warehouse: document.getElementById('pp-warehouse').value,
+    track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
+    track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
+    short_description: document.getElementById('pp-shortdesc').value.trim(),
+    detailed_description: document.getElementById('pp-detaildesc').value.trim(),
+    country_of_origin: document.getElementById('pp-country').value.trim() || 'India',
+    manufacturer: document.getElementById('pp-manufacturer').value.trim(),
+    fssai_license: document.getElementById('pp-fssai').value.trim(), iec_code: document.getElementById('pp-iec').value.trim(),
+    unit_family: 'weight', // AgriTrade-style products are always weight-tracked (Kg base) for Stock Ledger purposes
+    status: document.getElementById('pp-status').classList.contains('on') ? 'active' : 'inactive',
+    tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
+  };
+
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
+  try {
+    if (PNP.editingId) {
+      await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
+      toast('✅ Product updated!', 'success');
+    } else {
+      await api('api/products.php', 'POST', payload);
+      toast('✅ Product saved!', 'success');
+    }
+    const r = await api('api/products.php');
+    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
+    updateServiceDropdown();
+    if (mode === 'new') {
+      goToNewProductPage();
+    } else {
+      cancelProductEntry();
+      renderProducts();
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 function _showAddProductRow(prefill) {
@@ -12014,13 +12437,8 @@ function fmt_date_disp(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, weightSlipDataUrl: null, weightSlipExisting: null };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null };
 let pneItemSeq = 1;
-
-function pneEmptyItem() {
-  return { id: pneItemSeq++, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
-    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0 };
-}
 
 function goToNewPurchase() {
   PNE.editingId = null;
@@ -12054,29 +12472,13 @@ function goToNewPurchase() {
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
   document.getElementById('pn-paymode').value = 'Cash';
+  document.getElementById('pne-split-panel').style.display = 'none';
+  document.getElementById('pne-split-rows').innerHTML = '';
   document.getElementById('pn-transactionno').value = '';
   document.getElementById('pn-paydate').value = fmt_date(new Date());
-  document.getElementById('pn-split-rows').innerHTML = '';
-  document.getElementById('pn-split-panel').style.display = 'none';
   document.getElementById('pn-notes').value = '';
   document.getElementById('pn-attachment').value = '';
   document.getElementById('pne-supplier-summary').innerHTML = '<div class="pne-summary-empty">Select a supplier to see their purchase history.</div>';
-  // Reset Weight Information (Kanta / Dharam Kanta) + Quality/Moisture/Dhalta
-  PNE.weightSlipDataUrl = null;
-  PNE.weightSlipExisting = null;
-  document.getElementById('pn-hw-weighingtype').value = 'Dharam Kanta';
-  document.getElementById('pn-hw-dharamkantaname').value = '';
-  document.getElementById('pn-hw-weighslipno').value = '';
-  document.getElementById('pn-hw-weightdatetime').value = '';
-  document.getElementById('pn-hw-grossweight').value = 0;
-  document.getElementById('pn-hw-tareweight').value = 0;
-  document.getElementById('pn-hw-operatorname').value = '';
-  document.getElementById('pn-hw-weightslip').value = '';
-  document.getElementById('pn-hw-weightslip-preview').style.display = 'none';
-  document.getElementById('pn-hw-moisture').value = 0;
-  document.getElementById('pn-hw-impurity').value = 0;
-  document.getElementById('pn-hw-dhaltapct').value = 0;
-  pnCalcWeightSection();
   renderPNEItemsTable();
   showPage('purchase-new');
   document.querySelector('.nav-item[data-page="purchases"]')?.classList.add('active');
@@ -12146,6 +12548,12 @@ function setGstApplicable(applicable) {
   calcPurchaseNewTotals();
 }
 
+function pneEmptyItem() {
+  const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
+  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
+    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
+}
+
 function addPurchaseNewItem() {
   PNE.items.push(pneEmptyItem());
   renderPNEItemsTable();
@@ -12157,12 +12565,25 @@ function removePNEItem(id) {
   renderPNEItemsTable();
 }
 
-function editPNEItemRow(id) {
-  const row = document.querySelector(`tr[data-row="${id}"]`);
-  const firstField = row?.querySelector('select, input');
-  if (firstField) { firstField.focus(); firstField.select?.(); }
+function editPNEItem(id) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
+  it.editing = true;
+  renderPNEItemsTable();
 }
 
+function donePNEItem(id) {
+  const it = PNE.items.find(i => i.id === id); if (!it) return;
+  if (it.mode === 'freetext') {
+    if (!it.description || !it.description.trim()) { toast('⚠️ Enter a description for this line', 'warning'); return; }
+  } else if (!it.product_id) {
+    toast('⚠️ Select a product for this line', 'warning'); return;
+  }
+  it.editing = false;
+  renderPNEItemsTable();
+}
+
+// Dhalta Kg is the editable figure (matches how it's actually weighed at the
+// mandi); Dhalta % is derived from it for display, not the other way round.
 function pneCalcRow(it) {
   const gross = parseFloat(it.gross_weight) || 0;
   const tare  = parseFloat(it.tare_weight)  || 0;
@@ -12172,8 +12593,10 @@ function pneCalcRow(it) {
   const billable  = Math.max(0, net - dhaltaKg);
   const rate      = parseFloat(it.rate) || 0;
   const discPct   = parseFloat(it.discount_pct) || 0;
-  const amount    = +(billable * rate * (1 - discPct/100)).toFixed(2);
-  return { net, dhaltaPct, dhaltaKg, billable, amount };
+  const grossAmt  = billable * rate;
+  const discountAmt = +(grossAmt * discPct / 100).toFixed(2);
+  const amount    = +(grossAmt - discountAmt).toFixed(2);
+  return { net, dhaltaKg, dhaltaPct, billable, amount, discountAmt };
 }
 
 function renderPNEItemsTable() {
@@ -12181,13 +12604,42 @@ function renderPNEItemsTable() {
   if (!tbody) return;
   tbody.innerHTML = PNE.items.map((it, idx) => {
     const c = pneCalcRow(it);
+    if (!it.editing) {
+      // ── View mode: plain values, pencil to edit, trash to remove ──
+      const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
+      return `<tr data-row="${it.id}">
+        <td class="pne-view-cell">${idx+1}</td>
+        <td class="pne-view-cell" style="text-align:left"><strong>${escHtml(prod?.name || it.description || '—')}</strong></td>
+        <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
+        <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
+        <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
+        <td class="pne-view-cell">${(parseFloat(it.gross_weight)||0).toFixed(2)}</td>
+        <td class="pne-view-cell">${(parseFloat(it.tare_weight)||0).toFixed(2)}</td>
+        <td class="pne-view-cell">${c.net.toFixed(2)}</td>
+        <td class="pne-view-cell">${c.dhaltaPct.toFixed(2)}</td>
+        <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
+        <td class="pne-view-cell">${c.billable.toFixed(2)}</td>
+        <td class="pne-view-cell">${(parseFloat(it.rate)||0).toFixed(2)}</td>
+        <td class="pne-view-cell">${(parseFloat(it.discount_pct)||0).toFixed(2)}</td>
+        <td class="pne-view-cell pne-amount-cell">${fmt_money(c.amount)}</td>
+        <td>
+          <div class="pne-row-actions">
+            <button class="pne-icon-btn edit" onclick="editPNEItem(${it.id})" title="Edit"><i class="fas fa-pencil-alt" style="font-size:11px"></i></button>
+            <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    // ── Edit mode: live-computed inputs ──
     return `<tr data-row="${it.id}">
       <td>${idx+1}</td>
       <td>
-        <select onchange="onPNEProductChange(${it.id}, this.value)">
-          <option value="" ${!it.product_id?'selected':''} disabled>Select Product</option>
-          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
-        </select>
+        ${it.mode === 'freetext'
+          ? `<input value="${escHtml(it.description)}" placeholder="e.g. Gunny bags, Labour advance" oninput="updatePNEItem(${it.id},'description',this.value,true)">`
+          : `<select onchange="onPNEProductChange(${it.id}, this.value)">
+               <option value="">Select product…</option>
+               ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+             </select>`}
       </td>
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
@@ -12202,9 +12654,9 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
       <td class="pne-amount-cell" id="pne-amt-${it.id}">${fmt_money(c.amount)}</td>
       <td>
-        <div class="pne-action-cell">
-          <button class="pne-edit-btn" onclick="editPNEItemRow(${it.id})" title="Edit"><i class="fas fa-pencil-alt"></i></button>
-          <button class="pne-del-btn" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash-alt"></i></button>
+        <div class="pne-row-actions">
+          <button class="pne-icon-btn done" onclick="donePNEItem(${it.id})" title="Done"><i class="fas fa-check" style="font-size:11px"></i></button>
+          <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
         </div>
       </td>
     </tr>`;
@@ -12219,28 +12671,29 @@ function onPNEProductChange(id, productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
     if (p) { it.description = p.name; if (!it.rate) it.rate = parseFloat(p.rate) || 0; }
   }
-  renderPNEItemsTable(); // structural change (free-text input toggling) — full rebuild is correct here
+  renderPNEItemsTable();
 }
 
-// Non-destructive update: recompute this row's derived cells (Net/Dhalta Kg/Billable/Amount)
+// Non-destructive update: recompute this row's derived cells (Net/Dhalta%/Billable/Amount)
 // directly via DOM instead of re-rendering the whole table — keeps focus in the input
 // the person is actively typing in (see the earlier "disables after one letter" fix).
 function updatePNEItem(id, field, val, isText) {
   const it = PNE.items.find(i => i.id === id); if (!it) return;
-  it[field] = isText ? val : val;
+  it[field] = val;
   const c = pneCalcRow(it);
-  const netEl = document.getElementById('pne-net-' + id);           if (netEl) netEl.textContent = c.net.toFixed(2);
-  const dpEl  = document.getElementById('pne-dhaltapct-' + id);     if (dpEl) dpEl.textContent = c.dhaltaPct.toFixed(2);
-  const bwEl  = document.getElementById('pne-billable-' + id);      if (bwEl) bwEl.textContent = c.billable.toFixed(2);
-  const amtEl = document.getElementById('pne-amt-' + id);           if (amtEl) amtEl.textContent = fmt_money(c.amount);
+  const netEl = document.getElementById('pne-net-' + id);      if (netEl) netEl.textContent = c.net.toFixed(2);
+  const dpEl  = document.getElementById('pne-dhaltapct-' + id); if (dpEl) dpEl.textContent = c.dhaltaPct.toFixed(2);
+  const bwEl  = document.getElementById('pne-billable-' + id); if (bwEl) bwEl.textContent = c.billable.toFixed(2);
+  const amtEl = document.getElementById('pne-amt-' + id);      if (amtEl) amtEl.textContent = fmt_money(c.amount);
   calcPurchaseNewTotals();
 }
 
+
 function calcPurchaseNewTotals() {
-  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0;
+  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalDiscount = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
-    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount;
+    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount; totalDiscount += c.discountAmt;
   });
   document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
@@ -12250,6 +12703,7 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
+  document.getElementById('pne-sb-discount').textContent = fmt_money(totalDiscount);
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
@@ -12275,6 +12729,122 @@ function calcPurchaseNewTotals() {
   // Keep Amount Paid sane if Payment Status is set to Paid
   const payStatus = document.getElementById('pn-paystatus').value;
   if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
+
+  updatePNESplitMismatch();
+}
+
+// ── Split Payment (Payment Information) ──────────────────────────
+// Mirrors the existing invoice Record-Payment split pattern, scoped with a
+// "pne" prefix so it doesn't collide with that modal's own split UI.
+function togglePNESplitPayment() {
+  const isSplit = document.getElementById('pn-paymode').value === 'Split Payment';
+  const panel = document.getElementById('pne-split-panel');
+  panel.style.display = isSplit ? 'block' : 'none';
+  if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
+    addPNESplitRow(0);
+    addPNESplitRow(0);
+    onPNEAmountPaidChange(); // immediately sync row 1 with whatever Amount Paid already holds
+  }
+}
+
+// Amount Paid is the source of truth for what Split Payment is dividing up.
+// Called on every keystroke in Amount Paid, and once right when Split mode opens.
+function onPNEAmountPaidChange() {
+  updatePNESplitMismatch();
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-amt');
+  if (document.getElementById('pn-paymode').value !== 'Split Payment' || rows.length !== 2) return;
+  const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+  const other = parseFloat(rows[1].value) || 0;
+  const remainder = Math.max(0, target - other);
+  rows[0].value = target > 0 ? remainder.toFixed(2) : '';
+  updatePNESplitTotal();
+}
+
+function addPNESplitRow(prefillAmt) {
+  const container = document.getElementById('pne-split-rows');
+  const row = document.createElement('div');
+  row.className = 'pne-split-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center';
+  row.innerHTML = `<select class="pne-split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" onchange="renderPNESplitFooter()">
+      <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+    </select>
+    <input type="number" class="pne-split-amt" placeholder="0.00" value="${prefillAmt ? prefillAmt.toFixed(2) : ''}" style="width:110px;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px" oninput="updatePNESplitTotal()">
+    <button type="button" onclick="removePNESplitRow(this)" style="padding:6px 10px;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px">✕</button>`;
+  container.appendChild(row);
+  updatePNESplitTotal();
+}
+
+function removePNESplitRow(btn) {
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
+  if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
+  btn.closest('.pne-split-row').remove();
+  updatePNESplitTotal();
+}
+
+function updatePNESplitTotal() {
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-amt');
+
+  // Auto-deduct: with exactly 2 rows, editing one auto-fills the other with
+  // the remainder against Amount Paid — mirrors the invoice payment split behavior.
+  if (rows.length === 2) {
+    const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+    const focusedRow = document.activeElement?.closest('.pne-split-row');
+    const focusedIdx = focusedRow ? Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row')).indexOf(focusedRow) : -1;
+    if (target > 0 && focusedIdx === 0) {
+      const remainder = Math.max(0, target - (parseFloat(rows[0].value)||0));
+      rows[1].value = remainder > 0 ? remainder.toFixed(2) : '';
+    } else if (target > 0 && focusedIdx === 1) {
+      const remainder = Math.max(0, target - (parseFloat(rows[1].value)||0));
+      rows[0].value = remainder > 0 ? remainder.toFixed(2) : '';
+    }
+  }
+
+  renderPNESplitFooter();
+  updatePNESplitMismatch();
+}
+
+// Colored footer: Amount Paid (target) in one color, live per-method
+// breakdown in another — so it's obvious at a glance whether they match.
+function renderPNESplitFooter() {
+  const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+  const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
+  const breakdown = rows.map(r => {
+    const method = r.querySelector('.pne-split-method')?.value || '';
+    const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
+    return `<span class="pne-split-chip">${escHtml(method)}: <strong>${fmt_money(amt)}</strong></span>`;
+  }).join('');
+  const footer = document.getElementById('pne-split-footer');
+  if (footer) {
+    footer.innerHTML = `
+      <div class="pne-split-footer-total">Amount Paid <strong>${fmt_money(target)}</strong></div>
+      <div class="pne-split-footer-breakdown">${breakdown}</div>`;
+  }
+}
+
+function updatePNESplitMismatch() {
+  const warnEl = document.getElementById('pne-split-mismatch');
+  if (!warnEl || document.getElementById('pn-paymode').value !== 'Split Payment') { if(warnEl) warnEl.style.display='none'; return; }
+  const amts = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-amt')).map(el => parseFloat(el.value)||0);
+  const splitSum = amts.reduce((s,v) => s+v, 0);
+  const amountPaid = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+  if (amountPaid > 0 && Math.abs(splitSum - amountPaid) > 0.01) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = splitSum > amountPaid
+      ? `⚠️ Split total (${fmt_money(splitSum)}) exceeds Amount Paid`
+      : `⚠️ Split total (${fmt_money(splitSum)}) is less than Amount Paid`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function getPNESplitLabel() {
+  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
+  const parts = Array.from(rows).map(r => {
+    const m = r.querySelector('.pne-split-method')?.value || '';
+    const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
+    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+  }).filter(Boolean);
+  return 'Split: ' + parts.join(' + ');
 }
 
 async function editPurchase(id) {
@@ -12284,20 +12854,12 @@ async function editPurchase(id) {
     PNE.editingId = id;
     PNE.attachmentDataUrl = null;
     PNE.attachmentExisting = p.attachment_path || null;
-    PNE.items = (p.items||[]).map(it => {
-      const gw = parseFloat(it.gross_weight) || 0, tw = parseFloat(it.tare_weight) || 0;
-      const net = Math.max(0, gw - tw);
-      // dhalta_kg is now the source of truth; fall back to legacy dhalta_pct if a saved record only has that
-      const dhaltaKg = (it.dhalta_kg !== undefined && it.dhalta_kg !== null)
-        ? parseFloat(it.dhalta_kg) || 0
-        : +(net * (parseFloat(it.dhalta_pct) || 0) / 100).toFixed(3);
-      return {
-        id: pneItemSeq++, product_id: it.product_id || '', description: it.description,
-        variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
-        gross_weight: gw, tare_weight: tw, dhalta_kg: dhaltaKg,
-        rate: it.rate || 0, discount_pct: it.discount_pct || 0,
-      };
-    });
+    PNE.items = (p.items||[]).map(it => ({
+      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id || '', description: it.description,
+      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
+      gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
+    }));
     document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
     document.getElementById('pne-subtitle').textContent = p.purchase_no;
     document.getElementById('pn-no').value = p.purchase_no;
@@ -12325,208 +12887,24 @@ async function editPurchase(id) {
     document.getElementById('pn-discount').value = p.discount_amount || 0;
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
-    document.getElementById('pn-paymode').value = p.payment_mode || 'Cash';
+    const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
+    document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
+    document.getElementById('pne-split-panel').style.display = isSplitSaved ? 'block' : 'none';
+    document.getElementById('pne-split-rows').innerHTML = '';
+    if (isSplitSaved) {
+      // We only stored the composed label, not structured rows — show it as
+      // read-only context and let a fresh split be entered if amounts changed.
+      document.getElementById('pne-split-rows').innerHTML =
+        `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Previously saved as: "${escHtml(p.payment_mode)}" — re-enter splits below if amounts changed.</div>`;
+      addPNESplitRow(0); addPNESplitRow(0);
+    }
     document.getElementById('pn-transactionno').value = p.transaction_no || '';
     document.getElementById('pn-paydate').value = p.payment_date || '';
-    document.getElementById('pn-split-rows').innerHTML = '';
-    document.getElementById('pn-split-panel').style.display = 'none';
-    if ((p.payment_mode === 'Split' || p.payment_type === 'Split') && Array.isArray(p.payment_splits) && p.payment_splits.length) {
-      p.payment_splits.forEach(sp => {
-        pnAddSplitRow(false);
-        const rows = document.querySelectorAll('#pn-split-rows .pn-split-row');
-        const last = rows[rows.length - 1];
-        if (last) {
-          const sel = last.querySelector('.pn-split-method'); if (sel) sel.value = sp.method || 'Cash';
-          const amt = last.querySelector('.pn-split-amt'); if (amt) amt.value = sp.amount || 0;
-        }
-      });
-      pnToggleSplitPayment();
-    }
     document.getElementById('pn-notes').value = p.notes || '';
-    // Weight Information (Kanta / Dharam Kanta) + Quality/Moisture/Dhalta
-    PNE.weightSlipDataUrl = null;
-    PNE.weightSlipExisting = p.weight_slip_path || null;
-    document.getElementById('pn-hw-weighingtype').value = p.weighing_type || 'Dharam Kanta';
-    document.getElementById('pn-hw-dharamkantaname').value = p.dharam_kanta_name || '';
-    document.getElementById('pn-hw-weighslipno').value = p.weighbridge_slip_no || '';
-    document.getElementById('pn-hw-weightdatetime').value = p.weight_datetime || '';
-    document.getElementById('pn-hw-grossweight').value = p.hw_gross_weight || 0;
-    document.getElementById('pn-hw-tareweight').value = p.hw_tare_weight || 0;
-    document.getElementById('pn-hw-operatorname').value = p.operator_name || '';
-    document.getElementById('pn-hw-weightslip').value = '';
-    pnShowWeightSlipPreview(PNE.weightSlipExisting);
-    document.getElementById('pn-hw-moisture').value = p.moisture_pct || 0;
-    document.getElementById('pn-hw-impurity').value = p.impurity_pct || 0;
-    document.getElementById('pn-hw-dhaltapct').value = p.hw_dhalta_pct || 0;
-    pnCalcWeightSection();
     renderPNEItemsTable();
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function pnCalcWeightSection() {
-  const gross = parseFloat(document.getElementById('pn-hw-grossweight').value) || 0;
-  const tare  = parseFloat(document.getElementById('pn-hw-tareweight').value) || 0;
-  const net   = Math.max(0, gross - tare);
-  document.getElementById('pn-hw-netweight').value = net.toFixed(2);
-
-  const dhaltaPct    = parseFloat(document.getElementById('pn-hw-dhaltapct').value) || 0;
-  const dhaltaWeight = +(net * dhaltaPct / 100).toFixed(2);
-  const billable     = Math.max(0, net - dhaltaWeight);
-  document.getElementById('pn-hw-dhaltaweight').value = dhaltaWeight.toFixed(2);
-  document.getElementById('pn-hw-billableweight').textContent = billable.toFixed(2);
-
-  document.getElementById('pn-wsum-gross').textContent    = gross.toFixed(2) + ' Kg';
-  document.getElementById('pn-wsum-tare').textContent     = tare.toFixed(2) + ' Kg';
-  document.getElementById('pn-wsum-net').textContent      = net.toFixed(2) + ' Kg';
-  document.getElementById('pn-wsum-dhalta').textContent   = dhaltaWeight.toFixed(2) + ' Kg';
-  document.getElementById('pn-wsum-billable').textContent = billable.toFixed(2) + ' Kg';
-}
-
-function pnFileSizeLabel(bytes) {
-  if (bytes >= 1024*1024) return (bytes/(1024*1024)).toFixed(2) + ' MB';
-  return Math.round(bytes/1024) + ' KB';
-}
-
-function pnPreviewWeightSlip(input) {
-  const f = input.files?.[0];
-  if (!f) { pnShowWeightSlipPreview(null); return; }
-  if (f.size > 5*1024*1024) {
-    toast('⚠️ Weight slip must be under 5MB', 'warning');
-    input.value = '';
-    return;
-  }
-  PNE.weightSlipExisting = null;
-  pnShowWeightSlipPreview({ name: f.name, sizeLabel: pnFileSizeLabel(f.size) });
-}
-
-function pnShowWeightSlipPreview(file) {
-  const box = document.getElementById('pn-hw-weightslip-preview');
-  if (!file) { box.style.display = 'none'; box.innerHTML = ''; return; }
-  const name = file.name || (typeof file === 'string' ? file.split('/').pop() : 'Weight Slip');
-  const sizeLabel = file.sizeLabel || '';
-  const icon = /\.pdf$/i.test(name) ? 'fa-file-pdf' : 'fa-file-image';
-  box.innerHTML = `<i class="fas ${icon} pne-file-icon"></i>
-    <div><div class="pne-file-name">${escHtml(name)}</div><div class="pne-file-size">${sizeLabel}</div></div>
-    <button type="button" class="pne-file-remove" onclick="pnRemoveWeightSlip()" title="Remove"><i class="fas fa-times"></i></button>`;
-  box.style.display = 'flex';
-}
-
-function pnRemoveWeightSlip() {
-  document.getElementById('pn-hw-weightslip').value = '';
-  PNE.weightSlipDataUrl = null;
-  PNE.weightSlipExisting = null;
-  pnShowWeightSlipPreview(null);
-}
-
-function pnReadWeightSlip() {
-  return new Promise(resolve => {
-    const f = document.getElementById('pn-hw-weightslip')?.files?.[0];
-    if (!f) return resolve(null);
-    if (f.size > 5*1024*1024) { toast('⚠️ Weight slip must be under 5MB — skipping upload', 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(f);
-  });
-}
-
-// ── Split Payment UI (Purchase Entry page) ──────────────────────────────────
-function pnGetTotalAmount() {
-  const paid = parseFloat(document.getElementById('pn-amountpaid')?.value) || 0;
-  if (paid > 0) return paid;
-  const grandTxt = document.getElementById('pn-sum-grand')?.textContent || '0';
-  return parseFloat(grandTxt.replace(/[^0-9.]/g,'')) || 0;
-}
-
-function pnToggleSplitPayment() {
-  const modeSel = document.getElementById('pn-paymode');
-  const typeSel = document.getElementById('pn-paymenttype');
-  const panel   = document.getElementById('pn-split-panel');
-  if (!panel) return;
-  const isSplit = modeSel?.value === 'Split' || typeSel?.value === 'Split';
-  panel.style.display = isSplit ? 'block' : 'none';
-  if (isSplit) {
-    const rows = document.querySelectorAll('#pn-split-rows .pn-split-row');
-    if (rows.length === 0) {
-      pnAddSplitRow(true); // first row auto-filled with total amount
-    } else if (rows.length === 1) {
-      const amtInput = rows[0].querySelector('.pn-split-amt');
-      if (amtInput && !amtInput.value) amtInput.value = pnGetTotalAmount().toFixed(2);
-      pnUpdateSplitTotal();
-    } else {
-      pnUpdateSplitTotal();
-    }
-  }
-}
-
-function pnAddSplitRow(autoFillTotal) {
-  const container = document.getElementById('pn-split-rows');
-  const row = document.createElement('div');
-  row.className = 'pn-split-row';
-  row.style.cssText = 'display:flex;gap:7px;align-items:center';
-  row.innerHTML = `<select class="pn-split-method" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;min-width:0" onchange="pnRenderSplitBreakdown()">
-    <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
-  </select>
-  <input type="number" class="pn-split-amt" placeholder="0.00" value="${autoFillTotal ? pnGetTotalAmount().toFixed(2) : ''}" style="width:100px;flex-shrink:0;padding:7px 8px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:var(--mono)" oninput="pnUpdateSplitTotal()">
-  <button type="button" onclick="pnRemoveSplitRow(this)" style="width:28px;height:28px;flex-shrink:0;background:#FFEBEE;color:#C62828;border:none;border-radius:7px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button>`;
-  container.appendChild(row);
-  pnUpdateSplitTotal();
-}
-
-function pnRemoveSplitRow(btn) {
-  const rows = document.querySelectorAll('#pn-split-rows .pn-split-row');
-  if (rows.length <= 1) { toast('⚠️ At least one split method is required', 'warning'); return; }
-  btn.closest('.pn-split-row').remove();
-  pnUpdateSplitTotal();
-}
-
-function pnUpdateSplitTotal() {
-  const rows = document.querySelectorAll('#pn-split-rows .pn-split-amt');
-  const sum  = Array.from(rows).reduce((s,el) => s + (parseFloat(el.value)||0), 0);
-  const el   = document.getElementById('pn-split-total');
-  if (el) el.textContent = fmt_money(sum);
-
-  const totalAmt = pnGetTotalAmount();
-  const warnEl = document.getElementById('pn-split-mismatch-warn');
-  if (warnEl) {
-    if (totalAmt > 0 && Math.abs(sum - totalAmt) > 0.01) {
-      warnEl.style.display = 'block';
-      warnEl.textContent = sum > totalAmt
-        ? `⚠️ Split total (${fmt_money(sum)}) exceeds Amount Paid`
-        : `⚠️ Split total (${fmt_money(sum)}) is less than Amount Paid`;
-    } else {
-      warnEl.style.display = 'none';
-    }
-  }
-  pnRenderSplitBreakdown();
-}
-
-function pnRenderSplitBreakdown() {
-  const barEl = document.getElementById('pn-split-breakdown-bar');
-  if (!barEl) return;
-  const rows = document.querySelectorAll('#pn-split-rows .pn-split-row');
-  const colors = ['#1565C0','#2E7D32','#E65100','#6A1B9A'];
-  const parts = Array.from(rows).map((row, i) => {
-    const method = row.querySelector('.pn-split-method')?.value || '';
-    const amt    = parseFloat(row.querySelector('.pn-split-amt')?.value) || 0;
-    const col = colors[i % colors.length];
-    return `<span style="display:inline-flex;align-items:center;gap:4px">
-      <span style="font-weight:700;color:${col}">${method}:</span>
-      <span style="font-family:var(--mono);color:${col}">${fmt_money(amt)}</span>
-    </span>`;
-  });
-  barEl.innerHTML = parts.join('<span style="color:var(--muted2)">|</span>');
-  barEl.style.display = rows.length > 0 ? 'flex' : 'none';
-}
-
-function pnGetSplitPayments() {
-  const rows = document.querySelectorAll('#pn-split-rows .pn-split-row');
-  return Array.from(rows).map(row => ({
-    method: row.querySelector('.pn-split-method')?.value || '',
-    amount: parseFloat(row.querySelector('.pn-split-amt')?.value) || 0,
-  })).filter(r => r.amount > 0);
 }
 
 function pneReadAttachment() {
@@ -12545,12 +12923,13 @@ async function savePurchaseEntry(mode) {
   const supplierId = document.getElementById('pn-supplier').value;
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
   if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
-  if (!PNE.items.length || PNE.items.every(it => !it.gross_weight && !it.description && !it.product_id)) {
-    toast('⚠️ Add at least one item with a weight', 'warning'); return;
+  if (!PNE.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
+  const badItem = PNE.items.find(it => it.mode === 'freetext' ? !(it.description||'').trim() : !it.product_id);
+  if (badItem) {
+    toast('⚠️ Every item needs a product (or a description for free-text lines)', 'warning'); return;
   }
 
   const attachment = await pneReadAttachment();
-  const weightSlipAttachment = await pnReadWeightSlip();
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
 
   const payload = {
@@ -12570,22 +12949,6 @@ async function savePurchaseEntry(mode) {
     payment_terms: document.getElementById('pn-paymentterms').value,
     payment_type: document.getElementById('pn-paymenttype').value,
     remarks: document.getElementById('pn-remarks').value.trim(),
-    // Weight Information (Kanta / Dharam Kanta)
-    weighing_type: document.getElementById('pn-hw-weighingtype').value,
-    dharam_kanta_name: document.getElementById('pn-hw-dharamkantaname').value.trim(),
-    weighbridge_slip_no: document.getElementById('pn-hw-weighslipno').value.trim(),
-    weight_datetime: document.getElementById('pn-hw-weightdatetime').value || null,
-    hw_gross_weight: parseFloat(document.getElementById('pn-hw-grossweight').value) || 0,
-    hw_tare_weight: parseFloat(document.getElementById('pn-hw-tareweight').value) || 0,
-    hw_net_weight: parseFloat(document.getElementById('pn-hw-netweight').value) || 0,
-    operator_name: document.getElementById('pn-hw-operatorname').value.trim(),
-    weight_slip_attachment: weightSlipAttachment || undefined,
-    // Quality, Moisture & Dhalta
-    moisture_pct: parseFloat(document.getElementById('pn-hw-moisture').value) || 0,
-    impurity_pct: parseFloat(document.getElementById('pn-hw-impurity').value) || 0,
-    hw_dhalta_pct: parseFloat(document.getElementById('pn-hw-dhaltapct').value) || 0,
-    hw_dhalta_weight: parseFloat(document.getElementById('pn-hw-dhaltaweight').value) || 0,
-    hw_billable_weight: parseFloat(document.getElementById('pn-hw-billableweight').textContent) || 0,
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
@@ -12593,8 +12956,7 @@ async function savePurchaseEntry(mode) {
     discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
-    payment_mode: document.getElementById('pn-paymode').value,
-    payment_splits: (document.getElementById('pn-paymode').value === 'Split') ? pnGetSplitPayments() : undefined,
+    payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
     transaction_no: document.getElementById('pn-transactionno').value.trim(),
     payment_date: document.getElementById('pn-paydate').value || null,
     notes: document.getElementById('pn-notes').value.trim(),
