@@ -4172,7 +4172,6 @@ const SERVER = {
             <div style="display:flex;gap:6px">
               <input type="date" id="sh-f-from" class="table-search" style="max-width:none;flex:1">
               <input type="date" id="sh-f-to" class="table-search" style="max-width:none;flex:1">
-              <button class="btn btn-outline" style="white-space:nowrap" title="See full history — useful for tracing a negative Opening Stock back to its source" onclick="setSHAllTime()">All Time</button>
             </div>
           </div>
           <div class="field"><label>Transaction Type</label><select id="sh-f-txntype"><option value="">All</option><option value="in">Stock In</option><option value="out">Stock Out</option><option value="adjustment">Stock Adjustment</option></select></div>
@@ -15129,17 +15128,6 @@ function onSHProductChange() {
   batchSel.innerHTML = '<option value="">Select Batch / Lot</option>' + unique.map(b => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join('');
 }
 
-// When Opening Stock is negative, it means something before the current
-// date range moved more stock out than was ever recorded coming in. This
-// jumps the range back far enough to include everything, so that root
-// transaction becomes visible in the table instead of being hidden
-// upstream of "as on" — the actual bug (if any) will show up as a normal
-// row here rather than as an unexplained negative number.
-function setSHAllTime() {
-  document.getElementById('sh-f-from').value = '2000-01-01';
-  document.getElementById('sh-f-to').value = fmt_date(new Date());
-  renderStockHistory();
-}
 function resetSHFilter() {
   document.getElementById('sh-f-product').value = '';
   document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
@@ -15189,12 +15177,8 @@ async function renderStockHistory() {
     SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
     const stats = r.stats || {};
 
-    const openingVal = stats.opening_stock || 0;
-    const openingEl = document.getElementById('sh-stat-opening');
-    openingEl.textContent = openingVal.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    openingEl.style.color = openingVal < 0 ? '#E53935' : '';
-    document.getElementById('sh-stat-opening-date').innerHTML = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value) + (pid ? '' : ' (sum across all products)')
-      + (openingVal < 0 ? '<br><span style="color:#E53935"><i class="fas fa-triangle-exclamation"></i> Negative — click "All Time" to find the cause</span>' : '');
+    document.getElementById('sh-stat-opening').textContent = (stats.opening_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    document.getElementById('sh-stat-opening-date').textContent = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value) + (pid ? '' : ' (sum across all products)');
     document.getElementById('sh-stat-in').textContent = (stats.total_in||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
@@ -15215,27 +15199,14 @@ function renderSHTable() {
   const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
   const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
   const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
-  // Fallback for any row with a missing ref_type (older data written before
-  // this was consistently set) — infer it from the notes text instead of
-  // just showing a blank cell.
-  function shResolveRefType(row) {
-    if (row.ref_type) return row.ref_type;
-    const n = (row.notes || '').toLowerCase();
-    if (n.startsWith('stock in')) return 'stock_in';
-    if (n.startsWith('purchase')) return 'purchase';
-    if (n.startsWith('sale')) return 'sale';
-    return row.ref_type;
-  }
   // reverse chronological for display (most recent first), matching the rest of the app
   const display = [...rows].reverse();
-  tbody.innerHTML = display.map((row, idx) => {
-    const refType = shResolveRefType(row);
-    return `
+  tbody.innerHTML = display.map((row, idx) => `
     <tr>
       <td>${idx+1}</td>
       <td>${fmt_date_disp(row.movement_date)}</td>
-      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
-      <td>${refLabel[refType]||'Unknown'}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[row.ref_type]||'#889'};background:${typeColor[row.ref_type]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[row.ref_type]||row.ref_type}</span></td>
+      <td>${refLabel[row.ref_type]||row.ref_type}</td>
       <td>${escHtml(row.reference_no||'—')}</td>
       <td>${escHtml(row.batch_no||'—')}</td>
       <td>${escHtml(row.warehouse||'Main Warehouse')}</td>
@@ -15243,9 +15214,8 @@ function renderSHTable() {
       <td style="color:#E53935;font-weight:600">${row.direction==='out'?parseFloat(row.qty).toFixed(2):'—'}</td>
       <td><strong>${parseFloat(row.running_balance).toFixed(2)}</strong></td>
       <td style="color:var(--muted);font-size:11px">${escHtml((row.notes||'').replace(/^(Purchase|Sale|Stock In)\s*/,'').trim() || row.notes || '—')}</td>
-      <td>${renderSHActionCell({...row, ref_type: refType}, refLabel)}</td>
-    </tr>`;
-  }).join('');
+      <td>${renderSHActionCell(row, refLabel)}</td>
+    </tr>`).join('');
 }
 
 function renderSHActionCell(row, refLabel) {
