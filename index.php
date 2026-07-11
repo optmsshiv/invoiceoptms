@@ -15936,6 +15936,8 @@ function printSaleInvoice(s) {
     </tr>`).join('');
   const isInterstate = s.sales_type !== 'Local Sales';
   const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
+  const deductions = Array.isArray(s.deductions) ? s.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
@@ -15980,7 +15982,7 @@ function printSaleInvoice(s) {
       </div>
       <div>
         <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
       </div>
     </div>
 
@@ -15995,6 +15997,7 @@ function printSaleInvoice(s) {
         <h3>PAYMENT</h3>
         <div class="kv">Status<b>${escHtml(s.payment_status||'—')}</b></div>
         <div class="kv">Method<b>${escHtml(s.payment_method||'—')}</b></div>
+        ${s.payment_date ? `<div class="kv">Payment Date<b>${fmt_date_disp(s.payment_date)}</b></div>` : ''}
         <div class="kv">Balance Due<b style="color:${(s.total-s.amount_received)>0?'#c0392b':'#0d7a3f'}">${fmt_money((s.total||0)-(s.amount_received||0))}</b></div>
       </div>
     </div>
@@ -16016,12 +16019,18 @@ function printSaleInvoice(s) {
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="sig-row">
       <div class="sig">Customer Signature</div>
