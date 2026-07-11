@@ -981,10 +981,10 @@ ADD UNIQUE KEY `uk_role_perm` (`role`, `permission_key`);
 ALTER TABLE `role_permissions`
 MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 --
--- Seed default role permissions (see config/migrations/002_role_permissions_tenant.sql
--- for the full explanation). Generous defaults so new team members
--- aren't unexpectedly locked out — tighten specific roles later from
--- Team → role permissions.
+-- Seed default role permissions (see config/migrations/004_add_missing_menu_keys_tenant.sql
+-- for the note on the 4 extra keys: menu.suppliers/purchases/sales/stock).
+-- Generous defaults so new team members aren't unexpectedly locked
+-- out — tighten specific roles later from Team → role permissions.
 --
 INSERT IGNORE INTO `role_permissions` (`role`, `permission_key`, `enabled`) VALUES
 ('admin','menu.dashboard',1),('admin','menu.invoices',1),('admin','menu.create',1),
