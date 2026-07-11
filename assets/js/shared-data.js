@@ -306,6 +306,28 @@ async function loadCoreData(keys) {
         // Controls whether Sales/Products (product-mode) pages & nav
         // items are shown — see includes/layout_header.php gating.
         STATE.settings.businessType = s.business_type || 'both';
+        // SMTP / Email Setup fields — flat keys (matches the actual
+        // API wire format; the old SPA wrapped these in a client-side
+        // STATE.settings.email_cfg object for convenience, but that
+        // nesting never existed on the backend, so it's dropped here
+        // in favor of reading these flat, same as everything else).
+        STATE.settings.smtp_host = s.smtp_host || '';
+        STATE.settings.smtp_port = s.smtp_port || '587';
+        STATE.settings.smtp_user = s.smtp_user || '';
+        STATE.settings.smtp_pass = s.smtp_pass || '';
+        STATE.settings.smtp_from = s.smtp_from || '';
+        STATE.settings.smtp_name = s.smtp_name || '';
+        STATE.settings.email_subject = s.email_subject || '';
+        STATE.settings.email_body = s.email_body || '';
+        STATE.settings.email_attach_pdf = s.email_attach_pdf ?? '1';
+        STATE.settings.email_cc_self = s.email_cc_self ?? '0';
+        STATE.settings.email_auto_inv      = s.email_auto_inv      || '0';
+        STATE.settings.email_auto_est      = s.email_auto_est      || '0';
+        STATE.settings.email_auto_paid     = s.email_auto_paid     || '1';
+        STATE.settings.email_auto_partial  = s.email_auto_partial  || '1';
+        STATE.settings.email_auto_remind   = s.email_auto_remind   || '1';
+        STATE.settings.email_auto_overdue  = s.email_auto_overdue  || '1';
+        STATE.settings.email_auto_followup = s.email_auto_followup || '0';
         // WA config — needed by the dashboard's WhatsApp card
         STATE.settings.wa = {
           token: s.wa_token || '', pid: s.wa_pid || '',
