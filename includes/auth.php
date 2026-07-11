@@ -406,11 +406,9 @@ function getSetting(string $key, string $default = ''): string {
 }
 
 // ── Session-timeout frontend config ───────────────────────────────
-// Echo this once in your authenticated layout (e.g. right before the
-// closing </body> tag) to wire up assets/js/session-timeout.js:
-//
-//   <?php renderSessionTimeoutAssets(); ?>
-//
+// Usage: call renderSessionTimeoutAssets() once in your authenticated
+// layout (e.g. right before the closing </body> tag) to wire up
+// assets/js/session-timeout.js.
 function renderSessionTimeoutAssets(int $warningSeconds = 120): void {
     if (empty($_SESSION['user_id'])) return; // only needed once logged in
     $lifetime = SESSION_LIFETIME;
