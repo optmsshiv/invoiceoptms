@@ -26,13 +26,117 @@ function requireLogin(): void {
     if (empty($_SESSION['user_id'])) {
         _authFail('Not authenticated', '/auth/login.php');
     }
-    // Session timeout check
+
+    // Already locked (from a previous idle timeout, another tab, or a
+    // proactive client-triggered lock) — don't let any protected action
+    // through until the correct password is re-entered.
+    if (!empty($_SESSION['locked'])) {
+        // Safety net: if a locked session sits unattended too long, force
+        // a real logout rather than leaving it locked forever.
+        if (!empty($_SESSION['locked_at']) &&
+            (time() - $_SESSION['locked_at']) > LOCK_MAX_DURATION) {
+            doLogout();
+            _authFail('Session expired', '/auth/login.php');
+        }
+        _lockFail();
+    }
+
+    // Idle timeout → lock the session instead of destroying it.
     if (!empty($_SESSION['last_activity']) &&
         (time() - $_SESSION['last_activity']) > SESSION_LIFETIME) {
-        doLogout();
-        _authFail('Session expired', '/auth/login.php');
+        lockSession();
+        _lockFail();
     }
     $_SESSION['last_activity'] = time();
+
+    // Re-issue the session cookie with a fresh expiry so the browser-side
+    // cookie lifetime slides along with server-side activity, instead of
+    // expiring at a fixed time (login time + SESSION_LIFETIME) regardless
+    // of how active the user is.
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + SESSION_LIFETIME,
+            'path'     => $p['path'],
+            'domain'   => $p['domain'],
+            'secure'   => $p['secure'],
+            'httponly' => $p['httponly'],
+            'samesite' => $p['samesite'] ?? 'Lax',
+        ]);
+    }
+}
+
+// ── Lock the current session (idle timeout, or user-triggered) ────
+// Keeps $_SESSION intact (user stays "logged in" server-side) but blocks
+// every protected action until unlockSession() succeeds.
+function lockSession(): void {
+    startSession();
+    if (!empty($_SESSION['user_id']) && empty($_SESSION['locked'])) {
+        $_SESSION['locked']          = true;
+        $_SESSION['locked_at']       = time();
+        $_SESSION['unlock_attempts'] = 0;
+        masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null,
+                        'lock', 'Session locked (idle timeout)');
+    }
+}
+
+function isLocked(): bool {
+    startSession();
+    return !empty($_SESSION['locked']);
+}
+
+// ── Attempt to unlock the current session with the user's password ──
+// Returns an array: ['ok' => bool, 'reason' => string, 'attempts_left' => int]
+function unlockSession(string $password): array {
+    startSession();
+    if (empty($_SESSION['user_id'])) {
+        return ['ok' => false, 'reason' => 'no_session'];
+    }
+
+    $_SESSION['unlock_attempts'] = ($_SESSION['unlock_attempts'] ?? 0) + 1;
+    if ($_SESSION['unlock_attempts'] > 5) {
+        masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null,
+                        'lock_failed', 'Too many failed unlock attempts — forced logout');
+        doLogout();
+        return ['ok' => false, 'reason' => 'too_many_attempts'];
+    }
+
+    try {
+        $stmt = getMasterDB()->prepare('SELECT password FROM users WHERE id = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $hash = $stmt->fetchColumn();
+        if (!$hash || !password_verify($password, $hash)) {
+            return [
+                'ok'            => false,
+                'reason'        => 'wrong_password',
+                'attempts_left' => max(0, 5 - $_SESSION['unlock_attempts']),
+            ];
+        }
+    } catch (Exception $e) {
+        error_log('unlockSession error: ' . $e->getMessage());
+        return ['ok' => false, 'reason' => 'error'];
+    }
+
+    // Correct password — unlock and refresh the session as if freshly active.
+    $_SESSION['locked']          = false;
+    $_SESSION['unlock_attempts'] = 0;
+    unset($_SESSION['locked_at']);
+    $_SESSION['last_activity'] = time();
+
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + SESSION_LIFETIME,
+            'path'     => $p['path'],
+            'domain'   => $p['domain'],
+            'secure'   => $p['secure'],
+            'httponly' => $p['httponly'],
+            'samesite' => $p['samesite'] ?? 'Lax',
+        ]);
+    }
+
+    masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null, 'unlock', 'Session unlocked');
+    return ['ok' => true];
 }
 
 // ── Require specific role(s) ──────────────────────────────────────
@@ -89,26 +193,45 @@ function getEffectivePermissions(?int $tenantId, string $role): array {
 
     $master = getMasterDB();
 
-    $plan = 'trial';
-    if ($tenantId) {
-        $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
-        $tStmt->execute([$tenantId]);
-        $plan = $tStmt->fetchColumn() ?: 'trial';
+    try {
+        $plan = 'trial';
+        if ($tenantId) {
+            $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
+            $tStmt->execute([$tenantId]);
+            $plan = $tStmt->fetchColumn() ?: 'trial';
+        }
+
+        $overrides = [];
+        if ($tenantId) {
+            $ovStmt = $master->prepare('SELECT permission_key, enabled FROM tenant_permission_overrides WHERE tenant_id=?');
+            $ovStmt->execute([$tenantId]);
+            foreach ($ovStmt->fetchAll() as $row) $overrides[$row['permission_key']] = (bool)$row['enabled'];
+        }
+
+        $planPerms = [];
+        $ppStmt = $master->prepare('SELECT permission_key, enabled FROM plan_permissions WHERE plan=?');
+        $ppStmt->execute([$plan]);
+        foreach ($ppStmt->fetchAll() as $row) $planPerms[$row['permission_key']] = (bool)$row['enabled'];
+
+        $catalog = $master->query('SELECT `key` FROM permissions')->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        // The permissions/plan_permissions/tenant_permission_overrides tables
+        // don't exist yet or aren't reachable (e.g. fresh install before the
+        // permissions migration has been run). Failing open here means the
+        // app stays usable — every page's own requirePermission() call is
+        // still a real gate once this data exists — rather than every
+        // protected page showing Access Denied because the *permission
+        // system itself* isn't set up yet. Logged so this doesn't linger
+        // unnoticed once you're relying on it to actually restrict people.
+        error_log('getEffectivePermissions: permission tables unavailable (' . $e->getMessage() . ') — failing open');
+        return $cache[$cacheKey] = new class implements ArrayAccess, Countable {
+            public function offsetExists($k): bool { return true; }
+            public function offsetGet($k): mixed { return true; }
+            public function offsetSet($k, $v): void {}
+            public function offsetUnset($k): void {}
+            public function count(): int { return 0; }
+        };
     }
-
-    $overrides = [];
-    if ($tenantId) {
-        $ovStmt = $master->prepare('SELECT permission_key, enabled FROM tenant_permission_overrides WHERE tenant_id=?');
-        $ovStmt->execute([$tenantId]);
-        foreach ($ovStmt->fetchAll() as $row) $overrides[$row['permission_key']] = (bool)$row['enabled'];
-    }
-
-    $planPerms = [];
-    $ppStmt = $master->prepare('SELECT permission_key, enabled FROM plan_permissions WHERE plan=?');
-    $ppStmt->execute([$plan]);
-    foreach ($ppStmt->fetchAll() as $row) $planPerms[$row['permission_key']] = (bool)$row['enabled'];
-
-    $catalog = $master->query('SELECT `key` FROM permissions')->fetchAll(PDO::FETCH_COLUMN);
 
     $roleMap = [];
     if (!in_array($role, ['owner', 'super_admin'], true)) {
@@ -116,7 +239,7 @@ function getEffectivePermissions(?int $tenantId, string $role): array {
             $rpStmt = getDB()->prepare('SELECT permission_key, enabled FROM role_permissions WHERE role=?');
             $rpStmt->execute([$role]);
             foreach ($rpStmt->fetchAll() as $row) $roleMap[$row['permission_key']] = (bool)$row['enabled'];
-        } catch (Exception $e) { /* no tenant DB context, e.g. super_admin */ }
+        } catch (Exception $e) { /* no tenant DB context, e.g. super_admin, or table doesn't exist yet */ }
     }
 
     $result = [];
@@ -301,8 +424,33 @@ function getSetting(string $key, string $default = ''): string {
     return $cache[$key];
 }
 
+// ── Session-timeout frontend config ───────────────────────────────
+// Usage: call renderSessionTimeoutAssets() once in your authenticated
+// layout (e.g. right before the closing </body> tag) to wire up
+// assets/js/session-timeout.js.
+function renderSessionTimeoutAssets(int $warningSeconds = 120): void {
+    if (empty($_SESSION['user_id'])) return; // only needed once logged in
+    $lifetime = SESSION_LIFETIME;
+    $userName = htmlspecialchars($_SESSION['user_name'] ?? '', ENT_QUOTES);
+    echo <<<HTML
+    <script>
+      window.OPTMS_SESSION_CONFIG = {
+        lifetime: {$lifetime},
+        warningSecs: {$warningSeconds},
+        keepaliveUrl: '/includes/session_keepalive.php',
+        lockUrl: '/includes/session_lock.php',
+        unlockUrl: '/includes/session_unlock.php',
+        loginUrl: '/auth/login.php',
+        logoutUrl: '/auth/logout.php',
+        userName: "{$userName}"
+      };
+    </script>
+    <script src="/assets/js/session-timeout.js"></script>
+    HTML;
+}
+
 // ── JSON response helper ──────────────────────────────────────────
-function jsonResponse(mixed $data, int $code = 200): never {
+function jsonResponse($data, int $code = 200): void {
     while (ob_get_level()) ob_end_clean();
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
@@ -312,7 +460,19 @@ function jsonResponse(mixed $data, int $code = 200): never {
 }
 
 // ── Internal helpers ──────────────────────────────────────────────
-function _authFail(string $msg, string $redirect): never {
+function _lockFail(): void {
+    $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
+          || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'))
+          || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+              strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+    if ($isApi) {
+        jsonResponse(['error' => 'Session locked', 'locked' => true, 'redirect' => '/auth/locked.php'], 423);
+    }
+    header('Location: /auth/locked.php?return=' . urlencode($_SERVER['REQUEST_URI'] ?? '/'));
+    exit;
+}
+
+function _authFail(string $msg, string $redirect): void {
     $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
           || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'))
           || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
@@ -324,15 +484,24 @@ function _authFail(string $msg, string $redirect): never {
     exit;
 }
 
-function _roleFail(string $role): never {
+function _roleFail(string $role): void {
     $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
           || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
     if ($isApi) {
         jsonResponse(['error' => 'Permission denied', 'role' => $role], 403);
     }
     http_response_code(403);
-    echo "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px'>
-    <h2>Access Denied</h2><p>Your role ({$role}) does not have permission for this action.</p>
-    <a href='/'>← Back to Dashboard</a></body></html>";
+
+    // Styled 403 page — adjust this path if error_403.php lives elsewhere
+    // in your folder structure. Falls back to plain HTML if not found.
+    $errorPage = __DIR__ . '/../auth/error_403.php';
+    if (file_exists($errorPage)) {
+        $roleFailReason = "Your role ({$role}) does not have permission for this action.";
+        require $errorPage;
+    } else {
+        echo "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px'>
+        <h2>Access Denied</h2><p>Your role ({$role}) does not have permission for this action.</p>
+        <a href='/'>← Back to Dashboard</a></body></html>";
+    }
     exit;
 }

@@ -1,8 +1,0 @@
-.env
-/assets/uploads/*
-!/assets/uploads/.gitkeep
-config/db1.php
-config/schema1.sql
-config/migrate_new_features.sql
-pages/code.php
-mpdf.zip
