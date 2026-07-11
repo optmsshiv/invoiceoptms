@@ -1,0 +1,22 @@
+/* ═══════════════════════════════════════════════════════
+   OPTMS Tech Invoice Manager — app.css
+   (Extracted from the standalone HTML for the PHP build)
+═══════════════════════════════════════════════════════ */
+
+/* Import fonts */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── NOTE ─────────────────────────────────────────────
+   This file is a placeholder. In the PHP build, copy all
+   styles from between the <style>…</style> tags of
+   optms_invoice_manager_v6.html into this file.
+   Then update index.php to reference:
+     <link rel="stylesheet" href="assets/css/app.css">
+   instead of using an inline <style> block.
+─────────────────────────────────────────────────────── */
+
+/* You can add PHP-build-specific overrides below */
+
+/* Logout nav item colour */
+.nav-item[href*="logout"] { color: rgba(255,80,80,.7) !important; }
+.nav-item[href*="logout"]:hover { color: #ff6b6b !important; background: rgba(255,80,80,.1) !important; }
