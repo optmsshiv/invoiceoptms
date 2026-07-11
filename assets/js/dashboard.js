@@ -525,7 +525,7 @@ function renderDashKpis() {
       { ic: 'fa-clock',                col: '#E65100', label: 'Partial Invoices', val: partialInvs, sub: 'awaiting balance' },
       { ic: 'fa-code-branch',          col: '#7B1FA2', label: 'Split Payments',  val: splitPmts,   sub: 'recorded' },
       { ic: 'fa-address-book',         col: '#1565C0', label: 'WA-Ready Clients', val: waClients,  sub: 'have phone #' },
-    ].map(c => `<div onclick="window.location.href='/pages/comms/whatsapp.php'" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
+    ].map(c => `<div onclick="window.location.href='/pages/whatsapp.php'" style="flex:1;min-width:110px;background:${c.col}0f;border:1.5px solid ${c.col}28;border-radius:10px;padding:9px 11px;cursor:pointer;transition:.2s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow=''">
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
         <i class="fas ${c.ic}" style="color:${c.col};font-size:11px"></i>
         <span style="font-size:9px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">${c.label}</span>
@@ -551,7 +551,7 @@ function renderDashKpis() {
       { key: 'auto_overdue',  label: 'Overdue Alert', icon: '⚠️', val: wa.auto_overdue !== '0' },
       { key: 'auto_followup', label: 'Follow-up',    icon: '📋', val: wa.auto_followup === '1' },
     ];
-    const pillsHTML = toggles.map(t => `<div onclick="window.location.href='/pages/comms/whatsapp.php'" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val ? '#25D36612' : 'var(--bg)'};border:1px solid ${t.val ? '#25D36630' : 'var(--border)'}">
+    const pillsHTML = toggles.map(t => `<div onclick="window.location.href='/pages/whatsapp.php'" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;flex-shrink:0;background:${t.val ? '#25D36612' : 'var(--bg)'};border:1px solid ${t.val ? '#25D36630' : 'var(--border)'}">
       <span>${t.icon}</span>
       <span style="font-size:11px;font-weight:600;color:${t.val ? '#1a7a3c' : 'var(--muted)'}">${t.label}</span>
       <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;background:${t.val ? '#25D366' : '#ccc'}"></span>
@@ -573,7 +573,7 @@ function renderDashKpis() {
         ${pillsHTML}
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
           <span style="font-size:11px;color:#2e7d32;font-weight:600">${onCount}/6 active</span>
-          <button onclick="window.location.href='/pages/comms/whatsapp.php'" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          <button onclick="window.location.href='/pages/whatsapp.php'" style="padding:5px 12px;background:#25D36615;color:#1a7a3c;border:1px solid #25D36635;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
             <i class="fas fa-cog"></i> Manage
           </button>
         </div>
@@ -655,7 +655,7 @@ function renderDashAlerts() {
     dr.style.display = staleDrafts.length ? '' : 'none';
     if (staleDrafts.length) dr.innerHTML = `<i class="fas fa-file-alt"></i> ${staleDrafts.length} Unsent Draft${staleDrafts.length > 1 ? 's' : ''}`;
     dr.title = staleDrafts.length ? `${staleDrafts.length} draft invoice${staleDrafts.length > 1 ? 's have' : ' has'} not been sent for 3+ days — click to view` : '';
-    // dr's href already points to /pages/invoices/invoices.php?filter=draft (set in dashboard.php)
+    // dr's href already points to /pages/invoices.php?filter=draft (set in dashboard.php)
   }
 }
 
