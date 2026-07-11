@@ -2938,7 +2938,9 @@ const SERVER = {
               <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Variety</label><input id="pp-variety" placeholder="e.g. Premium"></div>
+              <div class="field"><label>Variety</label>
+                <select id="pp-variety"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+              </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
                   <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
@@ -2952,7 +2954,7 @@ const SERVER = {
             </div>
             <div class="pne-grid4">
               <div class="field"><label>Grade</label>
-                <select id="pp-grade"><option value="">—</option><option>A Grade</option><option>B Grade</option><option>Premium</option><option>Standard</option></select>
+                <select id="pp-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
               </div>
               <div class="field"><label>QR Code</label>
                 <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
@@ -13557,6 +13559,15 @@ function editProductRich(id) {
   renderPNPImages(); renderPNPAttachments(); renderPNPTags();
   showPage('product-new');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
+}
+
+// Grade and Variety are linked by a fixed mapping — picking a Grade
+// auto-selects the corresponding Variety.
+const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
+function onPPGradeChange() {
+  const grade = document.getElementById('pp-grade').value;
+  const variety = PP_GRADE_VARIETY_MAP[grade];
+  if (variety) document.getElementById('pp-variety').value = variety;
 }
 
 async function saveProductEntry(mode) {
