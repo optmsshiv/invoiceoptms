@@ -3217,15 +3217,50 @@ const SERVER = {
               <div class="field"><label>Payment Status *</label>
                 <select id="sn-paystatus" onchange="calcSaleNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
               </div>
+              <div class="field"><label>Amount Received (₹)</label><input type="number" id="sn-amountreceived" value="0" min="0" oninput="calcSaleNewTotals()"></div>
+
+              <div id="sn-partial-card" style="display:none;border:1px solid #FFCC80;border-radius:10px;overflow:hidden;margin-bottom:14px;font-size:12px">
+                <div style="background:#FB8C00;color:#fff;padding:8px 12px;font-weight:700;font-size:12px;display:flex;align-items:center;gap:7px"><i class="fas fa-triangle-exclamation" style="font-size:11px"></i> Partial Payment Detected</div>
+                <div style="background:#FFF8E1;padding:12px">
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">INVOICE TOTAL</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px" id="sn-partial-total">₹0.00</div>
+                    </div>
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">RECEIVED</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#2E7D32" id="sn-partial-received">₹0.00</div>
+                    </div>
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">REMAINING</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#C62828" id="sn-partial-remaining">₹0.00</div>
+                    </div>
+                  </div>
+                  <div style="height:5px;background:#E0E0E0;border-radius:3px;overflow:hidden;margin-bottom:10px"><div id="sn-partial-bar" style="height:100%;background:#43A047;width:0%;transition:width .2s"></div></div>
+                  <label style="display:flex;gap:9px;align-items:flex-start;background:#fff;border-radius:7px;padding:9px;cursor:pointer">
+                    <input type="checkbox" id="sn-partial-keepactive" checked style="margin-top:2px">
+                    <span>
+                      <strong style="font-size:11.5px;display:flex;align-items:center;gap:5px;font-weight:700"><i class="fas fa-check-square" style="color:#FB8C00;font-size:11px"></i> Record as partial payment</strong>
+                      <span style="font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.4">Invoice stays active — you can collect the remaining amount later. If unchecked, invoice will be marked Paid.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div class="field"><label>Payment Method *</label>
                 <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
-              <div class="field"><label>Amount Received (₹)</label><input type="number" id="sn-amountreceived" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div id="sn-split-panel" style="display:none;background:var(--bg);border-radius:8px;padding:10px;margin-bottom:10px">
-                <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                <button type="button" class="btn btn-outline pne-small-btn" style="margin-top:8px" onclick="addSNSplitRow(false); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Split</button>
-                <div id="sn-split-footer" class="pne-split-footer"></div>
-                <div id="sn-split-mismatch" style="display:none;font-size:11px;color:#E65100;margin-top:4px"></div>
+              <div id="sn-split-panel" style="display:none">
+                <div class="pne-split-card">
+                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                  <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                  <div class="pne-split-actions">
+                    <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                    <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
+                  </div>
+                  <div id="sn-split-footer" class="pne-split-footer"></div>
+                  <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                </div>
               </div>
               <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
               <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate"></div>
@@ -15254,13 +15289,14 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
   document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
   document.getElementById('sn-sb-netpayable').textContent = fmt_money(grand);
+  updateSNPartialCard(grand, payStatus);
   syncSNSplitAutoRow();
 }
 
 // ── Split Payment (Sale Entry Payment Information) ────────────────
-// Mirrors the Purchase Entry split-payment design exactly: row 0 is
-// always the AUTO row, recomputed as (Amount Received − every other row),
-// so the split always reconciles by construction.
+// Same design as Purchase Entry: every row is freely editable, Split
+// Total is a live sum, and a mismatch warning fires if it doesn't match
+// Amount Received.
 const SN_SPLIT_COLORS = { 'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100' };
 function snSplitColor(method) { return SN_SPLIT_COLORS[method] || '#455A64'; }
 
@@ -15269,63 +15305,53 @@ function toggleSNSplitPayment() {
   const panel = document.getElementById('sn-split-panel');
   panel.style.display = isSplit ? 'block' : 'none';
   if (isSplit && document.getElementById('sn-split-rows').children.length === 0) {
-    addSNSplitRow(true);
-    addSNSplitRow(false);
+    addSNSplitRow(); addSNSplitRow();
     syncSNSplitAutoRow();
   }
 }
 
 function syncSNSplitAutoRow() {
-  updateSNSplitMismatch();
-  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-  if (document.getElementById('sn-paymethod')?.value !== 'Split Payment' || rows.length < 2) return;
-  const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-  let othersSum = 0;
-  for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
-  const remainder = target - othersSum;
-  const autoInput = rows[0].querySelector('.pne-split-amt');
-  autoInput.value = target > 0 || othersSum > 0 ? Math.max(0, remainder).toFixed(2) : '';
-  rows[0].classList.toggle('pne-split-over', remainder < -0.005);
   renderSNSplitFooter();
+  updateSNSplitMismatch();
 }
 
-function addSNSplitRow(isAuto) {
+function addSNSplitRow() {
   const container = document.getElementById('sn-split-rows');
   const row = document.createElement('div');
-  row.className = 'pne-split-row' + (isAuto ? ' pne-split-row-auto' : '');
-  row.innerHTML = `<span class="pne-split-dot" style="background:${snSplitColor('Cash')}"></span>
-    <select class="pne-split-method" onchange="this.previousElementSibling.style.background=snSplitColor(this.value); renderSNSplitFooter()">
-      <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+  row.className = 'pne-split-row';
+  row.innerHTML = `<select class="pne-split-method" onchange="renderSNSplitFooter()">
+      <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" ${isAuto ? 'readonly title="Auto-calculated: Amount Received minus the other methods"' : ''}
-      oninput="syncSNSplitAutoRow()">
-    ${isAuto ? '<span class="pne-split-auto-tag"><i class="fas fa-bolt"></i> Auto</span>' : '<button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>'}`;
+    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow()">
+    <button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>`;
   container.appendChild(row);
   renderSNSplitFooter();
 }
 
 function removeSNSplitRow(btn) {
   const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-  if (rows.length <= 2) { toast('⚠️ Keep at least 2 split methods', 'warning'); return; }
+  if (rows.length <= 1) { toast('⚠️ Keep at least 1 split method', 'warning'); return; }
   btn.closest('.pne-split-row').remove();
   syncSNSplitAutoRow();
 }
 
 function renderSNSplitFooter() {
-  const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
   const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
-  const breakdown = rows.map(r => {
+  let splitTotal = 0;
+  const parts = rows.map(r => {
     const method = r.querySelector('.pne-split-method')?.value || '';
     const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
-    const color = snSplitColor(method);
-    return `<span class="pne-split-chip" style="background:${color}18;color:${color}">${escHtml(method)}: <strong>${fmt_money(amt)}</strong></span>`;
-  }).join('');
+    splitTotal += amt;
+    const shortMethod = method.split(' (')[0];
+    const color = snSplitColor(shortMethod);
+    return `<span style="color:${color};font-weight:700">${escHtml(shortMethod)}: ${fmt_money(amt)}</span>`;
+  });
+  const totalEl = document.getElementById('sn-split-total-amt');
+  if (totalEl) totalEl.textContent = fmt_money(splitTotal);
   const footer = document.getElementById('sn-split-footer');
-  if (footer) {
-    footer.innerHTML = `
-      <div class="pne-split-footer-total">Amount Received <strong>${fmt_money(target)}</strong></div>
-      <div class="pne-split-footer-breakdown">${breakdown}</div>`;
-  }
+  if (footer) footer.innerHTML = parts.length
+    ? `<strong>Total: ${fmt_money(splitTotal)}</strong>` + parts.map(p => ' &nbsp;|&nbsp; ' + p).join('')
+    : '';
 }
 
 function updateSNSplitMismatch() {
@@ -15347,7 +15373,7 @@ function updateSNSplitMismatch() {
 function getSNSplitLabel() {
   const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
   const parts = Array.from(rows).map(r => {
-    const m = r.querySelector('.pne-split-method')?.value || '';
+    const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
     const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
     return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
   }).filter(Boolean);
@@ -15361,28 +15387,38 @@ function restoreSNSplitFromLabel(label) {
     return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
   }).filter(Boolean);
 
-  if (parts.length === 0) { addSNSplitRow(true); addSNSplitRow(false); syncSNSplitAutoRow(); return; }
-
-  addSNSplitRow(true);
-  setSNSplitRowMethod(0, parts[0].method);
-  for (let i = 1; i < parts.length; i++) {
-    addSNSplitRow(false);
-    setSNSplitRowMethod(i, parts[i].method);
+  if (parts.length === 0) { addSNSplitRow(); addSNSplitRow(); syncSNSplitAutoRow(); return; }
+  parts.forEach((p, i) => {
+    addSNSplitRow();
+    setSNSplitRowMethod(i, p.method);
     const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-    rows[i].querySelector('.pne-split-amt').value = parts[i].amount.toFixed(2);
-  }
-  if (parts.length === 1) addSNSplitRow(false);
+    rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
+  });
   syncSNSplitAutoRow();
 }
 function setSNSplitRowMethod(rowIndex, method) {
   const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
   const sel = rows[rowIndex]?.querySelector('.pne-split-method');
-  if (sel && Array.from(sel.options).some(o => o.value === method)) {
-    sel.value = method;
-    const dot = rows[rowIndex]?.querySelector('.pne-split-dot');
-    if (dot) dot.style.background = snSplitColor(method);
-  }
+  if (!sel) return;
+  const match = Array.from(sel.options).find(o => o.value.split(' (')[0] === method);
+  if (match) sel.value = match.value;
 }
+
+function updateSNPartialCard(grand, payStatus) {
+  const card = document.getElementById('sn-partial-card');
+  if (!card) return;
+  const show = payStatus === 'Partial';
+  card.style.display = show ? 'block' : 'none';
+  if (!show) return;
+  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+  const remaining = Math.max(0, grand - received);
+  const pct = grand > 0 ? Math.min(100, (received / grand) * 100) : 0;
+  document.getElementById('sn-partial-total').textContent = fmt_money(grand);
+  document.getElementById('sn-partial-received').textContent = fmt_money(received);
+  document.getElementById('sn-partial-remaining').textContent = fmt_money(remaining);
+  document.getElementById('sn-partial-bar').style.width = pct.toFixed(1) + '%';
+}
+
 
 function snFileToDataUrl(file) {
   return new Promise(resolve => {
