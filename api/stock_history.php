@@ -49,28 +49,40 @@ try {
   $stmt->execute($params);
   $rows = $stmt->fetchAll();
 
-  // Opening stock: balance immediately before date_from, for the same filters
-  // (only meaningful when a specific product is selected)
-  $openingStock = 0;
-  if ($productId) {
-    $openWhere = ['product_id = ?', 'movement_date < ?'];
-    $openParams = [$productId, $dateFrom];
-    if ($batchNo)   { $openWhere[] = 'batch_no = ?'; $openParams[] = $batchNo; }
-    if ($warehouse) { $openWhere[] = 'warehouse = ?'; $openParams[] = $warehouse; }
-    $openStmt = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) bal FROM stock_ledger WHERE ' . implode(' AND ', $openWhere));
-    $openStmt->execute($openParams);
-    $openingStock = (float)$openStmt->fetch()['bal'];
+  // Opening stock (per product, not one mixed number): each product's real
+  // balance immediately before date_from, under the same batch/warehouse
+  // filters. Summing distinct products' openings is still a meaningful
+  // total ("stock on hand across everything, at the start of the period"),
+  // but a single running-balance column mixing different products together
+  // as it walks through rows would not be — so that's tracked per product.
+  function openingFor($db, $pid, $dateFrom, $batchNo, $warehouse) {
+    $w = ['product_id = ?', 'movement_date < ?'];
+    $p = [$pid, $dateFrom];
+    if ($batchNo)   { $w[] = 'batch_no = ?'; $p[] = $batchNo; }
+    if ($warehouse) { $w[] = 'warehouse = ?'; $p[] = $warehouse; }
+    $stmt = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) bal FROM stock_ledger WHERE ' . implode(' AND ', $w));
+    $stmt->execute($p);
+    return (float)$stmt->fetch()['bal'];
   }
 
   $totalIn = 0; $totalOut = 0;
-  $running = $openingStock;
+  $productRunning = []; // product_id => running balance, tracked independently per product
+  $openingStock = 0;
   foreach ($rows as &$r) {
-    if ($r['direction'] === 'in') { $totalIn += (float)$r['qty']; $running += (float)$r['qty']; }
-    else { $totalOut += (float)$r['qty']; $running -= (float)$r['qty']; }
-    $r['running_balance'] = $running;
+    $pid = $r['product_id'];
+    if (!isset($productRunning[$pid])) {
+      $productRunning[$pid] = openingFor($db, $pid, $dateFrom, $batchNo, $warehouse);
+      $openingStock += $productRunning[$pid]; // sum of each distinct product's own opening balance
+    }
+    if ($r['direction'] === 'in') { $totalIn += (float)$r['qty']; $productRunning[$pid] += (float)$r['qty']; }
+    else { $totalOut += (float)$r['qty']; $productRunning[$pid] -= (float)$r['qty']; }
+    $r['running_balance'] = $productRunning[$pid];
   }
   unset($r);
-  $closingStock = $running;
+  // Closing stock = sum of every touched product's final balance. If a
+  // specific product is selected there's only one, so this still works
+  // for the single-product case exactly as before.
+  $closingStock = array_sum($productRunning);
 
   // Current stock value (weighted avg cost × current stock), for the stat card
   $valStmt = $db->prepare("SELECT

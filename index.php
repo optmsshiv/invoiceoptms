@@ -15178,7 +15178,7 @@ async function renderStockHistory() {
     const stats = r.stats || {};
 
     document.getElementById('sh-stat-opening').textContent = (stats.opening_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    document.getElementById('sh-stat-opening-date').textContent = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value);
+    document.getElementById('sh-stat-opening-date').textContent = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value) + (pid ? '' : ' (sum across all products)');
     document.getElementById('sh-stat-in').textContent = (stats.total_in||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
