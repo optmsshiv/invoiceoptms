@@ -2547,7 +2547,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
               <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
@@ -2939,7 +2939,7 @@ const SERVER = {
             </div>
             <div class="pne-grid4">
               <div class="field"><label>Variety</label>
-                <select id="pp-variety"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+                <select id="pp-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
@@ -3151,7 +3151,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Dharam Kanta Name</label><input id="sn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
               <div class="field"><label>Weighbridge Slip No. *</label><input id="sn-slipno" placeholder="e.g. DK-24581"></div>
@@ -3934,9 +3934,10 @@ const SERVER = {
           <!-- 2. Product Details -->
           <div class="pne-card">
             <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Product Details</div>
-            <div class="pne-grid4" style="margin-bottom:6px">
+            <div class="pne-grid5" style="margin-bottom:6px">
               <div class="field"><label>Product *</label><select id="sti-p-product"><option value="">Select product…</option></select></div>
-              <div class="field"><label>Variety / Grade</label><input id="sti-p-variety" placeholder="Optional"></div>
+              <div class="field"><label>Variety</label><select id="sti-p-variety" onchange="onSTIVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select></div>
+              <div class="field"><label>Grade</label><select id="sti-p-grade" onchange="onSTIGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select></div>
               <div class="field"><label>Category</label><input id="sti-p-category" readonly></div>
               <div class="field"><label>Unit</label><input id="sti-p-unit" readonly></div>
             </div>
@@ -3956,8 +3957,8 @@ const SERVER = {
 
             <div class="table-card pit-card" style="overflow-x:auto;margin-top:14px">
               <table class="data-table pne-items-table">
-                <colgroup><col style="width:30px"><col style="width:150px"><col style="width:100px"><col style="width:100px"><col style="width:95px"><col style="width:95px"><col style="width:85px"><col style="width:85px"><col style="width:95px"><col style="width:56px"></colgroup>
-                <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th>Batch / Lot No.</th><th>Mfg. Date</th><th>Expiry Date</th><th>Quantity (Kg)</th><th>Rate (₹/Kg)</th><th>Amount (₹)</th><th>Action</th></tr></thead>
+                <colgroup><col style="width:30px"><col style="width:135px"><col style="width:85px"><col style="width:80px"><col style="width:100px"><col style="width:95px"><col style="width:95px"><col style="width:85px"><col style="width:85px"><col style="width:95px"><col style="width:56px"></colgroup>
+                <thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Grade</th><th>Batch / Lot No.</th><th>Mfg. Date</th><th>Expiry Date</th><th>Quantity (Kg)</th><th>Rate (₹/Kg)</th><th>Amount (₹)</th><th>Action</th></tr></thead>
                 <tbody id="sti-items-tbody"></tbody>
               </table>
             </div>
@@ -3972,7 +3973,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="sti-weighingtype"><option>Own Weighbridge</option><option>Dharam Kanta</option><option>Platform Scale</option><option>Self Declared</option></select>
+                <select id="sti-weighingtype"><option>Own Weighbridge</option><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Weighbridge Name *</label><input id="sti-weighbridgename" placeholder="e.g. AgriTrade Weighbridge - 1"></div>
               <div class="field"><label>Weighbridge Slip No.</label><input id="sti-slipno" placeholder="Optional"></div>
@@ -13562,12 +13563,18 @@ function editProductRich(id) {
 }
 
 // Grade and Variety are linked by a fixed mapping — picking a Grade
-// auto-selects the corresponding Variety.
+// auto-selects the corresponding Variety, and vice versa.
 const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
+const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
 function onPPGradeChange() {
   const grade = document.getElementById('pp-grade').value;
   const variety = PP_GRADE_VARIETY_MAP[grade];
   if (variety) document.getElementById('pp-variety').value = variety;
+}
+function onPPVarietyChange() {
+  const variety = document.getElementById('pp-variety').value;
+  const grade = PP_VARIETY_GRADE_MAP[variety];
+  if (grade) document.getElementById('pp-grade').value = grade;
 }
 
 async function saveProductEntry(mode) {
@@ -16811,6 +16818,7 @@ function goToNewStockIn() {
   populateSTIProductDropdown();
   document.getElementById('sti-p-product').value = '';
   document.getElementById('sti-p-variety').value = '';
+  document.getElementById('sti-p-grade').value = '';
   document.getElementById('sti-p-category').value = '';
   document.getElementById('sti-p-unit').value = '';
   document.getElementById('sti-p-batchno').value = '';
@@ -16857,7 +16865,8 @@ function onSTIProductSelected() {
   if (p) {
     document.getElementById('sti-p-category').value = p.category || '';
     document.getElementById('sti-p-unit').value = (p.unit_family === 'volume') ? 'Ltr' : (p.unit_family === 'count' ? 'Pcs' : 'Kg');
-    if (p.variety) document.getElementById('sti-p-variety').value = p.variety;
+    if (p.variety) { document.getElementById('sti-p-variety').value = p.variety; onSTIVarietyChange(); }
+    if (p.grade) { document.getElementById('sti-p-grade').value = p.grade; onSTIGradeChange(); }
     if (!document.getElementById('sti-p-rate').value) document.getElementById('sti-p-rate').value = p.purchase_rate || p.rate || '';
   }
 }
@@ -16865,6 +16874,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('sti-p-product');
   if (sel) sel.addEventListener('change', onSTIProductSelected);
 });
+
+// Same Grade<->Variety linking as the Add Product page
+function onSTIGradeChange() {
+  const grade = document.getElementById('sti-p-grade').value;
+  const variety = PP_GRADE_VARIETY_MAP[grade];
+  if (variety) document.getElementById('sti-p-variety').value = variety;
+}
+function onSTIVarietyChange() {
+  const variety = document.getElementById('sti-p-variety').value;
+  const grade = PP_VARIETY_GRADE_MAP[variety];
+  if (grade) document.getElementById('sti-p-grade').value = grade;
+}
 
 function addSTIProduct() {
   const productId = document.getElementById('sti-p-product').value;
@@ -16875,7 +16896,8 @@ function addSTIProduct() {
   const rate = parseFloat(document.getElementById('sti-p-rate').value) || 0;
   const item = {
     id: stiItemSeq++, product_id: productId, product_name: p ? p.name : '',
-    variety_grade: document.getElementById('sti-p-variety').value.trim(),
+    variety: document.getElementById('sti-p-variety').value,
+    grade: document.getElementById('sti-p-grade').value,
     batch_no: document.getElementById('sti-p-batchno').value.trim(),
     mfg_date: document.getElementById('sti-p-mfgdate').value,
     expiry_date: document.getElementById('sti-p-expdate').value,
@@ -16895,6 +16917,7 @@ function addSTIProduct() {
   // Clear the entry row for the next product
   document.getElementById('sti-p-product').value = '';
   document.getElementById('sti-p-variety').value = '';
+  document.getElementById('sti-p-grade').value = '';
   document.getElementById('sti-p-category').value = '';
   document.getElementById('sti-p-unit').value = '';
   document.getElementById('sti-p-batchno').value = '';
@@ -16915,11 +16938,11 @@ function renderSTIItemsTable() {
   const tbody = document.getElementById('sti-items-tbody');
   if (!tbody) return;
   if (!STI.items.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">No products added yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">No products added yet</td></tr>`;
   } else {
     tbody.innerHTML = STI.items.map((it, idx) => `
       <tr>
-        <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety_grade||'—')}</td>
+        <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety||'—')}</td><td>${escHtml(it.grade||'—')}</td>
         <td>${escHtml(it.batch_no||'—')}</td><td>${it.mfg_date?fmt_date_disp(it.mfg_date):'—'}</td><td>${it.expiry_date?fmt_date_disp(it.expiry_date):'—'}</td>
         <td>${it.qty.toFixed(2)}</td><td>${it.rate.toFixed(2)}</td><td class="pne-amount-cell">${fmt_money(it.amount)}</td>
         <td><button class="item-del" onclick="removeSTIItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
@@ -16991,7 +17014,7 @@ async function saveStockInEntry(mode) {
     driver_name: document.getElementById('sti-drivername').value.trim(),
     attachments: STI.attachments.map(a => a.url),
     items: STI.items.map(it => ({
-      product_id: it.product_id, variety_grade: it.variety_grade, batch_no: it.batch_no,
+      product_id: it.product_id, variety: it.variety, grade: it.grade, batch_no: it.batch_no,
       mfg_date: it.mfg_date || null, expiry_date: it.expiry_date || null, qty: it.qty, rate: it.rate,
     })),
   };

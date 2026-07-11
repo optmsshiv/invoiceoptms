@@ -98,14 +98,14 @@ switch ($method) {
     ]);
     $stockInId = (int)$db->lastInsertId();
 
-    $itemStmt = $db->prepare('INSERT INTO stock_in_items (stock_in_id, product_id, variety_grade, batch_no, mfg_date, expiry_date, qty, rate, amount) VALUES (?,?,?,?,?,?,?,?,?)');
+    $itemStmt = $db->prepare('INSERT INTO stock_in_items (stock_in_id, product_id, variety, grade, batch_no, mfg_date, expiry_date, qty, rate, amount) VALUES (?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $it) {
       $productId = cleanProductId($it['product_id'] ?? null);
       if (!$productId) continue;
       $qty = (float)($it['qty'] ?? 0);
       $rate = (float)($it['rate'] ?? 0);
       $amount = round($qty * $rate, 2);
-      $itemStmt->execute([$stockInId, $productId, $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['mfg_date'] ?: null, $it['expiry_date'] ?: null, $qty, $rate, $amount]);
+      $itemStmt->execute([$stockInId, $productId, $it['variety'] ?? '', $it['grade'] ?? '', $it['batch_no'] ?? '', $it['mfg_date'] ?: null, $it['expiry_date'] ?: null, $qty, $rate, $amount]);
       writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $d['reference_date'], 'Stock In ' . $refNo, $d['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
     }
 
