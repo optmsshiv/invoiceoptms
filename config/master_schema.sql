@@ -116,3 +116,57 @@ VALUES
   (NULL, 'Super Admin', 'superadmin@optmstech.in',
    '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
    'super_admin', 'active');
+
+-- ── Permission system (see config/migrations/001_permissions_master.sql
+--    for the full explanation and seed data) ──────────────────────
+CREATE TABLE IF NOT EXISTS `permissions` (
+    `key`              VARCHAR(64) NOT NULL PRIMARY KEY,
+    `label`            VARCHAR(128) NOT NULL,
+    `category`         VARCHAR(64) NOT NULL DEFAULT 'General',
+    `default_min_role` VARCHAR(32) NOT NULL DEFAULT 'viewer',
+    `sort_order`       INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `plan_permissions` (
+    `id`             INT AUTO_INCREMENT PRIMARY KEY,
+    `plan`           VARCHAR(32) NOT NULL,
+    `permission_key` VARCHAR(64) NOT NULL,
+    `enabled`        TINYINT(1) NOT NULL DEFAULT 1,
+    UNIQUE KEY `plan_key` (`plan`, `permission_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `tenant_permission_overrides` (
+    `id`             INT AUTO_INCREMENT PRIMARY KEY,
+    `tenant_id`      INT NOT NULL,
+    `permission_key` VARCHAR(64) NOT NULL,
+    `enabled`        TINYINT(1) NOT NULL DEFAULT 1,
+    `set_by`         INT NULL,
+    UNIQUE KEY `tenant_key` (`tenant_id`, `permission_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO `permissions` (`key`, `label`, `category`, `default_min_role`, `sort_order`) VALUES
+('menu.dashboard',    'Dashboard',           'Core',           'viewer',     10),
+('menu.invoices',     'Invoices (view)',     'Core',           'viewer',     20),
+('menu.create',       'Create/Edit Invoice', 'Core',           'sales',      30),
+('menu.clients',      'Clients',             'Core',           'sales',      40),
+('menu.products',     'Products / Services', 'Core',           'sales',      50),
+('menu.suppliers',    'Suppliers',           'Core',           'sales',      60),
+('menu.purchases',    'Purchases',           'Core',           'sales',      70),
+('menu.sales',        'Sales',               'Core',           'sales',      80),
+('menu.stock',        'Stock Ledger',        'Core',           'sales',      90),
+('menu.payments',     'Payments',            'Finance',        'accountant', 100),
+('menu.credit_notes', 'Credit Notes',        'Finance',        'accountant', 110),
+('menu.reports',      'Reports',             'Finance',        'accountant', 120),
+('menu.aging',        'Aging Report',        'Finance',        'accountant', 130),
+('menu.expenses',     'Expenses',            'Finance',        'accountant', 140),
+('menu.tax',          'Tax Summary',         'Finance',        'accountant', 150),
+('menu.reminders',    'Reminders',           'Tools',          'sales',      160),
+('menu.recurring',    'Recurring Invoices',  'Tools',          'sales',      170),
+('menu.portal',       'Client Portal',       'Tools',          'sales',      180),
+('menu.activity',     'Activity Log',        'Tools',          'manager',    190),
+('menu.templates',    'PDF Templates',       'Communications', 'admin',      200),
+('menu.whatsapp',     'WhatsApp Setup',      'Communications', 'admin',      210),
+('menu.email_setup',  'Email Setup',         'Communications', 'admin',      220),
+('menu.msglog',       'Message Log',         'Communications', 'manager',    230),
+('menu.team',         'Team Management',     'Admin',          'admin',      240),
+('menu.settings',     'Settings',            'Admin',          'admin',      250);

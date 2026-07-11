@@ -41,6 +41,14 @@ $firmName       = $user['company_name'] ?? ($settings['company_name'] ?? 'OPTMS 
 // 'service' | 'product' | 'both'. Sales is only relevant for
 // product/trading businesses, so it's the one item gated by this.
 $businessType   = $settings['business_type']   ?? 'both';
+// Products page nav label/wording changes with business type — same
+// mapping as the old SPA's BUSINESS_TYPE_LABELS (service/product-only
+// tenants see wording that matches what they actually sell).
+$productsNavLabel = [
+    'service' => 'Services',
+    'product' => 'Products',
+    'both'    => 'Services / Products',
+][$businessType] ?? 'Services / Products';
 
 // ── Role badge (topbar) ────────────────────────────────────────
 $ROLE_BADGE_COLORS = [
@@ -125,7 +133,7 @@ const SERVER = {
         'invoices'      => ['fas fa-file-invoice',      'Invoices',            '/pages/invoices/invoices.php',    'menu.invoices'],
         'create'        => ['fas fa-plus-circle',       'New Invoice',         '/pages/invoices/create.php',      'menu.create'],
         'clients'       => ['fas fa-users',              'Clients',            '/pages/clients/clients.php',     'menu.clients'],
-        'products'      => ['fas fa-box',                'Services / Products','/pages/products/products.php',   'menu.products'],
+        'products'      => ['fas fa-box',                $productsNavLabel,'/pages/products/products.php',   'menu.products'],
         'suppliers'     => ['fas fa-truck-loading',      'Suppliers',          '/pages/suppliers/suppliers.php', 'menu.suppliers'],
         'purchases'     => ['fas fa-dolly',               'Purchases',         '/pages/purchases/purchases.php', 'menu.purchases'],
         'sales'         => ['fas fa-cash-register',      'Sales',               '/pages/sales/sales.php',         'menu.sales'],

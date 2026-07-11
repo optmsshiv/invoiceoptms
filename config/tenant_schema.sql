@@ -980,3 +980,55 @@ ADD UNIQUE KEY `uk_role_perm` (`role`, `permission_key`);
 --
 ALTER TABLE `role_permissions`
 MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+--
+-- Seed default role permissions (see config/migrations/002_role_permissions_tenant.sql
+-- for the full explanation). Generous defaults so new team members
+-- aren't unexpectedly locked out — tighten specific roles later from
+-- Team → role permissions.
+--
+INSERT IGNORE INTO `role_permissions` (`role`, `permission_key`, `enabled`) VALUES
+('admin','menu.dashboard',1),('admin','menu.invoices',1),('admin','menu.create',1),
+('admin','menu.clients',1),('admin','menu.products',1),('admin','menu.suppliers',1),
+('admin','menu.purchases',1),('admin','menu.sales',1),('admin','menu.stock',1),
+('admin','menu.payments',1),('admin','menu.credit_notes',1),('admin','menu.reports',1),
+('admin','menu.aging',1),('admin','menu.expenses',1),('admin','menu.tax',1),
+('admin','menu.reminders',1),('admin','menu.recurring',1),('admin','menu.portal',1),
+('admin','menu.activity',1),('admin','menu.templates',1),('admin','menu.whatsapp',1),
+('admin','menu.email_setup',1),('admin','menu.msglog',1),('admin','menu.team',1),
+('admin','menu.settings',1),
+('manager','menu.dashboard',1),('manager','menu.invoices',1),('manager','menu.create',1),
+('manager','menu.clients',1),('manager','menu.products',1),('manager','menu.suppliers',1),
+('manager','menu.purchases',1),('manager','menu.sales',1),('manager','menu.stock',1),
+('manager','menu.payments',1),('manager','menu.credit_notes',1),('manager','menu.reports',1),
+('manager','menu.aging',1),('manager','menu.expenses',1),('manager','menu.tax',1),
+('manager','menu.reminders',1),('manager','menu.recurring',1),('manager','menu.portal',1),
+('manager','menu.activity',1),('manager','menu.templates',0),('manager','menu.whatsapp',0),
+('manager','menu.email_setup',0),('manager','menu.msglog',1),('manager','menu.team',0),
+('manager','menu.settings',0),
+('accountant','menu.dashboard',1),('accountant','menu.invoices',1),('accountant','menu.create',1),
+('accountant','menu.clients',1),('accountant','menu.products',1),('accountant','menu.suppliers',1),
+('accountant','menu.purchases',1),('accountant','menu.sales',1),('accountant','menu.stock',1),
+('accountant','menu.payments',1),('accountant','menu.credit_notes',1),('accountant','menu.reports',1),
+('accountant','menu.aging',1),('accountant','menu.expenses',1),('accountant','menu.tax',1),
+('accountant','menu.reminders',1),('accountant','menu.recurring',1),('accountant','menu.portal',0),
+('accountant','menu.activity',0),('accountant','menu.templates',0),('accountant','menu.whatsapp',0),
+('accountant','menu.email_setup',0),('accountant','menu.msglog',0),('accountant','menu.team',0),
+('accountant','menu.settings',0),
+('sales','menu.dashboard',1),('sales','menu.invoices',1),('sales','menu.create',1),
+('sales','menu.clients',1),('sales','menu.products',1),('sales','menu.suppliers',1),
+('sales','menu.purchases',1),('sales','menu.sales',1),('sales','menu.stock',1),
+('sales','menu.payments',1),('sales','menu.credit_notes',0),('sales','menu.reports',0),
+('sales','menu.aging',0),('sales','menu.expenses',0),('sales','menu.tax',0),
+('sales','menu.reminders',1),('sales','menu.recurring',1),('sales','menu.portal',1),
+('sales','menu.activity',0),('sales','menu.templates',0),('sales','menu.whatsapp',0),
+('sales','menu.email_setup',0),('sales','menu.msglog',0),('sales','menu.team',0),
+('sales','menu.settings',0),
+('viewer','menu.dashboard',1),('viewer','menu.invoices',1),('viewer','menu.create',0),
+('viewer','menu.clients',1),('viewer','menu.products',1),('viewer','menu.suppliers',1),
+('viewer','menu.purchases',1),('viewer','menu.sales',1),('viewer','menu.stock',1),
+('viewer','menu.payments',1),('viewer','menu.credit_notes',0),('viewer','menu.reports',1),
+('viewer','menu.aging',0),('viewer','menu.expenses',0),('viewer','menu.tax',0),
+('viewer','menu.reminders',0),('viewer','menu.recurring',0),('viewer','menu.portal',0),
+('viewer','menu.activity',0),('viewer','menu.templates',0),('viewer','menu.whatsapp',0),
+('viewer','menu.email_setup',0),('viewer','menu.msglog',0),('viewer','menu.team',0),
+('viewer','menu.settings',0);

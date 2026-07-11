@@ -164,9 +164,10 @@ function _showAddProductRow(prefill) {
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
+  const _namePlaceholder = STATE.settings.businessType === 'both' ? 'Item name *' : 'Service name *';
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill ? 'COPY' : 'NEW'}</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill ? escHtml(prefill.name + ' (Copy)') : ''}"></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="${_namePlaceholder}" value="${prefill ? escHtml(prefill.name + ' (Copy)') : ''}"></td>
     <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill ? prefill.rate : 0}"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill ? escHtml(prefill.hsn) : '998314'}" list="hsn-suggestions"></td>

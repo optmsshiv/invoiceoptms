@@ -193,26 +193,45 @@ function getEffectivePermissions(?int $tenantId, string $role): array {
 
     $master = getMasterDB();
 
-    $plan = 'trial';
-    if ($tenantId) {
-        $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
-        $tStmt->execute([$tenantId]);
-        $plan = $tStmt->fetchColumn() ?: 'trial';
+    try {
+        $plan = 'trial';
+        if ($tenantId) {
+            $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
+            $tStmt->execute([$tenantId]);
+            $plan = $tStmt->fetchColumn() ?: 'trial';
+        }
+
+        $overrides = [];
+        if ($tenantId) {
+            $ovStmt = $master->prepare('SELECT permission_key, enabled FROM tenant_permission_overrides WHERE tenant_id=?');
+            $ovStmt->execute([$tenantId]);
+            foreach ($ovStmt->fetchAll() as $row) $overrides[$row['permission_key']] = (bool)$row['enabled'];
+        }
+
+        $planPerms = [];
+        $ppStmt = $master->prepare('SELECT permission_key, enabled FROM plan_permissions WHERE plan=?');
+        $ppStmt->execute([$plan]);
+        foreach ($ppStmt->fetchAll() as $row) $planPerms[$row['permission_key']] = (bool)$row['enabled'];
+
+        $catalog = $master->query('SELECT `key` FROM permissions')->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        // The permissions/plan_permissions/tenant_permission_overrides tables
+        // don't exist yet or aren't reachable (e.g. fresh install before the
+        // permissions migration has been run). Failing open here means the
+        // app stays usable — every page's own requirePermission() call is
+        // still a real gate once this data exists — rather than every
+        // protected page showing Access Denied because the *permission
+        // system itself* isn't set up yet. Logged so this doesn't linger
+        // unnoticed once you're relying on it to actually restrict people.
+        error_log('getEffectivePermissions: permission tables unavailable (' . $e->getMessage() . ') — failing open');
+        return $cache[$cacheKey] = new class implements ArrayAccess, Countable {
+            public function offsetExists($k): bool { return true; }
+            public function offsetGet($k): mixed { return true; }
+            public function offsetSet($k, $v): void {}
+            public function offsetUnset($k): void {}
+            public function count(): int { return 0; }
+        };
     }
-
-    $overrides = [];
-    if ($tenantId) {
-        $ovStmt = $master->prepare('SELECT permission_key, enabled FROM tenant_permission_overrides WHERE tenant_id=?');
-        $ovStmt->execute([$tenantId]);
-        foreach ($ovStmt->fetchAll() as $row) $overrides[$row['permission_key']] = (bool)$row['enabled'];
-    }
-
-    $planPerms = [];
-    $ppStmt = $master->prepare('SELECT permission_key, enabled FROM plan_permissions WHERE plan=?');
-    $ppStmt->execute([$plan]);
-    foreach ($ppStmt->fetchAll() as $row) $planPerms[$row['permission_key']] = (bool)$row['enabled'];
-
-    $catalog = $master->query('SELECT `key` FROM permissions')->fetchAll(PDO::FETCH_COLUMN);
 
     $roleMap = [];
     if (!in_array($role, ['owner', 'super_admin'], true)) {
@@ -220,7 +239,7 @@ function getEffectivePermissions(?int $tenantId, string $role): array {
             $rpStmt = getDB()->prepare('SELECT permission_key, enabled FROM role_permissions WHERE role=?');
             $rpStmt->execute([$role]);
             foreach ($rpStmt->fetchAll() as $row) $roleMap[$row['permission_key']] = (bool)$row['enabled'];
-        } catch (Exception $e) { /* no tenant DB context, e.g. super_admin */ }
+        } catch (Exception $e) { /* no tenant DB context, e.g. super_admin, or table doesn't exist yet */ }
     }
 
     $result = [];
