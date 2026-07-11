@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/invoices.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.invoices');
@@ -14,7 +14,7 @@ $activePage  = 'invoices';
 $pageTitle   = 'Invoices';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/invoices.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/../../includes/layout_header.php';
 ?>
       <!-- Bulk action bar (shown when rows are selected) -->
       <div id="bulkBar" style="display:none;align-items:center;gap:10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:10px;padding:10px 16px;margin-bottom:12px">
@@ -97,4 +97,4 @@ include __DIR__ . '/../includes/layout_header.php';
       <div id="quickStatusMenu" style="display:none;position:fixed;z-index:9999;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:150px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>

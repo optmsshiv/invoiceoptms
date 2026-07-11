@@ -237,51 +237,8 @@ async function saveItemTypes() {
   catch (e) { console.warn('ItemType save err', e); }
 }
 
-// ── Logo / signature upload ────────────────────────────────────
-async function handleLogoUpload(input, targetId, previewId) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 3 * 1024 * 1024) { toast('⚠️ Max 3MB', 'warning'); return; }
-  const typeMap = { 'f-company-logo': 'logo', 'sc-logo': 'logo', 'f-signature': 'signature', 'sc-sign': 'signature', 'f-client-logo': 'client_logo', 'f-qr': 'qr' };
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('type', typeMap[targetId] || 'logo');
-  try {
-    const res = await fetch('api/upload.php', { method: 'POST', body: fd });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch (e) { throw new Error('Upload failed: server returned HTML'); }
-    if (!data.success) throw new Error(data.error || 'Upload failed');
-    const el = document.getElementById(targetId);
-    if (el) { el.value = data.url; el.dispatchEvent(new Event('input')); }
-    if (targetId === 'sc-logo' || targetId === 'f-company-logo') STATE.settings.logo = data.url;
-    else if (targetId === 'sc-sign' || targetId === 'f-signature') STATE.settings.signature = data.url;
-    if (previewId) {
-      const prev = document.getElementById(previewId);
-      if (prev) {
-        const isSign = previewId.includes('sign');
-        prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign ? '#1a1a2e' : 'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
-          <img src="${data.url}" style="height:${isSign ? '36' : '32'}px;max-width:120px;object-fit:contain;border-radius:4px">
-          <span style="font-size:11px;color:var(--muted)">${file.name}</span>
-          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
-        </div>`;
-      }
-    }
-    toast('✅ Uploaded!', 'success');
-  } catch (e) {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const el = document.getElementById(targetId);
-      if (el) { el.value = ev.target.result; el.dispatchEvent(new Event('input')); }
-      toast('✅ Image loaded', 'success');
-    };
-    reader.readAsDataURL(file);
-    console.warn('Server upload failed, using base64:', e.message);
-  }
-}
-function clearLogoField(targetId, previewId) {
-  const el = document.getElementById(targetId); if (el) { el.value = ''; el.dispatchEvent(new Event('input')); }
-  const prev = document.getElementById(previewId); if (prev) prev.innerHTML = '';
-}
+// handleLogoUpload() / clearLogoField() moved to common.js — shared
+// with whatsapp.php and create.php, was duplicated here before.
 
 // ── Populate form from loaded settings ────────────────────────
 function populateSettingsForm() {

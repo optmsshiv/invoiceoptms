@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/portal.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.portal');
@@ -14,7 +14,7 @@ $activePage  = 'portal';
 $pageTitle   = 'Client Portal';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/portal.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/../../includes/layout_header.php';
 ?>
       <div style="display:flex;align-items:flex-start;gap:14px;background:linear-gradient(135deg,#e0f2f1,#e3f2fd);border-radius:12px;padding:16px 20px;margin-bottom:18px;border:1px solid #b2dfdb">
         <div style="font-size:24px;line-height:1">&#128279;</div>
@@ -66,4 +66,4 @@ include __DIR__ . '/../includes/layout_header.php';
           <div id="portal-page-btns" style="display:flex;gap:5px;align-items:center"></div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>

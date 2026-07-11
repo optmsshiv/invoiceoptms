@@ -6,7 +6,7 @@
 //  1. addProductToInvoice() used to showPage('create') then push
 //     into the in-memory formItems array on the create page. Since
 //     create.php doesn't exist yet, this now redirects to
-//     /pages/create.php?addProduct=ID — create.php will need to
+//     /pages/invoices/create.php?addProduct=ID — create.php will need to
 //     read that param and add the matching product as a line item
 //     once it's built.
 //  2. updateServiceDropdown() (called after add/edit/delete/restore)
@@ -90,6 +90,13 @@ function _renderProdPage() {
 function prodPage(p) { const t = Math.ceil(PROD.list.length / PROD.per); if (p < 1 || p > t) return; PROD.page = p; _renderProdPage(); }
 
 function editProduct(id) {
+  // Product-mode businesses use the full product-new.php page (richer
+  // fields: batch tracking, moisture limits, weighbridge-relevant
+  // attrs, etc.) — service/both keep this lightweight inline-row edit.
+  if (STATE.settings.businessType === 'product') {
+    window.location.href = '/pages/products/product-new.php?id=' + id;
+    return;
+  }
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const catOpts = STATE.categories.map(c => `<option value="${c.name}" ${c.name === p.category ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('');
   const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
@@ -223,7 +230,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   // create.php isn't built yet — it will need to read ?addProduct=ID
   // and push a matching line item once it exists.
-  window.location.href = '/pages/create.php?addProduct=' + encodeURIComponent(id);
+  window.location.href = '/pages/invoices/create.php?addProduct=' + encodeURIComponent(id);
 }
 
 async function deleteProduct(id) {

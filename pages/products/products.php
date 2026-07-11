@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/products.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.products');
@@ -14,7 +14,7 @@ $activePage  = 'products';
 $pageTitle   = 'Services / Products';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/products.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/../../includes/layout_header.php';
 ?>
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search services…" oninput="filterProducts(this.value)" id="productSearch">
@@ -24,7 +24,11 @@ include __DIR__ . '/../includes/layout_header.php';
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <?php if ($businessType === 'product'): ?>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="window.location.href='/pages/products/product-new.php'"><i class="fas fa-plus"></i> Add Product</button>
+        <?php else: ?>
         <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
+        <?php endif; ?>
       </div>
       <div class="table-card">
         <table class="data-table">
@@ -36,4 +40,4 @@ include __DIR__ . '/../includes/layout_header.php';
           <div class="pagination" id="prodPagination"></div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
