@@ -161,3 +161,37 @@ function globalSearchFn(val) {
   el.classList.remove('open');
   // TODO: wire up to a real api/search.php endpoint.
 }
+
+// ══════════════════════════════════════════
+// PRINT HELPERS — shared by Sales, Purchases (and eventually Invoices)
+// print/PDF views. Moved here from the old SPA's Sales module block
+// since Purchases printing needs them too and previously didn't have
+// them in purchases.js (a pre-existing gap in the MPA build, not
+// something introduced here — flagging so purchase-invoice printing
+// can be wired up using these same helpers).
+// ══════════════════════════════════════════
+function pneCompanyInfo() {
+  const s = STATE.settings || {};
+  return {
+    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
+    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '',
+  };
+}
+
+function numToWordsINR(amount) {
+  amount = Math.round(parseFloat(amount) || 0);
+  if (amount === 0) return 'Zero Rupees Only';
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function two(n) { return n < 20 ? ones[n] : tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : ''); }
+  function three(n) { return (n >= 100 ? ones[Math.floor(n/100)] + ' Hundred ' : '') + two(n % 100); }
+  let n = amount, parts = [];
+  const crore = Math.floor(n / 10000000); n %= 10000000;
+  const lakh = Math.floor(n / 100000); n %= 100000;
+  const thousand = Math.floor(n / 1000); n %= 1000;
+  if (crore) parts.push(three(crore) + ' Crore');
+  if (lakh) parts.push(three(lakh) + ' Lakh');
+  if (thousand) parts.push(three(thousand) + ' Thousand');
+  if (n) parts.push(three(n));
+  return (parts.join(' ').trim() || 'Zero') + ' Rupees Only';
+}

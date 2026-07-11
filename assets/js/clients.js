@@ -5,12 +5,12 @@
 //  MPA CHANGES from the SPA version:
 //  1. The "Outstanding Dues" click on a client card used to call
 //     filterByClient('id') then showPage('invoices') — now a real
-//     link to /pages/invoices.php?client=ID. NOTE: invoices.js
+//     link to /pages/invoices/invoices.php?client=ID. NOTE: invoices.js
 //     currently only reads ?filter=draft, not ?client= — add that
 //     read when convenient (small addition to invoices.js).
 //  2. createInvoiceForClient() used to showPage('create') then
 //     fill the form via JS. create.php isn't built yet, so this
-//     now links to /pages/create.php?client=ID — create.php will
+//     now links to /pages/invoices/create.php?client=ID — create.php will
 //     need to read that param once it exists.
 //  3. updateClientDropdown() and populateWAClientDropdown() are
 //     called after add/edit/delete/toggle — those populate
@@ -224,7 +224,7 @@ function renderClients() {
         <div style="font-size:14px;font-weight:800;color:#1565C0;font-family:var(--mono)">${fmt_money(rev)}</div>
       </div>
       ${outstandingAmt > 0 ? `
-      <a href="/pages/invoices.php?client=${c.id}" style="text-decoration:none;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue ? '#FFEBEE' : '#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue ? '#FFCDD2' : '#FFE082'}">
+      <a href="/pages/invoices/invoices.php?client=${c.id}" style="text-decoration:none;margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${hasOverdue ? '#FFEBEE' : '#FFF8E1'};border-radius:8px;cursor:pointer;border:1px solid ${hasOverdue ? '#FFCDD2' : '#FFE082'}">
         <div style="display:flex;align-items:center;gap:7px">
           <i class="fas fa-exclamation-circle" style="font-size:12px;color:${hasOverdue ? '#C62828' : '#E65100'}"></i>
           <div>
@@ -268,7 +268,7 @@ function filterClients(val) { renderClients(); }
 // here on purpose; clicking those buttons is a no-op for now.
 
 function createInvoiceForClient(id) {
-  window.location.href = '/pages/create.php?client=' + encodeURIComponent(id);
+  window.location.href = '/pages/invoices/create.php?client=' + encodeURIComponent(id);
 }
 
 // ── Add / Edit client modal ────────────────────────────────────

@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/clients.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.clients');
@@ -12,9 +12,9 @@ $user = currentUser();
 
 $activePage  = 'clients';
 $pageTitle   = 'Clients';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/clients.js'];
+$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/clients.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/../../includes/layout_header.php';
 ?>
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search clients…" oninput="filterClients(this.value)">
@@ -96,4 +96,4 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>

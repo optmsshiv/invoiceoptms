@@ -13,7 +13,9 @@
 
 const STATE = {
   invoices: [], clients: [], products: [], payments: [],
-  creditNotes: [], suppliers: [], purchases: [], activity: [], expenses: [],
+  creditNotes: [], suppliers: [], purchases: [], activity: [], expenses: [], recurring: [],
+  reminders: [], promises: [], _remSettings: {},
+  sales: [], customers: [], stock: [],
   settings: {}, filteredInvoices: [],
   currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
   _clientFilter: '', activeMenuInvoiceId: null,
@@ -96,6 +98,14 @@ function getExpCatColor(name) {
 }
 
 // Used by clients.js (client tags) and team.js (team member tags)
+// Used by portal.js and wa-shared.js — both resolve/cache portal
+// links per invoice, so this needs one shared home.
+const _portalTokenCache = {};
+function _portalBaseURL() {
+  // Reads the input on portal.php if present; safe fallback everywhere else.
+  return (document.getElementById('portal-base-url')?.value || 'https://invcs.optms.co.in/portal').replace(/\/?$/, '/');
+}
+
 const TAG_PALETTE = [
   { bg: '#EDE9FE', text: '#5B21B6', border: '#C4B5FD' },
   { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' },
@@ -257,6 +267,9 @@ const CORE_ENDPOINTS = {
   suppliers:   'api/suppliers.php',
   purchases:   'api/purchases.php',
   expenses:    'api/expenses.php',
+  sales:       'api/sales.php',
+  customers:   'api/customers.php',
+  stock:       'api/stock.php',
 };
 
 async function loadCoreData(keys) {
@@ -290,6 +303,9 @@ async function loadCoreData(keys) {
         STATE.settings.tnc          = s.default_tnc || s.tnc || '';
         STATE.settings.activeTemplate = s.active_template || '2';
         STATE.settings.defaultGST   = parseFloat(s.default_gst) || 18;
+        // Controls whether Sales/Products (product-mode) pages & nav
+        // items are shown — see includes/layout_header.php gating.
+        STATE.settings.businessType = s.business_type || 'both';
         // WA config — needed by the dashboard's WhatsApp card
         STATE.settings.wa = {
           token: s.wa_token || '', pid: s.wa_pid || '',

@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/purchases.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.purchases');
@@ -14,7 +14,7 @@ $activePage  = 'purchases';
 $pageTitle   = 'Purchases';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/purchases.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/../../includes/layout_header.php';
 ?>
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search purchases…" oninput="filterPurchases(this.value)" id="purchaseSearch">
@@ -98,4 +98,4 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
