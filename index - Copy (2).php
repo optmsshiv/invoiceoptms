@@ -3107,7 +3107,7 @@ const SERVER = {
                 <label>Customer Name *</label>
                 <div style="display:flex;gap:6px">
                   <select id="sn-customer" style="flex:1" onchange="onCustomerPicked()"><option value="">Select or add customer…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="goToNewCustomerFromSale()"><i class="fas fa-plus"></i></button>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="openAddCustomerModal()"><i class="fas fa-plus"></i></button>
                 </div>
               </div>
               <div class="field"><label>Customer Type *</label>
@@ -3370,89 +3370,23 @@ const SERVER = {
 
     <!-- ─────────── CUSTOMERS LIST ─────────── -->
     <div id="page-customers-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">All Customers</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Customers &gt; All Customers</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
-          <button class="btn btn-outline" onclick="exportCustomersCsv()"><i class="fas fa-download"></i> Export</button>
-          <button class="btn btn-primary" onclick="goToNewCustomerPage()"><i class="fas fa-plus"></i> Add New Customer</button>
-        </div>
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search customers…" oninput="filterCustomersList(this.value)" id="custSearch">
+        <select class="table-filter" onchange="renderCustomersList()" id="custTypeFilter">
+          <option value="">All Types</option>
+          <option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="custCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="goToNewCustomerPage()"><i class="fas fa-plus"></i> Add Customer</button>
       </div>
-
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-users"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Customers</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-total">0</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Active Customers</div>
-          <div style="font-size:13px;font-weight:700;color:#00897B" id="cust-stat-active">0</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Credit Limit</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-creditlimit">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Available Credit</div>
-          <div style="font-size:13px;font-weight:700;color:#2E7D32" id="cust-stat-available">₹0.00</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-file-invoice-dollar"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Outstanding</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-outstanding">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Overdue Amount</div>
-          <div style="font-size:13px;font-weight:700;color:#E53935" id="cust-stat-overdue">₹0.00</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-building"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (This Month)</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-monthsales">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">This Month Collections</div>
-          <div style="font-size:13px;font-weight:700;color:#00897B" id="cust-stat-monthcoll">₹0.00</div>
-        </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Mobile</th><th>City</th><th>Credit Limit</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="custListTbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="custListInfo"></div></div>
       </div>
-
-      <div class="pne-card">
-        <div class="pne-card-head" style="margin-bottom:14px">Customers List</div>
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field" style="grid-column:span 2"><label>Search</label><input class="table-search" style="max-width:none" id="custSearch" placeholder="Search by name, code, phone, email…" oninput="filterCustomersList(this.value)"></div>
-          <div class="field"><label>Customer Type</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custTypeFilter">
-              <option value="">All Types</option>
-              <option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option>
-            </select>
-          </div>
-          <div class="field"><label>Status</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custStatusFilterList">
-              <option value="">All Status</option><option value="active">Active</option><option value="archived">Inactive</option>
-            </select>
-          </div>
-          <div class="field"><label>State</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custStateFilter"><option value="">All States</option></select>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:-6px;margin-bottom:12px">
-          <button class="btn btn-outline" onclick="resetCustomersFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          <button class="btn pne-btn-save" onclick="renderCustomersList()"><i class="fas fa-filter"></i> Apply Filters</button>
-        </div>
-
-        <div style="overflow-x:auto">
-          <table class="data-table ps-stock-table" style="min-width:1100px;table-layout:fixed">
-            <colgroup>
-              <col style="width:30px"><col style="width:95px"><col style="width:150px"><col style="width:85px"><col style="width:110px">
-              <col style="width:150px"><col style="width:80px"><col style="width:95px"><col style="width:95px"><col style="width:70px"><col style="width:70px">
-            </colgroup>
-            <thead><tr>
-              <th>#</th><th>Customer Code</th><th>Customer Name</th><th>Type</th><th>Phone</th>
-              <th>Email</th><th>State</th><th>Credit Limit (₹)</th><th>Outstanding (₹)</th><th>Status</th><th>Action</th>
-            </tr></thead>
-            <tbody id="custListTbody"></tbody>
-          </table>
-        </div>
-        <div class="table-footer"><div class="tf-info" id="custListInfo"></div><div class="pagination" id="custListPagination"></div></div>
-      </div>
-      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> Click on a customer to view detailed information, ledger, transactions and more.</div>
     </div>
 
     <!-- ═══════════ ADD NEW CUSTOMER (full page) ═══════════ -->
@@ -16178,16 +16112,7 @@ async function saveSupplierEntry() {
 // ══════════════════════════════════════════
 // ADD NEW CUSTOMER (full page)
 // ══════════════════════════════════════════
-const CUSN = { editingId: null, docs: [], returnToSale: false };
-
-// Opened from Sale Entry's "+" button next to the customer picker. Since this
-// is a single-page app, the in-progress sale form (SN.items etc.) stays intact
-// in the background — we're not reloading the page, just switching which
-// section is visible — so it's safe to navigate away and back.
-function goToNewCustomerFromSale() {
-  goToNewCustomerPage();
-  CUSN.returnToSale = true;
-}
+const CUSN = { editingId: null, docs: [] };
 
 function populateCusnStateDropdowns() {
   ['cusn-state','cusn-shipstate'].forEach(id => {
@@ -16219,7 +16144,6 @@ function onCusnSameAddrToggle() {
 function goToNewCustomerPage() {
   CUSN.editingId = null;
   CUSN.docs = [];
-  CUSN.returnToSale = false;
   document.getElementById('cusn-title').textContent = 'Add New Customer';
   document.getElementById('cusn-crumb').textContent = 'Add New Customer';
   document.getElementById('cusn-type').value = '';
@@ -16256,12 +16180,6 @@ function goToNewCustomerPage() {
 }
 
 function cancelCustomerEntry() {
-  if (CUSN.returnToSale) {
-    CUSN.returnToSale = false;
-    showPage('sale-new');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-    return;
-  }
   showPage('customers-list');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'customers-list'));
   renderCustomersList();
@@ -16361,163 +16279,59 @@ async function saveCustomerEntry(mode) {
   const btn = event?.target?.closest('button');
   if (btn) btn.disabled = true;
   try {
-    let newId = CUSN.editingId;
     if (CUSN.editingId) {
       await api('api/customers.php?id=' + CUSN.editingId, 'PUT', payload);
       toast('✅ Customer updated!', 'success');
     } else {
       const res = await api('api/customers.php', 'POST', payload);
-      newId = res.id;
       toast('✅ "' + name + '" added as ' + res.customer_code + '!', 'success');
     }
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
-
-    if (CUSN.returnToSale && mode !== 'new') {
-      CUSN.returnToSale = false;
-      showPage('sale-new');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-      populateSaleCustomerDropdown();
-      document.getElementById('sn-customer').value = newId;
-      onCustomerPicked();
-      return;
-    }
     if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally { if (btn) btn.disabled = false; }
 }
 
 let CUST_LIST_SEARCH = '';
-let CUST_LIST_PAGE = 1;
-const CUST_LIST_PAGESIZE = 10;
-function filterCustomersList(q) { CUST_LIST_SEARCH = q || ''; CUST_LIST_PAGE = 1; renderCustomersList(); }
-function resetCustomersFilter() {
-  document.getElementById('custSearch').value = ''; CUST_LIST_SEARCH = '';
-  document.getElementById('custTypeFilter').value = '';
-  document.getElementById('custStatusFilterList').value = '';
-  document.getElementById('custStateFilter').value = '';
-  CUST_LIST_PAGE = 1;
-  renderCustomersList();
-}
-
-// Per-customer outstanding, computed from real Sales data (total minus
-// amount_received on non-cancelled sales) — not fabricated.
-function custOutstandingMap() {
-  const map = {};
-  (STATE.sales||[]).forEach(s => {
-    if (s.status === 'Cancelled') return;
-    const bal = (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0);
-    if (bal <= 0) return;
-    map[s.customer_id] = (map[s.customer_id] || 0) + bal;
-  });
-  return map;
-}
-function custOverdueTotal() {
-  const today = fmt_date(new Date());
-  return (STATE.sales||[]).reduce((sum, s) => {
-    if (s.status === 'Cancelled' || !s.due_date || s.due_date >= today) return sum;
-    const bal = (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0);
-    return bal > 0 ? sum + bal : sum;
-  }, 0);
-}
-
-function populateCustStateFilter() {
-  const sel = document.getElementById('custStateFilter');
-  if (!sel) return;
-  const cur = sel.value;
-  const states = [...new Set((STATE.customers||[]).map(c => c.state).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">All States</option>' + states.map(s => `<option>${escHtml(s)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
+function filterCustomersList(q) { CUST_LIST_SEARCH = q || ''; renderCustomersList(); }
 
 async function renderCustomersList() {
   try {
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : [];
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-
-  const outstandingMap = custOutstandingMap();
-  const totalCreditLimit = (STATE.customers||[]).reduce((s,c) => s + (parseFloat(c.credit_limit)||0), 0);
-  const totalOutstanding = Object.values(outstandingMap).reduce((s,v) => s+v, 0);
-  const monthStart = new Date(); monthStart.setDate(1);
-  const monthStartStr = fmt_date(monthStart);
-  const monthSales = (STATE.sales||[]).filter(s => s.status !== 'Cancelled' && s.sale_date >= monthStartStr);
-  const monthSalesTotal = monthSales.reduce((s,x) => s + (parseFloat(x.total)||0), 0);
-  const monthCollections = monthSales.reduce((s,x) => s + (parseFloat(x.amount_received)||0), 0);
-
-  document.getElementById('cust-stat-total').textContent = (STATE.customers||[]).length;
-  document.getElementById('cust-stat-active').textContent = (STATE.customers||[]).filter(c => c.status==='active').length;
-  document.getElementById('cust-stat-creditlimit').textContent = fmt_money(totalCreditLimit);
-  document.getElementById('cust-stat-available').textContent = fmt_money(Math.max(0, totalCreditLimit - totalOutstanding));
-  document.getElementById('cust-stat-outstanding').textContent = fmt_money(totalOutstanding);
-  document.getElementById('cust-stat-overdue').textContent = fmt_money(custOverdueTotal());
-  document.getElementById('cust-stat-monthsales').textContent = fmt_money(monthSalesTotal);
-  document.getElementById('cust-stat-monthcoll').textContent = fmt_money(monthCollections);
-
-  populateCustStateFilter();
-
   const tbody = document.getElementById('custListTbody');
   if (!tbody) return;
   const typeF = document.getElementById('custTypeFilter')?.value || '';
-  const statusF = document.getElementById('custStatusFilterList')?.value || '';
-  const stateF = document.getElementById('custStateFilter')?.value || '';
   let list = STATE.customers || [];
   if (CUST_LIST_SEARCH) {
     const q = CUST_LIST_SEARCH.toLowerCase();
-    list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.customer_code||'').toLowerCase().includes(q) || (c.mobile||'').toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q));
+    list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.customer_code||'').toLowerCase().includes(q) || (c.mobile||'').toLowerCase().includes(q));
   }
   if (typeF) list = list.filter(c => c.customer_type === typeF);
-  if (statusF) list = list.filter(c => c.status === statusF);
-  if (stateF) list = list.filter(c => c.state === stateF);
-
-  const totalPages = Math.max(1, Math.ceil(list.length / CUST_LIST_PAGESIZE));
-  CUST_LIST_PAGE = Math.min(CUST_LIST_PAGE, totalPages);
-  const pageRows = list.slice((CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE, CUST_LIST_PAGE*CUST_LIST_PAGESIZE);
-  document.getElementById('custListInfo').textContent = `Showing ${list.length?((CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE+1):0} to ${Math.min(CUST_LIST_PAGE*CUST_LIST_PAGESIZE,list.length)} of ${list.length} entries`;
-
-  const typeColors = { Company:['#2E7D32','#E8F5E9'], Trader:['#1976D2','#E3F2FD'], Exporter:['#6A4C93','#F3E8FF'], Retailer:['#E65100','#FFF3E0'], Domestic:['#455A64','#ECEFF1'], Wholesaler:['#00897B','#E0F2F1'] };
+  document.getElementById('custListInfo').textContent = list.length + ' customer' + (list.length===1?'':'s');
+  document.getElementById('custCountInfo').textContent = (STATE.customers||[]).length + ' total';
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No customers yet — click "Add New Customer" to create one</td></tr>`;
-  } else {
-    tbody.innerHTML = pageRows.map((c, i) => {
-      const [tColor, tBg] = typeColors[c.customer_type] || ['#455A64','#ECEFF1'];
-      const outstanding = outstandingMap[c.id] || 0;
-      return `<tr>
-        <td>${(CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE+i+1}</td>
-        <td><code style="font-size:11px;color:var(--muted)">${escHtml(c.customer_code||'—')}</code></td>
-        <td style="text-align:left"><strong>${escHtml(c.name)}</strong>${c.billing_city?`<br><span style="font-size:10.5px;color:var(--muted)">${escHtml(c.billing_city)}${c.state?', '+escHtml(c.state):''}</span>`:''}</td>
-        <td><span style="font-size:10px;font-weight:700;color:${tColor};background:${tBg};padding:2px 7px;border-radius:9px">${escHtml(c.customer_type||'—')}</span></td>
-        <td>${escHtml(c.mobile||'—')}</td>
-        <td style="font-size:11px">${escHtml(c.email||'—')}</td>
-        <td>${escHtml(c.state||'—')}</td>
-        <td>${fmt_money(c.credit_limit||0)}</td>
-        <td style="color:${outstanding>0?'#E53935':'#00897B'};font-weight:600">${fmt_money(outstanding)}</td>
-        <td><span style="font-size:10px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 7px;border-radius:9px">${c.status==='active'?'Active':'Inactive'}</span></td>
-        <td>
-          <div class="action-cell">
-            <button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>
-            <button class="act-btn" title="Archive" onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i></button>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No customers yet — click "Add Customer" to create one</td></tr>`;
+    return;
   }
-  document.getElementById('custListPagination').innerHTML = Array.from({length: totalPages}, (_, i) => i+1).map(p => `
-    <button class="pg-btn ${p===CUST_LIST_PAGE?'active':''}" onclick="CUST_LIST_PAGE=${p};renderCustomersList()">${p}</button>`).join('');
-}
-
-function exportCustomersCsv() {
-  const list = STATE.customers || [];
-  if (!list.length) { toast('⚠️ Nothing to export', 'warning'); return; }
-  const outstandingMap = custOutstandingMap();
-  const headers = ['Customer Code','Name','Type','Phone','Email','State','Credit Limit','Outstanding','Status'];
-  const rows = list.map(c => [c.customer_code, c.name, c.customer_type, c.mobile, c.email, c.state, c.credit_limit, outstandingMap[c.id]||0, c.status].map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'customers-' + fmt_date(new Date()) + '.csv';
-  a.click();
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td><code style="font-size:11px;color:var(--muted)">${escHtml(c.customer_code||'—')}</code></td>
+      <td><strong>${escHtml(c.name)}</strong></td>
+      <td>${escHtml(c.customer_type||'—')}</td>
+      <td>${escHtml(c.mobile||'—')}</td>
+      <td>${escHtml(c.billing_city||'—')}</td>
+      <td>${fmt_money(c.credit_limit||0)}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 8px;border-radius:10px">${c.status==='active'?'Active':'Inactive'}</span></td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Archive" onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
 }
 
 async function deleteCustomerRich(id) {
