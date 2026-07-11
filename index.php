@@ -647,6 +647,8 @@ canvas { max-width: 100% !important; }
 .pp-tag-chip button { background: none; border: none; color: #E65100; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
 .pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
 .pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
+.pp-attach-row .pp-attach-actions { display: flex; align-items: center; gap: 10px; }
+.pp-attach-row .pp-attach-view { color: var(--teal); }
 
 .pne-split-card { border: 1.5px solid #FFCC80; border-left: 4px solid #FB8C00; border-radius: 10px; background: #FFF8E1; padding: 14px; }
 .pne-split-card-head { font-weight: 700; font-size: 13px; color: #E65100; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -3199,6 +3201,21 @@ const SERVER = {
             </div>
           </div>
 
+          <!-- 4. Deductions -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+              <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple deduction lines)</span></span>
+              <button class="btn btn-outline pne-small-btn" onclick="addSNDeduction()"><i class="fas fa-plus"></i> Add Deduction</button>
+            </div>
+            <div class="table-card" style="overflow-x:auto">
+              <table class="data-table" style="min-width:520px">
+                <thead><tr><th style="width:30px">#</th><th>Deduction Type</th><th>Description</th><th style="width:130px">Amount (₹)</th><th style="width:70px">Action</th></tr></thead>
+                <tbody id="sn-deductions-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pne-charge-total" style="margin-top:10px"><span>Total Deductions</span><strong id="sn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+          </div>
+
           <!-- 3/4/5 row -->
           <div class="pne-row3">
             <div class="pne-card">
@@ -3271,6 +3288,7 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
               <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
+              <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-cgst-row"><span>CGST</span><strong id="sn-sum-cgst">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-sgst-row"><span>SGST</span><strong id="sn-sum-sgst">₹0.00</strong></div>
@@ -3328,9 +3346,13 @@ const SERVER = {
             <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
             <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
             <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
+            <div class="pne-kv"><span>Total Additional Charges</span><strong id="sn-sb-addcharges">₹0.00</strong></div>
+            <div class="pne-kv"><span>Taxable Amount</span><strong id="sn-sb-taxable">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
             <div class="pne-kv"><span>Invoice Value</span><strong id="sn-sb-invvalue">₹0.00</strong></div>
-            <div class="pne-kv"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
+            <div class="pne-kv"><span>Paid Amount</span><strong id="sn-sb-paidamount">₹0.00</strong></div>
+            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><i class="fas fa-bolt"></i> Quick Actions</div>
@@ -13432,7 +13454,7 @@ async function pnpAddAttachments(files) {
 function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
 function renderPNPAttachments() {
   document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="pnpRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="pnpRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 function pnpTagKeydown(e) {
@@ -13941,6 +13963,7 @@ function renderPurchases() {
       <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
       <td>
         <div class="action-cell">
+          <button class="act-btn" title="View" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
         </div>
@@ -14439,7 +14462,7 @@ async function editPurchase(id) {
     PNE.attachmentDataUrl = null;
     PNE.attachmentExisting = p.attachment_path || null;
     PNE.items = (p.items||[]).map(it => ({
-      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id || '', description: it.description,
+      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
       variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
@@ -15193,12 +15216,47 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [] };
+const SN = { editingId: null, items: [], attachments: [], deductions: [] };
+let snDeductionSeq = 1;
 let snItemSeq = 1;
 
 function snEmptyItem() {
   return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '',
     warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
+}
+
+// ── Deductions (dynamic line items — Tractor Charge, Claim Charge, etc.) ──
+function addSNDeduction() {
+  SN.deductions.push({ id: snDeductionSeq++, type: '', description: '', amount: 0 });
+  renderSNDeductionsTable();
+}
+function removeSNDeduction(id) {
+  SN.deductions = SN.deductions.filter(d => d.id !== id);
+  renderSNDeductionsTable();
+}
+function updateSNDeduction(id, field, val) {
+  const d = SN.deductions.find(x => x.id === id); if (!d) return;
+  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcSaleNewTotals();
+  // keep the total footer fresh without a full re-render on every keystroke
+  document.getElementById('sn-deductions-total').textContent = fmt_money(SN.deductions.reduce((s,x)=>s+(parseFloat(x.amount)||0),0));
+}
+function renderSNDeductionsTable() {
+  const tbody = document.getElementById('sn-deductions-tbody');
+  if (!tbody) return;
+  if (!SN.deductions.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No deductions added</td></tr>`;
+  } else {
+    tbody.innerHTML = SN.deductions.map((d, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><input value="${escHtml(d.type)}" placeholder="e.g. Tractor Charge" oninput="updateSNDeduction(${d.id},'type',this.value)"></td>
+        <td><input value="${escHtml(d.description)}" placeholder="Optional" oninput="updateSNDeduction(${d.id},'description',this.value)"></td>
+        <td><input type="number" value="${d.amount}" min="0" step="0.01" oninput="updateSNDeduction(${d.id},'amount',this.value)"></td>
+        <td><button class="item-del" onclick="removeSNDeduction(${d.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+      </tr>`).join('');
+  }
+  calcSaleNewTotals();
 }
 
 function goToNewSale() {
@@ -15254,7 +15312,8 @@ function goToNewSale() {
   document.getElementById('sn-approvedby').value = '';
   document.getElementById('sn-attachments-input').value = '';
   document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
-  renderSNItemsTable(); renderSNAttachments();
+  SN.deductions = [];
+  renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
 }
@@ -15456,10 +15515,17 @@ function calcSaleNewTotals() {
   document.getElementById('sn-addcharges-total').textContent = fmt_money(addCharges);
   document.getElementById('sn-sum-addcharges2').textContent = fmt_money(addCharges);
   document.getElementById('sn-sum-subtotal').textContent = fmt_money(subtotal);
+  document.getElementById('sn-sb-addcharges').textContent = fmt_money(addCharges);
+
+  const totalDeductions = SN.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
+  document.getElementById('sn-deductions-total').textContent = fmt_money(totalDeductions);
+  document.getElementById('sn-sum-deductions').textContent = fmt_money(totalDeductions);
+  document.getElementById('sn-sb-deductions').textContent = fmt_money(totalDeductions);
 
   const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount);
+  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions);
   document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
+  document.getElementById('sn-sb-taxable').textContent = fmt_money(taxable);
 
   const totalTax = subtotal > 0 ? +(itemsTax * (taxable / subtotal)).toFixed(2) : 0;
   const isInterstate = document.getElementById('sn-salestype').value !== 'Local Sales';
@@ -15490,7 +15556,8 @@ function calcSaleNewTotals() {
 
   document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
   document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
-  document.getElementById('sn-sb-netpayable').textContent = fmt_money(grand);
+  document.getElementById('sn-sb-paidamount').textContent = fmt_money(received);
+  document.getElementById('sn-sb-netpayable').textContent = fmt_money(balance);
   updateSNPartialCard(grand, payStatus);
   syncSNSplitAutoRow();
 }
@@ -15639,7 +15706,7 @@ async function snAddAttachments(files) {
 function snRemoveAttachment(idx) { SN.attachments.splice(idx, 1); renderSNAttachments(); }
 function renderSNAttachments() {
   document.getElementById('sn-attachments-list').innerHTML = SN.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="snRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 async function saveSaleEntry(mode) {
@@ -15675,6 +15742,7 @@ async function saveSaleEntry(mode) {
     other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
+    deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     payment_status: document.getElementById('sn-paystatus').value,
     payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
@@ -15724,10 +15792,11 @@ async function editSale(id) {
     SN.editingId = id;
     SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
     SN.items = (s.items||[]).map(it => ({
-      id: snItemSeq++, product_id: it.product_id || '', description: it.description, variety_grade: it.variety_grade || '',
+      id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
       batch_no: it.batch_no || '', warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
     }));
+    SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     document.getElementById('psn-title').textContent = 'Edit Sale Entry';
     document.getElementById('psn-subtitle').textContent = s.invoice_no;
     populateSaleCustomerDropdown();
@@ -15774,7 +15843,7 @@ async function editSale(id) {
     document.getElementById('sn-preparedby').value = s.prepared_by || '';
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
-    renderSNItemsTable(); renderSNAttachments();
+    renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -15827,6 +15896,7 @@ function renderSales() {
       <td><span style="font-size:11px;font-weight:700;color:${statusColor[s.payment_status]||'#888'};background:${statusColor[s.payment_status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(s.payment_status)}</span></td>
       <td>
         <div class="action-cell">
+          <button class="act-btn" title="View" onclick="printSaleEntry(${s.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Edit" onclick="editSale(${s.id})"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Delete" onclick="deleteSale(${s.id})"><i class="fas fa-trash"></i></button>
         </div>
@@ -16255,7 +16325,8 @@ function supRemoveDoc(idx) { SUPN.docs.splice(idx, 1); renderSupDocs(); }
 function renderSupDocs() {
   document.getElementById('sup-docs-list').innerHTML = SUPN.docs.map((d, i) => {
     const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="supRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+    const url = d.url || (typeof d === 'string' ? d : null);
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="supRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
   }).join('');
 }
 
@@ -16456,7 +16527,8 @@ function cusnRemoveDoc(idx) { CUSN.docs.splice(idx, 1); renderCusnDocs(); }
 function renderCusnDocs() {
   document.getElementById('cusn-docs-list').innerHTML = CUSN.docs.map((d, i) => {
     const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="cusnRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+    const url = d.url || (typeof d === 'string' ? d : null);
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="cusnRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
   }).join('');
 }
 
@@ -16852,7 +16924,7 @@ async function stiAddAttachments(files) {
 function stiRemoveAttachment(idx) { STI.attachments.splice(idx, 1); renderSTIAttachments(); }
 function renderSTIAttachments() {
   document.getElementById('sti-attachments-list').innerHTML = STI.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="stiRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="stiRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 async function saveStockInEntry(mode) {
