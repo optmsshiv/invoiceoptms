@@ -113,6 +113,61 @@ switch ($method) {
     jsonResponse(['success' => true, 'id' => $stockInId, 'reference_no' => $refNo]);
     break;
 
+  case 'PUT':
+    $id = (int)($_GET['id'] ?? 0);
+    if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+    $d = json_decode(file_get_contents('php://input'), true);
+    if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
+    if (empty($d['reference_date'])) jsonResponse(['error' => 'Reference date is required'], 400);
+    $items = $d['items'] ?? [];
+    if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one product is required'], 400);
+
+    $totalQty = 0; $totalAmt = 0;
+    foreach ($items as $it) { $totalQty += (float)($it['qty'] ?? 0); $totalAmt += (float)($it['qty'] ?? 0) * (float)($it['rate'] ?? 0); }
+
+    $newSlip = saveAttachment($d['slip'] ?? null, 'stock_in');
+    $attachments = array_values(array_filter(array_map(function($a) {
+      return (is_string($a) && str_starts_with($a, 'data:')) ? saveAttachment($a, 'stock_in') : $a;
+    }, $d['attachments'] ?? [])));
+
+    $sql = 'UPDATE stock_in_entries SET
+      reference_no=?, reference_date=?, warehouse=?, stock_in_type=?, remarks=?,
+      weighing_type=?, weighbridge_name=?, weighbridge_slip_no=?, weight_datetime=?, gross_weight=?, tare_weight=?, operator_name=?,
+      supplier_id=?, challan_no=?, challan_date=?, vehicle_no=?, driver_name=?,
+      attachments=?, total_quantity=?, total_amount=?'
+      . ($newSlip ? ', slip_path=?' : '') . '
+      WHERE id=?';
+    $params = [
+      $d['reference_no'] ?? '', $d['reference_date'], $d['warehouse'] ?? 'Main Warehouse', $d['stock_in_type'] ?? 'Purchase', $d['remarks'] ?? '',
+      $d['weighing_type'] ?? 'Own Weighbridge', $d['weighbridge_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
+      (float)($d['gross_weight'] ?? 0), (float)($d['tare_weight'] ?? 0), $d['operator_name'] ?? '',
+      !empty($d['supplier_id']) ? (int)$d['supplier_id'] : null, $d['challan_no'] ?? '', $d['challan_date'] ?: null,
+      $d['vehicle_no'] ?? '', $d['driver_name'] ?? '',
+      json_encode($attachments), $totalQty, $totalAmt,
+    ];
+    if ($newSlip) $params[] = $newSlip;
+    $params[] = $id;
+    $db->prepare($sql)->execute($params);
+
+    // Re-derive stock_ledger entries from scratch, same pattern as Purchases/Sales edit
+    clearStockForEntry($db, $id);
+    $db->prepare('DELETE FROM stock_in_items WHERE stock_in_id = ?')->execute([$id]);
+
+    $itemStmt = $db->prepare('INSERT INTO stock_in_items (stock_in_id, product_id, variety, grade, batch_no, mfg_date, expiry_date, qty, rate, amount) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    foreach ($items as $it) {
+      $productId = cleanProductId($it['product_id'] ?? null);
+      if (!$productId) continue;
+      $qty = (float)($it['qty'] ?? 0);
+      $rate = (float)($it['rate'] ?? 0);
+      $amount = round($qty * $rate, 2);
+      $itemStmt->execute([$id, $productId, $it['variety'] ?? '', $it['grade'] ?? '', $it['batch_no'] ?? '', $it['mfg_date'] ?: null, $it['expiry_date'] ?: null, $qty, $rate, $amount]);
+      writeStockInEntry($db, $productId, $id, $qty, $rate, $d['reference_date'], 'Stock In ' . ($d['reference_no'] ?? ('#' . $id)) . ' (edited)', $d['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
+    }
+
+    logActivity((int)($_SESSION['user_id'] ?? 0), 'update', 'stock_in', $id, 'Stock In updated: ' . ($d['reference_no'] ?? ''));
+    jsonResponse(['success' => true]);
+    break;
+
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);

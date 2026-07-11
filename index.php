@@ -3906,7 +3906,7 @@ const SERVER = {
     <div id="page-stock-in-new" class="page">
       <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock &gt; <strong style="color:var(--text)">Add Stock</strong></span></div>
       <div class="pne-topbar">
-        <div><div class="pne-title">Add Product to Stock (Stock In)</div></div>
+        <div><div class="pne-title" id="sti-page-title">Add Product to Stock (Stock In)</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockIn()">Cancel</button>
           <button class="btn pne-btn-savenew" onclick="saveStockInEntry('new')"><i class="fas fa-plus"></i> Save &amp; New</button>
@@ -4037,7 +4037,7 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
               <span><i class="fas fa-history"></i> Recent Stock In History</span>
-              <a href="#" style="font-size:11px;color:var(--teal)" onclick="event.preventDefault()">View All</a>
+              <a href="#" style="font-size:11px;color:var(--teal)" id="sti-viewall-link" onclick="event.preventDefault(); expandSTIHistory();">View All</a>
             </div>
             <div id="sti-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
           </div>
@@ -16792,7 +16792,7 @@ async function deleteCustomerRich(id) {
 
 // ADD PRODUCT TO STOCK (STOCK IN) — manual multi-product stock inward
 // ══════════════════════════════════════════
-const STI = { items: [], attachments: [], slipDataUrl: null };
+const STI = { editingId: null, items: [], attachments: [], slipDataUrl: null };
 let stiItemSeq = 1;
 
 function populateSTIProductDropdown() {
@@ -16809,6 +16809,8 @@ function populateSTISupplierDropdown() {
 }
 
 function goToNewStockIn() {
+  STI.editingId = null;
+  document.getElementById('sti-page-title').textContent = 'Add Product to Stock (Stock In)';
   STI.items = []; STI.attachments = []; STI.slipDataUrl = null;
   document.getElementById('sti-refno').value = '';
   document.getElementById('sti-refdate').value = fmt_date(new Date());
@@ -17022,8 +17024,13 @@ async function saveStockInEntry(mode) {
   const btn = event?.target?.closest('button');
   if (btn) btn.disabled = true;
   try {
-    await api('api/stock_in.php', 'POST', payload);
-    toast('✅ Stock added!', 'success');
+    if (STI.editingId) {
+      await api('api/stock_in.php?id=' + STI.editingId, 'PUT', payload);
+      toast('✅ Stock-in entry updated!', 'success');
+    } else {
+      await api('api/stock_in.php', 'POST', payload);
+      toast('✅ Stock added!', 'success');
+    }
     const stk = await api('api/stock.php');
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
     if (mode === 'new') { goToNewStockIn(); } else { cancelStockIn(); renderStock(); }
@@ -17031,17 +17038,24 @@ async function saveStockInEntry(mode) {
   finally { if (btn) btn.disabled = false; }
 }
 
+let STI_HISTORY_LIMIT = 5;
 async function renderSTIRecentHistory() {
   const box = document.getElementById('sti-recent-list');
   if (!box) return;
   box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Loading…</div>';
   try {
-    const r = await api('api/stock_in.php?limit=5');
+    const r = await api('api/stock_in.php?limit=' + STI_HISTORY_LIMIT);
     const rows = Array.isArray(r.data) ? r.data : [];
     if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No stock-in entries yet</div>'; return; }
     box.innerHTML = rows.map(r => `
-      <div>
-        <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
+          <span style="display:flex;gap:4px">
+            <button class="act-btn" title="Edit" onclick="editStockIn(${r.id})"><i class="fas fa-pen" style="font-size:10px"></i></button>
+            <button class="act-btn" title="Delete" onclick="deleteStockInEntry(${r.id})"><i class="fas fa-trash" style="font-size:10px"></i></button>
+          </span>
+        </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
           <span style="font-size:11px;color:var(--muted)">${escHtml(r.stock_in_type)}</span>
           <span style="font-size:10.5px;font-weight:700;color:#00897B;background:#E8F5E918;padding:2px 8px;border-radius:10px">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
@@ -17049,6 +17063,74 @@ async function renderSTIRecentHistory() {
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
+}
+function expandSTIHistory() {
+  STI_HISTORY_LIMIT = STI_HISTORY_LIMIT > 5 ? 5 : 20;
+  const link = document.getElementById('sti-viewall-link');
+  if (link) link.textContent = STI_HISTORY_LIMIT > 5 ? 'Show Less' : 'View All';
+  renderSTIRecentHistory();
+}
+
+async function editStockIn(id) {
+  try {
+    const r = await api('api/stock_in.php?id=' + id);
+    const d = r.data;
+    STI.editingId = id;
+    STI.attachments = (d.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
+    STI.slipDataUrl = null;
+    STI.items = (d.items||[]).map(it => ({
+      id: stiItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', product_name: it.product_name || '',
+      variety: it.variety || '', grade: it.grade || '', batch_no: it.batch_no || '',
+      mfg_date: it.mfg_date || '', expiry_date: it.expiry_date || '', qty: parseFloat(it.qty)||0, rate: parseFloat(it.rate)||0,
+      amount: parseFloat(it.amount)||0,
+    }));
+
+    populateSTIProductDropdown();
+    document.getElementById('sti-page-title').textContent = 'Edit Stock In — ' + d.reference_no;
+    document.getElementById('sti-refno').value = d.reference_no;
+    document.getElementById('sti-refdate').value = d.reference_date;
+    document.getElementById('sti-warehouse').value = d.warehouse || 'Main Warehouse';
+    document.getElementById('sti-type').value = d.stock_in_type || 'Purchase';
+    document.getElementById('sti-remarks').value = d.remarks || '';
+    document.getElementById('sti-weighingtype').value = d.weighing_type || 'Own Weighbridge';
+    document.getElementById('sti-weighbridgename').value = d.weighbridge_name || '';
+    document.getElementById('sti-slipno').value = d.weighbridge_slip_no || '';
+    document.getElementById('sti-weightdatetime').value = d.weight_datetime ? d.weight_datetime.replace(' ', 'T').slice(0,16) : '';
+    document.getElementById('sti-gross').value = d.gross_weight || '';
+    document.getElementById('sti-tare').value = d.tare_weight || '';
+    document.getElementById('sti-operator').value = d.operator_name || '';
+    calcSTIWeight();
+    if (d.slip_path) {
+      document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
+    }
+    populateSTISupplierDropdown();
+    document.getElementById('sti-supplier').value = d.supplier_id || '';
+    document.getElementById('sti-challanno').value = d.challan_no || '';
+    document.getElementById('sti-challandate').value = d.challan_date || '';
+    document.getElementById('sti-vehicleno').value = d.vehicle_no || '';
+    document.getElementById('sti-drivername').value = d.driver_name || '';
+
+    renderSTIItemsTable(); renderSTIAttachments();
+    showPage('stock-in-new');
+    document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
+    toast('✏️ Editing ' + d.reference_no, 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteStockInEntry(id) {
+  const conf = await Swal.fire({
+    title: 'Delete this stock-in entry?', text: 'This will remove the entry and reverse its stock-ledger effect.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/stock_in.php?id=' + id, 'DELETE');
+    toast('🗑️ Stock-in entry deleted', 'info');
+    const stk = await api('api/stock.php');
+    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    renderSTIRecentHistory();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 
