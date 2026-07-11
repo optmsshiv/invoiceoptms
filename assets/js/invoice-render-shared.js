@@ -1427,3 +1427,4 @@ function openPrintWindow(d, items) {
   <div class="print-wrap">${html}</div>
   </body></html>`);
   w.document.close();
+}

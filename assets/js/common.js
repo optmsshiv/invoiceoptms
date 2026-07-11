@@ -9,6 +9,19 @@
 // ── API helper (unchanged from the SPA) ──────────────────────────
 async function api(endpoint, method, body) {
   method = method || 'GET';
+  // MPA FIX: every api() call site across the app was written as a
+  // relative path (e.g. 'api/team.php') back when everything lived
+  // at the site root under the old SPA. Now that pages live at nested
+  // paths like /pages/admin/team.php, that same relative path resolves
+  // against the CURRENT PAGE's directory, not the site root — hitting
+  // a URL that doesn't exist, silently falling through to whatever
+  // catch-all routing exists there instead of the real API endpoint.
+  // Normalizing here (root-relative unless already absolute or a full
+  // URL) fixes every call site in one place instead of editing 151
+  // individual api() calls across 27 files.
+  if (!/^(https?:)?\//.test(endpoint)) {
+    endpoint = '/' + endpoint;
+  }
   const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(endpoint, opts);

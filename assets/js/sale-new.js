@@ -737,3 +737,4 @@ function printSaleInvoice(s) {
     <script>window.print();<\/script>
   </body></html>`);
   win.document.close();
+}
