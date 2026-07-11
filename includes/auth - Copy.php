@@ -474,17 +474,8 @@ function _roleFail(string $role): void {
         jsonResponse(['error' => 'Permission denied', 'role' => $role], 403);
     }
     http_response_code(403);
-
-    // Styled 403 page — adjust this path if error_403.php lives elsewhere
-    // in your folder structure. Falls back to plain HTML if not found.
-    $errorPage = __DIR__ . '/../auth/error_403.php';
-    if (file_exists($errorPage)) {
-        $roleFailReason = "Your role ({$role}) does not have permission for this action.";
-        require $errorPage;
-    } else {
-        echo "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px'>
-        <h2>Access Denied</h2><p>Your role ({$role}) does not have permission for this action.</p>
-        <a href='/'>← Back to Dashboard</a></body></html>";
-    }
+    echo "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px'>
+    <h2>Access Denied</h2><p>Your role ({$role}) does not have permission for this action.</p>
+    <a href='/'>← Back to Dashboard</a></body></html>";
     exit;
 }
