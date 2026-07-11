@@ -15214,8 +15214,19 @@ function renderSHTable() {
       <td style="color:#E53935;font-weight:600">${row.direction==='out'?parseFloat(row.qty).toFixed(2):'—'}</td>
       <td><strong>${parseFloat(row.running_balance).toFixed(2)}</strong></td>
       <td style="color:var(--muted);font-size:11px">${escHtml((row.notes||'').replace(/^(Purchase|Sale|Stock In)\s*/,'').trim() || row.notes || '—')}</td>
-      <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`}</td>
+      <td>${renderSHActionCell(row, refLabel)}</td>
     </tr>`).join('');
+}
+
+function renderSHActionCell(row, refLabel) {
+  if (row.ref_type === 'adjustment') {
+    return `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
+  }
+  const editFn = { stock_in: 'editStockIn', purchase: 'editPurchase', sale: 'editSale' }[row.ref_type];
+  if (editFn && row.ref_id) {
+    return `<button class="act-btn" title="Edit ${escHtml(refLabel[row.ref_type]||'')}" onclick="${editFn}(${row.ref_id})"><i class="fas fa-pen"></i></button>`;
+  }
+  return `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`;
 }
 
 function exportStockHistoryCsv() {
@@ -15445,7 +15456,11 @@ function removeSNItem(id) {
 
 function snAvailableStock(productId) {
   const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  return s ? parseFloat(s.current_stock)||0 : 0;
+  // STATE.stock is populated by two different endpoints depending on which
+  // page was last visited (api/stock.php uses "current_stock", the newer
+  // api/product_stock.php uses "available_stock") — check both so this
+  // doesn't silently show 0 depending on navigation history.
+  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
 }
 
 function snCalcRow(it) {
@@ -15498,7 +15513,10 @@ function onSNProductChange(id, productId) {
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) { it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct; }
+    if (p) {
+      it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
+      it.variety_grade = p.variety || it.variety_grade;
+    }
   }
   renderSNItemsTable();
 }
@@ -16168,7 +16186,7 @@ function onSAProductChange() {
     if (p.grade) document.getElementById('sa-grade').value = p.grade;
     // Pull current stock as the default Opening Stock
     const s = (STATE.stock||[]).find(x => String(x.product_id) === String(id).replace(/\D/g,''));
-    document.getElementById('sa-openingstock').value = s ? parseFloat(s.current_stock).toFixed(2) : '0.00';
+    document.getElementById('sa-openingstock').value = s ? (parseFloat(s.current_stock ?? s.available_stock) || 0).toFixed(2) : '0.00';
   }
   calcStockAdjustment();
 }
@@ -16931,7 +16949,7 @@ function addSTIProduct() {
 }
 function snAvailableStockSafe(productId) {
   const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  return s ? parseFloat(s.current_stock)||0 : 0;
+  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
 }
 
 function removeSTIItem(id) { STI.items = STI.items.filter(i => i.id !== id); renderSTIItemsTable(); }
