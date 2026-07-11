@@ -1586,6 +1586,11 @@ const SERVER = {
       <i class="fas fa-file-invoice-dollar"></i><span>Sales</span>
     </a>
     <?php endif; ?>
+    <?php if ($perms['menu.sales'] ?? true): ?>
+    <a class="nav-item" data-page="customers-list" id="nav-customers-item" onclick="showPage('customers-list',this); renderCustomersList();" style="display:none">
+      <i class="fas fa-users"></i><span>Customers</span>
+    </a>
+    <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
     <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
@@ -2660,29 +2665,29 @@ const SERVER = {
               </div>
               <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
 
-              <div id="pn-partial-card" style="display:none;border:1px solid #FFCC80;border-radius:10px;overflow:hidden;margin-bottom:14px">
-                <div style="background:#FB8C00;color:#fff;padding:9px 14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px"><i class="fas fa-triangle-exclamation"></i> Partial Payment Detected</div>
-                <div style="background:#FFF8E1;padding:14px">
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-                    <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;text-align:center">
-                      <div style="font-size:9.5px;color:var(--muted);font-weight:700;letter-spacing:.4px">INVOICE TOTAL</div>
-                      <div style="font-size:15px;font-weight:800;margin-top:2px" id="pn-partial-total">₹0.00</div>
+              <div id="pn-partial-card" style="display:none;border:1px solid #FFCC80;border-radius:10px;overflow:hidden;margin-bottom:14px;font-size:12px">
+                <div style="background:#FB8C00;color:#fff;padding:8px 12px;font-weight:700;font-size:12px;display:flex;align-items:center;gap:7px"><i class="fas fa-triangle-exclamation" style="font-size:11px"></i> Partial Payment Detected</div>
+                <div style="background:#FFF8E1;padding:12px">
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">INVOICE TOTAL</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px" id="pn-partial-total">₹0.00</div>
                     </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;text-align:center">
-                      <div style="font-size:9.5px;color:var(--muted);font-weight:700;letter-spacing:.4px">RECEIVED</div>
-                      <div style="font-size:15px;font-weight:800;margin-top:2px;color:#2E7D32" id="pn-partial-received">₹0.00</div>
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">RECEIVED</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#2E7D32" id="pn-partial-received">₹0.00</div>
                     </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;text-align:center">
-                      <div style="font-size:9.5px;color:var(--muted);font-weight:700;letter-spacing:.4px">REMAINING</div>
-                      <div style="font-size:15px;font-weight:800;margin-top:2px;color:#C62828" id="pn-partial-remaining">₹0.00</div>
+                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
+                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">REMAINING</div>
+                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#C62828" id="pn-partial-remaining">₹0.00</div>
                     </div>
                   </div>
-                  <div style="height:6px;background:#E0E0E0;border-radius:3px;overflow:hidden;margin-bottom:12px"><div id="pn-partial-bar" style="height:100%;background:#43A047;width:0%;transition:width .2s"></div></div>
-                  <label style="display:flex;gap:10px;align-items:flex-start;background:#fff;border-radius:8px;padding:10px;cursor:pointer">
+                  <div style="height:5px;background:#E0E0E0;border-radius:3px;overflow:hidden;margin-bottom:10px"><div id="pn-partial-bar" style="height:100%;background:#43A047;width:0%;transition:width .2s"></div></div>
+                  <label style="display:flex;gap:9px;align-items:flex-start;background:#fff;border-radius:7px;padding:9px;cursor:pointer">
                     <input type="checkbox" id="pn-partial-keepactive" checked style="margin-top:2px">
                     <span>
-                      <strong style="font-size:12.5px;display:flex;align-items:center;gap:6px"><i class="fas fa-check-square" style="color:#FB8C00"></i> Record as partial payment</strong>
-                      <span style="font-size:11px;color:var(--muted);display:block;margin-top:2px">Purchase stays active — you can pay the remaining amount later. If unchecked, purchase will be marked Paid.</span>
+                      <strong style="font-size:11.5px;display:flex;align-items:center;gap:5px;font-weight:700"><i class="fas fa-check-square" style="color:#FB8C00;font-size:11px"></i> Record as partial payment</strong>
+                      <span style="font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.4">Purchase stays active — you can pay the remaining amount later. If unchecked, purchase will be marked Paid.</span>
                     </span>
                   </label>
                 </div>
@@ -2700,7 +2705,7 @@ const SERVER = {
                     <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
                   </div>
                   <div id="pne-split-footer" class="pne-split-footer"></div>
-                  <div id="pne-split-mismatch" style="display:none;font-size:11px;color:#E65100;margin-top:6px"></div>
+                  <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
                 </div>
               </div>
               <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
@@ -3328,7 +3333,150 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Add/Edit Customer Modal -->
+    <!-- ─────────── CUSTOMERS LIST ─────────── -->
+    <div id="page-customers-list" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search customers…" oninput="filterCustomersList(this.value)" id="custSearch">
+        <select class="table-filter" onchange="renderCustomersList()" id="custTypeFilter">
+          <option value="">All Types</option>
+          <option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="custCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="goToNewCustomerPage()"><i class="fas fa-plus"></i> Add Customer</button>
+      </div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Mobile</th><th>City</th><th>Credit Limit</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="custListTbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="custListInfo"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ADD NEW CUSTOMER (full page) ═══════════ -->
+    <div id="page-customer-new" class="page">
+      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Customers &gt; <strong style="color:var(--text)" id="cusn-crumb">Add New Customer</strong></span></div>
+      <div class="pne-topbar">
+        <div><div class="pne-title" id="cusn-title">Add New Customer</div></div>
+        <div class="pne-actions">
+          <button class="btn btn-outline" onclick="cancelCustomerEntry()">Cancel</button>
+          <button class="btn btn-outline" onclick="saveCustomerEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" onclick="saveCustomerEntry('close')">Save Customer</button>
+        </div>
+      </div>
+
+      <div class="pne-layout">
+        <div class="pne-main">
+
+          <!-- 1. Basic Information -->
+          <div class="pne-card">
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Customer Type *</label>
+                <select id="cusn-type"><option value="">Select Type</option><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
+              </div>
+              <div class="field"><label>Customer Code *</label><input id="cusn-code" placeholder="Auto Generate"><span style="font-size:10px;color:var(--muted)">Automatically generated code</span></div>
+              <div class="field"><label>Customer Name *</label><input id="cusn-name" placeholder="Enter customer name"></div>
+              <div class="field"><label>Business Name</label><input id="cusn-bizname" placeholder="Enter business name (if any)"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Display Name *</label><input id="cusn-displayname" placeholder="Enter display name"><span style="font-size:10px;color:var(--muted)">Name will be used in documents</span></div>
+              <div class="field"><label>Group</label><select id="cusn-group"><option value="">Select Group</option><option>Retail</option><option>Wholesale</option><option>VIP</option></select></div>
+              <div class="field"><label>Status *</label><select id="cusn-status"><option>Active</option><option>Inactive</option></select></div>
+              <div class="field"><label>Credit Limit (₹)</label><input type="number" id="cusn-creditlimit" min="0" step="0.01" value="0"><span style="font-size:10px;color:var(--muted)">Set credit limit for this customer</span></div>
+            </div>
+          </div>
+
+          <!-- 2. Contact Details -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-address-book"></i></span> Contact Details</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Phone Number *</label><input id="cusn-phone" placeholder="Enter phone number"></div>
+              <div class="field"><label>Alternate Phone</label><input id="cusn-altphone" placeholder="Enter alternate number"></div>
+              <div class="field"><label>Email Address</label><input id="cusn-email" type="email" placeholder="Enter email address"></div>
+              <div class="field"><label>WhatsApp No.</label><input id="cusn-whatsapp" placeholder="Enter WhatsApp number"></div>
+            </div>
+            <div class="pne-grid2">
+              <div class="field"><label>Billing Address *</label><textarea id="cusn-billing" style="min-height:60px" placeholder="Enter complete billing address"></textarea></div>
+              <div class="field">
+                <label style="display:flex;justify-content:space-between;align-items:center">Shipping Address
+                  <span style="font-weight:400;text-transform:none;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cusn-sameaddr" checked onchange="onCusnSameAddrToggle()"> Same as Billing Address</span>
+                </label>
+                <textarea id="cusn-shipping" style="min-height:60px" placeholder="Enter shipping address (if different)" disabled></textarea>
+              </div>
+            </div>
+            <div class="pne-grid3">
+              <div class="field"><label>City *</label><input id="cusn-city" placeholder="Enter city"></div>
+              <div class="field"><label>State *</label><select id="cusn-state"><option value="">Select state</option></select></div>
+              <div class="field"><label>Pincode *</label><input id="cusn-pincode" placeholder="Enter pincode"></div>
+            </div>
+            <div class="pne-grid3" id="cusn-shipaddr-row" style="display:none">
+              <div class="field"><label>City</label><input id="cusn-shipcity" placeholder="Enter city"></div>
+              <div class="field"><label>State</label><select id="cusn-shipstate"><option value="">Select state</option></select></div>
+              <div class="field"><label>Pincode</label><input id="cusn-shippincode" placeholder="Enter pincode"></div>
+            </div>
+          </div>
+
+          <!-- 3. Business Information -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-briefcase"></i></span> Business Information</div>
+            <div class="pne-grid4">
+              <div class="field"><label>GST No.</label><input id="cusn-gst" placeholder="Enter GST number"></div>
+              <div class="field"><label>PAN No.</label><input id="cusn-pan" placeholder="Enter PAN number"></div>
+              <div class="field"><label>Business Type</label><select id="cusn-biztype"><option value="">Select Business Type</option><option>Proprietorship</option><option>Partnership</option><option>Pvt Ltd</option><option>LLP</option><option>Other</option></select></div>
+              <div class="field"><label>TAN No.</label><input id="cusn-tan" placeholder="Enter TAN number"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>IEC No.</label><input id="cusn-iec" placeholder="Enter IEC number"></div>
+              <div class="field"><label>Trade License No.</label><input id="cusn-tradelicense" placeholder="Enter trade license number"></div>
+              <div class="field"><label>Currency</label><select id="cusn-currency"><option value="INR">INR - Indian Rupee</option><option value="USD">USD - US Dollar</option><option value="EUR">EUR - Euro</option></select></div>
+              <div class="field"><label>Default Payment Terms</label><select id="cusn-paymentterms"><option value="">Select Payment Terms</option><option>Immediate</option><option>7 Days</option><option>15 Days</option><option>30 Days</option><option>Advance</option></select></div>
+            </div>
+          </div>
+
+          <!-- 4. Additional Information -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-circle-info"></i></span> Additional Information (Optional)</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Opening Balance (₹)</label><input type="number" id="cusn-openingbal" min="0" step="0.01" value="0"><span style="font-size:10px;color:var(--muted)">If customer has opening balance</span></div>
+              <div class="field"><label>Opening Balance Type</label><select id="cusn-openingbaltype"><option>Debit</option><option>Credit</option></select></div>
+              <div class="field"><label>Preferred Sales Person</label><select id="cusn-salesperson"><option value="">Select Sales Person</option></select></div>
+              <div class="field"><label>Notes</label><textarea id="cusn-notes-inline" style="min-height:44px" placeholder="Enter any additional notes"></textarea></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right sidebar -->
+        <div class="pne-sidebar">
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Customer Summary</div>
+            <div class="pne-kv"><span>Customer Code</span><strong id="cusn-sum-code">Auto Generate</strong></div>
+            <div class="pne-kv"><span>Status</span><strong id="cusn-sum-status" style="color:#00897B">Active</strong></div>
+            <div class="pne-kv"><span>Credit Limit</span><strong id="cusn-sum-creditlimit">₹0.00</strong></div>
+            <div class="pne-kv"><span>Opening Balance</span><strong id="cusn-sum-openingbal">₹0.00</strong></div>
+            <div class="pne-kv"><span>Current Balance</span><strong id="cusn-sum-currentbal">₹0.00</strong></div>
+            <div class="pne-kv"><span>Payment Terms</span><strong id="cusn-sum-paymentterms">Not Set</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><i class="fas fa-cloud-upload-alt"></i> Upload Documents <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></div>
+            <label class="pp-dropzone" for="cusn-docs-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop files here or<br><span style="color:var(--teal);font-weight:600">Browse Files</span></div>
+            </label>
+            <input type="file" id="cusn-docs-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="cusnAddDocs(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supports: JPG, PNG, PDF (Max 5MB)</div>
+            <div id="cusn-docs-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><i class="fas fa-note-sticky"></i> Notes</div>
+            <textarea id="cusn-notes-sidebar" style="min-height:80px" placeholder="Add any notes about this customer…" oninput="document.getElementById('cusn-notes-inline').value=this.value"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Customer Modal (quick-add, used from Sale Entry's inline + button) -->
     <div class="modal-overlay" id="modal-addcustomer">
       <div class="modal" style="max-width:520px">
         <div class="modal-header">
@@ -12983,6 +13131,7 @@ function applyBusinessTypeLabels(type) {
   const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
   const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
   const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
+  const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
 }
 
 // ══════════════════════════════════════════
@@ -15925,6 +16074,246 @@ async function saveSupplierEntry() {
 }
 
 // ══════════════════════════════════════════
+// ADD NEW CUSTOMER (full page)
+// ══════════════════════════════════════════
+const CUSN = { editingId: null, docs: [] };
+
+function populateCusnStateDropdowns() {
+  ['cusn-state','cusn-shipstate'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select state</option>' + INDIA_STATES.map(s => `<option>${s}</option>`).join('');
+  });
+}
+
+async function populateCusnSalesPersonDropdown() {
+  const sel = document.getElementById('cusn-salesperson');
+  if (!sel) return;
+  try {
+    if (!STATE.team || !STATE.team.length) {
+      const r = await api('api/team.php?action=list');
+      STATE.team = Array.isArray(r.data) ? r.data : [];
+    }
+    sel.innerHTML = '<option value="">Select Sales Person</option>' + STATE.team.map(u => `<option value="${escHtml(u.name)}">${escHtml(u.name)}</option>`).join('');
+  } catch(e) { sel.innerHTML = '<option value="">Select Sales Person</option>'; }
+}
+
+function onCusnSameAddrToggle() {
+  const same = document.getElementById('cusn-sameaddr').checked;
+  document.getElementById('cusn-shipping').disabled = same;
+  document.getElementById('cusn-shipaddr-row').style.display = same ? 'none' : 'grid';
+  if (same) document.getElementById('cusn-shipping').value = document.getElementById('cusn-billing').value;
+}
+
+function goToNewCustomerPage() {
+  CUSN.editingId = null;
+  CUSN.docs = [];
+  document.getElementById('cusn-title').textContent = 'Add New Customer';
+  document.getElementById('cusn-crumb').textContent = 'Add New Customer';
+  document.getElementById('cusn-type').value = '';
+  document.getElementById('cusn-code').value = '';
+  document.getElementById('cusn-code').placeholder = 'Auto Generate';
+  ['cusn-name','cusn-bizname','cusn-displayname','cusn-phone','cusn-altphone','cusn-email','cusn-whatsapp',
+   'cusn-billing','cusn-shipping','cusn-city','cusn-pincode','cusn-shipcity','cusn-shippincode',
+   'cusn-gst','cusn-pan','cusn-tan','cusn-iec','cusn-tradelicense','cusn-notes-inline','cusn-notes-sidebar']
+   .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('cusn-group').value = '';
+  document.getElementById('cusn-status').value = 'Active';
+  document.getElementById('cusn-creditlimit').value = 0;
+  populateCusnStateDropdowns();
+  document.getElementById('cusn-state').value = '';
+  document.getElementById('cusn-shipstate').value = '';
+  document.getElementById('cusn-biztype').value = '';
+  document.getElementById('cusn-currency').value = 'INR';
+  document.getElementById('cusn-paymentterms').value = '';
+  document.getElementById('cusn-openingbal').value = 0;
+  document.getElementById('cusn-openingbaltype').value = 'Debit';
+  populateCusnSalesPersonDropdown();
+  document.getElementById('cusn-sameaddr').checked = true;
+  onCusnSameAddrToggle();
+  document.getElementById('cusn-docs-input').value = '';
+  document.getElementById('cusn-sum-code').textContent = 'Auto Generate';
+  document.getElementById('cusn-sum-status').textContent = 'Active';
+  document.getElementById('cusn-sum-creditlimit').textContent = '₹0.00';
+  document.getElementById('cusn-sum-openingbal').textContent = '₹0.00';
+  document.getElementById('cusn-sum-currentbal').textContent = '₹0.00';
+  document.getElementById('cusn-sum-paymentterms').textContent = 'Not Set';
+  renderCusnDocs();
+  showPage('customer-new');
+  document.querySelector('.nav-item[data-page="customers-list"]')?.classList.add('active');
+}
+
+function cancelCustomerEntry() {
+  showPage('customers-list');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'customers-list'));
+  renderCustomersList();
+}
+
+async function editCustomerRich(id) {
+  const c = STATE.customers.find(x => String(x.id) === String(id)); if (!c) return;
+  CUSN.editingId = id;
+  CUSN.docs = Array.isArray(c.documents) ? [...c.documents] : [];
+  document.getElementById('cusn-title').textContent = 'Edit Customer';
+  document.getElementById('cusn-crumb').textContent = c.name;
+  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
+  set('cusn-type', c.customer_type); set('cusn-code', c.customer_code); set('cusn-name', c.name); set('cusn-bizname', c.business_name);
+  set('cusn-displayname', c.display_name || c.name); set('cusn-group', c.group_name); set('cusn-status', c.status === 'archived' ? 'Inactive' : 'Active');
+  set('cusn-creditlimit', c.credit_limit); set('cusn-phone', c.mobile); set('cusn-altphone', c.alternate_phone);
+  set('cusn-email', c.email); set('cusn-whatsapp', c.whatsapp_no); set('cusn-billing', c.billing_address);
+  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); populateCusnStateDropdowns();
+  set('cusn-state', c.state); set('cusn-pincode', c.billing_pincode); set('cusn-shipcity', c.shipping_city);
+  set('cusn-shipstate', c.shipping_state); set('cusn-shippincode', c.shipping_pincode);
+  set('cusn-gst', c.gstin); set('cusn-pan', c.pan_no); set('cusn-biztype', c.business_type); set('cusn-tan', c.tan_no);
+  set('cusn-iec', c.iec_no); set('cusn-tradelicense', c.trade_license_no); set('cusn-currency', c.currency || 'INR');
+  set('cusn-paymentterms', c.payment_terms); set('cusn-openingbal', c.opening_balance || 0); set('cusn-openingbaltype', c.opening_balance_type || 'Debit');
+  await populateCusnSalesPersonDropdown();
+  set('cusn-salesperson', c.sales_executive); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
+  document.getElementById('cusn-sameaddr').checked = (c.billing_address === c.shipping_address);
+  onCusnSameAddrToggle();
+  document.getElementById('cusn-sum-code').textContent = c.customer_code || '—';
+  document.getElementById('cusn-sum-status').textContent = c.status === 'archived' ? 'Inactive' : 'Active';
+  document.getElementById('cusn-sum-creditlimit').textContent = fmt_money(c.credit_limit||0);
+  document.getElementById('cusn-sum-openingbal').textContent = fmt_money(c.opening_balance||0);
+  document.getElementById('cusn-sum-paymentterms').textContent = c.payment_terms || 'Not Set';
+  try {
+    const r = await api('api/customers.php?summary_for=' + id);
+    document.getElementById('cusn-sum-currentbal').textContent = fmt_money(r.data?.outstanding || 0);
+  } catch(e) { /* non-fatal */ }
+  renderCusnDocs();
+  showPage('customer-new');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'customers-list'));
+}
+
+function cusnFileToDataUrl(file) {
+  return new Promise(resolve => {
+    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+async function cusnAddDocs(files) {
+  for (const f of Array.from(files)) { const url = await cusnFileToDataUrl(f); if (url) CUSN.docs.push({ name: f.name, url }); }
+  document.getElementById('cusn-docs-input').value = '';
+  renderCusnDocs();
+}
+function cusnRemoveDoc(idx) { CUSN.docs.splice(idx, 1); renderCusnDocs(); }
+function renderCusnDocs() {
+  document.getElementById('cusn-docs-list').innerHTML = CUSN.docs.map((d, i) => {
+    const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="cusnRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+  }).join('');
+}
+
+async function saveCustomerEntry(mode) {
+  const name = document.getElementById('cusn-name').value.trim();
+  if (!document.getElementById('cusn-type').value) { toast('⚠️ Select a customer type', 'warning'); return; }
+  if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
+  if (!document.getElementById('cusn-displayname').value.trim()) { toast('⚠️ Display name is required', 'warning'); return; }
+  if (!document.getElementById('cusn-phone').value.trim()) { toast('⚠️ Phone number is required', 'warning'); return; }
+  if (!document.getElementById('cusn-billing').value.trim()) { toast('⚠️ Billing address is required', 'warning'); return; }
+  if (!document.getElementById('cusn-city').value.trim()) { toast('⚠️ City is required', 'warning'); return; }
+  if (!document.getElementById('cusn-state').value) { toast('⚠️ State is required', 'warning'); return; }
+  if (!document.getElementById('cusn-pincode').value.trim()) { toast('⚠️ Pincode is required', 'warning'); return; }
+
+  const sameAddr = document.getElementById('cusn-sameaddr').checked;
+  const payload = {
+    name, customer_type: document.getElementById('cusn-type').value, customer_code: document.getElementById('cusn-code').value.trim(),
+    business_name: document.getElementById('cusn-bizname').value.trim(), display_name: document.getElementById('cusn-displayname').value.trim(),
+    group_name: document.getElementById('cusn-group').value, status: document.getElementById('cusn-status').value === 'Active' ? 'active' : 'archived',
+    credit_limit: parseFloat(document.getElementById('cusn-creditlimit').value) || 0,
+    mobile: document.getElementById('cusn-phone').value.trim(), alternate_phone: document.getElementById('cusn-altphone').value.trim(),
+    email: document.getElementById('cusn-email').value.trim(), whatsapp_no: document.getElementById('cusn-whatsapp').value.trim(),
+    billing_address: document.getElementById('cusn-billing').value.trim(),
+    shipping_address: sameAddr ? document.getElementById('cusn-billing').value.trim() : document.getElementById('cusn-shipping').value.trim(),
+    billing_city: document.getElementById('cusn-city').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
+    shipping_city: sameAddr ? document.getElementById('cusn-city').value.trim() : document.getElementById('cusn-shipcity').value.trim(),
+    shipping_state: sameAddr ? document.getElementById('cusn-state').value : document.getElementById('cusn-shipstate').value,
+    shipping_pincode: sameAddr ? document.getElementById('cusn-pincode').value.trim() : document.getElementById('cusn-shippincode').value.trim(),
+    gstin: document.getElementById('cusn-gst').value.trim(), pan_no: document.getElementById('cusn-pan').value.trim(),
+    business_type: document.getElementById('cusn-biztype').value, tan_no: document.getElementById('cusn-tan').value.trim(),
+    iec_no: document.getElementById('cusn-iec').value.trim(), trade_license_no: document.getElementById('cusn-tradelicense').value.trim(),
+    currency: document.getElementById('cusn-currency').value, payment_terms: document.getElementById('cusn-paymentterms').value,
+    opening_balance: parseFloat(document.getElementById('cusn-openingbal').value) || 0, opening_balance_type: document.getElementById('cusn-openingbaltype').value,
+    sales_executive: document.getElementById('cusn-salesperson').value, notes: document.getElementById('cusn-notes-inline').value.trim(),
+    documents: CUSN.docs.map(d => d.url || d),
+  };
+
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
+  try {
+    if (CUSN.editingId) {
+      await api('api/customers.php?id=' + CUSN.editingId, 'PUT', payload);
+      toast('✅ Customer updated!', 'success');
+    } else {
+      const res = await api('api/customers.php', 'POST', payload);
+      toast('✅ "' + name + '" added as ' + res.customer_code + '!', 'success');
+    }
+    const r = await api('api/customers.php');
+    STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
+    if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+let CUST_LIST_SEARCH = '';
+function filterCustomersList(q) { CUST_LIST_SEARCH = q || ''; renderCustomersList(); }
+
+async function renderCustomersList() {
+  try {
+    const r = await api('api/customers.php');
+    STATE.customers = Array.isArray(r.data) ? r.data : [];
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  const tbody = document.getElementById('custListTbody');
+  if (!tbody) return;
+  const typeF = document.getElementById('custTypeFilter')?.value || '';
+  let list = STATE.customers || [];
+  if (CUST_LIST_SEARCH) {
+    const q = CUST_LIST_SEARCH.toLowerCase();
+    list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.customer_code||'').toLowerCase().includes(q) || (c.mobile||'').toLowerCase().includes(q));
+  }
+  if (typeF) list = list.filter(c => c.customer_type === typeF);
+  document.getElementById('custListInfo').textContent = list.length + ' customer' + (list.length===1?'':'s');
+  document.getElementById('custCountInfo').textContent = (STATE.customers||[]).length + ' total';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No customers yet — click "Add Customer" to create one</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td><code style="font-size:11px;color:var(--muted)">${escHtml(c.customer_code||'—')}</code></td>
+      <td><strong>${escHtml(c.name)}</strong></td>
+      <td>${escHtml(c.customer_type||'—')}</td>
+      <td>${escHtml(c.mobile||'—')}</td>
+      <td>${escHtml(c.billing_city||'—')}</td>
+      <td>${fmt_money(c.credit_limit||0)}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 8px;border-radius:10px">${c.status==='active'?'Active':'Inactive'}</span></td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Archive" onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function deleteCustomerRich(id) {
+  const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
+  const conf = await Swal.fire({
+    title: 'Archive this customer?', text: `"${c.name}" will be moved out of your active customer list.`,
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Archive', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/customers.php?id=' + id, 'DELETE');
+    toast('📦 Customer archived', 'info');
+    renderCustomersList();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+
 // ADD PRODUCT TO STOCK (STOCK IN) — manual multi-product stock inward
 // ══════════════════════════════════════════
 const STI = { items: [], attachments: [], slipDataUrl: null };
