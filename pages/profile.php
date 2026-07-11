@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/profile.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 
@@ -24,7 +24,7 @@ $activePage  = 'profile';
 $pageTitle   = 'My Profile';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/profile.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <div class="profile-page-wrap">
        <div class="profile-2col">
@@ -194,4 +194,4 @@ include __DIR__ . '/../../includes/layout_header.php';
        </div>
        <!-- /profile-2col -->
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

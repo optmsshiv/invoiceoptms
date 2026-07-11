@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/stock.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.stock');
@@ -14,7 +14,7 @@ $activePage  = 'stock';
 $pageTitle   = 'Stock Ledger';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/stock.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
@@ -78,4 +78,4 @@ include __DIR__ . '/../../includes/layout_header.php';
           </div>
         </div>
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

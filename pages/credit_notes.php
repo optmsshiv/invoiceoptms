@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/credit_notes.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.credit_notes');
@@ -14,7 +14,7 @@ $activePage  = 'credit-notes';
 $pageTitle   = 'Credit Notes';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/credit_notes.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <div class="page-toolbar">
         <div class="toolbar-left">
@@ -36,4 +36,4 @@ include __DIR__ . '/../../includes/layout_header.php';
         </tr></thead><tbody id="cn-tbody"></tbody></table>
         <div class="table-footer"><div class="tf-info" id="cn-info"></div></div>
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

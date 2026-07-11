@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/reminders.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.reminders');
@@ -17,7 +17,7 @@ $activePage  = 'reminders';
 $pageTitle   = 'Reminders';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/reminders.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:18px;flex-wrap:wrap">
         <div class="dash-card" style="flex:0 0 300px;min-width:260px">
@@ -133,4 +133,4 @@ include __DIR__ . '/../../includes/layout_header.php';
           <div id="rem-hist-page-btns" style="display:flex;gap:5px"></div>
         </div>
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

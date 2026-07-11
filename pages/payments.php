@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/payments.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.payments');
@@ -14,7 +14,7 @@ $activePage  = 'payments';
 $pageTitle   = 'Payments';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/payments.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <!-- Summary cards -->
       <div class="dash-stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px" id="pmtSummary"></div>
@@ -65,4 +65,4 @@ include __DIR__ . '/../../includes/layout_header.php';
           </div>
         </div>
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/tax.php
 // ================================================================
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 requireLogin();
 requirePermission('menu.tax');
@@ -14,7 +14,7 @@ $activePage  = 'tax';
 $pageTitle   = 'Tax Summary';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/tax.js'];
 
-include __DIR__ . '/../../includes/layout_header.php';
+include __DIR__ . '/../includes/layout_header.php';
 ?>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-shadow:var(--shadow)">
         <span style="font-size:12px;font-weight:700;color:var(--muted)"><i class="fas fa-landmark" style="color:var(--teal)"></i> Period:</span>
@@ -50,4 +50,4 @@ include __DIR__ . '/../../includes/layout_header.php';
           <th>Month</th><th>Invoices</th><th>Gross Revenue</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>Total GST</th><th>Status</th>
         </tr></thead><tbody id="tax-monthly-tbody"></tbody></table>
       </div>
-<?php include __DIR__ . '/../../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
