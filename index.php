@@ -14713,7 +14713,7 @@ function printLocalPurchaseVoucher(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -14748,13 +14748,15 @@ function printLocalPurchaseVoucher(p) {
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRI-IMPORT EXPORT DIVISION</div>
-        <div class="co-meta">
-          ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
-          ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
-          ${co.address?`Address: ${escHtml(co.address)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
+            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
+            ${co.address?`Address: ${escHtml(co.address)}`:''}
+          </div>
         </div>
       </div>
       <div>
@@ -14762,6 +14764,7 @@ function printLocalPurchaseVoucher(p) {
         <div class="voucher-meta">Voucher No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>Warehouse: ${escHtml(p.warehouse||'')}</div>
       </div>
     </div>
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -14877,7 +14880,7 @@ function printTaxInvoicePurchase(p) {
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -15985,7 +15988,7 @@ function printSaleInvoice(s) {
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
