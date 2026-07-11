@@ -134,7 +134,7 @@ function getDBByName(string $dbName): PDO {
 }
 
 // ── DB error handler ──────────────────────────────────────────────
-function _dbError(string $message): never {
+function _dbError(string $message): void {
     while (ob_get_level()) ob_end_clean();
     $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
           || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
