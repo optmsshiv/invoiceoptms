@@ -4222,125 +4222,41 @@ const SERVER = {
 
     <!-- ─────────── PAYMENTS ─────────── -->
     <div id="page-payments" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Payments</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Payments</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
-          <button class="btn btn-outline" onclick="exportPmtCSV()"><i class="fas fa-download"></i> Export</button>
-          <button class="btn btn-primary" onclick="openMakePaymentModal()"><i class="fas fa-plus"></i> Make Payment</button>
-        </div>
+      <!-- Summary cards -->
+      <div class="dash-stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px" id="pmtSummary"></div>
+      <!-- Toolbar -->
+      <div class="page-toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <input type="text" class="table-search" placeholder="Search payments…" oninput="filterPayments(this.value)" id="pmtSearch">
+        <select class="table-filter" onchange="filterPaymentsByMethod(this.value)" id="pmtMethodFilter">
+          <option value="">All Methods</option>
+          <option>Bank Transfer (NEFT/RTGS)</option>
+          <option>UPI (GPay/PhonePe/Paytm)</option>
+          <option>Cash</option><option>Cheque</option><option>Credit Card</option>
+        </select>
+        <button class="cf-btn" onclick="setPmtRange('today')" id="pmtToday">Today</button>
+        <button class="cf-btn" onclick="setPmtRange('week')" id="pmtWeek">This Week</button>
+        <button class="cf-btn" onclick="setPmtRange('month')" id="pmtMonth">This Month</button>
+        <input type="date" class="table-filter" id="pmtFrom" onchange="filterPmtByDate()" style="max-width:130px">
+        <input type="date" class="table-filter" id="pmtTo" onchange="filterPmtByDate()" style="max-width:130px">
+        <div style="flex:1"></div>
+        <button class="btn btn-outline" onclick="exportPmtCSV()"><i class="fas fa-download"></i> Export</button>
       </div>
-
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:16px 0" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-credit-card"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-total">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-total"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-shield-halved"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Paid</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-paid">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-paid"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-box-archive"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Pending</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-pending">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-pending"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-briefcase"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Cash Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-cash"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">UPI/Bank Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-digital"></div>
-        </div>
-      </div>
-
-      <div class="pne-card">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field" style="grid-column:span 1"><label>Search</label><input class="table-search" style="max-width:none" placeholder="Search by reference no., party name, payment mode…" oninput="filterPayments(this.value)" id="pmtSearch"></div>
-          <div class="field"><label>Payment Type</label><select class="table-filter" style="max-width:none" id="pmtTypeFilter" onchange="renderPayments()"><option value="">All</option><option value="in">Received</option><option value="out">Paid Out</option></select></div>
-          <div class="field"><label>Payment Mode</label>
-            <select class="table-filter" style="max-width:none" onchange="renderPayments()" id="pmtMethodFilter">
-              <option value="">All</option>
-              <option>Bank Transfer (NEFT/RTGS)</option><option>UPI (GPay/PhonePe/Paytm)</option>
-              <option>Cash</option><option>Cheque</option><option>NEFT</option><option>RTGS</option>
-            </select>
-          </div>
-          <div class="field"><label>Party Type</label><select class="table-filter" style="max-width:none" id="pmtPartyTypeFilter" onchange="renderPayments()"><option value="">All</option><option>Customer</option><option>Supplier</option><option>Transporter</option><option>Vendor</option></select></div>
-          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Pending</option></select></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:10px">
-          <button class="btn btn-outline" onclick="resetPmtFilters()"><i class="fas fa-rotate-left"></i> Reset</button>
-        </div>
-
-        <div style="overflow-x:auto">
-          <table class="data-table ps-stock-table" style="min-width:1150px;table-layout:fixed">
-            <colgroup>
-              <col style="width:30px"><col style="width:90px"><col style="width:100px"><col style="width:130px"><col style="width:85px">
-              <col style="width:160px"><col style="width:95px"><col style="width:90px"><col style="width:70px"><col style="width:75px">
-            </colgroup>
-            <thead><tr>
-              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th><th>Party Type</th>
-              <th>Payment For</th><th>Payment Mode</th><th>Amount (₹)</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody id="paymentsTbody"></tbody>
-          </table>
+      <!-- Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr>
+            <th>Date</th><th>Source</th><th>Invoice #</th><th>Client</th>
+            <th>Method</th><th>Txn ID</th><th>Amount</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody id="paymentsTbody"></tbody>
+        </table>
+        <div style="padding:6px 14px 2px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <i class="fas fa-layer-group" style="font-size:10px"></i>
+          <span>Rows sharing the same invoice number share a colour chip. <i class="fas fa-layer-group" style="font-size:9px"></i> icon = multiple payments (partial instalments).</span>
         </div>
         <div class="table-footer">
           <div class="tf-info" id="pmtInfo"></div>
           <div class="pagination" id="pmtPagination"></div>
-        </div>
-      </div>
-      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> Payments are made to suppliers, vendors, transporters and other parties.</div>
-    </div>
-
-    <!-- Make Payment Modal -->
-    <div class="modal-overlay" id="modal-makepayment">
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <span>Make Payment</span>
-          <button class="modal-close" onclick="closeModal('modal-makepayment')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Date *</label><input type="date" id="mp-date"></div>
-            <div class="field"><label>Direction *</label><select id="mp-direction"><option value="out">Paid Out (to Vendor/Transporter/Supplier)</option><option value="in">Received (from Customer)</option></select></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Party Type *</label><select id="mp-partytype"><option>Vendor</option><option>Transporter</option><option>Supplier</option><option>Customer</option><option>Other</option></select></div>
-            <div class="field"><label>Party Name *</label><input id="mp-partyname" placeholder="e.g. Bharat Transport"></div>
-          </div>
-          <div class="field"><label>Payment For *</label><input id="mp-paymentfor" placeholder="e.g. Transport Charges - May 2024"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Mode *</label><select id="mp-mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>Cheque</option></select></div>
-            <div class="field"><label>Amount (₹) *</label><input type="number" id="mp-amount" min="0" step="0.01"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Status</label><select id="mp-status"><option>Paid</option><option>Pending</option></select></div>
-            <div class="field"><label>Reference No.</label><input id="mp-refno" placeholder="Auto-generated"></div>
-          </div>
-          <div class="field"><label>Notes</label><textarea id="mp-notes" style="min-height:44px" placeholder="Optional"></textarea></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-makepayment')">Cancel</button>
-          <button class="btn btn-primary" id="mp-save-btn" onclick="saveMakePayment()"><i class="fas fa-check"></i> Save Payment</button>
         </div>
       </div>
     </div>
@@ -7110,7 +7026,6 @@ const STATE = {
   customers: [],
   sales: [],
   payments: [],
-  paymentVouchers: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
     {name:'Product',  color:'#1976D2'},
@@ -17143,62 +17058,27 @@ function pickProduct(id) {
 // ══════════════════════════════════════════
 const PMT = { page:1, per:10, list:[] };
 function buildMergedPaymentsList() {
-  const invoicePmts = STATE.payments.map(p => ({
-    ...p, source: 'invoice', party_type: 'Customer', payment_for: 'Invoice ' + (p.inv||''), direction: 'in',
-  }));
+  const invoicePmts = STATE.payments.map(p => ({ ...p, source: 'invoice' }));
   const purchasePmts = (STATE.purchases||[]).filter(p => (parseFloat(p.amount_paid)||0) > 0).map(p => ({
     id: 'pur-' + p.id, date: p.purchase_date, inv: p.purchase_no, client: p.supplier_name || '—',
     method: p.payment_mode || '—', txn: p.transaction_no || '', amount: p.amount_paid, status: p.payment_status || 'Pending',
-    source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
+    source: 'purchase',
   }));
   const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
     id: 'sale-' + s.id, date: s.sale_date, inv: s.invoice_no, client: s.customer_name || '—',
     method: s.payment_method || '—', txn: s.transaction_no || '', amount: s.amount_received, status: s.payment_status || 'Pending',
-    source: 'sale', party_type: 'Customer', payment_for: 'Invoice ' + (s.invoice_no||''), direction: 'in',
+    source: 'sale',
   }));
-  const voucherPmts = (STATE.paymentVouchers||[]).map(v => ({
-    id: 'pv-' + v.id, date: v.payment_date, inv: v.reference_no, client: v.party_name,
-    method: v.payment_mode || '—', txn: '', amount: v.amount, status: v.status || 'Paid',
-    source: 'voucher', party_type: v.party_type || 'Vendor', payment_for: v.payment_for || '', direction: v.direction || 'out',
-  }));
-  return [...invoicePmts, ...purchasePmts, ...salePmts, ...voucherPmts].sort((a,b) => new Date(b.date) - new Date(a.date));
+  return [...invoicePmts, ...purchasePmts, ...salePmts].sort((a,b) => new Date(b.date) - new Date(a.date));
 }
 
-async function renderPayments() {
-  try {
-    const r = await api('api/payment_vouchers.php');
-    STATE.paymentVouchers = Array.isArray(r.data) ? r.data : [];
-  } catch(e) { STATE.paymentVouchers = STATE.paymentVouchers || []; }
-  PMT.list = applyPmtFilters(buildMergedPaymentsList());
+function renderPayments() {
+  PMT.list = buildMergedPaymentsList();
   PMT.page = 1;
   _renderPmtPage(); _renderPmtSummary();
 }
-
-function applyPmtFilters(all) {
-  const q = (document.getElementById('pmtSearch')?.value || '').toLowerCase();
-  const typeF = document.getElementById('pmtTypeFilter')?.value || '';
-  const methodF = document.getElementById('pmtMethodFilter')?.value || '';
-  const partyTypeF = document.getElementById('pmtPartyTypeFilter')?.value || '';
-  const statusF = document.getElementById('pmtStatusFilter')?.value || '';
-  return all.filter(p => {
-    if (q && !((p.inv&&p.inv.toLowerCase().includes(q)) || (p.client&&p.client.toLowerCase().includes(q)) || (p.method&&p.method.toLowerCase().includes(q)))) return false;
-    if (typeF && p.direction !== typeF) return false;
-    if (methodF && !(p.method===methodF || (p.method&&p.method.startsWith('Split:')&&p.method.includes(methodF)))) return false;
-    if (partyTypeF && p.party_type !== partyTypeF) return false;
-    if (statusF && p.status !== statusF) return false;
-    return true;
-  });
-}
-function resetPmtFilters() {
-  document.getElementById('pmtSearch').value = '';
-  document.getElementById('pmtTypeFilter').value = '';
-  document.getElementById('pmtMethodFilter').value = '';
-  document.getElementById('pmtPartyTypeFilter').value = '';
-  document.getElementById('pmtStatusFilter').value = '';
-  renderPayments();
-}
-function filterPayments(){ PMT.list = applyPmtFilters(buildMergedPaymentsList()); PMT.page=1; _renderPmtPage(); }
-function filterPaymentsByMethod(){ filterPayments(); }
+function filterPayments(v){ const s=v.toLowerCase(); PMT.list=buildMergedPaymentsList().filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMT.page=1; _renderPmtPage(); }
+function filterPaymentsByMethod(v){ const all=buildMergedPaymentsList(); PMT.list=v?all.filter(p=>p.method===v||(p.method&&p.method.startsWith('Split:')&&p.method.includes(v))):all; PMT.page=1; _renderPmtPage(); }
 function setPmtRange(r){
   const t=new Date(); let f=new Date(),to=new Date();
   if(r==='today'){f=new Date(t);to=new Date(t);}
@@ -17217,106 +17097,25 @@ function filterPmtByDate(){
   PMT.page=1; _renderPmtPage();
 }
 function exportPmtCSV(){
-  const h=['Payment Date','Reference No.','Party Name','Party Type','Payment For','Payment Mode','Amount','Status'];
+  const h=['Date','Source','Invoice','Client','Method','Txn ID','Amount','Status'];
   const list = PMT.list && PMT.list.length ? PMT.list : buildMergedPaymentsList();
-  const r=list.map(p=>[p.date,p.inv,p.client,p.party_type,p.payment_for,p.method,p.amount,p.status].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','));
+  const srcLabel = { invoice: 'Invoice', purchase: 'Purchase', sale: 'Sale' };
+  const r=list.map(p=>[p.date,srcLabel[p.source]||'Invoice',p.inv,p.client,p.method,p.txn||'',p.amount,p.status].map(v=>`"${v}"`).join(','));
   downloadFile('payments.csv',[h.join(','),...r].join('\n'),'text/csv');
   toast('✅ Exported!','success');
 }
-
-function openMakePaymentModal() {
-  document.getElementById('mp-date').value = fmt_date(new Date());
-  document.getElementById('mp-direction').value = 'out';
-  document.getElementById('mp-partytype').value = 'Vendor';
-  document.getElementById('mp-partyname').value = '';
-  document.getElementById('mp-paymentfor').value = '';
-  document.getElementById('mp-mode').value = 'Cash';
-  document.getElementById('mp-amount').value = '';
-  document.getElementById('mp-status').value = 'Paid';
-  document.getElementById('mp-refno').value = '';
-  document.getElementById('mp-notes').value = '';
-  openModal('modal-makepayment');
-}
-
-async function saveMakePayment() {
-  const partyName = document.getElementById('mp-partyname').value.trim();
-  const paymentFor = document.getElementById('mp-paymentfor').value.trim();
-  const amount = parseFloat(document.getElementById('mp-amount').value) || 0;
-  if (!partyName) { toast('⚠️ Party name is required', 'warning'); return; }
-  if (!paymentFor) { toast('⚠️ Payment For is required', 'warning'); return; }
-  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
-  if (!document.getElementById('mp-date').value) { toast('⚠️ Payment date is required', 'warning'); return; }
-
-  const payload = {
-    payment_date: document.getElementById('mp-date').value,
-    direction: document.getElementById('mp-direction').value,
-    party_type: document.getElementById('mp-partytype').value,
-    party_name: partyName,
-    payment_for: paymentFor,
-    payment_mode: document.getElementById('mp-mode').value,
-    amount,
-    status: document.getElementById('mp-status').value,
-    reference_no: document.getElementById('mp-refno').value.trim(),
-    notes: document.getElementById('mp-notes').value.trim(),
-  };
-
-  const btn = document.getElementById('mp-save-btn');
-  if (btn) { if (btn.disabled) return; btn.disabled = true; }
-  try {
-    const res = await api('api/payment_vouchers.php', 'POST', payload);
-    toast('✅ Payment recorded as ' + res.reference_no + '!', 'success');
-    closeModal('modal-makepayment');
-    renderPayments();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-async function deletePaymentVoucher(id) {
-  const conf = await Swal.fire({
-    title: 'Delete this payment?', text: 'This payment record will be permanently removed.',
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/payment_vouchers.php?id=' + id, 'DELETE');
-    toast('🗑️ Payment deleted', 'info');
-    renderPayments();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 function _renderPmtSummary(){
-  const all = buildMergedPaymentsList();
-  const now = new Date();
-  const thisMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
-  const lastMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const lastMonthEnd = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
-
-  const thisMonth = all.filter(p => p.date >= thisMonthStart);
-  const lastMonth = all.filter(p => p.date >= lastMonthStart && p.date <= lastMonthEnd);
-
-  const sumAll = list => list.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const sumStatus = (list, st) => list.filter(p=>p.status===st).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const sumMode = (list, pred) => list.filter(p=>p.method&&pred(p.method.toLowerCase())).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-
-  const pctChange = (cur, prev) => prev === 0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
-  const setCard = (valId, chgId, curTotal, curMonth, prevMonth) => {
-    const el = document.getElementById(valId); if (el) el.textContent = fmt_money(curTotal);
-    const chgEl = document.getElementById(chgId);
-    if (chgEl) {
-      const pct = pctChange(curMonth, prevMonth);
-      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs Last Month`;
-      chgEl.style.color = pct >= 0 ? '#2E7D32' : '#E53935';
-    }
-  };
-
-  setCard('pmt-stat-total', 'pmt-chg-total', sumAll(all), sumAll(thisMonth), sumAll(lastMonth));
-  setCard('pmt-stat-paid', 'pmt-chg-paid', sumStatus(all,'Paid'), sumStatus(thisMonth,'Paid'), sumStatus(lastMonth,'Paid'));
-  setCard('pmt-stat-pending', 'pmt-chg-pending', sumStatus(all,'Pending'), sumStatus(thisMonth,'Pending'), sumStatus(lastMonth,'Pending'));
-  const cashPred = m => m.includes('cash');
-  const digitalPred = m => m.includes('upi') || m.includes('bank') || m.includes('neft') || m.includes('rtgs');
-  setCard('pmt-stat-cash', 'pmt-chg-cash', sumMode(all,cashPred), sumMode(thisMonth,cashPred), sumMode(lastMonth,cashPred));
-  setCard('pmt-stat-digital', 'pmt-chg-digital', sumMode(all,digitalPred), sumMode(thisMonth,digitalPred), sumMode(lastMonth,digitalPred));
+  const el=document.getElementById('pmtSummary'); if(!el) return;
+  const list = PMT.list && PMT.list.length ? PMT.list : STATE.payments;
+  const tot=list.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const upi=list.filter(p=>p.method&&p.method.toLowerCase().includes('upi')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const neft=list.filter(p=>p.method&&(p.method.toLowerCase().includes('neft')||p.method.toLowerCase().includes('bank'))).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const tod=fmt_date(new Date()); const todAmt=list.filter(p=>p.date===tod).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  el.innerHTML=`
+    <div class="stat-card"><div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(tot)}</div><div class="stat-lbl">Total Collected</div><div class="stat-trend neutral">${list.length} txns</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-mobile-alt"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(upi)}</div><div class="stat-lbl">Via UPI</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-university"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(neft)}</div><div class="stat-lbl">Via Bank</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-calendar-day"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(todAmt)}</div><div class="stat-lbl">Today</div></div></div>`;
 }
 function renderPaymentMethodCell(method, iconClass) {
   if (method && method.startsWith('Split:')) {
@@ -17340,36 +17139,45 @@ function _renderPmtPage(){
   const tbody=document.getElementById('paymentsTbody'); if(!tbody) return;
   const s=(PMT.page-1)*PMT.per, e=s+PMT.per, pg=PMT.list.slice(s,e);
 
-  const partyTypeColors = { Customer:['#2E7D32','#E8F5E9'], Supplier:['#E65100','#FFF3E0'], Transporter:['#1976D2','#E3F2FD'], Vendor:['#6A4C93','#F3E8FF'], Other:['#455A64','#ECEFF1'] };
-  const modeColors = { Cash:['#2E7D32','#E8F5E9'], UPI:['#6A4C93','#F3E8FF'], NEFT:['#1976D2','#E3F2FD'], RTGS:['#E65100','#FFF3E0'], Cheque:['#455A64','#ECEFF1'] };
+  // Assign matte color per unique invoice number for visual grouping
+  const invColors=['#455A64','#00695C','#1565C0','#6A1B9A','#4E342E','#37474F','#2E7D32','#283593','#B71C1C','#E65100'];
+  const invNums=[...new Set(pg.map(p=>p.inv))];
+  const invColorMap={};
+  invNums.forEach((num,i)=>{ invColorMap[num]=invColors[i%invColors.length]; });
+  const invCount={};
+  pg.forEach(p=>{ invCount[p.inv]=(invCount[p.inv]||0)+1; });
 
   tbody.innerHTML=pg.map((p,i)=>{
     const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}):p.date;
+    const mi=p.method&&p.method.toLowerCase().includes('upi')?'fa-mobile-alt':p.method&&p.method.toLowerCase().includes('cheque')?'fa-money-check':p.method&&p.method.toLowerCase().includes('cash')?'fa-money-bill-wave':'fa-university';
+    const chipColor=invColorMap[p.inv]||'#455A64';
+    const isMulti=invCount[p.inv]>1;
+    const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
+    const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
-    const [ptColor, ptBg] = partyTypeColors[p.party_type] || partyTypeColors.Other;
-    const modeShort = (p.method||'').startsWith('Split:') ? 'Split' : (p.method||'—').split(' (')[0];
-    const [mColor, mBg] = modeColors[modeShort] || ['#455A64','#ECEFF1'];
-    const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
-    return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
-      <td>${s+i+1}</td>
+    const srcMap = { invoice: ['Invoice','#1976D2','#E3F2FD'], purchase: ['Purchase','#6A4C93','#F3E8FF'], sale: ['Sale','#00897B','#E8F5E9'] };
+    const [srcLabel, srcColor, srcBg] = srcMap[p.source] || srcMap.invoice;
+    const srcBadge = `<span style="font-size:10px;font-weight:700;color:${srcColor};background:${srcBg};padding:2px 8px;border-radius:10px">${srcLabel}</span>`;
+    const methodCell = renderPaymentMethodCell(p.method, mi);
+    return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : isMulti ? 'border-left:3px solid '+chipColor+';background:'+chipColor+'08' : ''}">
       <td style="font-size:12px">${df}</td>
-      <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
-      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:2px 7px;border-radius:9px">${escHtml(p.party_type||'—')}</span></td>
-      <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
-      <td><span style="font-size:10px;font-weight:700;color:${mColor};background:${mBg};padding:2px 7px;border-radius:9px">${escHtml(modeShort)}</span></td>
-      <td><strong style="color:${isDeleted?'var(--muted)':(p.direction==='in'?'#2E7D32':'#223')}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${isDeleted?'#B71C1C':statusColor[0]};background:${isDeleted?'#FFCDD2':statusColor[1]};padding:2px 7px;border-radius:9px">${isDeleted ? 'Deleted' : escHtml(p.status)}</span></td>
-      <td style="display:flex;gap:5px;align-items:center">
-        <button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-eye"></i></button>
-        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)"><i class="fas fa-undo"></i></button>` : (p.source==='voucher' ? `<button class="act-btn" title="Delete" onclick="deletePaymentVoucher(${String(p.id).replace('pv-','')})"><i class="fas fa-trash"></i></button>` : '')}
+      <td>${srcBadge}</td>
+      <td>${invChip}</td>
+      <td><strong>${p.client}</strong></td>
+      <td>${methodCell}</td>
+      <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
+      <td><strong style="font-family:var(--mono);color:${isDeleted?'var(--muted)':'var(--green)'}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
+      <td><span class="badge ${isDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${isDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${isDeleted ? '🗑️ Invoice Deleted' : p.status}</span></td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-receipt"></i></button>
+        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
   const pg2=document.getElementById('pmtPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="pmtPage(${PMT.page-1})" ${PMT.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMT.page?'active':''}" onclick="pmtPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtPage(${PMT.page+1})" ${PMT.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
-  const inf=document.getElementById('pmtInfo'); if(inf)inf.textContent=`Showing ${PMT.list.length?s+1:0}–${Math.min(e,PMT.list.length)} of ${PMT.list.length} entries`;
+  const inf=document.getElementById('pmtInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PMT.list.length)} of ${PMT.list.length}`;
 }
 function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)return;PMT.page=p;_renderPmtPage();}
 
