@@ -3280,7 +3280,7 @@ const SERVER = {
                 </div>
               </div>
               <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate"></div>
+              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
             </div>
 
@@ -14729,10 +14729,10 @@ function printLocalPurchaseVoucher(p) {
     .pill { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
     .pill.gray { background: #eef0f3; color: #556; } .pill.green { background: #e3f6ea; color: #0d7a3f; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #0d3b2e; color: #fff; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; }
+    table.items th { background: #eef0f3; color: #0d3b2e; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #0d3b2e; }
     table.items td { padding: 7px; border-bottom: 1px solid #eef0f3; }
     table.items td.r, table.items th.r { text-align: right; }
-    tfoot td { background: #0d3b2e; color: #fff; font-weight: 700; padding: 9px 7px; }
+    tfoot td { border-top: 2px solid #0d3b2e; border-bottom: 2px solid #0d3b2e; color: #0d3b2e; font-weight: 700; padding: 9px 7px; background: #fff; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .ded-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
     .ded-total { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 700; color: #c0392b; display: flex; justify-content: space-between; }
@@ -14868,8 +14868,8 @@ function printTaxInvoicePurchase(p) {
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-    .grand span { font-size: 11px; text-transform: uppercase; } .grand b { font-size: 20px; }
+    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
@@ -15488,6 +15488,15 @@ function updateSNItem(id, field, val, isText) {
   calcSaleNewTotals();
 }
 
+// The printed invoice's date should match when the sale actually happened —
+// for most sales that's the same day payment was collected, so Payment
+// Date driving Invoice Date is the sane default. Adjust Invoice Date
+// manually afterward if a sale is genuinely invoiced on a different day.
+function syncSNInvoiceDateToPayment() {
+  const payDate = document.getElementById('sn-paydate').value;
+  if (payDate) document.getElementById('sn-invdate').value = payDate;
+}
+
 function calcSNWeightSummary() {
   const gross = parseFloat(document.getElementById('sn-kanta-gross').value) || 0;
   const tare  = parseFloat(document.getElementById('sn-kanta-tare').value) || 0;
@@ -15963,8 +15972,8 @@ function printSaleInvoice(s) {
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-    .grand span { font-size: 11px; text-transform: uppercase; } .grand b { font-size: 20px; }
+    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
