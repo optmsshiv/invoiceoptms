@@ -4064,7 +4064,6 @@ const SERVER = {
             <div style="display:flex;gap:6px">
               <input type="date" id="fr-from" class="table-search" style="max-width:none;flex:1">
               <input type="date" id="fr-to" class="table-search" style="max-width:none;flex:1">
-              <button class="btn btn-outline" style="white-space:nowrap" title="See totals across everything, not just the current range" onclick="setFRAllTime()">All Time</button>
             </div>
           </div>
           <div class="field"><label>Warehouse</label><select id="fr-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
@@ -15003,14 +15002,8 @@ function numToWordsINR(amount) {
 // ══════════════════════════════════════════
 let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
 
-function frMonthStart() { const d = new Date(); return fmt_date(new Date(d.getFullYear(), d.getMonth(), 1)); }
-function setFRAllTime() {
-  document.getElementById('fr-from').value = '2000-01-01';
-  document.getElementById('fr-to').value = fmt_date(new Date());
-  renderFinanceReport();
-}
 function resetFinanceFilter() {
-  document.getElementById('fr-from').value = frMonthStart();
+  document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
   document.getElementById('fr-to').value = fmt_date(new Date());
   document.getElementById('fr-warehouse').value = '';
   renderFinanceReport();
@@ -15018,7 +15011,7 @@ function resetFinanceFilter() {
 
 async function renderFinanceReport() {
   if (!document.getElementById('fr-from').value) {
-    document.getElementById('fr-from').value = frMonthStart();
+    document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
     document.getElementById('fr-to').value = fmt_date(new Date());
   }
   const from = document.getElementById('fr-from').value;
