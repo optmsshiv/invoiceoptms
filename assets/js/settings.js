@@ -55,6 +55,7 @@ async function saveCompanySettings() {
     company_sign: document.getElementById('sc-sign')?.value || STATE.settings.signature || '',
     company_bank: document.getElementById('sc-bank')?.value || STATE.settings.defaultBank || '',
     default_currency: document.getElementById('sc-cur')?.value || STATE.settings.currency || '₹',
+    business_type: document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
@@ -64,6 +65,7 @@ async function saveCompanySettings() {
     signature: payload.company_sign || STATE.settings.signature,
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
+    businessType: payload.business_type,
   });
   try {
     await api('api/settings.php', 'POST', payload);
@@ -252,6 +254,7 @@ function populateSettingsForm() {
   set('sc-logo', s.logo); set('sc-sign', s.signature);
   set('sc-bank', s.defaultBank || '');
   const _scCur = document.getElementById('sc-cur'); if (_scCur && s.currency) _scCur.value = s.currency;
+  const _scBiz = document.getElementById('sc-business-type'); if (_scBiz && s.businessType) _scBiz.value = s.businessType;
   set('sd-due', s.dueDays);
   // NOTE: templates.php isn't built yet — populateTemplateForm() would
   // restore the invoice template color/logo customization UI, which

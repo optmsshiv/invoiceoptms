@@ -40,6 +40,14 @@ include __DIR__ . '/../../includes/layout_header.php';
               </div>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-"></div>
+              <div class="field">
+                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page, and whether Sales/Products show in the sidebar)</span></label>
+                <select id="sc-business-type">
+                  <option value="service">Services (consulting, web dev, ERP…)</option>
+                  <option value="product">Products (trading, import/export, retail…)</option>
+                  <option value="both">Both / Mixed</option>
+                </select>
+              </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"></textarea></div>
               <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
                 <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"></textarea>
