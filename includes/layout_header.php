@@ -37,6 +37,10 @@ $companyLogo    = $settings['company_logo']    ?? '';
 $prefix         = $settings['invoice_prefix']  ?? 'OT-' . date('Y') . '-';
 $estPrefix      = $settings['estimate_prefix'] ?? 'QT-' . date('Y') . '-';
 $firmName       = $user['company_name'] ?? ($settings['company_name'] ?? 'OPTMS Tech');
+// Controls whether Sales/Products (product-mode) nav & pages show —
+// 'service' | 'product' | 'both'. Sales is only relevant for
+// product/trading businesses, so it's the one item gated by this.
+$businessType   = $settings['business_type']   ?? 'both';
 
 // ── Role badge (topbar) ────────────────────────────────────────
 $ROLE_BADGE_COLORS = [
@@ -117,23 +121,26 @@ const SERVER = {
     <?php
     // page => [icon, label, href, permission key]
     $navMain = [
-        'dashboard'     => ['fas fa-th-large',          'Dashboard',           '/pages/dashboard.php',    'menu.dashboard'],
-        'invoices'      => ['fas fa-file-invoice',      'Invoices',            '/pages/invoices.php',     'menu.invoices'],
-        'create'        => ['fas fa-plus-circle',       'New Invoice',         '/pages/create.php',       'menu.create'],
-        'clients'       => ['fas fa-users',              'Clients',            '/pages/clients.php',      'menu.clients'],
-        'products'      => ['fas fa-box',                'Services / Products','/pages/products.php',     'menu.products'],
-        'suppliers'     => ['fas fa-truck-loading',      'Suppliers',          '/pages/suppliers.php',    'menu.suppliers'],
-        'purchases'     => ['fas fa-dolly',               'Purchases',         '/pages/purchases.php',    'menu.purchases'],
-        'stock'         => ['fas fa-warehouse',          'Stock Ledger',        '/pages/stock.php',        'menu.stock'],
-        'payments'      => ['fas fa-credit-card',        'Payments',           '/pages/payments.php',      'menu.payments'],
-        'credit-notes'  => ['fas fa-file-circle-minus',  'Credit Notes',        '/pages/credit_notes.php', 'menu.credit_notes'],
-        'reports'       => ['fas fa-chart-bar',          'Reports',            '/pages/reports.php',       'menu.reports'],
-        'aging'         => ['fas fa-hourglass-half',     'Aging Report',        '/pages/aging.php',        'menu.aging'],
-        'expenses'      => ['fas fa-wallet',              'Expenses',          '/pages/expenses.php',     'menu.expenses'],
-        'tax'           => ['fas fa-landmark',            'Tax Summary',       '/pages/tax.php',           'menu.tax'],
+        'dashboard'     => ['fas fa-th-large',          'Dashboard',           '/dashboard.php',                  'menu.dashboard'],
+        'invoices'      => ['fas fa-file-invoice',      'Invoices',            '/pages/invoices/invoices.php',    'menu.invoices'],
+        'create'        => ['fas fa-plus-circle',       'New Invoice',         '/pages/invoices/create.php',      'menu.create'],
+        'clients'       => ['fas fa-users',              'Clients',            '/pages/clients/clients.php',     'menu.clients'],
+        'products'      => ['fas fa-box',                'Services / Products','/pages/products/products.php',   'menu.products'],
+        'suppliers'     => ['fas fa-truck-loading',      'Suppliers',          '/pages/suppliers/suppliers.php', 'menu.suppliers'],
+        'purchases'     => ['fas fa-dolly',               'Purchases',         '/pages/purchases/purchases.php', 'menu.purchases'],
+        'sales'         => ['fas fa-cash-register',      'Sales',               '/pages/sales/sales.php',         'menu.sales'],
+        'stock'         => ['fas fa-warehouse',          'Stock Ledger',        '/pages/stock/stock.php',         'menu.stock'],
+        'payments'      => ['fas fa-credit-card',        'Payments',           '/pages/payments/payments.php',    'menu.payments'],
+        'credit-notes'  => ['fas fa-file-circle-minus',  'Credit Notes',        '/pages/payments/credit_notes.php', 'menu.credit_notes'],
+        'reports'       => ['fas fa-chart-bar',          'Reports',            '/pages/finance/reports.php',      'menu.reports'],
+        'aging'         => ['fas fa-hourglass-half',     'Aging Report',        '/pages/finance/aging.php',       'menu.aging'],
+        'expenses'      => ['fas fa-wallet',              'Expenses',          '/pages/finance/expenses.php',    'menu.expenses'],
+        'tax'           => ['fas fa-landmark',            'Tax Summary',       '/pages/finance/tax.php',          'menu.tax'],
     ];
     foreach ($navMain as $key => [$icon, $label, $href, $perm]):
         if (!($perms[$perm] ?? true)) continue;
+        // Sales only applies to product/trading businesses.
+        if ($key === 'sales' && !in_array($businessType, ['product', 'both'], true)) continue;
         $active = $activePage === $key ? ' active' : '';
     ?>
     <a class="nav-item<?= $active ?>" href="<?= $href ?>">
@@ -147,13 +154,13 @@ const SERVER = {
     <div class="nav-section-label">TOOLS</div>
     <?php
     $navTools = [
-        'reminders'    => ['fas fa-bell',          'Reminders',      '/pages/reminders.php',    'menu.reminders'],
-        'recurring'    => ['fas fa-sync-alt',      'Recurring',      '/pages/recurring.php',    'menu.recurring'],
-        'portal'       => ['fas fa-link',          'Client Portal',  '/pages/portal.php',       'menu.portal'],
-        'activity'     => ['fas fa-history',       'Activity Log',   '/pages/activity.php',     'menu.activity'],
-        'templates'    => ['fas fa-palette',       'PDF Templates',  '/pages/templates.php',    'menu.templates'],
-        'whatsapp'     => ['fab fa-whatsapp',      'WhatsApp Setup', '/pages/whatsapp.php',      'menu.whatsapp'],
-        'email-setup'  => ['fas fa-envelope',      'Email Setup',    '/pages/email_setup.php',  'menu.email_setup'],
+        'reminders'    => ['fas fa-bell',          'Reminders',      '/pages/tools/reminders.php',    'menu.reminders'],
+        'recurring'    => ['fas fa-sync-alt',      'Recurring',      '/pages/tools/recurring.php',    'menu.recurring'],
+        'portal'       => ['fas fa-link',          'Client Portal',  '/pages/tools/portal.php',       'menu.portal'],
+        'activity'     => ['fas fa-history',       'Activity Log',   '/pages/tools/activity.php',     'menu.activity'],
+        'templates'    => ['fas fa-palette',       'PDF Templates',  '/pages/comms/templates.php',    'menu.templates'],
+        'whatsapp'     => ['fab fa-whatsapp',      'WhatsApp Setup', '/pages/comms/whatsapp.php',      'menu.whatsapp'],
+        'email-setup'  => ['fas fa-envelope',      'Email Setup',    '/pages/comms/email_setup.php',  'menu.email_setup'],
     ];
     foreach ($navTools as $key => [$icon, $label, $href, $perm]):
         if (!($perms[$perm] ?? true)) continue;
@@ -169,17 +176,17 @@ const SERVER = {
 
     <div class="nav-section-label">ACCOUNT</div>
     <?php if ($perms['menu.team'] ?? ($userRole === 'owner' || $userRole === 'super_admin')): ?>
-    <a class="nav-item<?= $activePage === 'team' ? ' active' : '' ?>" href="/pages/team.php">
+    <a class="nav-item<?= $activePage === 'team' ? ' active' : '' ?>" href="/pages/admin/team.php">
       <i class="fas fa-user-friends"></i><span>Team</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.settings'] ?? true): ?>
-    <a class="nav-item<?= $activePage === 'settings' ? ' active' : '' ?>" href="/pages/settings.php">
+    <a class="nav-item<?= $activePage === 'settings' ? ' active' : '' ?>" href="/pages/admin/settings.php">
       <i class="fas fa-cog"></i><span>Settings</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.msglog'] ?? true): ?>
-    <a class="nav-item<?= $activePage === 'msglog' ? ' active' : '' ?>" href="/pages/msglog.php">
+    <a class="nav-item<?= $activePage === 'msglog' ? ' active' : '' ?>" href="/pages/comms/msglog.php">
       <i class="fas fa-comments"></i><span>Message Log</span>
       <span class="nav-badge" id="badge-msglog" style="display:none">0</span>
     </a>
@@ -187,7 +194,7 @@ const SERVER = {
   </nav>
 
   <div class="sidebar-footer">
-    <a class="sidebar-user" href="/pages/profile.php" title="My Profile" style="cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px;transition:.18s;text-decoration:none">
+    <a class="sidebar-user" href="/pages/admin/profile.php" title="My Profile" style="cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px;transition:.18s;text-decoration:none">
       <div class="user-avatar" style="flex-shrink:0;border:2px solid rgba(255,255,255,.15)">
         <?php if (!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover;border-radius:6px"><?php else: ?><?= strtoupper(substr($user['name'], 0, 2)) ?><?php endif; ?>
       </div>
@@ -226,9 +233,9 @@ const SERVER = {
         <div class="search-results" id="searchResults"></div>
       </div>
       <?php if ($perms['menu.create'] ?? true): ?>
-      <button class="topbar-btn" onclick="window.location.href='/pages/create.php'" title="New Invoice"><i class="fas fa-plus"></i></button>
+      <button class="topbar-btn" onclick="window.location.href='/pages/invoices/create.php'" title="New Invoice"><i class="fas fa-plus"></i></button>
       <?php endif; ?>
-      <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="window.location.href='/pages/reminders.php'" title="WA reminders queued">
+      <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="window.location.href='/pages/tools/reminders.php'" title="WA reminders queued">
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
       </button>
@@ -264,10 +271,10 @@ const SERVER = {
             </div>
           </div>
           <div class="user-dropdown-body">
-            <button class="ud-item" onclick="window.location.href='/pages/profile.php'">
+            <button class="ud-item" onclick="window.location.href='/pages/admin/profile.php'">
               <i class="fas fa-user-edit"></i> My Profile
             </button>
-            <button class="ud-item" onclick="window.location.href='/pages/settings.php'">
+            <button class="ud-item" onclick="window.location.href='/pages/admin/settings.php'">
               <i class="fas fa-cog"></i> Settings
             </button>
             <div class="ud-divider"></div>

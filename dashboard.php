@@ -2,8 +2,8 @@
 // ================================================================
 //  pages/dashboard.php
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 requireLogin();
 requirePermission('menu.dashboard');
@@ -17,7 +17,7 @@ $activePage = 'dashboard';
 $pageTitle  = 'Dashboard';
 $pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/dashboard.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/includes/layout_header.php';
 ?>
       <!-- Greeting Header -->
       <div style="margin-bottom:16px">
@@ -34,12 +34,12 @@ include __DIR__ . '/../includes/layout_header.php';
         // for any role not explicitly listed. Each button is still gated by
         // $perms so it always matches what that role can actually access.
         $qaCatalog = [
-          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
-          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
-          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
-          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
-          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
-          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
+          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'invoices/create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
+          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients/clients',   'style' => 'btn-outline', 'perm' => 'menu.clients'],
+          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments/payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
+          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'finance/reports',   'style' => 'btn-outline', 'perm' => 'menu.reports'],
+          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'finance/tax',       'style' => 'btn-outline', 'perm' => 'menu.tax'],
+          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'finance/expenses',  'style' => 'btn-outline', 'perm' => 'menu.expenses'],
         ];
         $qaOrderByRole = [
           'accountant' => ['payments', 'tax', 'expenses', 'clients'],
@@ -56,7 +56,7 @@ include __DIR__ . '/../includes/layout_header.php';
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
           <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
-          <a id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none" href="/pages/invoices.php?filter=draft"></a>
+          <a id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none" href="/pages/invoices/invoices.php?filter=draft"></a>
           <!-- NOTE: invoices.js must read ?filter=draft from the URL on load and
                preselect the status dropdown — this replaces the old
                showPage()+setTimeout() hack from the SPA. -->
@@ -187,7 +187,7 @@ include __DIR__ . '/../includes/layout_header.php';
         <div class="dash-card" style="flex:1;min-width:0">
           <div class="card-header">
             <span class="card-title">Recent Activity</span>
-            <a class="cf-btn" href="/pages/invoices.php">View All</a>
+            <a class="cf-btn" href="/pages/invoices/invoices.php">View All</a>
           </div>
           <div id="dashRecentList"></div>
         </div>
@@ -197,4 +197,4 @@ include __DIR__ . '/../includes/layout_header.php';
           <div id="dashTopClients"></div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/includes/layout_footer.php'; ?>
