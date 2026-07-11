@@ -14687,7 +14687,7 @@ function pneCompanyInfo() {
   const s = STATE.settings || {};
   return {
     name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
-    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '',
+    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
   };
 }
 
@@ -14842,7 +14842,7 @@ function printTaxInvoicePurchase(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -14876,13 +14876,15 @@ function printTaxInvoicePurchase(p) {
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRICULTURE ERP SOLUTIONS</div>
-        <div class="co-meta">
-          ${co.address?escHtml(co.address)+'<br>':''}
-          ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-          ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.address?escHtml(co.address)+'<br>':''}
+            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+          </div>
         </div>
       </div>
       <div>
@@ -14890,6 +14892,7 @@ function printTaxInvoicePurchase(p) {
         <div class="inv-meta">Invoice No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>${p.reference_po_no?`PO Reference: ${escHtml(p.reference_po_no)}`:''}</div>
       </div>
     </div>
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -15846,6 +15849,7 @@ async function editSale(id) {
     document.getElementById('sn-amountreceived').value = s.amount_received || 0;
     document.getElementById('sn-transactionno').value = s.transaction_no || '';
     document.getElementById('sn-paydate').value = s.payment_date || '';
+    if (s.payment_date) syncSNInvoiceDateToPayment();
     document.getElementById('sn-customernotes').value = s.customer_notes || '';
     document.getElementById('sn-internalnotes').value = s.internal_notes || '';
     document.getElementById('sn-deliveryinstructions').value = s.delivery_instructions || '';
@@ -15951,7 +15955,7 @@ function printSaleInvoice(s) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -15980,13 +15984,15 @@ function printSaleInvoice(s) {
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRICULTURE ERP SOLUTIONS</div>
-        <div class="co-meta">
-          ${co.address?escHtml(co.address)+'<br>':''}
-          ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-          ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.address?escHtml(co.address)+'<br>':''}
+            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+          </div>
         </div>
       </div>
       <div>
@@ -15994,6 +16000,7 @@ function printSaleInvoice(s) {
         <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
       </div>
     </div>
+    ${(s.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
