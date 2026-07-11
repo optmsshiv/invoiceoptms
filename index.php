@@ -667,7 +667,7 @@ canvas { max-width: 100% !important; }
   padding: 6px 10px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
 }
 .pne-split-row button { padding: 6px 10px; background: #FFEBEE; color: #C62828; border: none; border-radius: 7px; cursor: pointer; font-size: 12px; }
-.pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 11.5px; line-height: 1.6; }
 .pne-split-footer-total {
   font-size: 13px; font-weight: 700; color: var(--teal); background: rgba(0,137,123,.08);
   border-radius: 7px; padding: 6px 10px; display: flex; justify-content: space-between; margin-bottom: 8px;
