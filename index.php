@@ -15483,6 +15483,12 @@ function goToNewSale() {
   renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
+  // Refresh stock levels in the background — don't block opening the page
+  // on it, but make sure Available Stock isn't showing numbers from
+  // whenever the app was first loaded.
+  api('api/stock.php').then(r => {
+    if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
+  }).catch(() => {});
 }
 
 function cancelSaleEntry() {
@@ -16047,6 +16053,9 @@ async function editSale(id) {
     renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
+    api('api/stock.php').then(r => {
+      if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
+    }).catch(() => {});
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -19854,7 +19863,7 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal, stk] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
@@ -19865,6 +19874,7 @@ async function loadAllData() {
       api('api/purchases.php').catch(() => ({ data: [] })),
       api('api/customers.php').catch(() => ({ data: [] })),
       api('api/sales.php').catch(() => ({ data: [] })),
+      api('api/stock.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
@@ -19875,6 +19885,10 @@ async function loadAllData() {
     STATE.purchases   = Array.isArray(pur.data)  ? pur.data  : [];
     STATE.customers   = Array.isArray(cus.data)  ? cus.data  : [];
     STATE.sales       = Array.isArray(sal.data)  ? sal.data  : [];
+    // Populated at bootstrap so Available Stock lookups (Sale Entry, Stock
+    // In, Stock Adjustment) work immediately, without depending on the user
+    // having visited a stock page first as an accidental side effect.
+    STATE.stock       = Array.isArray(stk.data)  ? stk.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
