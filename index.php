@@ -14450,6 +14450,14 @@ function togglePNESplitPayment() {
   panel.style.display = isSplit ? 'block' : 'none';
   if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
     addPNESplitRow(); addPNESplitRow();
+    // First method starts with the full Amount Paid — a fresh split usually
+    // begins as "all of it via one method" and gets divided from there,
+    // rather than starting at zero.
+    const amountPaid = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+    if (amountPaid > 0) {
+      const firstAmt = document.querySelector('#pne-split-rows .pne-split-row .pne-split-amt');
+      if (firstAmt) firstAmt.value = amountPaid.toFixed(2);
+    }
     syncPNESplitAutoRow();
   }
 }
