@@ -14455,9 +14455,21 @@ function togglePNESplitPayment() {
 }
 
 // Called on every row's oninput and from Amount Paid's oninput — every row
-// is freely editable (no forced auto-row), Split Total is just a live sum,
-// and a mismatch warning fires if it doesn't match Amount Paid.
+// stays freely editable (no forced auto-row while genuinely splitting
+// across multiple methods). But if zeroing one row leaves exactly one
+// other method active, that's no longer really a split — so that
+// remaining method is restored to the full Amount Paid automatically,
+// instead of leaving a stale partial number sitting there.
 function syncPNESplitAutoRow() {
+  const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
+  const amtInputs = rows.map(r => r.querySelector('.pne-split-amt'));
+  const nonZero = amtInputs.filter(el => (parseFloat(el.value) || 0) > 0);
+  if (rows.length > 1 && nonZero.length === 1) {
+    const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+    if (target > 0 && Math.abs((parseFloat(nonZero[0].value) || 0) - target) > 0.004) {
+      nonZero[0].value = target.toFixed(2);
+    }
+  }
   renderPNESplitFooter();
   updatePNESplitMismatch();
 }
@@ -14551,7 +14563,7 @@ function getPNESplitLabel() {
   const parts = Array.from(rows).map(r => {
     const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
     const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
@@ -14821,6 +14833,8 @@ function printLocalPurchaseVoucher(p) {
   const gBill  = items.reduce((s,i)=>s+parseFloat(i.billable_weight||0),0);
   const gAmt   = items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const addCharges = (parseFloat(p.transport_charge)||0)+(parseFloat(p.loading_charge)||0)+(parseFloat(p.packing_charge)||0)+(parseFloat(p.other_charges)||0);
+  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
@@ -14901,17 +14915,21 @@ function printLocalPurchaseVoucher(p) {
 
     <div class="row3">
       <div class="box">
-        <h3>DEDUCTIONS &amp; CHARGES</h3>
+        <h3>ADDITIONAL CHARGES</h3>
         <div class="ded-row"><span>Loading &amp; Unloading</span><span>${fmt_money(p.loading_charge)}</span></div>
         <div class="ded-row"><span>Transport Allowance</span><span>${fmt_money(p.transport_charge)}</span></div>
         <div class="ded-row"><span>Packing Materials</span><span>${fmt_money(p.packing_charge)}</span></div>
         <div class="ded-row"><span>Other / Mandi Tax</span><span>${fmt_money(p.other_charges)}</span></div>
-        <div class="ded-total"><span>Total Deductions</span><span>${fmt_money(addCharges + (parseFloat(p.discount_amount)||0))}</span></div>
+        <div class="ded-total" style="color:#0d7a3f"><span>Total Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
       </div>
       <div class="box">
         <h3>PAYMENT SETTLEMENT</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
-        <div class="pay-row"><span>Total Deductions</span><span>- ${fmt_money(addCharges + (parseFloat(p.discount_amount)||0))}</span></div>
+        <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
+        ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="pay-net"><span>Net Payable</span><span>${fmt_money(p.total)}</span></div>
         <div class="paymode">
           <span class="${p.payment_mode==='Cash'?'active':''}">Cash</span>
@@ -14920,6 +14938,11 @@ function printLocalPurchaseVoucher(p) {
         </div>
       </div>
     </div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="ded-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     ${p.remarks ? `<div class="box" style="margin-bottom:16px"><h3>OBSERVATIONS &amp; REMARKS</h3><div class="remark">${escHtml(p.remarks)}</div></div>` : ''}
 
@@ -14953,6 +14976,8 @@ function printTaxInvoicePurchase(p) {
       <td class="r"><strong>${fmt_money((it.amount||0) * (1 + (it.gst_pct||0)/100))}</strong></td>
     </tr>`).join('');
   const isInterstate = p.supply_type === 'Inter-State';
+  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
@@ -15047,12 +15072,20 @@ function printTaxInvoicePurchase(p) {
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(p.cash_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total GST</span><span>${fmt_money(p.gst_amount)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(0)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(p.total)}</b></div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(p.total)}</strong></div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="sig-row">
       <div class="sig">Supplier Signature</div>
@@ -15779,6 +15812,15 @@ function toggleSNSplitPayment() {
 }
 
 function syncSNSplitAutoRow() {
+  const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
+  const amtInputs = rows.map(r => r.querySelector('.pne-split-amt'));
+  const nonZero = amtInputs.filter(el => (parseFloat(el.value) || 0) > 0);
+  if (rows.length > 1 && nonZero.length === 1) {
+    const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+    if (target > 0 && Math.abs((parseFloat(nonZero[0].value) || 0) - target) > 0.004) {
+      nonZero[0].value = target.toFixed(2);
+    }
+  }
   renderSNSplitFooter();
   updateSNSplitMismatch();
 }
@@ -15843,7 +15885,7 @@ function getSNSplitLabel() {
   const parts = Array.from(rows).map(r => {
     const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
     const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
@@ -21622,7 +21664,7 @@ function getSplitMethodLabel() {
   const parts = Array.from(rows).map(r => {
     const m = r.querySelector('.split-method')?.value || '';
     const a = parseFloat(r.querySelector('.split-amt')?.value || 0);
-    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
