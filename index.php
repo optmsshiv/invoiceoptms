@@ -14450,32 +14450,28 @@ function togglePNESplitPayment() {
   panel.style.display = isSplit ? 'block' : 'none';
   if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
     addPNESplitRow(); addPNESplitRow();
-    // First method starts with the full Amount Paid — a fresh split usually
-    // begins as "all of it via one method" and gets divided from there,
-    // rather than starting at zero.
-    const amountPaid = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-    if (amountPaid > 0) {
-      const firstAmt = document.querySelector('#pne-split-rows .pne-split-row .pne-split-amt');
-      if (firstAmt) firstAmt.value = amountPaid.toFixed(2);
-    }
+    // syncPNESplitAutoRow fills row 1 with (Amount Paid − others) = the
+    // full Amount Paid on a fresh open, and keeps rebalancing it live as
+    // amounts are typed into the other rows.
     syncPNESplitAutoRow();
   }
 }
 
-// Called on every row's oninput and from Amount Paid's oninput — every row
-// stays freely editable (no forced auto-row while genuinely splitting
-// across multiple methods). But if zeroing one row leaves exactly one
-// other method active, that's no longer really a split — so that
-// remaining method is restored to the full Amount Paid automatically,
-// instead of leaving a stale partial number sitting there.
-function syncPNESplitAutoRow() {
+// Auto-balance: the FIRST method row acts as the remainder — whenever you
+// type an amount into any OTHER row, row 1 is recomputed as
+// (Amount Paid − sum of all other rows), live. Editing row 1 directly is
+// still allowed (that edit is respected as-is; the mismatch warning covers
+// any resulting gap). `changedEl` is the input the user actually typed in.
+function syncPNESplitAutoRow(changedEl) {
   const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
-  const amtInputs = rows.map(r => r.querySelector('.pne-split-amt'));
-  const nonZero = amtInputs.filter(el => (parseFloat(el.value) || 0) > 0);
-  if (rows.length > 1 && nonZero.length === 1) {
-    const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-    if (target > 0 && Math.abs((parseFloat(nonZero[0].value) || 0) - target) > 0.004) {
-      nonZero[0].value = target.toFixed(2);
+  if (rows.length > 1) {
+    const firstAmt = rows[0].querySelector('.pne-split-amt');
+    const editedFirstRow = changedEl && rows[0].contains(changedEl);
+    if (!editedFirstRow && firstAmt) {
+      const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+      let othersSum = 0;
+      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
     }
   }
   renderPNESplitFooter();
@@ -14499,7 +14495,10 @@ function restorePNESplitFromLabel(label) {
     const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
     rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
   });
-  syncPNESplitAutoRow();
+  // Pass row 1's input as the "changed" element so restore shows the exact
+  // saved amounts rather than recomputing row 1 as a remainder.
+  const firstRowAmt = document.querySelector('#pne-split-rows .pne-split-row .pne-split-amt');
+  syncPNESplitAutoRow(firstRowAmt);
 }
 function setPNESplitRowMethod(rowIndex, method) {
   const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
@@ -14516,7 +14515,7 @@ function addPNESplitRow() {
   row.innerHTML = `<select class="pne-split-method" onchange="renderPNESplitFooter()">
       <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncPNESplitAutoRow()">
+    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncPNESplitAutoRow(this)">
     <button type="button" onclick="removePNESplitRow(this)"><i class="fas fa-times"></i></button>`;
   container.appendChild(row);
   renderPNESplitFooter();
@@ -15819,14 +15818,16 @@ function toggleSNSplitPayment() {
   }
 }
 
-function syncSNSplitAutoRow() {
+function syncSNSplitAutoRow(changedEl) {
   const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
-  const amtInputs = rows.map(r => r.querySelector('.pne-split-amt'));
-  const nonZero = amtInputs.filter(el => (parseFloat(el.value) || 0) > 0);
-  if (rows.length > 1 && nonZero.length === 1) {
-    const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-    if (target > 0 && Math.abs((parseFloat(nonZero[0].value) || 0) - target) > 0.004) {
-      nonZero[0].value = target.toFixed(2);
+  if (rows.length > 1) {
+    const firstAmt = rows[0].querySelector('.pne-split-amt');
+    const editedFirstRow = changedEl && rows[0].contains(changedEl);
+    if (!editedFirstRow && firstAmt) {
+      const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+      let othersSum = 0;
+      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
     }
   }
   renderSNSplitFooter();
@@ -15840,7 +15841,7 @@ function addSNSplitRow() {
   row.innerHTML = `<select class="pne-split-method" onchange="renderSNSplitFooter()">
       <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow()">
+    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow(this)">
     <button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>`;
   container.appendChild(row);
   renderSNSplitFooter();
@@ -15912,7 +15913,8 @@ function restoreSNSplitFromLabel(label) {
     const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
     rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
   });
-  syncSNSplitAutoRow();
+  const firstSNRowAmt = document.querySelector('#sn-split-rows .pne-split-row .pne-split-amt');
+  syncSNSplitAutoRow(firstSNRowAmt);
 }
 function setSNSplitRowMethod(rowIndex, method) {
   const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
