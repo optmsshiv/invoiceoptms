@@ -160,13 +160,13 @@ switch ($method) {
     $saleId = (int)$db->lastInsertId();
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $itemStmt->execute([
-        $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '',
+        $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);
@@ -248,13 +248,13 @@ switch ($method) {
     $db->prepare('DELETE FROM sale_items WHERE sale_id = ?')->execute([$id]);
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $itemStmt->execute([
-        $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '',
+        $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);

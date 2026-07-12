@@ -3206,13 +3206,13 @@ const SERVER = {
               <table class="data-table pne-items-table" id="sn-items-table">
                 <colgroup>
                   <col style="width:30px"><col style="width:130px"><col style="width:90px">
-                  <col style="width:85px"><col style="width:65px"><col style="width:80px">
+                  <col style="width:85px"><col style="width:65px"><col style="width:80px"><col style="width:65px">
                   <col style="width:90px"><col style="width:100px"><col style="width:75px">
                   <col style="width:55px"><col style="width:80px"><col style="width:70px">
                   <col style="width:55px"><col style="width:85px"><col style="width:90px"><col style="width:56px">
                 </colgroup>
                 <thead><tr>
-                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th>
+                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
                   <th>Available Stock (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th><th>Unit</th>
                   <th>Rate (₹/Kg)</th><th>Discount (%)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
                 </tr></thead>
@@ -15387,7 +15387,7 @@ let snDeductionSeq = 1;
 let snItemSeq = 1;
 
 function snEmptyItem() {
-  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '',
+  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '', moisture_pct: null,
     warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
 }
 
@@ -15624,9 +15624,10 @@ function renderSNItemsTable() {
         </select>
       </td>
       <td>${escHtml(prod?.category || '—')}</td>
-      <td><input value="${escHtml(it.variety_grade)}" oninput="updateSNItem(${it.id},'variety_grade',this.value,true)"></td>
+      <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
       <td>${escHtml(prod?.grade || '—')}</td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
+      <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
       <td><span class="pne-computed" style="color:${avail<=0?'#E53935':(avail<(parseFloat(it.qty)||0)?'#E65100':'#00897B')}">${avail.toFixed(2)}</span></td>
       <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
       <td><input type="number" value="${it.qty}" min="0" step="0.01" oninput="updateSNItem(${it.id},'qty',this.value)"></td>
@@ -15955,7 +15956,8 @@ async function saveSaleEntry(mode) {
     attachments: SN.attachments.map(a => a.url),
     items: SN.items.map(it => ({
       product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
-      batch_no: it.batch_no, warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
+      batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
+      warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
       rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
     })),
   };
@@ -15990,7 +15992,7 @@ async function editSale(id) {
     SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
     SN.items = (s.items||[]).map(it => ({
       id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
-      batch_no: it.batch_no || '', warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
+      batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
     }));
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
@@ -16127,6 +16129,7 @@ function printSaleInvoice(s) {
   const rows = items.map(it => `
     <tr>
       <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
+      <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
       <td class="r">${fmt_money(it.rate)}</td>
       <td class="r">${parseFloat(it.discount_pct||0).toFixed(1)}%</td>
@@ -16207,7 +16210,7 @@ function printSaleInvoice(s) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
