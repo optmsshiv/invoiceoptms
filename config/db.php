@@ -26,7 +26,7 @@ define('APP_NAME',    env('APP_NAME', 'OPTMS Tech'));
 define('APP_VERSION', env('APP_VERSION', '2.0.0'));
 define('APP_URL',     env('APP_URL'));
 
-define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 7200));
+define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 15200));
 define('UPLOAD_MAX_SIZE',  (int) env('UPLOAD_MAX_SIZE', 3145728));
 define('UPLOAD_PATH',      __DIR__ . '/../assets/uploads/');
 

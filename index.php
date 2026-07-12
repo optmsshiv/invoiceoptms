@@ -594,6 +594,8 @@ canvas { max-width: 100% !important; }
 .pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
 
 .pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.pne-row2-eq { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 1000px) { .pne-row2-eq { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
 .pne-row3 .field { margin-bottom: 10px; }
 .pne-charge-total {
@@ -2740,6 +2742,26 @@ const SERVER = {
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
           </div>
           <div class="pne-card">
+            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+              <span><i class="fas fa-minus"></i> Deductions</span>
+              <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-indigo"><i class="fas fa-tags"></i> Discounts</div>
+            <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>CD Applicable Within</label>
+              <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+            </div>
+            <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+              <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
+          </div>
+          <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Invoice / Bill (Optional)</div>
             <input type="file" id="pn-attachment" accept="image/png,image/jpeg,application/pdf" style="font-size:12px">
@@ -3203,19 +3225,34 @@ const SERVER = {
             </div>
           </div>
 
-          <!-- 4. Deductions -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
-              <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple deduction lines)</span></span>
-              <button class="btn btn-outline pne-small-btn" onclick="addSNDeduction()"><i class="fas fa-plus"></i> Add Deduction</button>
+          <!-- 4. Deductions & Discounts -->
+          <div class="pne-row2-eq">
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple deduction lines)</span></span>
+                <button class="btn btn-outline pne-small-btn" onclick="addSNDeduction()"><i class="fas fa-plus"></i> Add Deduction</button>
+              </div>
+              <div class="table-card" style="overflow-x:auto">
+                <table class="data-table" style="min-width:420px">
+                  <thead><tr><th style="width:30px">#</th><th>Deduction Type</th><th>Description</th><th style="width:120px">Amount (₹)</th><th style="width:60px">Action</th></tr></thead>
+                  <tbody id="sn-deductions-tbody"></tbody>
+                </table>
+              </div>
+              <div class="pne-charge-total" style="margin-top:10px"><span>Total Deductions</span><strong id="sn-deductions-total" style="color:#E53935">₹0.00</strong></div>
             </div>
-            <div class="table-card" style="overflow-x:auto">
-              <table class="data-table" style="min-width:520px">
-                <thead><tr><th style="width:30px">#</th><th>Deduction Type</th><th>Description</th><th style="width:130px">Amount (₹)</th><th style="width:70px">Action</th></tr></thead>
-                <tbody id="sn-deductions-tbody"></tbody>
-              </table>
+
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
+              <div class="field"><label>Trade Discount (%)</label><input type="number" id="sn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="sn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>CD Applicable Within</label>
+                <select id="sn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+              </div>
+              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+                <span style="color:#2E7D32;font-weight:700">Cash Discount Amount</span><strong id="sn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+              </div>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:4px" id="sn-cashdisc-note">(0% of Total Gross Amount)</div>
             </div>
-            <div class="pne-charge-total" style="margin-top:10px"><span>Total Deductions</span><strong id="sn-deductions-total" style="color:#E53935">₹0.00</strong></div>
           </div>
 
           <!-- 3/4/5 row -->
@@ -3291,6 +3328,8 @@ const SERVER = {
               <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
               <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-cgst-row"><span>CGST</span><strong id="sn-sum-cgst">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-sgst-row"><span>SGST</span><strong id="sn-sum-sgst">₹0.00</strong></div>
@@ -14002,12 +14041,44 @@ function fmt_date_disp(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [] };
+let pnDeductionSeq = 1;
+
+// ── Deductions (Purchase Entry sidebar — compact card list) ──
+function addPNDeduction() {
+  PNE.deductions.push({ id: pnDeductionSeq++, type: '', description: '', amount: 0 });
+  renderPNDeductions();
+}
+function removePNDeduction(id) {
+  PNE.deductions = PNE.deductions.filter(d => d.id !== id);
+  renderPNDeductions();
+}
+function updatePNDeduction(id, field, val) {
+  const d = PNE.deductions.find(x => x.id === id); if (!d) return;
+  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcPurchaseNewTotals();
+}
+function renderPNDeductions() {
+  const box = document.getElementById('pn-deductions-list');
+  if (!box) return;
+  box.innerHTML = PNE.deductions.length ? PNE.deductions.map(d => `
+    <div style="background:var(--bg);border-radius:7px;padding:8px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input placeholder="Type" style="flex:1;font-size:11px;padding:5px 7px" value="${escHtml(d.type)}" oninput="updatePNDeduction(${d.id},'type',this.value)">
+        <button class="item-del" style="width:24px;height:24px" onclick="removePNDeduction(${d.id})" title="Remove"><i class="fas fa-times" style="font-size:10px"></i></button>
+      </div>
+      <input placeholder="Description" style="width:100%;font-size:11px;padding:5px 7px;margin-bottom:6px" value="${escHtml(d.description)}" oninput="updatePNDeduction(${d.id},'description',this.value)">
+      <input type="number" placeholder="Amount (₹)" style="width:100%;font-size:11px;padding:5px 7px" min="0" step="0.01" value="${d.amount}" oninput="updatePNDeduction(${d.id},'amount',this.value)">
+    </div>`).join('') : `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">No deductions added</div>`;
+  calcPurchaseNewTotals();
+}
+
 let pneItemSeq = 1;
 
 function goToNewPurchase() {
   PNE.editingId = null;
   PNE.items = [pneEmptyItem()];
+  PNE.deductions = [];
   PNE.attachmentDataUrl = null;
   PNE.attachmentExisting = null;
   document.getElementById('pne-title').textContent = 'New Purchase Entry';
@@ -14048,6 +14119,10 @@ function goToNewPurchase() {
   document.getElementById('pn-packingcharge').value = 0;
   document.getElementById('pn-othercharge').value = 0;
   document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-tradediscpct').value = 0;
+  document.getElementById('pn-cashdiscpct').value = 0;
+  document.getElementById('pn-cdwithin').value = 'Same Day';
+  renderPNDeductions();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
@@ -14309,7 +14384,17 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
 
   const headerDiscount = parseFloat(document.getElementById('pn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - headerDiscount);
+  const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
+  document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
+
+  const tradeDiscPct = parseFloat(document.getElementById('pn-tradediscpct').value) || 0;
+  const cashDiscPct = parseFloat(document.getElementById('pn-cashdiscpct').value) || 0;
+  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
+  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
+  document.getElementById('pn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
+  document.getElementById('pn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
+
+  const taxable = Math.max(0, subtotal + addCharges - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
 
   // Total Discount in Product Summary = per-item discounts + the header-level
@@ -14527,6 +14612,11 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
     document.getElementById('pn-discount').value = p.discount_amount || 0;
+    document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
+    document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
+    document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
+    PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
+    renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
@@ -14647,6 +14737,10 @@ async function savePurchaseEntry(mode) {
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
     discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
+    cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
+    cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
     payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
@@ -15369,6 +15463,9 @@ function goToNewSale() {
   document.getElementById('sn-othercharge').value = 0;
   document.getElementById('sn-roundoff').value = 0;
   document.getElementById('sn-discount').value = 0;
+  document.getElementById('sn-tradediscpct').value = 0;
+  document.getElementById('sn-cashdiscpct').value = 0;
+  document.getElementById('sn-cdwithin').value = 'Same Day';
   document.getElementById('sn-paystatus').value = 'Pending';
   document.getElementById('sn-paymethod').value = 'Cash';
   document.getElementById('sn-split-panel').style.display = 'none';
@@ -15610,8 +15707,17 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-deductions').textContent = fmt_money(totalDeductions);
   document.getElementById('sn-sb-deductions').textContent = fmt_money(totalDeductions);
 
+  const tradeDiscPct = parseFloat(document.getElementById('sn-tradediscpct').value) || 0;
+  const cashDiscPct = parseFloat(document.getElementById('sn-cashdiscpct').value) || 0;
+  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
+  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
+  document.getElementById('sn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
+  document.getElementById('sn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
+  document.getElementById('sn-sum-tradedisc').textContent = fmt_money(tradeDiscAmt);
+  document.getElementById('sn-sum-cashdisc').textContent = fmt_money(cashDiscAmt);
+
   const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions);
+  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
   document.getElementById('sn-sb-taxable').textContent = fmt_money(taxable);
 
@@ -15831,6 +15937,9 @@ async function saveSaleEntry(mode) {
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
     deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
+    cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
+    cd_applicable_within: document.getElementById('sn-cdwithin').value,
     payment_status: document.getElementById('sn-paystatus').value,
     payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
@@ -15916,6 +16025,9 @@ async function editSale(id) {
     document.getElementById('sn-othercharge').value = s.other_charges || 0;
     document.getElementById('sn-roundoff').value = s.round_off || 0;
     document.getElementById('sn-discount').value = s.discount_amount || 0;
+    document.getElementById('sn-tradediscpct').value = s.trade_discount_pct || 0;
+    document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
+    document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
     const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
     document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');

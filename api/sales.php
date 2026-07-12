@@ -113,8 +113,12 @@ switch ($method) {
 
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
+    $tradeDiscPct = (float)($d['trade_discount_pct'] ?? 0);
+    $cashDiscPct  = (float)($d['cash_discount_pct'] ?? 0);
+    $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
+    $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
 
-    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount, 2);
+    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
     // Item-level tax was computed against each line's own subtotal; scale it
     // proportionally if a header discount changed the taxable base, so total
     // tax stays consistent with the taxable amount actually being charged.
@@ -133,19 +137,19 @@ switch ($method) {
     $stmt = $db->prepare('INSERT INTO sales
       (invoice_no, customer_id, sale_date, due_date, sales_executive, payment_terms, sales_type, place_of_supply, currency,
        subtotal, transport_charge, loading_charge, packing_charge, insurance_charge, other_charges, round_off, discount_amount,
-       deductions, deduction_amount,
+       deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        taxable_amount, cgst_amount, sgst_amount, igst_amount, total_tax, total,
        payment_status, payment_method, amount_received, transaction_no, payment_date,
        customer_notes, internal_notes, delivery_instructions, attachments,
        prepared_by, checked_by, approved_by, status,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime, kanta_operator_name,
        kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg)
-      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
+      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
     $stmt->execute([
       $invoiceNo, (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
       $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount,
-      json_encode($deductions), $deductionAmount,
+      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
@@ -198,8 +202,12 @@ switch ($method) {
 
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
+    $tradeDiscPct = (float)($d['trade_discount_pct'] ?? 0);
+    $cashDiscPct  = (float)($d['cash_discount_pct'] ?? 0);
+    $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
+    $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
 
-    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount, 2);
+    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
     $totalTax = $subtotal > 0 ? round($itemsTax * ($taxable / $subtotal), 2) : 0;
 
     $isInterstate = !empty($d['is_interstate']);
@@ -215,7 +223,7 @@ switch ($method) {
     $db->prepare('UPDATE sales SET
       customer_id=?, sale_date=?, due_date=?, sales_executive=?, payment_terms=?, sales_type=?, place_of_supply=?, currency=?,
       subtotal=?, transport_charge=?, loading_charge=?, packing_charge=?, insurance_charge=?, other_charges=?, round_off=?, discount_amount=?,
-      deductions=?, deduction_amount=?,
+      deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       taxable_amount=?, cgst_amount=?, sgst_amount=?, igst_amount=?, total_tax=?, total=?,
       payment_status=?, payment_method=?, amount_received=?, transaction_no=?, payment_date=?,
       customer_notes=?, internal_notes=?, delivery_instructions=?, attachments=?,
@@ -226,7 +234,7 @@ switch ($method) {
       (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
       $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount,
-      json_encode($deductions), $deductionAmount,
+      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
