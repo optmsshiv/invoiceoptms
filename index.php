@@ -594,7 +594,7 @@ canvas { max-width: 100% !important; }
 .pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
 
 .pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-.pne-row2-eq { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.pne-row2-eq { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
 @media (max-width: 1000px) { .pne-row2-eq { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
 .pne-row3 .field { margin-bottom: 10px; }
@@ -3343,18 +3343,6 @@ const SERVER = {
             </div>
           </div>
 
-          <!-- Attachments -->
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <label class="pp-dropzone" for="sn-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here<br>or click to upload</div>
-            </label>
-            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-
           <!-- Notes -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
@@ -3394,6 +3382,16 @@ const SERVER = {
             <div class="pne-kv"><span>Invoice Value</span><strong id="sn-sb-invvalue">₹0.00</strong></div>
             <div class="pne-kv"><span>Paid Amount</span><strong id="sn-sb-paidamount">₹0.00</strong></div>
             <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
+            <label class="pp-dropzone" for="sn-attachments-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop files here<br>or click to upload</div>
+            </label>
+            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
+            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><i class="fas fa-bolt"></i> Quick Actions</div>
@@ -16227,6 +16225,8 @@ function printSaleInvoice(s) {
       <div class="box">
         <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
