@@ -525,6 +525,7 @@ canvas { max-width: 100% !important; }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .pne-actions { display: flex; gap: 8px; }
 .pne-btn-save, .pne-btn-savenew, .pne-btn-print { background: var(--teal); color: #fff; border: none; }
+@keyframes pp-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
@@ -2940,10 +2941,13 @@ const SERVER = {
           <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
         </div>
         <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
+          <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
+          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
         </div>
+      </div>
+      <div id="pp-loading-bar" style="display:none;height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin:-6px 0 12px">
+        <div style="height:100%;width:35%;background:#00897B;border-radius:99px;animation:pp-slide 1.1s ease-in-out infinite"></div>
       </div>
 
       <div class="pne-layout">
@@ -3417,24 +3421,90 @@ const SERVER = {
 
     <!-- ─────────── SALES LIST ─────────── -->
     <div id="page-sales-list" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search sales…" oninput="filterSales(this.value)" id="saleSearch">
-        <select class="table-filter" onchange="renderSales()" id="saleStatusFilter">
-          <option value="">All Status</option>
-          <option>Pending</option><option>Partial</option><option>Paid</option>
-        </select>
-        <div style="flex:1"></div>
-        <span id="saleCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> Add Sale</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="salesTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="saleInfo"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Sales List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Sales &gt; Sales List</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> New Sale Invoice</button>
+          <button class="btn btn-outline" onclick="exportSalesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>From Date</label><input type="date" id="sl-f-from"></div>
+          <div class="field"><label>To Date</label><input type="date" id="sl-f-to"></div>
+          <div class="field"><label>Customer</label><select id="sl-f-customer"><option value="">All Customers</option></select></div>
+          <div class="field"><label>Warehouse</label><select id="sl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field"><label>Status</label><select id="sl-f-status"><option value="">All Status</option><option>Confirmed</option><option>Draft</option></select></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>Payment Status</label><select id="sl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
+          <div class="field"><label>Invoice No.</label><input id="sl-f-invno" placeholder="Enter Invoice No."></div>
+          <div class="field"><label>Product</label><select id="sl-f-product"><option value="">All Products</option></select></div>
+          <div class="field"><label>Sales Executive</label><select id="sl-f-exec"><option value="">All Sales Executive</option></select></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="SL_PAGE=1; renderSales()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetSalesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-file-invoice"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Invoices</div>
+          <div style="font-size:18px;font-weight:800" id="sl-stat-count">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sl-stat-range1">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
+          <div style="font-size:18px;font-weight:800" id="sl-stat-qty">0.00 Kg</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales Amount</div>
+          <div style="font-size:17px;font-weight:800" id="sl-stat-amount">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="sl-stat-paid">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="sl-stat-out">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Sales Invoices</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:980px">
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
+            <tbody id="salesTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="saleInfo"></div>
+          <div style="display:flex;gap:5px" id="sl-pagination"></div>
+        </div>
+      </div>
+
+      <div id="sl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share invoices using the action buttons.</div>
+        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('sl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
@@ -3716,7 +3786,7 @@ const SERVER = {
                 </select>
               </div>
               <div class="field"><label>Adjustment Type *</label>
-                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Other</option></select>
+                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Opening Stock Correction</option><option>Other</option></select>
               </div>
             </div>
             <div class="pne-grid4">
@@ -4210,6 +4280,20 @@ const SERVER = {
     </div>
 
     <!-- ═══════════ STOCK HISTORY ═══════════ -->
+    <div id="page-stock-txn-details" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h1 style="margin:0">Stock Transaction Details</h1>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:3px">Dashboard › Inventory › Stock History › Transaction Details</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="showPage('stock-history'); renderStockHistory();"><i class="fas fa-arrow-left"></i> Back to Stock History</button>
+          <button class="btn btn-outline" onclick="printStockTxnDetails()"><i class="fas fa-print"></i> Print</button>
+        </div>
+      </div>
+      <div id="stx-body"></div>
+    </div>
+
     <div id="page-stock-history" class="page">
       <div style="font-size:20px;font-weight:800;color:var(--text)">Stock History</div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px;margin-bottom:16px">Dashboard &gt; Inventory &gt; Stock History</div>
@@ -7430,6 +7514,7 @@ function toggleSidebar() {
 
 const breadcrumbs = {
   dashboard:'Dashboard', invoices:'Invoices', create:'Create Invoice',
+  'stock-txn-details':'Stock Transaction Details',
   clients:'Clients', products:'Services & Products', payments:'Payments', 'payments-product':'Payments', 'payments-service':'Payments',
   'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
@@ -13677,8 +13762,19 @@ async function saveProductEntry(mode) {
     tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
   };
 
+  // Loading state — product payloads can be large (base64 images/attachments),
+  // so make it obvious that the save is in progress rather than frozen.
+  const payloadSizeMB = JSON.stringify(payload).length / (1024 * 1024);
+  if (payloadSizeMB > 8) {
+    toast(`⚠️ Attachments/images total ~${payloadSizeMB.toFixed(1)} MB — upload may take a while or be rejected by the server. Consider smaller images.`, 'warning');
+  }
   const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  const allBtns = ['pp-btn-cancel','pp-btn-savenew','pp-btn-save'].map(id => document.getElementById(id)).filter(Boolean);
+  const origHtml = btn ? btn.innerHTML : '';
+  allBtns.forEach(b => b.disabled = true);
+  if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  const loadBar = document.getElementById('pp-loading-bar');
+  if (loadBar) loadBar.style.display = 'block';
   try {
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
@@ -13697,7 +13793,11 @@ async function saveProductEntry(mode) {
       renderProducts();
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally {
+    allBtns.forEach(b => b.disabled = false);
+    if (btn) btn.innerHTML = origHtml;
+    if (loadBar) loadBar.style.display = 'none';
+  }
 }
 
 function _showAddProductRow(prefill) {
@@ -15492,14 +15592,144 @@ function renderSHTable() {
 }
 
 function renderSHActionCell(row, refLabel) {
+  // Viewing (eye) is the primary action for every ledger row — corrections
+  // are handled through Stock Adjustment, not by editing history directly.
+  const eye = `<button class="act-btn" title="View transaction details" onclick="viewStockTxnDetails(${row.id})"><i class="fas fa-eye"></i></button>`;
   if (row.ref_type === 'adjustment') {
-    return `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
+    return eye + `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
   }
-  const editFn = { stock_in: 'editStockIn', purchase: 'editPurchase', sale: 'editSale' }[row.ref_type];
-  if (editFn && row.ref_id) {
-    return `<button class="act-btn" title="Edit ${escHtml(refLabel[row.ref_type]||'')}" onclick="${editFn}(${row.ref_id})"><i class="fas fa-pen"></i></button>`;
+  return eye;
+}
+
+// ── Stock Transaction Details page ─────────────────────────────
+// Full read-only breakdown of one ledger row: overview, product info,
+// quantity/value summary, and the product's complete ledger flow.
+async function viewStockTxnDetails(ledgerId) {
+  const row = (SH_LAST_ROWS||[]).find(r => String(r.id) === String(ledgerId));
+  if (!row) { toast('❌ Transaction not found — refresh Stock History', 'error'); return; }
+
+  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
+  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
+  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
+  const refType = row.ref_type || '';
+  const prod = (STATE.products||[]).find(p => String(p.id).replace(/\D/g,'') === String(row.product_id)) || {};
+  const rate = parseFloat(row.rate) || parseFloat(prod.rate) || 0;
+  const qty = parseFloat(row.qty) || 0;
+  const bal = parseFloat(row.running_balance) || 0;
+
+  const kv = (label, val) => `<div style="min-width:140px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:12.5px;font-weight:600">${val}</div></div>`;
+  const chip = (label, val, color, bg, icon) => `
+    <div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+      <span style="width:40px;height:40px;border-radius:9px;background:${bg};color:${color};display:flex;align-items:center;justify-content:center"><i class="fas fa-${icon}"></i></span>
+      <div><div style="font-size:11px;font-weight:700;color:${color}">${label}</div><div style="font-size:16px;font-weight:800">${val}</div></div>
+    </div>`;
+
+  document.getElementById('stx-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-receipt"></i> Transaction Overview</div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px 28px">
+          ${kv('Transaction Type', `<span style="font-size:11px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:3px 10px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span>`)}
+          ${kv('Reference Type', escHtml(refLabel[refType]||'—'))}
+          ${kv('Reference No.', escHtml(row.reference_no||'—'))}
+          ${kv('Date', fmt_date_disp(row.movement_date))}
+          ${kv('Batch / Lot No.', escHtml(row.batch_no||'—'))}
+          ${kv('Warehouse', escHtml(row.warehouse||'Main Warehouse'))}
+          ${kv('Remarks', escHtml(row.notes||'—'))}
+        </div>
+      </div>
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-box"></i> Product Information</div>
+        <div class="pne-kv"><span>Product</span><strong>${escHtml(row.product_name||prod.name||'—')}</strong></div>
+        <div class="pne-kv"><span>Category</span><strong>${escHtml(prod.category||'—')}</strong></div>
+        <div class="pne-kv"><span>Variety</span><strong>${escHtml(prod.variety||'—')}</strong></div>
+        <div class="pne-kv"><span>Grade</span><strong>${escHtml(prod.grade||'—')}</strong></div>
+        <div class="pne-kv"><span>Unit</span><strong>Kg</strong></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-chart-line"></i> Quantity &amp; Value Summary</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          ${chip('Quantity In', row.direction==='in' ? qty.toFixed(2)+' Kg' : '—', '#00897B', '#E8F5E9', 'arrow-right-to-bracket')}
+          ${chip('Quantity Out', row.direction==='out' ? qty.toFixed(2)+' Kg' : '—', '#E53935', '#FFEBEE', 'arrow-right-from-bracket')}
+          ${chip('Balance Quantity', bal.toFixed(2)+' Kg', '#1976D2', '#E3F2FD', 'scale-balanced')}
+        </div>
+      </div>
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-indian-rupee-sign"></i> Financial Summary</div>
+        <div class="pne-kv"><span>Rate (₹ / Kg)</span><strong>${rate > 0 ? fmt_money(rate) : '—'}</strong></div>
+        <div class="pne-kv"><span>Transaction Value (₹)</span><strong>${rate > 0 ? fmt_money(qty * rate) : '—'}</strong></div>
+        <div class="pne-kv"><span>Balance Value (₹)</span><strong>${rate > 0 ? fmt_money(bal * rate) : '—'}</strong></div>
+      </div>
+    </div>
+
+    <div class="pne-card" style="margin-bottom:16px">
+      <div class="pne-card-head pne-head-green"><i class="fas fa-timeline"></i> Stock Ledger Flow (This Product)</div>
+      <div class="table-card" style="overflow-x:auto">
+        <table class="data-table" style="min-width:820px">
+          <thead><tr><th>#</th><th>Date</th><th>Transaction Type</th><th>Reference No.</th><th>In (Kg)</th><th>Out (Kg)</th><th>Balance (Kg)</th><th>Rate (₹/Kg)</th><th>Remarks</th></tr></thead>
+          <tbody id="stx-flow-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px"><i class="fas fa-spinner fa-spin"></i> Loading product history…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 14px"><i class="fas fa-circle-info"></i> <b>Note:</b> In (Kg) increases stock. Out (Kg) decreases stock. To correct any figure, create a Stock Adjustment — history rows are never edited directly.</div>
+  `;
+
+  showPage('stock-txn-details');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
+
+  // Load the product's full ledger flow (all time), highlighting this row
+  try {
+    const params = new URLSearchParams({ date_from: '2000-01-01', date_to: fmt_date(new Date()), product_id: row.product_id });
+    const r = await api('api/stock_history.php?' + params.toString());
+    const flow = Array.isArray(r.data) ? r.data : [];
+    const tbody = document.getElementById('stx-flow-tbody');
+    if (!tbody) return; // user navigated away while loading
+    tbody.innerHTML = flow.length ? flow.map((f, i) => {
+      const isThis = String(f.id) === String(ledgerId);
+      const fType = f.ref_type || '';
+      return `<tr style="${isThis ? 'background:#E8F5E9' : ''}">
+        <td>${i+1}</td>
+        <td>${fmt_date_disp(f.movement_date)}${isThis ? ' <span style="font-size:9px;font-weight:800;color:#00897B">◀ THIS</span>' : ''}</td>
+        <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[fType]||'#889'};background:${typeColor[fType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[fType]||'Unknown'}</span></td>
+        <td>${escHtml(f.reference_no||'—')}</td>
+        <td style="color:#00897B;font-weight:600">${f.direction==='in'?parseFloat(f.qty).toFixed(2):'—'}</td>
+        <td style="color:#E53935;font-weight:600">${f.direction==='out'?parseFloat(f.qty).toFixed(2):'—'}</td>
+        <td><strong>${parseFloat(f.running_balance).toFixed(2)}</strong></td>
+        <td>${(parseFloat(f.rate)||0) > 0 ? parseFloat(f.rate).toFixed(2) : '—'}</td>
+        <td style="color:var(--muted);font-size:11px">${escHtml(f.notes||'—')}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No history for this product</td></tr>`;
+  } catch(e) {
+    const tbody = document.getElementById('stx-flow-tbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Could not load product history</td></tr>`;
   }
-  return `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`;
+}
+
+function printStockTxnDetails() {
+  const body = document.getElementById('stx-body');
+  if (!body) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>Stock Transaction Details</title><style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 24px; font-size: 12px; }
+    .pne-card { border: 1px solid #dde3ea; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+    .pne-card-head { font-weight: 800; color: #0d3b2e; margin-bottom: 12px; font-size: 13px; }
+    .pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #667; }
+    .pne-kv strong { color: #223; }
+    .stx-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 7px 8px; font-size: 11px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #f4f6f8; font-size: 10px; text-transform: uppercase; }
+    .table-card { overflow: visible; }
+  </style></head><body>
+    <h2 style="margin:0 0 14px">Stock Transaction Details</h2>
+    ${body.innerHTML}
+    <script>window.print();<\\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 function exportStockHistoryCsv() {
@@ -16235,39 +16465,182 @@ async function deleteSale(id) {
 
 function filterSales(q) { SALES_SEARCH = q || ''; renderSales(); }
 let SALES_SEARCH = '';
+// ── Sales List page ─────────────────────────────────────────────
+let SL_PAGE = 1;
+const SL_PAGESIZE = 10;
+
+function populateSalesListFilters() {
+  // Customer dropdown
+  const custSel = document.getElementById('sl-f-customer');
+  if (custSel && custSel.options.length <= 1) {
+    custSel.innerHTML = '<option value="">All Customers</option>' +
+      (STATE.customers||[]).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+  }
+  // Product dropdown
+  const prodSel = document.getElementById('sl-f-product');
+  if (prodSel && prodSel.options.length <= 1) {
+    prodSel.innerHTML = '<option value="">All Products</option>' +
+      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
+  }
+  // Sales Executive dropdown — distinct values from actual sales
+  const execSel = document.getElementById('sl-f-exec');
+  if (execSel) {
+    const cur = execSel.value;
+    const execs = [...new Set((STATE.sales||[]).map(s => (s.sales_executive||'').trim()).filter(Boolean))].sort();
+    execSel.innerHTML = '<option value="">All Sales Executive</option>' +
+      execs.map(e => `<option ${e===cur?'selected':''}>${escHtml(e)}</option>`).join('');
+  }
+  // Default date range: this month (only when both fields are empty)
+  const fromEl = document.getElementById('sl-f-from'), toEl = document.getElementById('sl-f-to');
+  if (fromEl && toEl && !fromEl.value && !toEl.value) {
+    const now = new Date();
+    fromEl.value = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
+    toEl.value = fmt_date(now);
+  }
+}
+
+function resetSalesFilter() {
+  const now = new Date();
+  document.getElementById('sl-f-from').value = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
+  document.getElementById('sl-f-to').value = fmt_date(now);
+  ['sl-f-customer','sl-f-warehouse','sl-f-status','sl-f-paystatus','sl-f-product','sl-f-exec'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('sl-f-invno').value = '';
+  SL_PAGE = 1;
+  renderSales();
+}
+
+function slFilteredSales() {
+  const from = document.getElementById('sl-f-from')?.value || '';
+  const to = document.getElementById('sl-f-to')?.value || '';
+  const cust = document.getElementById('sl-f-customer')?.value || '';
+  const wh = document.getElementById('sl-f-warehouse')?.value || '';
+  const status = document.getElementById('sl-f-status')?.value || '';
+  const pay = document.getElementById('sl-f-paystatus')?.value || '';
+  const invno = (document.getElementById('sl-f-invno')?.value || '').trim().toLowerCase();
+  const prod = document.getElementById('sl-f-product')?.value || '';
+  const exec = document.getElementById('sl-f-exec')?.value || '';
+
+  return (STATE.sales||[]).filter(s => {
+    const d = (s.sale_date||'').slice(0,10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (cust && String(s.customer_id) !== String(cust)) return false;
+    if (wh && (s.warehouse||'Main Warehouse') !== wh) return false;
+    if (status && (s.status||'Confirmed') !== status) return false;
+    if (pay && s.payment_status !== pay) return false;
+    if (invno && !(s.invoice_no||'').toLowerCase().includes(invno)) return false;
+    if (prod) {
+      const ids = String(s.product_ids||'').split(',').map(x => x.trim());
+      if (!ids.includes(prod)) return false;
+    }
+    if (exec && (s.sales_executive||'').trim() !== exec) return false;
+    return true;
+  });
+}
+
 function renderSales() {
   const tbody = document.getElementById('salesTbody');
   if (!tbody) return;
-  const statusF = document.getElementById('saleStatusFilter')?.value || '';
-  let list = STATE.sales || [];
-  if (SALES_SEARCH) {
-    const q = SALES_SEARCH.toLowerCase();
-    list = list.filter(s => (s.invoice_no||'').toLowerCase().includes(q) || (s.customer_name||'').toLowerCase().includes(q));
+  populateSalesListFilters();
+  const list = slFilteredSales();
+
+  // ── Stats over the filtered set ────────────────────────────
+  const totQty = list.reduce((a,s) => a + (parseFloat(s.total_qty)||0), 0);
+  const totAmt = list.reduce((a,s) => a + (parseFloat(s.total)||0), 0);
+  const totPaid = list.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
+  const totOut = Math.max(0, totAmt - totPaid);
+  document.getElementById('sl-stat-count').textContent = list.length;
+  document.getElementById('sl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+  document.getElementById('sl-stat-amount').textContent = fmt_money(totAmt);
+  document.getElementById('sl-stat-paid').textContent = fmt_money(totPaid);
+  document.getElementById('sl-stat-out').textContent = fmt_money(totOut);
+  const fromV = document.getElementById('sl-f-from')?.value, toV = document.getElementById('sl-f-to')?.value;
+  document.getElementById('sl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / SL_PAGESIZE));
+  if (SL_PAGE > totalPages) SL_PAGE = totalPages;
+  const start = (SL_PAGE - 1) * SL_PAGESIZE;
+  const pageRows = list.slice(start, start + SL_PAGESIZE);
+  document.getElementById('saleInfo').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+SL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('sl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="slPage(${SL_PAGE-1})" ${SL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===SL_PAGE?'active':''}" onclick="slPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="slPage(${SL_PAGE+1})" ${SL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
   }
-  if (statusF) list = list.filter(s => s.payment_status === statusF);
-  document.getElementById('saleInfo').textContent = list.length + ' sale' + (list.length===1?'':'s');
-  document.getElementById('saleCountInfo').textContent = (STATE.sales||[]).length + ' total';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No sales yet — click "Add Sale" to create one</td></tr>`;
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
     return;
   }
-  const statusColor = { Pending:'#FFA000', Partial:'#E65100', Paid:'#00897B' };
-  tbody.innerHTML = list.map(s => `
+
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935' };
+  const statusMap = { Confirmed: { label:'Completed', color:'#00897B' }, Draft: { label:'Draft', color:'#1976D2' } };
+  tbody.innerHTML = pageRows.map((s, i) => {
+    const st = statusMap[s.status||'Confirmed'] || { label: s.status||'—', color:'#889' };
+    const pc = payColor[s.payment_status] || '#889';
+    return `
     <tr>
+      <td>${start + i + 1}</td>
       <td><strong>${escHtml(s.invoice_no)}</strong></td>
-      <td>${escHtml(s.customer_name||'—')}</td>
       <td>${fmt_date_disp(s.sale_date)}</td>
-      <td>${s.item_count ?? ''}</td>
-      <td>${fmt_money(s.total)}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${statusColor[s.payment_status]||'#888'};background:${statusColor[s.payment_status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(s.payment_status)}</span></td>
+      <td>${escHtml(s.customer_name||'—')}</td>
+      <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
+      <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
-        <div class="action-cell">
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View" onclick="printSaleEntry(${s.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Edit" onclick="editSale(${s.id})"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Delete" onclick="deleteSale(${s.id})"><i class="fas fa-trash"></i></button>
+          <button class="act-btn" title="Print" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i></button>
+          <button class="act-btn" title="Download PDF" onclick="printSaleEntry(${s.id})"><i class="fas fa-download"></i></button>
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="editSale(${s.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="deleteSale(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function slPage(p) {
+  const totalPages = Math.max(1, Math.ceil(slFilteredSales().length / SL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  SL_PAGE = p;
+  renderSales();
+}
+
+function exportSalesExcel() {
+  const list = slFilteredSales();
+  if (!list.length) { toast('⚠️ No sales to export for the selected filters', 'warning'); return; }
+  const rows = [['#','Invoice No.','Invoice Date','Customer','Qty (Kg)','Net Amount','Amount Received','Outstanding','Payment Status','Status','Sales Executive','Warehouse']];
+  list.forEach((s, i) => {
+    const total = parseFloat(s.total)||0, recd = parseFloat(s.amount_received)||0;
+    rows.push([
+      i+1, s.invoice_no||'', s.sale_date||'', s.customer_name||'',
+      (parseFloat(s.total_qty)||0).toFixed(2), total.toFixed(2), recd.toFixed(2), Math.max(0, total-recd).toFixed(2),
+      s.payment_status||'', s.status||'Confirmed', s.sales_executive||'', s.warehouse||'Main Warehouse'
+    ]);
+  });
+  _downloadCSV(rows, 'sales_list.csv');
+  toast('✅ Exported ' + list.length + ' sales', 'success');
 }
 
 // Quick Actions "Print Invoice" — prints the real saved invoice if we're
@@ -17416,19 +17789,13 @@ async function renderSTIRecentHistory() {
     const rows = Array.isArray(r.data) ? r.data : [];
     if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No stock-in entries yet</div>'; return; }
     box.innerHTML = rows.map(r => `
-      <div style="border-bottom:1px solid var(--border);padding-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
-          <span style="display:flex;gap:4px">
-            <button class="act-btn" title="Edit" onclick="editStockIn(${r.id})"><i class="fas fa-pen" style="font-size:10px"></i></button>
-            <button class="act-btn" title="Delete" onclick="deleteStockInEntry(${r.id})"><i class="fas fa-trash" style="font-size:10px"></i></button>
-          </span>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="min-width:0">
+          <strong style="font-size:12.5px;display:block">${escHtml(r.reference_no)}</strong>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.stock_in_type)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
-          <span style="font-size:11px;color:var(--muted)">${escHtml(r.stock_in_type)}</span>
-          <span style="font-size:10.5px;font-weight:700;color:#00897B;background:#E8F5E918;padding:2px 8px;border-radius:10px">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
+        <span style="font-size:11px;font-weight:700;color:#00897B;background:#E8F5E9;padding:4px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
 }

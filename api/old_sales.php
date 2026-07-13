@@ -78,9 +78,7 @@ switch ($method) {
     }
 
     $stmt = $db->query('SELECT s.*, c.name AS customer_name,
-      (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS item_count,
-      (SELECT COALESCE(SUM(si.qty),0) FROM sale_items si WHERE si.sale_id = s.id) AS total_qty,
-      (SELECT GROUP_CONCAT(DISTINCT si.product_id) FROM sale_items si WHERE si.sale_id = s.id) AS product_ids
+      (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS item_count
       FROM sales s JOIN customers c ON c.id = s.customer_id ORDER BY s.sale_date DESC, s.id DESC');
     jsonResponse(['data' => $stmt->fetchAll()]);
     break;
