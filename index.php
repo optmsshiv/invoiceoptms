@@ -743,6 +743,15 @@ canvas { max-width: 100% !important; }
 
 /* Actions cell */
 .action-cell { display: flex; align-items: center; gap: 6px; }
+/* 3-dot action dropdown menu */
+.act-menu-wrap { position: relative; display: inline-block; }
+.act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
+.act-menu.open { display: block; }
+.act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
+.act-menu button:hover { background: var(--bg); }
+.act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
+.act-menu button.danger { color: #E53935; }
+.act-menu button.danger i { color: #E53935; }
 .act-btn {
   width: 30px; height: 30px; border-radius: 7px; border: none;
   background: var(--bg); cursor: pointer; font-size: 12px; color: var(--muted);
@@ -3960,7 +3969,7 @@ const SERVER = {
             <div class="pne-grid5">
               <div class="field"><label>Reference No.</label><input id="sti-refno" placeholder="Auto-generated"></div>
               <div class="field"><label>Reference Date *</label><input type="date" id="sti-refdate"></div>
-              <div class="field"><label>Warehouse *</label><select id="sti-warehouse"><option>Main Warehouse</option></select></div>
+              <div class="field"><label>Warehouse *</label><select id="sti-warehouse"><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
               <div class="field"><label>Stock In Type *</label>
                 <select id="sti-type"><option>Purchase</option><option>Transfer</option><option>Return</option><option>Adjustment</option><option>Other</option></select>
               </div>
@@ -13872,7 +13881,14 @@ function renderSuppliers() {
           ${SUP.archived
             ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
             : `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>
-               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>`}
+               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>
+               <span class="act-menu-wrap">
+                 <button class="act-btn" title="More actions" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis-vertical"></i></button>
+                 <span class="act-menu">
+                   <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View PDF</button>
+                   <button class="danger" onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash"></i> Delete</button>
+                 </span>
+               </span>`}
         </div>
       </td>
     </tr>`).join('');
@@ -13938,6 +13954,88 @@ async function saveSupplier() {
     renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Supplier'; } }
+}
+
+// ── 3-dot action menu (generic) ──
+function toggleActMenu(ev, btn) {
+  ev.stopPropagation();
+  const menu = btn.parentElement.querySelector('.act-menu');
+  const wasOpen = menu.classList.contains('open');
+  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
+  if (!wasOpen) menu.classList.add('open');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
+});
+
+// Printable supplier profile — opens in a new tab, ready for Save as PDF.
+function viewSupplierPdf(id) {
+  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
+  if (!s) { toast('❌ Supplier not found', 'error'); return; }
+  const co = pneCompanyInfo();
+  const kv = (label, val) => val ? `<div class="kv"><span>${label}</span><b>${escHtml(String(val))}</b></div>` : '';
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>${escHtml(s.name)} — Supplier Profile</title><style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
+    .co-name { font-size: 17px; font-weight: 800; color: #0d3b2e; }
+    .badge { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
+    h2 { font-size: 16px; margin: 0 0 2px; }
+    .sub { font-size: 11px; color: #6b7c93; margin-bottom: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .box { border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
+    .box h3 { font-size: 11px; color: #0d3b2e; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .5px; }
+    .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; padding: 4px 0; color: #667; }
+    .kv b { color: #223; text-align: right; }
+    .footer { margin-top: 26px; border-top: 1px solid #eef0f3; padding-top: 10px; font-size: 9.5px; color: #99a; display: flex; justify-content: space-between; }
+  </style></head><body>
+    <div class="head">
+      <div style="display:flex;gap:12px;align-items:center">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
+        <div class="co-name">${escHtml(co.name)}</div>
+      </div>
+      <div class="badge">SUPPLIER PROFILE</div>
+    </div>
+    <h2>${escHtml(s.name)}</h2>
+    <div class="sub">${escHtml(s.supplier_type||'')}${s.status==='archived'?' · ARCHIVED':''}</div>
+    <div class="grid">
+      <div class="box"><h3>Contact</h3>
+        ${kv('Contact Person', s.contact_person)}${kv('Phone', s.phone)}${kv('Email', s.email)}
+        ${kv('Address', s.address)}${kv('City', s.city)}${kv('State', s.state)}${kv('Country', s.country)}${kv('PIN Code', s.pincode)}
+      </div>
+      <div class="box"><h3>Tax &amp; Registration</h3>
+        ${kv('GSTIN', s.gst_number)}${kv('PAN No.', s.pan_no)}${kv('Aadhaar No.', s.aadhaar_no)}
+        ${kv('FSSAI License', s.fssai_no)}${kv('Payment Terms', s.payment_terms)}
+      </div>
+      <div class="box"><h3>Bank Details</h3>
+        ${kv('Bank Name', s.bank_name)}${kv('Account No.', s.bank_account_no)}${kv('IFSC Code', s.bank_ifsc)}${kv('Branch', s.bank_branch)}
+      </div>
+      <div class="box"><h3>Other</h3>
+        ${kv('Opening Balance', s.opening_balance ? fmt_money(s.opening_balance) : '')}
+        ${kv('Notes', s.notes)}
+      </div>
+    </div>
+    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())}</span></div>
+    <script>window.print();<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+async function deleteSupplierPermanent(id) {
+  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
+  const conf = await Swal.fire({
+    title: 'Permanently delete this supplier?',
+    html: `"<b>${escHtml(s?.name||'')}</b>" will be removed forever. This cannot be undone.<br><br><span style="font-size:12px;color:#888">Suppliers with purchase history cannot be deleted — use Archive for those.</span>`,
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete Permanently', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/suppliers.php?id=' + id + '&permanent=1', 'DELETE');
+    toast('🗑️ Supplier permanently deleted', 'info');
+    renderSuppliers();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function archiveSupplier(id) {
@@ -17333,7 +17431,20 @@ async function editStockIn(id) {
     calcSTIWeight();
     if (d.slip_path) {
       document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
+    } else {
+      document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Upload weight slip<br><span style="font-size:10px">PDF, JPG, PNG (Max 5MB)</span></div>`;
     }
+    // Clear the product entry row + summary sidebar so nothing stale from a
+    // previous session shows alongside this entry's loaded items.
+    ['sti-p-product','sti-p-variety','sti-p-grade','sti-p-category','sti-p-unit','sti-p-batchno','sti-p-mfgdate','sti-p-expdate','sti-p-qty','sti-p-rate'].forEach(fid => {
+      const el = document.getElementById(fid); if (el) el.value = '';
+    });
+    ['sti-sum-product','sti-sum-batch','sti-sum-warehouse'].forEach(fid => {
+      const el = document.getElementById(fid); if (el) el.textContent = '—';
+    });
+    ['sti-sum-before','sti-sum-inward','sti-sum-after'].forEach(fid => {
+      const el = document.getElementById(fid); if (el) el.textContent = '0.00 Kg';
+    });
     populateSTISupplierDropdown();
     document.getElementById('sti-supplier').value = d.supplier_id || '';
     document.getElementById('sti-challanno').value = d.challan_no || '';

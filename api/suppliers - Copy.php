@@ -105,19 +105,6 @@ switch ($method) {
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);
-    if (!empty($_GET['permanent'])) {
-      // Hard delete — only allowed if no purchases reference this supplier,
-      // otherwise history would break. Archive is the right tool for those.
-      $refCount = $db->prepare('SELECT COUNT(*) c FROM purchases WHERE supplier_id = ?');
-      $refCount->execute([$id]);
-      if ((int)$refCount->fetch()['c'] > 0) {
-        jsonResponse(['error' => 'This supplier has purchase records and cannot be permanently deleted. Use Archive instead.'], 400);
-      }
-      $db->prepare('DELETE FROM suppliers WHERE id = ?')->execute([$id]);
-      logActivity((int)$_SESSION['user_id'], 'delete', 'supplier', $id, 'Supplier permanently deleted');
-      jsonResponse(['success' => true]);
-      break;
-    }
     $stmt = $db->prepare('UPDATE suppliers SET status = "archived" WHERE id = ?');
     $stmt->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'archive', 'supplier', $id, 'Supplier archived');

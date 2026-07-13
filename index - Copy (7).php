@@ -594,6 +594,8 @@ canvas { max-width: 100% !important; }
 .pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
 
 .pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.pne-row2-eq { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 1000px) { .pne-row2-eq { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
 .pne-row3 .field { margin-bottom: 10px; }
 .pne-charge-total {
@@ -647,6 +649,8 @@ canvas { max-width: 100% !important; }
 .pp-tag-chip button { background: none; border: none; color: #E65100; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
 .pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
 .pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
+.pp-attach-row .pp-attach-actions { display: flex; align-items: center; gap: 10px; }
+.pp-attach-row .pp-attach-view { color: var(--teal); }
 
 .pne-split-card { border: 1.5px solid #FFCC80; border-left: 4px solid #FB8C00; border-radius: 10px; background: #FFF8E1; padding: 14px; }
 .pne-split-card-head { font-weight: 700; font-size: 13px; color: #E65100; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -1592,7 +1596,7 @@ const SERVER = {
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
-    <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
+    <a class="nav-item" data-page="payments" onclick="showPaymentsPage(this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
     <?php endif; ?>
@@ -2545,7 +2549,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
               <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
@@ -2736,6 +2740,26 @@ const SERVER = {
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+              <span><i class="fas fa-minus"></i> Deductions</span>
+              <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-indigo"><i class="fas fa-tags"></i> Discounts</div>
+            <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>CD Applicable Within</label>
+              <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+            </div>
+            <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+              <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
@@ -2936,7 +2960,9 @@ const SERVER = {
               <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Variety</label><input id="pp-variety" placeholder="e.g. Premium"></div>
+              <div class="field"><label>Variety</label>
+                <select id="pp-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+              </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
                   <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
@@ -2950,7 +2976,7 @@ const SERVER = {
             </div>
             <div class="pne-grid4">
               <div class="field"><label>Grade</label>
-                <select id="pp-grade"><option value="">—</option><option>A Grade</option><option>B Grade</option><option>Premium</option><option>Standard</option></select>
+                <select id="pp-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
               </div>
               <div class="field"><label>QR Code</label>
                 <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
@@ -3147,7 +3173,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Dharam Kanta Name</label><input id="sn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
               <div class="field"><label>Weighbridge Slip No. *</label><input id="sn-slipno" placeholder="e.g. DK-24581"></div>
@@ -3180,13 +3206,13 @@ const SERVER = {
               <table class="data-table pne-items-table" id="sn-items-table">
                 <colgroup>
                   <col style="width:30px"><col style="width:130px"><col style="width:90px">
-                  <col style="width:85px"><col style="width:65px"><col style="width:80px">
+                  <col style="width:85px"><col style="width:65px"><col style="width:80px"><col style="width:65px">
                   <col style="width:90px"><col style="width:100px"><col style="width:75px">
                   <col style="width:55px"><col style="width:80px"><col style="width:70px">
                   <col style="width:55px"><col style="width:85px"><col style="width:90px"><col style="width:56px">
                 </colgroup>
                 <thead><tr>
-                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th>
+                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
                   <th>Available Stock (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th><th>Unit</th>
                   <th>Rate (₹/Kg)</th><th>Discount (%)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
                 </tr></thead>
@@ -3196,6 +3222,36 @@ const SERVER = {
             <div class="pne-items-footer">
               <span>Total Items <strong id="sn-total-items">0</strong></span>
               <span>Total Quantity <strong id="sn-total-qty">0.00 Kg</strong></span>
+            </div>
+          </div>
+
+          <!-- 4. Deductions & Discounts -->
+          <div class="pne-row2-eq">
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple deduction lines)</span></span>
+                <button class="btn btn-outline pne-small-btn" onclick="addSNDeduction()"><i class="fas fa-plus"></i> Add Deduction</button>
+              </div>
+              <div class="table-card" style="overflow-x:auto">
+                <table class="data-table" style="min-width:420px">
+                  <thead><tr><th style="width:30px">#</th><th>Deduction Type</th><th>Description</th><th style="width:120px">Amount (₹)</th><th style="width:60px">Action</th></tr></thead>
+                  <tbody id="sn-deductions-tbody"></tbody>
+                </table>
+              </div>
+              <div class="pne-charge-total" style="margin-top:10px"><span>Total Deductions</span><strong id="sn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
+              <div class="field"><label>Trade Discount (%)</label><input type="number" id="sn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="sn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
+              <div class="field"><label>CD Applicable Within</label>
+                <select id="sn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+              </div>
+              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+                <span style="color:#2E7D32;font-weight:700">Cash Discount Amount</span><strong id="sn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+              </div>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:4px" id="sn-cashdisc-note">(0% of Total Gross Amount)</div>
             </div>
           </div>
 
@@ -3263,7 +3319,7 @@ const SERVER = {
                 </div>
               </div>
               <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate"></div>
+              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
             </div>
 
@@ -3271,6 +3327,9 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
               <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
+              <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-cgst-row"><span>CGST</span><strong id="sn-sum-cgst">₹0.00</strong></div>
               <div class="pne-summary-row" id="sn-sgst-row"><span>SGST</span><strong id="sn-sum-sgst">₹0.00</strong></div>
@@ -3282,18 +3341,6 @@ const SERVER = {
               <div class="pne-summary-row"><span>Amount Received</span><strong id="sn-sum-received">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Balance Due</span><strong id="sn-sum-balance" style="color:#E53935">₹0.00</strong></div>
             </div>
-          </div>
-
-          <!-- Attachments -->
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <label class="pp-dropzone" for="sn-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here<br>or click to upload</div>
-            </label>
-            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
           </div>
 
           <!-- Notes -->
@@ -3328,9 +3375,23 @@ const SERVER = {
             <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
             <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
             <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
+            <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
+            <div class="pne-kv"><span>Total Additional Charges</span><strong id="sn-sb-addcharges">₹0.00</strong></div>
+            <div class="pne-kv"><span>Taxable Amount</span><strong id="sn-sb-taxable">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
             <div class="pne-kv"><span>Invoice Value</span><strong id="sn-sb-invvalue">₹0.00</strong></div>
-            <div class="pne-kv"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
+            <div class="pne-kv"><span>Paid Amount</span><strong id="sn-sb-paidamount">₹0.00</strong></div>
+            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
+          </div>
+          <div class="pne-card">
+            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
+            <label class="pp-dropzone" for="sn-attachments-input">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <div>Drag &amp; drop files here<br>or click to upload</div>
+            </label>
+            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
+            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
+            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><i class="fas fa-bolt"></i> Quick Actions</div>
@@ -3882,7 +3943,7 @@ const SERVER = {
     <div id="page-stock-in-new" class="page">
       <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock &gt; <strong style="color:var(--text)">Add Stock</strong></span></div>
       <div class="pne-topbar">
-        <div><div class="pne-title">Add Product to Stock (Stock In)</div></div>
+        <div><div class="pne-title" id="sti-page-title">Add Product to Stock (Stock In)</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockIn()">Cancel</button>
           <button class="btn pne-btn-savenew" onclick="saveStockInEntry('new')"><i class="fas fa-plus"></i> Save &amp; New</button>
@@ -3910,9 +3971,10 @@ const SERVER = {
           <!-- 2. Product Details -->
           <div class="pne-card">
             <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Product Details</div>
-            <div class="pne-grid4" style="margin-bottom:6px">
+            <div class="pne-grid5" style="margin-bottom:6px">
               <div class="field"><label>Product *</label><select id="sti-p-product"><option value="">Select product…</option></select></div>
-              <div class="field"><label>Variety / Grade</label><input id="sti-p-variety" placeholder="Optional"></div>
+              <div class="field"><label>Variety</label><select id="sti-p-variety" onchange="onSTIVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select></div>
+              <div class="field"><label>Grade</label><select id="sti-p-grade" onchange="onSTIGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select></div>
               <div class="field"><label>Category</label><input id="sti-p-category" readonly></div>
               <div class="field"><label>Unit</label><input id="sti-p-unit" readonly></div>
             </div>
@@ -3932,8 +3994,8 @@ const SERVER = {
 
             <div class="table-card pit-card" style="overflow-x:auto;margin-top:14px">
               <table class="data-table pne-items-table">
-                <colgroup><col style="width:30px"><col style="width:150px"><col style="width:100px"><col style="width:100px"><col style="width:95px"><col style="width:95px"><col style="width:85px"><col style="width:85px"><col style="width:95px"><col style="width:56px"></colgroup>
-                <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th>Batch / Lot No.</th><th>Mfg. Date</th><th>Expiry Date</th><th>Quantity (Kg)</th><th>Rate (₹/Kg)</th><th>Amount (₹)</th><th>Action</th></tr></thead>
+                <colgroup><col style="width:30px"><col style="width:135px"><col style="width:85px"><col style="width:80px"><col style="width:100px"><col style="width:95px"><col style="width:95px"><col style="width:85px"><col style="width:85px"><col style="width:95px"><col style="width:56px"></colgroup>
+                <thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Grade</th><th>Batch / Lot No.</th><th>Mfg. Date</th><th>Expiry Date</th><th>Quantity (Kg)</th><th>Rate (₹/Kg)</th><th>Amount (₹)</th><th>Action</th></tr></thead>
                 <tbody id="sti-items-tbody"></tbody>
               </table>
             </div>
@@ -3948,7 +4010,7 @@ const SERVER = {
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
-                <select id="sti-weighingtype"><option>Own Weighbridge</option><option>Dharam Kanta</option><option>Platform Scale</option><option>Self Declared</option></select>
+                <select id="sti-weighingtype"><option>Own Weighbridge</option><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Self Declared</option></select>
               </div>
               <div class="field"><label>Weighbridge Name *</label><input id="sti-weighbridgename" placeholder="e.g. AgriTrade Weighbridge - 1"></div>
               <div class="field"><label>Weighbridge Slip No.</label><input id="sti-slipno" placeholder="Optional"></div>
@@ -4012,7 +4074,7 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
               <span><i class="fas fa-history"></i> Recent Stock In History</span>
-              <a href="#" style="font-size:11px;color:var(--teal)" onclick="event.preventDefault()">View All</a>
+              <a href="#" style="font-size:11px;color:var(--teal)" id="sti-viewall-link" onclick="event.preventDefault(); expandSTIHistory();">View All</a>
             </div>
             <div id="sti-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
           </div>
@@ -4039,6 +4101,7 @@ const SERVER = {
             <div style="display:flex;gap:6px">
               <input type="date" id="fr-from" class="table-search" style="max-width:none;flex:1">
               <input type="date" id="fr-to" class="table-search" style="max-width:none;flex:1">
+              <button class="btn btn-outline" style="white-space:nowrap" title="See totals across everything, not just the current range" onclick="setFRAllTime()">All Time</button>
             </div>
           </div>
           <div class="field"><label>Warehouse</label><select id="fr-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
@@ -4147,6 +4210,7 @@ const SERVER = {
             <div style="display:flex;gap:6px">
               <input type="date" id="sh-f-from" class="table-search" style="max-width:none;flex:1">
               <input type="date" id="sh-f-to" class="table-search" style="max-width:none;flex:1">
+              <button class="btn btn-outline" style="white-space:nowrap" title="See full history — useful for tracing a negative Opening Stock back to its source" onclick="setSHAllTime()">All Time</button>
             </div>
           </div>
           <div class="field"><label>Transaction Type</label><select id="sh-f-txntype"><option value="">All</option><option value="in">Stock In</option><option value="out">Stock Out</option><option value="adjustment">Stock Adjustment</option></select></div>
@@ -4221,7 +4285,7 @@ const SERVER = {
 
 
     <!-- ─────────── PAYMENTS ─────────── -->
-    <div id="page-payments" class="page">
+    <div id="page-payments-product" class="page">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
           <div style="font-size:20px;font-weight:800;color:var(--text)">Payments</div>
@@ -4341,6 +4405,47 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-makepayment')">Cancel</button>
           <button class="btn btn-primary" id="mp-save-btn" onclick="saveMakePayment()"><i class="fas fa-check"></i> Save Payment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── PAYMENTS (Service businesses — simple list) ─────────── -->
+    <div id="page-payments-service" class="page">
+      <!-- Summary cards -->
+      <div class="dash-stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px" id="pmtsSummary"></div>
+      <!-- Toolbar -->
+      <div class="page-toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <input type="text" class="table-search" placeholder="Search payments…" oninput="filterPaymentsSvc(this.value)" id="pmtsSearch">
+        <select class="table-filter" onchange="filterPaymentsSvcByMethod(this.value)" id="pmtsMethodFilter">
+          <option value="">All Methods</option>
+          <option>Bank Transfer (NEFT/RTGS)</option>
+          <option>UPI (GPay/PhonePe/Paytm)</option>
+          <option>Cash</option><option>Cheque</option><option>Credit Card</option>
+        </select>
+        <button class="cf-btn" onclick="setPmtsSvcRange('today')" id="pmtsToday">Today</button>
+        <button class="cf-btn" onclick="setPmtsSvcRange('week')" id="pmtsWeek">This Week</button>
+        <button class="cf-btn" onclick="setPmtsSvcRange('month')" id="pmtsMonth">This Month</button>
+        <input type="date" class="table-filter" id="pmtsFrom" onchange="filterPmtsSvcByDate()" style="max-width:130px">
+        <input type="date" class="table-filter" id="pmtsTo" onchange="filterPmtsSvcByDate()" style="max-width:130px">
+        <div style="flex:1"></div>
+        <button class="btn btn-outline" onclick="exportPmtsSvcCSV()"><i class="fas fa-download"></i> Export</button>
+      </div>
+      <!-- Table -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr>
+            <th>Date</th><th>Invoice #</th><th>Client</th>
+            <th>Method</th><th>Txn ID</th><th>Amount</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody id="paymentsSvcTbody"></tbody>
+        </table>
+        <div style="padding:6px 14px 2px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <i class="fas fa-layer-group" style="font-size:10px"></i>
+          <span>Rows sharing the same invoice number share a colour chip. <i class="fas fa-layer-group" style="font-size:9px"></i> icon = multiple payments (partial instalments).</span>
+        </div>
+        <div class="table-footer">
+          <div class="tf-info" id="pmtsInfo"></div>
+          <div class="pagination" id="pmtsPagination"></div>
         </div>
       </div>
     </div>
@@ -7310,7 +7415,7 @@ function toggleSidebar() {
 
 const breadcrumbs = {
   dashboard:'Dashboard', invoices:'Invoices', create:'Create Invoice',
-  clients:'Clients', products:'Services & Products', payments:'Payments',
+  clients:'Clients', products:'Services & Products', payments:'Payments', 'payments-product':'Payments', 'payments-service':'Payments',
   'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
   'email-setup':'Email Setup', settings:'Settings',
@@ -7318,6 +7423,16 @@ const breadcrumbs = {
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
   activity:'Activity Log', profile:'My Profile', team:'Team'
 };
+
+// Payments has two distinct experiences: a simple Invoice-payments list for
+// Service businesses (they have no Purchases/Sales/Vendors), and the rich
+// Purchase/Sale/Vendor payment dashboard for Product businesses — same
+// pattern as how Products/Sales/Customers already gate on business type.
+function showPaymentsPage(el) {
+  const isProduct = STATE.settings.businessType === 'product';
+  showPage(isProduct ? 'payments-product' : 'payments-service', el);
+  if (isProduct) renderPayments(); else renderPaymentsService();
+}
 
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -13381,7 +13496,7 @@ async function pnpAddAttachments(files) {
 function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
 function renderPNPAttachments() {
   document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="pnpRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="pnpRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 function pnpTagKeydown(e) {
@@ -13484,6 +13599,21 @@ function editProductRich(id) {
   renderPNPImages(); renderPNPAttachments(); renderPNPTags();
   showPage('product-new');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
+}
+
+// Grade and Variety are linked by a fixed mapping — picking a Grade
+// auto-selects the corresponding Variety, and vice versa.
+const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
+const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
+function onPPGradeChange() {
+  const grade = document.getElementById('pp-grade').value;
+  const variety = PP_GRADE_VARIETY_MAP[grade];
+  if (variety) document.getElementById('pp-variety').value = variety;
+}
+function onPPVarietyChange() {
+  const variety = document.getElementById('pp-variety').value;
+  const grade = PP_VARIETY_GRADE_MAP[variety];
+  if (grade) document.getElementById('pp-grade').value = grade;
 }
 
 async function saveProductEntry(mode) {
@@ -13890,6 +14020,7 @@ function renderPurchases() {
       <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
       <td>
         <div class="action-cell">
+          <button class="act-btn" title="View" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
         </div>
@@ -13908,12 +14039,44 @@ function fmt_date_disp(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [] };
+let pnDeductionSeq = 1;
+
+// ── Deductions (Purchase Entry sidebar — compact card list) ──
+function addPNDeduction() {
+  PNE.deductions.push({ id: pnDeductionSeq++, type: '', description: '', amount: 0 });
+  renderPNDeductions();
+}
+function removePNDeduction(id) {
+  PNE.deductions = PNE.deductions.filter(d => d.id !== id);
+  renderPNDeductions();
+}
+function updatePNDeduction(id, field, val) {
+  const d = PNE.deductions.find(x => x.id === id); if (!d) return;
+  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcPurchaseNewTotals();
+}
+function renderPNDeductions() {
+  const box = document.getElementById('pn-deductions-list');
+  if (!box) return;
+  box.innerHTML = PNE.deductions.length ? PNE.deductions.map(d => `
+    <div style="background:var(--bg);border-radius:7px;padding:8px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input placeholder="Type" style="flex:1;font-size:11px;padding:5px 7px" value="${escHtml(d.type)}" oninput="updatePNDeduction(${d.id},'type',this.value)">
+        <button class="item-del" style="width:24px;height:24px" onclick="removePNDeduction(${d.id})" title="Remove"><i class="fas fa-times" style="font-size:10px"></i></button>
+      </div>
+      <input placeholder="Description" style="width:100%;font-size:11px;padding:5px 7px;margin-bottom:6px" value="${escHtml(d.description)}" oninput="updatePNDeduction(${d.id},'description',this.value)">
+      <input type="number" placeholder="Amount (₹)" style="width:100%;font-size:11px;padding:5px 7px" min="0" step="0.01" value="${d.amount}" oninput="updatePNDeduction(${d.id},'amount',this.value)">
+    </div>`).join('') : `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">No deductions added</div>`;
+  calcPurchaseNewTotals();
+}
+
 let pneItemSeq = 1;
 
 function goToNewPurchase() {
   PNE.editingId = null;
   PNE.items = [pneEmptyItem()];
+  PNE.deductions = [];
   PNE.attachmentDataUrl = null;
   PNE.attachmentExisting = null;
   document.getElementById('pne-title').textContent = 'New Purchase Entry';
@@ -13954,6 +14117,10 @@ function goToNewPurchase() {
   document.getElementById('pn-packingcharge').value = 0;
   document.getElementById('pn-othercharge').value = 0;
   document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-tradediscpct').value = 0;
+  document.getElementById('pn-cashdiscpct').value = 0;
+  document.getElementById('pn-cdwithin').value = 'Same Day';
+  renderPNDeductions();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
@@ -14215,7 +14382,17 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
 
   const headerDiscount = parseFloat(document.getElementById('pn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - headerDiscount);
+  const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
+  document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
+
+  const tradeDiscPct = parseFloat(document.getElementById('pn-tradediscpct').value) || 0;
+  const cashDiscPct = parseFloat(document.getElementById('pn-cashdiscpct').value) || 0;
+  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
+  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
+  document.getElementById('pn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
+  document.getElementById('pn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
+
+  const taxable = Math.max(0, subtotal + addCharges - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
 
   // Total Discount in Product Summary = per-item discounts + the header-level
@@ -14273,14 +14450,30 @@ function togglePNESplitPayment() {
   panel.style.display = isSplit ? 'block' : 'none';
   if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
     addPNESplitRow(); addPNESplitRow();
+    // syncPNESplitAutoRow fills row 1 with (Amount Paid − others) = the
+    // full Amount Paid on a fresh open, and keeps rebalancing it live as
+    // amounts are typed into the other rows.
     syncPNESplitAutoRow();
   }
 }
 
-// Called on every row's oninput and from Amount Paid's oninput — every row
-// is freely editable (no forced auto-row), Split Total is just a live sum,
-// and a mismatch warning fires if it doesn't match Amount Paid.
-function syncPNESplitAutoRow() {
+// Auto-balance: the FIRST method row acts as the remainder — whenever you
+// type an amount into any OTHER row, row 1 is recomputed as
+// (Amount Paid − sum of all other rows), live. Editing row 1 directly is
+// still allowed (that edit is respected as-is; the mismatch warning covers
+// any resulting gap). `changedEl` is the input the user actually typed in.
+function syncPNESplitAutoRow(changedEl) {
+  const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
+  if (rows.length > 1) {
+    const firstAmt = rows[0].querySelector('.pne-split-amt');
+    const editedFirstRow = changedEl && rows[0].contains(changedEl);
+    if (!editedFirstRow && firstAmt) {
+      const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
+      let othersSum = 0;
+      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
+    }
+  }
   renderPNESplitFooter();
   updatePNESplitMismatch();
 }
@@ -14302,7 +14495,10 @@ function restorePNESplitFromLabel(label) {
     const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
     rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
   });
-  syncPNESplitAutoRow();
+  // Pass row 1's input as the "changed" element so restore shows the exact
+  // saved amounts rather than recomputing row 1 as a remainder.
+  const firstRowAmt = document.querySelector('#pne-split-rows .pne-split-row .pne-split-amt');
+  syncPNESplitAutoRow(firstRowAmt);
 }
 function setPNESplitRowMethod(rowIndex, method) {
   const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
@@ -14319,7 +14515,7 @@ function addPNESplitRow() {
   row.innerHTML = `<select class="pne-split-method" onchange="renderPNESplitFooter()">
       <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncPNESplitAutoRow()">
+    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncPNESplitAutoRow(this)">
     <button type="button" onclick="removePNESplitRow(this)"><i class="fas fa-times"></i></button>`;
   container.appendChild(row);
   renderPNESplitFooter();
@@ -14374,7 +14570,7 @@ function getPNESplitLabel() {
   const parts = Array.from(rows).map(r => {
     const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
     const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
@@ -14388,7 +14584,7 @@ async function editPurchase(id) {
     PNE.attachmentDataUrl = null;
     PNE.attachmentExisting = p.attachment_path || null;
     PNE.items = (p.items||[]).map(it => ({
-      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id || '', description: it.description,
+      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
       variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
@@ -14433,6 +14629,11 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
     document.getElementById('pn-discount').value = p.discount_amount || 0;
+    document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
+    document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
+    document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
+    PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
+    renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
@@ -14553,6 +14754,10 @@ async function savePurchaseEntry(mode) {
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
     discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
+    cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
+    cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
     payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
@@ -14613,7 +14818,7 @@ function pneCompanyInfo() {
   const s = STATE.settings || {};
   return {
     name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
-    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '',
+    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
   };
 }
 
@@ -14635,11 +14840,13 @@ function printLocalPurchaseVoucher(p) {
   const gBill  = items.reduce((s,i)=>s+parseFloat(i.billable_weight||0),0);
   const gAmt   = items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const addCharges = (parseFloat(p.transport_charge)||0)+(parseFloat(p.loading_charge)||0)+(parseFloat(p.packing_charge)||0)+(parseFloat(p.other_charges)||0);
+  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -14655,10 +14862,10 @@ function printLocalPurchaseVoucher(p) {
     .pill { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
     .pill.gray { background: #eef0f3; color: #556; } .pill.green { background: #e3f6ea; color: #0d7a3f; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #0d3b2e; color: #fff; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; }
+    table.items th { background: #eef0f3; color: #0d3b2e; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #0d3b2e; }
     table.items td { padding: 7px; border-bottom: 1px solid #eef0f3; }
     table.items td.r, table.items th.r { text-align: right; }
-    tfoot td { background: #0d3b2e; color: #fff; font-weight: 700; padding: 9px 7px; }
+    tfoot td { border-top: 2px solid #0d3b2e; border-bottom: 2px solid #0d3b2e; color: #0d3b2e; font-weight: 700; padding: 9px 7px; background: #fff; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .ded-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
     .ded-total { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 700; color: #c0392b; display: flex; justify-content: space-between; }
@@ -14674,13 +14881,15 @@ function printLocalPurchaseVoucher(p) {
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRI-IMPORT EXPORT DIVISION</div>
-        <div class="co-meta">
-          ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
-          ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
-          ${co.address?`Address: ${escHtml(co.address)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
+            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
+            ${co.address?`Address: ${escHtml(co.address)}`:''}
+          </div>
         </div>
       </div>
       <div>
@@ -14688,6 +14897,7 @@ function printLocalPurchaseVoucher(p) {
         <div class="voucher-meta">Voucher No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>Warehouse: ${escHtml(p.warehouse||'')}</div>
       </div>
     </div>
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -14712,17 +14922,21 @@ function printLocalPurchaseVoucher(p) {
 
     <div class="row3">
       <div class="box">
-        <h3>DEDUCTIONS &amp; CHARGES</h3>
+        <h3>ADDITIONAL CHARGES</h3>
         <div class="ded-row"><span>Loading &amp; Unloading</span><span>${fmt_money(p.loading_charge)}</span></div>
         <div class="ded-row"><span>Transport Allowance</span><span>${fmt_money(p.transport_charge)}</span></div>
         <div class="ded-row"><span>Packing Materials</span><span>${fmt_money(p.packing_charge)}</span></div>
         <div class="ded-row"><span>Other / Mandi Tax</span><span>${fmt_money(p.other_charges)}</span></div>
-        <div class="ded-total"><span>Total Deductions</span><span>${fmt_money(addCharges + (parseFloat(p.discount_amount)||0))}</span></div>
+        <div class="ded-total" style="color:#0d7a3f"><span>Total Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
       </div>
       <div class="box">
         <h3>PAYMENT SETTLEMENT</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
-        <div class="pay-row"><span>Total Deductions</span><span>- ${fmt_money(addCharges + (parseFloat(p.discount_amount)||0))}</span></div>
+        <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
+        ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="pay-net"><span>Net Payable</span><span>${fmt_money(p.total)}</span></div>
         <div class="paymode">
           <span class="${p.payment_mode==='Cash'?'active':''}">Cash</span>
@@ -14731,6 +14945,11 @@ function printLocalPurchaseVoucher(p) {
         </div>
       </div>
     </div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="ded-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     ${p.remarks ? `<div class="box" style="margin-bottom:16px"><h3>OBSERVATIONS &amp; REMARKS</h3><div class="remark">${escHtml(p.remarks)}</div></div>` : ''}
 
@@ -14764,11 +14983,13 @@ function printTaxInvoicePurchase(p) {
       <td class="r"><strong>${fmt_money((it.amount||0) * (1 + (it.gst_pct||0)/100))}</strong></td>
     </tr>`).join('');
   const isInterstate = p.supply_type === 'Inter-State';
+  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -14794,21 +15015,23 @@ function printTaxInvoicePurchase(p) {
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-    .grand span { font-size: 11px; text-transform: uppercase; } .grand b { font-size: 20px; }
+    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRICULTURE ERP SOLUTIONS</div>
-        <div class="co-meta">
-          ${co.address?escHtml(co.address)+'<br>':''}
-          ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-          ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.address?escHtml(co.address)+'<br>':''}
+            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+          </div>
         </div>
       </div>
       <div>
@@ -14816,6 +15039,7 @@ function printTaxInvoicePurchase(p) {
         <div class="inv-meta">Invoice No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>${p.reference_po_no?`PO Reference: ${escHtml(p.reference_po_no)}`:''}</div>
       </div>
     </div>
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -14855,12 +15079,20 @@ function printTaxInvoicePurchase(p) {
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(p.cash_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total GST</span><span>${fmt_money(p.gst_amount)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(0)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(p.total)}</b></div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(p.total)}</strong></div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="sig-row">
       <div class="sig">Supplier Signature</div>
@@ -14903,8 +15135,14 @@ function numToWordsINR(amount) {
 // ══════════════════════════════════════════
 let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
 
+function frMonthStart() { const d = new Date(); return fmt_date(new Date(d.getFullYear(), d.getMonth(), 1)); }
+function setFRAllTime() {
+  document.getElementById('fr-from').value = '2000-01-01';
+  document.getElementById('fr-to').value = fmt_date(new Date());
+  renderFinanceReport();
+}
 function resetFinanceFilter() {
-  document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+  document.getElementById('fr-from').value = frMonthStart();
   document.getElementById('fr-to').value = fmt_date(new Date());
   document.getElementById('fr-warehouse').value = '';
   renderFinanceReport();
@@ -14912,7 +15150,7 @@ function resetFinanceFilter() {
 
 async function renderFinanceReport() {
   if (!document.getElementById('fr-from').value) {
-    document.getElementById('fr-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('fr-from').value = frMonthStart();
     document.getElementById('fr-to').value = fmt_date(new Date());
   }
   const from = document.getElementById('fr-from').value;
@@ -15030,6 +15268,17 @@ function onSHProductChange() {
   batchSel.innerHTML = '<option value="">Select Batch / Lot</option>' + unique.map(b => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join('');
 }
 
+// When Opening Stock is negative, it means something before the current
+// date range moved more stock out than was ever recorded coming in. This
+// jumps the range back far enough to include everything, so that root
+// transaction becomes visible in the table instead of being hidden
+// upstream of "as on" — the actual bug (if any) will show up as a normal
+// row here rather than as an unexplained negative number.
+function setSHAllTime() {
+  document.getElementById('sh-f-from').value = '2000-01-01';
+  document.getElementById('sh-f-to').value = fmt_date(new Date());
+  renderStockHistory();
+}
 function resetSHFilter() {
   document.getElementById('sh-f-product').value = '';
   document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
@@ -15079,8 +15328,12 @@ async function renderStockHistory() {
     SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
     const stats = r.stats || {};
 
-    document.getElementById('sh-stat-opening').textContent = (stats.opening_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    document.getElementById('sh-stat-opening-date').textContent = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value);
+    const openingVal = stats.opening_stock || 0;
+    const openingEl = document.getElementById('sh-stat-opening');
+    openingEl.textContent = openingVal.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+    openingEl.style.color = openingVal < 0 ? '#E53935' : '';
+    document.getElementById('sh-stat-opening-date').innerHTML = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value) + (pid ? '' : ' (sum across all products)')
+      + (openingVal < 0 ? '<br><span style="color:#E53935"><i class="fas fa-triangle-exclamation"></i> Negative — click "All Time" to find the cause</span>' : '');
     document.getElementById('sh-stat-in').textContent = (stats.total_in||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
@@ -15101,14 +15354,27 @@ function renderSHTable() {
   const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
   const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
   const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
+  // Fallback for any row with a missing ref_type (older data written before
+  // this was consistently set) — infer it from the notes text instead of
+  // just showing a blank cell.
+  function shResolveRefType(row) {
+    if (row.ref_type) return row.ref_type;
+    const n = (row.notes || '').toLowerCase();
+    if (n.startsWith('stock in')) return 'stock_in';
+    if (n.startsWith('purchase')) return 'purchase';
+    if (n.startsWith('sale')) return 'sale';
+    return row.ref_type;
+  }
   // reverse chronological for display (most recent first), matching the rest of the app
   const display = [...rows].reverse();
-  tbody.innerHTML = display.map((row, idx) => `
+  tbody.innerHTML = display.map((row, idx) => {
+    const refType = shResolveRefType(row);
+    return `
     <tr>
       <td>${idx+1}</td>
       <td>${fmt_date_disp(row.movement_date)}</td>
-      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[row.ref_type]||'#889'};background:${typeColor[row.ref_type]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[row.ref_type]||row.ref_type}</span></td>
-      <td>${refLabel[row.ref_type]||row.ref_type}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
+      <td>${refLabel[refType]||'Unknown'}</td>
       <td>${escHtml(row.reference_no||'—')}</td>
       <td>${escHtml(row.batch_no||'—')}</td>
       <td>${escHtml(row.warehouse||'Main Warehouse')}</td>
@@ -15116,8 +15382,20 @@ function renderSHTable() {
       <td style="color:#E53935;font-weight:600">${row.direction==='out'?parseFloat(row.qty).toFixed(2):'—'}</td>
       <td><strong>${parseFloat(row.running_balance).toFixed(2)}</strong></td>
       <td style="color:var(--muted);font-size:11px">${escHtml((row.notes||'').replace(/^(Purchase|Sale|Stock In)\s*/,'').trim() || row.notes || '—')}</td>
-      <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`}</td>
-    </tr>`).join('');
+      <td>${renderSHActionCell({...row, ref_type: refType}, refLabel)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSHActionCell(row, refLabel) {
+  if (row.ref_type === 'adjustment') {
+    return `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
+  }
+  const editFn = { stock_in: 'editStockIn', purchase: 'editPurchase', sale: 'editSale' }[row.ref_type];
+  if (editFn && row.ref_id) {
+    return `<button class="act-btn" title="Edit ${escHtml(refLabel[row.ref_type]||'')}" onclick="${editFn}(${row.ref_id})"><i class="fas fa-pen"></i></button>`;
+  }
+  return `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`;
 }
 
 function exportStockHistoryCsv() {
@@ -15142,12 +15420,47 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [] };
+const SN = { editingId: null, items: [], attachments: [], deductions: [] };
+let snDeductionSeq = 1;
 let snItemSeq = 1;
 
 function snEmptyItem() {
-  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '',
+  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '', moisture_pct: null,
     warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
+}
+
+// ── Deductions (dynamic line items — Tractor Charge, Claim Charge, etc.) ──
+function addSNDeduction() {
+  SN.deductions.push({ id: snDeductionSeq++, type: '', description: '', amount: 0 });
+  renderSNDeductionsTable();
+}
+function removeSNDeduction(id) {
+  SN.deductions = SN.deductions.filter(d => d.id !== id);
+  renderSNDeductionsTable();
+}
+function updateSNDeduction(id, field, val) {
+  const d = SN.deductions.find(x => x.id === id); if (!d) return;
+  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcSaleNewTotals();
+  // keep the total footer fresh without a full re-render on every keystroke
+  document.getElementById('sn-deductions-total').textContent = fmt_money(SN.deductions.reduce((s,x)=>s+(parseFloat(x.amount)||0),0));
+}
+function renderSNDeductionsTable() {
+  const tbody = document.getElementById('sn-deductions-tbody');
+  if (!tbody) return;
+  if (!SN.deductions.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No deductions added</td></tr>`;
+  } else {
+    tbody.innerHTML = SN.deductions.map((d, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><input value="${escHtml(d.type)}" placeholder="e.g. Tractor Charge" oninput="updateSNDeduction(${d.id},'type',this.value)"></td>
+        <td><input value="${escHtml(d.description)}" placeholder="Optional" oninput="updateSNDeduction(${d.id},'description',this.value)"></td>
+        <td><input type="number" value="${d.amount}" min="0" step="0.01" oninput="updateSNDeduction(${d.id},'amount',this.value)"></td>
+        <td><button class="item-del" onclick="removeSNDeduction(${d.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+      </tr>`).join('');
+  }
+  calcSaleNewTotals();
 }
 
 function goToNewSale() {
@@ -15188,6 +15501,9 @@ function goToNewSale() {
   document.getElementById('sn-othercharge').value = 0;
   document.getElementById('sn-roundoff').value = 0;
   document.getElementById('sn-discount').value = 0;
+  document.getElementById('sn-tradediscpct').value = 0;
+  document.getElementById('sn-cashdiscpct').value = 0;
+  document.getElementById('sn-cdwithin').value = 'Same Day';
   document.getElementById('sn-paystatus').value = 'Pending';
   document.getElementById('sn-paymethod').value = 'Cash';
   document.getElementById('sn-split-panel').style.display = 'none';
@@ -15203,9 +15519,16 @@ function goToNewSale() {
   document.getElementById('sn-approvedby').value = '';
   document.getElementById('sn-attachments-input').value = '';
   document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
-  renderSNItemsTable(); renderSNAttachments();
+  SN.deductions = [];
+  renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
+  // Refresh stock levels in the background — don't block opening the page
+  // on it, but make sure Available Stock isn't showing numbers from
+  // whenever the app was first loaded.
+  api('api/stock.php').then(r => {
+    if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
+  }).catch(() => {});
 }
 
 function cancelSaleEntry() {
@@ -15311,7 +15634,11 @@ function removeSNItem(id) {
 
 function snAvailableStock(productId) {
   const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  return s ? parseFloat(s.current_stock)||0 : 0;
+  // STATE.stock is populated by two different endpoints depending on which
+  // page was last visited (api/stock.php uses "current_stock", the newer
+  // api/product_stock.php uses "available_stock") — check both so this
+  // doesn't silently show 0 depending on navigation history.
+  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
 }
 
 function snCalcRow(it) {
@@ -15341,9 +15668,10 @@ function renderSNItemsTable() {
         </select>
       </td>
       <td>${escHtml(prod?.category || '—')}</td>
-      <td><input value="${escHtml(it.variety_grade)}" oninput="updateSNItem(${it.id},'variety_grade',this.value,true)"></td>
+      <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
       <td>${escHtml(prod?.grade || '—')}</td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
+      <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
       <td><span class="pne-computed" style="color:${avail<=0?'#E53935':(avail<(parseFloat(it.qty)||0)?'#E65100':'#00897B')}">${avail.toFixed(2)}</span></td>
       <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
       <td><input type="number" value="${it.qty}" min="0" step="0.01" oninput="updateSNItem(${it.id},'qty',this.value)"></td>
@@ -15364,7 +15692,10 @@ function onSNProductChange(id, productId) {
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) { it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct; }
+    if (p) {
+      it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
+      it.variety_grade = p.variety || it.variety_grade;
+    }
   }
   renderSNItemsTable();
 }
@@ -15376,6 +15707,15 @@ function updateSNItem(id, field, val, isText) {
   const taxEl = document.getElementById('sn-tax-' + id);     if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
   const totEl = document.getElementById('sn-total-' + id);   if (totEl) totEl.textContent = fmt_money(c.lineTotal);
   calcSaleNewTotals();
+}
+
+// The printed invoice's date should match when the sale actually happened —
+// for most sales that's the same day payment was collected, so Payment
+// Date driving Invoice Date is the sane default. Adjust Invoice Date
+// manually afterward if a sale is genuinely invoiced on a different day.
+function syncSNInvoiceDateToPayment() {
+  const payDate = document.getElementById('sn-paydate').value;
+  if (payDate) document.getElementById('sn-invdate').value = payDate;
 }
 
 function calcSNWeightSummary() {
@@ -15405,10 +15745,26 @@ function calcSaleNewTotals() {
   document.getElementById('sn-addcharges-total').textContent = fmt_money(addCharges);
   document.getElementById('sn-sum-addcharges2').textContent = fmt_money(addCharges);
   document.getElementById('sn-sum-subtotal').textContent = fmt_money(subtotal);
+  document.getElementById('sn-sb-addcharges').textContent = fmt_money(addCharges);
+
+  const totalDeductions = SN.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
+  document.getElementById('sn-deductions-total').textContent = fmt_money(totalDeductions);
+  document.getElementById('sn-sum-deductions').textContent = fmt_money(totalDeductions);
+  document.getElementById('sn-sb-deductions').textContent = fmt_money(totalDeductions);
+
+  const tradeDiscPct = parseFloat(document.getElementById('sn-tradediscpct').value) || 0;
+  const cashDiscPct = parseFloat(document.getElementById('sn-cashdiscpct').value) || 0;
+  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
+  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
+  document.getElementById('sn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
+  document.getElementById('sn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
+  document.getElementById('sn-sum-tradedisc').textContent = fmt_money(tradeDiscAmt);
+  document.getElementById('sn-sum-cashdisc').textContent = fmt_money(cashDiscAmt);
 
   const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount);
+  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
+  document.getElementById('sn-sb-taxable').textContent = fmt_money(taxable);
 
   const totalTax = subtotal > 0 ? +(itemsTax * (taxable / subtotal)).toFixed(2) : 0;
   const isInterstate = document.getElementById('sn-salestype').value !== 'Local Sales';
@@ -15439,7 +15795,8 @@ function calcSaleNewTotals() {
 
   document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
   document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
-  document.getElementById('sn-sb-netpayable').textContent = fmt_money(grand);
+  document.getElementById('sn-sb-paidamount').textContent = fmt_money(received);
+  document.getElementById('sn-sb-netpayable').textContent = fmt_money(balance);
   updateSNPartialCard(grand, payStatus);
   syncSNSplitAutoRow();
 }
@@ -15461,7 +15818,18 @@ function toggleSNSplitPayment() {
   }
 }
 
-function syncSNSplitAutoRow() {
+function syncSNSplitAutoRow(changedEl) {
+  const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
+  if (rows.length > 1) {
+    const firstAmt = rows[0].querySelector('.pne-split-amt');
+    const editedFirstRow = changedEl && rows[0].contains(changedEl);
+    if (!editedFirstRow && firstAmt) {
+      const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
+      let othersSum = 0;
+      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
+      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
+    }
+  }
   renderSNSplitFooter();
   updateSNSplitMismatch();
 }
@@ -15473,7 +15841,7 @@ function addSNSplitRow() {
   row.innerHTML = `<select class="pne-split-method" onchange="renderSNSplitFooter()">
       <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
     </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow()">
+    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow(this)">
     <button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>`;
   container.appendChild(row);
   renderSNSplitFooter();
@@ -15526,7 +15894,7 @@ function getSNSplitLabel() {
   const parts = Array.from(rows).map(r => {
     const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
     const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
@@ -15545,7 +15913,8 @@ function restoreSNSplitFromLabel(label) {
     const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
     rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
   });
-  syncSNSplitAutoRow();
+  const firstSNRowAmt = document.querySelector('#sn-split-rows .pne-split-row .pne-split-amt');
+  syncSNSplitAutoRow(firstSNRowAmt);
 }
 function setSNSplitRowMethod(rowIndex, method) {
   const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
@@ -15588,7 +15957,7 @@ async function snAddAttachments(files) {
 function snRemoveAttachment(idx) { SN.attachments.splice(idx, 1); renderSNAttachments(); }
 function renderSNAttachments() {
   document.getElementById('sn-attachments-list').innerHTML = SN.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="snRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 async function saveSaleEntry(mode) {
@@ -15624,6 +15993,10 @@ async function saveSaleEntry(mode) {
     other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
+    deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
+    cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
+    cd_applicable_within: document.getElementById('sn-cdwithin').value,
     payment_status: document.getElementById('sn-paystatus').value,
     payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
@@ -15639,7 +16012,8 @@ async function saveSaleEntry(mode) {
     attachments: SN.attachments.map(a => a.url),
     items: SN.items.map(it => ({
       product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
-      batch_no: it.batch_no, warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
+      batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
+      warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
       rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
     })),
   };
@@ -15673,10 +16047,11 @@ async function editSale(id) {
     SN.editingId = id;
     SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
     SN.items = (s.items||[]).map(it => ({
-      id: snItemSeq++, product_id: it.product_id || '', description: it.description, variety_grade: it.variety_grade || '',
-      batch_no: it.batch_no || '', warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
+      id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
+      batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
     }));
+    SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     document.getElementById('psn-title').textContent = 'Edit Sale Entry';
     document.getElementById('psn-subtitle').textContent = s.invoice_no;
     populateSaleCustomerDropdown();
@@ -15708,6 +16083,9 @@ async function editSale(id) {
     document.getElementById('sn-othercharge').value = s.other_charges || 0;
     document.getElementById('sn-roundoff').value = s.round_off || 0;
     document.getElementById('sn-discount').value = s.discount_amount || 0;
+    document.getElementById('sn-tradediscpct').value = s.trade_discount_pct || 0;
+    document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
+    document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
     const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
     document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
@@ -15717,15 +16095,19 @@ async function editSale(id) {
     document.getElementById('sn-amountreceived').value = s.amount_received || 0;
     document.getElementById('sn-transactionno').value = s.transaction_no || '';
     document.getElementById('sn-paydate').value = s.payment_date || '';
+    if (s.payment_date) syncSNInvoiceDateToPayment();
     document.getElementById('sn-customernotes').value = s.customer_notes || '';
     document.getElementById('sn-internalnotes').value = s.internal_notes || '';
     document.getElementById('sn-deliveryinstructions').value = s.delivery_instructions || '';
     document.getElementById('sn-preparedby').value = s.prepared_by || '';
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
-    renderSNItemsTable(); renderSNAttachments();
+    renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
+    api('api/stock.php').then(r => {
+      if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
+    }).catch(() => {});
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -15776,6 +16158,7 @@ function renderSales() {
       <td><span style="font-size:11px;font-weight:700;color:${statusColor[s.payment_status]||'#888'};background:${statusColor[s.payment_status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(s.payment_status)}</span></td>
       <td>
         <div class="action-cell">
+          <button class="act-btn" title="View" onclick="printSaleEntry(${s.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Edit" onclick="editSale(${s.id})"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Delete" onclick="deleteSale(${s.id})"><i class="fas fa-trash"></i></button>
         </div>
@@ -15805,6 +16188,7 @@ function printSaleInvoice(s) {
   const rows = items.map(it => `
     <tr>
       <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
+      <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
       <td class="r">${fmt_money(it.rate)}</td>
       <td class="r">${parseFloat(it.discount_pct||0).toFixed(1)}%</td>
@@ -15815,11 +16199,13 @@ function printSaleInvoice(s) {
     </tr>`).join('');
   const isInterstate = s.sales_type !== 'Local Sales';
   const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
+  const deductions = Array.isArray(s.deductions) ? s.deductions : [];
+  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -15840,28 +16226,31 @@ function printSaleInvoice(s) {
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-    .grand span { font-size: 11px; text-transform: uppercase; } .grand b { font-size: 20px; }
+    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
   </style></head><body>
     <div class="head">
-      <div>
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-sub">AGRICULTURE ERP SOLUTIONS</div>
-        <div class="co-meta">
-          ${co.address?escHtml(co.address)+'<br>':''}
-          ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-          ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.address?escHtml(co.address)+'<br>':''}
+            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+          </div>
         </div>
       </div>
       <div>
         <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
       </div>
     </div>
+    ${(s.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -15874,12 +16263,13 @@ function printSaleInvoice(s) {
         <h3>PAYMENT</h3>
         <div class="kv">Status<b>${escHtml(s.payment_status||'—')}</b></div>
         <div class="kv">Method<b>${escHtml(s.payment_method||'—')}</b></div>
+        ${s.payment_date ? `<div class="kv">Payment Date<b>${fmt_date_disp(s.payment_date)}</b></div>` : ''}
         <div class="kv">Balance Due<b style="color:${(s.total-s.amount_received)>0?'#c0392b':'#0d7a3f'}">${fmt_money((s.total||0)-(s.amount_received||0))}</b></div>
       </div>
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
@@ -15895,12 +16285,20 @@ function printSaleInvoice(s) {
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="sig-row">
       <div class="sig">Customer Signature</div>
@@ -16001,7 +16399,7 @@ function onSAProductChange() {
     if (p.grade) document.getElementById('sa-grade').value = p.grade;
     // Pull current stock as the default Opening Stock
     const s = (STATE.stock||[]).find(x => String(x.product_id) === String(id).replace(/\D/g,''));
-    document.getElementById('sa-openingstock').value = s ? parseFloat(s.current_stock).toFixed(2) : '0.00';
+    document.getElementById('sa-openingstock').value = s ? (parseFloat(s.current_stock ?? s.available_stock) || 0).toFixed(2) : '0.00';
   }
   calcStockAdjustment();
 }
@@ -16204,7 +16602,8 @@ function supRemoveDoc(idx) { SUPN.docs.splice(idx, 1); renderSupDocs(); }
 function renderSupDocs() {
   document.getElementById('sup-docs-list').innerHTML = SUPN.docs.map((d, i) => {
     const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="supRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+    const url = d.url || (typeof d === 'string' ? d : null);
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="supRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
   }).join('');
 }
 
@@ -16405,7 +16804,8 @@ function cusnRemoveDoc(idx) { CUSN.docs.splice(idx, 1); renderCusnDocs(); }
 function renderCusnDocs() {
   document.getElementById('cusn-docs-list').innerHTML = CUSN.docs.map((d, i) => {
     const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><button onclick="cusnRemoveDoc(${i})"><i class="fas fa-times"></i></button></div>`;
+    const url = d.url || (typeof d === 'string' ? d : null);
+    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="cusnRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
   }).join('');
 }
 
@@ -16623,7 +17023,7 @@ async function deleteCustomerRich(id) {
 
 // ADD PRODUCT TO STOCK (STOCK IN) — manual multi-product stock inward
 // ══════════════════════════════════════════
-const STI = { items: [], attachments: [], slipDataUrl: null };
+const STI = { editingId: null, items: [], attachments: [], slipDataUrl: null };
 let stiItemSeq = 1;
 
 function populateSTIProductDropdown() {
@@ -16640,6 +17040,8 @@ function populateSTISupplierDropdown() {
 }
 
 function goToNewStockIn() {
+  STI.editingId = null;
+  document.getElementById('sti-page-title').textContent = 'Add Product to Stock (Stock In)';
   STI.items = []; STI.attachments = []; STI.slipDataUrl = null;
   document.getElementById('sti-refno').value = '';
   document.getElementById('sti-refdate').value = fmt_date(new Date());
@@ -16649,6 +17051,7 @@ function goToNewStockIn() {
   populateSTIProductDropdown();
   document.getElementById('sti-p-product').value = '';
   document.getElementById('sti-p-variety').value = '';
+  document.getElementById('sti-p-grade').value = '';
   document.getElementById('sti-p-category').value = '';
   document.getElementById('sti-p-unit').value = '';
   document.getElementById('sti-p-batchno').value = '';
@@ -16695,7 +17098,8 @@ function onSTIProductSelected() {
   if (p) {
     document.getElementById('sti-p-category').value = p.category || '';
     document.getElementById('sti-p-unit').value = (p.unit_family === 'volume') ? 'Ltr' : (p.unit_family === 'count' ? 'Pcs' : 'Kg');
-    if (p.variety) document.getElementById('sti-p-variety').value = p.variety;
+    if (p.variety) { document.getElementById('sti-p-variety').value = p.variety; onSTIVarietyChange(); }
+    if (p.grade) { document.getElementById('sti-p-grade').value = p.grade; onSTIGradeChange(); }
     if (!document.getElementById('sti-p-rate').value) document.getElementById('sti-p-rate').value = p.purchase_rate || p.rate || '';
   }
 }
@@ -16703,6 +17107,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('sti-p-product');
   if (sel) sel.addEventListener('change', onSTIProductSelected);
 });
+
+// Same Grade<->Variety linking as the Add Product page
+function onSTIGradeChange() {
+  const grade = document.getElementById('sti-p-grade').value;
+  const variety = PP_GRADE_VARIETY_MAP[grade];
+  if (variety) document.getElementById('sti-p-variety').value = variety;
+}
+function onSTIVarietyChange() {
+  const variety = document.getElementById('sti-p-variety').value;
+  const grade = PP_VARIETY_GRADE_MAP[variety];
+  if (grade) document.getElementById('sti-p-grade').value = grade;
+}
 
 function addSTIProduct() {
   const productId = document.getElementById('sti-p-product').value;
@@ -16713,7 +17129,8 @@ function addSTIProduct() {
   const rate = parseFloat(document.getElementById('sti-p-rate').value) || 0;
   const item = {
     id: stiItemSeq++, product_id: productId, product_name: p ? p.name : '',
-    variety_grade: document.getElementById('sti-p-variety').value.trim(),
+    variety: document.getElementById('sti-p-variety').value,
+    grade: document.getElementById('sti-p-grade').value,
     batch_no: document.getElementById('sti-p-batchno').value.trim(),
     mfg_date: document.getElementById('sti-p-mfgdate').value,
     expiry_date: document.getElementById('sti-p-expdate').value,
@@ -16733,6 +17150,7 @@ function addSTIProduct() {
   // Clear the entry row for the next product
   document.getElementById('sti-p-product').value = '';
   document.getElementById('sti-p-variety').value = '';
+  document.getElementById('sti-p-grade').value = '';
   document.getElementById('sti-p-category').value = '';
   document.getElementById('sti-p-unit').value = '';
   document.getElementById('sti-p-batchno').value = '';
@@ -16744,7 +17162,7 @@ function addSTIProduct() {
 }
 function snAvailableStockSafe(productId) {
   const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  return s ? parseFloat(s.current_stock)||0 : 0;
+  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
 }
 
 function removeSTIItem(id) { STI.items = STI.items.filter(i => i.id !== id); renderSTIItemsTable(); }
@@ -16753,11 +17171,11 @@ function renderSTIItemsTable() {
   const tbody = document.getElementById('sti-items-tbody');
   if (!tbody) return;
   if (!STI.items.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">No products added yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">No products added yet</td></tr>`;
   } else {
     tbody.innerHTML = STI.items.map((it, idx) => `
       <tr>
-        <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety_grade||'—')}</td>
+        <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety||'—')}</td><td>${escHtml(it.grade||'—')}</td>
         <td>${escHtml(it.batch_no||'—')}</td><td>${it.mfg_date?fmt_date_disp(it.mfg_date):'—'}</td><td>${it.expiry_date?fmt_date_disp(it.expiry_date):'—'}</td>
         <td>${it.qty.toFixed(2)}</td><td>${it.rate.toFixed(2)}</td><td class="pne-amount-cell">${fmt_money(it.amount)}</td>
         <td><button class="item-del" onclick="removeSTIItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
@@ -16801,7 +17219,7 @@ async function stiAddAttachments(files) {
 function stiRemoveAttachment(idx) { STI.attachments.splice(idx, 1); renderSTIAttachments(); }
 function renderSTIAttachments() {
   document.getElementById('sti-attachments-list').innerHTML = STI.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><button onclick="stiRemoveAttachment(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="stiRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 async function saveStockInEntry(mode) {
@@ -16829,7 +17247,7 @@ async function saveStockInEntry(mode) {
     driver_name: document.getElementById('sti-drivername').value.trim(),
     attachments: STI.attachments.map(a => a.url),
     items: STI.items.map(it => ({
-      product_id: it.product_id, variety_grade: it.variety_grade, batch_no: it.batch_no,
+      product_id: it.product_id, variety: it.variety, grade: it.grade, batch_no: it.batch_no,
       mfg_date: it.mfg_date || null, expiry_date: it.expiry_date || null, qty: it.qty, rate: it.rate,
     })),
   };
@@ -16837,8 +17255,13 @@ async function saveStockInEntry(mode) {
   const btn = event?.target?.closest('button');
   if (btn) btn.disabled = true;
   try {
-    await api('api/stock_in.php', 'POST', payload);
-    toast('✅ Stock added!', 'success');
+    if (STI.editingId) {
+      await api('api/stock_in.php?id=' + STI.editingId, 'PUT', payload);
+      toast('✅ Stock-in entry updated!', 'success');
+    } else {
+      await api('api/stock_in.php', 'POST', payload);
+      toast('✅ Stock added!', 'success');
+    }
     const stk = await api('api/stock.php');
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
     if (mode === 'new') { goToNewStockIn(); } else { cancelStockIn(); renderStock(); }
@@ -16846,17 +17269,24 @@ async function saveStockInEntry(mode) {
   finally { if (btn) btn.disabled = false; }
 }
 
+let STI_HISTORY_LIMIT = 5;
 async function renderSTIRecentHistory() {
   const box = document.getElementById('sti-recent-list');
   if (!box) return;
   box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Loading…</div>';
   try {
-    const r = await api('api/stock_in.php?limit=5');
+    const r = await api('api/stock_in.php?limit=' + STI_HISTORY_LIMIT);
     const rows = Array.isArray(r.data) ? r.data : [];
     if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No stock-in entries yet</div>'; return; }
     box.innerHTML = rows.map(r => `
-      <div>
-        <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
+          <span style="display:flex;gap:4px">
+            <button class="act-btn" title="Edit" onclick="editStockIn(${r.id})"><i class="fas fa-pen" style="font-size:10px"></i></button>
+            <button class="act-btn" title="Delete" onclick="deleteStockInEntry(${r.id})"><i class="fas fa-trash" style="font-size:10px"></i></button>
+          </span>
+        </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
           <span style="font-size:11px;color:var(--muted)">${escHtml(r.stock_in_type)}</span>
           <span style="font-size:10.5px;font-weight:700;color:#00897B;background:#E8F5E918;padding:2px 8px;border-radius:10px">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
@@ -16864,6 +17294,74 @@ async function renderSTIRecentHistory() {
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
+}
+function expandSTIHistory() {
+  STI_HISTORY_LIMIT = STI_HISTORY_LIMIT > 5 ? 5 : 20;
+  const link = document.getElementById('sti-viewall-link');
+  if (link) link.textContent = STI_HISTORY_LIMIT > 5 ? 'Show Less' : 'View All';
+  renderSTIRecentHistory();
+}
+
+async function editStockIn(id) {
+  try {
+    const r = await api('api/stock_in.php?id=' + id);
+    const d = r.data;
+    STI.editingId = id;
+    STI.attachments = (d.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
+    STI.slipDataUrl = null;
+    STI.items = (d.items||[]).map(it => ({
+      id: stiItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', product_name: it.product_name || '',
+      variety: it.variety || '', grade: it.grade || '', batch_no: it.batch_no || '',
+      mfg_date: it.mfg_date || '', expiry_date: it.expiry_date || '', qty: parseFloat(it.qty)||0, rate: parseFloat(it.rate)||0,
+      amount: parseFloat(it.amount)||0,
+    }));
+
+    populateSTIProductDropdown();
+    document.getElementById('sti-page-title').textContent = 'Edit Stock In — ' + d.reference_no;
+    document.getElementById('sti-refno').value = d.reference_no;
+    document.getElementById('sti-refdate').value = d.reference_date;
+    document.getElementById('sti-warehouse').value = d.warehouse || 'Main Warehouse';
+    document.getElementById('sti-type').value = d.stock_in_type || 'Purchase';
+    document.getElementById('sti-remarks').value = d.remarks || '';
+    document.getElementById('sti-weighingtype').value = d.weighing_type || 'Own Weighbridge';
+    document.getElementById('sti-weighbridgename').value = d.weighbridge_name || '';
+    document.getElementById('sti-slipno').value = d.weighbridge_slip_no || '';
+    document.getElementById('sti-weightdatetime').value = d.weight_datetime ? d.weight_datetime.replace(' ', 'T').slice(0,16) : '';
+    document.getElementById('sti-gross').value = d.gross_weight || '';
+    document.getElementById('sti-tare').value = d.tare_weight || '';
+    document.getElementById('sti-operator').value = d.operator_name || '';
+    calcSTIWeight();
+    if (d.slip_path) {
+      document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
+    }
+    populateSTISupplierDropdown();
+    document.getElementById('sti-supplier').value = d.supplier_id || '';
+    document.getElementById('sti-challanno').value = d.challan_no || '';
+    document.getElementById('sti-challandate').value = d.challan_date || '';
+    document.getElementById('sti-vehicleno').value = d.vehicle_no || '';
+    document.getElementById('sti-drivername').value = d.driver_name || '';
+
+    renderSTIItemsTable(); renderSTIAttachments();
+    showPage('stock-in-new');
+    document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
+    toast('✏️ Editing ' + d.reference_no, 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteStockInEntry(id) {
+  const conf = await Swal.fire({
+    title: 'Delete this stock-in entry?', text: 'This will remove the entry and reverse its stock-ledger effect.',
+    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' }
+  });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/stock_in.php?id=' + id, 'DELETE');
+    toast('🗑️ Stock-in entry deleted', 'info');
+    const stk = await api('api/stock.php');
+    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    renderSTIRecentHistory();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 
@@ -17285,6 +17783,96 @@ async function deletePaymentVoucher(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+// ══════════════════════════════════════════
+// PAYMENTS — Service business version (simple Invoice-payments list;
+// no Purchases/Sales/Vendors to speak of for a service-only business).
+// ══════════════════════════════════════════
+const PMTS = { list: [], page: 1, per: 15 };
+
+function renderPaymentsService() {
+  PMTS.list = [...STATE.payments];
+  PMTS.page = 1;
+  _renderPmtsSvcPage(); _renderPmtsSvcSummary();
+}
+function filterPaymentsSvc(v){ const s=v.toLowerCase(); PMTS.list=STATE.payments.filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMTS.page=1; _renderPmtsSvcPage(); }
+function filterPaymentsSvcByMethod(v){ PMTS.list=v?STATE.payments.filter(p=>p.method===v):[...STATE.payments]; PMTS.page=1; _renderPmtsSvcPage(); }
+function setPmtsSvcRange(r){
+  const t=new Date(); let f=new Date(t), to=new Date(t);
+  if(r==='today'){ /* f=to=today */ }
+  else if(r==='week'){f=new Date(t);f.setDate(t.getDate()-t.getDay());to=new Date(f);to.setDate(f.getDate()+6);}
+  else if(r==='month'){f=new Date(t.getFullYear(),t.getMonth(),1);to=new Date(t.getFullYear(),t.getMonth()+1,0);}
+  const fs=fmt_date(f),ts=fmt_date(to);
+  const pf=document.getElementById('pmtsFrom'),pt=document.getElementById('pmtsTo');
+  if(pf)pf.value=fs; if(pt)pt.value=ts;
+  ['pmtsToday','pmtsWeek','pmtsMonth'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
+  const bn=document.getElementById('pmts'+r.charAt(0).toUpperCase()+r.slice(1)); if(bn)bn.classList.add('active');
+  filterPmtsSvcByDate();
+}
+function filterPmtsSvcByDate(){
+  const f=document.getElementById('pmtsFrom')?.value||'', t=document.getElementById('pmtsTo')?.value||'';
+  PMTS.list=STATE.payments.filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
+  PMTS.page=1; _renderPmtsSvcPage();
+}
+function exportPmtsSvcCSV(){
+  const h=['Date','Invoice','Client','Method','Txn ID','Amount','Status'];
+  const r=STATE.payments.map(p=>[p.date,p.inv,p.client,p.method,p.txn||'',p.amount,p.status].map(v=>`"${v}"`).join(','));
+  downloadFile('payments.csv',[h.join(','),...r].join('\n'),'text/csv');
+  toast('✅ Exported!','success');
+}
+function _renderPmtsSvcSummary(){
+  const el=document.getElementById('pmtsSummary'); if(!el) return;
+  const tot=STATE.payments.reduce((s,p)=>s+p.amount,0);
+  const upi=STATE.payments.filter(p=>p.method&&p.method.toLowerCase().includes('upi')).reduce((s,p)=>s+p.amount,0);
+  const neft=STATE.payments.filter(p=>p.method&&(p.method.toLowerCase().includes('neft')||p.method.toLowerCase().includes('bank'))).reduce((s,p)=>s+p.amount,0);
+  const tod=fmt_date(new Date()); const todAmt=STATE.payments.filter(p=>p.date===tod).reduce((s,p)=>s+p.amount,0);
+  el.innerHTML=`
+    <div class="stat-card"><div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(tot)}</div><div class="stat-lbl">Total Collected</div><div class="stat-trend neutral">${STATE.payments.length} txns</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-mobile-alt"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(upi)}</div><div class="stat-lbl">Via UPI</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-university"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(neft)}</div><div class="stat-lbl">Via Bank</div></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-calendar-day"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(todAmt)}</div><div class="stat-lbl">Today</div></div></div>`;
+}
+function _renderPmtsSvcPage(){
+  const tbody=document.getElementById('paymentsSvcTbody'); if(!tbody) return;
+  const s=(PMTS.page-1)*PMTS.per, e=s+PMTS.per, pg=PMTS.list.slice(s,e);
+
+  const invColors=['#455A64','#00695C','#1565C0','#6A1B9A','#4E342E','#37474F','#2E7D32','#283593','#B71C1C','#E65100'];
+  const invNums=[...new Set(pg.map(p=>p.inv))];
+  const invColorMap={};
+  invNums.forEach((num,i)=>{ invColorMap[num]=invColors[i%invColors.length]; });
+  const invCount={};
+  pg.forEach(p=>{ invCount[p.inv]=(invCount[p.inv]||0)+1; });
+
+  tbody.innerHTML=pg.map((p,i)=>{
+    const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}):p.date;
+    const mi=p.method&&p.method.toLowerCase().includes('upi')?'fa-mobile-alt':p.method&&p.method.toLowerCase().includes('cheque')?'fa-money-check':p.method&&p.method.toLowerCase().includes('cash')?'fa-money-bill-wave':'fa-university';
+    const chipColor=invColorMap[p.inv]||'#455A64';
+    const isMulti=invCount[p.inv]>1;
+    const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
+    const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
+    const isDeleted = p._invoiceDeleted || p.invoice_deleted;
+    const methodCell = renderPaymentMethodCell(p.method, mi);
+    return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : isMulti ? 'border-left:3px solid '+chipColor+';background:'+chipColor+'08' : ''}">
+      <td style="font-size:12px">${df}</td>
+      <td>${invChip}</td>
+      <td><strong>${p.client}</strong></td>
+      <td>${methodCell}</td>
+      <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
+      <td><strong style="font-family:var(--mono);color:${isDeleted?'var(--muted)':'var(--green)'}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
+      <td><span class="badge ${isDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${isDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${isDeleted ? '🗑️ Invoice Deleted' : p.status}</span></td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="act-btn" title="View Receipt" onclick="viewReceiptSvc(${s+i})"><i class="fas fa-receipt"></i></button>
+        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i}, PMTS.list)" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
+      </td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
+  const tot=Math.ceil(PMTS.list.length/PMTS.per);
+  const pg2=document.getElementById('pmtsPagination');
+  if(pg2){let h=`<button class="pg-btn" onclick="pmtsSvcPage(${PMTS.page-1})" ${PMTS.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMTS.page?'active':''}" onclick="pmtsSvcPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtsSvcPage(${PMTS.page+1})" ${PMTS.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
+  const inf=document.getElementById('pmtsInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PMTS.list.length)} of ${PMTS.list.length}`;
+}
+function pmtsSvcPage(p){const t=Math.ceil(PMTS.list.length/PMTS.per);if(p<1||p>t)return;PMTS.page=p;_renderPmtsSvcPage();}
+function viewReceiptSvc(i){ viewReceipt(i, PMTS.list); }
+
 function _renderPmtSummary(){
   const all = buildMergedPaymentsList();
   const now = new Date();
@@ -17373,8 +17961,8 @@ function _renderPmtPage(){
 }
 function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)return;PMT.page=p;_renderPmtPage();}
 
-async function revertPaymentDelete(idx) {
-  const p = PMT.list[idx];
+async function revertPaymentDelete(idx, list) {
+  const p = (list||PMT.list)[idx];
   if (!p || !p.id) return;
   const _revertResult = await Swal.fire({ title: 'Revert Payment Flag?', html: 'This will mark the payment as <b>active</b> again.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, Revert', cancelButtonText: 'Cancel', confirmButtonColor: '#00897B', customClass: { popup: 'swal-compact' } });
   if (!_revertResult.isConfirmed) return;
@@ -17384,13 +17972,13 @@ async function revertPaymentDelete(idx) {
     const sp = STATE.payments.find(x => String(x.id) === String(p.id));
     if (sp) { sp._invoiceDeleted = false; sp.invoice_deleted = false; }
     toast('↩ Payment flag reverted — now showing as active', 'success');
-    renderPayments();
+    if (STATE.settings.businessType === 'product') renderPayments(); else renderPaymentsService();
   } catch(e) {
     toast('❌ Revert failed: ' + e.message, 'error');
   }
 }
-function viewReceipt(i){
-  const p=PMT.list[i]; if(!p) return;
+function viewReceipt(i, list){
+  const p=(list||PMT.list)[i]; if(!p) return;
   const sc=STATE.settings;
   const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'long',year:'numeric'}):p.date;
   document.getElementById('receiptBody').innerHTML=`
@@ -19327,7 +19915,7 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal, stk] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
@@ -19338,6 +19926,7 @@ async function loadAllData() {
       api('api/purchases.php').catch(() => ({ data: [] })),
       api('api/customers.php').catch(() => ({ data: [] })),
       api('api/sales.php').catch(() => ({ data: [] })),
+      api('api/stock.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
@@ -19348,6 +19937,10 @@ async function loadAllData() {
     STATE.purchases   = Array.isArray(pur.data)  ? pur.data  : [];
     STATE.customers   = Array.isArray(cus.data)  ? cus.data  : [];
     STATE.sales       = Array.isArray(sal.data)  ? sal.data  : [];
+    // Populated at bootstrap so Available Stock lookups (Sale Entry, Stock
+    // In, Stock Adjustment) work immediately, without depending on the user
+    // having visited a stock page first as an accidental side effect.
+    STATE.stock       = Array.isArray(stk.data)  ? stk.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
@@ -21081,7 +21674,7 @@ function getSplitMethodLabel() {
   const parts = Array.from(rows).map(r => {
     const m = r.querySelector('.split-method')?.value || '';
     const a = parseFloat(r.querySelector('.split-amt')?.value || 0);
-    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(0)}` : null;
+    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(2)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
