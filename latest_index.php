@@ -1571,7 +1571,7 @@ const SERVER = {
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.products'] ?? true): ?>
-    <a class="nav-item" data-page="products" onclick="goToProductsPage(this)">
+    <a class="nav-item" data-page="products" onclick="showPage('products',this)">
       <i class="fas fa-box"></i><span id="nav-products-label">Services / Products</span>
     </a>
     <?php endif; ?>
@@ -2370,89 +2370,6 @@ const SERVER = {
     </div>
 
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
-    <!-- ─────────── PRODUCT LIST (product businesses — reference design) ─────────── -->
-    <div id="page-products-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Product List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Inventory &gt; Product List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewProductPage()"><i class="fas fa-plus"></i> Add New Product</button>
-          <button class="btn btn-outline" onclick="exportProductsExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
-      </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>Search Product</label><input id="prl-f-search" placeholder="Search by product name, SKU / code" oninput="PRL_PAGE=1; renderProductsList()"></div>
-          <div class="field"><label>Category</label><select id="prl-f-category"><option value="">All Categories</option></select></div>
-          <div class="field"><label>Unit</label><select id="prl-f-unit"><option value="">All Units</option></select></div>
-          <div class="field"><label>Status</label><select id="prl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-          <div class="field"><label>HSN Code</label><input id="prl-f-hsn" placeholder="Enter HSN Code"></div>
-        </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>Warehouse</label><select id="prl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="PRL_PAGE=1; renderProductsList()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetProductsListFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-boxes-stacked"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Products</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-total">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px"><span id="prl-stat-active">0</span> Active Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-box-open"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">In Stock</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-instock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-triangle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Low Stock</div>
-          <div style="font-size:18px;font-weight:800;color:#E65100" id="prl-stat-lowstock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Below reorder level</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-ban"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Out of Stock</div>
-          <div style="font-size:18px;font-weight:800;color:#E53935" id="prl-stat-outstock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-box-archive"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Products</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-inactive">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Products</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:1020px">
-            <thead><tr><th>#</th><th>Product Name</th><th>SKU / Code</th><th>Category</th><th>Unit</th><th>HSN Code</th><th style="text-align:right">Sale Rate (₹)</th><th style="text-align:right">Purchase Rate (₹)</th><th style="text-align:right">Current Stock</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="prl-tbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="prl-info"></div>
-          <div style="display:flex;gap:5px" id="prl-pagination"></div>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- ─────────── SERVICES / PRODUCTS (legacy shared page — service & both tenants) ─────────── -->
     <div id="page-products" class="page">
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search…" oninput="filterProducts(this.value)" id="productSearch">
@@ -13807,21 +13724,8 @@ function goToNewProductPage() {
   document.querySelector('.nav-item[data-page="products"]')?.classList.add('active');
 }
 
-// Products nav router: product-type tenants get the rich Product List page,
-// service/both tenants keep the original shared Services/Products page.
-function goToProductsPage(el) {
-  if (STATE.settings.businessType === 'product') {
-    showPage('products-list', el);
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-    renderProductsList();
-  } else {
-    showPage('products', el);
-    renderProducts();
-  }
-}
-
 function cancelProductEntry() {
-  goToProductsPage();
+  showPage('products');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
 }
 
@@ -13952,7 +13856,6 @@ async function saveProductEntry(mode) {
     } else {
       cancelProductEntry();
       renderProducts();
-      renderProductsList();
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally {
@@ -14050,8 +13953,8 @@ function addProductToInvoice(id) {
 async function deleteProduct(id) {
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const result = await Swal.fire({
-    title: STATE.settings.businessType === 'product' ? 'Delete this product?' : 'Delete this service?',
-    html: `<strong>${escHtml(p.name)}</strong> will be removed from your ${STATE.settings.businessType === 'product' ? 'product' : 'services'} list.`,
+    title: 'Delete this service?',
+    html: `<strong>${escHtml(p.name)}</strong> will be removed from your services list.`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Delete',
@@ -14064,7 +13967,7 @@ async function deleteProduct(id) {
   try {
     await api('api/products.php?id=' + dbId, 'DELETE');
     STATE.products = STATE.products.filter(x => x.id !== id);
-    renderProducts(); renderProductsList(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
+    renderProducts(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -14536,163 +14439,6 @@ function exportPurchasesExcel() {
   });
   _downloadCSV(rows, 'purchase_list.csv');
   toast('✅ Exported ' + list.length + ' purchases', 'success');
-}
-
-// ── Product List page (product businesses) ──────────────────────
-let PRL_PAGE = 1;
-const PRL_PAGESIZE = 10;
-
-function prlStock(p) { return snAvailableStockSafe(p.id); }
-
-function populateProductsListFilters() {
-  const catSel = document.getElementById('prl-f-category');
-  if (catSel) {
-    const cur = catSel.value;
-    const cats = [...new Set((STATE.products||[]).map(p => (p.category||'').trim()).filter(Boolean))].sort();
-    catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option ${c===cur?'selected':''}>${escHtml(c)}</option>`).join('');
-  }
-  const unitSel = document.getElementById('prl-f-unit');
-  if (unitSel) {
-    const cur = unitSel.value;
-    const units = [...new Set((STATE.products||[]).map(p => (p.unit||'').trim()).filter(Boolean))].sort();
-    unitSel.innerHTML = '<option value="">All Units</option>' + units.map(u => `<option ${u===cur?'selected':''}>${escHtml(u)}</option>`).join('');
-  }
-}
-
-function resetProductsListFilter() {
-  document.getElementById('prl-f-search').value = '';
-  document.getElementById('prl-f-hsn').value = '';
-  ['prl-f-category','prl-f-unit','prl-f-status','prl-f-warehouse'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  PRL_PAGE = 1;
-  renderProductsList();
-}
-
-function prlFilteredProducts() {
-  const q = (document.getElementById('prl-f-search')?.value || '').trim().toLowerCase();
-  const cat = document.getElementById('prl-f-category')?.value || '';
-  const unit = document.getElementById('prl-f-unit')?.value || '';
-  const status = document.getElementById('prl-f-status')?.value || '';
-  const hsn = (document.getElementById('prl-f-hsn')?.value || '').trim().toLowerCase();
-  const wh = document.getElementById('prl-f-warehouse')?.value || '';
-
-  return (STATE.products||[]).filter(p => {
-    if (q && !(p.name||'').toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return false;
-    if (cat && (p.category||'').trim() !== cat) return false;
-    if (unit && (p.unit||'').trim() !== unit) return false;
-    if (status && (p.status||'active') !== status) return false;
-    if (hsn && !(p.hsn||'').toLowerCase().includes(hsn)) return false;
-    if (wh && (p.default_warehouse||'Main Warehouse') !== wh) return false;
-    return true;
-  });
-}
-
-function renderProductsList() {
-  const tbody = document.getElementById('prl-tbody');
-  if (!tbody) return;
-  populateProductsListFilters();
-  const list = prlFilteredProducts();
-
-  // ── Stats (over ALL products, independent of filters, like the reference) ──
-  const all = STATE.products||[];
-  let inStock = 0, lowStock = 0, outStock = 0;
-  all.forEach(p => {
-    const st = prlStock(p);
-    const reorder = parseFloat(p.reorder_level) || 0;
-    if (st <= 0) outStock++;
-    else if (reorder > 0 && st <= reorder) lowStock++;
-    else inStock++;
-  });
-  document.getElementById('prl-stat-total').textContent = all.length;
-  document.getElementById('prl-stat-active').textContent = all.filter(p => (p.status||'active') === 'active').length;
-  document.getElementById('prl-stat-instock').textContent = inStock;
-  document.getElementById('prl-stat-lowstock').textContent = lowStock;
-  document.getElementById('prl-stat-outstock').textContent = outStock;
-  document.getElementById('prl-stat-inactive').textContent = all.filter(p => (p.status||'active') !== 'active').length;
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / PRL_PAGESIZE));
-  if (PRL_PAGE > totalPages) PRL_PAGE = totalPages;
-  const start = (PRL_PAGE - 1) * PRL_PAGESIZE;
-  const pageRows = list.slice(start, start + PRL_PAGESIZE);
-  document.getElementById('prl-info').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+PRL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('prl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="prlPage(${PRL_PAGE-1})" ${PRL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PRL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===PRL_PAGE?'active':''}" onclick="prlPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="prlPage(${PRL_PAGE+1})" ${PRL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No products found — click "Add New Product" to create one</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = pageRows.map((p, i) => {
-    const stock = prlStock(p);
-    const reorder = parseFloat(p.reorder_level) || 0;
-    const stockColor = stock <= 0 ? '#E53935' : (reorder > 0 && stock <= reorder ? '#E65100' : 'var(--text)');
-    const active = (p.status||'active') === 'active';
-    return `
-    <tr>
-      <td>${start + i + 1}</td>
-      <td><strong>${escHtml(p.name)}</strong></td>
-      <td>${escHtml(p.sku||'—')}</td>
-      <td>${escHtml(p.category||'—')}</td>
-      <td>${escHtml(p.unit||'Kg')}</td>
-      <td>${escHtml(p.hsn||'—')}</td>
-      <td style="text-align:right">${(parseFloat(p.sale_rate ?? p.rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right">${(parseFloat(p.purchase_rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${stockColor}">${stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escHtml(p.unit||'Kg')}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
-      <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="editProductRich('${p.id}')"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
-              <button onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
-            </div>
-          </span>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function prlPage(p) {
-  const totalPages = Math.max(1, Math.ceil(prlFilteredProducts().length / PRL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  PRL_PAGE = p;
-  renderProductsList();
-}
-
-function exportProductsExcel() {
-  const list = prlFilteredProducts();
-  if (!list.length) { toast('⚠️ No products to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Product Name','SKU / Code','Category','Unit','HSN Code','Sale Rate','Purchase Rate','Current Stock','Reorder Level','Warehouse','Status']];
-  list.forEach((p, i) => {
-    rows.push([
-      i+1, p.name||'', p.sku||'', p.category||'', p.unit||'Kg', p.hsn||'',
-      (parseFloat(p.sale_rate ?? p.rate)||0).toFixed(2), (parseFloat(p.purchase_rate)||0).toFixed(2),
-      prlStock(p).toFixed(2), (parseFloat(p.reorder_level)||0).toFixed(2),
-      p.default_warehouse||'Main Warehouse', (p.status||'active') === 'active' ? 'Active' : 'Inactive'
-    ]);
-  });
-  _downloadCSV(rows, 'product_list.csv');
-  toast('✅ Exported ' + list.length + ' products', 'success');
 }
 
 function fmt_date_disp(d) {
