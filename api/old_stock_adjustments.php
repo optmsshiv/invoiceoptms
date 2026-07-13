@@ -18,12 +18,11 @@ function currentStock($db, $productId) {
   return (float)$stmt->fetch()['bal'];
 }
 
-function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '', $direction = 'out') {
+function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
-  $direction = $direction === 'in' ? 'in' : 'out';
-  $bal = currentStock($db, $productId) + ($direction === 'in' ? $qty : -$qty);
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"adjustment",?,?,?,0,?,?,?,?,?)');
-  $stmt->execute([$productId, $adjustmentId, $direction, $qty, $bal, $date, $note, $warehouse, $batchNo]);
+  $bal = currentStock($db, $productId) - $qty;
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"adjustment",?,"out",?,0,?,?,?,?,?)');
+  $stmt->execute([$productId, $adjustmentId, $qty, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function saveAttachment($dataUrl) {
@@ -71,26 +70,24 @@ switch ($method) {
       $adjustmentNo = "ADJ/{$y}-{$y2}/" . str_pad($cnt, 4, '0', STR_PAD_LEFT);
     }
 
-    // Server-authoritative calc — direction decides whether the quantity is
-    // subtracted (loss) or added (recount found extra, returns, etc.)
-    $direction = ($d['direction'] ?? 'out') === 'in' ? 'in' : 'out';
+    // Server-authoritative calc
     $opening = (float)($d['opening_stock'] ?? 0);
     $moistBefore = isset($d['moisture_before_pct']) && $d['moisture_before_pct'] !== '' ? (float)$d['moisture_before_pct'] : null;
     $moistAfter  = isset($d['moisture_after_pct'])  && $d['moisture_after_pct']  !== '' ? (float)$d['moisture_after_pct']  : null;
     $moistLoss = ($moistBefore !== null && $moistAfter !== null) ? round($moistBefore - $moistAfter, 2) : null;
     $weightLoss = (float)($d['weight_loss_kg'] ?? 0);
-    $finalStock = $direction === 'in' ? round($opening + $weightLoss, 3) : round($opening - $weightLoss, 3);
+    $finalStock = round($opening - $weightLoss, 3);
 
     $attachmentPath = saveAttachment($d['attachment'] ?? null);
 
     $stmt = $db->prepare('INSERT INTO stock_adjustments
-      (adjustment_no, adjustment_date, adjustment_type, direction, warehouse, reference_no, reference_date,
+      (adjustment_no, adjustment_date, adjustment_type, warehouse, reference_no, reference_date,
        product_id, variety_grade, grade, unit, batch_no, manufacture_date, expiry_date, supplier_id,
        opening_stock, moisture_before_pct, moisture_after_pct, moisture_loss_pct, weight_loss_kg, final_stock,
        reason, remarks, attachment_path, approved_by, approval_date, notes, created_by)
-      VALUES (?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?)');
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?)');
     $stmt->execute([
-      $adjustmentNo, $d['adjustment_date'], $d['adjustment_type'] ?? 'Moisture Loss', $direction, $d['warehouse'] ?? 'Main Warehouse',
+      $adjustmentNo, $d['adjustment_date'], $d['adjustment_type'] ?? 'Moisture Loss', $d['warehouse'] ?? 'Main Warehouse',
       $d['reference_no'] ?? '', $d['reference_date'] ?: null,
       $productId, $d['variety_grade'] ?? '', $d['grade'] ?? '', $d['unit'] ?? 'Kg', $d['batch_no'] ?? '',
       $d['manufacture_date'] ?: null, $d['expiry_date'] ?: null, !empty($d['supplier_id']) ? (int)$d['supplier_id'] : null,
@@ -100,7 +97,7 @@ switch ($method) {
     ]);
     $adjId = (int)$db->lastInsertId();
 
-    writeAdjustmentLedger($db, $productId, $adjId, $weightLoss, $d['adjustment_date'], ($d['adjustment_type'] ?? 'Adjustment') . ($direction === 'in' ? ' (Increase)' : '') . ' — ' . $adjustmentNo, $d['warehouse'] ?? 'Main Warehouse', $d['batch_no'] ?? '', $direction);
+    writeAdjustmentLedger($db, $productId, $adjId, $weightLoss, $d['adjustment_date'], ($d['adjustment_type'] ?? 'Adjustment') . ' — ' . $adjustmentNo, $d['warehouse'] ?? 'Main Warehouse', $d['batch_no'] ?? '');
 
     logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'stock_adjustment', $adjId, 'Stock adjustment: ' . $adjustmentNo);
     jsonResponse(['success' => true, 'id' => $adjId, 'adjustment_no' => $adjustmentNo, 'final_stock' => $finalStock]);

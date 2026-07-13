@@ -3709,18 +3709,12 @@ const SERVER = {
             <div class="pne-grid4">
               <div class="field"><label>Adjustment No.</label><input id="sa-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Adjustment Date *</label><input type="date" id="sa-date"></div>
-              <div class="field"><label>Direction *</label>
-                <select id="sa-direction" onchange="onSADirectionChange()">
-                  <option value="out">Decrease Stock (Loss)</option>
-                  <option value="in">Increase Stock (Gain)</option>
-                </select>
-              </div>
               <div class="field"><label>Adjustment Type *</label>
                 <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Other</option></select>
               </div>
+              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option></select></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
               <div class="field"><label>Reference No.</label><input id="sa-refno" placeholder="Enter reference no. (optional)"></div>
               <div class="field"><label>Reference Date</label><input type="date" id="sa-refdate"></div>
             </div>
@@ -3753,7 +3747,7 @@ const SERVER = {
               <div class="field"><label>Moisture Before (%)</label><input type="number" id="sa-moistbefore" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture After (%)</label><input type="number" id="sa-moistafter" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture Loss (%)</label><input id="sa-moistloss" readonly></div>
-              <div class="field"><label id="sa-qty-label">Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label>Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Final Stock (Kg) *</label><input id="sa-finalstock" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
             <div class="pne-grid2">
@@ -3769,8 +3763,8 @@ const SERVER = {
             <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-calculator"></i></span> Summary</div>
             <div class="sa-summary-row">
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-box"></i></span><div><span>Opening Stock (Kg)</span><strong id="sa-sum-opening">0.00</strong></div></div>
-              <span class="sa-op" id="sa-sum-op">−</span>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span id="sa-sum-loss-label">Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
+              <span class="sa-op">−</span>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span>Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
               <span class="sa-op">=</span>
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B"><i class="fas fa-check-circle"></i></span><div><span>Final Stock (Kg)</span><strong id="sa-sum-final">0.00</strong></div></div>
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-tint"></i></span><div><span>Moisture Before</span><strong id="sa-sum-mbefore">0.00 %</strong></div></div>
@@ -16453,8 +16447,6 @@ function goToNewStockAdjustment() {
   document.getElementById('sa-no').value = '';
   document.getElementById('sa-date').value = fmt_date(new Date());
   document.getElementById('sa-type').value = 'Moisture Loss';
-  document.getElementById('sa-direction').value = 'out';
-  onSADirectionChange();
   document.getElementById('sa-warehouse').value = 'Main Warehouse';
   document.getElementById('sa-refno').value = '';
   document.getElementById('sa-refdate').value = '';
@@ -16510,26 +16502,14 @@ function onSAProductChange() {
   calcStockAdjustment();
 }
 
-// Direction switch: relabels the quantity field/summary and recalculates.
-// "Increase" is for recounts that find MORE stock than the system shows,
-// stock returned after processing, etc.
-function onSADirectionChange() {
-  const isIn = document.getElementById('sa-direction').value === 'in';
-  document.getElementById('sa-qty-label').textContent = isIn ? 'Weight Gain (Kg) *' : 'Weight Loss (Kg) *';
-  document.getElementById('sa-sum-loss-label').textContent = isIn ? 'Weight Gain (Kg)' : 'Weight Loss (Kg)';
-  document.getElementById('sa-sum-op').textContent = isIn ? '+' : '−';
-  calcStockAdjustment();
-}
-
 function calcStockAdjustment() {
-  const isIn = document.getElementById('sa-direction')?.value === 'in';
   const opening = parseFloat(document.getElementById('sa-openingstock').value) || 0;
   const before = document.getElementById('sa-moistbefore').value;
   const after  = document.getElementById('sa-moistafter').value;
   const moistLoss = (before !== '' && after !== '') ? (parseFloat(before) - parseFloat(after)) : null;
   document.getElementById('sa-moistloss').value = moistLoss !== null ? moistLoss.toFixed(2) : '';
   const weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
-  const finalStock = isIn ? opening + weightLoss : Math.max(0, opening - weightLoss);
+  const finalStock = Math.max(0, opening - weightLoss);
   document.getElementById('sa-finalstock').value = finalStock.toFixed(2);
 
   document.getElementById('sa-sum-opening').textContent = opening.toFixed(2);
@@ -16564,7 +16544,6 @@ async function saveStockAdjustmentEntry() {
     adjustment_no: document.getElementById('sa-no').value.trim(),
     adjustment_date: document.getElementById('sa-date').value,
     adjustment_type: document.getElementById('sa-type').value,
-    direction: document.getElementById('sa-direction').value,
     warehouse: document.getElementById('sa-warehouse').value,
     reference_no: document.getElementById('sa-refno').value.trim(),
     reference_date: document.getElementById('sa-refdate').value || null,
@@ -17296,28 +17275,10 @@ function renderSTIItemsTable() {
       <tr>
         <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety||'—')}</td><td>${escHtml(it.grade||'—')}</td>
         <td>${escHtml(it.batch_no||'—')}</td><td>${it.mfg_date?fmt_date_disp(it.mfg_date):'—'}</td><td>${it.expiry_date?fmt_date_disp(it.expiry_date):'—'}</td>
-        <td><input type="number" min="0" step="0.01" value="${it.qty.toFixed(2)}" style="width:85px;text-align:right" oninput="updateSTIItem(${it.id},'qty',this.value)"></td>
-        <td><input type="number" min="0" step="0.01" value="${it.rate.toFixed(2)}" style="width:80px;text-align:right" oninput="updateSTIItem(${it.id},'rate',this.value)"></td>
-        <td class="pne-amount-cell" id="sti-item-amt-${it.id}">${fmt_money(it.amount)}</td>
+        <td>${it.qty.toFixed(2)}</td><td>${it.rate.toFixed(2)}</td><td class="pne-amount-cell">${fmt_money(it.amount)}</td>
         <td><button class="item-del" onclick="removeSTIItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
       </tr>`).join('');
   }
-  updateSTIItemsTotals();
-}
-
-// Inline edit of an item's qty/rate — recalculates its amount and the totals
-// in place, without re-rendering the whole table (which would steal focus
-// from the input mid-typing).
-function updateSTIItem(id, field, val) {
-  const it = STI.items.find(x => x.id === id); if (!it) return;
-  it[field] = parseFloat(val) || 0;
-  it.amount = +(it.qty * it.rate).toFixed(2);
-  const amtCell = document.getElementById('sti-item-amt-' + id);
-  if (amtCell) amtCell.textContent = fmt_money(it.amount);
-  updateSTIItemsTotals();
-}
-
-function updateSTIItemsTotals() {
   const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
   const totalAmt = STI.items.reduce((s,i) => s+i.amount, 0);
   document.getElementById('sti-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
