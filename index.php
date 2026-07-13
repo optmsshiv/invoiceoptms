@@ -2450,25 +2450,90 @@ const SERVER = {
 
     <!-- ─────────── PURCHASES ─────────── -->
     <div id="page-purchases" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search purchases…" oninput="filterPurchases(this.value)" id="purchaseSearch">
-        <select class="table-filter" onchange="renderPurchases()" id="purStatusFilter">
-          <option value="">All Status</option>
-          <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
-        </select>
-        <div style="flex:1"></div>
-        <span id="purCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> Add Purchase</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>PO No.</th><th>Supplier</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="purchasesTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="purInfo"></div>
-          <div class="pagination" id="purPagination"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Purchase List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Purchase &gt; Purchase List</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> New Purchase Invoice</button>
+          <button class="btn btn-outline" onclick="exportPurchasesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>From Date</label><input type="date" id="pl-f-from"></div>
+          <div class="field"><label>To Date</label><input type="date" id="pl-f-to"></div>
+          <div class="field"><label>Supplier</label><select id="pl-f-supplier"><option value="">All Suppliers</option></select></div>
+          <div class="field"><label>Warehouse</label><select id="pl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field"><label>Status</label><select id="pl-f-status"><option value="">All Status</option><option>Completed</option><option>Pending</option></select></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>Payment Status</label><select id="pl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
+          <div class="field"><label>Invoice No.</label><input id="pl-f-invno" placeholder="Enter Invoice No."></div>
+          <div class="field"><label>Product</label><select id="pl-f-product"><option value="">All Products</option></select></div>
+          <div class="field"><label>Payment Type</label><select id="pl-f-paytype"><option value="">All Payment Types</option></select></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="PL_PAGE=1; renderPurchases()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetPurchasesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
+          <div style="font-size:18px;font-weight:800" id="pl-stat-count">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="pl-stat-range1">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
+          <div style="font-size:18px;font-weight:800" id="pl-stat-qty">0.00 Kg</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchase Amount</div>
+          <div style="font-size:17px;font-weight:800" id="pl-stat-amount">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="pl-stat-paid">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="pl-stat-out">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:980px">
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <tbody id="purchasesTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="purInfo"></div>
+          <div style="display:flex;gap:5px" id="pl-pagination"></div>
+        </div>
+      </div>
+
+      <div id="pl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share purchase invoices using the action buttons.</div>
+        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('pl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
@@ -14197,39 +14262,183 @@ function fmt_money_sym(n, sym) { return (sym||'₹') + Number(n||0).toLocaleStri
 
 function filterPurchases(q) { PUR.search = q || ''; renderPurchases(); }
 
+// ── Purchase List page ──────────────────────────────────────────
+let PL_PAGE = 1;
+const PL_PAGESIZE = 10;
+
+// Doc status is derived from payment: anything paid at all → Completed,
+// nothing paid yet → Pending. (Purchases store payment state in `status`.)
+function plDocStatus(p) {
+  return (p.status === 'Paid' || p.status === 'Partial' || p.status === 'Received') ? 'Completed' : 'Pending';
+}
+
+function populatePurchaseListFilters() {
+  const supSel = document.getElementById('pl-f-supplier');
+  if (supSel && supSel.options.length <= 1) {
+    supSel.innerHTML = '<option value="">All Suppliers</option>' +
+      (STATE.suppliers||[]).map(su => `<option value="${su.id}">${escHtml(su.name)}</option>`).join('');
+  }
+  const prodSel = document.getElementById('pl-f-product');
+  if (prodSel && prodSel.options.length <= 1) {
+    prodSel.innerHTML = '<option value="">All Products</option>' +
+      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
+  }
+  const ptSel = document.getElementById('pl-f-paytype');
+  if (ptSel) {
+    const cur = ptSel.value;
+    const types = [...new Set((STATE.purchases||[]).map(p => (p.payment_type||'').trim()).filter(Boolean))].sort();
+    ptSel.innerHTML = '<option value="">All Payment Types</option>' +
+      types.map(t => `<option ${t===cur?'selected':''}>${escHtml(t)}</option>`).join('');
+  }
+  const fromEl = document.getElementById('pl-f-from'), toEl = document.getElementById('pl-f-to');
+  if (fromEl && toEl && !fromEl.value && !toEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+}
+
+function resetPurchasesFilter() {
+  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('pl-f-to').value = fmt_date(new Date());
+  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('pl-f-invno').value = '';
+  PL_PAGE = 1;
+  renderPurchases();
+}
+
+function plFilteredPurchases() {
+  const from = document.getElementById('pl-f-from')?.value || '';
+  const to = document.getElementById('pl-f-to')?.value || '';
+  const sup = document.getElementById('pl-f-supplier')?.value || '';
+  const wh = document.getElementById('pl-f-warehouse')?.value || '';
+  const status = document.getElementById('pl-f-status')?.value || '';
+  const pay = document.getElementById('pl-f-paystatus')?.value || '';
+  const invno = (document.getElementById('pl-f-invno')?.value || '').trim().toLowerCase();
+  const prod = document.getElementById('pl-f-product')?.value || '';
+  const ptype = document.getElementById('pl-f-paytype')?.value || '';
+
+  return (STATE.purchases||[]).filter(p => {
+    const d = (p.purchase_date||'').slice(0,10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (sup && String(p.supplier_id) !== String(sup)) return false;
+    if (wh && (p.warehouse||'Main Warehouse') !== wh) return false;
+    if (status && plDocStatus(p) !== status) return false;
+    if (pay && (p.status === 'Received' ? 'Pending' : p.status) !== pay) return false;
+    if (invno && !(p.purchase_no||'').toLowerCase().includes(invno) && !(p.supplier_invoice_ref||'').toLowerCase().includes(invno)) return false;
+    if (prod) {
+      const ids = String(p.product_ids||'').split(',').map(x => x.trim());
+      if (!ids.includes(prod)) return false;
+    }
+    if (ptype && (p.payment_type||'').trim() !== ptype) return false;
+    return true;
+  });
+}
+
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
-  const statusF = document.getElementById('purStatusFilter')?.value || '';
-  let list = STATE.purchases || [];
-  if (PUR.search) {
-    const q = PUR.search.toLowerCase();
-    list = list.filter(p => (p.purchase_no||'').toLowerCase().includes(q) || (p.supplier_name||'').toLowerCase().includes(q) || (p.supplier_invoice_ref||'').toLowerCase().includes(q));
+  populatePurchaseListFilters();
+  const list = plFilteredPurchases();
+
+  // ── Stats over the filtered set ────────────────────────────
+  const totQty = list.reduce((a,p) => a + (parseFloat(p.total_qty)||0), 0);
+  const totAmt = list.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
+  const totPaid = list.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
+  const totOut = Math.max(0, totAmt - totPaid);
+  document.getElementById('pl-stat-count').textContent = list.length;
+  document.getElementById('pl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+  document.getElementById('pl-stat-amount').textContent = fmt_money(totAmt);
+  document.getElementById('pl-stat-paid').textContent = fmt_money(totPaid);
+  document.getElementById('pl-stat-out').textContent = fmt_money(totOut);
+  const fromV = document.getElementById('pl-f-from')?.value, toV = document.getElementById('pl-f-to')?.value;
+  document.getElementById('pl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / PL_PAGESIZE));
+  if (PL_PAGE > totalPages) PL_PAGE = totalPages;
+  const start = (PL_PAGE - 1) * PL_PAGESIZE;
+  const pageRows = list.slice(start, start + PL_PAGESIZE);
+  document.getElementById('purInfo').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+PL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('pl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="plPage(${PL_PAGE-1})" ${PL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===PL_PAGE?'active':''}" onclick="plPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="plPage(${PL_PAGE+1})" ${PL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
   }
-  if (statusF) list = list.filter(p => p.status === statusF);
-  document.getElementById('purInfo').textContent = list.length + ' purchase' + (list.length===1?'':'s');
-  document.getElementById('purCountInfo').textContent = (STATE.purchases||[]).length + ' total';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No purchases yet — click "Add Purchase" to record one</td></tr>`;
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
     return;
   }
-  const statusColor = { Pending:'#FFA000', Received:'#1976D2', Partial:'#E65100', Paid:'#00897B' };
-  tbody.innerHTML = list.map(p => `
+
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935', Received:'#E53935' };
+  tbody.innerHTML = pageRows.map((p, i) => {
+    const doc = plDocStatus(p);
+    const docColor = doc === 'Completed' ? '#00897B' : '#1976D2';
+    const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
+    const pc = payColor[p.status] || '#889';
+    return `
     <tr>
+      <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td>${escHtml(p.supplier_name||'—')}</td>
       <td>${fmt_date_disp(p.purchase_date)}</td>
-      <td>${p.item_count ?? ''}</td>
-      <td>${fmt_money_sym(p.total, p.currency==='INR'?'₹':(p.currency==='USD'?'$':(p.currency==='EUR'?'€':(p.currency==='GBP'?'£':''))))}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
+      <td>${escHtml(p.supplier_name||'—')}</td>
+      <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
+      <td>${escHtml(p.payment_type||'—')}</td>
       <td>
-        <div class="action-cell">
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
+          <button class="act-btn" title="Print" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i></button>
+          <button class="act-btn" title="Download PDF" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-download"></i></button>
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="editPurchase(${p.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="deletePurchase(${p.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function plPage(p) {
+  const totalPages = Math.max(1, Math.ceil(plFilteredPurchases().length / PL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  PL_PAGE = p;
+  renderPurchases();
+}
+
+function exportPurchasesExcel() {
+  const list = plFilteredPurchases();
+  if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
+  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Status','Payment Type','Warehouse']];
+  list.forEach((p, i) => {
+    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
+    rows.push([
+      i+1, p.purchase_no||'', p.purchase_date||'', p.supplier_name||'',
+      (parseFloat(p.total_qty)||0).toFixed(2), total.toFixed(2), paid.toFixed(2), Math.max(0, total-paid).toFixed(2),
+      p.status === 'Received' ? 'Pending' : (p.status||''), plDocStatus(p), p.payment_type||'', p.warehouse||'Main Warehouse'
+    ]);
+  });
+  _downloadCSV(rows, 'purchase_list.csv');
+  toast('✅ Exported ' + list.length + ' purchases', 'success');
 }
 
 function fmt_date_disp(d) {
@@ -15339,7 +15548,7 @@ function numToWordsINR(amount) {
 // ══════════════════════════════════════════
 let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
 
-function frMonthStart() { const d = new Date(); return fmt_date(new Date(d.getFullYear(), d.getMonth(), 1)); }
+function frMonthStart() { return BIZ_FROM_DATE; } // default From = business start date for all range-filtered tables
 function setFRAllTime() {
   document.getElementById('fr-from').value = '2000-01-01';
   document.getElementById('fr-to').value = fmt_date(new Date());
@@ -15487,7 +15696,7 @@ function resetSHFilter() {
   document.getElementById('sh-f-product').value = '';
   document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
   document.getElementById('sh-f-warehouse').value = '';
-  document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+  document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
   document.getElementById('sh-f-to').value = fmt_date(new Date());
   document.getElementById('sh-f-txntype').value = '';
   document.getElementById('sh-f-reftype').value = '';
@@ -15497,7 +15706,7 @@ function resetSHFilter() {
 function goToStockHistory(productId, productName) {
   populateSHProductDropdown();
   if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
     document.getElementById('sh-f-to').value = fmt_date(new Date());
   }
   if (productId) {
@@ -15514,7 +15723,7 @@ let SH_LAST_ROWS = [];
 async function renderStockHistory() {
   populateSHProductDropdown();
   if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
     document.getElementById('sh-f-to').value = fmt_date(new Date());
   }
   try {
@@ -16466,6 +16675,8 @@ async function deleteSale(id) {
 function filterSales(q) { SALES_SEARCH = q || ''; renderSales(); }
 let SALES_SEARCH = '';
 // ── Sales List page ─────────────────────────────────────────────
+// Default "From" date for every date-range-filtered list (business start)
+const BIZ_FROM_DATE = '2026-05-01';
 let SL_PAGE = 1;
 const SL_PAGESIZE = 10;
 
@@ -16493,16 +16704,14 @@ function populateSalesListFilters() {
   // Default date range: this month (only when both fields are empty)
   const fromEl = document.getElementById('sl-f-from'), toEl = document.getElementById('sl-f-to');
   if (fromEl && toEl && !fromEl.value && !toEl.value) {
-    const now = new Date();
-    fromEl.value = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
-    toEl.value = fmt_date(now);
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
   }
 }
 
 function resetSalesFilter() {
-  const now = new Date();
-  document.getElementById('sl-f-from').value = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
-  document.getElementById('sl-f-to').value = fmt_date(now);
+  document.getElementById('sl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('sl-f-to').value = fmt_date(new Date());
   ['sl-f-customer','sl-f-warehouse','sl-f-status','sl-f-paystatus','sl-f-product','sl-f-exec'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
