@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   `company_name` VARCHAR(200)     NOT NULL,
   `db_name`      VARCHAR(100)     NOT NULL COMMENT 'optms_acme',
   `plan`         ENUM('trial','basic','pro','enterprise') NOT NULL DEFAULT 'trial',
-  `business_type` ENUM('service','product','both') NOT NULL DEFAULT 'both' COMMENT 'Controls which menu the tenant sees — mirrored into the tenant DB\'s own settings table too',
   `status`       ENUM('active','suspended','cancelled')   NOT NULL DEFAULT 'active',
   `trial_ends`   DATE             NULL     DEFAULT NULL,
   `owner_email`  VARCHAR(200)     NOT NULL,
