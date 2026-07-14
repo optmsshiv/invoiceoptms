@@ -14507,12 +14507,18 @@ function toggleActMenu(ev, btn) {
   document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
   if (!wasOpen) {
     menu.classList.add('open');
-    // The table card clips overflow for its rounded corners, which would
-    // hide a menu that opens below the last few rows. Flip it to open
-    // upward instead whenever there isn't enough room beneath the button.
+    // Two things can clip this menu: the browser viewport, and the
+    // .table-card ancestor itself (overflow:hidden, for its rounded
+    // corners) — the table card's own bottom edge is usually what's
+    // actually cutting it off, not the viewport. Check both and flip
+    // upward if either would clip it.
     const rect = btn.getBoundingClientRect();
     const menuHeight = menu.offsetHeight || 160;
-    if (window.innerHeight - rect.bottom < menuHeight + 12) {
+    const clipAncestor = btn.closest('.table-card, .pne-card') || document.body;
+    const clipRect = clipAncestor.getBoundingClientRect();
+    const spaceBelowViewport = window.innerHeight - rect.bottom;
+    const spaceBelowCard = clipRect.bottom - rect.bottom;
+    if (Math.min(spaceBelowViewport, spaceBelowCard) < menuHeight + 12) {
       menu.classList.add('act-menu-up');
     }
   }
