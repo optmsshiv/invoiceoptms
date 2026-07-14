@@ -140,13 +140,13 @@ switch ($method) {
        subtotal, gst_amount, gst_pct, total, amount_paid, status, notes,
        reference_po_no, supplier_type, gst_applicable, supply_type,
        transport_mode, vehicle_no, driver_name, warehouse, payment_terms, payment_type, remarks,
-       transport_charge, loading_charge, packing_charge, other_charges, discount_amount,
+       transport_charge, loading_charge, packing_charge, other_charges, discount_amount, discount_remarks,
        deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        attachment_path, payment_mode, transaction_no, payment_date,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
        kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
        header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?)');
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -155,7 +155,7 @@ switch ($method) {
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
-      $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount,
+      $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $attachmentPath, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
@@ -226,7 +226,7 @@ switch ($method) {
       subtotal=?, gst_amount=?, gst_pct=?, total=?, amount_paid=?, status=?, notes=?,
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
       transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, remarks=?,
-      transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?,
+      transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?, discount_remarks=?,
       deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       payment_mode=?, transaction_no=?, payment_date=?,
       weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?,
@@ -242,7 +242,7 @@ switch ($method) {
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
-      $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount,
+      $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,

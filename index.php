@@ -2838,7 +2838,7 @@ const SERVER = {
                   <col style="width:34px"><col style="width:150px"><col style="width:105px">
                   <col style="width:75px"><col style="width:100px">
                   <col style="width:95px"><col style="width:100px"><col style="width:90px">
-                  <col style="width:60px"><col style="width:65px">
+                  <col style="width:60px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:105px">
                   <col style="width:90px"><col style="width:75px"><col style="width:100px"><col style="width:60px">
                 </colgroup>
@@ -2884,6 +2884,7 @@ const SERVER = {
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
+              <div class="pne-summary-row" id="pn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="pn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row">
                 <span>GST / Tax <span id="pn-gst-rate-wrap" style="display:none">(<input type="number" id="pn-gst-pct" value="0" min="0" max="28" class="pne-inline-num-sm" oninput="calcPurchaseNewTotals()">%)</span></span>
@@ -3561,6 +3562,7 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
               <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
+              <div class="pne-summary-row" id="sn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="sn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
@@ -4668,7 +4670,7 @@ const SERVER = {
             </select>
           </div>
           <div class="field"><label>Party Type</label><select class="table-filter" style="max-width:none" id="pmtPartyTypeFilter" onchange="renderPayments()"><option value="">All</option><option>Customer</option><option>Supplier</option><option>Transporter</option><option>Vendor</option></select></div>
-          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Pending</option></select></div>
+          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:10px">
           <button class="btn btn-outline" onclick="resetPmtFilters()"><i class="fas fa-rotate-left"></i> Reset</button>
@@ -15033,6 +15035,7 @@ function goToNewPurchase() {
   document.getElementById('pn-packingcharge').value = 0;
   document.getElementById('pn-othercharge').value = 0;
   document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-discount-remarks').value = '';
   document.getElementById('pn-tradediscpct').value = 0;
   document.getElementById('pn-cashdiscpct').value = 0;
   document.getElementById('pn-cdwithin').value = 'Same Day';
@@ -15236,11 +15239,24 @@ function renderPNEItemsTable() {
 
 // Show/hide the Dhalta % sub-column per Settings → Company (show_dhalta_pct).
 // The Kg column always stays — only the derived percentage is optional.
+let PNE_DHPCT_COL = null; // detached <col> stash while the % column is hidden
+
 function applyDhaltaPctVisibility() {
   const show = (STATE.settings.showDhaltaPct ?? '1') !== '0';
   document.querySelectorAll('.pne-dhpct-col').forEach(el => { el.style.display = show ? '' : 'none'; });
   const g = document.getElementById('pne-th-dhalta-group');
   if (g) { g.colSpan = show ? 2 : 1; g.textContent = show ? 'Dhalta' : 'Dhalta (Kg)'; }
+  // The colgroup assigns widths by position, so a hidden column's <col> must
+  // be physically removed — otherwise every column after Dhalta shifts one
+  // width slot and the header no longer lines up with the body.
+  const colPct = document.getElementById('pne-col-dhpct');
+  const colKg = document.getElementById('pne-col-dhkg');
+  if (!show && colPct) { PNE_DHPCT_COL = colPct; colPct.remove(); }
+  if (show && !document.getElementById('pne-col-dhpct') && PNE_DHPCT_COL && colKg) {
+    colKg.parentNode.insertBefore(PNE_DHPCT_COL, colKg);
+  }
+  // Give the Kg input room when it's the only Dhalta column
+  if (colKg) colKg.style.width = show ? '65px' : '100px';
 }
 
 function onPNEProductChange(id, productId) {
@@ -15555,6 +15571,7 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
     document.getElementById('pn-discount').value = p.discount_amount || 0;
+    document.getElementById('pn-discount-remarks').value = p.discount_remarks || '';
     document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
     document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
     document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
@@ -15680,6 +15697,7 @@ async function savePurchaseEntry(mode) {
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
     discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    discount_remarks: document.getElementById('pn-discount-remarks').value.trim(),
     deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
@@ -15870,7 +15888,7 @@ function printLocalPurchaseVoucher(p) {
         <h3>PAYMENT SETTLEMENT</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
-        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
@@ -16017,6 +16035,7 @@ function printTaxInvoicePurchase(p) {
       <div class="box">
         <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(p.cash_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total GST</span><span>${fmt_money(p.gst_amount)}</span></div>
@@ -16658,6 +16677,7 @@ function goToNewSale() {
   document.getElementById('sn-othercharge').value = 0;
   document.getElementById('sn-roundoff').value = 0;
   document.getElementById('sn-discount').value = 0;
+  document.getElementById('sn-discount-remarks').value = '';
   document.getElementById('sn-tradediscpct').value = 0;
   document.getElementById('sn-cashdiscpct').value = 0;
   document.getElementById('sn-cdwithin').value = 'Same Day';
@@ -17150,6 +17170,7 @@ async function saveSaleEntry(mode) {
     other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
+    discount_remarks: document.getElementById('sn-discount-remarks').value.trim(),
     deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
@@ -17240,6 +17261,7 @@ async function editSale(id) {
     document.getElementById('sn-othercharge').value = s.other_charges || 0;
     document.getElementById('sn-roundoff').value = s.round_off || 0;
     document.getElementById('sn-discount').value = s.discount_amount || 0;
+    document.getElementById('sn-discount-remarks').value = s.discount_remarks || '';
     document.getElementById('sn-tradediscpct').value = s.trade_discount_pct || 0;
     document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
     document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
@@ -17586,6 +17608,7 @@ function printSaleInvoice(s) {
       <div class="box">
         <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''}</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
         ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
@@ -18986,7 +19009,10 @@ function buildMergedPaymentsList() {
   }));
   const purchasePmts = (STATE.purchases||[]).filter(p => (parseFloat(p.amount_paid)||0) > 0).map(p => ({
     id: 'pur-' + p.id, date: p.purchase_date, inv: p.purchase_no, client: p.supplier_name || '—',
-    method: p.payment_mode || '—', txn: p.transaction_no || '', amount: p.amount_paid, status: p.payment_status || 'Pending',
+    method: p.payment_mode || '—', txn: p.transaction_no || '',  amount: p.amount_paid,
+    // Purchases keep their payment state in `status` (there is no payment_status
+    // column on purchases) — 'Received' is a legacy value meaning nothing paid yet.
+    status: (p.status === 'Received' ? 'Pending' : p.status) || 'Pending',
     source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
   }));
   const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({

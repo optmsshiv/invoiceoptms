@@ -138,7 +138,7 @@ switch ($method) {
 
     $stmt = $db->prepare('INSERT INTO sales
       (invoice_no, customer_id, sale_date, due_date, sales_executive, payment_terms, sales_type, place_of_supply, currency,
-       subtotal, transport_charge, loading_charge, packing_charge, insurance_charge, other_charges, round_off, discount_amount,
+       subtotal, transport_charge, loading_charge, packing_charge, insurance_charge, other_charges, round_off, discount_amount, discount_remarks,
        deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        taxable_amount, cgst_amount, sgst_amount, igst_amount, total_tax, total,
        payment_status, payment_method, amount_received, transaction_no, payment_date,
@@ -146,11 +146,11 @@ switch ($method) {
        prepared_by, checked_by, approved_by, status,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime, kanta_operator_name,
        kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg)
-      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
+      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
     $stmt->execute([
       $invoiceNo, (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
-      $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount,
+      $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
@@ -224,7 +224,7 @@ switch ($method) {
 
     $db->prepare('UPDATE sales SET
       customer_id=?, sale_date=?, due_date=?, sales_executive=?, payment_terms=?, sales_type=?, place_of_supply=?, currency=?,
-      subtotal=?, transport_charge=?, loading_charge=?, packing_charge=?, insurance_charge=?, other_charges=?, round_off=?, discount_amount=?,
+      subtotal=?, transport_charge=?, loading_charge=?, packing_charge=?, insurance_charge=?, other_charges=?, round_off=?, discount_amount=?, discount_remarks=?,
       deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       taxable_amount=?, cgst_amount=?, sgst_amount=?, igst_amount=?, total_tax=?, total=?,
       payment_status=?, payment_method=?, amount_received=?, transaction_no=?, payment_date=?,
@@ -235,7 +235,7 @@ switch ($method) {
       WHERE id=?')->execute([
       (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
-      $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount,
+      $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
