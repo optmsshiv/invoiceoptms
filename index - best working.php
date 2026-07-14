@@ -758,7 +758,6 @@ canvas { max-width: 100% !important; }
 .act-menu-wrap { position: relative; display: inline-block; }
 .act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
 .act-menu.open { display: block; }
-.act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
 .act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
 .act-menu button:hover { background: var(--bg); }
 .act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
@@ -2584,17 +2583,6 @@ const SERVER = {
       <div id="spl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> Click on <i class="fas fa-eye"></i> to view supplier details, <i class="fas fa-pen"></i> to edit supplier information.</div>
         <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('spl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
-      </div>
-    </div>
-
-    <!-- Supplier Profile Modal (eye button — quick in-app view) -->
-    <div class="modal-overlay" id="modal-supplier-profile">
-      <div class="modal" style="max-width:640px">
-        <div class="modal-header">
-          <span>Supplier Profile</span>
-          <button class="modal-close" onclick="closeModal('modal-supplier-profile')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" id="sp-profile-body" style="max-height:70vh;overflow-y:auto"></div>
       </div>
     </div>
 
@@ -14396,7 +14384,7 @@ async function renderSuppliers() {
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
+          <button class="act-btn" title="View supplier details" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-eye"></i></button>
           ${active ? `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>` : ''}
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
@@ -14504,88 +14492,12 @@ function toggleActMenu(ev, btn) {
   ev.stopPropagation();
   const menu = btn.parentElement.querySelector('.act-menu');
   const wasOpen = menu.classList.contains('open');
-  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
-  if (!wasOpen) {
-    menu.classList.add('open');
-    // The table card clips overflow for its rounded corners, which would
-    // hide a menu that opens below the last few rows. Flip it to open
-    // upward instead whenever there isn't enough room beneath the button.
-    const rect = btn.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 160;
-    if (window.innerHeight - rect.bottom < menuHeight + 12) {
-      menu.classList.add('act-menu-up');
-    }
-  }
+  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
+  if (!wasOpen) menu.classList.add('open');
 }
 document.addEventListener('click', () => {
-  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
+  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
 });
-
-// In-app supplier profile — quick view without leaving the list page.
-// PDF/print stays available separately via the 3-dot menu (viewSupplierPdf).
-function viewSupplierProfile(id) {
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
-  if (!s) { toast('❌ Supplier not found', 'error'); return; }
-
-  const totals = splPurchaseTotals();
-  const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-  const active = (s.status || 'active') === 'active';
-
-  // Recent purchases from this supplier, most recent first
-  const recentPurchases = (STATE.purchases || [])
-    .filter(p => String(p.supplier_id) === String(s.id))
-    .sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''))
-    .slice(0, 5);
-
-  const kv = (label, val) => val ? `<div class="pne-kv"><span>${escHtml(label)}</span><strong>${escHtml(String(val))}</strong></div>` : '';
-
-  document.getElementById('sp-profile-body').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
-      <div>
-        <div style="font-size:17px;font-weight:800">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
-      </div>
-      <span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:3px 10px;border-radius:10px">${active?'Active':'Inactive'}</span>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-bottom:16px">
-      <div style="flex:1;border:1px solid var(--border);border-radius:10px;padding:12px" >
-        <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES</div>
-        <div style="font-size:16px;font-weight:800;margin-top:3px">${fmt_money(t.total)}</div>
-      </div>
-      <div style="flex:1;border:1px solid var(--border);border-radius:10px;padding:12px">
-        <div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div>
-        <div style="font-size:16px;font-weight:800;margin-top:3px;color:${t.outstanding>0?'#E53935':'var(--text)'}">${fmt_money(t.outstanding)}</div>
-      </div>
-    </div>
-
-    <div class="pne-card" style="margin-bottom:12px">
-      <div class="pne-card-head pne-head-green"><i class="fas fa-address-card"></i> Contact & Registration</div>
-      ${kv('Contact Person', s.contact_person)}
-      ${kv('Mobile', s.phone)}
-      ${kv('Email', s.email)}
-      ${kv('GST Number', s.gst_number)}
-      ${kv('PAN', s.pan_no)}
-      ${kv('Payment Terms', s.payment_terms)}
-      ${kv('Bank', s.bank_name ? s.bank_name + (s.bank_account_no ? ' · ' + s.bank_account_no : '') : '')}
-    </div>
-
-    <div class="pne-card">
-      <div class="pne-card-head pne-head-green"><i class="fas fa-clock-rotate-left"></i> Recent Purchases</div>
-      ${recentPurchases.length ? recentPurchases.map(p => `
-        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px">
-          <div><strong>${escHtml(p.purchase_no)}</strong> <span style="color:var(--muted)">· ${fmt_date_disp(p.purchase_date)}</span></div>
-          <div style="font-weight:600">${fmt_money(p.total)}</div>
-        </div>`).join('') : `<div style="color:var(--muted);font-size:12.5px;padding:6px 0">No purchases recorded yet</div>`}
-    </div>
-
-    <div style="display:flex;gap:8px;margin-top:16px">
-      ${active ? `<button class="btn btn-primary" style="flex:1" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
-      <button class="btn btn-outline" style="flex:1" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
-    </div>
-  `;
-  openModal('modal-supplier-profile');
-}
 
 // Printable supplier profile — opens in a new tab, ready for Save as PDF.
 function viewSupplierPdf(id) {

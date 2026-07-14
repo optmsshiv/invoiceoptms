@@ -351,16 +351,57 @@ CREATE TABLE `portal_views` (
 
 CREATE TABLE `products` (
     `id` int(11) NOT NULL,
-    `name` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
-    `category` varchar(100) COLLATE utf8_unicode_ci DEFAULT 'Other',
+    `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `category` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Other',
     `rate` decimal(12, 2) NOT NULL DEFAULT '0.00',
-    `hsn_code` varchar(20) COLLATE utf8_unicode_ci DEFAULT '998314',
-    `gst_rate` decimal(5, 2) DEFAULT '18.00',
-    `description` text COLLATE utf8_unicode_ci,
-    `is_active` tinyint(1) DEFAULT '1',
+    `hsn` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `gst` decimal(5, 2) DEFAULT '0.00',
+    `unit_family` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `sku` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Kg',
+    `brand` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `variety` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `grade` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `barcode` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `shelf_life_months` int(11) DEFAULT NULL,
+    `storage_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `base_unit_label` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `sale_unit` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `purchase_unit` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `min_order_qty` decimal(12, 2) DEFAULT '0.00',
+    `moisture_limit` decimal(5, 2) DEFAULT NULL,
+    `foreign_matter_limit` decimal(5, 2) DEFAULT NULL,
+    `broken_damage_limit` decimal(5, 2) DEFAULT NULL,
+    `oil_content` decimal(5, 2) DEFAULT NULL,
+    `admixture_limit` decimal(5, 2) DEFAULT NULL,
+    `color` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `aroma` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `shape_size` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `packing_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `packing_size` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `purchase_rate` decimal(12, 2) DEFAULT '0.00',
+    `sale_rate` decimal(12, 2) DEFAULT '0.00',
+    `mrp` decimal(12, 2) DEFAULT '0.00',
+    `tax_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `opening_stock` decimal(12, 2) DEFAULT '0.00',
+    `reorder_level` decimal(12, 2) DEFAULT '0.00',
+    `max_stock` decimal(12, 2) DEFAULT '0.00',
+    `default_warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `track_batch` tinyint(1) DEFAULT '0',
+    `track_serial` tinyint(1) DEFAULT '0',
+    `short_description` text COLLATE utf8mb4_unicode_ci,
+    `detailed_description` text COLLATE utf8mb4_unicode_ci,
+    `country_of_origin` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `manufacturer` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `fssai_license` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `iec_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `tags` text COLLATE utf8mb4_unicode_ci,
+    `images` text COLLATE utf8mb4_unicode_ci,
+    `attachments` text COLLATE utf8mb4_unicode_ci,
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
     `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE = InnoDB DEFAULT CHARSET = utf8 COLLATE = utf8_unicode_ci;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -980,3 +1021,456 @@ ADD UNIQUE KEY `uk_role_perm` (`role`, `permission_key`);
 --
 ALTER TABLE `role_permissions`
 MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+-- ================================================================
+--  AgriTrade / Product-business tables
+--  Added because tenant_schema.sql only ever contained the original
+--  invoicing schema — every table below was previously created by
+--  hand via one-off migrations during development. New tenants never
+--  got them, so any "Product" or "Both" business-type tenant would
+--  hit "table doesn't exist" the moment they touched Sales, Purchases,
+--  Suppliers, or Stock. This section closes that gap.
+-- ================================================================
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `customers`
+--
+
+CREATE TABLE `customers` (
+    `id` int(11) NOT NULL,
+    `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `customer_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `mobile` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `gstin` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `state` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `district` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `billing_address` text COLLATE utf8mb4_unicode_ci,
+    `shipping_address` text COLLATE utf8mb4_unicode_ci,
+    `credit_limit` decimal(12, 2) DEFAULT '0.00',
+    `payment_terms` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `sales_executive` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `notes` text COLLATE utf8mb4_unicode_ci,
+    `customer_code` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `business_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `display_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `group_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `alternate_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `whatsapp_no` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `billing_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `billing_pincode` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `shipping_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `shipping_state` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `shipping_pincode` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `pan_no` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `business_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `tan_no` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `iec_no` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `trade_license_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `currency` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '₹',
+    `opening_balance` decimal(12, 2) DEFAULT '0.00',
+    `opening_balance_type` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'debit',
+    `documents` text COLLATE utf8mb4_unicode_ci,
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `customers` ADD PRIMARY KEY (`id`);
+ALTER TABLE `customers` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `suppliers`
+--
+
+CREATE TABLE `suppliers` (
+    `id` int(11) NOT NULL,
+    `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `contact_person` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `gst_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `country` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+    `address` text COLLATE utf8mb4_unicode_ci,
+    `payment_terms` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `opening_balance` decimal(12, 2) DEFAULT '0.00',
+    `notes` text COLLATE utf8mb4_unicode_ci,
+    `supplier_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `state` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `district` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `date_of_registration` date DEFAULT NULL,
+    `business_nature` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `website` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `pincode` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `pan_no` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `aadhaar_no` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `state_code` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `tan_no` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `msme_no` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `fssai_no` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `bank_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `bank_account_no` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `ifsc_code` varchar(15) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `account_holder_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `credit_limit` decimal(12, 2) DEFAULT '0.00',
+    `default_price_list` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `documents` text COLLATE utf8mb4_unicode_ci,
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `suppliers` ADD PRIMARY KEY (`id`);
+ALTER TABLE `suppliers` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `sales`
+--
+
+CREATE TABLE `sales` (
+    `id` int(11) NOT NULL,
+    `invoice_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `customer_id` int(11) DEFAULT NULL,
+    `sale_date` date DEFAULT NULL,
+    `due_date` date DEFAULT NULL,
+    `sales_executive` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_terms` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `sales_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `place_of_supply` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `currency` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '₹',
+    `subtotal` decimal(14, 2) DEFAULT '0.00',
+    `transport_charge` decimal(12, 2) DEFAULT '0.00',
+    `loading_charge` decimal(12, 2) DEFAULT '0.00',
+    `packing_charge` decimal(12, 2) DEFAULT '0.00',
+    `insurance_charge` decimal(12, 2) DEFAULT '0.00',
+    `other_charges` decimal(12, 2) DEFAULT '0.00',
+    `round_off` decimal(8, 2) DEFAULT '0.00',
+    `discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `discount_remarks` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `deductions` text COLLATE utf8mb4_unicode_ci,
+    `deduction_amount` decimal(12, 2) DEFAULT '0.00',
+    `trade_discount_pct` decimal(5, 2) DEFAULT '0.00',
+    `cash_discount_pct` decimal(5, 2) DEFAULT '0.00',
+    `cd_applicable_within` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `trade_discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `cash_discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `taxable_amount` decimal(14, 2) DEFAULT '0.00',
+    `cgst_amount` decimal(12, 2) DEFAULT '0.00',
+    `sgst_amount` decimal(12, 2) DEFAULT '0.00',
+    `igst_amount` decimal(12, 2) DEFAULT '0.00',
+    `total_tax` decimal(12, 2) DEFAULT '0.00',
+    `total` decimal(14, 2) DEFAULT '0.00',
+    `payment_status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
+    `payment_method` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `amount_received` decimal(14, 2) DEFAULT '0.00',
+    `transaction_no` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_date` date DEFAULT NULL,
+    `customer_notes` text COLLATE utf8mb4_unicode_ci,
+    `internal_notes` text COLLATE utf8mb4_unicode_ci,
+    `delivery_instructions` text COLLATE utf8mb4_unicode_ci,
+    `attachments` text COLLATE utf8mb4_unicode_ci,
+    `prepared_by` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `checked_by` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `approved_by` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Confirmed',
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `weighing_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `kanta_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weighbridge_slip_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weight_datetime` datetime DEFAULT NULL,
+    `kanta_operator_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `kanta_gross_weight` decimal(12, 2) DEFAULT NULL,
+    `kanta_tare_weight` decimal(12, 2) DEFAULT NULL,
+    `kanta_moisture_pct` decimal(5, 2) DEFAULT NULL,
+    `kanta_dhalta_kg` decimal(12, 2) DEFAULT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `sales` ADD PRIMARY KEY (`id`);
+ALTER TABLE `sales` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `sale_items`
+--
+
+CREATE TABLE `sale_items` (
+    `id` int(11) NOT NULL,
+    `sale_id` int(11) NOT NULL,
+    `product_id` int(11) DEFAULT NULL,
+    `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `variety_grade` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `batch_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `moisture_pct` decimal(5, 2) DEFAULT NULL,
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `qty` decimal(12, 2) NOT NULL DEFAULT '0.00',
+    `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Kg',
+    `rate` decimal(12, 2) DEFAULT '0.00',
+    `discount_pct` decimal(5, 2) DEFAULT '0.00',
+    `gst_pct` decimal(5, 2) DEFAULT '0.00',
+    `tax_amount` decimal(12, 2) DEFAULT '0.00',
+    `line_total` decimal(14, 2) DEFAULT '0.00'
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `sale_items` ADD PRIMARY KEY (`id`);
+ALTER TABLE `sale_items` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `sale_items` ADD CONSTRAINT `sale_items_ibfk_1` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `purchases`
+--
+
+CREATE TABLE `purchases` (
+    `id` int(11) NOT NULL,
+    `purchase_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `supplier_id` int(11) DEFAULT NULL,
+    `supplier_invoice_ref` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `purchase_date` date DEFAULT NULL,
+    `currency` varchar(5) COLLATE utf8mb4_unicode_ci DEFAULT '₹',
+    `exchange_rate` decimal(10, 4) DEFAULT '1.0000',
+    `subtotal` decimal(14, 2) DEFAULT '0.00',
+    `gst_amount` decimal(12, 2) DEFAULT '0.00',
+    `gst_pct` decimal(5, 2) DEFAULT '0.00',
+    `total` decimal(14, 2) DEFAULT '0.00',
+    `amount_paid` decimal(14, 2) DEFAULT '0.00',
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
+    `notes` text COLLATE utf8mb4_unicode_ci,
+    `reference_po_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `supplier_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `gst_applicable` tinyint(1) DEFAULT '1',
+    `supply_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `transport_mode` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `vehicle_no` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `driver_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `payment_terms` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `remarks` text COLLATE utf8mb4_unicode_ci,
+    `transport_charge` decimal(12, 2) DEFAULT '0.00',
+    `loading_charge` decimal(12, 2) DEFAULT '0.00',
+    `packing_charge` decimal(12, 2) DEFAULT '0.00',
+    `other_charges` decimal(12, 2) DEFAULT '0.00',
+    `discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `discount_remarks` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `deductions` text COLLATE utf8mb4_unicode_ci,
+    `deduction_amount` decimal(12, 2) DEFAULT '0.00',
+    `trade_discount_pct` decimal(5, 2) DEFAULT '0.00',
+    `cash_discount_pct` decimal(5, 2) DEFAULT '0.00',
+    `cd_applicable_within` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `trade_discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `cash_discount_amount` decimal(12, 2) DEFAULT '0.00',
+    `attachment_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_mode` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `transaction_no` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_date` date DEFAULT NULL,
+    `weighing_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `kanta_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weighbridge_slip_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weight_datetime` datetime DEFAULT NULL,
+    `kanta_gross_weight` decimal(12, 2) DEFAULT NULL,
+    `kanta_tare_weight` decimal(12, 2) DEFAULT NULL,
+    `kanta_operator_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `kanta_slip_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `header_moisture_pct` decimal(5, 2) DEFAULT NULL,
+    `header_impurity_pct` decimal(5, 2) DEFAULT NULL,
+    `header_dhalta_pct` decimal(5, 2) DEFAULT NULL,
+    `header_dhalta_kg` decimal(12, 2) DEFAULT NULL,
+    `header_billable_weight` decimal(12, 2) DEFAULT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `purchases` ADD PRIMARY KEY (`id`);
+ALTER TABLE `purchases` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `purchase_items`
+--
+
+CREATE TABLE `purchase_items` (
+    `id` int(11) NOT NULL,
+    `purchase_id` int(11) NOT NULL,
+    `product_id` int(11) DEFAULT NULL,
+    `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `hsn` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `qty` decimal(12, 2) NOT NULL DEFAULT '0.00',
+    `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Kg',
+    `entered_qty` decimal(12, 2) DEFAULT NULL,
+    `entered_unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `rate` decimal(12, 2) DEFAULT '0.00',
+    `gst_pct` decimal(5, 2) DEFAULT '0.00',
+    `amount` decimal(14, 2) DEFAULT '0.00',
+    `variety_grade` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `moisture_pct` decimal(5, 2) DEFAULT NULL,
+    `quality_grade` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `gross_weight` decimal(12, 2) DEFAULT NULL,
+    `tare_weight` decimal(12, 2) DEFAULT NULL,
+    `dhalta_pct` decimal(5, 2) DEFAULT NULL,
+    `dhalta_kg` decimal(12, 2) DEFAULT NULL,
+    `billable_weight` decimal(12, 2) DEFAULT NULL,
+    `discount_pct` decimal(5, 2) DEFAULT '0.00'
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `purchase_items` ADD PRIMARY KEY (`id`);
+ALTER TABLE `purchase_items` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `purchase_items` ADD CONSTRAINT `purchase_items_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `stock_ledger`
+-- Every stock movement, derived from purchases/sales/stock_in/adjustments.
+-- Never written to directly by hand — see stock_adjustments for corrections.
+--
+
+CREATE TABLE `stock_ledger` (
+    `id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `ref_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+    `ref_id` int(11) DEFAULT NULL,
+    `direction` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'out',
+    `qty` decimal(12, 2) NOT NULL DEFAULT '0.00',
+    `rate` decimal(12, 2) DEFAULT '0.00',
+    `balance_after` decimal(12, 2) DEFAULT '0.00',
+    `movement_date` date DEFAULT NULL,
+    `notes` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `batch_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `stock_ledger` ADD PRIMARY KEY (`id`);
+ALTER TABLE `stock_ledger` ADD KEY `idx_stock_ledger_product` (`product_id`);
+ALTER TABLE `stock_ledger` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `stock_adjustments`
+--
+
+CREATE TABLE `stock_adjustments` (
+    `id` int(11) NOT NULL,
+    `adjustment_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `adjustment_date` date DEFAULT NULL,
+    `adjustment_type` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT 'Moisture Loss',
+    `direction` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'out',
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `reference_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `reference_date` date DEFAULT NULL,
+    `product_id` int(11) NOT NULL,
+    `variety_grade` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `grade` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Kg',
+    `batch_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `manufacture_date` date DEFAULT NULL,
+    `expiry_date` date DEFAULT NULL,
+    `supplier_id` int(11) DEFAULT NULL,
+    `opening_stock` decimal(12, 2) DEFAULT '0.00',
+    `moisture_before_pct` decimal(5, 2) DEFAULT NULL,
+    `moisture_after_pct` decimal(5, 2) DEFAULT NULL,
+    `moisture_loss_pct` decimal(5, 2) DEFAULT NULL,
+    `weight_loss_kg` decimal(12, 2) DEFAULT '0.00',
+    `final_stock` decimal(12, 2) DEFAULT '0.00',
+    `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `remarks` text COLLATE utf8mb4_unicode_ci,
+    `attachment_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `approved_by` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `approval_date` date DEFAULT NULL,
+    `notes` text COLLATE utf8mb4_unicode_ci,
+    `created_by` int(11) DEFAULT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `stock_adjustments` ADD PRIMARY KEY (`id`);
+ALTER TABLE `stock_adjustments` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `stock_in_entries`
+--
+
+CREATE TABLE `stock_in_entries` (
+    `id` int(11) NOT NULL,
+    `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `reference_date` date DEFAULT NULL,
+    `warehouse` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'Main Warehouse',
+    `stock_in_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT 'Purchase',
+    `remarks` text COLLATE utf8mb4_unicode_ci,
+    `weighing_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weighbridge_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weighbridge_slip_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `weight_datetime` datetime DEFAULT NULL,
+    `gross_weight` decimal(12, 2) DEFAULT NULL,
+    `tare_weight` decimal(12, 2) DEFAULT NULL,
+    `operator_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `slip_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `supplier_id` int(11) DEFAULT NULL,
+    `challan_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `challan_date` date DEFAULT NULL,
+    `vehicle_no` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `driver_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `attachments` text COLLATE utf8mb4_unicode_ci,
+    `total_quantity` decimal(12, 2) DEFAULT '0.00',
+    `total_amount` decimal(14, 2) DEFAULT '0.00',
+    `created_by` int(11) DEFAULT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `stock_in_entries` ADD PRIMARY KEY (`id`);
+ALTER TABLE `stock_in_entries` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `stock_in_items`
+--
+
+CREATE TABLE `stock_in_items` (
+    `id` int(11) NOT NULL,
+    `stock_in_id` int(11) NOT NULL,
+    `product_id` int(11) NOT NULL,
+    `variety` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `grade` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `batch_no` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `mfg_date` date DEFAULT NULL,
+    `expiry_date` date DEFAULT NULL,
+    `qty` decimal(12, 2) NOT NULL DEFAULT '0.00',
+    `rate` decimal(12, 2) DEFAULT '0.00',
+    `amount` decimal(14, 2) DEFAULT '0.00'
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `stock_in_items` ADD PRIMARY KEY (`id`);
+ALTER TABLE `stock_in_items` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `stock_in_items` ADD CONSTRAINT `stock_in_items_ibfk_1` FOREIGN KEY (`stock_in_id`) REFERENCES `stock_in_entries` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `payment_vouchers`
+-- General-purpose payments (in/out) not tied to a specific sale/purchase
+-- invoice — e.g. advance payments, expense settlements.
+--
+
+CREATE TABLE `payment_vouchers` (
+    `id` int(11) NOT NULL,
+    `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_date` date DEFAULT NULL,
+    `direction` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT 'out',
+    `party_type` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT 'Vendor',
+    `party_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_for` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
+    `payment_mode` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT 'Cash',
+    `amount` decimal(14, 2) NOT NULL DEFAULT '0.00',
+    `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Paid',
+    `notes` text COLLATE utf8mb4_unicode_ci,
+    `created_by` int(11) DEFAULT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE `payment_vouchers` ADD PRIMARY KEY (`id`);
+ALTER TABLE `payment_vouchers` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
