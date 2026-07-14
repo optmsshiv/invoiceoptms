@@ -22,11 +22,11 @@ define('CPANEL_USERNAME',  env('CPANEL_USERNAME'));
 define('CPANEL_API_TOKEN', env('CPANEL_API_TOKEN'));
 
 // ── App constants ─────────────────────────────────────────────────
-define('APP_NAME',    env('APP_NAME', 'OPTMS Tech Invoice Manager'));
+define('APP_NAME',    env('APP_NAME', 'OPTMS Tech'));
 define('APP_VERSION', env('APP_VERSION', '2.0.0'));
 define('APP_URL',     env('APP_URL'));
 
-define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 7200));
+define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 15200));
 define('UPLOAD_MAX_SIZE',  (int) env('UPLOAD_MAX_SIZE', 3145728));
 define('UPLOAD_PATH',      __DIR__ . '/../assets/uploads/');
 
@@ -87,14 +87,8 @@ function getDB(): PDO {
         $targetDb = $_SESSION['tenant_db'] ?? null;
     }
 
-    // super_admin with no tenant context → refuse, rather than silently
-    // falling back to master. Business-data queries (and any lazy
-    // "CREATE TABLE IF NOT EXISTS" self-healing logic in API endpoints)
-    // must NEVER run against the master DB, which should only ever hold
-    // `tenants` and `users`. Use action=connect_db first.
-    if (!$targetDb) {
-        _dbError('No database is connected to this session. Super admin: use "Connect Database" first.');
-    }
+    // super_admin with no tenant context → use master
+    if (!$targetDb) return getMasterDB();
 
     // Re-use if same DB
     if ($tenantPdo !== null && $currentDb === $targetDb) return $tenantPdo;
