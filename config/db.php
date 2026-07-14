@@ -87,13 +87,14 @@ function getDB(): PDO {
         $targetDb = $_SESSION['tenant_db'] ?? null;
     }
 
-    // super_admin with no tenant context → refuse, rather than silently
-    // falling back to master. Business-data queries (and any lazy
-    // "CREATE TABLE IF NOT EXISTS" self-healing logic in API endpoints)
-    // must NEVER run against the master DB, which should only ever hold
-    // `tenants` and `users`. Use action=connect_db first.
+    // super_admin with no tenant context → throw, don't hard-exit.
+    // This must be CATCHABLE: index.php's settings loader wraps getDB()
+    // in try/catch and should degrade gracefully (matching pre-fix
+    // behavior), while api/*.php endpoints (which already wrap their
+    // logic in try/catch and call jsonResponse on error) will turn this
+    // into a clean JSON error instead of quietly hitting master.
     if (!$targetDb) {
-        _dbError('No database is connected to this session. Super admin: use "Connect Database" first.');
+        throw new RuntimeException('No database is connected to this session. Super admin: use "Connect Database" first.');
     }
 
     // Re-use if same DB
