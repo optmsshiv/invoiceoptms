@@ -22021,35 +22021,14 @@ window.settingsTab = function(name, btn) {
 // Invoices, Stock, etc.) reads from it — no tenant record is created,
 // no users are migrated. Purely for the super admin to look around.
 async function connectDbPrompt() {
-  let recentHtml = '';
-  try {
-    const r = await api('api/tenant.php?action=recent_connections', 'GET');
-    if (r.data?.length) {
-      recentHtml = `<div style="text-align:left;margin-top:10px">
-        <div style="font-size:11px;color:#888;margin-bottom:6px">Recent:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${r.data.map(d => `<button type="button" class="recent-db-chip" data-db="${d.db_name.replace(/"/g,'&quot;')}"
-            style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">${d.label}</button>`).join('')}
-        </div>
-      </div>`;
-    }
-  } catch(e) { /* recent list is a convenience, ignore failures */ }
-
   const { value: dbName } = await Swal.fire({
     title: 'Connect to a database',
-    html: `<input id="swal-dbname" class="swal2-input" placeholder="e.g. edrppymy_optms_invoice" style="margin-bottom:4px">
-           <div style="font-size:11px;color:#888;text-align:left;margin:0 6px">Exact database name from cPanel → MySQL Databases</div>
-           ${recentHtml}`,
+    input: 'text',
+    inputPlaceholder: 'e.g. edrppymy_optms_invoice',
+    inputLabel: 'Exact database name from cPanel → MySQL Databases',
     showCancelButton: true,
     confirmButtonText: 'Connect',
     customClass: { popup: 'swal-compact' },
-    didOpen: () => {
-      const input = document.getElementById('swal-dbname');
-      document.querySelectorAll('.recent-db-chip').forEach(chip => {
-        chip.addEventListener('click', () => { input.value = chip.dataset.db; input.focus(); });
-      });
-    },
-    preConfirm: () => document.getElementById('swal-dbname').value.trim(),
   });
   if (!dbName) return;
   try {

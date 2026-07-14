@@ -347,31 +347,6 @@ try {
         ]);
     }
 
-    // ── RECENT: databases this super admin has connected to before ─────
-    // Sourced from the audit log — no separate table needed. Purely a
-    // convenience list; connecting still requires a deliberate click.
-    if ($method === 'GET' && $action === 'recent_connections') {
-        $stmt = $master->prepare(
-            "SELECT details, MAX(created_at) AS last_used FROM master_audit_log
-             WHERE user_id = ? AND action = 'super_admin_connect_db'
-             GROUP BY details ORDER BY last_used DESC LIMIT 8"
-        );
-        $stmt->execute([$_SESSION['user_id']]);
-        $recent = [];
-        foreach ($stmt->fetchAll() as $row) {
-            // details is "Connected session to database: <name>"
-            if (preg_match('/database:\s*(.+)$/', $row['details'], $m)) {
-                $dbName = trim($m[1]);
-                $label = $dbName;
-                $tChk = $master->prepare('SELECT company_name FROM tenants WHERE db_name=?');
-                $tChk->execute([$dbName]);
-                if ($t = $tChk->fetch()) $label = $t['company_name'];
-                $recent[] = ['db_name' => $dbName, 'label' => $label, 'last_used' => $row['last_used']];
-            }
-        }
-        jsonResponse(['data' => $recent]);
-    }
-
     // ── CONNECT: super admin points their OWN session at any database ──
     // Lightweight and temporary — unlike attach_existing, this creates NO
     // tenant record and migrates NO users. It just changes which database
