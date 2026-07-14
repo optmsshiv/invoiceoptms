@@ -72,6 +72,13 @@ $companyName    = $settings['company_name']     ?? 'OPTMS Tech';
 $prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
 $estPrefix      = $settings['estimate_prefix']  ?? 'QT-' . date('Y') . '-';
 $companyGst     = $settings['company_gst']      ?? '';
+$companyPan     = $settings['company_pan']      ?? '';
+$companyIec     = $settings['company_iec']      ?? '';
+$companyFssai   = $settings['company_fssai']    ?? '';
+$companyApeda   = $settings['company_apeda']    ?? '';
+$companyCin     = $settings['company_cin']      ?? '';
+$companyMsme    = $settings['company_msme']     ?? '';
+$showDhaltaPct  = $settings['show_dhalta_pct']  ?? '1';
 $companyPhone   = $settings['company_phone']    ?? '';
 $companyEmail   = $settings['company_email']    ?? '';
 $companyWebsite = $settings['company_website']  ?? '';
@@ -2840,13 +2847,13 @@ const SERVER = {
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
                     <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
                     <th colspan="3">Weight Details (in Kg)</th>
-                    <th colspan="2">Dhalta</th>
+                    <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
                     <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
                   </tr>
                   <tr>
                     <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
-                    <th>%</th><th>Kg</th>
+                    <th class="pne-dhpct-col">%</th><th>Kg</th>
                   </tr>
                 </thead>
                 <tbody id="pne-items-tbody"></tbody>
@@ -4586,7 +4593,7 @@ const SERVER = {
           </tr></thead>
           <tbody id="sh-history-tbody"></tbody>
         </table>
-        <div class="table-footer"><div class="tf-info" id="sh-history-info"></div></div>
+        <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div class="tf-info" id="sh-history-info"></div><div style="display:flex;gap:5px" id="sh-pagination"></div></div>
       </div>
 
       <div style="padding:16px 0 30px">
@@ -6036,6 +6043,12 @@ View Invoice: {{6}}</pre></details>
             <div class="form-grid g2">
               <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
               <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
+              <div class="field"><label>PAN</label><input id="sc-pan" placeholder="AAAAA0000A" value="<?= htmlspecialchars($companyPan) ?>"></div>
+              <div class="field"><label>IEC Number</label><input id="sc-iec" placeholder="Import Export Code" value="<?= htmlspecialchars($companyIec) ?>"></div>
+              <div class="field"><label>FSSAI License</label><input id="sc-fssai" placeholder="14-digit FSSAI license no." value="<?= htmlspecialchars($companyFssai) ?>"></div>
+              <div class="field"><label>APEDA RCMC</label><input id="sc-apeda" placeholder="APEDA RCMC No." value="<?= htmlspecialchars($companyApeda) ?>"></div>
+              <div class="field"><label>CIN</label><input id="sc-cin" placeholder="Corporate Identification No." value="<?= htmlspecialchars($companyCin) ?>"></div>
+              <div class="field"><label>MSME / Udyam No.</label><input id="sc-msme" placeholder="UDYAM-XX-00-0000000" value="<?= htmlspecialchars($companyMsme) ?>"></div>
               <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
               <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
               <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
@@ -6051,6 +6064,13 @@ View Invoice: {{6}}</pre></details>
                   <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
                   <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
                   <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Dhalta % Column <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(purchase items table &amp; local voucher)</span></label>
+                <select id="sc-show-dhaltapct">
+                  <option value="1" <?= $showDhaltaPct!=='0'?'selected':'' ?>>Show Dhalta %</option>
+                  <option value="0" <?= $showDhaltaPct==='0'?'selected':'' ?>>Hide Dhalta %</option>
                 </select>
               </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
@@ -7557,6 +7577,13 @@ const STATE = {
   settings: {
     company:         <?= json_encode($companyName)    ?>,
     gst:             <?= json_encode($companyGst)     ?>,
+    pan:             <?= json_encode($companyPan)     ?>,
+    iec:             <?= json_encode($companyIec)     ?>,
+    fssai:           <?= json_encode($companyFssai)   ?>,
+    apeda:           <?= json_encode($companyApeda)   ?>,
+    cin:             <?= json_encode($companyCin)     ?>,
+    msme:            <?= json_encode($companyMsme)    ?>,
+    showDhaltaPct:   <?= json_encode($showDhaltaPct)  ?>,
     phone:           <?= json_encode($companyPhone)   ?>,
     email:           <?= json_encode($companyEmail)   ?>,
     website:         <?= json_encode($companyWebsite) ?>,
@@ -15189,7 +15216,7 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.gross_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
       <td><input type="number" value="${it.tare_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
-      <td><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
+      <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
       <td><input type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
       <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
@@ -15203,7 +15230,17 @@ function renderPNEItemsTable() {
       </td>
     </tr>`;
   }).join('');
+  applyDhaltaPctVisibility();
   calcPurchaseNewTotals();
+}
+
+// Show/hide the Dhalta % sub-column per Settings → Company (show_dhalta_pct).
+// The Kg column always stays — only the derived percentage is optional.
+function applyDhaltaPctVisibility() {
+  const show = (STATE.settings.showDhaltaPct ?? '1') !== '0';
+  document.querySelectorAll('.pne-dhpct-col').forEach(el => { el.style.display = show ? '' : 'none'; });
+  const g = document.getElementById('pne-th-dhalta-group');
+  if (g) { g.colSpan = show ? 2 : 1; g.textContent = show ? 'Dhalta' : 'Dhalta (Kg)'; }
 }
 
 function onPNEProductChange(id, productId) {
@@ -15708,7 +15745,18 @@ function pneCompanyInfo() {
   return {
     name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
     address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
+    pan: s.pan || '', apeda: s.apeda || '', cin: s.cin || '', msme: s.msme || '',
   };
+}
+
+// One-line statutory registrations block for invoice headers — shows only
+// the numbers that are actually filled in Settings → Company Profile.
+function pneStatutoryLine(co) {
+  const parts = [];
+  if (co.gst) parts.push('GSTIN: ' + escHtml(co.gst));
+  if (co.pan) parts.push('PAN: ' + escHtml(co.pan));
+  if (co.fssai) parts.push('FSSAI: ' + escHtml(co.fssai));
+  return parts.join(' &nbsp;|&nbsp; ');
 }
 
 // ── Template 1: Local Purchase Voucher (Farmer / GST-exempt purchases) ──
@@ -15720,7 +15768,7 @@ function printLocalPurchaseVoucher(p) {
       <td>${escHtml(it.description||'')}</td><td>${escHtml(it.variety_grade||'—')}</td><td>${escHtml(it.quality_grade||'—')}</td>
       <td class="r">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(1)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.gross_weight).toFixed(2)}</td><td class="r">${parseFloat(it.tare_weight).toFixed(2)}</td>
-      <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${parseFloat(it.dhalta_pct||0).toFixed(1)}%</td>
+      <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? parseFloat(it.dhalta_pct||0).toFixed(1)+'%' : parseFloat(it.dhalta_kg||0).toFixed(2)}</td>
       <td class="r">${parseFloat(it.billable_weight).toFixed(2)}</td><td class="r">${fmt_money(it.rate)}</td><td class="r">${fmt_money(it.amount)}</td>
     </tr>`).join('');
   const gGross = items.reduce((s,i)=>s+parseFloat(i.gross_weight||0),0);
@@ -15775,7 +15823,7 @@ function printLocalPurchaseVoucher(p) {
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
-            ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
+            ${pneStatutoryLine(co)}${pneStatutoryLine(co)?'<br>':''}
             ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
             ${co.address?`Address: ${escHtml(co.address)}`:''}
           </div>
@@ -15804,7 +15852,7 @@ function printLocalPurchaseVoucher(p) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">Dhalta%</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td colspan="4">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
     </table>
@@ -15918,7 +15966,7 @@ function printTaxInvoicePurchase(p) {
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
-            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
             ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
           </div>
         </div>
@@ -16215,6 +16263,7 @@ async function renderStockHistory() {
 
     const r = await api('api/stock_history.php?' + params.toString());
     SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
+    SH_PAGE = 1;
     const stats = r.stats || {};
 
     const openingVal = stats.opening_stock || 0;
@@ -16232,11 +16281,15 @@ async function renderStockHistory() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+let SH_PAGE = 1;
+const SH_PAGESIZE = 20;
+
 function renderSHTable() {
   const tbody = document.getElementById('sh-history-tbody');
   const rows = SH_LAST_ROWS;
-  document.getElementById('sh-history-info').textContent = `Showing 1 to ${rows.length} of ${rows.length} entries`;
   if (!rows.length) {
+    document.getElementById('sh-history-info').textContent = 'No entries';
+    const pg = document.getElementById('sh-pagination'); if (pg) pg.innerHTML = '';
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement in this period</td></tr>`;
     return;
   }
@@ -16256,11 +16309,34 @@ function renderSHTable() {
   }
   // reverse chronological for display (most recent first), matching the rest of the app
   const display = [...rows].reverse();
-  tbody.innerHTML = display.map((row, idx) => {
+
+  // ── Pagination (20 per page) ───────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(display.length / SH_PAGESIZE));
+  if (SH_PAGE > totalPages) SH_PAGE = totalPages;
+  if (SH_PAGE < 1) SH_PAGE = 1;
+  const start = (SH_PAGE - 1) * SH_PAGESIZE;
+  const pageRows = display.slice(start, start + SH_PAGESIZE);
+  document.getElementById('sh-history-info').textContent =
+    `Showing ${start+1} to ${Math.min(start+SH_PAGESIZE, display.length)} of ${display.length} entries`;
+  const pager = document.getElementById('sh-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="shPage(${SH_PAGE-1})" ${SH_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SH_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===SH_PAGE?'active':''}" onclick="shPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="shPage(${SH_PAGE+1})" ${SH_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
+  }
+
+  tbody.innerHTML = pageRows.map((row, idx) => {
     const refType = shResolveRefType(row);
     return `
     <tr>
-      <td>${idx+1}</td>
+      <td>${start + idx + 1}</td>
       <td>${fmt_date_disp(row.movement_date)}</td>
       <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
       <td>${refLabel[refType]||'Unknown'}</td>
@@ -16274,6 +16350,13 @@ function renderSHTable() {
       <td>${renderSHActionCell({...row, ref_type: refType}, refLabel)}</td>
     </tr>`;
   }).join('');
+}
+
+function shPage(p) {
+  const totalPages = Math.max(1, Math.ceil((SH_LAST_ROWS||[]).length / SH_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  SH_PAGE = p;
+  renderSHTable();
 }
 
 function renderSHActionCell(row, refLabel) {
@@ -17402,7 +17485,7 @@ function printSaleInvoice(s) {
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
-            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
+            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
             ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
           </div>
         </div>
@@ -19401,6 +19484,12 @@ async function saveCompanySettings() {
   const payload = {
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
+    company_pan:     document.getElementById('sc-pan')?.value     || '',
+    company_iec:     document.getElementById('sc-iec')?.value     || '',
+    company_fssai:   document.getElementById('sc-fssai')?.value   || '',
+    company_apeda:   document.getElementById('sc-apeda')?.value   || '',
+    company_cin:     document.getElementById('sc-cin')?.value     || '',
+    company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -19413,9 +19502,12 @@ async function saveCompanySettings() {
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
     business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
+    show_dhalta_pct: document.getElementById('sc-show-dhaltapct')?.value || STATE.settings.showDhaltaPct || '1',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
+    pan: payload.company_pan, iec: payload.company_iec, fssai: payload.company_fssai,
+    apeda: payload.company_apeda, cin: payload.company_cin, msme: payload.company_msme,
     email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
     estPrefix: payload.estimate_prefix,
     upi: payload.company_upi, address: payload.company_address,
@@ -19424,6 +19516,7 @@ async function saveCompanySettings() {
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
     businessType: payload.business_type,
+    showDhaltaPct: payload.show_dhalta_pct,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -19431,6 +19524,7 @@ async function saveCompanySettings() {
   try {
     await api('api/settings.php', 'POST', payload);
     livePreview();
+    applyDhaltaPctVisibility();
     toast('✅ Settings saved!', 'success');
     // Show logo/sign preview if uploaded
     if (payload.company_logo) {
@@ -21033,6 +21127,13 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   const s = SERVER.settings || {};
   STATE.settings.company   = s.company_name    || STATE.settings.company;
   STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
+  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
   STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
   STATE.settings.email     = s.company_email   || STATE.settings.email;
   STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -21209,6 +21310,20 @@ async function loadAllData() {
       }
       STATE.settings.company   = s.company_name    || STATE.settings.company;
       STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
+      STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+      STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+      STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+      STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+      STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+      STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
+  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
       STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
       STATE.settings.email     = s.company_email   || STATE.settings.email;
       STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -21605,6 +21720,13 @@ function populateSettingsForm() {
   const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
+  set('sc-pan',     s.pan);
+  set('sc-iec',     s.iec);
+  set('sc-fssai',   s.fssai);
+  set('sc-apeda',   s.apeda);
+  set('sc-cin',     s.cin);
+  set('sc-msme',    s.msme);
+  const dhSel = document.getElementById('sc-show-dhaltapct'); if (dhSel) dhSel.value = (s.showDhaltaPct === '0') ? '0' : '1';
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   set('sc-web',     s.website);
