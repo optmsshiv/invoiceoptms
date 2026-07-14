@@ -15743,7 +15743,7 @@ async function printPurchaseEntry(id) {
 function pneCompanyInfo() {
   const s = STATE.settings || {};
   return {
-    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '', email: s.email || '',
+    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
     address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
     pan: s.pan || '', apeda: s.apeda || '', cin: s.cin || '', msme: s.msme || '',
   };
@@ -15824,7 +15824,7 @@ function printLocalPurchaseVoucher(p) {
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
             ${pneStatutoryLine(co)}${pneStatutoryLine(co)?'<br>':''}
-            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Mobile: '+escHtml(co.phone):''}${co.email?' &nbsp; Email: '+escHtml(co.email):''}<br>
+            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
             ${co.address?`Address: ${escHtml(co.address)}`:''}
           </div>
         </div>
@@ -15967,7 +15967,7 @@ function printTaxInvoicePurchase(p) {
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
             ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
           </div>
         </div>
       </div>
@@ -16441,10 +16441,6 @@ async function viewStockTxnDetails(ledgerId) {
           <tbody id="stx-flow-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px"><i class="fas fa-spinner fa-spin"></i> Loading product history…</td></tr></tbody>
         </table>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:12px;color:var(--muted)" id="stx-flow-info"></div>
-        <div style="display:flex;gap:6px;align-items:center" id="stx-flow-pager"></div>
-      </div>
     </div>
 
     <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 14px"><i class="fas fa-circle-info"></i> <b>Note:</b> In (Kg) increases stock. Out (Kg) decreases stock. To correct any figure, create a Stock Adjustment — history rows are never edited directly.</div>
@@ -16457,79 +16453,28 @@ async function viewStockTxnDetails(ledgerId) {
   try {
     const params = new URLSearchParams({ date_from: '2000-01-01', date_to: fmt_date(new Date()), product_id: row.product_id });
     const r = await api('api/stock_history.php?' + params.toString());
-    STX_FLOW = Array.isArray(r.data) ? r.data : [];
-    STX_LEDGER_ID = ledgerId;
-    // Open on the page that contains the clicked transaction
-    const idx = STX_FLOW.findIndex(f => String(f.id) === String(ledgerId));
-    STX_PAGE = idx >= 0 ? Math.floor(idx / STX_PAGESIZE) + 1 : 1;
-    renderSTXFlow();
+    const flow = Array.isArray(r.data) ? r.data : [];
+    const tbody = document.getElementById('stx-flow-tbody');
+    if (!tbody) return; // user navigated away while loading
+    tbody.innerHTML = flow.length ? flow.map((f, i) => {
+      const isThis = String(f.id) === String(ledgerId);
+      const fType = f.ref_type || '';
+      return `<tr style="${isThis ? 'background:#E8F5E9' : ''}">
+        <td>${i+1}</td>
+        <td>${fmt_date_disp(f.movement_date)}${isThis ? ' <span style="font-size:9px;font-weight:800;color:#00897B">◀ THIS</span>' : ''}</td>
+        <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[fType]||'#889'};background:${typeColor[fType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[fType]||'Unknown'}</span></td>
+        <td>${escHtml(f.reference_no||'—')}</td>
+        <td style="color:#00897B;font-weight:600">${f.direction==='in'?parseFloat(f.qty).toFixed(2):'—'}</td>
+        <td style="color:#E53935;font-weight:600">${f.direction==='out'?parseFloat(f.qty).toFixed(2):'—'}</td>
+        <td><strong>${parseFloat(f.running_balance).toFixed(2)}</strong></td>
+        <td>${(parseFloat(f.rate)||0) > 0 ? parseFloat(f.rate).toFixed(2) : '—'}</td>
+        <td style="color:var(--muted);font-size:11px">${escHtml(f.notes||'—')}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No history for this product</td></tr>`;
   } catch(e) {
     const tbody = document.getElementById('stx-flow-tbody');
     if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Could not load product history</td></tr>`;
   }
-}
-
-// ── Stock Ledger Flow pagination (Stock Transaction Details) ────
-let STX_FLOW = [];
-let STX_PAGE = 1;
-let STX_LEDGER_ID = null;
-const STX_PAGESIZE = 10;
-
-function renderSTXFlow() {
-  const tbody = document.getElementById('stx-flow-tbody');
-  if (!tbody) return; // user navigated away
-  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
-  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
-  const flow = STX_FLOW || [];
-  const info = document.getElementById('stx-flow-info');
-  const pager = document.getElementById('stx-flow-pager');
-
-  if (!flow.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No history for this product</td></tr>`;
-    if (info) info.textContent = '';
-    if (pager) pager.innerHTML = '';
-    return;
-  }
-
-  const totalPages = Math.max(1, Math.ceil(flow.length / STX_PAGESIZE));
-  if (STX_PAGE > totalPages) STX_PAGE = totalPages;
-  if (STX_PAGE < 1) STX_PAGE = 1;
-  const start = (STX_PAGE - 1) * STX_PAGESIZE;
-  const pageRows = flow.slice(start, start + STX_PAGESIZE);
-
-  if (info) info.textContent = `Showing ${start+1} to ${Math.min(start+STX_PAGESIZE, flow.length)} of ${flow.length} entries`;
-  if (pager) {
-    const opts = Array.from({length: totalPages}, (_, i) =>
-      `<option value="${i+1}" ${i+1===STX_PAGE?'selected':''}>Page ${i+1}</option>`).join('');
-    pager.innerHTML = `
-      <button class="pg-btn" onclick="stxPage(${STX_PAGE-1})" ${STX_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>
-      <select onchange="stxPage(parseInt(this.value))" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card)">${opts}</select>
-      <span style="font-size:12px;color:var(--muted)">of ${totalPages}</span>
-      <button class="pg-btn" onclick="stxPage(${STX_PAGE+1})" ${STX_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-  }
-
-  tbody.innerHTML = pageRows.map((f, i) => {
-    const isThis = String(f.id) === String(STX_LEDGER_ID);
-    const fType = f.ref_type || '';
-    return `<tr style="${isThis ? 'background:#E8F5E9' : ''}">
-      <td>${start + i + 1}</td>
-      <td>${fmt_date_disp(f.movement_date)}${isThis ? ' <span style="font-size:9px;font-weight:800;color:#00897B">◀ THIS</span>' : ''}</td>
-      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[fType]||'#889'};background:${typeColor[fType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[fType]||'Unknown'}</span></td>
-      <td>${escHtml(f.reference_no||'—')}</td>
-      <td style="color:#00897B;font-weight:600">${f.direction==='in'?parseFloat(f.qty).toFixed(2):'—'}</td>
-      <td style="color:#E53935;font-weight:600">${f.direction==='out'?parseFloat(f.qty).toFixed(2):'—'}</td>
-      <td><strong>${parseFloat(f.running_balance).toFixed(2)}</strong></td>
-      <td>${(parseFloat(f.rate)||0) > 0 ? parseFloat(f.rate).toFixed(2) : '—'}</td>
-      <td style="color:var(--muted);font-size:11px">${escHtml(f.notes||'—')}</td>
-    </tr>`;
-  }).join('');
-}
-
-function stxPage(p) {
-  const totalPages = Math.max(1, Math.ceil((STX_FLOW||[]).length / STX_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  STX_PAGE = p;
-  renderSTXFlow();
 }
 
 function printStockTxnDetails() {
@@ -17541,7 +17486,7 @@ function printSaleInvoice(s) {
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
             ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
+            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
           </div>
         </div>
       </div>
