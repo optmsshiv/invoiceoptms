@@ -1275,6 +1275,38 @@ select { cursor: pointer; }
   flex-shrink: 0;
 }
 
+/* ── Supplier Profile modal ── */
+.sp-avatar {
+  width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: #fff; letter-spacing: .5px;
+}
+.sp-stat-tile {
+  flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.sp-stat-tile .sp-stat-icon {
+  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; flex-shrink: 0;
+}
+.sp-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-top: 12px; }
+.sp-section-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.sp-section-title i { color: var(--teal); font-size: 11px; }
+.sp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.sp-info-item { display: flex; gap: 9px; align-items: flex-start; min-width: 0; }
+.sp-info-item i { width: 26px; height: 26px; border-radius: 7px; background: var(--teal-bg); color: var(--teal); display: flex; align-items: center; justify-content: center; font-size: 10.5px; flex-shrink: 0; margin-top: 1px; }
+.sp-info-item div { min-width: 0; }
+.sp-info-item .sp-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.sp-info-item .sp-val { font-size: 12.5px; font-weight: 600; color: var(--text); overflow-wrap: break-word; }
+.sp-purchase-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.sp-purchase-row:last-child { border-bottom: none; }
+.sp-purchase-row:hover { background: var(--bg); margin: 0 -8px; padding: 9px 8px; border-radius: 8px; }
+.sp-empty { text-align: center; padding: 22px 10px; color: var(--muted); }
+.sp-empty i { font-size: 22px; color: var(--border2); margin-bottom: 8px; display: block; }
+.sp-empty .sp-empty-title { font-size: 12.5px; font-weight: 600; color: var(--text2); margin-bottom: 3px; }
+.sp-empty .sp-empty-sub { font-size: 11.5px; }
+
 /* ══════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════ */
@@ -2587,14 +2619,43 @@ const SERVER = {
       </div>
     </div>
 
+    <!-- Purchase Details Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-purchase-details">
+      <div class="modal modal-xl" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-purchase-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="pd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="pd-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="pd-foot"></div>
+      </div>
+    </div>
+
+    <!-- Sale Details Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-sale-details">
+      <div class="modal modal-xl" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-sale-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="sd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="sd-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="sd-foot"></div>
+      </div>
+    </div>
+
+    <!-- Customer Profile Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-customer-profile">
+      <div class="modal modal-md" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-customer-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="cp-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="cp-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="cp-foot"></div>
+      </div>
+    </div>
+
     <!-- Supplier Profile Modal (eye button — quick in-app view) -->
     <div class="modal-overlay" id="modal-supplier-profile">
-      <div class="modal" style="max-width:640px">
-        <div class="modal-header">
-          <span>Supplier Profile</span>
-          <button class="modal-close" onclick="closeModal('modal-supplier-profile')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" id="sp-profile-body" style="max-height:70vh;overflow-y:auto"></div>
+      <div class="modal modal-md" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-supplier-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="sp-profile-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="sp-profile-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="sp-profile-foot"></div>
       </div>
     </div>
 
@@ -14527,6 +14588,231 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
 });
 
+// In-app Customer Profile — quick view without leaving the list page.
+function viewCustomerProfile(id) {
+  const c = (STATE.customers||[]).find(x => String(x.id) === String(id));
+  if (!c) { toast('❌ Customer not found', 'error'); return; }
+
+  const outstanding = (custOutstandingMap())[c.id] || 0;
+  const active = (c.status || 'active') === 'active';
+  const initials = (c.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+  const recentSales = (STATE.sales || [])
+    .filter(s => String(s.customer_id) === String(c.id))
+    .sort((a, b) => (b.sale_date || '').localeCompare(a.sale_date || ''))
+    .slice(0, 5);
+  const ytdTotal = (STATE.sales||[]).filter(s => String(s.customer_id) === String(c.id) && s.status !== 'Cancelled' && (s.sale_date||'').slice(0,4) === String(new Date().getFullYear()))
+    .reduce((sum,s) => sum + (parseFloat(s.total)||0), 0);
+
+  document.getElementById('cp-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar">${escHtml(initials)}</div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
+    </span>
+  `;
+
+  const infoItem = (icon, label, val) => val ? `
+    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
+
+  document.getElementById('cp-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">SALES THIS YEAR</div><div style="font-size:17px;font-weight:800">${fmt_money(ytdTotal)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
+      <div class="sp-info-grid">
+        ${infoItem('id-badge', 'Customer Code', c.customer_code)}
+        ${infoItem('phone', 'Mobile', c.mobile)}
+        ${infoItem('envelope', 'Email', c.email)}
+        ${infoItem('file-invoice', 'GSTIN', c.gstin)}
+        ${infoItem('id-card', 'PAN', c.pan_no)}
+        ${infoItem('handshake', 'Payment Terms', c.payment_terms)}
+        ${infoItem('user-tie', 'Sales Executive', c.sales_executive)}
+        ${infoItem('map-pin', 'Billing Address', [c.billing_address, c.billing_city, c.state].filter(Boolean).join(', '))}
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Sales</div>
+      ${recentSales.length ? recentSales.map(s => `
+        <div class="sp-purchase-row">
+          <div><strong style="font-size:12.5px">${escHtml(s.invoice_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(s.sale_date)}</div></div>
+          <div style="font-weight:700;font-size:13px">${fmt_money(s.total)}</div>
+        </div>`).join('') : `
+        <div class="sp-empty">
+          <i class="fas fa-inbox"></i>
+          <div class="sp-empty-title">No sales yet</div>
+          <div class="sp-empty-sub">Record one from Sales → New Sale Invoice</div>
+        </div>`}
+    </div>
+  `;
+
+  document.getElementById('cp-foot').innerHTML = `
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-customer-profile'); editCustomerRich(${c.id})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
+    ${active
+      ? `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i> Archive</button>`
+      : `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); restoreCustomer(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`}
+  `;
+
+  openModal('modal-customer-profile');
+}
+
+// In-app Sale Details — quick view before deciding to edit or print.
+async function viewSaleDetails(id) {
+  openModal('modal-sale-details');
+  document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
+  document.getElementById('sd-body').innerHTML = '';
+  document.getElementById('sd-foot').innerHTML = '';
+
+  let s;
+  try {
+    const r = await api('api/sales.php?id=' + id);
+    s = r.data;
+  } catch(e) {
+    document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load sale</div>`;
+    return;
+  }
+
+  const total = parseFloat(s.total) || 0, received = parseFloat(s.amount_received) || 0, outstanding = Math.max(0, total - received);
+  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[s.payment_status] || '#fff';
+
+  document.getElementById('sd-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((s.payment_status||'Pending').toUpperCase())}
+    </span>
+  `;
+
+  const items = s.items || [];
+  document.getElementById('sd-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">RECEIVED</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(received)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
+      <div class="sp-info-grid">
+        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(s.warehouse||'Main Warehouse')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-user-tie"></i><div><div class="sp-label">Sales Executive</div><div class="sp-val">${escHtml(s.sales_executive||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(s.payment_terms||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-calendar-check"></i><div><div class="sp-label">Due Date</div><div class="sp-val">${s.due_date ? fmt_date_disp(s.due_date) : '—'}</div></div></div>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${items.map(it => `<tr>
+          <td>${escHtml(it.product_name||it.description||'—')}</td>
+          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td style="text-align:right">${fmt_money(it.rate)}</td>
+          <td style="text-align:right;font-weight:600">${fmt_money(it.line_total)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
+    </div>
+  `;
+
+  document.getElementById('sd-foot').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal('modal-sale-details'); editSale(${s.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Print</button>
+  `;
+}
+
+// In-app Purchase Details — quick view before deciding to edit or print.
+async function viewPurchaseDetails(id) {
+  openModal('modal-purchase-details');
+  document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
+  document.getElementById('pd-body').innerHTML = '';
+  document.getElementById('pd-foot').innerHTML = '';
+
+  let p;
+  try {
+    const r = await api('api/purchases.php?id=' + id);
+    p = r.data;
+  } catch(e) {
+    document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
+    return;
+  }
+
+  const total = parseFloat(p.total) || 0, paid = parseFloat(p.amount_paid) || 0, outstanding = Math.max(0, total - paid);
+  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[p.status] || '#fff';
+
+  document.getElementById('pd-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((p.status||'Pending').toUpperCase())}
+    </span>
+  `;
+
+  const items = p.items || [];
+  document.getElementById('pd-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">PAID</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(paid)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
+      <div class="sp-info-grid">
+        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(p.warehouse||'Main Warehouse')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${items.map(it => `<tr>
+          <td>${escHtml(it.description||'—')}</td>
+          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td style="text-align:right">${fmt_money(it.rate)}</td>
+          <td style="text-align:right;font-weight:600">${fmt_money(it.amount)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
+    </div>
+  `;
+
+  document.getElementById('pd-foot').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal('modal-purchase-details'); editPurchase(${p.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-primary" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i> Print</button>
+  `;
+}
+
 // In-app supplier profile — quick view without leaving the list page.
 // PDF/print stays available separately via the 3-dot menu (viewSupplierPdf).
 function viewSupplierProfile(id) {
@@ -14536,60 +14822,78 @@ function viewSupplierProfile(id) {
   const totals = splPurchaseTotals();
   const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
   const active = (s.status || 'active') === 'active';
+  const initials = (s.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-  // Recent purchases from this supplier, most recent first
   const recentPurchases = (STATE.purchases || [])
     .filter(p => String(p.supplier_id) === String(s.id))
     .sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''))
     .slice(0, 5);
 
-  const kv = (label, val) => val ? `<div class="pne-kv"><span>${escHtml(label)}</span><strong>${escHtml(String(val))}</strong></div>` : '';
+  // ── Header band ──
+  document.getElementById('sp-profile-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar">${escHtml(initials)}</div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
+    </span>
+  `;
+
+  // ── Body: stats, contact, recent purchases ──
+  const infoItem = (icon, label, val) => val ? `
+    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
 
   document.getElementById('sp-profile-body').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px">
-      <div>
-        <div style="font-size:17px;font-weight:800">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile">
+        <span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-cart-shopping"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES</div><div style="font-size:17px;font-weight:800">${fmt_money(t.total)}</div></div>
       </div>
-      <span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:3px 10px;border-radius:10px">${active?'Active':'Inactive'}</span>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-bottom:16px">
-      <div style="flex:1;border:1px solid var(--border);border-radius:10px;padding:12px" >
-        <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES</div>
-        <div style="font-size:16px;font-weight:800;margin-top:3px">${fmt_money(t.total)}</div>
-      </div>
-      <div style="flex:1;border:1px solid var(--border);border-radius:10px;padding:12px">
-        <div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div>
-        <div style="font-size:16px;font-weight:800;margin-top:3px;color:${t.outstanding>0?'#E53935':'var(--text)'}">${fmt_money(t.outstanding)}</div>
+      <div class="sp-stat-tile">
+        <span class="sp-stat-icon" style="background:${t.outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${t.outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${t.outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(t.outstanding)}</div></div>
       </div>
     </div>
 
-    <div class="pne-card" style="margin-bottom:12px">
-      <div class="pne-card-head pne-head-green"><i class="fas fa-address-card"></i> Contact & Registration</div>
-      ${kv('Contact Person', s.contact_person)}
-      ${kv('Mobile', s.phone)}
-      ${kv('Email', s.email)}
-      ${kv('GST Number', s.gst_number)}
-      ${kv('PAN', s.pan_no)}
-      ${kv('Payment Terms', s.payment_terms)}
-      ${kv('Bank', s.bank_name ? s.bank_name + (s.bank_account_no ? ' · ' + s.bank_account_no : '') : '')}
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
+      <div class="sp-info-grid">
+        ${infoItem('user', 'Contact Person', s.contact_person)}
+        ${infoItem('phone', 'Mobile', s.phone)}
+        ${infoItem('envelope', 'Email', s.email)}
+        ${infoItem('file-invoice', 'GST Number', s.gst_number)}
+        ${infoItem('id-card', 'PAN', s.pan_no)}
+        ${infoItem('handshake', 'Payment Terms', s.payment_terms)}
+        ${infoItem('building-columns', 'Bank', s.bank_name ? s.bank_name + (s.bank_account_no ? ' · ' + s.bank_account_no : '') : '')}
+        ${infoItem('map-pin', 'Address', [s.address, s.city, s.state].filter(Boolean).join(', '))}
+      </div>
     </div>
 
-    <div class="pne-card">
-      <div class="pne-card-head pne-head-green"><i class="fas fa-clock-rotate-left"></i> Recent Purchases</div>
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Purchases</div>
       ${recentPurchases.length ? recentPurchases.map(p => `
-        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px">
-          <div><strong>${escHtml(p.purchase_no)}</strong> <span style="color:var(--muted)">· ${fmt_date_disp(p.purchase_date)}</span></div>
-          <div style="font-weight:600">${fmt_money(p.total)}</div>
-        </div>`).join('') : `<div style="color:var(--muted);font-size:12.5px;padding:6px 0">No purchases recorded yet</div>`}
-    </div>
-
-    <div style="display:flex;gap:8px;margin-top:16px">
-      ${active ? `<button class="btn btn-primary" style="flex:1" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
-      <button class="btn btn-outline" style="flex:1" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
+        <div class="sp-purchase-row">
+          <div><strong style="font-size:12.5px">${escHtml(p.purchase_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(p.purchase_date)}</div></div>
+          <div style="font-weight:700;font-size:13px">${fmt_money(p.total)}</div>
+        </div>`).join('') : `
+        <div class="sp-empty">
+          <i class="fas fa-inbox"></i>
+          <div class="sp-empty-title">No purchases yet</div>
+          <div class="sp-empty-sub">Record one from Purchases → New Purchase Invoice</div>
+        </div>`}
     </div>
   `;
+
+  // ── Footer actions ──
+  document.getElementById('sp-profile-foot').innerHTML = `
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
+    <button class="btn btn-primary" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
+  `;
+
   openModal('modal-supplier-profile');
 }
 
@@ -14860,7 +15164,7 @@ function renderPurchases() {
       <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-eye"></i></button>
+          <button class="act-btn" title="View" onclick="viewPurchaseDetails(${p.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Print" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i></button>
           <button class="act-btn" title="Download PDF" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-download"></i></button>
           <span class="act-menu-wrap">
@@ -17559,7 +17863,7 @@ function renderSales() {
       <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View" onclick="printSaleEntry(${s.id})"><i class="fas fa-eye"></i></button>
+          <button class="act-btn" title="View" onclick="viewSaleDetails(${s.id})"><i class="fas fa-eye"></i></button>
           <button class="act-btn" title="Print" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i></button>
           <button class="act-btn" title="Download PDF" onclick="printSaleEntry(${s.id})"><i class="fas fa-download"></i></button>
           <span class="act-menu-wrap">
@@ -18365,8 +18669,14 @@ function populateCustStateFilter() {
 
 async function renderCustomersList() {
   try {
-    const r = await api('api/customers.php');
-    STATE.customers = Array.isArray(r.data) ? r.data : [];
+    // Fetch both active and archived so the Status filter and Restore
+    // action have real data to work with (previously only active ones
+    // were ever loaded, silently breaking the "Inactive" filter option).
+    const [activeR, archivedR] = await Promise.all([
+      api('api/customers.php'),
+      api('api/customers.php?status=archived').catch(() => ({ data: [] })),
+    ]);
+    STATE.customers = [...(Array.isArray(activeR.data) ? activeR.data : []), ...(Array.isArray(archivedR.data) ? archivedR.data : [])];
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 
   const outstandingMap = custOutstandingMap();
@@ -18427,9 +18737,17 @@ async function renderCustomersList() {
         <td style="color:${outstanding>0?'#E53935':'#00897B'};font-weight:600">${fmt_money(outstanding)}</td>
         <td><span style="font-size:10px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 7px;border-radius:9px">${c.status==='active'?'Active':'Inactive'}</span></td>
         <td>
-          <div class="action-cell">
-            <button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>
-            <button class="act-btn" title="Archive" onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i></button>
+          <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+            <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>` : ''}
+            <span class="act-menu-wrap">
+              <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+              <div class="act-menu">
+                ${c.status==='active'
+                  ? `<button onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
+                  : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
+              </div>
+            </span>
           </div>
         </td>
       </tr>`;
@@ -18451,6 +18769,15 @@ function exportCustomersCsv() {
   a.href = URL.createObjectURL(blob);
   a.download = 'customers-' + fmt_date(new Date()) + '.csv';
   a.click();
+}
+
+async function restoreCustomer(id) {
+  const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
+  try {
+    await api('api/customers.php?action=restore&id=' + id, 'POST');
+    toast(`✅ "${c.name}" restored`, 'success');
+    renderCustomersList();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function deleteCustomerRich(id) {
