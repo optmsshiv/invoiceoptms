@@ -3473,7 +3473,7 @@ const SERVER = {
               <div class="field"><label>Shipping Address *</label><input id="sn-shipping"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Sales Executive</label><select id="sn-salesexec"><option value="">— Select —</option></select></div>
+              <div class="field"><label>Sales Executive</label><input id="sn-salesexec" placeholder="Optional"></div>
               <div class="field"><label>Invoice No.</label><input id="sn-invno" placeholder="Auto-generated"></div>
               <div class="field"><label>Invoice Date *</label><input type="date" id="sn-invdate"></div>
               <div class="field"><label>Due Date</label><input type="date" id="sn-duedate"></div>
@@ -4059,7 +4059,7 @@ const SERVER = {
           <div class="field"><label>Shipping Address</label><input id="cus-shipping"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Payment Terms</label><input id="cus-paymentterms" placeholder="e.g. 15 Days"></div>
-            <div class="field"><label>Sales Executive</label><select id="cus-salesexec"><option value="">— Select —</option></select></div>
+            <div class="field"><label>Sales Executive</label><input id="cus-salesexec" placeholder="Optional"></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -4422,7 +4422,6 @@ const SERVER = {
             <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
               <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
             </div>
-            <div id="sti-reconcile-banner" style="display:none;border-radius:7px;padding:9px 12px;margin-top:8px;font-size:12.5px;font-weight:600"></div>
             <div class="field" style="margin-top:12px;max-width:340px">
               <label>Upload Slip</label>
               <label class="pp-dropzone" for="sti-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="sti-slip-label">
@@ -17061,7 +17060,6 @@ function goToNewSale() {
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
-  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
@@ -17138,32 +17136,6 @@ function clearCustomerAutofill() {
   document.getElementById('sn-billing').value = '';
 }
 
-// Sales Executive / Sales Person is almost always the person doing the
-// work, so this defaults to the logged-in user and only needs a click
-// when entering something on another team member's behalf — no more
-// typing a name by hand. Shared by the Sale entry, quick-add Customer,
-// and full Customer entry forms. Team members load once and are cached.
-async function populateSalesExecDropdown(selected, selectId) {
-  selectId = selectId || 'sn-salesexec';
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  if (!STATE.team || !STATE.team.length) {
-    try {
-      const r = await api('api/team.php?action=list');
-      STATE.team = Array.isArray(r.data) ? r.data : [];
-    } catch(e) { STATE.team = STATE.team || []; }
-  }
-  const active = (STATE.team || []).filter(u => u.status === 'active');
-  let names = [...new Set(active.map(u => u.name).filter(Boolean))].sort();
-  // Older records may have a free-text name that isn't (or is no longer) a
-  // team member — keep it selectable rather than silently losing the data.
-  if (selected && !names.includes(selected)) names.unshift(selected);
-  const placeholder = selectId === 'cusn-salesperson' ? 'Select Sales Person' : '— Select —';
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    names.map(n => `<option value="${escHtml(n)}" ${n===selected?'selected':''}>${escHtml(n)}</option>`).join('');
-  if (!selected) sel.value = '';
-}
-
 function populateSaleCustomerDropdown() {
   const sel = document.getElementById('sn-customer');
   if (!sel) return;
@@ -17190,7 +17162,7 @@ async function onCustomerPicked() {
     document.getElementById('sn-shipping').value = c.shipping_address || c.billing_address || '';
     document.getElementById('sn-placeofsupply').value = c.state || '';
     if (c.customer_type) document.getElementById('sn-customertype').value = c.customer_type;
-    if (c.sales_executive) populateSalesExecDropdown(c.sales_executive);
+    if (c.sales_executive) document.getElementById('sn-salesexec').value = c.sales_executive;
     if (c.payment_terms) document.getElementById('sn-paymentterms').value = c.payment_terms;
   }
   calcSaleNewTotals();
@@ -17213,11 +17185,10 @@ async function onCustomerPicked() {
 }
 
 function openAddCustomerModal() {
-  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
+  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms','cus-salesexec']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
   document.getElementById('cus-creditlimit').value = 0;
-  populateSalesExecDropdown(SERVER.user?.name || '', 'cus-salesexec');
   openModal('modal-addcustomer');
 }
 
@@ -17679,7 +17650,7 @@ async function editSale(id) {
     document.getElementById('sn-customer').value = s.customer_id;
     await onCustomerPicked();
     document.getElementById('sn-shipping').value = s.shipping_address || document.getElementById('sn-shipping').value;
-    populateSalesExecDropdown(s.sales_executive || '');
+    document.getElementById('sn-salesexec').value = s.sales_executive || '';
     document.getElementById('sn-invno').value = s.invoice_no;
     document.getElementById('sn-invdate').value = s.sale_date;
     document.getElementById('sn-duedate').value = s.due_date || '';
@@ -18503,7 +18474,6 @@ function goToNewCustomerPage() {
   document.getElementById('cusn-biztype').value = '';
   document.getElementById('cusn-currency').value = 'INR';
   document.getElementById('cusn-paymentterms').value = '';
-  populateSalesExecDropdown(SERVER.user?.name || '', 'cusn-salesperson');
   document.getElementById('cusn-openingbal').value = 0;
   document.getElementById('cusn-openingbaltype').value = 'Debit';
   populateCusnSalesPersonDropdown();
@@ -18551,7 +18521,7 @@ async function editCustomerRich(id) {
   set('cusn-iec', c.iec_no); set('cusn-tradelicense', c.trade_license_no); set('cusn-currency', c.currency || 'INR');
   set('cusn-paymentterms', c.payment_terms); set('cusn-openingbal', c.opening_balance || 0); set('cusn-openingbaltype', c.opening_balance_type || 'Debit');
   await populateCusnSalesPersonDropdown();
-  populateSalesExecDropdown(c.sales_executive || '', 'cusn-salesperson'); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
+  set('cusn-salesperson', c.sales_executive); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
   document.getElementById('cusn-sameaddr').checked = (c.billing_address === c.shipping_address);
   onCusnSameAddrToggle();
   document.getElementById('cusn-sum-code').textContent = c.customer_code || '—';
@@ -18873,7 +18843,6 @@ function goToNewStockIn() {
   document.getElementById('sti-net').value = '';
   document.getElementById('sti-operator').value = '';
   document.getElementById('sti-slip-input').value = '';
-  { const b = document.getElementById('sti-reconcile-banner'); if (b) b.style.display = 'none'; }
   document.getElementById('sti-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: JPG, PNG, PDF (Max 5MB)</span></div>';
   populateSTISupplierDropdown();
   document.getElementById('sti-supplier').value = '';
@@ -19009,44 +18978,12 @@ function updateSTIItemsTotals() {
   const totalAmt = STI.items.reduce((s,i) => s+i.amount, 0);
   document.getElementById('sti-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
   document.getElementById('sti-total-amount').textContent = fmt_money(totalAmt);
-  checkSTIReconciliation();
-}
-
-// Total Quantity (sum of product rows, what gets credited to stock) and
-// Net Weight (the physical weighbridge reading for the whole vehicle)
-// should normally be close for a single-truckload delivery. A meaningful
-// gap can mean a weighing error, moisture loss in transit, or a short/
-// excess delivery — worth a heads-up, not a hard block, since some gap
-// (e.g. genuine moisture loss) can be entirely legitimate.
-const STI_RECONCILE_TOLERANCE_PCT = 2; // flag when the gap exceeds this % of net weight
-
-function checkSTIReconciliation() {
-  const banner = document.getElementById('sti-reconcile-banner');
-  if (!banner) return;
-  const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
-  const net = parseFloat(document.getElementById('sti-net')?.value) || 0;
-  if (totalQty <= 0 || net <= 0) { banner.style.display = 'none'; return; }
-
-  const diff = totalQty - net;
-  const pctDiff = (Math.abs(diff) / net) * 100;
-
-  if (pctDiff <= STI_RECONCILE_TOLERANCE_PCT) {
-    banner.style.display = 'block';
-    banner.style.background = 'var(--green-bg)'; banner.style.color = 'var(--green)';
-    banner.innerHTML = `<i class="fas fa-circle-check"></i> Total Quantity (${totalQty.toFixed(2)} Kg) matches Net Weight (${net.toFixed(2)} Kg)`;
-  } else {
-    const short = diff < 0; // total qty entered is LESS than what the truck weighed
-    banner.style.display = 'block';
-    banner.style.background = 'var(--amber-bg)'; banner.style.color = '#8A6D00';
-    banner.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Total Quantity (${totalQty.toFixed(2)} Kg) is ${short?'less':'more'} than Net Weight (${net.toFixed(2)} Kg) by ${Math.abs(diff).toFixed(2)} Kg (${pctDiff.toFixed(1)}%) — double-check before saving, or this may be expected (e.g. moisture loss).`;
-  }
 }
 
 function calcSTIWeight() {
   const gross = parseFloat(document.getElementById('sti-gross').value) || 0;
   const tare = parseFloat(document.getElementById('sti-tare').value) || 0;
   document.getElementById('sti-net').value = Math.max(0, gross-tare).toFixed(2);
-  checkSTIReconciliation();
 }
 
 function stiSlipChange(file) {
