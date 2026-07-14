@@ -2478,88 +2478,22 @@ const SERVER = {
 
     <!-- ─────────── SUPPLIERS ─────────── -->
     <div id="page-suppliers" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Supplier List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Master &gt; Supplier List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add New Supplier</button>
-          <button class="btn btn-outline" onclick="exportSuppliersExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search suppliers…" oninput="filterSuppliers(this.value)" id="supplierSearch">
+        <div style="flex:1"></div>
+        <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add Supplier</button>
       </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>Search Supplier</label><input id="spl-f-search" placeholder="Search by supplier name, mobile, email…" oninput="SPL_PAGE=1; renderSuppliers()"></div>
-          <div class="field"><label>Supplier Type</label><select id="spl-f-type"><option value="">All Types</option></select></div>
-          <div class="field"><label>State</label><select id="spl-f-state"><option value="">All States</option></select></div>
-          <div class="field"><label>Status</label><select id="spl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="archived">Inactive</option></select></div>
-          <div class="field"><label>Payment Terms</label><select id="spl-f-terms"><option value="">All Payment Terms</option></select></div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Phone</th><th>Country</th><th>GST No.</th><th>Actions</th></tr></thead>
+          <tbody id="suppliersTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="supInfo"></div>
+          <div class="pagination" id="supPagination"></div>
         </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>From Date</label><input type="date" id="spl-f-from"></div>
-          <div class="field"><label>To Date</label><input type="date" id="spl-f-to"></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="SPL_PAGE=1; renderSuppliers()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetSuppliersFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-users"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-total">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">All Suppliers</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-user-check"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Active Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-active">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Active</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-user-xmark"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-inactive">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Inactive</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
-          <div style="font-size:17px;font-weight:800" id="spl-stat-purchases">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="spl-stat-range1">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="spl-stat-out">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-users"></i> Suppliers</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:1080px">
-            <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Mobile No.</th><th>Email</th><th>State</th><th>Payment Terms</th><th style="text-align:right">Total Purchases (₹)</th><th style="text-align:right">Outstanding (₹)</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="suppliersTbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="supInfo"></div>
-          <div style="display:flex;gap:5px" id="spl-pagination"></div>
-        </div>
-      </div>
-
-      <div id="spl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> Click on <i class="fas fa-eye"></i> to view supplier details, <i class="fas fa-pen"></i> to edit supplier information.</div>
-        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('spl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
@@ -14191,193 +14125,41 @@ function activeSupSource() {
 
 function filterSuppliers(q) { SUP.search = q || ''; renderSuppliers(); }
 
-// ── Supplier List page ──────────────────────────────────────────
-let SPL_PAGE = 1;
-const SPL_PAGESIZE = 10;
-let SPL_ARCH_REQUESTED = false; // archived suppliers fetched once, lazily
-
-function splAllSuppliers() {
-  // Active suppliers + archived ones (shown as "Inactive")
-  return [...(STATE.suppliers||[]), ...((SUP.archivedList)||[])];
-}
-
-function populateSuppliersFilters() {
-  const all = splAllSuppliers();
-  const fill = (id, values, allLabel) => {
-    const sel = document.getElementById(id); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">${allLabel}</option>` +
-      values.map(v => `<option ${v===cur?'selected':''}>${escHtml(v)}</option>`).join('');
-  };
-  fill('spl-f-type',  [...new Set(all.map(s => (s.supplier_type||'').trim()).filter(Boolean))].sort(), 'All Types');
-  fill('spl-f-state', [...new Set(all.map(s => (s.state||'').trim()).filter(Boolean))].sort(), 'All States');
-  fill('spl-f-terms', [...new Set(all.map(s => (s.payment_terms||'').trim()).filter(Boolean))].sort(), 'All Payment Terms');
-  const fromEl = document.getElementById('spl-f-from'), toEl = document.getElementById('spl-f-to');
-  if (fromEl && toEl && !fromEl.value && !toEl.value) {
-    fromEl.value = BIZ_FROM_DATE;
-    toEl.value = fmt_date(new Date());
-  }
-}
-
-function resetSuppliersFilter() {
-  document.getElementById('spl-f-search').value = '';
-  ['spl-f-type','spl-f-state','spl-f-status','spl-f-terms'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('spl-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('spl-f-to').value = fmt_date(new Date());
-  SPL_PAGE = 1;
-  renderSuppliers();
-}
-
-// Per-supplier purchase totals within the selected date range
-function splPurchaseTotals() {
-  const from = document.getElementById('spl-f-from')?.value || '';
-  const to = document.getElementById('spl-f-to')?.value || '';
-  const map = {};
-  (STATE.purchases||[]).forEach(p => {
-    const d = (p.purchase_date||'').slice(0,10);
-    if (from && d < from) return;
-    if (to && d > to) return;
-    const sid = String(p.supplier_id);
-    if (!map[sid]) map[sid] = { total: 0, outstanding: 0 };
-    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
-    map[sid].total += total;
-    map[sid].outstanding += Math.max(0, total - paid);
-  });
-  return map;
-}
-
-function splFilteredSuppliers() {
-  const q = (document.getElementById('spl-f-search')?.value || '').trim().toLowerCase();
-  const type = document.getElementById('spl-f-type')?.value || '';
-  const state = document.getElementById('spl-f-state')?.value || '';
-  const status = document.getElementById('spl-f-status')?.value || '';
-  const terms = document.getElementById('spl-f-terms')?.value || '';
-
-  return splAllSuppliers().filter(s => {
-    if (q && !(s.name||'').toLowerCase().includes(q) && !(s.phone||'').toLowerCase().includes(q) && !(s.email||'').toLowerCase().includes(q)) return false;
-    if (type && (s.supplier_type||'').trim() !== type) return false;
-    if (state && (s.state||'').trim() !== state) return false;
-    if (status && (s.status||'active') !== status) return false;
-    if (terms && (s.payment_terms||'').trim() !== terms) return false;
-    return true;
-  });
-}
-
-async function renderSuppliers() {
+function renderSuppliers() {
   const tbody = document.getElementById('suppliersTbody');
   if (!tbody) return;
-
-  // Lazily fetch archived (inactive) suppliers once so Status filter and
-  // stats can cover them — active list is already loaded at bootstrap.
-  if (!SPL_ARCH_REQUESTED) {
-    SPL_ARCH_REQUESTED = true;
-    try {
-      const r = await api('api/suppliers.php?status=archived');
-      SUP.archivedList = Array.isArray(r.data) ? r.data : [];
-    } catch(e) { SUP.archivedList = SUP.archivedList || []; }
-  }
-
-  populateSuppliersFilters();
-  const list = splFilteredSuppliers();
-  const totals = splPurchaseTotals();
-
-  // ── Stats ──────────────────────────────────────────────────
-  const all = splAllSuppliers();
-  document.getElementById('spl-stat-total').textContent = all.length;
-  document.getElementById('spl-stat-active').textContent = all.filter(s => (s.status||'active') === 'active').length;
-  document.getElementById('spl-stat-inactive').textContent = all.filter(s => (s.status||'active') !== 'active').length;
-  const grandTotal = Object.values(totals).reduce((a,t) => a + t.total, 0);
-  const grandOut = Object.values(totals).reduce((a,t) => a + t.outstanding, 0);
-  document.getElementById('spl-stat-purchases').textContent = fmt_money(grandTotal);
-  document.getElementById('spl-stat-out').textContent = fmt_money(grandOut);
-  const fromV = document.getElementById('spl-f-from')?.value, toV = document.getElementById('spl-f-to')?.value;
-  document.getElementById('spl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / SPL_PAGESIZE));
-  if (SPL_PAGE > totalPages) SPL_PAGE = totalPages;
-  const start = (SPL_PAGE - 1) * SPL_PAGESIZE;
-  const pageRows = list.slice(start, start + SPL_PAGESIZE);
-  document.getElementById('supInfo').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+SPL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('spl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="splPage(${SPL_PAGE-1})" ${SPL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SPL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===SPL_PAGE?'active':''}" onclick="splPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="splPage(${SPL_PAGE+1})" ${SPL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No suppliers found — click "Add New Supplier" to get started</td></tr>`;
+  const list = activeSupSource();
+  document.getElementById('supInfo').textContent = list.length + ' supplier' + (list.length===1?'':'s');
+  document.getElementById('supCountInfo').textContent = STATE.suppliers.length + ' active';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">
+      ${SUP.archived ? 'No archived suppliers' : 'No suppliers yet — click "Add Supplier" to get started'}</td></tr>`;
     return;
   }
-
-  tbody.innerHTML = pageRows.map((s, i) => {
-    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-    const active = (s.status||'active') === 'active';
-    return `
+  tbody.innerHTML = list.map((s, i) => `
     <tr>
-      <td>${start + i + 1}</td>
+      <td>${i+1}</td>
       <td><strong>${escHtml(s.name)}</strong></td>
-      <td>${escHtml(s.contact_person||'—')}</td>
-      <td>${escHtml(s.phone||'—')}</td>
-      <td>${escHtml(s.email||'—')}</td>
-      <td>${escHtml(s.state||'—')}</td>
-      <td>${escHtml(s.payment_terms||'—')}</td>
-      <td style="text-align:right">${t.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${t.outstanding > 0 ? '#E53935' : 'var(--text)'}">${t.outstanding.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
+      <td>${escHtml(s.contact_person || '—')}</td>
+      <td>${escHtml(s.phone || '—')}</td>
+      <td>${escHtml(s.country || '—')}</td>
+      <td>${escHtml(s.gst_number || '—')}</td>
       <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View supplier details" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>` : ''}
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
-              ${active
-                ? `<button onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
-                : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              <button onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
-            </div>
-          </span>
+        <div class="action-cell">
+          ${SUP.archived
+            ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
+            : `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>
+               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>
+               <span class="act-menu-wrap">
+                 <button class="act-btn" title="More actions" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis-vertical"></i></button>
+                 <span class="act-menu">
+                   <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View PDF</button>
+                   <button class="danger" onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash"></i> Delete</button>
+                 </span>
+               </span>`}
         </div>
       </td>
-    </tr>`;
-  }).join('');
-}
-
-function splPage(p) {
-  const totalPages = Math.max(1, Math.ceil(splFilteredSuppliers().length / SPL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  SPL_PAGE = p;
-  renderSuppliers();
-}
-
-function exportSuppliersExcel() {
-  const list = splFilteredSuppliers();
-  if (!list.length) { toast('⚠️ No suppliers to export for the selected filters', 'warning'); return; }
-  const totals = splPurchaseTotals();
-  const rows = [['#','Supplier Name','Contact Person','Mobile No.','Email','State','Payment Terms','GST Number','Total Purchases','Outstanding','Status']];
-  list.forEach((s, i) => {
-    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-    rows.push([
-      i+1, s.name||'', s.contact_person||'', s.phone||'', s.email||'', s.state||'', s.payment_terms||'', s.gst_number||'',
-      t.total.toFixed(2), t.outstanding.toFixed(2), (s.status||'active') === 'active' ? 'Active' : 'Inactive'
-    ]);
-  });
-  _downloadCSV(rows, 'supplier_list.csv');
-  toast('✅ Exported ' + list.length + ' suppliers', 'success');
+    </tr>`).join('');
 }
 
 function openAddSupplierModal() {
@@ -14456,7 +14238,7 @@ document.addEventListener('click', () => {
 
 // Printable supplier profile — opens in a new tab, ready for Save as PDF.
 function viewSupplierPdf(id) {
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
+  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
   if (!s) { toast('❌ Supplier not found', 'error'); return; }
   const co = pneCompanyInfo();
   const kv = (label, val) => val ? `<div class="kv"><span>${label}</span><b>${escHtml(String(val))}</b></div>` : '';
@@ -14509,7 +14291,7 @@ function viewSupplierPdf(id) {
 }
 
 async function deleteSupplierPermanent(id) {
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
+  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
   const conf = await Swal.fire({
     title: 'Permanently delete this supplier?',
     html: `"<b>${escHtml(s?.name||'')}</b>" will be removed forever. This cannot be undone.<br><br><span style="font-size:12px;color:#888">Suppliers with purchase history cannot be deleted — use Archive for those.</span>`,
@@ -14519,8 +14301,6 @@ async function deleteSupplierPermanent(id) {
   if (!conf.isConfirmed) return;
   try {
     await api('api/suppliers.php?id=' + id + '&permanent=1', 'DELETE');
-    STATE.suppliers = (STATE.suppliers||[]).filter(x => String(x.id) !== String(id));
-    SUP.archivedList = (SUP.archivedList||[]).filter(x => String(x.id) !== String(id));
     toast('🗑️ Supplier permanently deleted', 'info');
     renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -14536,8 +14316,6 @@ async function archiveSupplier(id) {
   try {
     await api('api/suppliers.php?id=' + id, 'DELETE');
     STATE.suppliers = STATE.suppliers.filter(x => String(x.id) !== String(id));
-    SUP.archivedList = SUP.archivedList || [];
-    SUP.archivedList.push({ ...s, status: 'archived' });
     renderSuppliers();
     toast('🗑️ Archived', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
