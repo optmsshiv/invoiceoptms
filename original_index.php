@@ -49,9 +49,6 @@ $ROLE_BADGE_COLORS = [
 $userRole      = $user['role'] ?? 'viewer';
 $isSuperAdmin  = $userRole === 'super_admin';
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
-// Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
-$connectedDb    = $_SESSION['tenant_db'] ?? null;
-$connectedLabel = $_SESSION['tenant_db_label'] ?? $connectedDb;
 $roleBadgeLabel= $isSuperAdmin ? 'Super Admin' : ucfirst($userRole);
 
 // Adjust this if your super-admin panel lives at a different path.
@@ -1746,19 +1743,6 @@ const SERVER = {
         <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
       </span>
-      <?php if ($isSuperAdmin): ?>
-        <?php if ($connectedDb): ?>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:600" title="Session is connected to this database — Sales/Invoices/etc. read from it">
-            <i class="fas fa-database" style="font-size:11px"></i> <?= htmlspecialchars($connectedLabel) ?>
-            <button onclick="disconnectDb()" title="Disconnect — return to admin view" style="background:none;border:none;color:#1565C0;cursor:pointer;padding:0;margin-left:2px;font-size:12px"><i class="fas fa-times-circle"></i></button>
-          </span>
-        <?php else: ?>
-          <button onclick="connectDbPrompt()" title="Connect your session to any database to browse it through this app"
-            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:var(--bg);border:1px dashed var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">
-            <i class="fas fa-plug" style="font-size:11px"></i> Connect Database
-          </button>
-        <?php endif; ?>
-      <?php endif; ?>
       <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
@@ -22016,38 +22000,6 @@ window.settingsTab = function(name, btn) {
 };
 
 // ── Admin Profile ──────────────────────────────────────────────
-// ── Super admin: ad-hoc database connect/disconnect ────────────────
-// Points THIS session at any database so the normal app UI (Sales,
-// Invoices, Stock, etc.) reads from it — no tenant record is created,
-// no users are migrated. Purely for the super admin to look around.
-async function connectDbPrompt() {
-  const { value: dbName } = await Swal.fire({
-    title: 'Connect to a database',
-    input: 'text',
-    inputPlaceholder: 'e.g. edrppymy_optms_invoice',
-    inputLabel: 'Exact database name from cPanel → MySQL Databases',
-    showCancelButton: true,
-    confirmButtonText: 'Connect',
-    customClass: { popup: 'swal-compact' },
-  });
-  if (!dbName) return;
-  try {
-    const r = await api('api/tenant.php?action=connect_db', 'POST', { db_name: dbName.trim() });
-    if (r.success) {
-      toast(`✅ Connected to ${r.label}`, 'success');
-      setTimeout(() => window.location.reload(), 600);
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function disconnectDb() {
-  try {
-    await api('api/tenant.php?action=disconnect_db', 'POST', {});
-    toast('🔌 Disconnected — back to admin view', 'info');
-    setTimeout(() => window.location.reload(), 500);
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2*1024*1024) { toast('⚠️ Max 2MB', 'warning'); return; }

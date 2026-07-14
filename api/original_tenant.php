@@ -14,8 +14,6 @@
 //  GET    ?action=users&tenant_id=N → list tenant users
 //  PATCH  ?action=update_user       → update user role/status
 //  DELETE ?action=remove_user&id=N  → remove user from tenant
-//  POST   ?action=connect_db    → super admin: point session at any DB
-//  POST   ?action=disconnect_db → super admin: return session to master DB
 // ================================================================
 
 require_once __DIR__ . '/../config/db.php';
@@ -81,8 +79,6 @@ try {
         $ownerPass  = $body['password'] ?? _randomPassword();
         $plan       = $body['plan'] ?? 'trial';
         $phone      = trim($body['phone'] ?? '');
-        $businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'both';
 
         if (!$name || !$ownerEmail) {
             jsonResponse(['error' => 'company_name and owner_email are required'], 400);
@@ -132,7 +128,6 @@ try {
                         'password'     => $ownerPass,
                         'plan'         => $plan,
                         'phone'        => $phone,
-                        'business_type'=> $businessType,
                     ],
                 ], 202);
             }
@@ -141,7 +136,7 @@ try {
 
         jsonResponse(_finalizeTenantCreation(
             $master, $dbName, $slug, $name, $ownerEmail, $ownerName,
-            $ownerPass, $plan, $phone, $_SESSION['user_id'], $businessType
+            $ownerPass, $plan, $phone, $_SESSION['user_id']
         ));
     }
 
@@ -157,8 +152,6 @@ try {
         $ownerPass  = $body['password'] ?? _randomPassword();
         $plan       = $body['plan'] ?? 'trial';
         $phone      = trim($body['phone'] ?? '');
-        $businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'both';
 
         if (!$dbName || !$slug || !$name || !$ownerEmail) {
             jsonResponse(['error' => 'db_name, slug, company_name and owner_email are required'], 400);
@@ -177,211 +170,8 @@ try {
 
         jsonResponse(_finalizeTenantCreation(
             $master, $dbName, $slug, $name, $ownerEmail, $ownerName,
-            $ownerPass, $plan, $phone, $_SESSION['user_id'], $businessType
+            $ownerPass, $plan, $phone, $_SESSION['user_id']
         ));
-    }
-
-    // ── ATTACH an already-existing database as a tenant ─────────────
-    // For databases created outside this system (e.g. an older
-    // single-tenant deployment) that already contain real data.
-    // Unlike action=create, this NEVER touches the target database's
-    // schema or existing rows — it only reads from it, then adds the
-    // matching login records to the MASTER database so the app can
-    // route logins to it. This keeps the operation non-destructive:
-    // if anything goes wrong, the tenant DB itself is untouched.
-    if ($method === 'POST' && $action === 'attach_existing') {
-        $dbName      = trim($body['db_name'] ?? '');
-        $name        = trim($body['company_name'] ?? '');
-        $slug        = _makeSlug($body['slug'] ?? $name);
-        $ownerEmail  = trim(strtolower($body['owner_email'] ?? ''));
-        $plan        = $body['plan'] ?? 'pro';
-        $phone       = trim($body['phone'] ?? '');
-        $businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'service'; // this feature exists precisely for legacy invoicing DBs
-
-        if (!$dbName || !$name || !$ownerEmail) {
-            jsonResponse(['error' => 'db_name, company_name and owner_email are required'], 400);
-        }
-
-        // This database must not already be registered as a tenant.
-        $dbCheck = $master->prepare('SELECT id, company_name FROM tenants WHERE db_name=?');
-        $dbCheck->execute([$dbName]);
-        if ($existing = $dbCheck->fetch()) {
-            jsonResponse(['error' => "Database '{$dbName}' is already attached as tenant \"{$existing['company_name']}\""], 409);
-        }
-
-        // Slug uniqueness (same rule as normal tenant creation)
-        $slugCheck = $master->prepare('SELECT id FROM tenants WHERE slug=?');
-        $slugCheck->execute([$slug]);
-        if ($slugCheck->fetch()) $slug .= '_' . substr(uniqid(), -4);
-
-        // Connect to the target database — this is the only place we
-        // touch it, and only to READ. Any failure here means nothing
-        // was written anywhere.
-        try {
-            $tenantDb = getDBByName($dbName);
-        } catch (RuntimeException $e) {
-            jsonResponse(['error' => "Could not connect to database '{$dbName}': " . $e->getMessage()], 400);
-        }
-
-        // Sanity check: does this look like a real tenant database of
-        // this app (has a users table), not some unrelated database?
-        $tblCheck = $tenantDb->query("SHOW TABLES LIKE 'users'")->fetchAll();
-        if (!$tblCheck) {
-            jsonResponse(['error' => "Database '{$dbName}' has no 'users' table — it doesn't look like a database from this app."], 400);
-        }
-
-        $oldUsers = $tenantDb->query('SELECT id, name, email, password, role, is_active FROM users')->fetchAll();
-        if (!$oldUsers) {
-            jsonResponse(['error' => "Database '{$dbName}' has no users — nothing to attach a login to."], 400);
-        }
-
-        // Set the business type in the TENANT's own settings table (that's
-        // where the app actually reads it from — controls which menu the
-        // owner sees on login: Invoices/Clients for 'service', Sales/
-        // Purchases/Stock for 'product'). Only written if not already set,
-        // so we never overwrite a value this database already has.
-        $stChk = $tenantDb->prepare('SELECT id FROM settings WHERE `key`="business_type"');
-        $stChk->execute();
-        if (!$stChk->fetch()) {
-            $tenantDb->prepare('INSERT INTO settings (`key`, value) VALUES ("business_type", ?)')->execute([$businessType]);
-        }
-
-        $matchOwner = null;
-        foreach ($oldUsers as $u) {
-            if (strtolower(trim($u['email'])) === $ownerEmail) { $matchOwner = $u; break; }
-        }
-        if (!$matchOwner) {
-            jsonResponse(['error' => "No user with email '{$ownerEmail}' was found in that database. Found: "
-                . implode(', ', array_column($oldUsers, 'email'))], 400);
-        }
-
-        $allowedRoles = ['owner','admin','manager','accountant','sales','viewer'];
-
-        try {
-            $master->beginTransaction();
-
-            // 1) Register the tenant — pointing at the EXISTING database.
-            //    No schema file is run, no cPanel calls are made.
-            $master->prepare(
-                'INSERT INTO tenants (slug, company_name, db_name, plan, owner_email, owner_name, phone, status, created_by)
-                 VALUES (?,?,?,?,?,?,?,"active",?)'
-            )->execute([$slug, $name, $dbName, $plan, $matchOwner['email'], $matchOwner['name'], $phone, $_SESSION['user_id']]);
-            $tenantId = (int)$master->lastInsertId();
-
-            $migrated = [];
-            $skipped  = [];
-
-            foreach ($oldUsers as $u) {
-                $email = trim($u['email']);
-                if (!$email) { $skipped[] = ['old_id' => $u['id'], 'reason' => 'No email on record']; continue; }
-
-                // An email can only belong to one tenant under this system.
-                // If it's already used elsewhere in master, we do NOT touch
-                // it — flag it for the super admin to resolve by hand.
-                $chk = $master->prepare('SELECT id FROM users WHERE email=?');
-                $chk->execute([$email]);
-                if ($chk->fetch()) {
-                    $skipped[] = ['old_id' => $u['id'], 'email' => $email, 'reason' => 'Email already used by a user in another tenant'];
-                    continue;
-                }
-
-                $role = in_array($u['role'], $allowedRoles) ? $u['role'] : 'viewer';
-                $status = !empty($u['is_active']) ? 'active' : 'inactive';
-                if ($email === $matchOwner['email']) $role = 'owner'; // the person we matched on becomes tenant owner
-
-                // Re-use the EXISTING password hash as-is (same bcrypt scheme
-                // as this app) so the person's current password keeps working.
-                $master->prepare(
-                    'INSERT INTO users (tenant_id, name, email, password, role, status, created_by)
-                     VALUES (?,?,?,?,?,?,?)'
-                )->execute([$tenantId, $u['name'], $email, $u['password'], $role, $status, $_SESSION['user_id']]);
-                $newMasterId = (int)$master->lastInsertId();
-
-                // 2) Mirror this user into the tenant DB under their NEW
-                //    master id. This does not remove or alter their old
-                //    local row — historical activity_log / created_by
-                //    entries that reference their OLD local id keep
-                //    resolving correctly. Going forward, new activity is
-                //    logged under the new master id, which this mirror
-                //    row makes resolvable too.
-                if ((int)$u['id'] !== $newMasterId) {
-                    $collision = $tenantDb->prepare('SELECT email FROM users WHERE id=?');
-                    $collision->execute([$newMasterId]);
-                    $existingRow = $collision->fetch();
-                    if ($existingRow && strtolower($existingRow['email']) !== strtolower($email)) {
-                        // Extremely unlikely (would need the old DB to already
-                        // have another unrelated user sitting at exactly this
-                        // id), but never silently misattribute — flag it.
-                        $skipped[] = ['old_id' => $u['id'], 'email' => $email,
-                            'reason' => "New id {$newMasterId} collides with a different existing local user — resolve manually"];
-                        continue;
-                    }
-                }
-                $tenantDb->prepare(
-                    'INSERT IGNORE INTO users (id, name, email, password, role, is_active) VALUES (?,?,?,?,?,?)'
-                )->execute([$newMasterId, $u['name'], $email, $u['password'], $role, !empty($u['is_active']) ? 1 : 0]);
-
-                $migrated[] = ['old_local_id' => $u['id'], 'new_master_id' => $newMasterId, 'email' => $email, 'role' => $role];
-            }
-
-            $master->commit();
-        } catch (Exception $e) {
-            $master->rollBack();
-            jsonResponse(['error' => 'Attach failed, nothing was changed: ' . $e->getMessage()], 500);
-        }
-
-        masterAuditLog($_SESSION['user_id'], $tenantId, 'tenant_attached',
-            "Attached existing database '{$dbName}' as tenant: {$name} (" . count($migrated) . " users migrated, " . count($skipped) . " skipped)");
-
-        jsonResponse([
-            'success'        => true,
-            'tenant_id'      => $tenantId,
-            'db_name'        => $dbName,
-            'slug'           => $slug,
-            'owner_email'    => $matchOwner['email'],
-            'migrated_users' => $migrated,
-            'skipped_users'  => $skipped,
-            'message'        => "Tenant '{$name}' attached. Existing passwords keep working — no new password was set."
-                . (count($skipped) ? ' ' . count($skipped) . ' user(s) need manual review (see skipped_users).' : ''),
-        ]);
-    }
-
-    // ── CONNECT: super admin points their OWN session at any database ──
-    // Lightweight and temporary — unlike attach_existing, this creates NO
-    // tenant record and migrates NO users. It just changes which database
-    // getDB() resolves to for this session, so the super admin can browse
-    // any database (registered tenant or not) through the normal app UI.
-    if ($method === 'POST' && $action === 'connect_db') {
-        $dbName = trim($body['db_name'] ?? '');
-        if (!$dbName) jsonResponse(['error' => 'db_name is required'], 400);
-
-        // Fail fast with a clear error rather than leaving the session
-        // pointed at an unreachable database.
-        try {
-            $test = getDBByName($dbName);
-            $test->query("SHOW TABLES LIKE 'users'"); // sanity check, not required to exist
-        } catch (RuntimeException $e) {
-            jsonResponse(['error' => "Could not connect to '{$dbName}': " . $e->getMessage()], 400);
-        }
-
-        $_SESSION['tenant_db']       = $dbName;
-        $_SESSION['tenant_db_label'] = $dbName; // no company name if this isn't a registered tenant
-        // If it IS a registered tenant, use its real company name for the banner
-        $tChk = $master->prepare('SELECT company_name FROM tenants WHERE db_name=?');
-        $tChk->execute([$dbName]);
-        if ($t = $tChk->fetch()) $_SESSION['tenant_db_label'] = $t['company_name'];
-
-        masterAuditLog($_SESSION['user_id'], null, 'super_admin_connect_db', "Connected session to database: {$dbName}");
-        jsonResponse(['success' => true, 'db_name' => $dbName, 'label' => $_SESSION['tenant_db_label']]);
-    }
-
-    // ── DISCONNECT: return super admin's session to the master DB ──────
-    if ($method === 'POST' && $action === 'disconnect_db') {
-        $prev = $_SESSION['tenant_db'] ?? null;
-        unset($_SESSION['tenant_db'], $_SESSION['tenant_db_label']);
-        if ($prev) masterAuditLog($_SESSION['user_id'], null, 'super_admin_disconnect_db', "Disconnected from database: {$prev}");
-        jsonResponse(['success' => true]);
     }
 
     // ── SUSPEND tenant ─────────────────────────────────────────────
@@ -662,12 +452,12 @@ function _splitSqlStatements(string $sql): array {
 function _finalizeTenantCreation(
     PDO $master, string $dbName, string $slug, string $name,
     string $ownerEmail, string $ownerName, string $ownerPass,
-    string $plan, string $phone, int $actingUserId, string $businessType = 'both'
+    string $plan, string $phone, int $actingUserId
 ): array {
     $master->prepare(
-        'INSERT INTO tenants (slug, company_name, db_name, plan, business_type, owner_email, owner_name, phone, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?)'
-    )->execute([$slug, $name, $dbName, $plan, $businessType, $ownerEmail, $ownerName, $phone, $actingUserId]);
+        'INSERT INTO tenants (slug, company_name, db_name, plan, owner_email, owner_name, phone, created_by)
+         VALUES (?,?,?,?,?,?,?,?)'
+    )->execute([$slug, $name, $dbName, $plan, $ownerEmail, $ownerName, $phone, $actingUserId]);
     $tenantId = (int)$master->lastInsertId();
 
     $hashedPass = password_hash($ownerPass, PASSWORD_BCRYPT, ['cost' => 12]);
@@ -683,17 +473,10 @@ function _finalizeTenantCreation(
          VALUES (?,?,?,?,?,1)'
     )->execute([$userId, $ownerName ?: $name, $ownerEmail, $hashedPass, 'owner']);
 
-    // Seed the tenant's own settings table too — this is what the tenant's
-    // app UI (Products page wording) actually reads at runtime. The master
-    // tenants.business_type column above is for your own admin-side visibility.
     $tenantDb->prepare(
         'INSERT INTO settings (`key`, value) VALUES ("company_name", ?)
          ON DUPLICATE KEY UPDATE value=?'
     )->execute([$name, $name]);
-    $tenantDb->prepare(
-        'INSERT INTO settings (`key`, value) VALUES ("business_type", ?)
-         ON DUPLICATE KEY UPDATE value=?'
-    )->execute([$businessType, $businessType]);
 
     masterAuditLog($actingUserId, $tenantId, 'tenant_created', "Created tenant: {$name} (DB: {$dbName})");
 
