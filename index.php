@@ -3961,7 +3961,10 @@ const SERVER = {
             </div>
             <div class="pne-grid3">
               <div class="field"><label>City *</label><input id="cusn-city" placeholder="Enter city"></div>
+              <div class="field"><label>District</label><input id="cusn-district" placeholder="Enter district"></div>
               <div class="field"><label>State *</label><select id="cusn-state"><option value="">Select state</option></select></div>
+            </div>
+            <div class="pne-grid2">
               <div class="field"><label>Pincode *</label><input id="cusn-pincode" placeholder="Enter pincode"></div>
             </div>
             <div class="pne-grid3" id="cusn-shipaddr-row" style="display:none">
@@ -4252,11 +4255,11 @@ const SERVER = {
               <div class="field"><label>Address *</label><textarea id="sup-address" style="min-height:60px" placeholder="Enter full address"></textarea></div>
               <div class="pne-grid2">
                 <div class="field"><label>City *</label><input id="sup-city" placeholder="Enter city"></div>
-                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
+                <div class="field"><label>District</label><input id="sup-district" placeholder="Enter district"></div>
               </div>
               <div class="pne-grid2">
+                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
                 <div class="field"><label>Pincode *</label><input id="sup-pincode" placeholder="Enter pincode"></div>
-                <div class="field"><label>Country</label><select id="sup-country"><option>India</option></select></div>
               </div>
             </div>
 
@@ -15654,23 +15657,38 @@ function renderPNEItemsTable() {
 
 // Show/hide the Dhalta % sub-column per Settings → Company (show_dhalta_pct).
 // The Kg column always stays — only the derived percentage is optional.
-let PNE_DHPCT_COL = null; // detached <col> stash while the % column is hidden
-
 function applyDhaltaPctVisibility() {
   const show = (STATE.settings.showDhaltaPct ?? '1') !== '0';
   document.querySelectorAll('.pne-dhpct-col').forEach(el => { el.style.display = show ? '' : 'none'; });
   const g = document.getElementById('pne-th-dhalta-group');
   if (g) { g.colSpan = show ? 2 : 1; g.textContent = show ? 'Dhalta' : 'Dhalta (Kg)'; }
-  // The colgroup assigns widths by position, so a hidden column's <col> must
-  // be physically removed — otherwise every column after Dhalta shifts one
-  // width slot and the header no longer lines up with the body.
+
+  // The colgroup assigns widths by DOM position, so when hiding Dhalta %
+  // we physically remove its <col> — otherwise every column after it shifts
+  // one slot and headers no longer align with cells.
+  // IMPORTANT: renderPNEItemsTable() replaces the whole table, so after any
+  // re-render a fresh <col id="pne-col-dhpct"> exists in the DOM. We must
+  // always re-read from the DOM, never use a stale JS reference from a
+  // previous render. The variable is intentionally dropped after each use.
   const colPct = document.getElementById('pne-col-dhpct');
-  const colKg = document.getElementById('pne-col-dhkg');
-  if (!show && colPct) { PNE_DHPCT_COL = colPct; colPct.remove(); }
-  if (show && !document.getElementById('pne-col-dhpct') && PNE_DHPCT_COL && colKg) {
-    colKg.parentNode.insertBefore(PNE_DHPCT_COL, colKg);
+  const colKg  = document.getElementById('pne-col-dhkg');
+
+  if (!show && colPct) {
+    // Store on the colKg node itself so it survives re-renders (colKg also
+    // gets a stable id and is never removed, only width-adjusted)
+    colKg._dhpctCol = colPct;
+    colPct.remove();
+  } else if (show && colKg) {
+    // Restore: either the col is already there (show re-applied after render)
+    // or we need to put the stashed one back
+    const stash = colKg._dhpctCol;
+    if (!document.getElementById('pne-col-dhpct') && stash) {
+      colKg.parentNode.insertBefore(stash, colKg);
+      colKg._dhpctCol = null;
+    }
   }
-  // Give the Kg input room when it's the only Dhalta column
+
+  // Widen the Kg col when % is hidden (more room to type values like 1250.50)
   if (colKg) colKg.style.width = show ? '65px' : '100px';
 }
 
@@ -15679,7 +15697,17 @@ function onPNEProductChange(id, productId) {
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) { it.description = p.name; if (!it.rate) it.rate = parseFloat(p.rate) || 0; }
+    if (p) {
+      it.description = p.name;
+      // Auto-fill from product master — only when the field is blank so a
+      // user who changes product mid-entry doesn't silently lose what they typed.
+      if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
+      if (!it.variety_grade) it.variety_grade = [p.variety, p.grade].filter(Boolean).join(' / ');
+      if (!it.quality_grade) it.quality_grade = p.grade || '';
+      // moisture_limit is the product's stored expected moisture — editable per purchase lot
+      if ((it.moisture_pct === null || it.moisture_pct === '' || it.moisture_pct === undefined) && p.moisture_limit)
+        it.moisture_pct = parseFloat(p.moisture_limit);
+    }
   }
   renderPNEItemsTable();
 }
@@ -18323,7 +18351,7 @@ function goToNewSupplierPage() {
   document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
   document.getElementById('supn-crumb').textContent = 'Add New';
   document.getElementById('sup-type').value = '';
-  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-pincode',
+  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-district','sup-pincode',
    'sup-gstin','sup-pan','sup-aadhaar','sup-statecode','sup-tan','sup-msme','sup-fssai','sup-bankname','sup-bankacc',
    'sup-ifsc','sup-accholder','sup-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('sup-regdate').value = '';
@@ -18359,7 +18387,7 @@ async function editSupplierRich(id) {
   set('sup-mobile', s.phone); set('sup-email', s.email); set('sup-regdate', s.date_of_registration);
   set('sup-bizNature', s.business_nature); set('sup-website', s.website);
   populateSupStateDropdown();
-  set('sup-address', s.address); set('sup-city', s.city); set('sup-state', s.state); set('sup-pincode', s.pincode);
+  set('sup-address', s.address); set('sup-city', s.city); set('sup-district', s.district); set('sup-state', s.state); set('sup-pincode', s.pincode);
   set('sup-country', s.country || 'India');
   set('sup-gstin', s.gst_number); set('sup-pan', s.pan_no); set('sup-aadhaar', s.aadhaar_no);
   set('sup-statecode', s.state_code); set('sup-tan', s.tan_no); set('sup-msme', s.msme_no); set('sup-fssai', s.fssai_no);
@@ -18414,7 +18442,7 @@ async function saveSupplierEntry() {
     phone: document.getElementById('sup-mobile').value.trim(), email: document.getElementById('sup-email').value.trim(),
     date_of_registration: document.getElementById('sup-regdate').value || null,
     business_nature: document.getElementById('sup-bizNature').value, website: document.getElementById('sup-website').value.trim(),
-    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(),
+    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(), district: document.getElementById('sup-district').value.trim(),
     state: document.getElementById('sup-state').value, pincode: document.getElementById('sup-pincode').value.trim(),
     country: document.getElementById('sup-country').value,
     gst_number: document.getElementById('sup-gstin').value.trim(), pan_no: document.getElementById('sup-pan').value.trim(),
@@ -18500,7 +18528,7 @@ function goToNewCustomerPage() {
   document.getElementById('cusn-code').value = '';
   document.getElementById('cusn-code').placeholder = 'Auto Generate';
   ['cusn-name','cusn-bizname','cusn-displayname','cusn-phone','cusn-altphone','cusn-email','cusn-whatsapp',
-   'cusn-billing','cusn-shipping','cusn-city','cusn-pincode','cusn-shipcity','cusn-shippincode',
+   'cusn-billing','cusn-shipping','cusn-city','cusn-district','cusn-pincode','cusn-shipcity','cusn-shippincode',
    'cusn-gst','cusn-pan','cusn-tan','cusn-iec','cusn-tradelicense','cusn-notes-inline','cusn-notes-sidebar']
    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cusn-group').value = '';
@@ -18553,7 +18581,7 @@ async function editCustomerRich(id) {
   set('cusn-displayname', c.display_name || c.name); set('cusn-group', c.group_name); set('cusn-status', c.status === 'archived' ? 'Inactive' : 'Active');
   set('cusn-creditlimit', c.credit_limit); set('cusn-phone', c.mobile); set('cusn-altphone', c.alternate_phone);
   set('cusn-email', c.email); set('cusn-whatsapp', c.whatsapp_no); set('cusn-billing', c.billing_address);
-  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); populateCusnStateDropdowns();
+  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); set('cusn-district', c.district); populateCusnStateDropdowns();
   set('cusn-state', c.state); set('cusn-pincode', c.billing_pincode); set('cusn-shipcity', c.shipping_city);
   set('cusn-shipstate', c.shipping_state); set('cusn-shippincode', c.shipping_pincode);
   set('cusn-gst', c.gstin); set('cusn-pan', c.pan_no); set('cusn-biztype', c.business_type); set('cusn-tan', c.tan_no);
@@ -18621,7 +18649,7 @@ async function saveCustomerEntry(mode) {
     email: document.getElementById('cusn-email').value.trim(), whatsapp_no: document.getElementById('cusn-whatsapp').value.trim(),
     billing_address: document.getElementById('cusn-billing').value.trim(),
     shipping_address: sameAddr ? document.getElementById('cusn-billing').value.trim() : document.getElementById('cusn-shipping').value.trim(),
-    billing_city: document.getElementById('cusn-city').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
+    billing_city: document.getElementById('cusn-city').value.trim(), district: document.getElementById('cusn-district').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
     shipping_city: sameAddr ? document.getElementById('cusn-city').value.trim() : document.getElementById('cusn-shipcity').value.trim(),
     shipping_state: sameAddr ? document.getElementById('cusn-state').value : document.getElementById('cusn-shipstate').value,
     shipping_pincode: sameAddr ? document.getElementById('cusn-pincode').value.trim() : document.getElementById('cusn-shippincode').value.trim(),
