@@ -16144,13 +16144,9 @@ async function savePurchaseEntry(mode) {
       savedId = res.id;
       toast('✅ Purchase saved!', 'success');
     }
-    const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
+    const [r, prd] = await Promise.all([api('api/purchases.php'), api('api/products.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
     STATE.products  = Array.isArray(prd.data) ? prd.data : STATE.products;
-    STATE.stock     = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    if (document.getElementById('page-stock')?.classList.contains('active')) {
-      renderProductStock();
-    }
 
     if (mode === 'print') {
       printPurchaseEntry(savedId);
@@ -17658,11 +17654,6 @@ async function saveSaleEntry(mode) {
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
     STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    // If the user can see the stock summary page right now, refresh it silently
-    // so Available Stock and Total Stock reflect the sale that just posted.
-    if (document.getElementById('page-stock')?.classList.contains('active')) {
-      renderProductStock();
-    }
 
     if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
     else { cancelSaleEntry(); }
