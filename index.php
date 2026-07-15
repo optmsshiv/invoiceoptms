@@ -4261,6 +4261,9 @@ const SERVER = {
                 <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
                 <div class="field"><label>Pincode *</label><input id="sup-pincode" placeholder="Enter pincode"></div>
               </div>
+              <div class="pne-grid2">
+                <div class="field"><label>Country</label><select id="sup-country"><option>India</option></select></div>
+              </div>
             </div>
 
             <!-- 3. Tax & Registration -->
