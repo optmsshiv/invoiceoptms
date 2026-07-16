@@ -109,9 +109,13 @@ switch ($method) {
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+    $delProd = $db->prepare('SELECT product_id FROM stock_adjustments WHERE id = ?');
+    $delProd->execute([$id]);
+    $delProdIds = array_column($delProd->fetchAll(), 'product_id');
     $db->prepare('DELETE FROM stock_ledger WHERE ref_type = "adjustment" AND ref_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM stock_adjustments WHERE id = ?')->execute([$id]);
     logActivity((int)($_SESSION['user_id'] ?? 0), 'delete', 'stock_adjustment', $id, 'Stock adjustment deleted');
+    rebalanceStockLedger($db, $delProdIds);
     jsonResponse(['success' => true]);
     break;
 

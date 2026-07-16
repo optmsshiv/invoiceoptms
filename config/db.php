@@ -156,3 +156,48 @@ function _dbError(string $message): never {
     }
     exit;
 }
+
+// ── Stock ledger rebalancer ────────────────────────────────────────
+// After any edit that changes a stock_ledger row (purchase edit, sale edit,
+// stock-in edit, adjustment edit), the running balance_after column in every
+// SUBSEQUENT row for that product becomes stale. This function corrects the
+// full ledger for one or more product IDs in a single pass, so the Stock
+// Transaction Details "Ledger Flow" table always shows accurate history.
+//
+// It does NOT affect what the stock summary/history pages display (those
+// recompute from SUM(in)-SUM(out) directly) — this is purely for the
+// per-row running balance that shows in the audit trail.
+//
+// Called after every PUT (edit) on purchases, sales, stock_in, adjustments.
+// Wrapped in a try-catch so a rebalance failure never rolls back the actual
+// save — the save is the critical operation; the running balance is display.
+function rebalanceStockLedger(PDO $db, array $productIds): void {
+    foreach (array_unique(array_filter($productIds)) as $productId) {
+        try {
+            // Fetch all ledger rows for this product in the order they
+            // were recorded (movement_date ASC, id ASC for same-day stability)
+            $rows = $db->prepare(
+                'SELECT id, direction, qty FROM stock_ledger
+                  WHERE product_id = ?
+                  ORDER BY movement_date ASC, id ASC'
+            );
+            $rows->execute([(int)$productId]);
+            $all = $rows->fetchAll();
+
+            $running = 0.0;
+            $upd = $db->prepare(
+                'UPDATE stock_ledger SET balance_after = ? WHERE id = ?'
+            );
+            foreach ($all as $row) {
+                $qty = (float)$row['qty'];
+                $running = $row['direction'] === 'in'
+                    ? $running + $qty
+                    : $running - $qty;
+                $upd->execute([round($running, 4), $row['id']]);
+            }
+        } catch (\Throwable $e) {
+            // Log but never let a rebalance failure surface to the user
+            error_log("rebalanceStockLedger: product {$productId}: " . $e->getMessage());
+        }
+    }
+}

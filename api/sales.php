@@ -266,15 +266,24 @@ switch ($method) {
     }
 
     logActivity((int)$_SESSION['user_id'], 'update', 'sale', $id, 'Sale updated');
+    $affectedProducts = array_filter(array_map(
+        fn($it) => cleanProductId($it['product_id'] ?? null), $items
+    ));
+    rebalanceStockLedger($db, array_values($affectedProducts));
     jsonResponse(['success' => true]);
     break;
 
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+    $delProds = $db->prepare('SELECT DISTINCT product_id FROM sale_items WHERE sale_id = ?');
+    $delProds->execute([$id]);
+    $delProdIds = array_column($delProds->fetchAll(), 'product_id');
     clearStockForSale($db, $id);
+    $db->prepare('DELETE FROM sale_items WHERE sale_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM sales WHERE id = ?')->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'delete', 'sale', $id, 'Sale deleted');
+    rebalanceStockLedger($db, $delProdIds);
     jsonResponse(['success' => true]);
     break;
 

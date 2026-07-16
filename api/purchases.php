@@ -278,15 +278,26 @@ switch ($method) {
     }
 
     logActivity((int)$_SESSION['user_id'], 'update', 'purchase', $id, 'Purchase updated');
+    // Correct balance_after for every affected product in the full ledger
+    $affectedProducts = array_filter(array_map(
+        fn($it) => cleanProductId($it['product_id'] ?? null), $items
+    ));
+    rebalanceStockLedger($db, array_values($affectedProducts));
     jsonResponse(['success' => true]);
     break;
 
   case 'DELETE':
     $id = (int)($_GET['id'] ?? 0);
     if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+    // Capture affected products BEFORE clearing, so we can rebalance after
+    $delProds = $db->prepare('SELECT DISTINCT product_id FROM purchase_items WHERE purchase_id = ?');
+    $delProds->execute([$id]);
+    $delProdIds = array_column($delProds->fetchAll(), 'product_id');
     clearStockForPurchase($db, $id);
+    $db->prepare('DELETE FROM purchase_items WHERE purchase_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM purchases WHERE id = ?')->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'delete', 'purchase', $id, 'Purchase deleted');
+    rebalanceStockLedger($db, $delProdIds);
     jsonResponse(['success' => true]);
     break;
 
