@@ -1856,179 +1856,271 @@ const SERVER = {
 
     <!-- ─────────── DASHBOARD ─────────── -->
     <div id="page-dashboard" class="page active">
-      <!-- Greeting Header -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-          <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
+      <!-- ── Greeting header (shared) ────────────────────────── -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+            <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">
+            <?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?>
+          </div>
         </div>
-        <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
+        <!-- Date range filter + refresh -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px">
+            <i class="fas fa-calendar" style="color:var(--teal)"></i>
+            <input type="date" id="db-from" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
+            <span style="color:var(--muted)">–</span>
+            <input type="date" id="db-to" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
+          </div>
+          <button class="btn btn-outline" onclick="renderDashboard()" style="font-size:12px;padding:7px 14px"><i class="fas fa-rotate-right"></i> Refresh</button>
         </div>
       </div>
-      <!-- Quick Actions -->
-      <?php
-        // Role-tailored quick-action order. Falls back to the default order
-        // for any role not explicitly listed. Each button is still gated by
-        // $perms so it always matches what that role can actually access.
-        $qaCatalog = [
-          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
-          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
-          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
-          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
-          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
-          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
-        ];
-        $qaOrderByRole = [
-          'accountant' => ['payments', 'tax', 'expenses', 'clients'],
-        ];
-        $qaOrder = $qaOrderByRole[$user['role'] ?? ''] ?? ['create', 'clients', 'payments', 'reports'];
-      ?>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <?php foreach ($qaOrder as $qaKey):
-          $qa = $qaCatalog[$qaKey];
-          if (!($perms[$qa['perm']] ?? true)) continue;
+
+      <!-- ── Service dashboard (invoices/clients/WA) ─────────── -->
+      <div id="dash-service">
+        <?php
+          $qaCatalog = [
+            'create'   => ['icon'=>'fas fa-plus','label'=>'New Invoice','page'=>'create','style'=>'btn-primary','perm'=>'menu.create'],
+            'clients'  => ['icon'=>'fas fa-users','label'=>'Clients','page'=>'clients','style'=>'btn-outline','perm'=>'menu.clients'],
+            'payments' => ['icon'=>'fas fa-credit-card','label'=>'Payments','page'=>'payments','style'=>'btn-outline','perm'=>'menu.payments'],
+            'reports'  => ['icon'=>'fas fa-chart-bar','label'=>'Reports','page'=>'reports','style'=>'btn-outline','perm'=>'menu.reports'],
+          ];
+          $qaOrder = ['create','clients','payments','reports'];
         ?>
-        <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
-        <?php endforeach; ?>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-          <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
-          <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
-          <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
-        </div>
-      </div>
-      <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
-           plan including Pro (the plan exclusion below only affects the
-           glowing automation banner beneath it). -->
-      <?php if ($perms['menu.whatsapp'] ?? true): ?>
-      <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
-      <?php endif; ?>
-      <!-- WhatsApp Automation banner (finance/accountant roles don't need this;
-           also hidden on the Pro plan specifically — a plan-tier decision,
-           independent of role permissions, so it doesn't touch the
-           WhatsApp Setup sidebar link, the KPI row above, or any other
-           role's access) -->
-      <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
-      <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
-      <div id="dashWACard" style="margin-bottom:16px"></div>
-      <?php endif; ?>
-      <?php unset($hideWACardForPlan); ?>
-      <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
-      <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
-        <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-        <div id="s-outstanding-card" style="display:none"></div>
-        <?php if ($perms['menu.whatsapp'] ?? true): ?>
-        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
-            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
-          </div>
-          <div id="waActivityRows"></div>
-        </div>
-        <?php endif; ?>
-      </div>
-      <div class="dash-stats-row">
-        <div class="stat-card" data-color="amber">
-          <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-pending">₹0</div>
-            <div class="stat-lbl">Pending</div>
-            <div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="red">
-          <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-overdue">₹0</div>
-            <div class="stat-lbl">Overdue</div>
-            <div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="blue">
-          <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-total">0</div>
-            <div class="stat-lbl">Total Invoices</div>
-            <div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="green">
-          <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-clients">0</div>
-            <div class="stat-lbl">Active Clients</div>
-            <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <?php foreach ($qaOrder as $qaKey):
+            $qa = $qaCatalog[$qaKey];
+            if (!($perms[$qa['perm']] ?? true)) continue;
+          ?>
+          <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
+          <?php endforeach; ?>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
+            <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
           </div>
         </div>
         <?php if ($perms['menu.whatsapp'] ?? true): ?>
-        <div class="stat-card" data-color="teal">
-          <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-wa-today">0</div>
-            <div class="stat-lbl">WA Sent Today</div>
-            <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
-          </div>
-        </div>
+        <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
         <?php endif; ?>
+        <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
+        <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
+        <div id="dashWACard" style="margin-bottom:16px"></div>
+        <?php endif; ?>
+        <?php unset($hideWACardForPlan); ?>
+        <div id="dashPartialCard" style="margin-bottom:16px"></div>
+        <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px">
+          <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
+          <div id="s-outstanding-card" style="display:none"></div>
+          <?php if ($perms['menu.whatsapp'] ?? true): ?>
+          <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+              <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+            </div>
+            <div id="waActivityRows"></div>
+          </div>
+          <?php endif; ?>
+        </div>
+        <div class="dash-stats-row">
+          <div class="stat-card" data-color="amber">
+            <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-pending">₹0</div><div class="stat-lbl">Pending</div><div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div></div>
+          </div>
+          <div class="stat-card" data-color="red">
+            <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-overdue">₹0</div><div class="stat-lbl">Overdue</div><div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div></div>
+          </div>
+          <div class="stat-card" data-color="blue">
+            <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total Invoices</div><div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div></div>
+          </div>
+          <div class="stat-card" data-color="green">
+            <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-clients">0</div><div class="stat-lbl">Active Clients</div><div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div></div>
+          </div>
+          <?php if ($perms['menu.whatsapp'] ?? true): ?>
+          <div class="stat-card" data-color="teal">
+            <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-wa-today">0</div><div class="stat-lbl">WA Sent Today</div><div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div></div>
+          </div>
+          <?php endif; ?>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:16px;margin-bottom:24px;align-items:stretch">
+          <div class="dash-card" style="flex:2;min-width:0">
+            <div class="card-header"><span class="card-title">Revenue Overview</span>
+              <div class="chart-filter">
+                <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
+                <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
+                <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+          </div>
+          <div class="dash-card" style="flex:1.2;min-width:0">
+            <div class="card-header"><span class="card-title">Invoice Calendar</span>
+              <div style="display:flex;gap:6px">
+                <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
+                <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div id="calendarWidget"></div>
+            <div class="cal-legend"><span class="cal-dot" style="background:#F9A825"></span>Due<span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue<span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid</div>
+          </div>
+          <div class="dash-card" style="flex:0 0 220px;min-width:0">
+            <div class="card-header"><span class="card-title">Status Split</span></div>
+            <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
+            <div id="donutLegend" style="margin-top:6px"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
+          <div class="dash-card" style="flex:0 0 200px;min-width:0">
+            <div class="card-header"><span class="card-title">Quick Insights</span></div>
+            <div id="dashQuickKpis"></div>
+          </div>
+          <div class="dash-card" style="flex:1;min-width:0">
+            <div class="card-header"><span class="card-title">Recent Activity</span><button class="cf-btn" onclick="showPage('invoices',null)">View All</button></div>
+            <div id="dashRecentList"></div>
+          </div>
+          <div class="dash-card" style="flex:0 0 210px;min-width:0">
+            <div class="card-header"><span class="card-title">Top Clients</span></div>
+            <div id="dashTopClients"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Row 1: Revenue Overview + Invoice Calendar + Status Split (all in one row) -->
-      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
-        <!-- Revenue Chart -->
-        <div class="dash-card" style="flex:2;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Revenue Overview</span>
-            <div class="chart-filter">
-              <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
-              <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
-              <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
-            </div>
-          </div>
-          <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+      <!-- ── Product dashboard (sales/purchases/stock) ────────── -->
+      <div id="dash-product">
+        <!-- Quick actions -->
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-cart-shopping"></i> New Purchase</button>
+          <button class="btn btn-outline" onclick="goToNewSale()"><i class="fas fa-file-invoice-dollar"></i> New Sale Invoice</button>
+          <button class="btn btn-outline" onclick="goToStockIn()"><i class="fas fa-boxes-stacked"></i> Add Stock</button>
+          <button class="btn btn-outline" onclick="showPage('stock-adjust-new',null)"><i class="fas fa-sliders"></i> Stock Adjustment</button>
+          <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-receipt"></i> Payment Entry</button>
         </div>
-        <!-- Invoice Calendar -->
-        <div class="dash-card" style="flex:1.2;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Invoice Calendar</span>
-            <div style="display:flex;gap:6px">
-              <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
-              <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
-            </div>
-          </div>
-          <div id="calendarWidget"></div>
-          <div class="cal-legend">
-            <span class="cal-dot" style="background:#F9A825"></span>Due
-            <span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue
-            <span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid
-          </div>
-        </div>
-        <!-- Status Split Donut -->
-        <div class="dash-card" style="flex:0 0 220px;min-width:0">
-          <div class="card-header"><span class="card-title">Status Split</span></div>
-          <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
-          <div id="donutLegend" style="margin-top:6px"></div>
-        </div>
-      </div>
 
-      <!-- Row 2: Quick Insights + Recent Activity + Top Clients -->
-      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
-        <!-- Quick KPIs -->
-        <div class="dash-card" style="flex:0 0 200px;min-width:0">
-          <div class="card-header"><span class="card-title">Quick Insights</span></div>
-          <div id="dashQuickKpis"></div>
-        </div>
-        <!-- Recent Activity -->
-        <div class="dash-card" style="flex:1;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Recent Activity</span>
-            <button class="cf-btn" onclick="showPage('invoices',null)">View All</button>
+        <!-- 6 KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px" class="db-kpi-row">
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
+            <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-purchase">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-purchase-sub">0 bills</div>
           </div>
-          <div id="dashRecentList"></div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-sales">
+            <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL SALES</div>
+            <div style="font-size:16px;font-weight:800;color:var(--green)" id="db-stat-sales">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-sales-sub">0 invoices</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
+            <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">GROSS PROFIT</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-profit">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">0% margin</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-collections">
+            <span class="sa-chip-icon" style="background:#E0F7FA;color:#00838F;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">COLLECTIONS</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-collections">₹0</div>
+            <div style="font-size:10px;color:var(--muted)">Amount received</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-payable">
+            <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-file-circle-exclamation"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAYMENTS</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-payable">₹0</div>
+            <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
+            <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">STOCK VALUE</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-stock">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-stock-sub">0 Kg total</div>
+          </div>
         </div>
-        <!-- Top Clients -->
-        <div class="dash-card" style="flex:0 0 210px;min-width:0">
-          <div class="card-header"><span class="card-title">Top Clients</span></div>
-          <div id="dashTopClients"></div>
+
+        <!-- Row 1: Sales vs Purchase chart + Alerts -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <span style="font-size:14px;font-weight:700">Sales vs Purchase (₹)</span>
+              <div style="display:flex;gap:12px;font-size:11px;font-weight:600">
+                <span style="color:var(--teal)"><span style="display:inline-block;width:10px;height:3px;background:var(--teal);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Sales</span>
+                <span style="color:#7B1FA2"><span style="display:inline-block;width:10px;height:3px;background:#7B1FA2;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Purchase</span>
+              </div>
+            </div>
+            <div style="height:180px;position:relative"><canvas id="db-svp-chart"></canvas></div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-weight:600">
+              <span style="color:var(--teal)">Total Sales: <span id="db-chart-sales-total">₹0</span></span>
+              <span style="color:#7B1FA2">Total Purchase: <span id="db-chart-pur-total">₹0</span></span>
+            </div>
+          </div>
+          <div class="pne-card" id="db-alerts-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Alerts &amp; Notifications</div>
+            <div id="db-alerts-list"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:14px;margin-bottom:16px">
+          <!-- Stock Overview -->
+          <div class="pne-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Stock Overview</div>
+            <div style="height:160px;position:relative"><canvas id="db-stock-donut"></canvas></div>
+            <div id="db-stock-legend" style="margin-top:10px;font-size:11.5px"></div>
+            <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:12px" onclick="showPage('stock',null)">View Stock Details →</button>
+          </div>
+          <!-- Top Products by Stock -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Products by Stock</span>
+              <button class="cf-btn" onclick="goToProductsPage()">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Stock (Kg)</th><th style="text-align:right">Value (₹)</th></tr></thead>
+              <tbody id="db-top-products"></tbody>
+            </table>
+          </div>
+          <!-- Recent Transactions -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Recent Transactions</span>
+            </div>
+            <div id="db-recent-txns" style="font-size:12px"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: Business Summary Today + Top Customers + Top Suppliers -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+          <!-- Business Summary Today -->
+          <div class="pne-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Business Summary <span style="font-size:11px;color:var(--muted);font-weight:400" id="db-summary-range">(Today)</span></div>
+            <div id="db-biz-summary"></div>
+          </div>
+          <!-- Top Customers -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Customers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Sales)</span></span>
+              <button class="cf-btn" onclick="showPage('customers',null)">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>Customer</th><th style="text-align:right">Sales (₹)</th></tr></thead>
+              <tbody id="db-top-customers"></tbody>
+            </table>
+          </div>
+          <!-- Top Suppliers -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Suppliers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Purchase)</span></span>
+              <button class="cf-btn" onclick="showPage('suppliers',null)">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>Supplier</th><th style="text-align:right">Purchase (₹)</th></tr></thead>
+              <tbody id="db-top-suppliers"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -7941,17 +8033,233 @@ function renderDashWAActivity() {
 }
 
 function renderDashboard() {
-  renderRevenueChart('monthly');
-  renderDonutChart();
-  renderCalendar();
-  renderDashRecent();
-  renderDashKpis();
-  renderDashTopClients();
-  renderDashAlerts();
-  renderNotifications();
-  updateDashStats();
-  renderDashWAActivity();
-  _buildReminderQueue(); // update WA queued pill in topbar
+  const biz = STATE.settings.businessType || 'service';
+  const showService = (biz === 'service' || biz === 'both');
+  const showProduct = (biz === 'product' || biz === 'both');
+  const sd = document.getElementById('dash-service');
+  const pd = document.getElementById('dash-product');
+  if (sd) sd.style.display = showService ? '' : 'none';
+  if (pd) pd.style.display = showProduct ? '' : 'none';
+
+  // Initialise date range on first call
+  const fromEl = document.getElementById('db-from'), toEl = document.getElementById('db-to');
+  if (fromEl && toEl && !fromEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+
+  if (showService) {
+    renderRevenueChart('monthly');
+    renderDonutChart();
+    renderCalendar();
+    renderDashRecent();
+    renderDashKpis();
+    renderDashTopClients();
+    renderDashAlerts();
+    renderNotifications();
+    updateDashStats();
+    renderDashWAActivity();
+    _buildReminderQueue();
+  }
+  if (showProduct) {
+    renderProductDashboard();
+  }
+}
+
+function renderProductDashboard() {
+  const from = document.getElementById('db-from')?.value || BIZ_FROM_DATE;
+  const to   = document.getElementById('db-to')?.value   || fmt_date(new Date());
+
+  const sales     = (STATE.sales    || []).filter(s => { const d = (s.sale_date||'').slice(0,10); return d >= from && d <= to && s.status !== 'Cancelled'; });
+  const purchases = (STATE.purchases|| []).filter(p => { const d = (p.purchase_date||'').slice(0,10); return d >= from && d <= to; });
+  const allSales  = STATE.sales     || [];
+  const allPur    = STATE.purchases || [];
+  const products  = STATE.products  || [];
+  const stock     = STATE.stock     || [];
+
+  // ── KPI calculations ──────────────────────────────────────────
+  const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
+  const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
+  const grossProfit = totalSales - totalPur;
+  const margin      = totalSales > 0 ? (grossProfit / totalSales * 100) : 0;
+  const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
+  const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
+  const stockValue  = products.reduce((p, pr) => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+    return p + qty * (parseFloat(pr.purchase_rate ?? pr.rate) || 0);
+  }, 0);
+  const totalStockKg = products.reduce((a, pr) => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    return a + parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+  }, 0);
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('db-stat-purchase', fmt_money(totalPur));
+  set('db-stat-purchase-sub', purchases.length + ' bills');
+  set('db-stat-sales', fmt_money(totalSales));
+  set('db-stat-sales-sub', sales.length + ' invoices');
+  const profEl = document.getElementById('db-stat-profit');
+  if (profEl) { profEl.textContent = fmt_money(grossProfit); profEl.style.color = grossProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
+  set('db-stat-profit-pct', margin.toFixed(1) + '% margin');
+  set('db-stat-collections', fmt_money(collections));
+  set('db-stat-payable', fmt_money(paid));
+  set('db-stat-stock', fmt_money(stockValue));
+  set('db-stat-stock-sub', totalStockKg.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' Kg');
+
+  // ── Sales vs Purchase chart ────────────────────────────────────
+  const dayMap = {};
+  const cursor = new Date(from);
+  const end    = new Date(to);
+  while (cursor <= end) {
+    dayMap[fmt_date(cursor)] = { s: 0, p: 0 };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  sales.forEach(s    => { const d = s.sale_date?.slice(0,10);     if (dayMap[d]) dayMap[d].s += parseFloat(s.total)||0; });
+  purchases.forEach(p => { const d = p.purchase_date?.slice(0,10); if (dayMap[d]) dayMap[d].p += parseFloat(p.total)||0; });
+  const labels = Object.keys(dayMap).map(d => { const dt = new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
+  const sVals  = Object.values(dayMap).map(v => v.s);
+  const pVals  = Object.values(dayMap).map(v => v.p);
+
+  set('db-chart-sales-total', fmt_money(totalSales));
+  set('db-chart-pur-total',   fmt_money(totalPur));
+
+  const svpCtx = document.getElementById('db-svp-chart');
+  if (svpCtx) {
+    if (window._dbSvpChart) window._dbSvpChart.destroy();
+    window._dbSvpChart = new Chart(svpCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Sales', data: sVals, borderColor: '#00897B', backgroundColor: '#00897B22', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+          { label: 'Purchase', data: pVals, borderColor: '#7B1FA2', backgroundColor: '#7B1FA222', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } } } }
+    });
+  }
+
+  // ── Alerts ─────────────────────────────────────────────────────
+  const alertsList = document.getElementById('db-alerts-list');
+  if (alertsList) {
+    const lowStock  = products.filter(p => { const st = stock.find(s => String(s.product_id) === String(p.id)); const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0); const ro = parseFloat(p.reorder_level)||0; return ro > 0 && qty <= ro; });
+    const outStock  = products.filter(p => { const st = stock.find(s => String(s.product_id) === String(p.id)); return (parseFloat(st?.current_stock ?? st?.available_stock ?? 0)) <= 0; });
+    const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
+    const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
+    const alerts = [
+      ...(lowStock.length ? [{ icon:'fa-triangle-exclamation', color:'#E65100', bg:'#FFF3E0', label:'Low Stock Items', sub: lowStock.length+' items below reorder level', n: lowStock.length }] : []),
+      ...(outStock.length ? [{ icon:'fa-ban', color:'#E53935', bg:'#FFEBEE', label:'Out of Stock', sub: outStock.length+' products have zero stock', n: outStock.length }] : []),
+      ...(pendPay.length  ? [{ icon:'fa-file-circle-exclamation', color:'#7B1FA2', bg:'#F3E8FF', label:'Pending Payments', sub: pendPay.length+' supplier bills unpaid', n: pendPay.length }] : []),
+      ...(pendColl.length ? [{ icon:'fa-hand-holding-dollar', color:'#1976D2', bg:'#E3F2FD', label:'Pending Collections', sub: pendColl.length+' customer invoices outstanding', n: pendColl.length }] : []),
+    ];
+    alertsList.innerHTML = alerts.length ? alerts.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="width:34px;height:34px;border-radius:9px;background:${a.bg};color:${a.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px"><i class="fas ${a.icon}"></i></span>
+        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${escHtml(a.label)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(a.sub)}</div></div>
+        <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
+      </div>`).join('') :
+      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
+  }
+
+  // ── Stock donut ────────────────────────────────────────────────
+  const topStock = [...products].map(pr => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    return { name: pr.name, qty: parseFloat(st?.current_stock ?? st?.available_stock ?? 0) };
+  }).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
+  const others = totalStockKg - topStock.reduce((a,p) => a+p.qty, 0);
+  const donutData  = [...topStock.map(p => p.qty), ...(others > 0 ? [others] : [])];
+  const donutLabels = [...topStock.map(p => p.name), ...(others > 0 ? ['Others'] : [])];
+  const donutColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#388E3C','#9E9E9E'];
+  const donutCtx = document.getElementById('db-stock-donut');
+  if (donutCtx) {
+    if (window._dbDonutChart) window._dbDonutChart.destroy();
+    window._dbDonutChart = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: '#fff' }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } }
+    });
+    const lg = document.getElementById('db-stock-legend');
+    if (lg) lg.innerHTML = donutLabels.map((l, i) => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11.5px"><span style="width:10px;height:10px;border-radius:3px;background:${donutColors[i]};flex-shrink:0"></span><span>${escHtml(l)}</span><span style="margin-left:auto;font-weight:600">${donutData[i].toLocaleString('en-IN')} Kg</span></div>`).join('');
+  }
+
+  // ── Top Products ───────────────────────────────────────────────
+  const topProdEl = document.getElementById('db-top-products');
+  if (topProdEl) {
+    const rows = [...products].map(pr => {
+      const st = stock.find(s => String(s.product_id) === String(pr.id));
+      const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+      return { name: pr.name, qty, val: qty * (parseFloat(pr.purchase_rate ?? pr.rate)||0) };
+    }).filter(r => r.qty > 0).sort((a,b) => b.qty - a.qty).slice(0,5);
+    topProdEl.innerHTML = rows.length ? rows.map((r,i) => `<tr><td>${i+1}</td><td>${escHtml(r.name)}</td><td style="text-align:right;font-weight:600">${r.qty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(r.val)}</td></tr>`).join('') :
+      '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:12px">No stock data</td></tr>';
+  }
+
+  // ── Recent Transactions ────────────────────────────────────────
+  const txnEl = document.getElementById('db-recent-txns');
+  if (txnEl) {
+    const txns = [
+      ...allSales.slice(0,5).map(s => ({ date: s.sale_date, type: 'Sales Invoice', ref: s.invoice_no, party: s.customer_name||'—', amount: s.total, status: s.payment_status||'Pending', icon: 'fa-file-invoice-dollar', color: '#00897B' })),
+      ...allPur.slice(0,5).map(p  => ({ date: p.purchase_date, type: 'Purchase Entry', ref: p.purchase_no, party: p.supplier_name||'—', amount: p.total, status: p.status||'Pending', icon: 'fa-cart-shopping', color: '#7B1FA2' })),
+    ].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0,8);
+    const statusColor = { Paid:'#00897B', Completed:'#00897B', Partial:'#E65100', Pending:'#1976D2', Unpaid:'#E53935' };
+    txnEl.innerHTML = txns.length ? txns.map(t => `
+      <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="width:28px;height:28px;border-radius:8px;background:${t.color}18;color:${t.color};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"><i class="fas ${t.icon}"></i></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.ref)}</div>
+          <div style="font-size:10.5px;color:var(--muted)">${escHtml(t.party)} · ${fmt_date_disp(t.date)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:12px">${fmt_money(t.amount)}</div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[t.status]||'#888'};background:${statusColor[t.status]||'#888'}18;padding:1px 7px;border-radius:9px">${escHtml(t.status)}</span>
+        </div>
+      </div>`).join('') : '<div style="color:var(--muted);text-align:center;padding:16px;font-size:12.5px">No transactions yet</div>';
+  }
+
+  // ── Business Summary ───────────────────────────────────────────
+  const bizEl = document.getElementById('db-biz-summary');
+  const rngEl = document.getElementById('db-summary-range');
+  if (rngEl) rngEl.textContent = '(' + fmt_date_disp(from) + ' – ' + fmt_date_disp(to) + ')';
+  if (bizEl) {
+    const outstanding = allSales.reduce((a,s) => a + Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0)), 0);
+    const payable     = allPur.reduce((a,p)  => a + Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0)), 0);
+    const rows = [
+      ['Sales (₹)',        fmt_money(totalSales),  'var(--text)'],
+      ['Purchase (₹)',     fmt_money(totalPur),    'var(--text)'],
+      ['Collections (₹)', fmt_money(collections), 'var(--text)'],
+      ['Payments (₹)',     fmt_money(paid),        'var(--text)'],
+    ];
+    bizEl.innerHTML = rows.map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${l}</span><strong>${v}</strong></div>`).join('')
+      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${grossProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(grossProfit)}</strong></div>`;
+  }
+
+  // ── Top Customers ──────────────────────────────────────────────
+  const custEl = document.getElementById('db-top-customers');
+  if (custEl) {
+    const custMap = {};
+    allSales.forEach(s => {
+      const k = s.customer_name||s.customer_id||'Unknown';
+      custMap[k] = (custMap[k]||0) + (parseFloat(s.total)||0);
+    });
+    const top = Object.entries(custMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+    custEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
+      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
+  }
+
+  // ── Top Suppliers ──────────────────────────────────────────────
+  const supEl = document.getElementById('db-top-suppliers');
+  if (supEl) {
+    const supMap = {};
+    allPur.forEach(p => {
+      const k = p.supplier_name||p.supplier_id||'Unknown';
+      supMap[k] = (supMap[k]||0) + (parseFloat(p.total)||0);
+    });
+    const top = Object.entries(supMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+    supEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
+      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
+  }
 }
 function updateDashStats() {
   const e = id => document.getElementById(id);

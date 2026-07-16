@@ -49,6 +49,9 @@ $ROLE_BADGE_COLORS = [
 $userRole      = $user['role'] ?? 'viewer';
 $isSuperAdmin  = $userRole === 'super_admin';
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
+// Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
+$connectedDb    = $_SESSION['tenant_db'] ?? null;
+$connectedLabel = $_SESSION['tenant_db_label'] ?? $connectedDb;
 $roleBadgeLabel= $isSuperAdmin ? 'Super Admin' : ucfirst($userRole);
 
 // Adjust this if your super-admin panel lives at a different path.
@@ -72,6 +75,13 @@ $companyName    = $settings['company_name']     ?? 'OPTMS Tech';
 $prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
 $estPrefix      = $settings['estimate_prefix']  ?? 'QT-' . date('Y') . '-';
 $companyGst     = $settings['company_gst']      ?? '';
+$companyPan     = $settings['company_pan']      ?? '';
+$companyIec     = $settings['company_iec']      ?? '';
+$companyFssai   = $settings['company_fssai']    ?? '';
+$companyApeda   = $settings['company_apeda']    ?? '';
+$companyCin     = $settings['company_cin']      ?? '';
+$companyMsme    = $settings['company_msme']     ?? '';
+$showDhaltaPct  = $settings['show_dhalta_pct']  ?? '1';
 $companyPhone   = $settings['company_phone']    ?? '';
 $companyEmail   = $settings['company_email']    ?? '';
 $companyWebsite = $settings['company_website']  ?? '';
@@ -525,6 +535,7 @@ canvas { max-width: 100% !important; }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .pne-actions { display: flex; gap: 8px; }
 .pne-btn-save, .pne-btn-savenew, .pne-btn-print { background: var(--teal); color: #fff; border: none; }
+@keyframes pp-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
@@ -747,6 +758,7 @@ canvas { max-width: 100% !important; }
 .act-menu-wrap { position: relative; display: inline-block; }
 .act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
 .act-menu.open { display: block; }
+.act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
 .act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
 .act-menu button:hover { background: var(--bg); }
 .act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
@@ -1263,6 +1275,38 @@ select { cursor: pointer; }
   flex-shrink: 0;
 }
 
+/* ── Supplier Profile modal ── */
+.sp-avatar {
+  width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: #fff; letter-spacing: .5px;
+}
+.sp-stat-tile {
+  flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+}
+.sp-stat-tile .sp-stat-icon {
+  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; flex-shrink: 0;
+}
+.sp-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-top: 12px; }
+.sp-section-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.sp-section-title i { color: var(--teal); font-size: 11px; }
+.sp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.sp-info-item { display: flex; gap: 9px; align-items: flex-start; min-width: 0; }
+.sp-info-item i { width: 26px; height: 26px; border-radius: 7px; background: var(--teal-bg); color: var(--teal); display: flex; align-items: center; justify-content: center; font-size: 10.5px; flex-shrink: 0; margin-top: 1px; }
+.sp-info-item div { min-width: 0; }
+.sp-info-item .sp-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.sp-info-item .sp-val { font-size: 12.5px; font-weight: 600; color: var(--text); overflow-wrap: break-word; }
+.sp-purchase-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.sp-purchase-row:last-child { border-bottom: none; }
+.sp-purchase-row:hover { background: var(--bg); margin: 0 -8px; padding: 9px 8px; border-radius: 8px; }
+.sp-empty { text-align: center; padding: 22px 10px; color: var(--muted); }
+.sp-empty i { font-size: 22px; color: var(--border2); margin-bottom: 8px; display: block; }
+.sp-empty .sp-empty-title { font-size: 12.5px; font-weight: 600; color: var(--text2); margin-bottom: 3px; }
+.sp-empty .sp-empty-sub { font-size: 11.5px; }
+
 /* ══════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════ */
@@ -1570,7 +1614,7 @@ const SERVER = {
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.products'] ?? true): ?>
-    <a class="nav-item" data-page="products" onclick="showPage('products',this)">
+    <a class="nav-item" data-page="products" onclick="goToProductsPage(this)">
       <i class="fas fa-box"></i><span id="nav-products-label">Services / Products</span>
     </a>
     <?php endif; ?>
@@ -1735,6 +1779,19 @@ const SERVER = {
         <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
       </span>
+      <?php if ($isSuperAdmin): ?>
+        <?php if ($connectedDb): ?>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:600" title="Session is connected to this database — Sales/Invoices/etc. read from it">
+            <i class="fas fa-database" style="font-size:11px"></i> <?= htmlspecialchars($connectedLabel) ?>
+            <button onclick="disconnectDb()" title="Disconnect — return to admin view" style="background:none;border:none;color:#1565C0;cursor:pointer;padding:0;margin-left:2px;font-size:12px"><i class="fas fa-times-circle"></i></button>
+          </span>
+        <?php else: ?>
+          <button onclick="connectDbPrompt()" title="Connect your session to any database to browse it through this app"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:var(--bg);border:1px dashed var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">
+            <i class="fas fa-plug" style="font-size:11px"></i> Connect Database
+          </button>
+        <?php endif; ?>
+      <?php endif; ?>
       <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
@@ -2369,6 +2426,89 @@ const SERVER = {
     </div>
 
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
+    <!-- ─────────── PRODUCT LIST (product businesses — reference design) ─────────── -->
+    <div id="page-products-list" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Product List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Inventory &gt; Product List</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewProductPage()"><i class="fas fa-plus"></i> Add New Product</button>
+          <button class="btn btn-outline" onclick="exportProductsExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>Search Product</label><input id="prl-f-search" placeholder="Search by product name, SKU / code" oninput="PRL_PAGE=1; renderProductsList()"></div>
+          <div class="field"><label>Category</label><select id="prl-f-category"><option value="">All Categories</option></select></div>
+          <div class="field"><label>Unit</label><select id="prl-f-unit"><option value="">All Units</option></select></div>
+          <div class="field"><label>Status</label><select id="prl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+          <div class="field"><label>HSN Code</label><input id="prl-f-hsn" placeholder="Enter HSN Code"></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>Warehouse</label><select id="prl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="PRL_PAGE=1; renderProductsList()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetProductsListFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-boxes-stacked"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Products</div>
+          <div style="font-size:18px;font-weight:800" id="prl-stat-total">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px"><span id="prl-stat-active">0</span> Active Products</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-box-open"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">In Stock</div>
+          <div style="font-size:18px;font-weight:800" id="prl-stat-instock">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-triangle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Low Stock</div>
+          <div style="font-size:18px;font-weight:800;color:#E65100" id="prl-stat-lowstock">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Below reorder level</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-ban"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Out of Stock</div>
+          <div style="font-size:18px;font-weight:800;color:#E53935" id="prl-stat-outstock">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-box-archive"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Products</div>
+          <div style="font-size:18px;font-weight:800" id="prl-stat-inactive">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Products</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:1020px">
+            <thead><tr><th>#</th><th>Product Name</th><th>SKU / Code</th><th>Category</th><th>Unit</th><th>HSN Code</th><th style="text-align:right">Sale Rate (₹)</th><th style="text-align:right">Purchase Rate (₹)</th><th style="text-align:right">Current Stock</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="prl-tbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="prl-info"></div>
+          <div style="display:flex;gap:5px" id="prl-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ─────────── SERVICES / PRODUCTS (legacy shared page — service & both tenants) ─────────── -->
     <div id="page-products" class="page">
       <div class="page-toolbar">
         <input type="text" class="table-search" placeholder="Search…" oninput="filterProducts(this.value)" id="productSearch">
@@ -2394,22 +2534,128 @@ const SERVER = {
 
     <!-- ─────────── SUPPLIERS ─────────── -->
     <div id="page-suppliers" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search suppliers…" oninput="filterSuppliers(this.value)" id="supplierSearch">
-        <div style="flex:1"></div>
-        <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add Supplier</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Phone</th><th>Country</th><th>GST No.</th><th>Actions</th></tr></thead>
-          <tbody id="suppliersTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="supInfo"></div>
-          <div class="pagination" id="supPagination"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Supplier List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Master &gt; Supplier List</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add New Supplier</button>
+          <button class="btn btn-outline" onclick="exportSuppliersExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>Search Supplier</label><input id="spl-f-search" placeholder="Search by supplier name, mobile, email…" oninput="SPL_PAGE=1; renderSuppliers()"></div>
+          <div class="field"><label>Supplier Type</label><select id="spl-f-type"><option value="">All Types</option></select></div>
+          <div class="field"><label>State</label><select id="spl-f-state"><option value="">All States</option></select></div>
+          <div class="field"><label>Status</label><select id="spl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="archived">Inactive</option></select></div>
+          <div class="field"><label>Payment Terms</label><select id="spl-f-terms"><option value="">All Payment Terms</option></select></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>From Date</label><input type="date" id="spl-f-from"></div>
+          <div class="field"><label>To Date</label><input type="date" id="spl-f-to"></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="SPL_PAGE=1; renderSuppliers()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetSuppliersFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-users"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Suppliers</div>
+          <div style="font-size:18px;font-weight:800" id="spl-stat-total">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">All Suppliers</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-user-check"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Active Suppliers</div>
+          <div style="font-size:18px;font-weight:800" id="spl-stat-active">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Active</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-user-xmark"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Suppliers</div>
+          <div style="font-size:18px;font-weight:800" id="spl-stat-inactive">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Inactive</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
+          <div style="font-size:17px;font-weight:800" id="spl-stat-purchases">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="spl-stat-range1">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="spl-stat-out">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-users"></i> Suppliers</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:1080px">
+            <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Mobile No.</th><th>Email</th><th>State</th><th>Payment Terms</th><th style="text-align:right">Total Purchases (₹)</th><th style="text-align:right">Outstanding (₹)</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="suppliersTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="supInfo"></div>
+          <div style="display:flex;gap:5px" id="spl-pagination"></div>
+        </div>
+      </div>
+
+      <div id="spl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> Click on <i class="fas fa-eye"></i> to view supplier details, <i class="fas fa-pen"></i> to edit supplier information.</div>
+        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('spl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+
+    <!-- Purchase Details Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-purchase-details">
+      <div class="modal modal-xl" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-purchase-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="pd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="pd-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="pd-foot"></div>
+      </div>
+    </div>
+
+    <!-- Sale Details Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-sale-details">
+      <div class="modal modal-xl" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-sale-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="sd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="sd-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="sd-foot"></div>
+      </div>
+    </div>
+
+    <!-- Customer Profile Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-customer-profile">
+      <div class="modal modal-md" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-customer-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="cp-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="cp-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="cp-foot"></div>
+      </div>
+    </div>
+
+    <!-- Supplier Profile Modal (eye button — quick in-app view) -->
+    <div class="modal-overlay" id="modal-supplier-profile">
+      <div class="modal modal-md" style="overflow:hidden;position:relative">
+        <button class="modal-close" onclick="closeModal('modal-supplier-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+        <div id="sp-profile-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
+        <div class="modal-body" id="sp-profile-body" style="padding:20px 22px;background:var(--bg)"></div>
+        <div class="modal-footer" id="sp-profile-foot"></div>
       </div>
     </div>
 
@@ -2449,25 +2695,90 @@ const SERVER = {
 
     <!-- ─────────── PURCHASES ─────────── -->
     <div id="page-purchases" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search purchases…" oninput="filterPurchases(this.value)" id="purchaseSearch">
-        <select class="table-filter" onchange="renderPurchases()" id="purStatusFilter">
-          <option value="">All Status</option>
-          <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
-        </select>
-        <div style="flex:1"></div>
-        <span id="purCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> Add Purchase</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>PO No.</th><th>Supplier</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="purchasesTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="purInfo"></div>
-          <div class="pagination" id="purPagination"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Purchase List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Purchase &gt; Purchase List</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> New Purchase Invoice</button>
+          <button class="btn btn-outline" onclick="exportPurchasesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>From Date</label><input type="date" id="pl-f-from"></div>
+          <div class="field"><label>To Date</label><input type="date" id="pl-f-to"></div>
+          <div class="field"><label>Supplier</label><select id="pl-f-supplier"><option value="">All Suppliers</option></select></div>
+          <div class="field"><label>Warehouse</label><select id="pl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field"><label>Status</label><select id="pl-f-status"><option value="">All Status</option><option>Completed</option><option>Pending</option></select></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>Payment Status</label><select id="pl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
+          <div class="field"><label>Invoice No.</label><input id="pl-f-invno" placeholder="Enter Invoice No."></div>
+          <div class="field"><label>Product</label><select id="pl-f-product"><option value="">All Products</option></select></div>
+          <div class="field"><label>Payment Type</label><select id="pl-f-paytype"><option value="">All Payment Types</option></select></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="PL_PAGE=1; renderPurchases()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetPurchasesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
+          <div style="font-size:18px;font-weight:800" id="pl-stat-count">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="pl-stat-range1">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
+          <div style="font-size:18px;font-weight:800" id="pl-stat-qty">0.00 Kg</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchase Amount</div>
+          <div style="font-size:17px;font-weight:800" id="pl-stat-amount">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="pl-stat-paid">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="pl-stat-out">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:980px">
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <tbody id="purchasesTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="purInfo"></div>
+          <div style="display:flex;gap:5px" id="pl-pagination"></div>
+        </div>
+      </div>
+
+      <div id="pl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share purchase invoices using the action buttons.</div>
+        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('pl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
@@ -2616,7 +2927,7 @@ const SERVER = {
                   <col style="width:34px"><col style="width:150px"><col style="width:105px">
                   <col style="width:75px"><col style="width:100px">
                   <col style="width:95px"><col style="width:100px"><col style="width:90px">
-                  <col style="width:60px"><col style="width:65px">
+                  <col style="width:60px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:105px">
                   <col style="width:90px"><col style="width:75px"><col style="width:100px"><col style="width:60px">
                 </colgroup>
@@ -2625,13 +2936,13 @@ const SERVER = {
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
                     <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
                     <th colspan="3">Weight Details (in Kg)</th>
-                    <th colspan="2">Dhalta</th>
+                    <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Weight (Auto)</th>
                     <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
                   </tr>
                   <tr>
                     <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
-                    <th>%</th><th>Kg</th>
+                    <th class="pne-dhpct-col">%</th><th>Kg</th>
                   </tr>
                 </thead>
                 <tbody id="pne-items-tbody"></tbody>
@@ -2662,6 +2973,7 @@ const SERVER = {
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
+              <div class="pne-summary-row" id="pn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="pn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row">
                 <span>GST / Tax <span id="pn-gst-rate-wrap" style="display:none">(<input type="number" id="pn-gst-pct" value="0" min="0" max="28" class="pne-inline-num-sm" oninput="calcPurchaseNewTotals()">%)</span></span>
@@ -2940,10 +3252,13 @@ const SERVER = {
           <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
         </div>
         <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
+          <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
+          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
         </div>
+      </div>
+      <div id="pp-loading-bar" style="display:none;height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin:-6px 0 12px">
+        <div style="height:100%;width:35%;background:#00897B;border-radius:99px;animation:pp-slide 1.1s ease-in-out infinite"></div>
       </div>
 
       <div class="pne-layout">
@@ -3158,7 +3473,7 @@ const SERVER = {
               <div class="field"><label>Shipping Address *</label><input id="sn-shipping"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Sales Executive</label><input id="sn-salesexec" placeholder="Optional"></div>
+              <div class="field"><label>Sales Executive</label><select id="sn-salesexec"><option value="">— Select —</option></select></div>
               <div class="field"><label>Invoice No.</label><input id="sn-invno" placeholder="Auto-generated"></div>
               <div class="field"><label>Invoice Date *</label><input type="date" id="sn-invdate"></div>
               <div class="field"><label>Due Date</label><input type="date" id="sn-duedate"></div>
@@ -3336,6 +3651,7 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
               <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
+              <div class="pne-summary-row" id="sn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="sn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
@@ -3417,24 +3733,90 @@ const SERVER = {
 
     <!-- ─────────── SALES LIST ─────────── -->
     <div id="page-sales-list" class="page">
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search sales…" oninput="filterSales(this.value)" id="saleSearch">
-        <select class="table-filter" onchange="renderSales()" id="saleStatusFilter">
-          <option value="">All Status</option>
-          <option>Pending</option><option>Partial</option><option>Paid</option>
-        </select>
-        <div style="flex:1"></div>
-        <span id="saleCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> Add Sale</button>
-      </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>Invoice No.</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="salesTbody"></tbody>
-        </table>
-        <div class="table-footer">
-          <div class="tf-info" id="saleInfo"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Sales List</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Sales &gt; Sales List</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> New Sale Invoice</button>
+          <button class="btn btn-outline" onclick="exportSalesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-grid5" style="align-items:end">
+          <div class="field"><label>From Date</label><input type="date" id="sl-f-from"></div>
+          <div class="field"><label>To Date</label><input type="date" id="sl-f-to"></div>
+          <div class="field"><label>Customer</label><select id="sl-f-customer"><option value="">All Customers</option></select></div>
+          <div class="field"><label>Warehouse</label><select id="sl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+          <div class="field"><label>Status</label><select id="sl-f-status"><option value="">All Status</option><option>Confirmed</option><option>Draft</option></select></div>
+        </div>
+        <div class="pne-grid5" style="align-items:end;margin-top:10px">
+          <div class="field"><label>Payment Status</label><select id="sl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
+          <div class="field"><label>Invoice No.</label><input id="sl-f-invno" placeholder="Enter Invoice No."></div>
+          <div class="field"><label>Product</label><select id="sl-f-product"><option value="">All Products</option></select></div>
+          <div class="field"><label>Sales Executive</label><select id="sl-f-exec"><option value="">All Sales Executive</option></select></div>
+          <div class="field" style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="SL_PAGE=1; renderSales()"><i class="fas fa-magnifying-glass"></i> Search</button>
+            <button class="btn btn-outline" onclick="resetSalesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-file-invoice"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Invoices</div>
+          <div style="font-size:18px;font-weight:800" id="sl-stat-count">0</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sl-stat-range1">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
+          <div style="font-size:18px;font-weight:800" id="sl-stat-qty">0.00 Kg</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales Amount</div>
+          <div style="font-size:17px;font-weight:800" id="sl-stat-amount">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="sl-stat-paid">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="sl-stat-out">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Sales Invoices</div>
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table" style="min-width:980px">
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
+            <tbody id="salesTbody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;color:var(--muted)" id="saleInfo"></div>
+          <div style="display:flex;gap:5px" id="sl-pagination"></div>
+        </div>
+      </div>
+
+      <div id="sl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share invoices using the action buttons.</div>
+        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('sl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
@@ -3579,7 +3961,10 @@ const SERVER = {
             </div>
             <div class="pne-grid3">
               <div class="field"><label>City *</label><input id="cusn-city" placeholder="Enter city"></div>
+              <div class="field"><label>District</label><input id="cusn-district" placeholder="Enter district"></div>
               <div class="field"><label>State *</label><select id="cusn-state"><option value="">Select state</option></select></div>
+            </div>
+            <div class="pne-grid2">
               <div class="field"><label>Pincode *</label><input id="cusn-pincode" placeholder="Enter pincode"></div>
             </div>
             <div class="pne-grid3" id="cusn-shipaddr-row" style="display:none">
@@ -3677,7 +4062,7 @@ const SERVER = {
           <div class="field"><label>Shipping Address</label><input id="cus-shipping"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Payment Terms</label><input id="cus-paymentterms" placeholder="e.g. 15 Days"></div>
-            <div class="field"><label>Sales Executive</label><input id="cus-salesexec" placeholder="Optional"></div>
+            <div class="field"><label>Sales Executive</label><select id="cus-salesexec"><option value="">— Select —</option></select></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -3709,12 +4094,18 @@ const SERVER = {
             <div class="pne-grid4">
               <div class="field"><label>Adjustment No.</label><input id="sa-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Adjustment Date *</label><input type="date" id="sa-date"></div>
-              <div class="field"><label>Adjustment Type *</label>
-                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Other</option></select>
+              <div class="field"><label>Direction *</label>
+                <select id="sa-direction" onchange="onSADirectionChange()">
+                  <option value="out">Decrease Stock (Loss)</option>
+                  <option value="in">Increase Stock (Gain)</option>
+                </select>
               </div>
-              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option></select></div>
+              <div class="field"><label>Adjustment Type *</label>
+                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Opening Stock Correction</option><option>Other</option></select>
+              </div>
             </div>
             <div class="pne-grid4">
+              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
               <div class="field"><label>Reference No.</label><input id="sa-refno" placeholder="Enter reference no. (optional)"></div>
               <div class="field"><label>Reference Date</label><input type="date" id="sa-refdate"></div>
             </div>
@@ -3747,7 +4138,7 @@ const SERVER = {
               <div class="field"><label>Moisture Before (%)</label><input type="number" id="sa-moistbefore" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture After (%)</label><input type="number" id="sa-moistafter" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture Loss (%)</label><input id="sa-moistloss" readonly></div>
-              <div class="field"><label>Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
+              <div class="field"><label id="sa-qty-label">Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Final Stock (Kg) *</label><input id="sa-finalstock" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
             <div class="pne-grid2">
@@ -3763,8 +4154,8 @@ const SERVER = {
             <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-calculator"></i></span> Summary</div>
             <div class="sa-summary-row">
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-box"></i></span><div><span>Opening Stock (Kg)</span><strong id="sa-sum-opening">0.00</strong></div></div>
-              <span class="sa-op">−</span>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span>Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
+              <span class="sa-op" id="sa-sum-op">−</span>
+              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span id="sa-sum-loss-label">Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
               <span class="sa-op">=</span>
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B"><i class="fas fa-check-circle"></i></span><div><span>Final Stock (Kg)</span><strong id="sa-sum-final">0.00</strong></div></div>
               <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-tint"></i></span><div><span>Moisture Before</span><strong id="sa-sum-mbefore">0.00 %</strong></div></div>
@@ -3864,10 +4255,13 @@ const SERVER = {
               <div class="field"><label>Address *</label><textarea id="sup-address" style="min-height:60px" placeholder="Enter full address"></textarea></div>
               <div class="pne-grid2">
                 <div class="field"><label>City *</label><input id="sup-city" placeholder="Enter city"></div>
-                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
+                <div class="field"><label>District</label><input id="sup-district" placeholder="Enter district"></div>
               </div>
               <div class="pne-grid2">
+                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
                 <div class="field"><label>Pincode *</label><input id="sup-pincode" placeholder="Enter pincode"></div>
+              </div>
+              <div class="pne-grid2">
                 <div class="field"><label>Country</label><select id="sup-country"><option>India</option></select></div>
               </div>
             </div>
@@ -4034,6 +4428,7 @@ const SERVER = {
             <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
               <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
             </div>
+            <div id="sti-reconcile-banner" style="display:none;border-radius:7px;padding:9px 12px;margin-top:8px;font-size:12.5px;font-weight:600"></div>
             <div class="field" style="margin-top:12px;max-width:340px">
               <label>Upload Slip</label>
               <label class="pp-dropzone" for="sti-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="sti-slip-label">
@@ -4204,6 +4599,20 @@ const SERVER = {
     </div>
 
     <!-- ═══════════ STOCK HISTORY ═══════════ -->
+    <div id="page-stock-txn-details" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h1 style="margin:0">Stock Transaction Details</h1>
+          <div style="font-size:11.5px;color:var(--muted);margin-top:3px">Dashboard › Inventory › Stock History › Transaction Details</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="showPage('stock-history'); renderStockHistory();"><i class="fas fa-arrow-left"></i> Back to Stock History</button>
+          <button class="btn btn-outline" onclick="printStockTxnDetails()"><i class="fas fa-print"></i> Print</button>
+        </div>
+      </div>
+      <div id="stx-body"></div>
+    </div>
+
     <div id="page-stock-history" class="page">
       <div style="font-size:20px;font-weight:800;color:var(--text)">Stock History</div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px;margin-bottom:16px">Dashboard &gt; Inventory &gt; Stock History</div>
@@ -4282,7 +4691,7 @@ const SERVER = {
           </tr></thead>
           <tbody id="sh-history-tbody"></tbody>
         </table>
-        <div class="table-footer"><div class="tf-info" id="sh-history-info"></div></div>
+        <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div class="tf-info" id="sh-history-info"></div><div style="display:flex;gap:5px" id="sh-pagination"></div></div>
       </div>
 
       <div style="padding:16px 0 30px">
@@ -4357,7 +4766,7 @@ const SERVER = {
             </select>
           </div>
           <div class="field"><label>Party Type</label><select class="table-filter" style="max-width:none" id="pmtPartyTypeFilter" onchange="renderPayments()"><option value="">All</option><option>Customer</option><option>Supplier</option><option>Transporter</option><option>Vendor</option></select></div>
-          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Pending</option></select></div>
+          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:10px">
           <button class="btn btn-outline" onclick="resetPmtFilters()"><i class="fas fa-rotate-left"></i> Reset</button>
@@ -5732,6 +6141,12 @@ View Invoice: {{6}}</pre></details>
             <div class="form-grid g2">
               <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
               <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
+              <div class="field"><label>PAN</label><input id="sc-pan" placeholder="AAAAA0000A" value="<?= htmlspecialchars($companyPan) ?>"></div>
+              <div class="field"><label>IEC Number</label><input id="sc-iec" placeholder="Import Export Code" value="<?= htmlspecialchars($companyIec) ?>"></div>
+              <div class="field"><label>FSSAI License</label><input id="sc-fssai" placeholder="14-digit FSSAI license no." value="<?= htmlspecialchars($companyFssai) ?>"></div>
+              <div class="field"><label>APEDA RCMC</label><input id="sc-apeda" placeholder="APEDA RCMC No." value="<?= htmlspecialchars($companyApeda) ?>"></div>
+              <div class="field"><label>CIN</label><input id="sc-cin" placeholder="Corporate Identification No." value="<?= htmlspecialchars($companyCin) ?>"></div>
+              <div class="field"><label>MSME / Udyam No.</label><input id="sc-msme" placeholder="UDYAM-XX-00-0000000" value="<?= htmlspecialchars($companyMsme) ?>"></div>
               <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
               <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
               <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
@@ -5747,6 +6162,13 @@ View Invoice: {{6}}</pre></details>
                   <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
                   <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
                   <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Dhalta % Column <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(purchase items table &amp; local voucher)</span></label>
+                <select id="sc-show-dhaltapct">
+                  <option value="1" <?= $showDhaltaPct!=='0'?'selected':'' ?>>Show Dhalta %</option>
+                  <option value="0" <?= $showDhaltaPct==='0'?'selected':'' ?>>Hide Dhalta %</option>
                 </select>
               </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
@@ -7253,6 +7675,13 @@ const STATE = {
   settings: {
     company:         <?= json_encode($companyName)    ?>,
     gst:             <?= json_encode($companyGst)     ?>,
+    pan:             <?= json_encode($companyPan)     ?>,
+    iec:             <?= json_encode($companyIec)     ?>,
+    fssai:           <?= json_encode($companyFssai)   ?>,
+    apeda:           <?= json_encode($companyApeda)   ?>,
+    cin:             <?= json_encode($companyCin)     ?>,
+    msme:            <?= json_encode($companyMsme)    ?>,
+    showDhaltaPct:   <?= json_encode($showDhaltaPct)  ?>,
     phone:           <?= json_encode($companyPhone)   ?>,
     email:           <?= json_encode($companyEmail)   ?>,
     website:         <?= json_encode($companyWebsite) ?>,
@@ -7424,6 +7853,7 @@ function toggleSidebar() {
 
 const breadcrumbs = {
   dashboard:'Dashboard', invoices:'Invoices', create:'Create Invoice',
+  'stock-txn-details':'Stock Transaction Details',
   clients:'Clients', products:'Services & Products', payments:'Payments', 'payments-product':'Payments', 'payments-service':'Payments',
   'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
@@ -13568,8 +13998,21 @@ function goToNewProductPage() {
   document.querySelector('.nav-item[data-page="products"]')?.classList.add('active');
 }
 
+// Products nav router: product-type tenants get the rich Product List page,
+// service/both tenants keep the original shared Services/Products page.
+function goToProductsPage(el) {
+  if (STATE.settings.businessType === 'product') {
+    showPage('products-list', el);
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
+    renderProductsList();
+  } else {
+    showPage('products', el);
+    renderProducts();
+  }
+}
+
 function cancelProductEntry() {
-  showPage('products');
+  goToProductsPage();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
 }
 
@@ -13671,8 +14114,19 @@ async function saveProductEntry(mode) {
     tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
   };
 
+  // Loading state — product payloads can be large (base64 images/attachments),
+  // so make it obvious that the save is in progress rather than frozen.
+  const payloadSizeMB = JSON.stringify(payload).length / (1024 * 1024);
+  if (payloadSizeMB > 8) {
+    toast(`⚠️ Attachments/images total ~${payloadSizeMB.toFixed(1)} MB — upload may take a while or be rejected by the server. Consider smaller images.`, 'warning');
+  }
   const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  const allBtns = ['pp-btn-cancel','pp-btn-savenew','pp-btn-save'].map(id => document.getElementById(id)).filter(Boolean);
+  const origHtml = btn ? btn.innerHTML : '';
+  allBtns.forEach(b => b.disabled = true);
+  if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+  const loadBar = document.getElementById('pp-loading-bar');
+  if (loadBar) loadBar.style.display = 'block';
   try {
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
@@ -13689,9 +14143,14 @@ async function saveProductEntry(mode) {
     } else {
       cancelProductEntry();
       renderProducts();
+      renderProductsList();
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally {
+    allBtns.forEach(b => b.disabled = false);
+    if (btn) btn.innerHTML = origHtml;
+    if (loadBar) loadBar.style.display = 'none';
+  }
 }
 
 function _showAddProductRow(prefill) {
@@ -13782,8 +14241,8 @@ function addProductToInvoice(id) {
 async function deleteProduct(id) {
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const result = await Swal.fire({
-    title: 'Delete this service?',
-    html: `<strong>${escHtml(p.name)}</strong> will be removed from your services list.`,
+    title: STATE.settings.businessType === 'product' ? 'Delete this product?' : 'Delete this service?',
+    html: `<strong>${escHtml(p.name)}</strong> will be removed from your ${STATE.settings.businessType === 'product' ? 'product' : 'services'} list.`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Delete',
@@ -13796,7 +14255,7 @@ async function deleteProduct(id) {
   try {
     await api('api/products.php?id=' + dbId, 'DELETE');
     STATE.products = STATE.products.filter(x => x.id !== id);
-    renderProducts(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
+    renderProducts(); renderProductsList(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -13857,41 +14316,193 @@ function activeSupSource() {
 
 function filterSuppliers(q) { SUP.search = q || ''; renderSuppliers(); }
 
-function renderSuppliers() {
+// ── Supplier List page ──────────────────────────────────────────
+let SPL_PAGE = 1;
+const SPL_PAGESIZE = 10;
+let SPL_ARCH_REQUESTED = false; // archived suppliers fetched once, lazily
+
+function splAllSuppliers() {
+  // Active suppliers + archived ones (shown as "Inactive")
+  return [...(STATE.suppliers||[]), ...((SUP.archivedList)||[])];
+}
+
+function populateSuppliersFilters() {
+  const all = splAllSuppliers();
+  const fill = (id, values, allLabel) => {
+    const sel = document.getElementById(id); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${allLabel}</option>` +
+      values.map(v => `<option ${v===cur?'selected':''}>${escHtml(v)}</option>`).join('');
+  };
+  fill('spl-f-type',  [...new Set(all.map(s => (s.supplier_type||'').trim()).filter(Boolean))].sort(), 'All Types');
+  fill('spl-f-state', [...new Set(all.map(s => (s.state||'').trim()).filter(Boolean))].sort(), 'All States');
+  fill('spl-f-terms', [...new Set(all.map(s => (s.payment_terms||'').trim()).filter(Boolean))].sort(), 'All Payment Terms');
+  const fromEl = document.getElementById('spl-f-from'), toEl = document.getElementById('spl-f-to');
+  if (fromEl && toEl && !fromEl.value && !toEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+}
+
+function resetSuppliersFilter() {
+  document.getElementById('spl-f-search').value = '';
+  ['spl-f-type','spl-f-state','spl-f-status','spl-f-terms'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('spl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('spl-f-to').value = fmt_date(new Date());
+  SPL_PAGE = 1;
+  renderSuppliers();
+}
+
+// Per-supplier purchase totals within the selected date range
+function splPurchaseTotals() {
+  const from = document.getElementById('spl-f-from')?.value || '';
+  const to = document.getElementById('spl-f-to')?.value || '';
+  const map = {};
+  (STATE.purchases||[]).forEach(p => {
+    const d = (p.purchase_date||'').slice(0,10);
+    if (from && d < from) return;
+    if (to && d > to) return;
+    const sid = String(p.supplier_id);
+    if (!map[sid]) map[sid] = { total: 0, outstanding: 0 };
+    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
+    map[sid].total += total;
+    map[sid].outstanding += Math.max(0, total - paid);
+  });
+  return map;
+}
+
+function splFilteredSuppliers() {
+  const q = (document.getElementById('spl-f-search')?.value || '').trim().toLowerCase();
+  const type = document.getElementById('spl-f-type')?.value || '';
+  const state = document.getElementById('spl-f-state')?.value || '';
+  const status = document.getElementById('spl-f-status')?.value || '';
+  const terms = document.getElementById('spl-f-terms')?.value || '';
+
+  return splAllSuppliers().filter(s => {
+    if (q && !(s.name||'').toLowerCase().includes(q) && !(s.phone||'').toLowerCase().includes(q) && !(s.email||'').toLowerCase().includes(q)) return false;
+    if (type && (s.supplier_type||'').trim() !== type) return false;
+    if (state && (s.state||'').trim() !== state) return false;
+    if (status && (s.status||'active') !== status) return false;
+    if (terms && (s.payment_terms||'').trim() !== terms) return false;
+    return true;
+  });
+}
+
+async function renderSuppliers() {
   const tbody = document.getElementById('suppliersTbody');
   if (!tbody) return;
-  const list = activeSupSource();
-  document.getElementById('supInfo').textContent = list.length + ' supplier' + (list.length===1?'':'s');
-  document.getElementById('supCountInfo').textContent = STATE.suppliers.length + ' active';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">
-      ${SUP.archived ? 'No archived suppliers' : 'No suppliers yet — click "Add Supplier" to get started'}</td></tr>`;
+
+  // Lazily fetch archived (inactive) suppliers once so Status filter and
+  // stats can cover them — active list is already loaded at bootstrap.
+  if (!SPL_ARCH_REQUESTED) {
+    SPL_ARCH_REQUESTED = true;
+    try {
+      const r = await api('api/suppliers.php?status=archived');
+      SUP.archivedList = Array.isArray(r.data) ? r.data : [];
+    } catch(e) { SUP.archivedList = SUP.archivedList || []; }
+  }
+
+  populateSuppliersFilters();
+  const list = splFilteredSuppliers();
+  const totals = splPurchaseTotals();
+
+  // ── Stats ──────────────────────────────────────────────────
+  const all = splAllSuppliers();
+  document.getElementById('spl-stat-total').textContent = all.length;
+  document.getElementById('spl-stat-active').textContent = all.filter(s => (s.status||'active') === 'active').length;
+  document.getElementById('spl-stat-inactive').textContent = all.filter(s => (s.status||'active') !== 'active').length;
+  const grandTotal = Object.values(totals).reduce((a,t) => a + t.total, 0);
+  const grandOut = Object.values(totals).reduce((a,t) => a + t.outstanding, 0);
+  document.getElementById('spl-stat-purchases').textContent = fmt_money(grandTotal);
+  document.getElementById('spl-stat-out').textContent = fmt_money(grandOut);
+  const fromV = document.getElementById('spl-f-from')?.value, toV = document.getElementById('spl-f-to')?.value;
+  document.getElementById('spl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / SPL_PAGESIZE));
+  if (SPL_PAGE > totalPages) SPL_PAGE = totalPages;
+  const start = (SPL_PAGE - 1) * SPL_PAGESIZE;
+  const pageRows = list.slice(start, start + SPL_PAGESIZE);
+  document.getElementById('supInfo').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+SPL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('spl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="splPage(${SPL_PAGE-1})" ${SPL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SPL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===SPL_PAGE?'active':''}" onclick="splPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="splPage(${SPL_PAGE+1})" ${SPL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
+  }
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No suppliers found — click "Add New Supplier" to get started</td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map((s, i) => `
+
+  tbody.innerHTML = pageRows.map((s, i) => {
+    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
+    const active = (s.status||'active') === 'active';
+    return `
     <tr>
-      <td>${i+1}</td>
+      <td>${start + i + 1}</td>
       <td><strong>${escHtml(s.name)}</strong></td>
-      <td>${escHtml(s.contact_person || '—')}</td>
-      <td>${escHtml(s.phone || '—')}</td>
-      <td>${escHtml(s.country || '—')}</td>
-      <td>${escHtml(s.gst_number || '—')}</td>
+      <td>${escHtml(s.contact_person||'—')}</td>
+      <td>${escHtml(s.phone||'—')}</td>
+      <td>${escHtml(s.email||'—')}</td>
+      <td>${escHtml(s.state||'—')}</td>
+      <td>${escHtml(s.payment_terms||'—')}</td>
+      <td style="text-align:right">${t.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600;color:${t.outstanding > 0 ? '#E53935' : 'var(--text)'}">${t.outstanding.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
-        <div class="action-cell">
-          ${SUP.archived
-            ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
-            : `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>
-               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>
-               <span class="act-menu-wrap">
-                 <button class="act-btn" title="More actions" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis-vertical"></i></button>
-                 <span class="act-menu">
-                   <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View PDF</button>
-                   <button class="danger" onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash"></i> Delete</button>
-                 </span>
-               </span>`}
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+          <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
+          ${active ? `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>` : ''}
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
+              ${active
+                ? `<button onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
+                : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
+              <button onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function splPage(p) {
+  const totalPages = Math.max(1, Math.ceil(splFilteredSuppliers().length / SPL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  SPL_PAGE = p;
+  renderSuppliers();
+}
+
+function exportSuppliersExcel() {
+  const list = splFilteredSuppliers();
+  if (!list.length) { toast('⚠️ No suppliers to export for the selected filters', 'warning'); return; }
+  const totals = splPurchaseTotals();
+  const rows = [['#','Supplier Name','Contact Person','Mobile No.','Email','State','Payment Terms','GST Number','Total Purchases','Outstanding','Status']];
+  list.forEach((s, i) => {
+    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
+    rows.push([
+      i+1, s.name||'', s.contact_person||'', s.phone||'', s.email||'', s.state||'', s.payment_terms||'', s.gst_number||'',
+      t.total.toFixed(2), t.outstanding.toFixed(2), (s.status||'active') === 'active' ? 'Active' : 'Inactive'
+    ]);
+  });
+  _downloadCSV(rows, 'supplier_list.csv');
+  toast('✅ Exported ' + list.length + ' suppliers', 'success');
 }
 
 function openAddSupplierModal() {
@@ -13961,16 +14572,341 @@ function toggleActMenu(ev, btn) {
   ev.stopPropagation();
   const menu = btn.parentElement.querySelector('.act-menu');
   const wasOpen = menu.classList.contains('open');
-  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
-  if (!wasOpen) menu.classList.add('open');
+  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
+  if (!wasOpen) {
+    menu.classList.add('open');
+    // Two things can clip this menu: the browser viewport, and the
+    // .table-card ancestor itself (overflow:hidden, for its rounded
+    // corners) — the table card's own bottom edge is usually what's
+    // actually cutting it off, not the viewport. Check both and flip
+    // upward if either would clip it.
+    const rect = btn.getBoundingClientRect();
+    const menuHeight = menu.offsetHeight || 160;
+    const clipAncestor = btn.closest('.table-card, .pne-card') || document.body;
+    const clipRect = clipAncestor.getBoundingClientRect();
+    const spaceBelowViewport = window.innerHeight - rect.bottom;
+    const spaceBelowCard = clipRect.bottom - rect.bottom;
+    if (Math.min(spaceBelowViewport, spaceBelowCard) < menuHeight + 12) {
+      menu.classList.add('act-menu-up');
+    }
+  }
 }
 document.addEventListener('click', () => {
-  document.querySelectorAll('.act-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
 });
+
+// In-app Customer Profile — quick view without leaving the list page.
+function viewCustomerProfile(id) {
+  const c = (STATE.customers||[]).find(x => String(x.id) === String(id));
+  if (!c) { toast('❌ Customer not found', 'error'); return; }
+
+  const outstanding = (custOutstandingMap())[c.id] || 0;
+  const active = (c.status || 'active') === 'active';
+  const initials = (c.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+  const recentSales = (STATE.sales || [])
+    .filter(s => String(s.customer_id) === String(c.id))
+    .sort((a, b) => (b.sale_date || '').localeCompare(a.sale_date || ''))
+    .slice(0, 5);
+  const ytdTotal = (STATE.sales||[]).filter(s => String(s.customer_id) === String(c.id) && s.status !== 'Cancelled' && (s.sale_date||'').slice(0,4) === String(new Date().getFullYear()))
+    .reduce((sum,s) => sum + (parseFloat(s.total)||0), 0);
+
+  document.getElementById('cp-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar">${escHtml(initials)}</div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
+    </span>
+  `;
+
+  const infoItem = (icon, label, val) => val ? `
+    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
+
+  document.getElementById('cp-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">SALES THIS YEAR</div><div style="font-size:17px;font-weight:800">${fmt_money(ytdTotal)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
+      <div class="sp-info-grid">
+        ${infoItem('id-badge', 'Customer Code', c.customer_code)}
+        ${infoItem('phone', 'Mobile', c.mobile)}
+        ${infoItem('envelope', 'Email', c.email)}
+        ${infoItem('file-invoice', 'GSTIN', c.gstin)}
+        ${infoItem('id-card', 'PAN', c.pan_no)}
+        ${infoItem('handshake', 'Payment Terms', c.payment_terms)}
+        ${infoItem('user-tie', 'Sales Executive', c.sales_executive)}
+        ${infoItem('map-pin', 'Billing Address', [c.billing_address, c.billing_city, c.state].filter(Boolean).join(', '))}
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Sales</div>
+      ${recentSales.length ? recentSales.map(s => `
+        <div class="sp-purchase-row">
+          <div><strong style="font-size:12.5px">${escHtml(s.invoice_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(s.sale_date)}</div></div>
+          <div style="font-weight:700;font-size:13px">${fmt_money(s.total)}</div>
+        </div>`).join('') : `
+        <div class="sp-empty">
+          <i class="fas fa-inbox"></i>
+          <div class="sp-empty-title">No sales yet</div>
+          <div class="sp-empty-sub">Record one from Sales → New Sale Invoice</div>
+        </div>`}
+    </div>
+  `;
+
+  document.getElementById('cp-foot').innerHTML = `
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-customer-profile'); editCustomerRich(${c.id})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
+    ${active
+      ? `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i> Archive</button>`
+      : `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); restoreCustomer(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`}
+  `;
+
+  openModal('modal-customer-profile');
+}
+
+// In-app Sale Details — quick view before deciding to edit or print.
+async function viewSaleDetails(id) {
+  openModal('modal-sale-details');
+  document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
+  document.getElementById('sd-body').innerHTML = '';
+  document.getElementById('sd-foot').innerHTML = '';
+
+  let s;
+  try {
+    const r = await api('api/sales.php?id=' + id);
+    s = r.data;
+  } catch(e) {
+    document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load sale</div>`;
+    return;
+  }
+
+  const total = parseFloat(s.total) || 0, received = parseFloat(s.amount_received) || 0, outstanding = Math.max(0, total - received);
+  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[s.payment_status] || '#fff';
+
+  document.getElementById('sd-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((s.payment_status||'Pending').toUpperCase())}
+    </span>
+  `;
+
+  const items = s.items || [];
+  document.getElementById('sd-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">RECEIVED</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(received)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
+      <div class="sp-info-grid">
+        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(s.warehouse||'Main Warehouse')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-user-tie"></i><div><div class="sp-label">Sales Executive</div><div class="sp-val">${escHtml(s.sales_executive||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(s.payment_terms||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-calendar-check"></i><div><div class="sp-label">Due Date</div><div class="sp-val">${s.due_date ? fmt_date_disp(s.due_date) : '—'}</div></div></div>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${items.map(it => `<tr>
+          <td>${escHtml(it.product_name||it.description||'—')}</td>
+          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td style="text-align:right">${fmt_money(it.rate)}</td>
+          <td style="text-align:right;font-weight:600">${fmt_money(it.line_total)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
+    </div>
+  `;
+
+  document.getElementById('sd-foot').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal('modal-sale-details'); editSale(${s.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Print</button>
+  `;
+}
+
+// In-app Purchase Details — quick view before deciding to edit or print.
+async function viewPurchaseDetails(id) {
+  openModal('modal-purchase-details');
+  document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
+  document.getElementById('pd-body').innerHTML = '';
+  document.getElementById('pd-foot').innerHTML = '';
+
+  let p;
+  try {
+    const r = await api('api/purchases.php?id=' + id);
+    p = r.data;
+  } catch(e) {
+    document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
+    return;
+  }
+
+  const total = parseFloat(p.total) || 0, paid = parseFloat(p.amount_paid) || 0, outstanding = Math.max(0, total - paid);
+  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[p.status] || '#fff';
+
+  document.getElementById('pd-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((p.status||'Pending').toUpperCase())}
+    </span>
+  `;
+
+  const items = p.items || [];
+  document.getElementById('pd-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">PAID</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(paid)}</div></div></div>
+      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
+      <div class="sp-info-grid">
+        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(p.warehouse||'Main Warehouse')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${items.map(it => `<tr>
+          <td>${escHtml(it.description||'—')}</td>
+          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td style="text-align:right">${fmt_money(it.rate)}</td>
+          <td style="text-align:right;font-weight:600">${fmt_money(it.amount)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
+    </div>
+  `;
+
+  document.getElementById('pd-foot').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal('modal-purchase-details'); editPurchase(${p.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-primary" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i> Print</button>
+  `;
+}
+
+// In-app supplier profile — quick view without leaving the list page.
+// PDF/print stays available separately via the 3-dot menu (viewSupplierPdf).
+function viewSupplierProfile(id) {
+  const s = splAllSuppliers().find(x => String(x.id) === String(id));
+  if (!s) { toast('❌ Supplier not found', 'error'); return; }
+
+  const totals = splPurchaseTotals();
+  const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
+  const active = (s.status || 'active') === 'active';
+  const initials = (s.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+  const recentPurchases = (STATE.purchases || [])
+    .filter(p => String(p.supplier_id) === String(s.id))
+    .sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''))
+    .slice(0, 5);
+
+  // ── Header band ──
+  document.getElementById('sp-profile-head').innerHTML = `
+    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
+      <div class="sp-avatar">${escHtml(initials)}</div>
+      <div style="min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
+      </div>
+    </div>
+    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
+      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
+    </span>
+  `;
+
+  // ── Body: stats, contact, recent purchases ──
+  const infoItem = (icon, label, val) => val ? `
+    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
+
+  document.getElementById('sp-profile-body').innerHTML = `
+    <div style="display:flex;gap:10px">
+      <div class="sp-stat-tile">
+        <span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-cart-shopping"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES</div><div style="font-size:17px;font-weight:800">${fmt_money(t.total)}</div></div>
+      </div>
+      <div class="sp-stat-tile">
+        <span class="sp-stat-icon" style="background:${t.outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${t.outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
+        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${t.outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(t.outstanding)}</div></div>
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
+      <div class="sp-info-grid">
+        ${infoItem('user', 'Contact Person', s.contact_person)}
+        ${infoItem('phone', 'Mobile', s.phone)}
+        ${infoItem('envelope', 'Email', s.email)}
+        ${infoItem('file-invoice', 'GST Number', s.gst_number)}
+        ${infoItem('id-card', 'PAN', s.pan_no)}
+        ${infoItem('handshake', 'Payment Terms', s.payment_terms)}
+        ${infoItem('building-columns', 'Bank', s.bank_name ? s.bank_name + (s.bank_account_no ? ' · ' + s.bank_account_no : '') : '')}
+        ${infoItem('map-pin', 'Address', [s.address, s.city, s.state].filter(Boolean).join(', '))}
+      </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Purchases</div>
+      ${recentPurchases.length ? recentPurchases.map(p => `
+        <div class="sp-purchase-row">
+          <div><strong style="font-size:12.5px">${escHtml(p.purchase_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(p.purchase_date)}</div></div>
+          <div style="font-weight:700;font-size:13px">${fmt_money(p.total)}</div>
+        </div>`).join('') : `
+        <div class="sp-empty">
+          <i class="fas fa-inbox"></i>
+          <div class="sp-empty-title">No purchases yet</div>
+          <div class="sp-empty-sub">Record one from Purchases → New Purchase Invoice</div>
+        </div>`}
+    </div>
+  `;
+
+  // ── Footer actions ──
+  document.getElementById('sp-profile-foot').innerHTML = `
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
+    <button class="btn btn-primary" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
+  `;
+
+  openModal('modal-supplier-profile');
+}
 
 // Printable supplier profile — opens in a new tab, ready for Save as PDF.
 function viewSupplierPdf(id) {
-  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
+  const s = splAllSuppliers().find(x => String(x.id) === String(id));
   if (!s) { toast('❌ Supplier not found', 'error'); return; }
   const co = pneCompanyInfo();
   const kv = (label, val) => val ? `<div class="kv"><span>${label}</span><b>${escHtml(String(val))}</b></div>` : '';
@@ -14023,7 +14959,7 @@ function viewSupplierPdf(id) {
 }
 
 async function deleteSupplierPermanent(id) {
-  const s = (STATE.suppliers||[]).find(x => String(x.id) === String(id));
+  const s = splAllSuppliers().find(x => String(x.id) === String(id));
   const conf = await Swal.fire({
     title: 'Permanently delete this supplier?',
     html: `"<b>${escHtml(s?.name||'')}</b>" will be removed forever. This cannot be undone.<br><br><span style="font-size:12px;color:#888">Suppliers with purchase history cannot be deleted — use Archive for those.</span>`,
@@ -14033,6 +14969,8 @@ async function deleteSupplierPermanent(id) {
   if (!conf.isConfirmed) return;
   try {
     await api('api/suppliers.php?id=' + id + '&permanent=1', 'DELETE');
+    STATE.suppliers = (STATE.suppliers||[]).filter(x => String(x.id) !== String(id));
+    SUP.archivedList = (SUP.archivedList||[]).filter(x => String(x.id) !== String(id));
     toast('🗑️ Supplier permanently deleted', 'info');
     renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -14048,6 +14986,8 @@ async function archiveSupplier(id) {
   try {
     await api('api/suppliers.php?id=' + id, 'DELETE');
     STATE.suppliers = STATE.suppliers.filter(x => String(x.id) !== String(id));
+    SUP.archivedList = SUP.archivedList || [];
+    SUP.archivedList.push({ ...s, status: 'archived' });
     renderSuppliers();
     toast('🗑️ Archived', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -14091,39 +15031,340 @@ function fmt_money_sym(n, sym) { return (sym||'₹') + Number(n||0).toLocaleStri
 
 function filterPurchases(q) { PUR.search = q || ''; renderPurchases(); }
 
+// ── Purchase List page ──────────────────────────────────────────
+let PL_PAGE = 1;
+const PL_PAGESIZE = 10;
+
+// Doc status is derived from payment: anything paid at all → Completed,
+// nothing paid yet → Pending. (Purchases store payment state in `status`.)
+function plDocStatus(p) {
+  return (p.status === 'Paid' || p.status === 'Partial' || p.status === 'Received') ? 'Completed' : 'Pending';
+}
+
+function populatePurchaseListFilters() {
+  const supSel = document.getElementById('pl-f-supplier');
+  if (supSel && supSel.options.length <= 1) {
+    supSel.innerHTML = '<option value="">All Suppliers</option>' +
+      (STATE.suppliers||[]).map(su => `<option value="${su.id}">${escHtml(su.name)}</option>`).join('');
+  }
+  const prodSel = document.getElementById('pl-f-product');
+  if (prodSel && prodSel.options.length <= 1) {
+    prodSel.innerHTML = '<option value="">All Products</option>' +
+      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
+  }
+  const ptSel = document.getElementById('pl-f-paytype');
+  if (ptSel) {
+    const cur = ptSel.value;
+    const types = [...new Set((STATE.purchases||[]).map(p => (p.payment_type||'').trim()).filter(Boolean))].sort();
+    ptSel.innerHTML = '<option value="">All Payment Types</option>' +
+      types.map(t => `<option ${t===cur?'selected':''}>${escHtml(t)}</option>`).join('');
+  }
+  const fromEl = document.getElementById('pl-f-from'), toEl = document.getElementById('pl-f-to');
+  if (fromEl && toEl && !fromEl.value && !toEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+}
+
+function resetPurchasesFilter() {
+  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('pl-f-to').value = fmt_date(new Date());
+  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('pl-f-invno').value = '';
+  PL_PAGE = 1;
+  renderPurchases();
+}
+
+function plFilteredPurchases() {
+  const from = document.getElementById('pl-f-from')?.value || '';
+  const to = document.getElementById('pl-f-to')?.value || '';
+  const sup = document.getElementById('pl-f-supplier')?.value || '';
+  const wh = document.getElementById('pl-f-warehouse')?.value || '';
+  const status = document.getElementById('pl-f-status')?.value || '';
+  const pay = document.getElementById('pl-f-paystatus')?.value || '';
+  const invno = (document.getElementById('pl-f-invno')?.value || '').trim().toLowerCase();
+  const prod = document.getElementById('pl-f-product')?.value || '';
+  const ptype = document.getElementById('pl-f-paytype')?.value || '';
+
+  return (STATE.purchases||[]).filter(p => {
+    const d = (p.purchase_date||'').slice(0,10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (sup && String(p.supplier_id) !== String(sup)) return false;
+    if (wh && (p.warehouse||'Main Warehouse') !== wh) return false;
+    if (status && plDocStatus(p) !== status) return false;
+    if (pay && (p.status === 'Received' ? 'Pending' : p.status) !== pay) return false;
+    if (invno && !(p.purchase_no||'').toLowerCase().includes(invno) && !(p.supplier_invoice_ref||'').toLowerCase().includes(invno)) return false;
+    if (prod) {
+      const ids = String(p.product_ids||'').split(',').map(x => x.trim());
+      if (!ids.includes(prod)) return false;
+    }
+    if (ptype && (p.payment_type||'').trim() !== ptype) return false;
+    return true;
+  });
+}
+
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
-  const statusF = document.getElementById('purStatusFilter')?.value || '';
-  let list = STATE.purchases || [];
-  if (PUR.search) {
-    const q = PUR.search.toLowerCase();
-    list = list.filter(p => (p.purchase_no||'').toLowerCase().includes(q) || (p.supplier_name||'').toLowerCase().includes(q) || (p.supplier_invoice_ref||'').toLowerCase().includes(q));
+  populatePurchaseListFilters();
+  const list = plFilteredPurchases();
+
+  // ── Stats over the filtered set ────────────────────────────
+  const totQty = list.reduce((a,p) => a + (parseFloat(p.total_qty)||0), 0);
+  const totAmt = list.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
+  const totPaid = list.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
+  const totOut = Math.max(0, totAmt - totPaid);
+  document.getElementById('pl-stat-count').textContent = list.length;
+  document.getElementById('pl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+  document.getElementById('pl-stat-amount').textContent = fmt_money(totAmt);
+  document.getElementById('pl-stat-paid').textContent = fmt_money(totPaid);
+  document.getElementById('pl-stat-out').textContent = fmt_money(totOut);
+  const fromV = document.getElementById('pl-f-from')?.value, toV = document.getElementById('pl-f-to')?.value;
+  document.getElementById('pl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / PL_PAGESIZE));
+  if (PL_PAGE > totalPages) PL_PAGE = totalPages;
+  const start = (PL_PAGE - 1) * PL_PAGESIZE;
+  const pageRows = list.slice(start, start + PL_PAGESIZE);
+  document.getElementById('purInfo').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+PL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('pl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="plPage(${PL_PAGE-1})" ${PL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===PL_PAGE?'active':''}" onclick="plPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="plPage(${PL_PAGE+1})" ${PL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
   }
-  if (statusF) list = list.filter(p => p.status === statusF);
-  document.getElementById('purInfo').textContent = list.length + ' purchase' + (list.length===1?'':'s');
-  document.getElementById('purCountInfo').textContent = (STATE.purchases||[]).length + ' total';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No purchases yet — click "Add Purchase" to record one</td></tr>`;
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
     return;
   }
-  const statusColor = { Pending:'#FFA000', Received:'#1976D2', Partial:'#E65100', Paid:'#00897B' };
-  tbody.innerHTML = list.map(p => `
+
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935', Received:'#E53935' };
+  tbody.innerHTML = pageRows.map((p, i) => {
+    const doc = plDocStatus(p);
+    const docColor = doc === 'Completed' ? '#00897B' : '#1976D2';
+    const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
+    const pc = payColor[p.status] || '#889';
+    return `
     <tr>
+      <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td>${escHtml(p.supplier_name||'—')}</td>
       <td>${fmt_date_disp(p.purchase_date)}</td>
-      <td>${p.item_count ?? ''}</td>
-      <td>${fmt_money_sym(p.total, p.currency==='INR'?'₹':(p.currency==='USD'?'$':(p.currency==='EUR'?'€':(p.currency==='GBP'?'£':''))))}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
+      <td>${escHtml(p.supplier_name||'—')}</td>
+      <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
+      <td>${escHtml(p.payment_type||'—')}</td>
       <td>
-        <div class="action-cell">
-          <button class="act-btn" title="View" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+          <button class="act-btn" title="View" onclick="viewPurchaseDetails(${p.id})"><i class="fas fa-eye"></i></button>
+          <button class="act-btn" title="Print" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i></button>
+          <button class="act-btn" title="Download PDF" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-download"></i></button>
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="editPurchase(${p.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="deletePurchase(${p.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function plPage(p) {
+  const totalPages = Math.max(1, Math.ceil(plFilteredPurchases().length / PL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  PL_PAGE = p;
+  renderPurchases();
+}
+
+function exportPurchasesExcel() {
+  const list = plFilteredPurchases();
+  if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
+  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Status','Payment Type','Warehouse']];
+  list.forEach((p, i) => {
+    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
+    rows.push([
+      i+1, p.purchase_no||'', p.purchase_date||'', p.supplier_name||'',
+      (parseFloat(p.total_qty)||0).toFixed(2), total.toFixed(2), paid.toFixed(2), Math.max(0, total-paid).toFixed(2),
+      p.status === 'Received' ? 'Pending' : (p.status||''), plDocStatus(p), p.payment_type||'', p.warehouse||'Main Warehouse'
+    ]);
+  });
+  _downloadCSV(rows, 'purchase_list.csv');
+  toast('✅ Exported ' + list.length + ' purchases', 'success');
+}
+
+// ── Product List page (product businesses) ──────────────────────
+let PRL_PAGE = 1;
+const PRL_PAGESIZE = 10;
+
+function prlStock(p) { return snAvailableStockSafe(p.id); }
+
+function populateProductsListFilters() {
+  const catSel = document.getElementById('prl-f-category');
+  if (catSel) {
+    const cur = catSel.value;
+    const cats = [...new Set((STATE.products||[]).map(p => (p.category||'').trim()).filter(Boolean))].sort();
+    catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option ${c===cur?'selected':''}>${escHtml(c)}</option>`).join('');
+  }
+  const unitSel = document.getElementById('prl-f-unit');
+  if (unitSel) {
+    const cur = unitSel.value;
+    const units = [...new Set((STATE.products||[]).map(p => (p.unit||'').trim()).filter(Boolean))].sort();
+    unitSel.innerHTML = '<option value="">All Units</option>' + units.map(u => `<option ${u===cur?'selected':''}>${escHtml(u)}</option>`).join('');
+  }
+}
+
+function resetProductsListFilter() {
+  document.getElementById('prl-f-search').value = '';
+  document.getElementById('prl-f-hsn').value = '';
+  ['prl-f-category','prl-f-unit','prl-f-status','prl-f-warehouse'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  PRL_PAGE = 1;
+  renderProductsList();
+}
+
+function prlFilteredProducts() {
+  const q = (document.getElementById('prl-f-search')?.value || '').trim().toLowerCase();
+  const cat = document.getElementById('prl-f-category')?.value || '';
+  const unit = document.getElementById('prl-f-unit')?.value || '';
+  const status = document.getElementById('prl-f-status')?.value || '';
+  const hsn = (document.getElementById('prl-f-hsn')?.value || '').trim().toLowerCase();
+  const wh = document.getElementById('prl-f-warehouse')?.value || '';
+
+  return (STATE.products||[]).filter(p => {
+    if (q && !(p.name||'').toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return false;
+    if (cat && (p.category||'').trim() !== cat) return false;
+    if (unit && (p.unit||'').trim() !== unit) return false;
+    if (status && (p.status||'active') !== status) return false;
+    if (hsn && !(p.hsn||'').toLowerCase().includes(hsn)) return false;
+    if (wh && (p.default_warehouse||'Main Warehouse') !== wh) return false;
+    return true;
+  });
+}
+
+function renderProductsList() {
+  const tbody = document.getElementById('prl-tbody');
+  if (!tbody) return;
+  populateProductsListFilters();
+  const list = prlFilteredProducts();
+
+  // ── Stats (over ALL products, independent of filters, like the reference) ──
+  const all = STATE.products||[];
+  let inStock = 0, lowStock = 0, outStock = 0;
+  all.forEach(p => {
+    const st = prlStock(p);
+    const reorder = parseFloat(p.reorder_level) || 0;
+    if (st <= 0) outStock++;
+    else if (reorder > 0 && st <= reorder) lowStock++;
+    else inStock++;
+  });
+  document.getElementById('prl-stat-total').textContent = all.length;
+  document.getElementById('prl-stat-active').textContent = all.filter(p => (p.status||'active') === 'active').length;
+  document.getElementById('prl-stat-instock').textContent = inStock;
+  document.getElementById('prl-stat-lowstock').textContent = lowStock;
+  document.getElementById('prl-stat-outstock').textContent = outStock;
+  document.getElementById('prl-stat-inactive').textContent = all.filter(p => (p.status||'active') !== 'active').length;
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / PRL_PAGESIZE));
+  if (PRL_PAGE > totalPages) PRL_PAGE = totalPages;
+  const start = (PRL_PAGE - 1) * PRL_PAGESIZE;
+  const pageRows = list.slice(start, start + PRL_PAGESIZE);
+  document.getElementById('prl-info').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+PRL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('prl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="prlPage(${PRL_PAGE-1})" ${PRL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PRL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===PRL_PAGE?'active':''}" onclick="prlPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="prlPage(${PRL_PAGE+1})" ${PRL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
+  }
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No products found — click "Add New Product" to create one</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pageRows.map((p, i) => {
+    const stock = prlStock(p);
+    const reorder = parseFloat(p.reorder_level) || 0;
+    const stockColor = stock <= 0 ? '#E53935' : (reorder > 0 && stock <= reorder ? '#E65100' : 'var(--text)');
+    const active = (p.status||'active') === 'active';
+    return `
+    <tr>
+      <td>${start + i + 1}</td>
+      <td><strong>${escHtml(p.name)}</strong></td>
+      <td>${escHtml(p.sku||'—')}</td>
+      <td>${escHtml(p.category||'—')}</td>
+      <td>${escHtml(p.unit||'Kg')}</td>
+      <td>${escHtml(p.hsn||'—')}</td>
+      <td style="text-align:right">${(parseFloat(p.sale_rate ?? p.rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right">${(parseFloat(p.purchase_rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600;color:${stockColor}">${stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escHtml(p.unit||'Kg')}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
+      <td>
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+          <button class="act-btn" title="Edit" onclick="editProductRich('${p.id}')"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
+              <button onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function prlPage(p) {
+  const totalPages = Math.max(1, Math.ceil(prlFilteredProducts().length / PRL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  PRL_PAGE = p;
+  renderProductsList();
+}
+
+function exportProductsExcel() {
+  const list = prlFilteredProducts();
+  if (!list.length) { toast('⚠️ No products to export for the selected filters', 'warning'); return; }
+  const rows = [['#','Product Name','SKU / Code','Category','Unit','HSN Code','Sale Rate','Purchase Rate','Current Stock','Reorder Level','Warehouse','Status']];
+  list.forEach((p, i) => {
+    rows.push([
+      i+1, p.name||'', p.sku||'', p.category||'', p.unit||'Kg', p.hsn||'',
+      (parseFloat(p.sale_rate ?? p.rate)||0).toFixed(2), (parseFloat(p.purchase_rate)||0).toFixed(2),
+      prlStock(p).toFixed(2), (parseFloat(p.reorder_level)||0).toFixed(2),
+      p.default_warehouse||'Main Warehouse', (p.status||'active') === 'active' ? 'Active' : 'Inactive'
+    ]);
+  });
+  _downloadCSV(rows, 'product_list.csv');
+  toast('✅ Exported ' + list.length + ' products', 'success');
 }
 
 function fmt_date_disp(d) {
@@ -14215,6 +15456,7 @@ function goToNewPurchase() {
   document.getElementById('pn-packingcharge').value = 0;
   document.getElementById('pn-othercharge').value = 0;
   document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-discount-remarks').value = '';
   document.getElementById('pn-tradediscpct').value = 0;
   document.getElementById('pn-cashdiscpct').value = 0;
   document.getElementById('pn-cdwithin').value = 'Same Day';
@@ -14398,7 +15640,7 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.gross_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
       <td><input type="number" value="${it.tare_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
-      <td><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
+      <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
       <td><input type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
       <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
@@ -14412,7 +15654,45 @@ function renderPNEItemsTable() {
       </td>
     </tr>`;
   }).join('');
+  applyDhaltaPctVisibility();
   calcPurchaseNewTotals();
+}
+
+// Show/hide the Dhalta % sub-column per Settings → Company (show_dhalta_pct).
+// The Kg column always stays — only the derived percentage is optional.
+function applyDhaltaPctVisibility() {
+  const show = (STATE.settings.showDhaltaPct ?? '1') !== '0';
+  document.querySelectorAll('.pne-dhpct-col').forEach(el => { el.style.display = show ? '' : 'none'; });
+  const g = document.getElementById('pne-th-dhalta-group');
+  if (g) { g.colSpan = show ? 2 : 1; g.textContent = show ? 'Dhalta' : 'Dhalta (Kg)'; }
+
+  // The colgroup assigns widths by DOM position, so when hiding Dhalta %
+  // we physically remove its <col> — otherwise every column after it shifts
+  // one slot and headers no longer align with cells.
+  // IMPORTANT: renderPNEItemsTable() replaces the whole table, so after any
+  // re-render a fresh <col id="pne-col-dhpct"> exists in the DOM. We must
+  // always re-read from the DOM, never use a stale JS reference from a
+  // previous render. The variable is intentionally dropped after each use.
+  const colPct = document.getElementById('pne-col-dhpct');
+  const colKg  = document.getElementById('pne-col-dhkg');
+
+  if (!show && colPct) {
+    // Store on the colKg node itself so it survives re-renders (colKg also
+    // gets a stable id and is never removed, only width-adjusted)
+    colKg._dhpctCol = colPct;
+    colPct.remove();
+  } else if (show && colKg) {
+    // Restore: either the col is already there (show re-applied after render)
+    // or we need to put the stashed one back
+    const stash = colKg._dhpctCol;
+    if (!document.getElementById('pne-col-dhpct') && stash) {
+      colKg.parentNode.insertBefore(stash, colKg);
+      colKg._dhpctCol = null;
+    }
+  }
+
+  // Widen the Kg col when % is hidden (more room to type values like 1250.50)
+  if (colKg) colKg.style.width = show ? '65px' : '100px';
 }
 
 function onPNEProductChange(id, productId) {
@@ -14420,7 +15700,17 @@ function onPNEProductChange(id, productId) {
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) { it.description = p.name; if (!it.rate) it.rate = parseFloat(p.rate) || 0; }
+    if (p) {
+      it.description = p.name;
+      // Auto-fill from product master — only when the field is blank so a
+      // user who changes product mid-entry doesn't silently lose what they typed.
+      if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
+      if (!it.variety_grade) it.variety_grade = [p.variety, p.grade].filter(Boolean).join(' / ');
+      if (!it.quality_grade) it.quality_grade = p.grade || '';
+      // moisture_limit is the product's stored expected moisture — editable per purchase lot
+      if ((it.moisture_pct === null || it.moisture_pct === '' || it.moisture_pct === undefined) && p.moisture_limit)
+        it.moisture_pct = parseFloat(p.moisture_limit);
+    }
   }
   renderPNEItemsTable();
 }
@@ -14727,6 +16017,7 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
     document.getElementById('pn-discount').value = p.discount_amount || 0;
+    document.getElementById('pn-discount-remarks').value = p.discount_remarks || '';
     document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
     document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
     document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
@@ -14852,6 +16143,7 @@ async function savePurchaseEntry(mode) {
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
     discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    discount_remarks: document.getElementById('pn-discount-remarks').value.trim(),
     deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
@@ -14883,9 +16175,13 @@ async function savePurchaseEntry(mode) {
       savedId = res.id;
       toast('✅ Purchase saved!', 'success');
     }
-    const [r, prd] = await Promise.all([api('api/purchases.php'), api('api/products.php')]);
+    const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
     STATE.products  = Array.isArray(prd.data) ? prd.data : STATE.products;
+    STATE.stock     = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    if (document.getElementById('page-stock')?.classList.contains('active')) {
+      renderProductStock();
+    }
 
     if (mode === 'print') {
       printPurchaseEntry(savedId);
@@ -14915,9 +16211,20 @@ async function printPurchaseEntry(id) {
 function pneCompanyInfo() {
   const s = STATE.settings || {};
   return {
-    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '',
+    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '', email: s.email || '',
     address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
+    pan: s.pan || '', apeda: s.apeda || '', cin: s.cin || '', msme: s.msme || '',
   };
+}
+
+// One-line statutory registrations block for invoice headers — shows only
+// the numbers that are actually filled in Settings → Company Profile.
+function pneStatutoryLine(co) {
+  const parts = [];
+  if (co.gst) parts.push('GSTIN: ' + escHtml(co.gst));
+  if (co.pan) parts.push('PAN: ' + escHtml(co.pan));
+  if (co.fssai) parts.push('FSSAI: ' + escHtml(co.fssai));
+  return parts.join(' &nbsp;|&nbsp; ');
 }
 
 // ── Template 1: Local Purchase Voucher (Farmer / GST-exempt purchases) ──
@@ -14929,7 +16236,7 @@ function printLocalPurchaseVoucher(p) {
       <td>${escHtml(it.description||'')}</td><td>${escHtml(it.variety_grade||'—')}</td><td>${escHtml(it.quality_grade||'—')}</td>
       <td class="r">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(1)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.gross_weight).toFixed(2)}</td><td class="r">${parseFloat(it.tare_weight).toFixed(2)}</td>
-      <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${parseFloat(it.dhalta_pct||0).toFixed(1)}%</td>
+      <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? parseFloat(it.dhalta_pct||0).toFixed(1)+'%' : parseFloat(it.dhalta_kg||0).toFixed(2)}</td>
       <td class="r">${parseFloat(it.billable_weight).toFixed(2)}</td><td class="r">${fmt_money(it.rate)}</td><td class="r">${fmt_money(it.amount)}</td>
     </tr>`).join('');
   const gGross = items.reduce((s,i)=>s+parseFloat(i.gross_weight||0),0);
@@ -14984,8 +16291,8 @@ function printLocalPurchaseVoucher(p) {
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
-            ${co.gst?`GSTIN: ${escHtml(co.gst)}`:''} ${co.fssai?' &nbsp; FSSAI: '+escHtml(co.fssai):''}<br>
-            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Phone: '+escHtml(co.phone):''}<br>
+            ${pneStatutoryLine(co)}${pneStatutoryLine(co)?'<br>':''}
+            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Mobile: '+escHtml(co.phone):''}${co.email?' &nbsp; Email: '+escHtml(co.email):''}<br>
             ${co.address?`Address: ${escHtml(co.address)}`:''}
           </div>
         </div>
@@ -15013,7 +16320,7 @@ function printLocalPurchaseVoucher(p) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">Dhalta%</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td colspan="4">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
     </table>
@@ -15031,7 +16338,7 @@ function printLocalPurchaseVoucher(p) {
         <h3>PAYMENT SETTLEMENT</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
-        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
@@ -15127,8 +16434,8 @@ function printTaxInvoicePurchase(p) {
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
-            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
+            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
           </div>
         </div>
       </div>
@@ -15178,6 +16485,7 @@ function printTaxInvoicePurchase(p) {
       <div class="box">
         <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(p.cash_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total GST</span><span>${fmt_money(p.gst_amount)}</span></div>
@@ -15233,7 +16541,7 @@ function numToWordsINR(amount) {
 // ══════════════════════════════════════════
 let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
 
-function frMonthStart() { const d = new Date(); return fmt_date(new Date(d.getFullYear(), d.getMonth(), 1)); }
+function frMonthStart() { return BIZ_FROM_DATE; } // default From = business start date for all range-filtered tables
 function setFRAllTime() {
   document.getElementById('fr-from').value = '2000-01-01';
   document.getElementById('fr-to').value = fmt_date(new Date());
@@ -15381,7 +16689,7 @@ function resetSHFilter() {
   document.getElementById('sh-f-product').value = '';
   document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
   document.getElementById('sh-f-warehouse').value = '';
-  document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+  document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
   document.getElementById('sh-f-to').value = fmt_date(new Date());
   document.getElementById('sh-f-txntype').value = '';
   document.getElementById('sh-f-reftype').value = '';
@@ -15391,7 +16699,7 @@ function resetSHFilter() {
 function goToStockHistory(productId, productName) {
   populateSHProductDropdown();
   if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
     document.getElementById('sh-f-to').value = fmt_date(new Date());
   }
   if (productId) {
@@ -15408,7 +16716,7 @@ let SH_LAST_ROWS = [];
 async function renderStockHistory() {
   populateSHProductDropdown();
   if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = fmt_date(new Date(Date.now() - 7*86400000));
+    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
     document.getElementById('sh-f-to').value = fmt_date(new Date());
   }
   try {
@@ -15424,6 +16732,7 @@ async function renderStockHistory() {
 
     const r = await api('api/stock_history.php?' + params.toString());
     SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
+    SH_PAGE = 1;
     const stats = r.stats || {};
 
     const openingVal = stats.opening_stock || 0;
@@ -15441,11 +16750,15 @@ async function renderStockHistory() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+let SH_PAGE = 1;
+const SH_PAGESIZE = 20;
+
 function renderSHTable() {
   const tbody = document.getElementById('sh-history-tbody');
   const rows = SH_LAST_ROWS;
-  document.getElementById('sh-history-info').textContent = `Showing 1 to ${rows.length} of ${rows.length} entries`;
   if (!rows.length) {
+    document.getElementById('sh-history-info').textContent = 'No entries';
+    const pg = document.getElementById('sh-pagination'); if (pg) pg.innerHTML = '';
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement in this period</td></tr>`;
     return;
   }
@@ -15465,11 +16778,34 @@ function renderSHTable() {
   }
   // reverse chronological for display (most recent first), matching the rest of the app
   const display = [...rows].reverse();
-  tbody.innerHTML = display.map((row, idx) => {
+
+  // ── Pagination (20 per page) ───────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(display.length / SH_PAGESIZE));
+  if (SH_PAGE > totalPages) SH_PAGE = totalPages;
+  if (SH_PAGE < 1) SH_PAGE = 1;
+  const start = (SH_PAGE - 1) * SH_PAGESIZE;
+  const pageRows = display.slice(start, start + SH_PAGESIZE);
+  document.getElementById('sh-history-info').textContent =
+    `Showing ${start+1} to ${Math.min(start+SH_PAGESIZE, display.length)} of ${display.length} entries`;
+  const pager = document.getElementById('sh-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="shPage(${SH_PAGE-1})" ${SH_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SH_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===SH_PAGE?'active':''}" onclick="shPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="shPage(${SH_PAGE+1})" ${SH_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
+  }
+
+  tbody.innerHTML = pageRows.map((row, idx) => {
     const refType = shResolveRefType(row);
     return `
     <tr>
-      <td>${idx+1}</td>
+      <td>${start + idx + 1}</td>
       <td>${fmt_date_disp(row.movement_date)}</td>
       <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
       <td>${refLabel[refType]||'Unknown'}</td>
@@ -15485,15 +16821,207 @@ function renderSHTable() {
   }).join('');
 }
 
+function shPage(p) {
+  const totalPages = Math.max(1, Math.ceil((SH_LAST_ROWS||[]).length / SH_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  SH_PAGE = p;
+  renderSHTable();
+}
+
 function renderSHActionCell(row, refLabel) {
+  // Viewing (eye) is the primary action for every ledger row — corrections
+  // are handled through Stock Adjustment, not by editing history directly.
+  const eye = `<button class="act-btn" title="View transaction details" onclick="viewStockTxnDetails(${row.id})"><i class="fas fa-eye"></i></button>`;
   if (row.ref_type === 'adjustment') {
-    return `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
+    return eye + `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
   }
-  const editFn = { stock_in: 'editStockIn', purchase: 'editPurchase', sale: 'editSale' }[row.ref_type];
-  if (editFn && row.ref_id) {
-    return `<button class="act-btn" title="Edit ${escHtml(refLabel[row.ref_type]||'')}" onclick="${editFn}(${row.ref_id})"><i class="fas fa-pen"></i></button>`;
+  return eye;
+}
+
+// ── Stock Transaction Details page ─────────────────────────────
+// Full read-only breakdown of one ledger row: overview, product info,
+// quantity/value summary, and the product's complete ledger flow.
+async function viewStockTxnDetails(ledgerId) {
+  const row = (SH_LAST_ROWS||[]).find(r => String(r.id) === String(ledgerId));
+  if (!row) { toast('❌ Transaction not found — refresh Stock History', 'error'); return; }
+
+  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
+  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
+  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
+  const refType = row.ref_type || '';
+  const prod = (STATE.products||[]).find(p => String(p.id).replace(/\D/g,'') === String(row.product_id)) || {};
+  const rate = parseFloat(row.rate) || parseFloat(prod.rate) || 0;
+  const qty = parseFloat(row.qty) || 0;
+  const bal = parseFloat(row.running_balance) || 0;
+
+  const kv = (label, val) => `<div style="min-width:140px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:12.5px;font-weight:600">${val}</div></div>`;
+  const chip = (label, val, color, bg, icon) => `
+    <div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:center">
+      <span style="width:40px;height:40px;border-radius:9px;background:${bg};color:${color};display:flex;align-items:center;justify-content:center"><i class="fas fa-${icon}"></i></span>
+      <div><div style="font-size:11px;font-weight:700;color:${color}">${label}</div><div style="font-size:16px;font-weight:800">${val}</div></div>
+    </div>`;
+
+  document.getElementById('stx-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-receipt"></i> Transaction Overview</div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px 28px">
+          ${kv('Transaction Type', `<span style="font-size:11px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:3px 10px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span>`)}
+          ${kv('Reference Type', escHtml(refLabel[refType]||'—'))}
+          ${kv('Reference No.', escHtml(row.reference_no||'—'))}
+          ${kv('Date', fmt_date_disp(row.movement_date))}
+          ${kv('Batch / Lot No.', escHtml(row.batch_no||'—'))}
+          ${kv('Warehouse', escHtml(row.warehouse||'Main Warehouse'))}
+          ${kv('Remarks', escHtml(row.notes||'—'))}
+        </div>
+      </div>
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-box"></i> Product Information</div>
+        <div class="pne-kv"><span>Product</span><strong>${escHtml(row.product_name||prod.name||'—')}</strong></div>
+        <div class="pne-kv"><span>Category</span><strong>${escHtml(prod.category||'—')}</strong></div>
+        <div class="pne-kv"><span>Variety</span><strong>${escHtml(prod.variety||'—')}</strong></div>
+        <div class="pne-kv"><span>Grade</span><strong>${escHtml(prod.grade||'—')}</strong></div>
+        <div class="pne-kv"><span>Unit</span><strong>Kg</strong></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-chart-line"></i> Quantity &amp; Value Summary</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          ${chip('Quantity In', row.direction==='in' ? qty.toFixed(2)+' Kg' : '—', '#00897B', '#E8F5E9', 'arrow-right-to-bracket')}
+          ${chip('Quantity Out', row.direction==='out' ? qty.toFixed(2)+' Kg' : '—', '#E53935', '#FFEBEE', 'arrow-right-from-bracket')}
+          ${chip('Balance Quantity', bal.toFixed(2)+' Kg', '#1976D2', '#E3F2FD', 'scale-balanced')}
+        </div>
+      </div>
+      <div class="pne-card">
+        <div class="pne-card-head pne-head-green"><i class="fas fa-indian-rupee-sign"></i> Financial Summary</div>
+        <div class="pne-kv"><span>Rate (₹ / Kg)</span><strong>${rate > 0 ? fmt_money(rate) : '—'}</strong></div>
+        <div class="pne-kv"><span>Transaction Value (₹)</span><strong>${rate > 0 ? fmt_money(qty * rate) : '—'}</strong></div>
+        <div class="pne-kv"><span>Balance Value (₹)</span><strong>${rate > 0 ? fmt_money(bal * rate) : '—'}</strong></div>
+      </div>
+    </div>
+
+    <div class="pne-card" style="margin-bottom:16px">
+      <div class="pne-card-head pne-head-green"><i class="fas fa-timeline"></i> Stock Ledger Flow (This Product)</div>
+      <div class="table-card" style="overflow-x:auto">
+        <table class="data-table" style="min-width:820px">
+          <thead><tr><th>#</th><th>Date</th><th>Transaction Type</th><th>Reference No.</th><th>In (Kg)</th><th>Out (Kg)</th><th>Balance (Kg)</th><th>Rate (₹/Kg)</th><th>Remarks</th></tr></thead>
+          <tbody id="stx-flow-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px"><i class="fas fa-spinner fa-spin"></i> Loading product history…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--muted)" id="stx-flow-info"></div>
+        <div style="display:flex;gap:6px;align-items:center" id="stx-flow-pager"></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 14px"><i class="fas fa-circle-info"></i> <b>Note:</b> In (Kg) increases stock. Out (Kg) decreases stock. To correct any figure, create a Stock Adjustment — history rows are never edited directly.</div>
+  `;
+
+  showPage('stock-txn-details');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
+
+  // Load the product's full ledger flow (all time), highlighting this row
+  try {
+    const params = new URLSearchParams({ date_from: '2000-01-01', date_to: fmt_date(new Date()), product_id: row.product_id });
+    const r = await api('api/stock_history.php?' + params.toString());
+    STX_FLOW = Array.isArray(r.data) ? r.data : [];
+    STX_LEDGER_ID = ledgerId;
+    // Open on the page that contains the clicked transaction
+    const idx = STX_FLOW.findIndex(f => String(f.id) === String(ledgerId));
+    STX_PAGE = idx >= 0 ? Math.floor(idx / STX_PAGESIZE) + 1 : 1;
+    renderSTXFlow();
+  } catch(e) {
+    const tbody = document.getElementById('stx-flow-tbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Could not load product history</td></tr>`;
   }
-  return `<button class="act-btn" title="View" onclick="toast('ℹ️ ${escHtml((refLabel[row.ref_type]||'').replace(/'/g,"\\'"))}: ${escHtml((row.reference_no||'—').replace(/'/g,"\\'"))}','info')"><i class="fas fa-eye"></i></button>`;
+}
+
+// ── Stock Ledger Flow pagination (Stock Transaction Details) ────
+let STX_FLOW = [];
+let STX_PAGE = 1;
+let STX_LEDGER_ID = null;
+const STX_PAGESIZE = 10;
+
+function renderSTXFlow() {
+  const tbody = document.getElementById('stx-flow-tbody');
+  if (!tbody) return; // user navigated away
+  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
+  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
+  const flow = STX_FLOW || [];
+  const info = document.getElementById('stx-flow-info');
+  const pager = document.getElementById('stx-flow-pager');
+
+  if (!flow.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No history for this product</td></tr>`;
+    if (info) info.textContent = '';
+    if (pager) pager.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(flow.length / STX_PAGESIZE));
+  if (STX_PAGE > totalPages) STX_PAGE = totalPages;
+  if (STX_PAGE < 1) STX_PAGE = 1;
+  const start = (STX_PAGE - 1) * STX_PAGESIZE;
+  const pageRows = flow.slice(start, start + STX_PAGESIZE);
+
+  if (info) info.textContent = `Showing ${start+1} to ${Math.min(start+STX_PAGESIZE, flow.length)} of ${flow.length} entries`;
+  if (pager) {
+    const opts = Array.from({length: totalPages}, (_, i) =>
+      `<option value="${i+1}" ${i+1===STX_PAGE?'selected':''}>Page ${i+1}</option>`).join('');
+    pager.innerHTML = `
+      <button class="pg-btn" onclick="stxPage(${STX_PAGE-1})" ${STX_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>
+      <select onchange="stxPage(parseInt(this.value))" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card)">${opts}</select>
+      <span style="font-size:12px;color:var(--muted)">of ${totalPages}</span>
+      <button class="pg-btn" onclick="stxPage(${STX_PAGE+1})" ${STX_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+  }
+
+  tbody.innerHTML = pageRows.map((f, i) => {
+    const isThis = String(f.id) === String(STX_LEDGER_ID);
+    const fType = f.ref_type || '';
+    return `<tr style="${isThis ? 'background:#E8F5E9' : ''}">
+      <td>${start + i + 1}</td>
+      <td>${fmt_date_disp(f.movement_date)}${isThis ? ' <span style="font-size:9px;font-weight:800;color:#00897B">◀ THIS</span>' : ''}</td>
+      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[fType]||'#889'};background:${typeColor[fType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[fType]||'Unknown'}</span></td>
+      <td>${escHtml(f.reference_no||'—')}</td>
+      <td style="color:#00897B;font-weight:600">${f.direction==='in'?parseFloat(f.qty).toFixed(2):'—'}</td>
+      <td style="color:#E53935;font-weight:600">${f.direction==='out'?parseFloat(f.qty).toFixed(2):'—'}</td>
+      <td><strong>${parseFloat(f.running_balance).toFixed(2)}</strong></td>
+      <td>${(parseFloat(f.rate)||0) > 0 ? parseFloat(f.rate).toFixed(2) : '—'}</td>
+      <td style="color:var(--muted);font-size:11px">${escHtml(f.notes||'—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function stxPage(p) {
+  const totalPages = Math.max(1, Math.ceil((STX_FLOW||[]).length / STX_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  STX_PAGE = p;
+  renderSTXFlow();
+}
+
+function printStockTxnDetails() {
+  const body = document.getElementById('stx-body');
+  if (!body) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>Stock Transaction Details</title><style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 24px; font-size: 12px; }
+    .pne-card { border: 1px solid #dde3ea; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+    .pne-card-head { font-weight: 800; color: #0d3b2e; margin-bottom: 12px; font-size: 13px; }
+    .pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #667; }
+    .pne-kv strong { color: #223; }
+    .stx-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 7px 8px; font-size: 11px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #f4f6f8; font-size: 10px; text-transform: uppercase; }
+    .table-card { overflow: visible; }
+  </style></head><body>
+    <h2 style="margin:0 0 14px">Stock Transaction Details</h2>
+    ${body.innerHTML}
+    <script>window.print();<\\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 function exportStockHistoryCsv() {
@@ -15568,6 +17096,7 @@ function goToNewSale() {
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
+  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
@@ -15599,6 +17128,7 @@ function goToNewSale() {
   document.getElementById('sn-othercharge').value = 0;
   document.getElementById('sn-roundoff').value = 0;
   document.getElementById('sn-discount').value = 0;
+  document.getElementById('sn-discount-remarks').value = '';
   document.getElementById('sn-tradediscpct').value = 0;
   document.getElementById('sn-cashdiscpct').value = 0;
   document.getElementById('sn-cdwithin').value = 'Same Day';
@@ -15643,6 +17173,32 @@ function clearCustomerAutofill() {
   document.getElementById('sn-billing').value = '';
 }
 
+// Sales Executive / Sales Person is almost always the person doing the
+// work, so this defaults to the logged-in user and only needs a click
+// when entering something on another team member's behalf — no more
+// typing a name by hand. Shared by the Sale entry, quick-add Customer,
+// and full Customer entry forms. Team members load once and are cached.
+async function populateSalesExecDropdown(selected, selectId) {
+  selectId = selectId || 'sn-salesexec';
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  if (!STATE.team || !STATE.team.length) {
+    try {
+      const r = await api('api/team.php?action=list');
+      STATE.team = Array.isArray(r.data) ? r.data : [];
+    } catch(e) { STATE.team = STATE.team || []; }
+  }
+  const active = (STATE.team || []).filter(u => u.status === 'active');
+  let names = [...new Set(active.map(u => u.name).filter(Boolean))].sort();
+  // Older records may have a free-text name that isn't (or is no longer) a
+  // team member — keep it selectable rather than silently losing the data.
+  if (selected && !names.includes(selected)) names.unshift(selected);
+  const placeholder = selectId === 'cusn-salesperson' ? 'Select Sales Person' : '— Select —';
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    names.map(n => `<option value="${escHtml(n)}" ${n===selected?'selected':''}>${escHtml(n)}</option>`).join('');
+  if (!selected) sel.value = '';
+}
+
 function populateSaleCustomerDropdown() {
   const sel = document.getElementById('sn-customer');
   if (!sel) return;
@@ -15669,7 +17225,7 @@ async function onCustomerPicked() {
     document.getElementById('sn-shipping').value = c.shipping_address || c.billing_address || '';
     document.getElementById('sn-placeofsupply').value = c.state || '';
     if (c.customer_type) document.getElementById('sn-customertype').value = c.customer_type;
-    if (c.sales_executive) document.getElementById('sn-salesexec').value = c.sales_executive;
+    if (c.sales_executive) populateSalesExecDropdown(c.sales_executive);
     if (c.payment_terms) document.getElementById('sn-paymentterms').value = c.payment_terms;
   }
   calcSaleNewTotals();
@@ -15692,10 +17248,11 @@ async function onCustomerPicked() {
 }
 
 function openAddCustomerModal() {
-  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms','cus-salesexec']
+  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
   document.getElementById('cus-creditlimit').value = 0;
+  populateSalesExecDropdown(SERVER.user?.name || '', 'cus-salesexec');
   openModal('modal-addcustomer');
 }
 
@@ -16091,6 +17648,7 @@ async function saveSaleEntry(mode) {
     other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
     round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
+    discount_remarks: document.getElementById('sn-discount-remarks').value.trim(),
     deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
@@ -16131,6 +17689,11 @@ async function saveSaleEntry(mode) {
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
     STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
+    // If the user can see the stock summary page right now, refresh it silently
+    // so Available Stock and Total Stock reflect the sale that just posted.
+    if (document.getElementById('page-stock')?.classList.contains('active')) {
+      renderProductStock();
+    }
 
     if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
     else { cancelSaleEntry(); }
@@ -16156,7 +17719,7 @@ async function editSale(id) {
     document.getElementById('sn-customer').value = s.customer_id;
     await onCustomerPicked();
     document.getElementById('sn-shipping').value = s.shipping_address || document.getElementById('sn-shipping').value;
-    document.getElementById('sn-salesexec').value = s.sales_executive || '';
+    populateSalesExecDropdown(s.sales_executive || '');
     document.getElementById('sn-invno').value = s.invoice_no;
     document.getElementById('sn-invdate').value = s.sale_date;
     document.getElementById('sn-duedate').value = s.due_date || '';
@@ -16181,6 +17744,7 @@ async function editSale(id) {
     document.getElementById('sn-othercharge').value = s.other_charges || 0;
     document.getElementById('sn-roundoff').value = s.round_off || 0;
     document.getElementById('sn-discount').value = s.discount_amount || 0;
+    document.getElementById('sn-discount-remarks').value = s.discount_remarks || '';
     document.getElementById('sn-tradediscpct').value = s.trade_discount_pct || 0;
     document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
     document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
@@ -16229,39 +17793,182 @@ async function deleteSale(id) {
 
 function filterSales(q) { SALES_SEARCH = q || ''; renderSales(); }
 let SALES_SEARCH = '';
+// ── Sales List page ─────────────────────────────────────────────
+// Default "From" date for every date-range-filtered list (business start)
+const BIZ_FROM_DATE = '2026-05-01';
+let SL_PAGE = 1;
+const SL_PAGESIZE = 10;
+
+function populateSalesListFilters() {
+  // Customer dropdown
+  const custSel = document.getElementById('sl-f-customer');
+  if (custSel && custSel.options.length <= 1) {
+    custSel.innerHTML = '<option value="">All Customers</option>' +
+      (STATE.customers||[]).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+  }
+  // Product dropdown
+  const prodSel = document.getElementById('sl-f-product');
+  if (prodSel && prodSel.options.length <= 1) {
+    prodSel.innerHTML = '<option value="">All Products</option>' +
+      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
+  }
+  // Sales Executive dropdown — distinct values from actual sales
+  const execSel = document.getElementById('sl-f-exec');
+  if (execSel) {
+    const cur = execSel.value;
+    const execs = [...new Set((STATE.sales||[]).map(s => (s.sales_executive||'').trim()).filter(Boolean))].sort();
+    execSel.innerHTML = '<option value="">All Sales Executive</option>' +
+      execs.map(e => `<option ${e===cur?'selected':''}>${escHtml(e)}</option>`).join('');
+  }
+  // Default date range: this month (only when both fields are empty)
+  const fromEl = document.getElementById('sl-f-from'), toEl = document.getElementById('sl-f-to');
+  if (fromEl && toEl && !fromEl.value && !toEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+}
+
+function resetSalesFilter() {
+  document.getElementById('sl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('sl-f-to').value = fmt_date(new Date());
+  ['sl-f-customer','sl-f-warehouse','sl-f-status','sl-f-paystatus','sl-f-product','sl-f-exec'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('sl-f-invno').value = '';
+  SL_PAGE = 1;
+  renderSales();
+}
+
+function slFilteredSales() {
+  const from = document.getElementById('sl-f-from')?.value || '';
+  const to = document.getElementById('sl-f-to')?.value || '';
+  const cust = document.getElementById('sl-f-customer')?.value || '';
+  const wh = document.getElementById('sl-f-warehouse')?.value || '';
+  const status = document.getElementById('sl-f-status')?.value || '';
+  const pay = document.getElementById('sl-f-paystatus')?.value || '';
+  const invno = (document.getElementById('sl-f-invno')?.value || '').trim().toLowerCase();
+  const prod = document.getElementById('sl-f-product')?.value || '';
+  const exec = document.getElementById('sl-f-exec')?.value || '';
+
+  return (STATE.sales||[]).filter(s => {
+    const d = (s.sale_date||'').slice(0,10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (cust && String(s.customer_id) !== String(cust)) return false;
+    if (wh && (s.warehouse||'Main Warehouse') !== wh) return false;
+    if (status && (s.status||'Confirmed') !== status) return false;
+    if (pay && s.payment_status !== pay) return false;
+    if (invno && !(s.invoice_no||'').toLowerCase().includes(invno)) return false;
+    if (prod) {
+      const ids = String(s.product_ids||'').split(',').map(x => x.trim());
+      if (!ids.includes(prod)) return false;
+    }
+    if (exec && (s.sales_executive||'').trim() !== exec) return false;
+    return true;
+  });
+}
+
 function renderSales() {
   const tbody = document.getElementById('salesTbody');
   if (!tbody) return;
-  const statusF = document.getElementById('saleStatusFilter')?.value || '';
-  let list = STATE.sales || [];
-  if (SALES_SEARCH) {
-    const q = SALES_SEARCH.toLowerCase();
-    list = list.filter(s => (s.invoice_no||'').toLowerCase().includes(q) || (s.customer_name||'').toLowerCase().includes(q));
+  populateSalesListFilters();
+  const list = slFilteredSales();
+
+  // ── Stats over the filtered set ────────────────────────────
+  const totQty = list.reduce((a,s) => a + (parseFloat(s.total_qty)||0), 0);
+  const totAmt = list.reduce((a,s) => a + (parseFloat(s.total)||0), 0);
+  const totPaid = list.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
+  const totOut = Math.max(0, totAmt - totPaid);
+  document.getElementById('sl-stat-count').textContent = list.length;
+  document.getElementById('sl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+  document.getElementById('sl-stat-amount').textContent = fmt_money(totAmt);
+  document.getElementById('sl-stat-paid').textContent = fmt_money(totPaid);
+  document.getElementById('sl-stat-out').textContent = fmt_money(totOut);
+  const fromV = document.getElementById('sl-f-from')?.value, toV = document.getElementById('sl-f-to')?.value;
+  document.getElementById('sl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
+
+  // ── Pagination ─────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(list.length / SL_PAGESIZE));
+  if (SL_PAGE > totalPages) SL_PAGE = totalPages;
+  const start = (SL_PAGE - 1) * SL_PAGESIZE;
+  const pageRows = list.slice(start, start + SL_PAGESIZE);
+  document.getElementById('saleInfo').textContent = list.length
+    ? `Showing ${start+1} to ${Math.min(start+SL_PAGESIZE, list.length)} of ${list.length} entries`
+    : 'No entries';
+  const pager = document.getElementById('sl-pagination');
+  if (pager) {
+    let h = `<button class="pg-btn" onclick="slPage(${SL_PAGE-1})" ${SL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SL_PAGE) > 1) {
+        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+        continue;
+      }
+      h += `<button class="pg-btn ${i===SL_PAGE?'active':''}" onclick="slPage(${i})">${i}</button>`;
+    }
+    h += `<button class="pg-btn" onclick="slPage(${SL_PAGE+1})" ${SL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
+    pager.innerHTML = h;
   }
-  if (statusF) list = list.filter(s => s.payment_status === statusF);
-  document.getElementById('saleInfo').textContent = list.length + ' sale' + (list.length===1?'':'s');
-  document.getElementById('saleCountInfo').textContent = (STATE.sales||[]).length + ' total';
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No sales yet — click "Add Sale" to create one</td></tr>`;
+
+  if (!pageRows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
     return;
   }
-  const statusColor = { Pending:'#FFA000', Partial:'#E65100', Paid:'#00897B' };
-  tbody.innerHTML = list.map(s => `
+
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935' };
+  const statusMap = { Confirmed: { label:'Completed', color:'#00897B' }, Draft: { label:'Draft', color:'#1976D2' } };
+  tbody.innerHTML = pageRows.map((s, i) => {
+    const st = statusMap[s.status||'Confirmed'] || { label: s.status||'—', color:'#889' };
+    const pc = payColor[s.payment_status] || '#889';
+    return `
     <tr>
+      <td>${start + i + 1}</td>
       <td><strong>${escHtml(s.invoice_no)}</strong></td>
-      <td>${escHtml(s.customer_name||'—')}</td>
       <td>${fmt_date_disp(s.sale_date)}</td>
-      <td>${s.item_count ?? ''}</td>
-      <td>${fmt_money(s.total)}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${statusColor[s.payment_status]||'#888'};background:${statusColor[s.payment_status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(s.payment_status)}</span></td>
+      <td>${escHtml(s.customer_name||'—')}</td>
+      <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
+      <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
-        <div class="action-cell">
-          <button class="act-btn" title="View" onclick="printSaleEntry(${s.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Edit" onclick="editSale(${s.id})"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Delete" onclick="deleteSale(${s.id})"><i class="fas fa-trash"></i></button>
+        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+          <button class="act-btn" title="View" onclick="viewSaleDetails(${s.id})"><i class="fas fa-eye"></i></button>
+          <button class="act-btn" title="Print" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i></button>
+          <button class="act-btn" title="Download PDF" onclick="printSaleEntry(${s.id})"><i class="fas fa-download"></i></button>
+          <span class="act-menu-wrap">
+            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+            <div class="act-menu">
+              <button onclick="editSale(${s.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="deleteSale(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+            </div>
+          </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function slPage(p) {
+  const totalPages = Math.max(1, Math.ceil(slFilteredSales().length / SL_PAGESIZE));
+  if (p < 1 || p > totalPages) return;
+  SL_PAGE = p;
+  renderSales();
+}
+
+function exportSalesExcel() {
+  const list = slFilteredSales();
+  if (!list.length) { toast('⚠️ No sales to export for the selected filters', 'warning'); return; }
+  const rows = [['#','Invoice No.','Invoice Date','Customer','Qty (Kg)','Net Amount','Amount Received','Outstanding','Payment Status','Status','Sales Executive','Warehouse']];
+  list.forEach((s, i) => {
+    const total = parseFloat(s.total)||0, recd = parseFloat(s.amount_received)||0;
+    rows.push([
+      i+1, s.invoice_no||'', s.sale_date||'', s.customer_name||'',
+      (parseFloat(s.total_qty)||0).toFixed(2), total.toFixed(2), recd.toFixed(2), Math.max(0, total-recd).toFixed(2),
+      s.payment_status||'', s.status||'Confirmed', s.sales_executive||'', s.warehouse||'Main Warehouse'
+    ]);
+  });
+  _downloadCSV(rows, 'sales_list.csv');
+  toast('✅ Exported ' + list.length + ' sales', 'success');
 }
 
 // Quick Actions "Print Invoice" — prints the real saved invoice if we're
@@ -16338,8 +18045,8 @@ function printSaleInvoice(s) {
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
             ${co.address?escHtml(co.address)+'<br>':''}
-            ${co.gst?`<strong>GSTIN: ${escHtml(co.gst)}</strong><br>`:''}
-            ${co.fssai?`FSSAI: ${escHtml(co.fssai)} &nbsp; `:''}${co.iec?`IEC: ${escHtml(co.iec)}`:''}
+            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
+            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
           </div>
         </div>
       </div>
@@ -16384,6 +18091,7 @@ function printSaleInvoice(s) {
       <div class="box">
         <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''}</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
         ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
@@ -16447,6 +18155,8 @@ function goToNewStockAdjustment() {
   document.getElementById('sa-no').value = '';
   document.getElementById('sa-date').value = fmt_date(new Date());
   document.getElementById('sa-type').value = 'Moisture Loss';
+  document.getElementById('sa-direction').value = 'out';
+  onSADirectionChange();
   document.getElementById('sa-warehouse').value = 'Main Warehouse';
   document.getElementById('sa-refno').value = '';
   document.getElementById('sa-refdate').value = '';
@@ -16502,14 +18212,26 @@ function onSAProductChange() {
   calcStockAdjustment();
 }
 
+// Direction switch: relabels the quantity field/summary and recalculates.
+// "Increase" is for recounts that find MORE stock than the system shows,
+// stock returned after processing, etc.
+function onSADirectionChange() {
+  const isIn = document.getElementById('sa-direction').value === 'in';
+  document.getElementById('sa-qty-label').textContent = isIn ? 'Weight Gain (Kg) *' : 'Weight Loss (Kg) *';
+  document.getElementById('sa-sum-loss-label').textContent = isIn ? 'Weight Gain (Kg)' : 'Weight Loss (Kg)';
+  document.getElementById('sa-sum-op').textContent = isIn ? '+' : '−';
+  calcStockAdjustment();
+}
+
 function calcStockAdjustment() {
+  const isIn = document.getElementById('sa-direction')?.value === 'in';
   const opening = parseFloat(document.getElementById('sa-openingstock').value) || 0;
   const before = document.getElementById('sa-moistbefore').value;
   const after  = document.getElementById('sa-moistafter').value;
   const moistLoss = (before !== '' && after !== '') ? (parseFloat(before) - parseFloat(after)) : null;
   document.getElementById('sa-moistloss').value = moistLoss !== null ? moistLoss.toFixed(2) : '';
   const weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
-  const finalStock = Math.max(0, opening - weightLoss);
+  const finalStock = isIn ? opening + weightLoss : Math.max(0, opening - weightLoss);
   document.getElementById('sa-finalstock').value = finalStock.toFixed(2);
 
   document.getElementById('sa-sum-opening').textContent = opening.toFixed(2);
@@ -16544,6 +18266,7 @@ async function saveStockAdjustmentEntry() {
     adjustment_no: document.getElementById('sa-no').value.trim(),
     adjustment_date: document.getElementById('sa-date').value,
     adjustment_type: document.getElementById('sa-type').value,
+    direction: document.getElementById('sa-direction').value,
     warehouse: document.getElementById('sa-warehouse').value,
     reference_no: document.getElementById('sa-refno').value.trim(),
     reference_date: document.getElementById('sa-refdate').value || null,
@@ -16631,7 +18354,7 @@ function goToNewSupplierPage() {
   document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
   document.getElementById('supn-crumb').textContent = 'Add New';
   document.getElementById('sup-type').value = '';
-  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-pincode',
+  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-district','sup-pincode',
    'sup-gstin','sup-pan','sup-aadhaar','sup-statecode','sup-tan','sup-msme','sup-fssai','sup-bankname','sup-bankacc',
    'sup-ifsc','sup-accholder','sup-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('sup-regdate').value = '';
@@ -16667,7 +18390,7 @@ async function editSupplierRich(id) {
   set('sup-mobile', s.phone); set('sup-email', s.email); set('sup-regdate', s.date_of_registration);
   set('sup-bizNature', s.business_nature); set('sup-website', s.website);
   populateSupStateDropdown();
-  set('sup-address', s.address); set('sup-city', s.city); set('sup-state', s.state); set('sup-pincode', s.pincode);
+  set('sup-address', s.address); set('sup-city', s.city); set('sup-district', s.district); set('sup-state', s.state); set('sup-pincode', s.pincode);
   set('sup-country', s.country || 'India');
   set('sup-gstin', s.gst_number); set('sup-pan', s.pan_no); set('sup-aadhaar', s.aadhaar_no);
   set('sup-statecode', s.state_code); set('sup-tan', s.tan_no); set('sup-msme', s.msme_no); set('sup-fssai', s.fssai_no);
@@ -16722,7 +18445,7 @@ async function saveSupplierEntry() {
     phone: document.getElementById('sup-mobile').value.trim(), email: document.getElementById('sup-email').value.trim(),
     date_of_registration: document.getElementById('sup-regdate').value || null,
     business_nature: document.getElementById('sup-bizNature').value, website: document.getElementById('sup-website').value.trim(),
-    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(),
+    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(), district: document.getElementById('sup-district').value.trim(),
     state: document.getElementById('sup-state').value, pincode: document.getElementById('sup-pincode').value.trim(),
     country: document.getElementById('sup-country').value,
     gst_number: document.getElementById('sup-gstin').value.trim(), pan_no: document.getElementById('sup-pan').value.trim(),
@@ -16808,7 +18531,7 @@ function goToNewCustomerPage() {
   document.getElementById('cusn-code').value = '';
   document.getElementById('cusn-code').placeholder = 'Auto Generate';
   ['cusn-name','cusn-bizname','cusn-displayname','cusn-phone','cusn-altphone','cusn-email','cusn-whatsapp',
-   'cusn-billing','cusn-shipping','cusn-city','cusn-pincode','cusn-shipcity','cusn-shippincode',
+   'cusn-billing','cusn-shipping','cusn-city','cusn-district','cusn-pincode','cusn-shipcity','cusn-shippincode',
    'cusn-gst','cusn-pan','cusn-tan','cusn-iec','cusn-tradelicense','cusn-notes-inline','cusn-notes-sidebar']
    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cusn-group').value = '';
@@ -16820,6 +18543,7 @@ function goToNewCustomerPage() {
   document.getElementById('cusn-biztype').value = '';
   document.getElementById('cusn-currency').value = 'INR';
   document.getElementById('cusn-paymentterms').value = '';
+  populateSalesExecDropdown(SERVER.user?.name || '', 'cusn-salesperson');
   document.getElementById('cusn-openingbal').value = 0;
   document.getElementById('cusn-openingbaltype').value = 'Debit';
   populateCusnSalesPersonDropdown();
@@ -16860,14 +18584,14 @@ async function editCustomerRich(id) {
   set('cusn-displayname', c.display_name || c.name); set('cusn-group', c.group_name); set('cusn-status', c.status === 'archived' ? 'Inactive' : 'Active');
   set('cusn-creditlimit', c.credit_limit); set('cusn-phone', c.mobile); set('cusn-altphone', c.alternate_phone);
   set('cusn-email', c.email); set('cusn-whatsapp', c.whatsapp_no); set('cusn-billing', c.billing_address);
-  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); populateCusnStateDropdowns();
+  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); set('cusn-district', c.district); populateCusnStateDropdowns();
   set('cusn-state', c.state); set('cusn-pincode', c.billing_pincode); set('cusn-shipcity', c.shipping_city);
   set('cusn-shipstate', c.shipping_state); set('cusn-shippincode', c.shipping_pincode);
   set('cusn-gst', c.gstin); set('cusn-pan', c.pan_no); set('cusn-biztype', c.business_type); set('cusn-tan', c.tan_no);
   set('cusn-iec', c.iec_no); set('cusn-tradelicense', c.trade_license_no); set('cusn-currency', c.currency || 'INR');
   set('cusn-paymentterms', c.payment_terms); set('cusn-openingbal', c.opening_balance || 0); set('cusn-openingbaltype', c.opening_balance_type || 'Debit');
   await populateCusnSalesPersonDropdown();
-  set('cusn-salesperson', c.sales_executive); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
+  populateSalesExecDropdown(c.sales_executive || '', 'cusn-salesperson'); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
   document.getElementById('cusn-sameaddr').checked = (c.billing_address === c.shipping_address);
   onCusnSameAddrToggle();
   document.getElementById('cusn-sum-code').textContent = c.customer_code || '—';
@@ -16928,7 +18652,7 @@ async function saveCustomerEntry(mode) {
     email: document.getElementById('cusn-email').value.trim(), whatsapp_no: document.getElementById('cusn-whatsapp').value.trim(),
     billing_address: document.getElementById('cusn-billing').value.trim(),
     shipping_address: sameAddr ? document.getElementById('cusn-billing').value.trim() : document.getElementById('cusn-shipping').value.trim(),
-    billing_city: document.getElementById('cusn-city').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
+    billing_city: document.getElementById('cusn-city').value.trim(), district: document.getElementById('cusn-district').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
     shipping_city: sameAddr ? document.getElementById('cusn-city').value.trim() : document.getElementById('cusn-shipcity').value.trim(),
     shipping_state: sameAddr ? document.getElementById('cusn-state').value : document.getElementById('cusn-shipstate').value,
     shipping_pincode: sameAddr ? document.getElementById('cusn-pincode').value.trim() : document.getElementById('cusn-shippincode').value.trim(),
@@ -17015,8 +18739,14 @@ function populateCustStateFilter() {
 
 async function renderCustomersList() {
   try {
-    const r = await api('api/customers.php');
-    STATE.customers = Array.isArray(r.data) ? r.data : [];
+    // Fetch both active and archived so the Status filter and Restore
+    // action have real data to work with (previously only active ones
+    // were ever loaded, silently breaking the "Inactive" filter option).
+    const [activeR, archivedR] = await Promise.all([
+      api('api/customers.php'),
+      api('api/customers.php?status=archived').catch(() => ({ data: [] })),
+    ]);
+    STATE.customers = [...(Array.isArray(activeR.data) ? activeR.data : []), ...(Array.isArray(archivedR.data) ? archivedR.data : [])];
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 
   const outstandingMap = custOutstandingMap();
@@ -17077,9 +18807,17 @@ async function renderCustomersList() {
         <td style="color:${outstanding>0?'#E53935':'#00897B'};font-weight:600">${fmt_money(outstanding)}</td>
         <td><span style="font-size:10px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 7px;border-radius:9px">${c.status==='active'?'Active':'Inactive'}</span></td>
         <td>
-          <div class="action-cell">
-            <button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>
-            <button class="act-btn" title="Archive" onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i></button>
+          <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+            <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>` : ''}
+            <span class="act-menu-wrap">
+              <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
+              <div class="act-menu">
+                ${c.status==='active'
+                  ? `<button onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
+                  : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
+              </div>
+            </span>
           </div>
         </td>
       </tr>`;
@@ -17101,6 +18839,15 @@ function exportCustomersCsv() {
   a.href = URL.createObjectURL(blob);
   a.download = 'customers-' + fmt_date(new Date()) + '.csv';
   a.click();
+}
+
+async function restoreCustomer(id) {
+  const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
+  try {
+    await api('api/customers.php?action=restore&id=' + id, 'POST');
+    toast(`✅ "${c.name}" restored`, 'success');
+    renderCustomersList();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function deleteCustomerRich(id) {
@@ -17166,6 +18913,7 @@ function goToNewStockIn() {
   document.getElementById('sti-net').value = '';
   document.getElementById('sti-operator').value = '';
   document.getElementById('sti-slip-input').value = '';
+  { const b = document.getElementById('sti-reconcile-banner'); if (b) b.style.display = 'none'; }
   document.getElementById('sti-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: JPG, PNG, PDF (Max 5MB)</span></div>';
   populateSTISupplierDropdown();
   document.getElementById('sti-supplier').value = '';
@@ -17275,20 +19023,70 @@ function renderSTIItemsTable() {
       <tr>
         <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety||'—')}</td><td>${escHtml(it.grade||'—')}</td>
         <td>${escHtml(it.batch_no||'—')}</td><td>${it.mfg_date?fmt_date_disp(it.mfg_date):'—'}</td><td>${it.expiry_date?fmt_date_disp(it.expiry_date):'—'}</td>
-        <td>${it.qty.toFixed(2)}</td><td>${it.rate.toFixed(2)}</td><td class="pne-amount-cell">${fmt_money(it.amount)}</td>
+        <td><input type="number" min="0" step="0.01" value="${it.qty.toFixed(2)}" style="width:85px;text-align:right" oninput="updateSTIItem(${it.id},'qty',this.value)"></td>
+        <td><input type="number" min="0" step="0.01" value="${it.rate.toFixed(2)}" style="width:80px;text-align:right" oninput="updateSTIItem(${it.id},'rate',this.value)"></td>
+        <td class="pne-amount-cell" id="sti-item-amt-${it.id}">${fmt_money(it.amount)}</td>
         <td><button class="item-del" onclick="removeSTIItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
       </tr>`).join('');
   }
+  updateSTIItemsTotals();
+}
+
+// Inline edit of an item's qty/rate — recalculates its amount and the totals
+// in place, without re-rendering the whole table (which would steal focus
+// from the input mid-typing).
+function updateSTIItem(id, field, val) {
+  const it = STI.items.find(x => x.id === id); if (!it) return;
+  it[field] = parseFloat(val) || 0;
+  it.amount = +(it.qty * it.rate).toFixed(2);
+  const amtCell = document.getElementById('sti-item-amt-' + id);
+  if (amtCell) amtCell.textContent = fmt_money(it.amount);
+  updateSTIItemsTotals();
+}
+
+function updateSTIItemsTotals() {
   const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
   const totalAmt = STI.items.reduce((s,i) => s+i.amount, 0);
   document.getElementById('sti-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
   document.getElementById('sti-total-amount').textContent = fmt_money(totalAmt);
+  checkSTIReconciliation();
+}
+
+// Total Quantity (sum of product rows, what gets credited to stock) and
+// Net Weight (the physical weighbridge reading for the whole vehicle)
+// should normally be close for a single-truckload delivery. A meaningful
+// gap can mean a weighing error, moisture loss in transit, or a short/
+// excess delivery — worth a heads-up, not a hard block, since some gap
+// (e.g. genuine moisture loss) can be entirely legitimate.
+const STI_RECONCILE_TOLERANCE_PCT = 2; // flag when the gap exceeds this % of net weight
+
+function checkSTIReconciliation() {
+  const banner = document.getElementById('sti-reconcile-banner');
+  if (!banner) return;
+  const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
+  const net = parseFloat(document.getElementById('sti-net')?.value) || 0;
+  if (totalQty <= 0 || net <= 0) { banner.style.display = 'none'; return; }
+
+  const diff = totalQty - net;
+  const pctDiff = (Math.abs(diff) / net) * 100;
+
+  if (pctDiff <= STI_RECONCILE_TOLERANCE_PCT) {
+    banner.style.display = 'block';
+    banner.style.background = 'var(--green-bg)'; banner.style.color = 'var(--green)';
+    banner.innerHTML = `<i class="fas fa-circle-check"></i> Total Quantity (${totalQty.toFixed(2)} Kg) matches Net Weight (${net.toFixed(2)} Kg)`;
+  } else {
+    const short = diff < 0; // total qty entered is LESS than what the truck weighed
+    banner.style.display = 'block';
+    banner.style.background = 'var(--amber-bg)'; banner.style.color = '#8A6D00';
+    banner.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Total Quantity (${totalQty.toFixed(2)} Kg) is ${short?'less':'more'} than Net Weight (${net.toFixed(2)} Kg) by ${Math.abs(diff).toFixed(2)} Kg (${pctDiff.toFixed(1)}%) — double-check before saving, or this may be expected (e.g. moisture loss).`;
+  }
 }
 
 function calcSTIWeight() {
   const gross = parseFloat(document.getElementById('sti-gross').value) || 0;
   const tare = parseFloat(document.getElementById('sti-tare').value) || 0;
   document.getElementById('sti-net').value = Math.max(0, gross-tare).toFixed(2);
+  checkSTIReconciliation();
 }
 
 function stiSlipChange(file) {
@@ -17377,19 +19175,13 @@ async function renderSTIRecentHistory() {
     const rows = Array.isArray(r.data) ? r.data : [];
     if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No stock-in entries yet</div>'; return; }
     box.innerHTML = rows.map(r => `
-      <div style="border-bottom:1px solid var(--border);padding-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong style="font-size:12.5px">${escHtml(r.reference_no)}</strong>
-          <span style="display:flex;gap:4px">
-            <button class="act-btn" title="Edit" onclick="editStockIn(${r.id})"><i class="fas fa-pen" style="font-size:10px"></i></button>
-            <button class="act-btn" title="Delete" onclick="deleteStockInEntry(${r.id})"><i class="fas fa-trash" style="font-size:10px"></i></button>
-          </span>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="min-width:0">
+          <strong style="font-size:12.5px;display:block">${escHtml(r.reference_no)}</strong>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.stock_in_type)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
-          <span style="font-size:11px;color:var(--muted)">${escHtml(r.stock_in_type)}</span>
-          <span style="font-size:10.5px;font-weight:700;color:#00897B;background:#E8F5E918;padding:2px 8px;border-radius:10px">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
+        <span style="font-size:11px;font-weight:700;color:#00897B;background:#E8F5E9;padding:4px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
       </div>`).join('');
   } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
 }
@@ -17757,7 +19549,10 @@ function buildMergedPaymentsList() {
   }));
   const purchasePmts = (STATE.purchases||[]).filter(p => (parseFloat(p.amount_paid)||0) > 0).map(p => ({
     id: 'pur-' + p.id, date: p.purchase_date, inv: p.purchase_no, client: p.supplier_name || '—',
-    method: p.payment_mode || '—', txn: p.transaction_no || '', amount: p.amount_paid, status: p.payment_status || 'Pending',
+    method: p.payment_mode || '—', txn: p.transaction_no || '',  amount: p.amount_paid,
+    // Purchases keep their payment state in `status` (there is no payment_status
+    // column on purchases) — 'Received' is a legacy value meaning nothing paid yet.
+    status: (p.status === 'Received' ? 'Pending' : p.status) || 'Pending',
     source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
   }));
   const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
@@ -18310,6 +20105,12 @@ async function saveCompanySettings() {
   const payload = {
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
+    company_pan:     document.getElementById('sc-pan')?.value     || '',
+    company_iec:     document.getElementById('sc-iec')?.value     || '',
+    company_fssai:   document.getElementById('sc-fssai')?.value   || '',
+    company_apeda:   document.getElementById('sc-apeda')?.value   || '',
+    company_cin:     document.getElementById('sc-cin')?.value     || '',
+    company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -18322,9 +20123,12 @@ async function saveCompanySettings() {
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
     business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
+    show_dhalta_pct: document.getElementById('sc-show-dhaltapct')?.value || STATE.settings.showDhaltaPct || '1',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
+    pan: payload.company_pan, iec: payload.company_iec, fssai: payload.company_fssai,
+    apeda: payload.company_apeda, cin: payload.company_cin, msme: payload.company_msme,
     email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
     estPrefix: payload.estimate_prefix,
     upi: payload.company_upi, address: payload.company_address,
@@ -18333,6 +20137,7 @@ async function saveCompanySettings() {
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
     businessType: payload.business_type,
+    showDhaltaPct: payload.show_dhalta_pct,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -18340,6 +20145,7 @@ async function saveCompanySettings() {
   try {
     await api('api/settings.php', 'POST', payload);
     livePreview();
+    applyDhaltaPctVisibility();
     toast('✅ Settings saved!', 'success');
     // Show logo/sign preview if uploaded
     if (payload.company_logo) {
@@ -19942,6 +21748,13 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   const s = SERVER.settings || {};
   STATE.settings.company   = s.company_name    || STATE.settings.company;
   STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
+  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
   STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
   STATE.settings.email     = s.company_email   || STATE.settings.email;
   STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -20118,6 +21931,20 @@ async function loadAllData() {
       }
       STATE.settings.company   = s.company_name    || STATE.settings.company;
       STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
+      STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+      STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+      STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+      STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+      STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+      STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
+  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
+  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
+  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
+  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
+  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
+  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
       STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
       STATE.settings.email     = s.company_email   || STATE.settings.email;
       STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -20514,6 +22341,13 @@ function populateSettingsForm() {
   const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
+  set('sc-pan',     s.pan);
+  set('sc-iec',     s.iec);
+  set('sc-fssai',   s.fssai);
+  set('sc-apeda',   s.apeda);
+  set('sc-cin',     s.cin);
+  set('sc-msme',    s.msme);
+  const dhSel = document.getElementById('sc-show-dhaltapct'); if (dhSel) dhSel.value = (s.showDhaltaPct === '0') ? '0' : '1';
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   set('sc-web',     s.website);
@@ -20706,6 +22540,59 @@ window.settingsTab = function(name, btn) {
 };
 
 // ── Admin Profile ──────────────────────────────────────────────
+// ── Super admin: ad-hoc database connect/disconnect ────────────────
+// Points THIS session at any database so the normal app UI (Sales,
+// Invoices, Stock, etc.) reads from it — no tenant record is created,
+// no users are migrated. Purely for the super admin to look around.
+async function connectDbPrompt() {
+  let recentHtml = '';
+  try {
+    const r = await api('api/tenant.php?action=recent_connections', 'GET');
+    if (r.data?.length) {
+      recentHtml = `<div style="text-align:left;margin-top:10px">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Recent:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${r.data.map(d => `<button type="button" class="recent-db-chip" data-db="${d.db_name.replace(/"/g,'&quot;')}"
+            style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">${d.label}</button>`).join('')}
+        </div>
+      </div>`;
+    }
+  } catch(e) { /* recent list is a convenience, ignore failures */ }
+
+  const { value: dbName } = await Swal.fire({
+    title: 'Connect to a database',
+    html: `<input id="swal-dbname" class="swal2-input" placeholder="e.g. edrppymy_optms_invoice" style="margin-bottom:4px">
+           <div style="font-size:11px;color:#888;text-align:left;margin:0 6px">Exact database name from cPanel → MySQL Databases</div>
+           ${recentHtml}`,
+    showCancelButton: true,
+    confirmButtonText: 'Connect',
+    customClass: { popup: 'swal-compact' },
+    didOpen: () => {
+      const input = document.getElementById('swal-dbname');
+      document.querySelectorAll('.recent-db-chip').forEach(chip => {
+        chip.addEventListener('click', () => { input.value = chip.dataset.db; input.focus(); });
+      });
+    },
+    preConfirm: () => document.getElementById('swal-dbname').value.trim(),
+  });
+  if (!dbName) return;
+  try {
+    const r = await api('api/tenant.php?action=connect_db', 'POST', { db_name: dbName.trim() });
+    if (r.success) {
+      toast(`✅ Connected to ${r.label}`, 'success');
+      setTimeout(() => window.location.reload(), 600);
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function disconnectDb() {
+  try {
+    await api('api/tenant.php?action=disconnect_db', 'POST', {});
+    toast('🔌 Disconnected — back to admin view', 'info');
+    setTimeout(() => window.location.reload(), 500);
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
 window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2*1024*1024) { toast('⚠️ Max 2MB', 'warning'); return; }
