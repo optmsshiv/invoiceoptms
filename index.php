@@ -16410,6 +16410,13 @@ function removePNEItem(id) {
 function editPNEItem(id) {
   const it = PNE.items.find(i => i.id === id); if (!it) return;
   it.editing = true;
+  // Restore this item's gross/tare back to the header Weight Info fields
+  // so the user can see and adjust what was entered for this item
+  const gEl = document.getElementById('pn-kanta-gross');
+  const tEl = document.getElementById('pn-kanta-tare');
+  if (gEl) gEl.value = it.gross_weight || '';
+  if (tEl) tEl.value = it.tare_weight  || '';
+  calcPNEKantaSummary();
   renderPNEItemsTable();
 }
 
@@ -16462,7 +16469,6 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
-        <td class="pne-view-cell">${c.dhaltaPct.toFixed(2)}</td>
         <td class="pne-view-cell pne-dhpct-col">${c.dhaltaPct.toFixed(1)}%</td>
         <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
         <td class="pne-view-cell">${c.billable.toFixed(2)}</td>
