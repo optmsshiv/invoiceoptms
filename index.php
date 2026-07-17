@@ -14458,8 +14458,8 @@ function _renderProdPage() {
       ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
-      <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
-      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>`;
+      <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',p.name||'Product',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
+      ${_delItem("deleteProduct('"+p.id+"')")}`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
     <td><strong>${escHtml(p.name)}</strong></td>
@@ -15159,15 +15159,15 @@ async function renderSuppliers() {
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},escHtml(s.name),()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
+          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},s.name||'Supplier #'+s.id,()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
               ${active
-                ? `${archiveMenuItem(`archiveSupplier(${s.id})`,"Archive")}`
+                ? _archiveItem("archiveSupplier("+s.id+")")
                 : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              ${delMenuItem(`deleteSupplierPermanent(${s.id})`,"Delete")}
+              ${_delItem("deleteSupplierPermanent("+s.id+")")}
             </div>
           </span>
         </div>
@@ -15315,6 +15315,12 @@ function assertCanArchive(entityName = 'this record') {
   }
   return true;
 }
+
+// Short-form helpers for use inside template literals — avoids nested backtick
+// syntax which breaks the outer template literal in JS row builders.
+// These are called with a plain string like _delItem("deleteX("+id+")")
+function _delItem(onclick, label='Delete') { return delMenuItem(onclick, label); }
+function _archiveItem(onclick, label='Archive') { return archiveMenuItem(onclick, label); }
 
 function toggleActMenu(ev, btn) {
   ev.stopPropagation();
@@ -15927,8 +15933,8 @@ function renderPurchases() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('purchase',${p.id},'Purchase '+escHtml(p.purchase_no||'#'+p.id),()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${delMenuItem(`deletePurchase(${p.id})`,"Delete")}
+              <button onclick="editWithApproval('purchase',${p.id},'Purchase '+(p.purchase_no||'#'+p.id),()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              ${_delItem("deletePurchase("+p.id+")")}
             </div>
           </span>
         </div>
@@ -16079,13 +16085,13 @@ function renderProductsList() {
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',escHtml(p.name),()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',p.name||'Product',()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
-              ${delMenuItem(`deleteProduct('${p.id}')`, "Delete")}
+              ${_delItem("deleteProduct('"+p.id+"')")}
             </div>
           </span>
         </div>
@@ -18689,8 +18695,8 @@ function renderSales() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('sale',${s.id},'Invoice '+escHtml(s.invoice_no||('#'+s.id)),()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${delMenuItem(`deleteSale(${s.id})`,"Delete")}
+              <button onclick="editWithApproval('sale',${s.id},'Invoice '+(s.invoice_no||'#'+s.id),()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              ${_delItem("deleteSale("+s.id+")")}
             </div>
           </span>
         </div>
@@ -19560,12 +19566,12 @@ async function renderCustomersList() {
         <td>
           <div class="action-cell" style="display:flex;gap:2px;align-items:center">
             <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
-            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},escHtml(c.name),()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},c.name||'Customer #'+c.id,()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
             <span class="act-menu-wrap">
               <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
               <div class="act-menu">
                 ${c.status==='active'
-                  ? `${archiveMenuItem(`deleteCustomerRich(${c.id})`,"Archive")}`
+                  ? _archiveItem("deleteCustomerRich("+c.id+")")
                   : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
               </div>
             </span>
