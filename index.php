@@ -16409,6 +16409,8 @@ function removePNEItem(id) {
   if (PNE.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
   PNE.items = PNE.items.filter(i => i.id !== id);
   renderPNEItemsTable();
+  calcPurchaseNewTotals();
+  calcPNEKantaSummary();
 }
 
 function editPNEItem(id) {
@@ -16618,11 +16620,26 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
+  // ── Weight Summary sidebar — driven from PNE.items so it stays
+  // correct even after the header fields reset on Done / row removed ──
+  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '0.00 Kg';
+  document.getElementById('pnk-sum-gross').textContent    = fmt(sumGross);
+  document.getElementById('pnk-sum-tare').textContent     = fmt(sumTare);
+  document.getElementById('pnk-sum-net').textContent      = fmt(totalNet);
+  document.getElementById('pnk-sum-dhalta').textContent   = fmt(totalDhalta);
+  document.getElementById('pnk-sum-billable').textContent = fmt(totalBillable);
+
+  // Quality header fields — auto-average from items
   document.getElementById('pn-q-moisture').value = totalNet > 0 ? (moistureWeighted / totalNet).toFixed(2) : '';
   document.getElementById('pn-q-dhaltapct').value = totalNet > 0 ? (dhaltaPctWeighted / totalNet).toFixed(2) : '';
-  // Do NOT call calcPNEKantaSummary() here — that function calls us back,
-  // creating an infinite loop on every keystroke. Kanta summary is only
-  // triggered directly from the gross/tare input fields.
+  // Update dhalta Kg + billable in weight section from items total
+  // (only if user isn't actively typing in pn-q-dhaltakg)
+  const dkEl = document.getElementById('pn-q-dhaltakg');
+  const blEl = document.getElementById('pn-q-billable');
+  const headerNet = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
+  if (dkEl && document.activeElement !== dkEl) dkEl.value = totalDhalta > 0 ? totalDhalta.toFixed(2) : '';
+  if (blEl) blEl.value = headerNet > 0 ? Math.max(0, headerNet - totalDhalta).toFixed(2) : '';
+  // Do NOT call calcPNEKantaSummary() — infinite loop risk
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
     + (parseFloat(document.getElementById('pn-loadingcharge').value)||0)
@@ -16964,25 +16981,26 @@ function calcPNEKantaSummary() {
 
   // Update sidebar weight summary — accumulate from ALL saved items so
   // the summary stays correct after Done resets the header fields.
-  let sumGross = 0, sumTare = 0, sumNet = 0, sumDhalta = 0, sumBillable = 0;
+  let sumGross2 = 0, sumTare2 = 0, sumNet2 = 0, sumDhalta2 = 0, sumBillable2 = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
-    sumGross    += parseFloat(it.gross_weight) || 0;
-    sumTare     += parseFloat(it.tare_weight)  || 0;
-    sumNet      += c.net;
-    sumDhalta   += c.dhaltaKg;
-    sumBillable += c.billable;
+    sumGross2    += parseFloat(it.gross_weight) || 0;
+    sumTare2     += parseFloat(it.tare_weight)  || 0;
+    sumNet2      += c.net;
+    sumDhalta2   += c.dhaltaKg;
+    sumBillable2 += c.billable;
   });
-  // If header has values (user currently filling an item), add those on top
-  if (gross > 0) sumGross = gross + (sumGross - (parseFloat(PNE.items.find(i=>i.editing)?.gross_weight)||0));
-  if (tare  > 0) sumTare  = tare  + (sumTare  - (parseFloat(PNE.items.find(i=>i.editing)?.tare_weight )||0));
+  // If header has active values being filled, show current header net in summary
+  const dispNet  = net  > 0 ? net  : sumNet2;
+  const dispGross= gross> 0 ? gross: sumGross2;
+  const dispTare = tare > 0 ? tare : sumTare2;
 
-  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '—';
-  document.getElementById('pnk-sum-gross').textContent    = fmt(sumGross || gross);
-  document.getElementById('pnk-sum-tare').textContent     = fmt(sumTare  || tare);
-  document.getElementById('pnk-sum-net').textContent      = fmt(sumNet   || net);
-  document.getElementById('pnk-sum-dhalta').textContent   = (sumDhalta).toFixed(2) + ' Kg';
-  document.getElementById('pnk-sum-billable').textContent = (sumBillable).toFixed(2) + ' Kg';
+  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '0.00 Kg';
+  document.getElementById('pnk-sum-gross').textContent    = fmt(dispGross);
+  document.getElementById('pnk-sum-tare').textContent     = fmt(dispTare);
+  document.getElementById('pnk-sum-net').textContent      = fmt(dispNet);
+  document.getElementById('pnk-sum-dhalta').textContent   = fmt(sumDhalta2);
+  document.getElementById('pnk-sum-billable').textContent = fmt(sumBillable2);
   calcPNEQualitySummary();
 }
 
