@@ -16391,7 +16391,15 @@ function pneEmptyItem() {
 
 function addPurchaseNewItem() {
   PNE.items.push(pneEmptyItem());
+  // Reset the Weight Info section so the user fills fresh kanta readings
+  // for the next product — prevents stale values from the previous item
+  // auto-filling into the new row.
+  const fields = ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net'];
+  fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  calcPNEKantaSummary();
   renderPNEItemsTable();
+  // Scroll to the weight info section so user fills it next
+  document.getElementById('pn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function removePNEItem(id) {
@@ -16885,33 +16893,47 @@ function calcPNEKantaSummary() {
   const net   = Math.max(0, gross - tare);
   document.getElementById('pn-kanta-net').value = net > 0 ? net.toFixed(2) : '';
 
-  // ── Auto-fill items qty from net weight ──────────────────────
-  // Net weight from the weighbridge IS the quantity purchased —
-  // push it into items so the user never types weight twice.
-  // If there's exactly one item row, always fill it.
-  // If there are multiple rows, fill the first blank qty only
-  // (the user splits manually across rows for multi-product loads).
-  if (net > 0 && PNE.items.length > 0) {
+  // ── Sync to item row gross/tare ──────────────────────────────
+  // The header kanta reading IS the weight for the current item being filled.
+  // Push gross/tare into the item data and update computed cells directly
+  // WITHOUT re-rendering the whole table (which would cause an infinite loop
+  // since the gross/tare inputs have oninput → this function).
+  if (gross > 0 || tare > 0) {
+    let target = null;
     if (PNE.items.length === 1) {
-      // Single product — net weight = qty, always
-      PNE.items[0].qty = net;
+      target = PNE.items[0];
     } else {
-      // Multiple products — only fill first item if qty is still empty
-      if (!PNE.items[0].qty || PNE.items[0].qty === 0) {
-        PNE.items[0].qty = net;
-      }
+      target = PNE.items.find(it => it.editing) || null;
     }
-    renderPNEItemsTable();
+    if (target) {
+      target.gross_weight = gross || 0;
+      target.tare_weight  = tare  || 0;
+      // Update the item's computed cells in-place (gross/tare inputs + net/billable spans)
+      const c = pneCalcRow(target);
+      const netEl      = document.getElementById('pne-net-'      + target.id);
+      const billEl     = document.getElementById('pne-billable-' + target.id);
+      const grossInput = document.querySelector(`[data-row="${target.id}"] td:nth-child(6) input`);
+      const tareInput  = document.querySelector(`[data-row="${target.id}"] td:nth-child(7) input`);
+      if (grossInput) grossInput.value = gross || '';
+      if (tareInput)  tareInput.value  = tare  || '';
+      if (netEl)      netEl.textContent      = c.net.toFixed(2);
+      if (billEl)     billEl.textContent     = c.billable.toFixed(2);
+      // Update amt cell
+      const amtEl = document.getElementById('pne-amt-' + target.id);
+      if (amtEl) amtEl.textContent = fmt_money(c.amount);
+      calcPurchaseNewTotals();
+    }
   }
 
-  // Dhalta mirrors the aggregate from Items Details
+  // Update sidebar weight summary
   let totalDhalta = 0;
   PNE.items.forEach(it => { totalDhalta += pneCalcRow(it).dhaltaKg; });
   const billable = Math.max(0, net - totalDhalta);
 
-  document.getElementById('pnk-sum-gross').textContent = gross > 0 ? gross.toFixed(2) + ' Kg' : '—';
-  document.getElementById('pnk-sum-tare').textContent  = tare  > 0 ? tare.toFixed(2)  + ' Kg' : '—';
-  document.getElementById('pnk-sum-net').textContent   = net   > 0 ? net.toFixed(2)   + ' Kg' : '—';
+  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '—';
+  document.getElementById('pnk-sum-gross').textContent    = fmt(gross);
+  document.getElementById('pnk-sum-tare').textContent     = fmt(tare);
+  document.getElementById('pnk-sum-net').textContent      = fmt(net);
   document.getElementById('pnk-sum-dhalta').textContent   = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pnk-sum-billable').textContent = billable.toFixed(2) + ' Kg';
   calcPNEQualitySummary();
