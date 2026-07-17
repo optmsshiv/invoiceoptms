@@ -8338,6 +8338,13 @@ function editWithApproval(entityType, entityId, entityLabel, editFn) {
   }
 }
 
+// Product-specific wrapper — looks up the name from STATE so we don't
+// need to escape it inside an onclick attribute string.
+function _editProductWithApproval(productId, editFn) {
+  const p = (STATE.products || []).find(x => String(x.id) === String(productId));
+  editWithApproval('product', productId, (p?.name || 'Product #' + productId), editFn);
+}
+
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
   const showService = (biz === 'service' || biz === 'both');
@@ -14462,7 +14469,7 @@ function _renderProdPage() {
       ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
-      <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',p.name||'Product',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
+      <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
       ${_delItem("deleteProduct('"+p.id+"')")}`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
@@ -15163,7 +15170,7 @@ async function renderSuppliers() {
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},s.name||'Supplier #'+s.id,()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
+          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},'${escHtml((s.name||'Supplier #'+s.id).replace(/'/g,"\\'"))}',()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
@@ -15937,7 +15944,7 @@ function renderPurchases() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('purchase',${p.id},'Purchase '+(p.purchase_no||'#'+p.id),()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="editWithApproval('purchase',${p.id},'Purchase ${escHtml((p.purchase_no||'#'+p.id).replace(/'/g,"\\'"))}',()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
               ${_delItem("deletePurchase("+p.id+")")}
             </div>
           </span>
@@ -16089,7 +16096,7 @@ function renderProductsList() {
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',p.name||'Product',()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
@@ -18699,7 +18706,7 @@ function renderSales() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('sale',${s.id},'Invoice '+(s.invoice_no||'#'+s.id),()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="editWithApproval('sale',${s.id},'Invoice ${escHtml((s.invoice_no||'#'+s.id).replace(/'/g,"\\'"))}',()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
               ${_delItem("deleteSale("+s.id+")")}
             </div>
           </span>
@@ -19570,7 +19577,7 @@ async function renderCustomersList() {
         <td>
           <div class="action-cell" style="display:flex;gap:2px;align-items:center">
             <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
-            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},c.name||'Customer #'+c.id,()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},'${escHtml((c.name||'Customer #'+c.id).replace(/'/g,"\\'"))}',()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
             <span class="act-menu-wrap">
               <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
               <div class="act-menu">
