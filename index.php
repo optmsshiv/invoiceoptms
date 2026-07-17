@@ -16921,18 +16921,26 @@ function calcPNEKantaSummary() {
     if (target) {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;
-      const c      = pneCalcRow(target);
-      const netEl    = document.getElementById('pne-net-'      + target.id);
-      const billEl   = document.getElementById('pne-billable-' + target.id);
-      const amtEl    = document.getElementById('pne-amt-'      + target.id);
-      // Update view-mode gross/tare cells (shown when row is not in edit mode)
+      const c        = pneCalcRow(target);
+      // Update edit-mode inputs (exist when row is in edit mode)
+      const grossIn  = document.getElementById('pne-gross-'   + target.id);
+      const tareIn   = document.getElementById('pne-tare-'    + target.id);
+      // Update view-mode cells (exist when row is saved/view mode)
       const vGrossEl = document.getElementById('pne-vgross-'  + target.id);
       const vTareEl  = document.getElementById('pne-vtare-'   + target.id);
+      const netEl    = document.getElementById('pne-net-'     + target.id);
+      const billEl   = document.getElementById('pne-billable-'+ target.id);
+      const amtEl    = document.getElementById('pne-amt-'     + target.id);
+      // Edit mode inputs — update value without cursor interference
+      // (these are the header→table sync, not user typing in the input)
+      if (grossIn && document.activeElement !== grossIn) grossIn.value = gross || '';
+      if (tareIn  && document.activeElement !== tareIn)  tareIn.value  = tare  || '';
+      // View mode cells
+      if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
+      if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
       if (netEl)    netEl.textContent    = c.net.toFixed(2);
       if (billEl)   billEl.textContent   = c.billable.toFixed(2);
       if (amtEl)    amtEl.textContent    = fmt_money(c.amount);
-      if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
-      if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
       // Update footer totals directly — don't call calcPurchaseNewTotals()
       // because that calls calcPNEKantaSummary() creating an infinite loop.
       let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
@@ -16964,11 +16972,27 @@ function calcPNEKantaSummary() {
 // based against the weighbridge's Net Weight.
 function calcPNEQualitySummary() {
   const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
-  const dhaltaPct = parseFloat(document.getElementById('pn-q-dhaltapct').value) || 0;
-  const dhaltaKg = +(net * dhaltaPct / 100).toFixed(2);
+
+  // Dhalta Kg — sum directly from item rows (source of truth).
+  // Also update the dhalta% display from actual item average.
+  let totalDhaltaKg = 0, totalNet = 0, dhaltaPctWeighted = 0;
+  PNE.items.forEach(it => {
+    const c = pneCalcRow(it);
+    totalDhaltaKg    += c.dhaltaKg;
+    totalNet         += c.net;
+    dhaltaPctWeighted += c.dhaltaPct * c.net;
+  });
+
+  // If no items have weight yet, fall back to header net × dhalta%
+  const dhaltaKg = totalNet > 0 ? totalDhaltaKg
+    : Math.max(0, net * (parseFloat(document.getElementById('pn-q-dhaltapct').value) || 0) / 100);
+
+  const avgDhaltaPct = totalNet > 0 ? (dhaltaPctWeighted / totalNet) : 0;
   const billable = Math.max(0, net - dhaltaKg);
-  document.getElementById('pn-q-dhaltakg').value = dhaltaKg.toFixed(2);
-  document.getElementById('pn-q-billable').value = billable.toFixed(2);
+
+  document.getElementById('pn-q-dhaltapct').value = avgDhaltaPct > 0 ? avgDhaltaPct.toFixed(2) : '';
+  document.getElementById('pn-q-dhaltakg').value  = dhaltaKg > 0 ? dhaltaKg.toFixed(2) : '';
+  document.getElementById('pn-q-billable').value  = billable > 0 ? billable.toFixed(2) : '';
 }
 
 function pneKantaSlipChange(file) {
