@@ -30,10 +30,23 @@ $db->exec("UPDATE edit_approval_requests SET status='expired'
 
 try { switch (true) {
 
+    // ── CONSUME: mark approval used after the single edit is saved ─
+    case ($method === 'POST' && $action === 'consume'):
+        $reqId = (int)($body['id'] ?? 0);
+        if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);
+        $db->prepare(
+            'UPDATE edit_approval_requests
+                SET status="expired", review_note=CONCAT(IFNULL(review_note,""), " [Used — edit saved]")
+              WHERE id=? AND requested_by=? AND status="approved"'
+        )->execute([$reqId, $userId]);
+        jsonResponse(['success' => true]);
+
     // ── REQUEST: non-admin asks for edit permission ───────────────
     case ($method === 'POST' && $action === 'request'):
         $entityType  = trim($body['entity_type']  ?? '');
-        $entityId    = (int)($body['entity_id']   ?? 0);
+        // Product IDs arrive as "p12" (prefixed) — strip non-digits before casting
+        $rawId    = $body['entity_id'] ?? 0;
+        $entityId = (int) preg_replace('/\D/', '', (string)$rawId);
         $entityLabel = trim($body['entity_label'] ?? '');
         $reason      = trim(substr($body['reason'] ?? '', 0, 500));
 
@@ -79,9 +92,15 @@ try { switch (true) {
 
     // ── PENDING: admin/owner/manager fetches all pending requests ─────────
     case ($method === 'GET' && $action === 'pending'):
-        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
-            jsonResponse(['error' => 'Forbidden'], 403);
+        // owner/admin/super_admin always — others need action.approve_edits permission
+        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
+        if (!$canApprove) {
+            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
+            $rpChk->execute([$userRole]);
+            $row = $rpChk->fetch();
+            $canApprove = $row && (bool)$row['enabled'];
         }
+        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $stmt = $db->query(
             'SELECT * FROM edit_approval_requests
               WHERE status="pending" AND expires_at > NOW()
@@ -91,9 +110,15 @@ try { switch (true) {
 
     // ── APPROVE ───────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'approve'):
-        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
-            jsonResponse(['error' => 'Forbidden'], 403);
+        // owner/admin/super_admin always — others need action.approve_edits permission
+        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
+        if (!$canApprove) {
+            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
+            $rpChk->execute([$userRole]);
+            $row = $rpChk->fetch();
+            $canApprove = $row && (bool)$row['enabled'];
         }
+        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $reqId = (int)($body['id'] ?? 0);
         $note  = trim(substr($body['note'] ?? '', 0, 500));
         if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);
@@ -118,9 +143,15 @@ try { switch (true) {
 
     // ── REJECT ────────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'reject'):
-        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
-            jsonResponse(['error' => 'Forbidden'], 403);
+        // owner/admin/super_admin always — others need action.approve_edits permission
+        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
+        if (!$canApprove) {
+            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
+            $rpChk->execute([$userRole]);
+            $row = $rpChk->fetch();
+            $canApprove = $row && (bool)$row['enabled'];
         }
+        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $reqId = (int)($body['id'] ?? 0);
         $note  = trim(substr($body['note'] ?? '', 0, 500));
         if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);

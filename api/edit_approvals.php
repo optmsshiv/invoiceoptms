@@ -127,8 +127,9 @@ try { switch (true) {
             'UPDATE edit_approval_requests
                 SET status="approved", reviewed_by=?, reviewer_name=?,
                     review_note=?, approved_at=NOW(),
-                    -- Extend window: 1h to actually do the edit
-                    expires_at=DATE_ADD(NOW(), INTERVAL 1 HOUR)
+                    -- Short window: real expiry is consume-on-save (single use).
+                    -- 15 min is just the safety-net in case the user never saves.
+                    expires_at=DATE_ADD(NOW(), INTERVAL 15 MINUTE)
               WHERE id=? AND status="pending"'
         )->execute([$userId, $userName, $note, $reqId]);
 

@@ -759,6 +759,11 @@ canvas { max-width: 100% !important; }
 .act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
 .act-menu.open { display: block; }
 .act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
+
+@keyframes earPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .85; transform: scale(1.03); }
+}
 .act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
 .act-menu button:hover { background: var(--bg); }
 .act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
@@ -1527,6 +1532,7 @@ const SERVER = {
   canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.archive'] ?? true)) ?>,
   canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
   canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
+  canApproveEdits: <?= json_encode(in_array($userRole, ['owner','admin','super_admin']) ? true : (bool)($perms['action.approve_edits'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1811,10 +1817,16 @@ const SERVER = {
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
       </button>
+      <?php if ($perms['action.approve_edits'] ?? in_array($userRole, ['owner','admin','super_admin'])): ?>
+      <button id="ear-topbar-alert" onclick="showPage('dashboard',null)" style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;background:var(--amber);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;animation:earPulse 2s ease-in-out infinite">
+        <i class="fas fa-shield-halved"></i>
+        <span id="ear-topbar-count">0</span> edit request<span id="ear-topbar-plural"></span> waiting
+      </button>
+      <?php endif; ?>
       <div class="notif-wrap" style="position:relative">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)">
           <i class="fas fa-bell"></i>
-          <span class="bell-dot" id="bellCount">3</span>
+          <span class="bell-dot" id="bellCount" style="display:none">0</span>
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
@@ -8125,7 +8137,28 @@ const EAR = {
   entityLabel: null,
   editCallback: null,     // fn to call when approved
   pollTimer: null,
+  approvedFor: null,      // { entityType, entityId } — tracks which record was unlocked
 };
+
+// Called after every successful save — consumes the single-use approval
+// so the same approval can't be reused for another edit.
+async function consumeEditApproval() {
+  if (!EAR.requestId) return;
+  const id = EAR.requestId;
+  EAR.requestId = null;
+  EAR.approvedFor = null;
+  clearInterval(EAR.pollTimer);
+  try {
+    await api('api/edit_approvals.php?action=consume', 'POST', { id });
+  } catch(e) { /* non-fatal — server also expires it on next poll */ }
+}
+
+// Check if the current user has an active approval for this specific entity
+function hasActiveApproval(entityType, entityId) {
+  return EAR.approvedFor &&
+    EAR.approvedFor.entityType === entityType &&
+    String(EAR.approvedFor.entityId) === String(entityId);
+}
 
 // ── Intercept: called instead of editX() when user lacks action.edit ──
 // entityType: 'purchase'|'sale'|'supplier'|'customer'|'product'
@@ -8197,7 +8230,9 @@ function _earShowApproved(req) {
   const byEl = document.getElementById('ear-approved-by');
   const noteEl = document.getElementById('ear-approved-note');
   if (byEl) byEl.textContent = 'Approved by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : '';
+  if (noteEl) noteEl.textContent = req.review_note?.replace(' [Used — edit saved]','') ? '"' + req.review_note + '"' : '';
+  // Track which entity this approval covers
+  EAR.approvedFor = { entityType: EAR.entityType, entityId: EAR.entityId };
   // Auto-dismiss and open edit after 2s
   setTimeout(() => {
     const modal = document.getElementById('modal-edit-approval');
@@ -8235,19 +8270,41 @@ function cancelEditRequest() {
 let EAR_ADMIN_PENDING = [];
 
 async function loadPendingApprovals() {
-  if (!['owner','admin','manager','super_admin'].includes(SERVER.user.role)) return;
+  if (!SERVER.canApproveEdits) return;
   try {
     const r = await api('api/edit_approvals.php?action=pending');
+    const prev = EAR_ADMIN_PENDING.length;
     EAR_ADMIN_PENDING = r.data || [];
-    renderPendingApprovalsCard();
-    // Update bell badge
-    const badge = document.getElementById('bellCount');
-    if (badge) {
-      const existingCount = parseInt(badge.textContent) || 0;
-      badge.textContent = existingCount + EAR_ADMIN_PENDING.length;
-      badge.style.display = EAR_ADMIN_PENDING.length > 0 ? '' : (existingCount > 0 ? '' : 'none');
+
+    // ── Topbar alert pill ─────────────────────────────────────────
+    const pill = document.getElementById('ear-topbar-alert');
+    const cnt  = document.getElementById('ear-topbar-count');
+    const plrl = document.getElementById('ear-topbar-plural');
+    if (pill) {
+      if (EAR_ADMIN_PENDING.length > 0) {
+        pill.style.display = 'inline-flex';
+        if (cnt) cnt.textContent = EAR_ADMIN_PENDING.length;
+        if (plrl) plrl.textContent = EAR_ADMIN_PENDING.length > 1 ? 's' : '';
+      } else {
+        pill.style.display = 'none';
+      }
     }
-  } catch(e) { /* non-fatal */ }
+
+    // ── Browser tab title badge ───────────────────────────────────
+    const base = document.title.replace(/^\(\d+\)\s*/, '');
+    document.title = EAR_ADMIN_PENDING.length > 0
+      ? `(${EAR_ADMIN_PENDING.length}) ${base}` : base;
+
+    // ── Toast alert when NEW requests arrive (not on first load) ─
+    if (prev > 0 && EAR_ADMIN_PENDING.length > prev) {
+      const newest = EAR_ADMIN_PENDING[0];
+      toast(`🔔 ${newest.requester_name} is requesting permission to edit ${newest.entity_label || newest.entity_type}`, 'warning', 6000);
+    }
+
+    // ── Update bell count + notification panel ────────────────────
+    renderNotifications();
+    renderPendingApprovalsCard();
+  } catch(e) { /* non-fatal — keep app working even if this fails */ }
 }
 
 function renderPendingApprovalsCard() {
@@ -8333,7 +8390,7 @@ async function rejectEditRequest(id) {
 // If user has action.edit permission → call editFn directly.
 // Otherwise → route through the approval workflow.
 function editWithApproval(entityType, entityId, entityLabel, editFn) {
-  if (canDo('edit')) {
+  if (canDo('edit') || hasActiveApproval(entityType, entityId)) {
     editFn();
   } else {
     requestEditApproval(entityType, entityId, entityLabel, editFn);
@@ -14859,10 +14916,10 @@ async function saveProductEntry(mode) {
   try {
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
-      toast('✅ Product updated!', 'success');
+      consumeEditApproval(); toast('✅ Product updated!', 'success');
     } else {
       await api('api/products.php', 'POST', payload);
-      toast('✅ Product saved!', 'success');
+      consumeEditApproval(); toast('✅ Product saved!', 'success');
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
@@ -15283,7 +15340,7 @@ async function saveSupplier() {
   try {
     if (SUP.editingId) {
       await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
-      toast('✅ Supplier updated!', 'success');
+      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
@@ -16961,11 +17018,11 @@ async function savePurchaseEntry(mode) {
     let savedId = PNE.editingId;
     if (PNE.editingId) {
       await api('api/purchases.php?id=' + PNE.editingId, 'PUT', payload);
-      toast('✅ Purchase updated!', 'success');
+      consumeEditApproval(); toast('✅ Purchase updated!', 'success');
     } else {
       const res = await api('api/purchases.php', 'POST', payload);
       savedId = res.id;
-      toast('✅ Purchase saved!', 'success');
+      consumeEditApproval(); toast('✅ Purchase saved!', 'success');
     }
     const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
@@ -18472,11 +18529,11 @@ async function saveSaleEntry(mode) {
     let savedId = SN.editingId;
     if (SN.editingId) {
       await api('api/sales.php?id=' + SN.editingId, 'PUT', payload);
-      toast('✅ Sale updated!', 'success');
+      consumeEditApproval(); toast('✅ Sale updated!', 'success');
     } else {
       const res = await api('api/sales.php', 'POST', payload);
       savedId = res.id;
-      toast('✅ Sale saved!', 'success');
+      consumeEditApproval(); toast('✅ Sale saved!', 'success');
     }
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
     STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
@@ -19260,7 +19317,7 @@ async function saveSupplierEntry() {
   try {
     if (SUPN.editingId) {
       await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
-      toast('✅ Supplier updated!', 'success');
+      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
@@ -19464,7 +19521,7 @@ async function saveCustomerEntry(mode) {
     let newId = CUSN.editingId;
     if (CUSN.editingId) {
       await api('api/customers.php?id=' + CUSN.editingId, 'PUT', payload);
-      toast('✅ Customer updated!', 'success');
+      consumeEditApproval(); toast('✅ Customer updated!', 'success');
     } else {
       const res = await api('api/customers.php', 'POST', payload);
       newId = res.id;
@@ -22143,13 +22200,13 @@ function clearNotifs() {
 // ══════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════
-function toast(msg, type='success') {
+function toast(msg, type='success', duration=3200) {
   const icons = { success:'fa-check-circle', error:'fa-times-circle', info:'fa-info-circle', warning:'fa-exclamation-triangle' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<i class="fas ${icons[type]||'fa-check-circle'}"></i><span>${msg}</span>`;
   document.getElementById('toastContainer').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, 3200);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, duration);
 }
 
 // ══════════════════════════════════════════
@@ -22908,6 +22965,20 @@ function renderNotifications() {
   const today  = new Date();
   const items  = [];
 
+  // ── Pending edit approval requests (admin/owner only) ─────────
+  // Shown at the top of the bell panel so they're impossible to miss
+  // regardless of which page the admin is currently on.
+  if (SERVER.canApproveEdits && EAR_ADMIN_PENDING.length) {
+    EAR_ADMIN_PENDING.forEach(req => {
+      items.push({
+        type: 'approval',
+        id: req.id,
+        text: `<b>${escHtml(req.requester_name)}</b> wants to edit <b>${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</b>`,
+        reason: req.reason,
+      });
+    });
+  }
+
   // Overdue invoices
   STATE.invoices.filter(i => i.status === 'Overdue').slice(0,3).forEach(inv => {
     const c = STATE.clients.find(x => x.id === inv.client) || {};
@@ -22935,16 +23006,31 @@ function renderNotifications() {
     if (!items.length) {
       el.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;text-align:center">No new notifications</div>';
     } else {
-      el.innerHTML = items.map(n =>
-        `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
+      el.innerHTML = items.map(n => {
+        if (n.type === 'approval') {
+          return `<div class="np-item" style="background:var(--amber-bg);border-left:3px solid var(--amber);flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <i class="fas fa-shield-halved" style="color:var(--amber);margin-top:2px;flex-shrink:0"></i>
+              <div>
+                <div style="font-size:12.5px">${n.text}</div>
+                ${n.reason ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">"${escHtml(n.reason)}"</div>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;padding-left:20px;width:100%">
+              <button class="btn btn-primary" style="flex:1;font-size:11px;padding:4px 0" onclick="approveEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-check"></i> Approve</button>
+              <button class="btn btn-outline" style="flex:1;font-size:11px;padding:4px 0;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-times"></i> Reject</button>
+            </div>
+          </div>`;
+        }
+        return `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
           <i class="fas ${n.type==='warn'?'fa-exclamation-circle':'fa-info-circle'}"></i>
           <div>${n.text}</div>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
     }
   }
 
-  // Update bell count
+  // Update bell count — includes approvals
   const bell = document.getElementById('bellCount');
   if (bell) {
     const count = items.length;
@@ -28961,7 +29047,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Poll for pending edit approvals every 30s (admin/owner only — returns
   // immediately for other roles). Also refresh on tab focus so admins
   // see new requests the moment they switch back to this tab.
-  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role)) {
+  if (SERVER.canApproveEdits) {
     setInterval(() => {
       if (document.visibilityState === 'visible') loadPendingApprovals();
     }, 30000);
