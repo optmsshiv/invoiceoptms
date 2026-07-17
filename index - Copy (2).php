@@ -3034,6 +3034,50 @@ const SERVER = {
             </div>
           </div>
 
+          <!-- Weight Information (Kanta / Dharam Kanta) -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Weighing Type *</label>
+                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
+              </div>
+              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
+              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
+              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-weightdatetime"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="pn-kanta-gross" readonly style="background:var(--bg)" title="Auto-fetched from the Items Details table"></div>
+              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="pn-kanta-tare" readonly style="background:var(--bg)" title="Auto-fetched from the Items Details table"></div>
+              <div class="field"><label>Net Weight (Kg)</label><input id="pn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
+              <div class="field"><label>Operator Name</label><input id="pn-kanta-operator" placeholder="Optional"></div>
+            </div>
+            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
+              <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
+            </div>
+            <div class="pne-grid4" style="margin-top:12px">
+              <div class="field" style="grid-column:span 2">
+                <label>Upload Weight Slip</label>
+                <label class="pp-dropzone" for="pn-kanta-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="pn-kanta-slip-label">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
+                </label>
+                <input type="file" id="pn-kanta-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="pneKantaSlipChange(this.files[0])">
+              </div>
+            </div>
+          </div>
+
+          <!-- Quality, Moisture & Dhalta -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality, Moisture &amp; Dhalta</div>
+            <div class="pne-grid4">
+              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
+              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Not tracked per item — enter the overall load reading here"></div>
+              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
+              <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-q-dhaltakg" readonly></div>
+              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
+            </div>
+          </div>
+
           <!-- Items Details -->
           <div class="pne-card">
             <div class="pne-card-head" style="justify-content:space-between">
@@ -3081,50 +3125,6 @@ const SERVER = {
               <span>Total Amount <strong id="pne-total-amount" class="pne-total-amt">₹0.00</strong></span>
             </div>
             <div class="pne-note">Note: Net Weight = Gross Weight − Tare Weight &nbsp;|&nbsp; Billable Weight = Net Weight − Dhalta</div>
-          </div>
-
-          <!-- Weight Information (Kanta / Dharam Kanta) -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Weighing Type *</label>
-                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
-              </div>
-              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
-              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
-              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-weightdatetime"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="pn-kanta-gross" placeholder="Enter gross weight" step="0.01" onchange="calcPNEKantaSummary()" oninput="calcPNEKantaSummary()"></div>
-              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="pn-kanta-tare" placeholder="Enter tare weight" step="0.01" onchange="calcPNEKantaSummary()" oninput="calcPNEKantaSummary()"></div>
-              <div class="field"><label>Net Weight (Kg)</label><input id="pn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-              <div class="field"><label>Operator Name</label><input id="pn-kanta-operator" placeholder="Optional"></div>
-            </div>
-            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
-              <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
-            </div>
-            <div class="pne-grid4" style="margin-top:12px">
-              <div class="field" style="grid-column:span 2">
-                <label>Upload Weight Slip</label>
-                <label class="pp-dropzone" for="pn-kanta-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="pn-kanta-slip-label">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
-                </label>
-                <input type="file" id="pn-kanta-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="pneKantaSlipChange(this.files[0])">
-              </div>
-            </div>
-          </div>
-
-          <!-- Quality, Moisture & Dhalta -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality, Moisture &amp; Dhalta</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
-              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Not tracked per item — enter the overall load reading here"></div>
-              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
-              <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-q-dhaltakg" readonly></div>
-              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
-            </div>
           </div>
 
           <!-- 3/4/5 row -->
@@ -16593,6 +16593,10 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
+  // Weight Information's Gross/Tare auto-fetch from what's already entered
+  // per item in the Items table, so it's never typed twice. Only takes over
+  // once items actually have weight data — a standalone manual entry (e.g.
+  // before any items are filled in) is left alone rather than wiped to blank.
   if (sumGross > 0) document.getElementById('pn-kanta-gross').value = sumGross.toFixed(2);
   if (sumTare  > 0) document.getElementById('pn-kanta-tare').value  = sumTare.toFixed(2);
   document.getElementById('pn-q-moisture').value = totalNet > 0 ? (moistureWeighted / totalNet).toFixed(2) : '';
@@ -16883,36 +16887,18 @@ function calcPNEKantaSummary() {
   const gross = parseFloat(document.getElementById('pn-kanta-gross').value) || 0;
   const tare  = parseFloat(document.getElementById('pn-kanta-tare').value) || 0;
   const net   = Math.max(0, gross - tare);
-  document.getElementById('pn-kanta-net').value = net > 0 ? net.toFixed(2) : '';
+  document.getElementById('pn-kanta-net').value = net.toFixed(2);
 
-  // ── Auto-fill items qty from net weight ──────────────────────
-  // Net weight from the weighbridge IS the quantity purchased —
-  // push it into items so the user never types weight twice.
-  // If there's exactly one item row, always fill it.
-  // If there are multiple rows, fill the first blank qty only
-  // (the user splits manually across rows for multi-product loads).
-  if (net > 0 && PNE.items.length > 0) {
-    if (PNE.items.length === 1) {
-      // Single product — net weight = qty, always
-      PNE.items[0].qty = net;
-    } else {
-      // Multiple products — only fill first item if qty is still empty
-      if (!PNE.items[0].qty || PNE.items[0].qty === 0) {
-        PNE.items[0].qty = net;
-      }
-    }
-    renderPNEItemsTable();
-  }
-
-  // Dhalta mirrors the aggregate from Items Details
+  // Dhalta mirrors the aggregate from Items Details (dhalta is set per-product
+  // there) — this card is a consolidated cross-check against the weighbridge slip.
   let totalDhalta = 0;
   PNE.items.forEach(it => { totalDhalta += pneCalcRow(it).dhaltaKg; });
   const billable = Math.max(0, net - totalDhalta);
 
-  document.getElementById('pnk-sum-gross').textContent = gross > 0 ? gross.toFixed(2) + ' Kg' : '—';
-  document.getElementById('pnk-sum-tare').textContent  = tare  > 0 ? tare.toFixed(2)  + ' Kg' : '—';
-  document.getElementById('pnk-sum-net').textContent   = net   > 0 ? net.toFixed(2)   + ' Kg' : '—';
-  document.getElementById('pnk-sum-dhalta').textContent   = totalDhalta.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-gross').textContent = gross.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-tare').textContent = tare.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-net').textContent = net.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pnk-sum-billable').textContent = billable.toFixed(2) + ' Kg';
   calcPNEQualitySummary();
 }
