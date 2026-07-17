@@ -33,9 +33,7 @@ try { switch (true) {
     // ── REQUEST: non-admin asks for edit permission ───────────────
     case ($method === 'POST' && $action === 'request'):
         $entityType  = trim($body['entity_type']  ?? '');
-        // Product IDs arrive as "p12" (prefixed) — strip non-digits before casting
-        $rawId    = $body['entity_id'] ?? 0;
-        $entityId = (int) preg_replace('/\D/', '', (string)$rawId);
+        $entityId    = (int)($body['entity_id']   ?? 0);
         $entityLabel = trim($body['entity_label'] ?? '');
         $reason      = trim(substr($body['reason'] ?? '', 0, 500));
 

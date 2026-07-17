@@ -8365,9 +8365,7 @@ function _modalEdit(entityType, entityId, editFn) {
 
 function _editProductWithApproval(productId, editFn) {
   const p = (STATE.products || []).find(x => String(x.id) === String(productId));
-  // Strip "p" prefix — API entity_id is integer, (int)"p12" = 0 → "Invalid entity"
-  const numericId = String(productId).replace(/\D/g, '');
-  editWithApproval('product', numericId, (p?.name || 'Product #' + numericId), editFn);
+  editWithApproval('product', productId, (p?.name || 'Product #' + productId), editFn);
 }
 
 function renderDashboard() {
