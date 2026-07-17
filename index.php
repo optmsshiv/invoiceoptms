@@ -7853,9 +7853,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // render correctly in the loadAllData().then() callback below.
   const _biz = STATE.settings.businessType || 'service';
   if (_biz === 'service' || _biz === 'both') renderDashboard();
-  // Hide product panel until data is ready
+  // Product dashboard needs STATE.stock/products from loadAllData — hide until ready
   const _pd = document.getElementById('dash-product');
-  if (_pd && (_biz === 'product' || _biz === 'both')) _pd.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--muted)"><i class="fas fa-spinner fa-spin" style="font-size:22px;margin-bottom:12px;display:block"></i>Loading dashboard…</div>';
+  if (_pd && (_biz === 'product' || _biz === 'both')) _pd.style.display = 'none';
   renderInvoicesTable();
   renderClients();
   renderProducts();
