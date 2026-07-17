@@ -1899,7 +1899,6 @@ const SERVER = {
           <div style="margin-left:auto;display:flex;gap:8px">
             <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
             <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
-            <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
           </div>
         </div>
         <?php if ($perms['menu.whatsapp'] ?? true): ?>
@@ -1925,10 +1924,6 @@ const SERVER = {
           <?php endif; ?>
         </div>
         <div class="dash-stats-row">
-          <div class="stat-card" data-color="teal">
-            <div class="stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-revenue">₹0</div><div class="stat-lbl">Revenue</div><div class="stat-trend up" id="s-revenue-trend"><i class="fas fa-arrow-up"></i> 0%</div></div>
-          </div>
           <div class="stat-card" data-color="amber">
             <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
             <div class="stat-body"><div class="stat-val" id="s-pending">₹0</div><div class="stat-lbl">Pending</div><div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div></div>
@@ -8081,10 +8076,6 @@ function renderProductDashboard() {
   const allPur    = STATE.purchases || [];
   const products  = STATE.products  || [];
   const stock     = STATE.stock     || [];
-  // Products use prefixed IDs like "p12"; stock uses plain integers.
-  // getStock() strips the prefix so lookups always match.
-  const getStock = (pr) => stock.find(s => String(s.product_id) === String(pr.id).replace(/\D/g,''));
-  const getQty   = (pr) => { const st = getStock(pr); return parseFloat(st?.current_stock ?? st?.available_stock ?? 0); };
 
   // ── KPI calculations ──────────────────────────────────────────
   const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
@@ -8093,8 +8084,15 @@ function renderProductDashboard() {
   const margin      = totalSales > 0 ? (grossProfit / totalSales * 100) : 0;
   const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
   const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
-  const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
-  const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
+  const stockValue  = products.reduce((p, pr) => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+    return p + qty * (parseFloat(pr.purchase_rate ?? pr.rate) || 0);
+  }, 0);
+  const totalStockKg = products.reduce((a, pr) => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    return a + parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+  }, 0);
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('db-stat-purchase', fmt_money(totalPur));
@@ -8146,8 +8144,8 @@ function renderProductDashboard() {
   // ── Alerts ─────────────────────────────────────────────────────
   const alertsList = document.getElementById('db-alerts-list');
   if (alertsList) {
-    const lowStock  = products.filter(p => { const qty = getQty(p); const ro = parseFloat(p.reorder_level)||0; return ro > 0 && qty <= ro && qty > 0; });
-    const outStock  = products.filter(p => getQty(p) <= 0);
+    const lowStock  = products.filter(p => { const st = stock.find(s => String(s.product_id) === String(p.id)); const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0); const ro = parseFloat(p.reorder_level)||0; return ro > 0 && qty <= ro; });
+    const outStock  = products.filter(p => { const st = stock.find(s => String(s.product_id) === String(p.id)); return (parseFloat(st?.current_stock ?? st?.available_stock ?? 0)) <= 0; });
     const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
     const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
     const alerts = [
@@ -8166,7 +8164,10 @@ function renderProductDashboard() {
   }
 
   // ── Stock donut ────────────────────────────────────────────────
-  const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
+  const topStock = [...products].map(pr => {
+    const st = stock.find(s => String(s.product_id) === String(pr.id));
+    return { name: pr.name, qty: parseFloat(st?.current_stock ?? st?.available_stock ?? 0) };
+  }).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
   const others = totalStockKg - topStock.reduce((a,p) => a+p.qty, 0);
   const donutData  = [...topStock.map(p => p.qty), ...(others > 0 ? [others] : [])];
   const donutLabels = [...topStock.map(p => p.name), ...(others > 0 ? ['Others'] : [])];
@@ -8186,7 +8187,11 @@ function renderProductDashboard() {
   // ── Top Products ───────────────────────────────────────────────
   const topProdEl = document.getElementById('db-top-products');
   if (topProdEl) {
-    const rows = [...products].map(pr => { const qty = getQty(pr); return { name: pr.name, qty, val: qty * (parseFloat(pr.purchase_rate ?? pr.rate)||0) }; }).filter(r => r.qty > 0).sort((a,b) => b.qty - a.qty).slice(0,5);
+    const rows = [...products].map(pr => {
+      const st = stock.find(s => String(s.product_id) === String(pr.id));
+      const qty = parseFloat(st?.current_stock ?? st?.available_stock ?? 0);
+      return { name: pr.name, qty, val: qty * (parseFloat(pr.purchase_rate ?? pr.rate)||0) };
+    }).filter(r => r.qty > 0).sort((a,b) => b.qty - a.qty).slice(0,5);
     topProdEl.innerHTML = rows.length ? rows.map((r,i) => `<tr><td>${i+1}</td><td>${escHtml(r.name)}</td><td style="text-align:right;font-weight:600">${r.qty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(r.val)}</td></tr>`).join('') :
       '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:12px">No stock data</td></tr>';
   }

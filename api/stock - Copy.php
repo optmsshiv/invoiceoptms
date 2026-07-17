@@ -34,17 +34,15 @@ switch ($method) {
       break;
     }
 
-    // Summary: current stock on hand per product — includes ALL products
-    // (even those with zero or no ledger entries) so the dashboard Top
-    // Products and stock donut are never silently blank.
+    // Summary: current stock on hand per product
     $stmt = $db->query('SELECT
         p.id AS product_id, p.name, p.category,
         COALESCE(SUM(CASE WHEN sl.direction="in" THEN sl.qty ELSE -sl.qty END), 0) AS current_stock,
         MAX(sl.movement_date) AS last_movement
       FROM products p
       LEFT JOIN stock_ledger sl ON sl.product_id = p.id
-      WHERE p.status = "active" OR p.status IS NULL
       GROUP BY p.id, p.name, p.category
+      HAVING current_stock <> 0 OR last_movement IS NOT NULL
       ORDER BY p.name ASC');
     jsonResponse(['data' => $stmt->fetchAll()]);
     break;
