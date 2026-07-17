@@ -16414,13 +16414,15 @@ function removePNEItem(id) {
 function editPNEItem(id) {
   const it = PNE.items.find(i => i.id === id); if (!it) return;
   it.editing = true;
-  // Restore this item's gross/tare back to the header Weight Info fields
-  // so the user can see and adjust what was entered for this item
-  const gEl = document.getElementById('pn-kanta-gross');
-  const tEl = document.getElementById('pn-kanta-tare');
+  // Restore this item's weight + dhalta back to the header fields
+  const gEl  = document.getElementById('pn-kanta-gross');
+  const tEl  = document.getElementById('pn-kanta-tare');
+  const dEl  = document.getElementById('pn-q-dhaltakg');
   if (gEl) gEl.value = it.gross_weight || '';
   if (tEl) tEl.value = it.tare_weight  || '';
-  calcPNEKantaSummary();
+  if (dEl) dEl.value = it.dhalta_kg    || '';
+  calcPNEKantaSummary();  // recalculates net
+  calcPNEQualitySummary(); // recalculates dhalta% + billable
   renderPNEItemsTable();
 }
 
@@ -16432,11 +16434,10 @@ function donePNEItem(id) {
     toast('⚠️ Select a product for this line', 'warning'); return;
   }
   it.editing = false;
-  // Reset header weight fields — ready for next item's kanta reading
-  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net'].forEach(id => {
+  // Reset header weight + dhalta fields — ready for next item's kanta reading
+  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  // Quality section auto-recalculates from remaining items
   renderPNEItemsTable();
   calcPurchaseNewTotals();
 }
