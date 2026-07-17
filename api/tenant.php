@@ -1501,3 +1501,32 @@ INSERT IGNORE INTO `role_permissions` (`role`, `permission_key`, `enabled`) VALU
   ('viewer',     'action.archive', 0),
   ('viewer',     'action.edit',    0),
   ('viewer',     'action.create',  0);
+
+-- ── Edit Approval Requests ────────────────────────────────────────
+-- When a restricted role tries to edit a saved record, instead of
+-- blocking them with a hard error, the app creates a request here.
+-- Admin/Owner sees it in their dashboard and can approve or reject.
+-- Approved → requester's edit form unlocks. Rejected → they get a
+-- message. Requests expire after 24h to avoid piling up.
+CREATE TABLE `edit_approval_requests` (
+    `id` int(11) NOT NULL,
+    `requested_by` int(11) NOT NULL COMMENT 'user id from master users table',
+    `requester_name` varchar(200) NOT NULL DEFAULT '',
+    `entity_type` varchar(30) NOT NULL COMMENT 'purchase|sale|supplier|customer|product|stock_adjustment',
+    `entity_id` int(11) NOT NULL,
+    `entity_label` varchar(200) NOT NULL DEFAULT '' COMMENT 'human-readable label e.g. invoice no or product name',
+    `reason` varchar(500) NOT NULL DEFAULT '' COMMENT 'why they need to edit',
+    `status` enum('pending','approved','rejected','expired') NOT NULL DEFAULT 'pending',
+    `reviewed_by` int(11) DEFAULT NULL,
+    `reviewer_name` varchar(200) DEFAULT NULL,
+    `review_note` varchar(500) DEFAULT NULL,
+    `approved_at` datetime DEFAULT NULL,
+    `expires_at` datetime NOT NULL,
+    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `edit_approval_requests` ADD PRIMARY KEY (`id`);
+ALTER TABLE `edit_approval_requests` ADD KEY `idx_ear_status` (`status`);
+ALTER TABLE `edit_approval_requests` ADD KEY `idx_ear_entity` (`entity_type`, `entity_id`);
+ALTER TABLE `edit_approval_requests` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;

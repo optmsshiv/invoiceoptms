@@ -1916,7 +1916,6 @@ const SERVER = {
         <?php endif; ?>
         <?php unset($hideWACardForPlan); ?>
         <div id="dashPartialCard" style="margin-bottom:16px"></div>
-        <div id="db-edit-approvals-card-svc"></div>
         <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px">
           <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
           <div id="s-outstanding-card" style="display:none"></div>
@@ -2004,7 +2003,6 @@ const SERVER = {
       <!-- ── Product dashboard (sales/purchases/stock) ────────── -->
       <div id="dash-product">
         <!-- Quick actions -->
-        <div id="db-edit-approvals-card"></div>
         <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-cart-shopping"></i> New Purchase</button>
           <button class="btn btn-outline" onclick="goToNewSale()"><i class="fas fa-file-invoice-dollar"></i> New Sale Invoice</button>
@@ -2755,55 +2753,7 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Edit Approval Request Modal -->
-    <div class="modal-overlay" id="modal-edit-approval">
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <span style="display:flex;align-items:center;gap:8px"><i class="fas fa-shield-halved" style="color:var(--teal)"></i> Request Edit Permission</span>
-          <button class="modal-close" onclick="cancelEditRequest()"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:20px">
-          <div id="ear-request-view">
-            <div style="font-size:13px;color:var(--text);margin-bottom:14px">
-              You need permission to edit <strong id="ear-entity-label"></strong>. Describe why you need to make this change — your admin will be notified immediately.
-            </div>
-            <div class="field">
-              <label>Reason for edit <span style="color:var(--red)">*</span></label>
-              <textarea id="ear-reason" placeholder="e.g. Wrong supplier was selected, rate needs correction…" style="min-height:80px;resize:vertical"></textarea>
-            </div>
-            <button class="btn btn-primary" style="width:100%" onclick="submitEditRequest()"><i class="fas fa-paper-plane"></i> Send Request to Admin</button>
-          </div>
-          <div id="ear-waiting-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">⏳</div>
-            <div style="font-size:15px;font-weight:700;margin-bottom:6px">Waiting for approval…</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin has been notified. This window polls automatically — you don't need to do anything.</div>
-            <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px">
-              <i class="fas fa-clock"></i> Request expires in <strong id="ear-expires-in"></strong>
-            </div>
-            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Cancel Request</button>
-          </div>
-          <div id="ear-approved-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">✅</div>
-            <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px">Approved!</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-approved-by"></div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-approved-note"></div>
-            <div style="font-size:11px;color:var(--amber);margin-bottom:14px"><i class="fas fa-hourglass-half"></i> This approval expires in 1 hour</div>
-            <button class="btn btn-primary" style="width:100%" onclick="proceedWithEdit()"><i class="fas fa-pen"></i> Proceed to Edit</button>
-          </div>
-          <div id="ear-rejected-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">❌</div>
-            <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px">Request Declined</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-rejected-by"></div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-rejected-note"></div>
-            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Admin: Pending Edit Requests shown in dashboard via renderPendingApprovalsCard() -->
-
-    <!-- Supplier Profile modal -->
+    <!-- Supplier Profile Modal (eye button — quick in-app view) -->
     <div class="modal-overlay" id="modal-supplier-profile">
       <div class="modal modal-md" style="overflow:hidden;position:relative">
         <button class="modal-close" onclick="closeModal('modal-supplier-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
@@ -8102,236 +8052,6 @@ function renderDashWAActivity() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  EDIT APPROVAL WORKFLOW
-//  Non-owner/admin users who try to edit a saved record are routed
-//  through this system instead of opening the edit form directly.
-//  Admin/owner sees pending requests in the dashboard bell and a
-//  card; approval unlocks the edit form for 1 hour.
-// ═══════════════════════════════════════════════════════════════
-
-const EAR = {
-  requestId: null,        // active request id
-  entityType: null,
-  entityId: null,
-  entityLabel: null,
-  editCallback: null,     // fn to call when approved
-  pollTimer: null,
-};
-
-// ── Intercept: called instead of editX() when user lacks action.edit ──
-// entityType: 'purchase'|'sale'|'supplier'|'customer'|'product'
-// entityId, entityLabel: for display and deduplication
-// editFn: the actual edit function to call when approved
-async function requestEditApproval(entityType, entityId, entityLabel, editFn) {
-  EAR.entityType  = entityType;
-  EAR.entityId    = entityId;
-  EAR.entityLabel = entityLabel;
-  EAR.editCallback = editFn;
-  EAR.requestId   = null;
-  clearInterval(EAR.pollTimer);
-
-  document.getElementById('ear-entity-label').textContent = entityLabel;
-  document.getElementById('ear-reason').value = '';
-  _earShowView('request');
-  openModal('modal-edit-approval');
-
-  // Check if there's already a live request for this entity
-  try {
-    const r = await api(`api/edit_approvals.php?action=check_entity&entity_type=${entityType}&entity_id=${entityId}`);
-    if (r.data?.status === 'pending') { EAR.requestId = r.data.id; _earShowView('waiting'); _earStartPolling(); }
-    else if (r.data?.status === 'approved') { EAR.requestId = r.data.id; _earShowApproved(r.data); }
-  } catch(e) { /* no existing request, show request form */ }
-}
-
-async function submitEditRequest() {
-  const reason = document.getElementById('ear-reason').value.trim();
-  if (!reason) { toast('⚠️ Please describe why you need to edit this record', 'warning'); return; }
-  try {
-    const r = await api('api/edit_approvals.php?action=request', 'POST', {
-      entity_type: EAR.entityType, entity_id: EAR.entityId,
-      entity_label: EAR.entityLabel, reason
-    });
-    EAR.requestId = r.id;
-    _earShowView('waiting');
-    _earStartPolling();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _earStartPolling() {
-  clearInterval(EAR.pollTimer);
-  EAR.pollTimer = setInterval(async () => {
-    if (!EAR.requestId) return;
-    try {
-      const r = await api(`api/edit_approvals.php?action=check&id=${EAR.requestId}`);
-      const req = r.data;
-      if (!req) return;
-      if (req.status === 'approved') { clearInterval(EAR.pollTimer); _earShowApproved(req); }
-      else if (req.status === 'rejected') { clearInterval(EAR.pollTimer); _earShowRejected(req); }
-      else if (req.status === 'expired') {
-        clearInterval(EAR.pollTimer);
-        toast('⏰ Your edit request expired — please submit a new one', 'warning');
-        _earShowView('request');
-      }
-      // Update countdown
-      if (req.status === 'pending') {
-        const exp = new Date(req.expires_at.replace(' ','T'));
-        const mins = Math.max(0, Math.round((exp - new Date()) / 60000));
-        const el = document.getElementById('ear-expires-in');
-        if (el) el.textContent = mins > 60 ? Math.round(mins/60) + 'h' : mins + ' min';
-      }
-    } catch(e) { /* network blip, keep polling */ }
-  }, 10000); // poll every 10 seconds
-}
-
-function _earShowApproved(req) {
-  _earShowView('approved');
-  const byEl = document.getElementById('ear-approved-by');
-  const noteEl = document.getElementById('ear-approved-note');
-  if (byEl) byEl.textContent = 'Approved by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : '';
-  // Auto-dismiss and open edit after 2s
-  setTimeout(() => {
-    const modal = document.getElementById('modal-edit-approval');
-    if (modal?.classList.contains('open')) proceedWithEdit();
-  }, 2000);
-}
-
-function _earShowRejected(req) {
-  _earShowView('rejected');
-  const byEl = document.getElementById('ear-rejected-by');
-  const noteEl = document.getElementById('ear-rejected-note');
-  if (byEl) byEl.textContent = 'Declined by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : 'No reason given.';
-}
-
-function _earShowView(view) {
-  ['request','waiting','approved','rejected'].forEach(v => {
-    const el = document.getElementById(`ear-${v}-view`);
-    if (el) el.style.display = v === view ? '' : 'none';
-  });
-}
-
-function proceedWithEdit() {
-  closeModal('modal-edit-approval');
-  clearInterval(EAR.pollTimer);
-  if (EAR.editCallback) EAR.editCallback();
-}
-
-function cancelEditRequest() {
-  clearInterval(EAR.pollTimer);
-  closeModal('modal-edit-approval');
-}
-
-// ── Admin dashboard: pending approvals card ────────────────────
-let EAR_ADMIN_PENDING = [];
-
-async function loadPendingApprovals() {
-  if (!['owner','admin','super_admin'].includes(SERVER.user.role)) return;
-  try {
-    const r = await api('api/edit_approvals.php?action=pending');
-    EAR_ADMIN_PENDING = r.data || [];
-    renderPendingApprovalsCard();
-    // Update bell badge
-    const badge = document.getElementById('bellCount');
-    if (badge) {
-      const existingCount = parseInt(badge.textContent) || 0;
-      badge.textContent = existingCount + EAR_ADMIN_PENDING.length;
-      badge.style.display = EAR_ADMIN_PENDING.length > 0 ? '' : (existingCount > 0 ? '' : 'none');
-    }
-  } catch(e) { /* non-fatal */ }
-}
-
-function renderPendingApprovalsCard() {
-  const cards = ['db-edit-approvals-card','db-edit-approvals-card-svc']
-    .map(id => document.getElementById(id)).filter(Boolean);
-  if (!cards.length) return;
-
-  if (!EAR_ADMIN_PENDING.length) {
-    cards.forEach(c => { c.style.display = 'none'; c.innerHTML = ''; });
-    return;
-  }
-
-  const entityIcons = { purchase:'fa-cart-shopping', sale:'fa-file-invoice-dollar', supplier:'fa-truck', customer:'fa-user', product:'fa-box', stock_adjustment:'fa-sliders', stock_in:'fa-boxes-stacked' };
-
-  const requestsHtml = EAR_ADMIN_PENDING.map(req => {
-    const icon = entityIcons[req.entity_type] || 'fa-file';
-    const age = Math.round((new Date() - new Date(req.created_at.replace(' ','T'))) / 60000);
-    const ageStr = age < 60 ? age + 'm ago' : Math.round(age/60) + 'h ago';
-    return `<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fas ${icon}"></i></span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${escHtml(req.requester_name)} wants to edit <span style="color:var(--teal)">${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</span></div>
-          ${req.reason ? '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic">"' + escHtml(req.reason) + '"</div>' : ''}
-          <div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-clock"></i> ${ageStr}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-primary" style="flex:1;font-size:12px" onclick="approveEditRequest(${req.id})"><i class="fas fa-check"></i> Approve</button>
-        <button class="btn btn-outline" style="flex:1;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${req.id})"><i class="fas fa-times"></i> Reject</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  const html = `<div class="pne-card" style="border:2px solid var(--amber);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <span style="width:36px;height:36px;border-radius:10px;background:var(--amber-bg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0"><i class="fas fa-shield-halved"></i></span>
-      <div>
-        <div style="font-size:14px;font-weight:700">Edit Approval Requests <span style="background:var(--amber);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">${EAR_ADMIN_PENDING.length}</span></div>
-        <div style="font-size:11.5px;color:var(--muted)">Team members waiting for your approval to edit records</div>
-      </div>
-    </div>
-    ${requestsHtml}
-  </div>`;
-
-  cards.forEach(c => { c.style.display = ''; c.innerHTML = html; });
-}
-
-
-async function approveEditRequest(id) {
-  const { value: note } = await Swal.fire({
-    title: 'Approve edit request?',
-    input: 'text', inputPlaceholder: 'Optional note to the requester…',
-    showCancelButton: true, confirmButtonText: 'Approve',
-    confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' }
-  });
-  if (note === undefined) return; // cancelled
-  try {
-    await api('api/edit_approvals.php?action=approve', 'POST', { id, note: note||'' });
-    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
-    toast('✅ Edit request approved — the user can now proceed', 'success');
-    renderPendingApprovalsCard();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function rejectEditRequest(id) {
-  const { value: note } = await Swal.fire({
-    title: 'Reject edit request?',
-    input: 'text', inputPlaceholder: 'Reason for rejection (shown to user)…',
-    showCancelButton: true, confirmButtonText: 'Reject',
-    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
-  });
-  if (note === undefined) return;
-  try {
-    await api('api/edit_approvals.php?action=reject', 'POST', { id, note: note||'' });
-    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
-    toast('Request rejected', 'info');
-    renderPendingApprovalsCard();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// ── editWithApproval: gate function for all edit buttons ────────
-// If user has action.edit permission → call editFn directly.
-// Otherwise → route through the approval workflow.
-function editWithApproval(entityType, entityId, entityLabel, editFn) {
-  if (canDo('edit')) {
-    editFn();
-  } else {
-    requestEditApproval(entityType, entityId, entityLabel, editFn);
-  }
-}
-
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
   const showService = (biz === 'service' || biz === 'both');
@@ -8363,10 +8083,6 @@ function renderDashboard() {
   }
   if (showProduct) {
     renderProductDashboard();
-    loadPendingApprovals(); // admin/owner only — ignored silently for other roles
-  }
-  if (showService) {
-    loadPendingApprovals();
   }
 }
 
@@ -15157,7 +14873,7 @@ async function renderSuppliers() {
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},escHtml(s.name),()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
+          ${active ? `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>` : ''}
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
@@ -15925,7 +15641,7 @@ function renderPurchases() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('purchase',${p.id},'Purchase '+escHtml(p.purchase_no||'#'+p.id),()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="editPurchase(${p.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
               ${delMenuItem(`deletePurchase(${p.id})`,"Delete")}
             </div>
           </span>
@@ -16077,7 +15793,7 @@ function renderProductsList() {
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="editWithApproval('product','${p.id}',escHtml(p.name),()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Edit" onclick="editProductRich('${p.id}')"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
@@ -18687,7 +18403,7 @@ function renderSales() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editWithApproval('sale',${s.id},'Invoice '+escHtml(s.invoice_no||('#'+s.id)),()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              <button onclick="editSale(${s.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
               ${delMenuItem(`deleteSale(${s.id})`,"Delete")}
             </div>
           </span>
@@ -19558,7 +19274,7 @@ async function renderCustomersList() {
         <td>
           <div class="action-cell" style="display:flex;gap:2px;align-items:center">
             <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
-            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},escHtml(c.name),()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>` : ''}
             <span class="act-menu-wrap">
               <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
               <div class="act-menu">
@@ -28902,18 +28618,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (document.visibilityState === 'visible') renderWALog();
   }, 60000);
-
-  // Poll for pending edit approvals every 30s (admin/owner only — returns
-  // immediately for other roles). Also refresh on tab focus so admins
-  // see new requests the moment they switch back to this tab.
-  if (['owner','admin','super_admin'].includes(SERVER.user.role)) {
-    setInterval(() => {
-      if (document.visibilityState === 'visible') loadPendingApprovals();
-    }, 30000);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') loadPendingApprovals();
-    });
-  }
 });
 
 // Export function for CSV
