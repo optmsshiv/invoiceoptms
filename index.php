@@ -2794,7 +2794,7 @@ const SERVER = {
             <div style="font-size:15px;font-weight:700;margin-bottom:6px">Waiting for approval…</div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin or manager has been notified. This window polls automatically — you don't need to do anything.</div>
             <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px">
-              <i class="fas fa-info-circle"></i> Once approved, you get <strong>one edit only</strong> — the approval expires immediately after you save.
+              <i class="fas fa-clock"></i> Request expires in <strong id="ear-expires-in"></strong>
             </div>
             <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Cancel Request</button>
           </div>
@@ -2803,7 +2803,7 @@ const SERVER = {
             <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px">Approved!</div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-approved-by"></div>
             <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-approved-note"></div>
-            <div style="font-size:11px;color:var(--amber);margin-bottom:14px"><i class="fas fa-exclamation-triangle"></i> This approval is valid for <strong>one edit only</strong> — it expires as soon as you save</div>
+            <div style="font-size:11px;color:var(--amber);margin-bottom:14px"><i class="fas fa-hourglass-half"></i> This approval expires in 1 hour</div>
             <button class="btn btn-primary" style="width:100%" onclick="proceedWithEdit()"><i class="fas fa-pen"></i> Proceed to Edit</button>
           </div>
           <div id="ear-rejected-view" style="display:none;text-align:center;padding:10px 0">
@@ -8213,6 +8213,13 @@ function _earStartPolling() {
         clearInterval(EAR.pollTimer);
         toast('⏰ Your edit request expired — please submit a new one', 'warning');
         _earShowView('request');
+      }
+      // Update countdown
+      if (req.status === 'pending') {
+        const exp = new Date(req.expires_at.replace(' ','T'));
+        const mins = Math.max(0, Math.round((exp - new Date()) / 60000));
+        const el = document.getElementById('ear-expires-in');
+        if (el) el.textContent = mins > 60 ? Math.round(mins/60) + 'h' : mins + ' min';
       }
     } catch(e) { /* network blip, keep polling */ }
   }, 10000); // poll every 10 seconds
