@@ -16487,8 +16487,8 @@ function renderPNEItemsTable() {
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
-      <td><input type="number" value="${it.gross_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
-      <td><input type="number" value="${it.tare_weight}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
+      <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
+      <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
       <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
       <td><input type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
@@ -16908,19 +16908,17 @@ function calcPNEKantaSummary() {
     if (target) {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;
-      // Update the item's computed cells in-place (gross/tare inputs + net/billable spans)
-      const c = pneCalcRow(target);
-      const netEl      = document.getElementById('pne-net-'      + target.id);
-      const billEl     = document.getElementById('pne-billable-' + target.id);
-      const grossInput = document.querySelector(`[data-row="${target.id}"] td:nth-child(6) input`);
-      const tareInput  = document.querySelector(`[data-row="${target.id}"] td:nth-child(7) input`);
-      if (grossInput) grossInput.value = gross || '';
-      if (tareInput)  tareInput.value  = tare  || '';
-      if (netEl)      netEl.textContent      = c.net.toFixed(2);
-      if (billEl)     billEl.textContent     = c.billable.toFixed(2);
-      // Update amt cell
-      const amtEl = document.getElementById('pne-amt-' + target.id);
-      if (amtEl) amtEl.textContent = fmt_money(c.amount);
+      const c        = pneCalcRow(target);
+      const grossEl  = document.getElementById('pne-gross-'    + target.id);
+      const tareEl   = document.getElementById('pne-tare-'     + target.id);
+      const netEl    = document.getElementById('pne-net-'      + target.id);
+      const billEl   = document.getElementById('pne-billable-' + target.id);
+      const amtEl    = document.getElementById('pne-amt-'      + target.id);
+      if (grossEl) grossEl.value        = gross || '';
+      if (tareEl)  tareEl.value         = tare  || '';
+      if (netEl)   netEl.textContent    = c.net.toFixed(2);
+      if (billEl)  billEl.textContent   = c.billable.toFixed(2);
+      if (amtEl)   amtEl.textContent    = fmt_money(c.amount);
       calcPurchaseNewTotals();
     }
   }
