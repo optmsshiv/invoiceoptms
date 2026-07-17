@@ -16908,17 +16908,15 @@ function calcPNEKantaSummary() {
     if (target) {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;
-      const c        = pneCalcRow(target);
-      const grossEl  = document.getElementById('pne-gross-'    + target.id);
-      const tareEl   = document.getElementById('pne-tare-'     + target.id);
-      const netEl    = document.getElementById('pne-net-'      + target.id);
-      const billEl   = document.getElementById('pne-billable-' + target.id);
-      const amtEl    = document.getElementById('pne-amt-'      + target.id);
-      if (grossEl) grossEl.value        = gross || '';
-      if (tareEl)  tareEl.value         = tare  || '';
-      if (netEl)   netEl.textContent    = c.net.toFixed(2);
-      if (billEl)  billEl.textContent   = c.billable.toFixed(2);
-      if (amtEl)   amtEl.textContent    = fmt_money(c.amount);
+      const c      = pneCalcRow(target);
+      const netEl  = document.getElementById('pne-net-'      + target.id);
+      const billEl = document.getElementById('pne-billable-' + target.id);
+      const amtEl  = document.getElementById('pne-amt-'      + target.id);
+      // Do NOT write back to pne-gross-N / pne-tare-N — those inputs
+      // are the source. Writing back causes cursor-jumping while typing.
+      if (netEl)  netEl.textContent  = c.net.toFixed(2);
+      if (billEl) billEl.textContent = c.billable.toFixed(2);
+      if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
       calcPurchaseNewTotals();
     }
   }
