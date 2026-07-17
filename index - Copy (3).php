@@ -1518,11 +1518,6 @@ const SERVER = {
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
-  // Action-level permissions — owner/super_admin always true, others follow role_permissions
-  canDelete:  <?= json_encode((bool)($perms['action.delete']  ?? true)) ?>,
-  canArchive: <?= json_encode((bool)($perms['action.archive'] ?? true)) ?>,
-  canEdit:    <?= json_encode((bool)($perms['action.edit']    ?? true)) ?>,
-  canCreate:  <?= json_encode((bool)($perms['action.create']  ?? true)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -14019,49 +14014,22 @@ function _renderTeamPermissionsBody() {
     return;
   }
 
-  // Presets for quick role reset
-  const presets = {
-    admin:      { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
-    manager:    { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
-    accountant: { 'action.delete':0,'action.archive':1,'action.edit':1,'action.create':1 },
-    sales:      { 'action.delete':0,'action.archive':0,'action.edit':1,'action.create':1 },
-    viewer:     { 'action.delete':0,'action.archive':0,'action.edit':0,'action.create':0 },
-  };
-
   // Group by category
   const groups = {};
   TP.catalog.forEach(p => { (groups[p.category || 'General'] = groups[p.category || 'General'] || []).push(p); });
 
-  const actionIcons = { 'action.delete':'fa-trash', 'action.archive':'fa-box-archive', 'action.edit':'fa-pen', 'action.create':'fa-plus' };
-
-  body.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px;color:var(--muted)">Customise what <strong>${escHtml(roleLabels[role]||role)}</strong> can do — changes take effect on next login</div>
-      <button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="applyRolePreset('${role}')" title="Reset to default permissions for this role">
-        <i class="fas fa-rotate-left"></i> Reset to defaults
-      </button>
-    </div>
-  ` + Object.keys(groups).map(cat => `
+  body.innerHTML = Object.keys(groups).map(cat => `
     <div style="margin-bottom:18px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        ${cat === 'Actions' ? '<i class="fas fa-shield-halved" style="color:var(--teal)"></i>' : '<i class="fas fa-list" style="color:var(--muted)"></i>'}
-        ${escHtml(cat)}
-      </div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${escHtml(cat)}</div>
       <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
         ${groups[cat].map(p => {
           const enabled  = !!p.roles[role];
           const ceiling  = !!p.ceiling;
-          const disabled = !ceiling;
-          const isAction = p.key.startsWith('action.');
-          const icon = isAction ? `<i class="fas ${actionIcons[p.key]||'fa-circle'}" style="font-size:11px;width:14px;text-align:center;color:${enabled?'var(--teal)':'var(--muted)'}"></i>` : '';
+          const disabled = !ceiling && !enabled;
           return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:${enabled ? 'var(--teal-bg)' : 'var(--card)'}">
-            <div style="display:flex;align-items:center;gap:8px;${disabled?'opacity:.5':''}">
-              ${icon}
-              <div>
-                <div style="font-size:13px;color:var(--text)">${escHtml(p.label)}</div>
-                ${isAction && !enabled ? `<div style="font-size:10.5px;color:var(--red);margin-top:1px"><i class="fas fa-lock" style="font-size:9px"></i> Locked for this role — users will see a lock icon on restricted actions</div>` : ''}
-                ${!ceiling ? `<div style="font-size:10px;color:var(--amber);margin-top:1px"><i class="fas fa-lock"></i> Not available on ${escHtml(TP.plan)} plan</div>` : ''}
-              </div>
+            <div style="font-size:13px;color:var(--text);${disabled?'opacity:.5':''}">
+              ${escHtml(p.label)}
+              ${!ceiling ? `<span style="font-size:10px;color:var(--amber);margin-left:6px"><i class="fas fa-lock"></i> not on ${escHtml(TP.plan)} plan</span>` : ''}
             </div>
             <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0">
               <input type="checkbox" ${enabled?'checked':''} ${disabled?'disabled':''} onchange="toggleTeamPermission('${role}','${p.key}',this.checked)" style="opacity:0;width:0;height:0">
@@ -14073,30 +14041,6 @@ function _renderTeamPermissionsBody() {
       </div>
     </div>
   `).join('');
-}
-
-async function applyRolePreset(role) {
-  const presets = {
-    admin:      { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
-    manager:    { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
-    accountant: { 'action.delete':false,'action.archive':true,'action.edit':true,'action.create':true },
-    sales:      { 'action.delete':false,'action.archive':false,'action.edit':true,'action.create':true },
-    viewer:     { 'action.delete':false,'action.archive':false,'action.edit':false,'action.create':false },
-  };
-  const preset = presets[role];
-  if (!preset) return;
-  const conf = await Swal.fire({ title: 'Reset to defaults?', text: `This will reset all action permissions for ${role} to their recommended defaults.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Reset', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/role_permissions.php?action=set_bulk', 'POST', { role, permissions: preset });
-    // Update local catalog
-    Object.entries(preset).forEach(([key, val]) => {
-      const item = TP.catalog.find(p => p.key === key);
-      if (item) item.roles[role] = val;
-    });
-    toast('✅ Reset to defaults', 'success');
-    _renderTeamPermissionsBody();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function toggleTeamPermission(role, key, enabled) {
@@ -14646,7 +14590,6 @@ function addProductToInvoice(id) {
 }
 
 async function deleteProduct(id) {
-  if (!assertCanDelete('this product')) return;
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const result = await Swal.fire({
     title: STATE.settings.businessType === 'product' ? 'Delete this product?' : 'Delete this service?',
@@ -14879,9 +14822,9 @@ async function renderSuppliers() {
             <div class="act-menu">
               <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
               ${active
-                ? `${archiveMenuItem(`archiveSupplier(${s.id})`,"Archive")}`
+                ? `<button onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
                 : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              ${delMenuItem(`deleteSupplierPermanent(${s.id})`,"Delete")}
+              <button onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
             </div>
           </span>
         </div>
@@ -14976,60 +14919,6 @@ async function saveSupplier() {
 }
 
 // ── 3-dot action menu (generic) ──
-// ── Action permission helpers ───────────────────────────────────
-// These are the single source of truth for what the current user can do.
-// SERVER.canDelete / canArchive / canEdit / canCreate are set server-side
-// from role_permissions at page load, so they can't be faked client-side.
-
-function canDo(action) {
-  if (action === 'delete')  return SERVER.canDelete  !== false;
-  if (action === 'archive') return SERVER.canArchive !== false;
-  if (action === 'edit')    return SERVER.canEdit    !== false;
-  if (action === 'create')  return SERVER.canCreate  !== false;
-  return true;
-}
-
-// Render a delete button — shows a lock icon with tooltip when restricted
-function delBtn(onclick, title = 'Delete') {
-  if (canDo('delete')) {
-    return `<button onclick="${onclick}" class="act-btn" style="color:var(--red)" title="${title}"><i class="fas fa-trash"></i></button>`;
-  }
-  return `<button disabled class="act-btn" style="color:var(--muted);cursor:not-allowed" title="Delete restricted by your role"><i class="fas fa-lock"></i></button>`;
-}
-
-// Render a delete menu item — grayed out with lock when restricted
-function delMenuItem(onclick, label = 'Delete') {
-  if (canDo('delete')) {
-    return `<button onclick="${onclick}"><i class="fas fa-trash" style="color:#E53935"></i> ${label}</button>`;
-  }
-  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
-}
-
-// Render an archive menu item — grayed out with lock when restricted
-function archiveMenuItem(onclick, label = 'Archive') {
-  if (canDo('archive')) {
-    return `<button onclick="${onclick}"><i class="fas fa-box-archive" style="color:#E65100"></i> ${label}</button>`;
-  }
-  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Archive restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
-}
-
-// Guard: call before executing any delete — shows a clear error if restricted
-function assertCanDelete(entityName = 'this record') {
-  if (!canDo('delete')) {
-    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to delete ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant delete access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-    return false;
-  }
-  return true;
-}
-
-function assertCanArchive(entityName = 'this record') {
-  if (!canDo('archive')) {
-    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to archive ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant archive access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-    return false;
-  }
-  return true;
-}
-
 function toggleActMenu(ev, btn) {
   ev.stopPropagation();
   const menu = btn.parentElement.querySelector('.act-menu');
@@ -15421,7 +15310,6 @@ function viewSupplierPdf(id) {
 }
 
 async function deleteSupplierPermanent(id) {
-  if (!assertCanDelete('this supplier')) return;
   const s = splAllSuppliers().find(x => String(x.id) === String(id));
   const conf = await Swal.fire({
     title: 'Permanently delete this supplier?',
@@ -15440,7 +15328,6 @@ async function deleteSupplierPermanent(id) {
 }
 
 async function archiveSupplier(id) {
-  if (!assertCanArchive('this supplier')) return;
   const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
     title: 'Archive supplier?', text: `"${s.name}" will be moved to archived suppliers.`,
@@ -15642,7 +15529,7 @@ function renderPurchases() {
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="editPurchase(${p.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${delMenuItem(`deletePurchase(${p.id})`,"Delete")}
+              <button onclick="deletePurchase(${p.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
             </div>
           </span>
         </div>
@@ -15799,7 +15686,7 @@ function renderProductsList() {
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
-              ${delMenuItem(`deleteProduct('${p.id}')`, "Delete")}
+              <button onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
             </div>
           </span>
         </div>
@@ -18238,7 +18125,6 @@ async function editSale(id) {
 }
 
 async function deleteSale(id) {
-  if (!assertCanDelete('this sale')) return;
   const s = (STATE.sales||[]).find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
     title: 'Delete this sale?', text: `"${s.invoice_no}" and its stock-out entries will be permanently removed. This cannot be undone.`,
@@ -18404,7 +18290,7 @@ function renderSales() {
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="editSale(${s.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${delMenuItem(`deleteSale(${s.id})`,"Delete")}
+              <button onclick="deleteSale(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
             </div>
           </span>
         </div>
@@ -19279,7 +19165,7 @@ async function renderCustomersList() {
               <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
               <div class="act-menu">
                 ${c.status==='active'
-                  ? `${archiveMenuItem(`deleteCustomerRich(${c.id})`,"Archive")}`
+                  ? `<button onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
                   : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
               </div>
             </span>
@@ -19316,7 +19202,6 @@ async function restoreCustomer(id) {
 }
 
 async function deleteCustomerRich(id) {
-  if (!assertCanDelete('this customer')) return;
   const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
   const conf = await Swal.fire({
     title: 'Archive this customer?', text: `"${c.name}" will be moved out of your active customer list.`,
@@ -19735,7 +19620,6 @@ async function deleteStockInEntry(id) {
 
 
 async function deletePurchase(id) {
-  if (!assertCanDelete('this purchase')) return;
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
   const conf = await Swal.fire({
     title: 'Delete this purchase?',

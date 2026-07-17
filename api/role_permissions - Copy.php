@@ -99,26 +99,6 @@ try {
         jsonResponse(['success' => true]);
     }
 
-    // ── BULK-SET: reset a whole role's action permissions at once ──
-    if ($method === 'POST' && $action === 'set_bulk') {
-        $role    = $body['role'] ?? '';
-        $perms   = $body['permissions'] ?? [];
-        if (!in_array($role, $ROLES, true) || !is_array($perms)) {
-            jsonResponse(['error' => 'Invalid role or permissions'], 400);
-        }
-        $tenantDb = getDB();
-        foreach ($perms as $key => $enabled) {
-            $enabled = $enabled ? 1 : 0;
-            if ($enabled && !$getCeiling($key)) continue;
-            $tenantDb->prepare(
-                'INSERT INTO role_permissions (role, permission_key, enabled) VALUES (?,?,?)
-                 ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)'
-            )->execute([$role, $key, $enabled]);
-        }
-        logActivity((int)$_SESSION['user_id'], 'role_permission_bulk_set', 'permission', 0, "Bulk set for role: {$role}");
-        jsonResponse(['success' => true]);
-    }
-
     jsonResponse(['error' => 'Unknown action: ' . $action], 400);
 
 } catch (Exception $e) {
