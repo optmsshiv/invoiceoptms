@@ -7847,7 +7847,15 @@ window.addEventListener('DOMContentLoaded', () => {
   addItem();
   updateClientDropdown();
   updateServiceDropdown();
-  renderDashboard();
+  // Only render the service dashboard on DOMContentLoaded — it uses STATE data
+  // already encoded server-side (invoices, clients). The product dashboard needs
+  // STATE.stock and STATE.products which only arrive after loadAllData(); it will
+  // render correctly in the loadAllData().then() callback below.
+  const _biz = STATE.settings.businessType || 'service';
+  if (_biz === 'service' || _biz === 'both') renderDashboard();
+  // Hide product panel until data is ready
+  const _pd = document.getElementById('dash-product');
+  if (_pd && (_biz === 'product' || _biz === 'both')) _pd.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--muted)"><i class="fas fa-spinner fa-spin" style="font-size:22px;margin-bottom:12px;display:block"></i>Loading dashboard…</div>';
   renderInvoicesTable();
   renderClients();
   renderProducts();
@@ -8172,15 +8180,47 @@ function renderProductDashboard() {
   const donutLabels = [...topStock.map(p => p.name), ...(others > 0 ? ['Others'] : [])];
   const donutColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#388E3C','#9E9E9E'];
   const donutCtx = document.getElementById('db-stock-donut');
+  const lg = document.getElementById('db-stock-legend');
   if (donutCtx) {
-    if (window._dbDonutChart) window._dbDonutChart.destroy();
-    window._dbDonutChart = new Chart(donutCtx, {
-      type: 'doughnut',
-      data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: '#fff' }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } }
-    });
-    const lg = document.getElementById('db-stock-legend');
-    if (lg) lg.innerHTML = donutLabels.map((l, i) => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11.5px"><span style="width:10px;height:10px;border-radius:3px;background:${donutColors[i]};flex-shrink:0"></span><span>${escHtml(l)}</span><span style="margin-left:auto;font-weight:600">${donutData[i].toLocaleString('en-IN')} Kg</span></div>`).join('');
+    if (window._dbDonutChart) { window._dbDonutChart.destroy(); window._dbDonutChart = null; }
+    if (!donutData.length || donutData.every(v => v === 0)) {
+      // No stock movements yet — show a centred empty state
+      const parent = donutCtx.parentElement;
+      if (parent) {
+        const ph = document.createElement('div');
+        ph.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12.5px;gap:8px';
+        ph.innerHTML = '<i class="fas fa-box-open" style="font-size:26px;color:var(--border)"></i><span>No stock data yet</span><span style="font-size:11px">Add Stock or record a Purchase to see this chart</span>';
+        donutCtx.style.display = 'none';
+        if (!parent.querySelector('.db-stock-empty')) { ph.classList.add('db-stock-empty'); parent.appendChild(ph); }
+      }
+      if (lg) lg.innerHTML = '';
+    } else {
+      // Remove any stale placeholder
+      donutCtx.style.display = '';
+      donutCtx.parentElement?.querySelector('.db-stock-empty')?.remove();
+      const centrePlugin = {
+        id: 'dbDonutCentre',
+        afterDraw(chart) {
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          const cx = chartArea.left + chartArea.width / 2;
+          const cy = chartArea.top + chartArea.height / 2;
+          ctx.save();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
+          ctx.fillText('Total Stock', cx, cy - 10);
+          ctx.fillStyle = '#1A1A2E'; ctx.font = 'bold 13px sans-serif';
+          ctx.fillText(totalStockKg.toLocaleString('en-IN', {maximumFractionDigits: 0}) + ' Kg', cx, cy + 8);
+          ctx.restore();
+        }
+      };
+      window._dbDonutChart = new Chart(donutCtx, {
+        type: 'doughnut',
+        data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } },
+        plugins: [centrePlugin]
+      });
+    }
   }
 
   // ── Top Products ───────────────────────────────────────────────
