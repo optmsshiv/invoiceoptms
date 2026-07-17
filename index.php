@@ -7913,8 +7913,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const _biz = STATE.settings.businessType || 'service';
   if (_biz === 'service' || _biz === 'both') renderDashboard();
   // Product dashboard needs STATE.stock/products from loadAllData — hide until ready
+  // Exception: super admin with no tenant connected — don't hide, let the catch
+  // handler in loadAllData show the dashboard with empty data instead of a blank screen
+  const _isSuperAdmin = <?= json_encode($isSuperAdmin) ?>;
+  const _hasTenant = <?= json_encode(!empty($_SESSION['tenant_db'])) ?>;
   const _pd = document.getElementById('dash-product');
-  if (_pd && (_biz === 'product' || _biz === 'both')) _pd.style.display = 'none';
+  if (_pd && !_isSuperAdmin && (_biz === 'product' || _biz === 'both')) _pd.style.display = 'none';
   renderInvoicesTable();
   renderClients();
   renderProducts();
@@ -22854,6 +22858,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
+  }).catch(function(loadErr) {
+    // loadAllData failed — most common cause: super admin with no database
+    // connected yet (getDB() throws). Still render the dashboard so the
+    // Connect Database button is visible and usable.
+    console.warn('loadAllData failed:', loadErr?.message || loadErr);
+    try {
+      const _pd = document.getElementById('dash-product');
+      if (_pd) _pd.style.display = '';
+      renderDashboard();
+    } catch(e) { /* ignore secondary errors */ }
+    document.addEventListener('click', closeAllDropdowns);
   });
 });
 // ── Populate notification bell from live data ──────────────────

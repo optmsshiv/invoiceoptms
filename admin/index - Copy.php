@@ -15,65 +15,96 @@ $user = currentUser();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Super Admin — OPTMS</title>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Hanken+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root{
   --ink:#0B1522; --ink-2:#16233A; --ink-border:#25344D;
-  --surface:#F5F6F8; --card:#fff; --border:#E4E7EC; --border-soft:#EEF0F3;
-  --text:#101828; --text-soft:#4B5565; --text-mute:#8A94A6;
-  --accent:#0F9C8E; --accent-dark:#0B7A6E; --accent-soft:#E4F5F3;
-  --danger:#D92D20; --danger-soft:#FDECEB;
-  --warning:#B45309; --warning-soft:#FEF3E2;
-  --shadow-sm:0 1px 2px rgba(16,24,40,.05);
-  --shadow-md:0 4px 14px rgba(16,24,40,.06);
-  --radius:12px;
+  --surface:#f8faf6; --card:#ffffff; --border:#e5e7eb; --border-soft:#eef1ed;
+  --text:#191c1b; --text-soft:#3f4944; --text-mute:#6f7974;
+  --accent:#0f5a46; --accent-dark:#004131; --accent-soft:#e3f5ec;
+  --danger:#ba1a1a; --danger-soft:#ffdad6;
+  --warning:#765b04; --warning-soft:#fed97c;
+  --shadow-sm:0 4px 12px rgba(0,0,0,.03);
+  --shadow-md:0 12px 32px rgba(0,0,0,.08);
+  --radius:18px;
+
+  --tb-surface:#ffffff; --tb-surface-low:#f2f4f1; --tb-surface-tint:#eceeeb;
+  --tb-on-surface:#191c1b; --tb-on-surface-variant:#3f4944;
+  --tb-outline:#6f7974; --tb-outline-variant:#bfc9c3;
+  --tb-primary:#004131; --tb-primary-container:#0f5a46; --tb-on-primary:#ffffff;
+  --tb-secondary-container:#fed97c; --tb-on-secondary-container:#785d07;
+  --tb-error:#ba1a1a;
+  --tb-shadow-1:0 4px 12px rgba(0,0,0,.03);
+  --tb-shadow-2:0 12px 32px rgba(0,0,0,.08);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Public Sans',sans-serif;background:var(--surface);min-height:100vh;color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',sans-serif;background:var(--surface);min-height:100vh;color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
 code,.mono{font-family:'JetBrains Mono',monospace}
 
 /* Topbar */
-.topbar{background:linear-gradient(180deg,var(--ink),#0E1B2C);color:#fff;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--ink-border);box-shadow:var(--shadow-md)}
-.topbar-left{display:flex;align-items:center;gap:16px;min-width:0}
-.back-link{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AEB9CC;background:rgba(255,255,255,.06);text-decoration:none;flex-shrink:0;transition:.15s}
-.back-link:hover{background:rgba(255,255,255,.12);color:#fff}
-.topbar-brand{font-size:14px;font-weight:800;display:flex;align-items:center;gap:9px;flex-shrink:0;letter-spacing:.2px}
-.brand-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#1BC1AF);display:flex;align-items:center;justify-content:center;font-size:12px;color:#04211D}
-.v-tag{font-size:10px;font-weight:700;color:#7C8AA0;background:rgba(255,255,255,.06);padding:2px 7px;border-radius:5px;margin-left:2px}
-.crumb{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#7C8AA0;min-width:0;white-space:nowrap;padding-left:14px;border-left:1px solid var(--ink-border)}
-.crumb a{color:#AEB9CC;text-decoration:none}
-.crumb a:hover{color:#fff}
-.crumb i{font-size:9px;color:#4A5A73}
-.crumb .current{color:#fff;font-weight:600}
-.topbar-right{display:flex;align-items:center;gap:10px;font-size:13px}
-.user-chip{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;background:rgba(255,255,255,.06);border-radius:20px}
-.avatar-sm{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#1BC1AF);color:#04211D;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.user-chip span:last-child{color:#DCE1EA;font-weight:600;font-size:12.5px}
-.icon-btn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AEB9CC;background:rgba(255,255,255,.06);text-decoration:none;transition:.15s;border:none;cursor:pointer;font-size:13px}
-.icon-btn:hover{background:var(--danger-soft);color:var(--danger)}
+.topbar{background:var(--tb-surface);color:var(--tb-on-surface);position:sticky;top:0;z-index:100;border-bottom:1px solid var(--tb-outline-variant);box-shadow:var(--tb-shadow-1)}
+.topbar-main{padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.topbar-left{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.topbar-brand{font-family:'Hanken Grotesk',sans-serif;font-size:16px;font-weight:600;color:var(--tb-on-surface);display:flex;align-items:center;gap:9px;letter-spacing:-.01em;white-space:nowrap}
+.brand-mark{width:28px;height:28px;border-radius:8px;background:var(--tb-primary);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--tb-on-primary);flex-shrink:0}
+.v-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--tb-on-surface-variant);background:var(--tb-surface-tint);padding:2px 7px;border-radius:5px;margin-left:4px}
+.role-pill{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--tb-on-secondary-container);background:var(--tb-secondary-container);padding:3px 9px;border-radius:20px;white-space:nowrap}
+.topbar-search{flex:1;max-width:420px;position:relative}
+.topbar-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tb-on-surface-variant);font-size:13px;pointer-events:none}
+.topbar-search input{width:100%;height:36px;background:var(--tb-surface);border:1px solid var(--tb-outline-variant);border-radius:8px;color:var(--tb-on-surface);font-family:'Inter',sans-serif;font-size:13px;padding:0 30px 0 34px;transition:.15s}
+.topbar-search input::placeholder{color:var(--tb-on-surface-variant)}
+.topbar-search input:focus{outline:none;border-color:var(--tb-primary);box-shadow:0 0 0 3px rgba(0,65,49,.10)}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:18px;height:18px;border:none;background:none;color:var(--tb-on-surface-variant);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px}
+.search-clear:hover{color:var(--tb-on-surface)}
+.topbar-right{display:flex;align-items:center;gap:8px;font-size:13px;flex-shrink:0}
+.icon-btn{position:relative;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--tb-on-surface-variant);background:transparent;text-decoration:none;transition:.15s;border:none;cursor:pointer;font-size:14px}
+.icon-btn:hover{background:var(--tb-surface-tint);color:var(--tb-on-surface)}
+.notif-dot{position:absolute;top:6px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--tb-error)}
+.topbar-divider{width:1px;height:22px;background:var(--tb-outline-variant);margin:0 2px}
+.user-menu{position:relative}
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 4px;background:var(--tb-surface-low);border:none;border-radius:20px;cursor:pointer;transition:.15s}
+.user-chip:hover{background:var(--tb-surface-tint)}
+.avatar-sm{width:24px;height:24px;border-radius:50%;background:var(--tb-primary);color:var(--tb-on-primary);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-chip span.uname{font-family:'Inter',sans-serif;color:var(--tb-on-surface);font-weight:500;font-size:12.5px}
+.user-chip i.ti-chevron-down{color:var(--tb-on-surface-variant);font-size:12px;transition:.15s}
+.user-menu.open .user-chip i.ti-chevron-down{transform:rotate(180deg)}
+.user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--tb-surface);border:1px solid var(--tb-outline-variant);border-radius:12px;min-width:190px;box-shadow:var(--tb-shadow-2);display:none;overflow:hidden;z-index:200}
+.user-menu.open .user-dropdown{display:block}
+.user-dropdown a,.user-dropdown button{display:flex;align-items:center;gap:9px;width:100%;padding:10px 14px;font-family:'Inter',sans-serif;font-size:13px;color:var(--tb-on-surface);text-decoration:none;background:none;border:none;cursor:pointer;text-align:left}
+.user-dropdown a:hover,.user-dropdown button:hover{background:var(--tb-surface-low)}
+.user-dropdown i{font-size:14px;color:var(--tb-on-surface-variant);width:14px}
+.user-dropdown .logout-item{color:var(--tb-error)}
+.user-dropdown .logout-item i{color:var(--tb-error)}
+.user-dropdown .divider{height:1px;background:var(--tb-outline-variant);margin:4px 0}
+.topbar-crumb-strip{padding:9px 24px;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:12px;color:var(--tb-on-surface-variant);background:var(--tb-surface-low);border-top:1px solid var(--tb-outline-variant)}
+.topbar-crumb-strip a{color:var(--tb-on-surface-variant);text-decoration:none}
+.topbar-crumb-strip a:hover{color:var(--tb-on-surface)}
+.topbar-crumb-strip i{font-size:10px;color:var(--tb-outline)}
+.topbar-crumb-strip .current{color:var(--tb-on-surface);font-weight:600}
+@media (max-width:900px){.topbar-search{display:none}}
 
 /* Layout */
 .container{max-width:1240px;margin:0 auto;padding:32px 24px 60px}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap}
 .eyebrow{font-size:11px;font-weight:700;color:var(--accent-dark);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
-.page-title{font-size:24px;font-weight:800;letter-spacing:-.2px}
+.page-title{font-family:'Hanken Grotesk',sans-serif;font-size:24px;font-weight:600;letter-spacing:-.01em;color:var(--text)}
 .page-sub{font-size:13px;color:var(--text-mute);margin-top:4px}
 
 .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:28px}
 .stat-card{background:var(--card);border-radius:var(--radius);padding:18px 20px;border:1px solid var(--border);display:flex;align-items:center;gap:14px;box-shadow:var(--shadow-sm)}
 .stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.stat-card .val{font-size:24px;font-weight:800;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.stat-card .val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
 .stat-card .lbl{font-size:11.5px;color:var(--text-mute);font-weight:600;margin-top:5px}
 
 .card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:24px;overflow:hidden;box-shadow:var(--shadow-sm)}
 .card-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.card-header h3{font-size:15px;font-weight:700}
+.card-header h3{font-family:'Hanken Grotesk',sans-serif;font-size:15px;font-weight:600}
 .card-header .sub{font-size:12px;color:var(--text-mute);margin-top:2px;font-weight:500}
 
 /* Buttons */
-.btn{padding:9px 16px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:1px solid transparent;transition:.15s;display:inline-flex;align-items:center;gap:7px;line-height:1}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(15,156,142,.35)}
+.btn{padding:9px 16px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:.15s;display:inline-flex;align-items:center;gap:7px;line-height:1}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 2px rgba(15,90,70,.35)}
 .btn-primary:hover{background:var(--accent-dark)}
 .btn-danger{background:var(--danger-soft);color:var(--danger);border-color:#F7D3D0}
 .btn-danger:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
@@ -93,7 +124,7 @@ tr:last-child td{border-bottom:none}
 tbody tr{transition:background .1s}
 tbody tr:hover td{background:#FAFBFD}
 .cell-primary{display:flex;align-items:center;gap:11px}
-.avatar-md{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent-soft),#D2EEEA);color:var(--accent-dark);font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatar-md{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent-soft),#c9ece0);color:var(--accent-dark);font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .cell-primary .name{font-weight:700;color:var(--text);font-size:13.3px}
 .cell-primary .meta{font-size:11.5px;color:var(--text-mute);margin-top:1px}
 .id-stack .slug{font-size:12px;font-weight:600;color:var(--text-soft)}
@@ -103,9 +134,9 @@ tbody tr:hover td{background:#FAFBFD}
 .count-pill i{color:var(--text-mute);font-size:11px}
 
 /* Badges */
-.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge{font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:20px;font-size:10.5px;font-weight:500;white-space:nowrap}
 .badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-.badge-active{background:#E7F7EF;color:#0B8A4E}
+.badge-active{background:#e3f5ec;color:#0f5a46}
 .badge-suspended{background:var(--danger-soft);color:var(--danger)}
 .badge-trial{background:#F1EDFC;color:#6D3EC7}
 .badge-pro{background:#EAF1FE;color:#1D5FE0}
@@ -121,14 +152,14 @@ tbody tr:hover td{background:#FAFBFD}
 .override-tag{font-size:9.5px;font-weight:700;color:var(--warning);background:var(--warning-soft);padding:2px 7px;border-radius:10px;letter-spacing:.3px}
 
 /* Modals */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(11,21,34,.55);backdrop-filter:blur(2px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(25,28,27,.5);backdrop-filter:blur(2px);z-index:1000;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(11,21,34,.35)}
+.modal{background:#fff;border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(25,28,27,.25)}
 .modal-close{position:absolute;top:18px;right:18px;width:30px;height:30px;border-radius:8px;border:none;background:var(--surface);color:var(--text-mute);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:.15s}
 .modal-close:hover{background:var(--border);color:var(--text)}
 .modal-head{padding:24px 26px 16px;display:flex;gap:13px;align-items:flex-start;border-bottom:1px solid var(--border-soft)}
 .modal-icon{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.modal-head h3{font-size:16.5px;font-weight:800;letter-spacing:-.1px}
+.modal-head h3{font-family:'Hanken Grotesk',sans-serif;font-size:16.5px;font-weight:600;letter-spacing:-.01em}
 .modal-head p{font-size:12.5px;color:var(--text-mute);margin-top:3px;line-height:1.5}
 .modal-body{padding:20px 26px 26px}
 .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:16px 26px 22px;border-top:1px solid var(--border-soft);margin-top:6px}
@@ -140,7 +171,7 @@ tbody tr:hover td{background:#FAFBFD}
 .section-label{font-size:11px;font-weight:700;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 .divider{height:1px;background:var(--border-soft);margin:18px 0;border:none}
 .alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;line-height:1.5}
-.alert-success{background:#E7F7EF;color:#0B7A44;border:1px solid #B7EBCB}
+.alert-success{background:var(--accent-soft);color:var(--accent-dark);border:1px solid #b7e3d0}
 .alert-error{background:var(--danger-soft);color:var(--danger);border:1px solid #F7D3D0}
 
 /* Toggle switch */
@@ -178,26 +209,46 @@ tbody tr:hover td{background:#FAFBFD}
 </head>
 <body>
 <div class="topbar">
-  <div class="topbar-left">
-    <a href="/dashboard.php" class="back-link" title="Back to Dashboard">
-      <i class="fas fa-arrow-left"></i>
-    </a>
-    <div class="topbar-brand">
-      <span class="brand-mark"><i class="fas fa-shield-alt"></i></span>
-      OPTMS <span class="v-tag">v<?= APP_VERSION ?></span>
+  <div class="topbar-main">
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <span class="brand-mark"><i class="fas fa-shield-alt"></i></span>
+        OPTMS <span class="v-tag">v<?= APP_VERSION ?></span>
+      </div>
+      <span class="role-pill">Super Admin</span>
     </div>
-    <div class="crumb">
-      <a href="/dashboard.php">Dashboard</a>
-      <i class="fas fa-chevron-right"></i>
-      <span class="current">Tenant Management</span>
+
+    <div class="topbar-search">
+      <i class="fas fa-search"></i>
+      <input type="text" id="topbar-search-input" placeholder="Search tenants, owners, slugs..." autocomplete="off">
+      <button class="search-clear" id="topbar-search-clear" title="Clear"><i class="fas fa-times"></i></button>
+    </div>
+
+    <div class="topbar-right">
+      <button class="icon-btn" id="notif-btn" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <span class="notif-dot"></span>
+      </button>
+      <div class="topbar-divider"></div>
+      <div class="user-menu" id="user-menu">
+        <button class="user-chip" id="user-chip-btn">
+          <span class="avatar-sm"><?= strtoupper(substr($user['name'] ?? 'S', 0, 1)) ?></span>
+          <span class="uname"><?= htmlspecialchars($user['name'] ?? 'Super Admin') ?></span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="user-dropdown">
+          <a href="/dashboard.php"><i class="fas fa-arrow-left"></i> Back to dashboard</a>
+          <a href="/profile.php"><i class="fas fa-user"></i> Profile</a>
+          <div class="divider"></div>
+          <a href="/auth/logout.php" class="logout-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="topbar-right">
-    <div class="user-chip">
-      <span class="avatar-sm"><?= strtoupper(substr($user['name'] ?? 'S', 0, 1)) ?></span>
-      <span><?= htmlspecialchars($user['name'] ?? 'Super Admin') ?></span>
-    </div>
-    <a href="/auth/logout.php" class="icon-btn" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
+  <div class="topbar-crumb-strip">
+    <a href="/dashboard.php">Dashboard</a>
+    <i class="fas fa-chevron-right"></i>
+    <span class="current">Tenant Management</span>
   </div>
 </div>
 
@@ -240,6 +291,9 @@ tbody tr:hover td{background:#FAFBFD}
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline" onclick="openPlanDefaults()">
           <i class="fas fa-sliders-h"></i> Plan Defaults
+        </button>
+        <button class="btn btn-outline" onclick="openAttachExisting()">
+          <i class="fas fa-plug"></i> Attach Existing Database
         </button>
         <button class="btn btn-primary" onclick="openCreateTenant()">
           <i class="fas fa-plus"></i> New Tenant
@@ -311,6 +365,14 @@ tbody tr:hover td{background:#FAFBFD}
         </div>
       </div>
       <div class="field">
+        <label>Business Type <span style="font-weight:400;font-size:11px;color:var(--text-mute)">(sets wording on their Products page)</span></label>
+        <select id="t-business-type">
+          <option value="service">Services (consulting, web dev, ERP…)</option>
+          <option value="product">Products (trading, import/export, retail…)</option>
+          <option value="both" selected>Both / Mixed</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Temp Password (leave blank to auto-generate)</label>
         <input id="t-password" class="mono" placeholder="Auto-generated if blank">
       </div>
@@ -324,7 +386,73 @@ tbody tr:hover td{background:#FAFBFD}
   </div>
 </div>
 
-<!-- Tenant Users Modal -->
+<!-- Attach Existing Database Modal -->
+<div class="modal-overlay" id="modal-attach-existing">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-attach-existing')"><i class="fas fa-times"></i></button>
+    <div class="modal-head">
+      <div class="modal-icon"><i class="fas fa-plug"></i></div>
+      <div>
+        <h3>Attach Existing Database</h3>
+        <p>Registers a database that already has data (e.g. an older deployment) as a tenant — no schema is created and no existing data is modified.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="attach-alert"></div>
+      <div class="field">
+        <label>Database Name *</label>
+        <input id="a-dbname" class="mono" placeholder="e.g. edrppymy_oldclient">
+        <div style="font-size:11px;color:var(--text-mute);margin-top:4px">Exact name from cPanel → MySQL Databases</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Company Name *</label>
+          <input id="a-company" placeholder="Old Client Pvt Ltd">
+        </div>
+        <div class="field">
+          <label>Slug (auto)</label>
+          <input id="a-slug" class="mono" placeholder="old_client">
+        </div>
+      </div>
+      <div class="field">
+        <label>Owner Email * <span style="font-weight:400;font-size:11px;color:var(--text-mute)">(must match an existing user's email inside that database)</span></label>
+        <input id="a-owner-email" type="email" placeholder="owner@oldclient.com">
+      </div>
+      <div class="field">
+        <label>Business Type</label>
+        <select id="a-business-type">
+          <option value="service" selected>Services (Invoices, Clients, Payments)</option>
+          <option value="product">Products (Sales, Purchases, Stock)</option>
+          <option value="both">Both / Mixed</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Phone</label>
+          <input id="a-phone" placeholder="9876543210">
+        </div>
+        <div class="field">
+          <label>Plan</label>
+          <select id="a-plan">
+            <option value="trial">Trial</option>
+            <option value="basic">Basic</option>
+            <option value="pro" selected>Pro</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-mute);background:var(--bg);border-radius:8px;padding:10px 12px;margin-top:4px">
+        <i class="fas fa-circle-info"></i> Existing users keep their current passwords — nothing is reset. Users whose email is already used by another tenant will be skipped and listed after attaching, for you to resolve manually.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-attach-existing')">Cancel</button>
+      <button class="btn btn-primary" onclick="attachExistingTenant()">
+        <i class="fas fa-plug"></i> Attach Database
+      </button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-users">
   <div class="modal" style="max-width:680px">
     <button class="modal-close" onclick="closeModal('modal-users')"><i class="fas fa-times"></i></button>
@@ -461,6 +589,53 @@ let TENANTS  = [];
 let ACTIVE_TENANT_ID = null;
 let PENDING_RESUME = null;
 
+// ── Topbar search ───────────────────────────────────────────────
+function filterTenants(query) {
+  const q = query.trim().toLowerCase();
+  const clearBtn = document.getElementById('topbar-search-clear');
+  clearBtn.style.display = q ? 'flex' : 'none';
+  if (!q) { renderTenants(TENANTS); return; }
+  const matches = TENANTS.filter(t => [t.company_name, t.owner_email, t.slug, t.db_name]
+    .some(v => (v || '').toLowerCase().includes(q)));
+  renderTenants(matches);
+}
+
+(function initTopbarSearch() {
+  const input = document.getElementById('topbar-search-input');
+  const clearBtn = document.getElementById('topbar-search-clear');
+  let debounce;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => filterTenants(input.value), 150);
+  });
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    filterTenants('');
+    input.focus();
+  });
+})();
+
+// ── User menu dropdown ──────────────────────────────────────────
+(function initUserMenu() {
+  const menu = document.getElementById('user-menu');
+  const btn  = document.getElementById('user-chip-btn');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target)) menu.classList.remove('open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') menu.classList.remove('open');
+  });
+})();
+
+// Notifications: no backend endpoint exists yet for this — placeholder only.
+document.getElementById('notif-btn')?.addEventListener('click', () => {
+  console.log('Notifications: no backend wired yet.');
+});
+
 // ── Load tenants ────────────────────────────────────────────────
 async function loadTenants() {
   const r    = await fetch('/api/tenant.php?action=list');
@@ -475,15 +650,31 @@ async function loadTenants() {
   document.getElementById('stat-active').textContent    = active;
   document.getElementById('stat-suspended').textContent = suspended;
   document.getElementById('stat-users').textContent     = users;
-  document.getElementById('tenants-subtitle').textContent =
-    TENANTS.length ? `${TENANTS.length} tenant${TENANTS.length===1?'':'s'} · ${users} user${users===1?'':'s'} total` : 'No tenants yet';
 
+  renderTenants(TENANTS);
+}
+
+function renderTenants(list) {
   const tbody = document.getElementById('tenants-tbody');
+  const subtitle = document.getElementById('tenants-subtitle');
+  const q = (document.getElementById('topbar-search-input')?.value || '').trim();
+
   if (!TENANTS.length) {
+    subtitle.textContent = 'No tenants yet';
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
-  tbody.innerHTML = TENANTS.map(t => `
+  if (q && !list.length) {
+    subtitle.textContent = `No matches for "${q}"`;
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
+    return;
+  }
+  const totalUsers = list.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
+  subtitle.textContent = q
+    ? `${list.length} of ${TENANTS.length} tenants matching "${q}"`
+    : `${list.length} tenant${list.length===1?'':'s'} · ${totalUsers} user${totalUsers===1?'':'s'} total`;
+
+  tbody.innerHTML = list.map(t => `
     <tr>
       <td>
         <div class="cell-primary">
@@ -544,6 +735,7 @@ async function createTenant() {
     owner_email:  document.getElementById('t-owner-email').value.trim(),
     phone:        document.getElementById('t-phone').value.trim(),
     plan:         document.getElementById('t-plan').value,
+    business_type:document.getElementById('t-business-type').value,
     password:     document.getElementById('t-password').value.trim() || undefined,
   };
   if (!payload.company_name || !payload.owner_email) {
@@ -626,6 +818,61 @@ async function finishProvision() {
 }
 
 // ── Suspend / Activate ──────────────────────────────────────────
+function openAttachExisting() {
+  document.getElementById('attach-alert').innerHTML = '';
+  ['a-dbname','a-company','a-slug','a-owner-email','a-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('modal-attach-existing').classList.add('open');
+}
+
+document.getElementById('a-company').addEventListener('input', function() {
+  const slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  document.getElementById('a-slug').value = slug;
+});
+
+async function attachExistingTenant() {
+  const payload = {
+    db_name:      document.getElementById('a-dbname').value.trim(),
+    company_name: document.getElementById('a-company').value.trim(),
+    slug:         document.getElementById('a-slug').value.trim(),
+    owner_email:  document.getElementById('a-owner-email').value.trim(),
+    business_type:document.getElementById('a-business-type').value,
+    phone:        document.getElementById('a-phone').value.trim(),
+    plan:         document.getElementById('a-plan').value,
+  };
+  if (!payload.db_name || !payload.company_name || !payload.owner_email) {
+    showAlert('attach-alert', 'Database name, company name and owner email are required', 'error');
+    return;
+  }
+  const btn = event.target.closest('button');
+  btn.disabled = true; btn.textContent = 'Attaching…';
+  try {
+    const r = await fetch('/api/tenant.php?action=attach_existing', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.success) {
+      let html = `✅ ${esc(data.message)}<br><strong>Login:</strong> ${esc(data.owner_email)}<br><strong>DB:</strong> ${esc(data.db_name)}<br><em>Their existing password still works — nothing was reset.</em>`;
+      if (data.migrated_users?.length) {
+        html += `<br><br><strong>Migrated (${data.migrated_users.length}):</strong><br>` +
+          data.migrated_users.map(u => `${esc(u.email)} (${esc(u.role)})`).join('<br>');
+      }
+      if (data.skipped_users?.length) {
+        html += `<br><br><strong style="color:#c0392b">Needs manual review (${data.skipped_users.length}):</strong><br>` +
+          data.skipped_users.map(u => `${esc(u.email||'id '+u.old_id)} — ${esc(u.reason)}`).join('<br>');
+      }
+      showAlert('attach-alert', html, 'success');
+      loadTenants();
+    } else {
+      showAlert('attach-alert', data.error || 'Failed', 'error');
+    }
+  } catch(e) {
+    showAlert('attach-alert', 'Network error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Attach Database';
+  }
+}
+
 async function suspendTenant(id) {
   if (!confirm('Suspend this tenant? Their users will not be able to log in.')) return;
   await fetch('/api/tenant.php?action=suspend', {
