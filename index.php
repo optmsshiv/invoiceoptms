@@ -16962,17 +16962,27 @@ function calcPNEKantaSummary() {
     }
   }
 
-  // Update sidebar weight summary
-  let totalDhalta = 0;
-  PNE.items.forEach(it => { totalDhalta += pneCalcRow(it).dhaltaKg; });
-  const billable = Math.max(0, net - totalDhalta);
+  // Update sidebar weight summary — accumulate from ALL saved items so
+  // the summary stays correct after Done resets the header fields.
+  let sumGross = 0, sumTare = 0, sumNet = 0, sumDhalta = 0, sumBillable = 0;
+  PNE.items.forEach(it => {
+    const c = pneCalcRow(it);
+    sumGross    += parseFloat(it.gross_weight) || 0;
+    sumTare     += parseFloat(it.tare_weight)  || 0;
+    sumNet      += c.net;
+    sumDhalta   += c.dhaltaKg;
+    sumBillable += c.billable;
+  });
+  // If header has values (user currently filling an item), add those on top
+  if (gross > 0) sumGross = gross + (sumGross - (parseFloat(PNE.items.find(i=>i.editing)?.gross_weight)||0));
+  if (tare  > 0) sumTare  = tare  + (sumTare  - (parseFloat(PNE.items.find(i=>i.editing)?.tare_weight )||0));
 
   const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '—';
-  document.getElementById('pnk-sum-gross').textContent    = fmt(gross);
-  document.getElementById('pnk-sum-tare').textContent     = fmt(tare);
-  document.getElementById('pnk-sum-net').textContent      = fmt(net);
-  document.getElementById('pnk-sum-dhalta').textContent   = totalDhalta.toFixed(2) + ' Kg';
-  document.getElementById('pnk-sum-billable').textContent = billable.toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-gross').textContent    = fmt(sumGross || gross);
+  document.getElementById('pnk-sum-tare').textContent     = fmt(sumTare  || tare);
+  document.getElementById('pnk-sum-net').textContent      = fmt(sumNet   || net);
+  document.getElementById('pnk-sum-dhalta').textContent   = (sumDhalta).toFixed(2) + ' Kg';
+  document.getElementById('pnk-sum-billable').textContent = (sumBillable).toFixed(2) + ' Kg';
   calcPNEQualitySummary();
 }
 
