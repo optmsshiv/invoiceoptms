@@ -8137,28 +8137,7 @@ const EAR = {
   entityLabel: null,
   editCallback: null,     // fn to call when approved
   pollTimer: null,
-  approvedFor: null,      // { entityType, entityId } — tracks which record was unlocked
 };
-
-// Called after every successful save — consumes the single-use approval
-// so the same approval can't be reused for another edit.
-async function consumeEditApproval() {
-  if (!EAR.requestId) return;
-  const id = EAR.requestId;
-  EAR.requestId = null;
-  EAR.approvedFor = null;
-  clearInterval(EAR.pollTimer);
-  try {
-    await api('api/edit_approvals.php?action=consume', 'POST', { id });
-  } catch(e) { /* non-fatal — server also expires it on next poll */ }
-}
-
-// Check if the current user has an active approval for this specific entity
-function hasActiveApproval(entityType, entityId) {
-  return EAR.approvedFor &&
-    EAR.approvedFor.entityType === entityType &&
-    String(EAR.approvedFor.entityId) === String(entityId);
-}
 
 // ── Intercept: called instead of editX() when user lacks action.edit ──
 // entityType: 'purchase'|'sale'|'supplier'|'customer'|'product'
@@ -8230,9 +8209,7 @@ function _earShowApproved(req) {
   const byEl = document.getElementById('ear-approved-by');
   const noteEl = document.getElementById('ear-approved-note');
   if (byEl) byEl.textContent = 'Approved by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note?.replace(' [Used — edit saved]','') ? '"' + req.review_note + '"' : '';
-  // Track which entity this approval covers
-  EAR.approvedFor = { entityType: EAR.entityType, entityId: EAR.entityId };
+  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : '';
   // Auto-dismiss and open edit after 2s
   setTimeout(() => {
     const modal = document.getElementById('modal-edit-approval');
@@ -8390,7 +8367,7 @@ async function rejectEditRequest(id) {
 // If user has action.edit permission → call editFn directly.
 // Otherwise → route through the approval workflow.
 function editWithApproval(entityType, entityId, entityLabel, editFn) {
-  if (canDo('edit') || hasActiveApproval(entityType, entityId)) {
+  if (canDo('edit')) {
     editFn();
   } else {
     requestEditApproval(entityType, entityId, entityLabel, editFn);
@@ -14916,10 +14893,10 @@ async function saveProductEntry(mode) {
   try {
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Product updated!', 'success');
+      toast('✅ Product updated!', 'success');
     } else {
       await api('api/products.php', 'POST', payload);
-      consumeEditApproval(); toast('✅ Product saved!', 'success');
+      toast('✅ Product saved!', 'success');
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
@@ -15340,7 +15317,7 @@ async function saveSupplier() {
   try {
     if (SUP.editingId) {
       await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
+      toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
@@ -17018,11 +16995,11 @@ async function savePurchaseEntry(mode) {
     let savedId = PNE.editingId;
     if (PNE.editingId) {
       await api('api/purchases.php?id=' + PNE.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Purchase updated!', 'success');
+      toast('✅ Purchase updated!', 'success');
     } else {
       const res = await api('api/purchases.php', 'POST', payload);
       savedId = res.id;
-      consumeEditApproval(); toast('✅ Purchase saved!', 'success');
+      toast('✅ Purchase saved!', 'success');
     }
     const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
@@ -18529,11 +18506,11 @@ async function saveSaleEntry(mode) {
     let savedId = SN.editingId;
     if (SN.editingId) {
       await api('api/sales.php?id=' + SN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Sale updated!', 'success');
+      toast('✅ Sale updated!', 'success');
     } else {
       const res = await api('api/sales.php', 'POST', payload);
       savedId = res.id;
-      consumeEditApproval(); toast('✅ Sale saved!', 'success');
+      toast('✅ Sale saved!', 'success');
     }
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
     STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
@@ -19317,7 +19294,7 @@ async function saveSupplierEntry() {
   try {
     if (SUPN.editingId) {
       await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
+      toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
@@ -19521,7 +19498,7 @@ async function saveCustomerEntry(mode) {
     let newId = CUSN.editingId;
     if (CUSN.editingId) {
       await api('api/customers.php?id=' + CUSN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Customer updated!', 'success');
+      toast('✅ Customer updated!', 'success');
     } else {
       const res = await api('api/customers.php', 'POST', payload);
       newId = res.id;

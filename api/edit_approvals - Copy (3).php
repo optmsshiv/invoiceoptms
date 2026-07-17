@@ -30,21 +30,6 @@ $db->exec("UPDATE edit_approval_requests SET status='expired'
 
 try { switch (true) {
 
-    // ── CONSUME: mark approval used after the single edit is saved ─
-    // Called by the frontend immediately after a successful save so the
-    // approval can't be reused for a second edit on the same record.
-    if ($method === 'POST' && $action === 'consume') {
-        $reqId = (int)($body['id'] ?? 0);
-        if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);
-        // Only the original requester can consume their own approval
-        $db->prepare(
-            'UPDATE edit_approval_requests
-                SET status="expired", review_note=CONCAT(IFNULL(review_note,""), " [Used — edit saved]")
-              WHERE id=? AND requested_by=? AND status="approved"'
-        )->execute([$reqId, $userId]);
-        jsonResponse(['success' => true]);
-    }
-
     // ── REQUEST: non-admin asks for edit permission ───────────────
     case ($method === 'POST' && $action === 'request'):
         $entityType  = trim($body['entity_type']  ?? '');
