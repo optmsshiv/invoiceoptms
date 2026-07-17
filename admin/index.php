@@ -638,33 +638,20 @@ document.getElementById('notif-btn')?.addEventListener('click', () => {
 
 // ── Load tenants ────────────────────────────────────────────────
 async function loadTenants() {
-  const tbody    = document.getElementById('tenants-tbody');
-  const subtitle = document.getElementById('tenants-subtitle');
-  try {
-    const r = await fetch('/api/tenant.php?action=list');
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-    const data = await r.json();
-    if (data.error) throw new Error(data.error);
-    TENANTS = data.data || [];
+  const r    = await fetch('/api/tenant.php?action=list');
+  const data = await r.json();
+  TENANTS = data.data || [];
 
-    const active    = TENANTS.filter(t => t.status === 'active').length;
-    const suspended = TENANTS.filter(t => t.status === 'suspended').length;
-    const users     = TENANTS.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
+  const active    = TENANTS.filter(t => t.status === 'active').length;
+  const suspended = TENANTS.filter(t => t.status === 'suspended').length;
+  const users     = TENANTS.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
 
-    document.getElementById('stat-total').textContent     = TENANTS.length;
-    document.getElementById('stat-active').textContent    = active;
-    document.getElementById('stat-suspended').textContent = suspended;
-    document.getElementById('stat-users').textContent     = users;
+  document.getElementById('stat-total').textContent     = TENANTS.length;
+  document.getElementById('stat-active').textContent    = active;
+  document.getElementById('stat-suspended').textContent = suspended;
+  document.getElementById('stat-users').textContent     = users;
 
-    renderTenants(TENANTS);
-  } catch(e) {
-    console.error('loadTenants failed:', e);
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#ba1a1a">
-      <i class="fas fa-exclamation-circle"></i> Failed to load tenants: ${esc(e.message)}<br>
-      <small style="color:var(--text-mute);margin-top:6px;display:block">Check that <code>/api/tenant.php</code> is reachable and the master database is connected.</small>
-    </td></tr>`;
-    if (subtitle) subtitle.textContent = 'Error loading tenants';
-  }
+  renderTenants(TENANTS);
 }
 
 function renderTenants(list) {
@@ -914,20 +901,12 @@ async function openUsers(tenantId, companyName) {
 }
 
 async function loadUsers() {
-  try {
-    const r    = await fetch(`/api/tenant.php?action=users&tenant_id=${ACTIVE_TENANT_ID}`);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    if (data.error) throw new Error(data.error);
-    CURRENT_USERS = data.data || [];
-    document.getElementById('users-modal-sub').textContent =
-      `${CURRENT_USERS.length} user${CURRENT_USERS.length===1?'':'s'} with access to this workspace`;
-    renderUsersList();
-  } catch(e) {
-    console.error('loadUsers failed:', e);
-    const wrap = document.getElementById('users-list');
-    if (wrap) wrap.innerHTML = `<p style="color:#ba1a1a;font-size:13px;padding:8px 0"><i class="fas fa-exclamation-circle"></i> Failed to load users: ${esc(e.message)}</p>`;
-  }
+  const r    = await fetch(`/api/tenant.php?action=users&tenant_id=${ACTIVE_TENANT_ID}`);
+  const data = await r.json();
+  CURRENT_USERS = data.data || []; // cache for openEditLicense lookup and search
+  document.getElementById('users-modal-sub').textContent =
+    `${CURRENT_USERS.length} user${CURRENT_USERS.length===1?'':'s'} with access to this workspace`;
+  renderUsersList();
 }
 
 function renderUsersList() {
