@@ -16601,8 +16601,6 @@ function calcPurchaseNewTotals() {
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
 
-  if (sumGross > 0) document.getElementById('pn-kanta-gross').value = sumGross.toFixed(2);
-  if (sumTare  > 0) document.getElementById('pn-kanta-tare').value  = sumTare.toFixed(2);
   document.getElementById('pn-q-moisture').value = totalNet > 0 ? (moistureWeighted / totalNet).toFixed(2) : '';
   document.getElementById('pn-q-dhaltapct').value = totalNet > 0 ? (dhaltaPctWeighted / totalNet).toFixed(2) : '';
   calcPNEKantaSummary();
