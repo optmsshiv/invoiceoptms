@@ -1519,10 +1519,12 @@ const SERVER = {
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
   // Action-level permissions — owner/super_admin always true, others follow role_permissions
-  canDelete:  <?= json_encode((bool)($perms['action.delete']  ?? true)) ?>,
-  canArchive: <?= json_encode((bool)($perms['action.archive'] ?? true)) ?>,
-  canEdit:    <?= json_encode((bool)($perms['action.edit']    ?? true)) ?>,
-  canCreate:  <?= json_encode((bool)($perms['action.create']  ?? true)) ?>,
+  // Default to TRUE for admin and manager even if the migration hasn't run yet,
+  // so existing users aren't unexpectedly locked out after deploying this update.
+  canDelete:  <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.delete']  ?? false)) ?>,
+  canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.archive'] ?? false)) ?>,
+  canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.edit']    ?? false)) ?>,
+  canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.create']  ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -2776,7 +2778,7 @@ const SERVER = {
           <div id="ear-waiting-view" style="display:none;text-align:center;padding:10px 0">
             <div style="font-size:36px;margin-bottom:12px">⏳</div>
             <div style="font-size:15px;font-weight:700;margin-bottom:6px">Waiting for approval…</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin has been notified. This window polls automatically — you don't need to do anything.</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin or manager has been notified. This window polls automatically — you don't need to do anything.</div>
             <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px">
               <i class="fas fa-clock"></i> Request expires in <strong id="ear-expires-in"></strong>
             </div>
@@ -8227,7 +8229,7 @@ function cancelEditRequest() {
 let EAR_ADMIN_PENDING = [];
 
 async function loadPendingApprovals() {
-  if (!['owner','admin','super_admin'].includes(SERVER.user.role)) return;
+  if (!['owner','admin','manager','super_admin'].includes(SERVER.user.role)) return;
   try {
     const r = await api('api/edit_approvals.php?action=pending');
     EAR_ADMIN_PENDING = r.data || [];
@@ -28906,7 +28908,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Poll for pending edit approvals every 30s (admin/owner only — returns
   // immediately for other roles). Also refresh on tab focus so admins
   // see new requests the moment they switch back to this tab.
-  if (['owner','admin','super_admin'].includes(SERVER.user.role)) {
+  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role)) {
     setInterval(() => {
       if (document.visibilityState === 'visible') loadPendingApprovals();
     }, 30000);

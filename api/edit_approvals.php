@@ -77,9 +77,9 @@ try { switch (true) {
         if (!$req) jsonResponse(['error' => 'Not found'], 404);
         jsonResponse(['success' => true, 'data' => $req]);
 
-    // ── PENDING: admin/owner fetches all pending requests ─────────
+    // ── PENDING: admin/owner/manager fetches all pending requests ─────────
     case ($method === 'GET' && $action === 'pending'):
-        if (!in_array($userRole, ['owner','admin','super_admin'])) {
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
             jsonResponse(['error' => 'Forbidden'], 403);
         }
         $stmt = $db->query(
@@ -91,7 +91,7 @@ try { switch (true) {
 
     // ── APPROVE ───────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'approve'):
-        if (!in_array($userRole, ['owner','admin','super_admin'])) {
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
             jsonResponse(['error' => 'Forbidden'], 403);
         }
         $reqId = (int)($body['id'] ?? 0);
@@ -118,7 +118,7 @@ try { switch (true) {
 
     // ── REJECT ────────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'reject'):
-        if (!in_array($userRole, ['owner','admin','super_admin'])) {
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
             jsonResponse(['error' => 'Forbidden'], 403);
         }
         $reqId = (int)($body['id'] ?? 0);
