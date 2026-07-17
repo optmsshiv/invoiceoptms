@@ -1519,14 +1519,12 @@ const SERVER = {
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
   // Action-level permissions — owner/super_admin always true, others follow role_permissions
-  // owner and super_admin always have full access.
-  // admin/manager/accountant/sales/viewer respect role_permissions.
-  // If the action.* keys are missing from the catalog (migration not yet run),
-  // default to true so nobody is unexpectedly locked out after deploying.
-  canDelete:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.delete']  ?? true)) ?>,
-  canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.archive'] ?? true)) ?>,
-  canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
-  canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
+  // Default to TRUE for admin and manager even if the migration hasn't run yet,
+  // so existing users aren't unexpectedly locked out after deploying this update.
+  canDelete:  <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.delete']  ?? false)) ?>,
+  canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.archive'] ?? false)) ?>,
+  canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.edit']    ?? false)) ?>,
+  canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin','admin','manager']) ? true : (bool)($perms['action.create']  ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -8340,29 +8338,8 @@ function editWithApproval(entityType, entityId, entityLabel, editFn) {
   }
 }
 
-// ── Modal edit helper ───────────────────────────────────────────
-// Used by detail-view modal footers (Customer Profile, Sale Details etc)
-// where inline string escaping in onclick attributes is messy.
-// Looks up the entity label from STATE at click time.
-function _modalEdit(entityType, entityId, editFn) {
-  let label = entityType + ' #' + entityId;
-  const id = String(entityId);
-  if (entityType === 'customer') {
-    const c = (STATE.customers||[]).find(x => String(x.id) === id);
-    if (c) label = c.name || label;
-  } else if (entityType === 'sale') {
-    const s = (STATE.sales||[]).find(x => String(x.id) === id);
-    if (s) label = 'Invoice ' + (s.invoice_no || label);
-  } else if (entityType === 'purchase') {
-    const p = (STATE.purchases||[]).find(x => String(x.id) === id);
-    if (p) label = 'Purchase ' + (p.purchase_no || label);
-  } else if (entityType === 'supplier') {
-    const s = splAllSuppliers().find(x => String(x.id) === id);
-    if (s) label = s.name || label;
-  }
-  editWithApproval(entityType, entityId, label, editFn);
-}
-
+// Product-specific wrapper — looks up the name from STATE so we don't
+// need to escape it inside an onclick attribute string.
 function _editProductWithApproval(productId, editFn) {
   const p = (STATE.products || []).find(x => String(x.id) === String(productId));
   editWithApproval('product', productId, (p?.name || 'Product #' + productId), editFn);
@@ -15302,10 +15279,10 @@ async function saveSupplier() {
 // from role_permissions at page load, so they can't be faked client-side.
 
 function canDo(action) {
-  if (action === 'delete')  return SERVER.canDelete  === true;
-  if (action === 'archive') return SERVER.canArchive === true;
-  if (action === 'edit')    return SERVER.canEdit    === true;
-  if (action === 'create')  return SERVER.canCreate  === true;
+  if (action === 'delete')  return SERVER.canDelete  !== false;
+  if (action === 'archive') return SERVER.canArchive !== false;
+  if (action === 'edit')    return SERVER.canEdit    !== false;
+  if (action === 'create')  return SERVER.canCreate  !== false;
   return true;
 }
 
@@ -15453,7 +15430,7 @@ function viewCustomerProfile(id) {
   `;
 
   document.getElementById('cp-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('customer',${c.id},()=>{closeModal('modal-customer-profile');editCustomerRich(${c.id});})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-customer-profile'); editCustomerRich(${c.id})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
     ${active
       ? `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i> Archive</button>`
       : `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); restoreCustomer(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`}
@@ -15530,7 +15507,7 @@ async function viewSaleDetails(id) {
   `;
 
   document.getElementById('sd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="_modalEdit('sale',${s.id},()=>{closeModal('modal-sale-details');editSale(${s.id});})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-outline" onclick="closeModal('modal-sale-details'); editSale(${s.id})"><i class="fas fa-pen"></i> Edit</button>
     <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Print</button>
   `;
 }
@@ -15603,7 +15580,7 @@ async function viewPurchaseDetails(id) {
   `;
 
   document.getElementById('pd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="_modalEdit('purchase',${p.id},()=>{closeModal('modal-purchase-details');editPurchase(${p.id});})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-outline" onclick="closeModal('modal-purchase-details'); editPurchase(${p.id})"><i class="fas fa-pen"></i> Edit</button>
     <button class="btn btn-primary" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i> Print</button>
   `;
 }
@@ -15685,7 +15662,7 @@ function viewSupplierProfile(id) {
 
   // ── Footer actions ──
   document.getElementById('sp-profile-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('supplier',${s.id},()=>{closeModal('modal-supplier-profile');editSupplierRich(${s.id});})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
+    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
     <button class="btn btn-primary" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
   `;
 
