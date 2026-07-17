@@ -16598,7 +16598,9 @@ function calcPurchaseNewTotals() {
 
   document.getElementById('pn-q-moisture').value = totalNet > 0 ? (moistureWeighted / totalNet).toFixed(2) : '';
   document.getElementById('pn-q-dhaltapct').value = totalNet > 0 ? (dhaltaPctWeighted / totalNet).toFixed(2) : '';
-  calcPNEKantaSummary();
+  // Do NOT call calcPNEKantaSummary() here — that function calls us back,
+  // creating an infinite loop on every keystroke. Kanta summary is only
+  // triggered directly from the gross/tare input fields.
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
     + (parseFloat(document.getElementById('pn-loadingcharge').value)||0)
@@ -16910,7 +16912,15 @@ function calcPNEKantaSummary() {
       if (netEl)  netEl.textContent  = c.net.toFixed(2);
       if (billEl) billEl.textContent = c.billable.toFixed(2);
       if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
-      calcPurchaseNewTotals();
+      // Update footer totals directly — don't call calcPurchaseNewTotals()
+      // because that calls calcPNEKantaSummary() creating an infinite loop.
+      let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
+      PNE.items.forEach(i => { const r = pneCalcRow(i); footNet += r.net; footDhalta += r.dhaltaKg; footBillable += r.billable; footAmt += r.amount; });
+      const _s = id => document.getElementById(id);
+      if (_s('pne-total-net'))      _s('pne-total-net').textContent      = footNet.toFixed(2) + ' Kg';
+      if (_s('pne-total-dhalta'))   _s('pne-total-dhalta').textContent   = footDhalta.toFixed(2) + ' Kg';
+      if (_s('pne-total-billable')) _s('pne-total-billable').textContent = footBillable.toFixed(2) + ' Kg';
+      if (_s('pne-total-amount'))   _s('pne-total-amount').textContent   = fmt_money(footAmt);
     }
   }
 
