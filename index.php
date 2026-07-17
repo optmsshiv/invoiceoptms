@@ -572,7 +572,7 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1280px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
+.pne-items-table { font-size: 12px; min-width: 1060px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
 .pne-items-table thead { background: #EEF1FA; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
 .pne-items-table th {
@@ -3050,24 +3050,23 @@ const SERVER = {
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table">
                 <colgroup>
-                  <col style="width:34px"><col style="width:150px"><col style="width:105px">
-                  <col style="width:75px"><col style="width:100px">
-                  <col style="width:95px"><col style="width:100px"><col style="width:90px">
-                  <col style="width:60px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
-                  <col style="width:105px">
-                  <col style="width:90px"><col style="width:75px"><col style="width:100px"><col style="width:60px">
+                  <col style="width:34px"><col style="width:160px"><col style="width:110px">
+                  <col style="width:75px"><col style="width:105px">
+                  <col style="width:100px">
+                  <col style="width:60px" id="pne-col-dhpct"><col style="width:70px" id="pne-col-dhkg">
+                  <col style="width:110px">
+                  <col style="width:90px"><col style="width:75px"><col style="width:105px"><col style="width:60px">
                 </colgroup>
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety / Grade</th>
                     <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
-                    <th colspan="3">Weight Details (in Kg)</th>
+                    <th rowspan="2">Net Wt (Kg)</th>
                     <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
-                    <th rowspan="2">Billable Weight (Auto)</th>
+                    <th rowspan="2">Billable Wt (Auto)</th>
                     <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Discount %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
                   </tr>
                   <tr>
-                    <th>Gross Weight</th><th>Tare Weight</th><th>Net Weight (Auto)</th>
                     <th class="pne-dhpct-col">%</th><th>Kg</th>
                   </tr>
                 </thead>
@@ -16456,8 +16455,6 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
-        <td class="pne-view-cell">${(parseFloat(it.gross_weight)||0).toFixed(2)}</td>
-        <td class="pne-view-cell">${(parseFloat(it.tare_weight)||0).toFixed(2)}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
         <td class="pne-view-cell">${c.dhaltaPct.toFixed(2)}</td>
         <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
@@ -16487,8 +16484,6 @@ function renderPNEItemsTable() {
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
-      <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
-      <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
       <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
       <td><input type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
