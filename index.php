@@ -2069,13 +2069,15 @@ const SERVER = {
         </div>
 
         <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:14px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
           <!-- Stock Overview -->
           <div class="pne-card">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Stock Overview</div>
-            <div style="height:160px;position:relative"><canvas id="db-stock-donut"></canvas></div>
-            <div id="db-stock-legend" style="margin-top:10px;font-size:11.5px"></div>
-            <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:12px" onclick="showPage('stock',null)">View Stock Details →</button>
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Stock Overview</div>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="width:160px;height:160px;flex-shrink:0;position:relative"><canvas id="db-stock-donut"></canvas></div>
+              <div id="db-stock-legend" style="flex:1;font-size:12px;min-width:0"></div>
+            </div>
+            <button class="btn btn-outline" style="width:100%;margin-top:14px;font-size:12px" onclick="showPage('stock',null)">View Stock Details →</button>
           </div>
           <!-- Top Products by Stock -->
           <div class="pne-card">
@@ -8220,6 +8222,12 @@ function renderProductDashboard() {
         options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } },
         plugins: [centrePlugin]
       });
+      if (lg) lg.innerHTML = donutLabels.map((l, i) => `
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${donutColors[i]};flex-shrink:0"></span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${escHtml(l)}</span>
+          <span style="color:var(--muted);font-size:10.5px;white-space:nowrap;text-align:right">${totalStockKg > 0 ? (donutData[i]/totalStockKg*100).toFixed(1)+'%' : ''}<br><span style="font-weight:600;color:var(--text)">${donutData[i].toLocaleString('en-IN',{maximumFractionDigits:0})} Kg</span></span>
+        </div>`).join('');
     }
   }
 
