@@ -1518,6 +1518,15 @@ const SERVER = {
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
+  // Action-level permissions — owner/super_admin always true, others follow role_permissions
+  // owner and super_admin always have full access.
+  // admin/manager/accountant/sales/viewer respect role_permissions.
+  // If the action.* keys are missing from the catalog (migration not yet run),
+  // default to true so nobody is unexpectedly locked out after deploying.
+  canDelete:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.delete']  ?? true)) ?>,
+  canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.archive'] ?? true)) ?>,
+  canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
+  canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1856,179 +1865,280 @@ const SERVER = {
 
     <!-- ─────────── DASHBOARD ─────────── -->
     <div id="page-dashboard" class="page active">
-      <!-- Greeting Header -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-          <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
+      <!-- ── Greeting header (shared) ────────────────────────── -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+            <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
+          </div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">
+            <?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?>
+          </div>
         </div>
-        <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
+        <!-- Date range filter + refresh -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px">
+            <i class="fas fa-calendar" style="color:var(--teal)"></i>
+            <input type="date" id="db-from" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
+            <span style="color:var(--muted)">–</span>
+            <input type="date" id="db-to" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
+          </div>
+          <button class="btn btn-outline" onclick="renderDashboard()" style="font-size:12px;padding:7px 14px"><i class="fas fa-rotate-right"></i> Refresh</button>
         </div>
       </div>
-      <!-- Quick Actions -->
-      <?php
-        // Role-tailored quick-action order. Falls back to the default order
-        // for any role not explicitly listed. Each button is still gated by
-        // $perms so it always matches what that role can actually access.
-        $qaCatalog = [
-          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
-          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
-          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
-          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
-          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
-          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
-        ];
-        $qaOrderByRole = [
-          'accountant' => ['payments', 'tax', 'expenses', 'clients'],
-        ];
-        $qaOrder = $qaOrderByRole[$user['role'] ?? ''] ?? ['create', 'clients', 'payments', 'reports'];
-      ?>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <?php foreach ($qaOrder as $qaKey):
-          $qa = $qaCatalog[$qaKey];
-          if (!($perms[$qa['perm']] ?? true)) continue;
+
+      <!-- ── Service dashboard (invoices/clients/WA) ─────────── -->
+      <div id="dash-service">
+        <?php
+          $qaCatalog = [
+            'create'   => ['icon'=>'fas fa-plus','label'=>'New Invoice','page'=>'create','style'=>'btn-primary','perm'=>'menu.create'],
+            'clients'  => ['icon'=>'fas fa-users','label'=>'Clients','page'=>'clients','style'=>'btn-outline','perm'=>'menu.clients'],
+            'payments' => ['icon'=>'fas fa-credit-card','label'=>'Payments','page'=>'payments','style'=>'btn-outline','perm'=>'menu.payments'],
+            'reports'  => ['icon'=>'fas fa-chart-bar','label'=>'Reports','page'=>'reports','style'=>'btn-outline','perm'=>'menu.reports'],
+          ];
+          $qaOrder = ['create','clients','payments','reports'];
         ?>
-        <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
-        <?php endforeach; ?>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-          <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
-          <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
-          <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
-        </div>
-      </div>
-      <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
-           plan including Pro (the plan exclusion below only affects the
-           glowing automation banner beneath it). -->
-      <?php if ($perms['menu.whatsapp'] ?? true): ?>
-      <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
-      <?php endif; ?>
-      <!-- WhatsApp Automation banner (finance/accountant roles don't need this;
-           also hidden on the Pro plan specifically — a plan-tier decision,
-           independent of role permissions, so it doesn't touch the
-           WhatsApp Setup sidebar link, the KPI row above, or any other
-           role's access) -->
-      <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
-      <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
-      <div id="dashWACard" style="margin-bottom:16px"></div>
-      <?php endif; ?>
-      <?php unset($hideWACardForPlan); ?>
-      <div id="dashPartialCard" style="margin-bottom:16px"></div>
-      <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
-      <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
-        <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-        <div id="s-outstanding-card" style="display:none"></div>
-        <?php if ($perms['menu.whatsapp'] ?? true): ?>
-        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
-            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
-          </div>
-          <div id="waActivityRows"></div>
-        </div>
-        <?php endif; ?>
-      </div>
-      <div class="dash-stats-row">
-        <div class="stat-card" data-color="amber">
-          <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-pending">₹0</div>
-            <div class="stat-lbl">Pending</div>
-            <div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="red">
-          <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-overdue">₹0</div>
-            <div class="stat-lbl">Overdue</div>
-            <div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="blue">
-          <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-total">0</div>
-            <div class="stat-lbl">Total Invoices</div>
-            <div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div>
-          </div>
-        </div>
-        <div class="stat-card" data-color="green">
-          <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-clients">0</div>
-            <div class="stat-lbl">Active Clients</div>
-            <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <?php foreach ($qaOrder as $qaKey):
+            $qa = $qaCatalog[$qaKey];
+            if (!($perms[$qa['perm']] ?? true)) continue;
+          ?>
+          <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
+          <?php endforeach; ?>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
+            <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
+            <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
           </div>
         </div>
         <?php if ($perms['menu.whatsapp'] ?? true): ?>
-        <div class="stat-card" data-color="teal">
-          <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
-          <div class="stat-body">
-            <div class="stat-val" id="s-wa-today">0</div>
-            <div class="stat-lbl">WA Sent Today</div>
-            <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
-          </div>
-        </div>
+        <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
         <?php endif; ?>
+        <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
+        <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
+        <div id="dashWACard" style="margin-bottom:16px"></div>
+        <?php endif; ?>
+        <?php unset($hideWACardForPlan); ?>
+        <div id="dashPartialCard" style="margin-bottom:16px"></div>
+        <div id="db-edit-approvals-card-svc"></div>
+        <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px">
+          <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
+          <div id="s-outstanding-card" style="display:none"></div>
+          <?php if ($perms['menu.whatsapp'] ?? true): ?>
+          <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+              <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+            </div>
+            <div id="waActivityRows"></div>
+          </div>
+          <?php endif; ?>
+        </div>
+        <div class="dash-stats-row">
+          <div class="stat-card" data-color="teal">
+            <div class="stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-revenue">₹0</div><div class="stat-lbl">Revenue</div><div class="stat-trend up" id="s-revenue-trend"><i class="fas fa-arrow-up"></i> 0%</div></div>
+          </div>
+          <div class="stat-card" data-color="amber">
+            <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-pending">₹0</div><div class="stat-lbl">Pending</div><div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div></div>
+          </div>
+          <div class="stat-card" data-color="red">
+            <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-overdue">₹0</div><div class="stat-lbl">Overdue</div><div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div></div>
+          </div>
+          <div class="stat-card" data-color="blue">
+            <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total Invoices</div><div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div></div>
+          </div>
+          <div class="stat-card" data-color="green">
+            <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-clients">0</div><div class="stat-lbl">Active Clients</div><div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div></div>
+          </div>
+          <?php if ($perms['menu.whatsapp'] ?? true): ?>
+          <div class="stat-card" data-color="teal">
+            <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
+            <div class="stat-body"><div class="stat-val" id="s-wa-today">0</div><div class="stat-lbl">WA Sent Today</div><div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div></div>
+          </div>
+          <?php endif; ?>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:16px;margin-bottom:24px;align-items:stretch">
+          <div class="dash-card" style="flex:2;min-width:0">
+            <div class="card-header"><span class="card-title">Revenue Overview</span>
+              <div class="chart-filter">
+                <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
+                <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
+                <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+          </div>
+          <div class="dash-card" style="flex:1.2;min-width:0">
+            <div class="card-header"><span class="card-title">Invoice Calendar</span>
+              <div style="display:flex;gap:6px">
+                <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
+                <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div id="calendarWidget"></div>
+            <div class="cal-legend"><span class="cal-dot" style="background:#F9A825"></span>Due<span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue<span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid</div>
+          </div>
+          <div class="dash-card" style="flex:0 0 220px;min-width:0">
+            <div class="card-header"><span class="card-title">Status Split</span></div>
+            <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
+            <div id="donutLegend" style="margin-top:6px"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
+          <div class="dash-card" style="flex:0 0 200px;min-width:0">
+            <div class="card-header"><span class="card-title">Quick Insights</span></div>
+            <div id="dashQuickKpis"></div>
+          </div>
+          <div class="dash-card" style="flex:1;min-width:0">
+            <div class="card-header"><span class="card-title">Recent Activity</span><button class="cf-btn" onclick="showPage('invoices',null)">View All</button></div>
+            <div id="dashRecentList"></div>
+          </div>
+          <div class="dash-card" style="flex:0 0 210px;min-width:0">
+            <div class="card-header"><span class="card-title">Top Clients</span></div>
+            <div id="dashTopClients"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Row 1: Revenue Overview + Invoice Calendar + Status Split (all in one row) -->
-      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
-        <!-- Revenue Chart -->
-        <div class="dash-card" style="flex:2;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Revenue Overview</span>
-            <div class="chart-filter">
-              <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
-              <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
-              <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
-            </div>
-          </div>
-          <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+      <!-- ── Product dashboard (sales/purchases/stock) ────────── -->
+      <div id="dash-product">
+        <!-- Quick actions -->
+        <div id="db-edit-approvals-card"></div>
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-cart-shopping"></i> New Purchase</button>
+          <button class="btn btn-outline" onclick="goToNewSale()"><i class="fas fa-file-invoice-dollar"></i> New Sale Invoice</button>
+          <button class="btn btn-outline" onclick="goToStockIn()"><i class="fas fa-boxes-stacked"></i> Add Stock</button>
+          <button class="btn btn-outline" onclick="showPage('stock-adjust-new',null)"><i class="fas fa-sliders"></i> Stock Adjustment</button>
+          <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-receipt"></i> Payment Entry</button>
         </div>
-        <!-- Invoice Calendar -->
-        <div class="dash-card" style="flex:1.2;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Invoice Calendar</span>
-            <div style="display:flex;gap:6px">
-              <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
-              <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
-            </div>
-          </div>
-          <div id="calendarWidget"></div>
-          <div class="cal-legend">
-            <span class="cal-dot" style="background:#F9A825"></span>Due
-            <span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue
-            <span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid
-          </div>
-        </div>
-        <!-- Status Split Donut -->
-        <div class="dash-card" style="flex:0 0 220px;min-width:0">
-          <div class="card-header"><span class="card-title">Status Split</span></div>
-          <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
-          <div id="donutLegend" style="margin-top:6px"></div>
-        </div>
-      </div>
 
-      <!-- Row 2: Quick Insights + Recent Activity + Top Clients -->
-      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
-        <!-- Quick KPIs -->
-        <div class="dash-card" style="flex:0 0 200px;min-width:0">
-          <div class="card-header"><span class="card-title">Quick Insights</span></div>
-          <div id="dashQuickKpis"></div>
-        </div>
-        <!-- Recent Activity -->
-        <div class="dash-card" style="flex:1;min-width:0">
-          <div class="card-header">
-            <span class="card-title">Recent Activity</span>
-            <button class="cf-btn" onclick="showPage('invoices',null)">View All</button>
+        <!-- 6 KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px" class="db-kpi-row">
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
+            <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-purchase">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-purchase-sub">0 bills</div>
           </div>
-          <div id="dashRecentList"></div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-sales">
+            <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL SALES</div>
+            <div style="font-size:16px;font-weight:800;color:var(--green)" id="db-stat-sales">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-sales-sub">0 invoices</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
+            <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">GROSS PROFIT</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-profit">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">0% margin</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-collections">
+            <span class="sa-chip-icon" style="background:#E0F7FA;color:#00838F;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">COLLECTIONS</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-collections">₹0</div>
+            <div style="font-size:10px;color:var(--muted)">Amount received</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-payable">
+            <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-file-circle-exclamation"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAYMENTS</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-payable">₹0</div>
+            <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
+          </div>
+          <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
+            <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">STOCK VALUE</div>
+            <div style="font-size:16px;font-weight:800" id="db-stat-stock">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-stock-sub">0 Kg total</div>
+          </div>
         </div>
-        <!-- Top Clients -->
-        <div class="dash-card" style="flex:0 0 210px;min-width:0">
-          <div class="card-header"><span class="card-title">Top Clients</span></div>
-          <div id="dashTopClients"></div>
+
+        <!-- Row 1: Sales vs Purchase chart + Alerts -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <span style="font-size:14px;font-weight:700">Sales vs Purchase (₹)</span>
+              <div style="display:flex;gap:12px;font-size:11px;font-weight:600">
+                <span style="color:var(--teal)"><span style="display:inline-block;width:10px;height:3px;background:var(--teal);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Sales</span>
+                <span style="color:#7B1FA2"><span style="display:inline-block;width:10px;height:3px;background:#7B1FA2;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Purchase</span>
+              </div>
+            </div>
+            <div style="height:180px;position:relative"><canvas id="db-svp-chart"></canvas></div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-weight:600">
+              <span style="color:var(--teal)">Total Sales: <span id="db-chart-sales-total">₹0</span></span>
+              <span style="color:#7B1FA2">Total Purchase: <span id="db-chart-pur-total">₹0</span></span>
+            </div>
+          </div>
+          <div class="pne-card" id="db-alerts-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Alerts &amp; Notifications</div>
+            <div id="db-alerts-list"></div>
+          </div>
+        </div>
+
+        <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
+          <!-- Stock Overview -->
+          <div class="pne-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Stock Overview</div>
+            <div style="display:flex;gap:16px;align-items:center">
+              <div style="width:160px;height:160px;flex-shrink:0;position:relative"><canvas id="db-stock-donut"></canvas></div>
+              <div id="db-stock-legend" style="flex:1;font-size:12px;min-width:0"></div>
+            </div>
+            <button class="btn btn-outline" style="width:100%;margin-top:14px;font-size:12px" onclick="showPage('stock',null)">View Stock Details →</button>
+          </div>
+          <!-- Top Products by Stock -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Products by Stock</span>
+              <button class="cf-btn" onclick="goToProductsPage()">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Stock (Kg)</th><th style="text-align:right">Value (₹)</th></tr></thead>
+              <tbody id="db-top-products"></tbody>
+            </table>
+          </div>
+          <!-- Recent Transactions -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Recent Transactions</span>
+            </div>
+            <div id="db-recent-txns" style="font-size:12px"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: Business Summary Today + Top Customers + Top Suppliers -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+          <!-- Business Summary Today -->
+          <div class="pne-card">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Business Summary <span style="font-size:11px;color:var(--muted);font-weight:400" id="db-summary-range">(Today)</span></div>
+            <div id="db-biz-summary"></div>
+          </div>
+          <!-- Top Customers -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Customers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Sales)</span></span>
+              <button class="cf-btn" onclick="showPage('customers',null)">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>Customer</th><th style="text-align:right">Sales (₹)</th></tr></thead>
+              <tbody id="db-top-customers"></tbody>
+            </table>
+          </div>
+          <!-- Top Suppliers -->
+          <div class="pne-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <span style="font-size:14px;font-weight:700">Top Suppliers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Purchase)</span></span>
+              <button class="cf-btn" onclick="showPage('suppliers',null)">View All →</button>
+            </div>
+            <table class="data-table" style="font-size:12px">
+              <thead><tr><th>Supplier</th><th style="text-align:right">Purchase (₹)</th></tr></thead>
+              <tbody id="db-top-suppliers"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -2649,7 +2759,55 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Supplier Profile Modal (eye button — quick in-app view) -->
+    <!-- Edit Approval Request Modal -->
+    <div class="modal-overlay" id="modal-edit-approval">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-header">
+          <span style="display:flex;align-items:center;gap:8px"><i class="fas fa-shield-halved" style="color:var(--teal)"></i> Request Edit Permission</span>
+          <button class="modal-close" onclick="cancelEditRequest()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px">
+          <div id="ear-request-view">
+            <div style="font-size:13px;color:var(--text);margin-bottom:14px">
+              You need permission to edit <strong id="ear-entity-label"></strong>. Describe why you need to make this change — your admin will be notified immediately.
+            </div>
+            <div class="field">
+              <label>Reason for edit <span style="color:var(--red)">*</span></label>
+              <textarea id="ear-reason" placeholder="e.g. Wrong supplier was selected, rate needs correction…" style="min-height:80px;resize:vertical"></textarea>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="submitEditRequest()"><i class="fas fa-paper-plane"></i> Send Request to Admin</button>
+          </div>
+          <div id="ear-waiting-view" style="display:none;text-align:center;padding:10px 0">
+            <div style="font-size:36px;margin-bottom:12px">⏳</div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">Waiting for approval…</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin or manager has been notified. This window polls automatically — you don't need to do anything.</div>
+            <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px">
+              <i class="fas fa-clock"></i> Request expires in <strong id="ear-expires-in"></strong>
+            </div>
+            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Cancel Request</button>
+          </div>
+          <div id="ear-approved-view" style="display:none;text-align:center;padding:10px 0">
+            <div style="font-size:36px;margin-bottom:12px">✅</div>
+            <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px">Approved!</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-approved-by"></div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-approved-note"></div>
+            <div style="font-size:11px;color:var(--amber);margin-bottom:14px"><i class="fas fa-hourglass-half"></i> This approval expires in 1 hour</div>
+            <button class="btn btn-primary" style="width:100%" onclick="proceedWithEdit()"><i class="fas fa-pen"></i> Proceed to Edit</button>
+          </div>
+          <div id="ear-rejected-view" style="display:none;text-align:center;padding:10px 0">
+            <div style="font-size:36px;margin-bottom:12px">❌</div>
+            <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px">Request Declined</div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-rejected-by"></div>
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-rejected-note"></div>
+            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin: Pending Edit Requests shown in dashboard via renderPendingApprovalsCard() -->
+
+    <!-- Supplier Profile modal -->
     <div class="modal-overlay" id="modal-supplier-profile">
       <div class="modal modal-md" style="overflow:hidden;position:relative">
         <button class="modal-close" onclick="closeModal('modal-supplier-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
@@ -7750,7 +7908,19 @@ window.addEventListener('DOMContentLoaded', () => {
   addItem();
   updateClientDropdown();
   updateServiceDropdown();
-  renderDashboard();
+  // Only render the service dashboard on DOMContentLoaded — it uses STATE data
+  // already encoded server-side (invoices, clients). The product dashboard needs
+  // STATE.stock and STATE.products which only arrive after loadAllData(); it will
+  // render correctly in the loadAllData().then() callback below.
+  const _biz = STATE.settings.businessType || 'service';
+  if (_biz === 'service' || _biz === 'both') renderDashboard();
+  // Product dashboard needs STATE.stock/products from loadAllData — hide until ready
+  // Exception: super admin with no tenant connected — don't hide, let the catch
+  // handler in loadAllData show the dashboard with empty data instead of a blank screen
+  const _isSuperAdmin = <?= json_encode($isSuperAdmin) ?>;
+  const _hasTenant = <?= json_encode(!empty($_SESSION['tenant_db'])) ?>;
+  const _pd = document.getElementById('dash-product');
+  if (_pd && !_isSuperAdmin && (_biz === 'product' || _biz === 'both')) _pd.style.display = 'none';
   renderInvoicesTable();
   renderClients();
   renderProducts();
@@ -7940,18 +8110,526 @@ function renderDashWAActivity() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  EDIT APPROVAL WORKFLOW
+//  Non-owner/admin users who try to edit a saved record are routed
+//  through this system instead of opening the edit form directly.
+//  Admin/owner sees pending requests in the dashboard bell and a
+//  card; approval unlocks the edit form for 1 hour.
+// ═══════════════════════════════════════════════════════════════
+
+const EAR = {
+  requestId: null,        // active request id
+  entityType: null,
+  entityId: null,
+  entityLabel: null,
+  editCallback: null,     // fn to call when approved
+  pollTimer: null,
+};
+
+// ── Intercept: called instead of editX() when user lacks action.edit ──
+// entityType: 'purchase'|'sale'|'supplier'|'customer'|'product'
+// entityId, entityLabel: for display and deduplication
+// editFn: the actual edit function to call when approved
+async function requestEditApproval(entityType, entityId, entityLabel, editFn) {
+  EAR.entityType  = entityType;
+  EAR.entityId    = entityId;
+  EAR.entityLabel = entityLabel;
+  EAR.editCallback = editFn;
+  EAR.requestId   = null;
+  clearInterval(EAR.pollTimer);
+
+  document.getElementById('ear-entity-label').textContent = entityLabel;
+  document.getElementById('ear-reason').value = '';
+  _earShowView('request');
+  openModal('modal-edit-approval');
+
+  // Check if there's already a live request for this entity
+  try {
+    const r = await api(`api/edit_approvals.php?action=check_entity&entity_type=${entityType}&entity_id=${entityId}`);
+    if (r.data?.status === 'pending') { EAR.requestId = r.data.id; _earShowView('waiting'); _earStartPolling(); }
+    else if (r.data?.status === 'approved') { EAR.requestId = r.data.id; _earShowApproved(r.data); }
+  } catch(e) { /* no existing request, show request form */ }
+}
+
+async function submitEditRequest() {
+  const reason = document.getElementById('ear-reason').value.trim();
+  if (!reason) { toast('⚠️ Please describe why you need to edit this record', 'warning'); return; }
+  try {
+    const r = await api('api/edit_approvals.php?action=request', 'POST', {
+      entity_type: EAR.entityType, entity_id: EAR.entityId,
+      entity_label: EAR.entityLabel, reason
+    });
+    EAR.requestId = r.id;
+    _earShowView('waiting');
+    _earStartPolling();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function _earStartPolling() {
+  clearInterval(EAR.pollTimer);
+  EAR.pollTimer = setInterval(async () => {
+    if (!EAR.requestId) return;
+    try {
+      const r = await api(`api/edit_approvals.php?action=check&id=${EAR.requestId}`);
+      const req = r.data;
+      if (!req) return;
+      if (req.status === 'approved') { clearInterval(EAR.pollTimer); _earShowApproved(req); }
+      else if (req.status === 'rejected') { clearInterval(EAR.pollTimer); _earShowRejected(req); }
+      else if (req.status === 'expired') {
+        clearInterval(EAR.pollTimer);
+        toast('⏰ Your edit request expired — please submit a new one', 'warning');
+        _earShowView('request');
+      }
+      // Update countdown
+      if (req.status === 'pending') {
+        const exp = new Date(req.expires_at.replace(' ','T'));
+        const mins = Math.max(0, Math.round((exp - new Date()) / 60000));
+        const el = document.getElementById('ear-expires-in');
+        if (el) el.textContent = mins > 60 ? Math.round(mins/60) + 'h' : mins + ' min';
+      }
+    } catch(e) { /* network blip, keep polling */ }
+  }, 10000); // poll every 10 seconds
+}
+
+function _earShowApproved(req) {
+  _earShowView('approved');
+  const byEl = document.getElementById('ear-approved-by');
+  const noteEl = document.getElementById('ear-approved-note');
+  if (byEl) byEl.textContent = 'Approved by ' + (req.reviewer_name || 'Admin');
+  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : '';
+  // Auto-dismiss and open edit after 2s
+  setTimeout(() => {
+    const modal = document.getElementById('modal-edit-approval');
+    if (modal?.classList.contains('open')) proceedWithEdit();
+  }, 2000);
+}
+
+function _earShowRejected(req) {
+  _earShowView('rejected');
+  const byEl = document.getElementById('ear-rejected-by');
+  const noteEl = document.getElementById('ear-rejected-note');
+  if (byEl) byEl.textContent = 'Declined by ' + (req.reviewer_name || 'Admin');
+  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : 'No reason given.';
+}
+
+function _earShowView(view) {
+  ['request','waiting','approved','rejected'].forEach(v => {
+    const el = document.getElementById(`ear-${v}-view`);
+    if (el) el.style.display = v === view ? '' : 'none';
+  });
+}
+
+function proceedWithEdit() {
+  closeModal('modal-edit-approval');
+  clearInterval(EAR.pollTimer);
+  if (EAR.editCallback) EAR.editCallback();
+}
+
+function cancelEditRequest() {
+  clearInterval(EAR.pollTimer);
+  closeModal('modal-edit-approval');
+}
+
+// ── Admin dashboard: pending approvals card ────────────────────
+let EAR_ADMIN_PENDING = [];
+
+async function loadPendingApprovals() {
+  if (!['owner','admin','manager','super_admin'].includes(SERVER.user.role)) return;
+  try {
+    const r = await api('api/edit_approvals.php?action=pending');
+    EAR_ADMIN_PENDING = r.data || [];
+    renderPendingApprovalsCard();
+    // Update bell badge
+    const badge = document.getElementById('bellCount');
+    if (badge) {
+      const existingCount = parseInt(badge.textContent) || 0;
+      badge.textContent = existingCount + EAR_ADMIN_PENDING.length;
+      badge.style.display = EAR_ADMIN_PENDING.length > 0 ? '' : (existingCount > 0 ? '' : 'none');
+    }
+  } catch(e) { /* non-fatal */ }
+}
+
+function renderPendingApprovalsCard() {
+  const cards = ['db-edit-approvals-card','db-edit-approvals-card-svc']
+    .map(id => document.getElementById(id)).filter(Boolean);
+  if (!cards.length) return;
+
+  if (!EAR_ADMIN_PENDING.length) {
+    cards.forEach(c => { c.style.display = 'none'; c.innerHTML = ''; });
+    return;
+  }
+
+  const entityIcons = { purchase:'fa-cart-shopping', sale:'fa-file-invoice-dollar', supplier:'fa-truck', customer:'fa-user', product:'fa-box', stock_adjustment:'fa-sliders', stock_in:'fa-boxes-stacked' };
+
+  const requestsHtml = EAR_ADMIN_PENDING.map(req => {
+    const icon = entityIcons[req.entity_type] || 'fa-file';
+    const age = Math.round((new Date() - new Date(req.created_at.replace(' ','T'))) / 60000);
+    const ageStr = age < 60 ? age + 'm ago' : Math.round(age/60) + 'h ago';
+    return `<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fas ${icon}"></i></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">${escHtml(req.requester_name)} wants to edit <span style="color:var(--teal)">${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</span></div>
+          ${req.reason ? '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic">"' + escHtml(req.reason) + '"</div>' : ''}
+          <div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-clock"></i> ${ageStr}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-primary" style="flex:1;font-size:12px" onclick="approveEditRequest(${req.id})"><i class="fas fa-check"></i> Approve</button>
+        <button class="btn btn-outline" style="flex:1;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${req.id})"><i class="fas fa-times"></i> Reject</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const html = `<div class="pne-card" style="border:2px solid var(--amber);margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="width:36px;height:36px;border-radius:10px;background:var(--amber-bg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0"><i class="fas fa-shield-halved"></i></span>
+      <div>
+        <div style="font-size:14px;font-weight:700">Edit Approval Requests <span style="background:var(--amber);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">${EAR_ADMIN_PENDING.length}</span></div>
+        <div style="font-size:11.5px;color:var(--muted)">Team members waiting for your approval to edit records</div>
+      </div>
+    </div>
+    ${requestsHtml}
+  </div>`;
+
+  cards.forEach(c => { c.style.display = ''; c.innerHTML = html; });
+}
+
+
+async function approveEditRequest(id) {
+  const { value: note } = await Swal.fire({
+    title: 'Approve edit request?',
+    input: 'text', inputPlaceholder: 'Optional note to the requester…',
+    showCancelButton: true, confirmButtonText: 'Approve',
+    confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' }
+  });
+  if (note === undefined) return; // cancelled
+  try {
+    await api('api/edit_approvals.php?action=approve', 'POST', { id, note: note||'' });
+    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
+    toast('✅ Edit request approved — the user can now proceed', 'success');
+    renderPendingApprovalsCard();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function rejectEditRequest(id) {
+  const { value: note } = await Swal.fire({
+    title: 'Reject edit request?',
+    input: 'text', inputPlaceholder: 'Reason for rejection (shown to user)…',
+    showCancelButton: true, confirmButtonText: 'Reject',
+    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
+  });
+  if (note === undefined) return;
+  try {
+    await api('api/edit_approvals.php?action=reject', 'POST', { id, note: note||'' });
+    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
+    toast('Request rejected', 'info');
+    renderPendingApprovalsCard();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── editWithApproval: gate function for all edit buttons ────────
+// If user has action.edit permission → call editFn directly.
+// Otherwise → route through the approval workflow.
+function editWithApproval(entityType, entityId, entityLabel, editFn) {
+  if (canDo('edit')) {
+    editFn();
+  } else {
+    requestEditApproval(entityType, entityId, entityLabel, editFn);
+  }
+}
+
+// ── Modal edit helper ───────────────────────────────────────────
+// Used by detail-view modal footers (Customer Profile, Sale Details etc)
+// where inline string escaping in onclick attributes is messy.
+// Looks up the entity label from STATE at click time.
+function _modalEdit(entityType, entityId, editFn) {
+  let label = entityType + ' #' + entityId;
+  const id = String(entityId);
+  if (entityType === 'customer') {
+    const c = (STATE.customers||[]).find(x => String(x.id) === id);
+    if (c) label = c.name || label;
+  } else if (entityType === 'sale') {
+    const s = (STATE.sales||[]).find(x => String(x.id) === id);
+    if (s) label = 'Invoice ' + (s.invoice_no || label);
+  } else if (entityType === 'purchase') {
+    const p = (STATE.purchases||[]).find(x => String(x.id) === id);
+    if (p) label = 'Purchase ' + (p.purchase_no || label);
+  } else if (entityType === 'supplier') {
+    const s = splAllSuppliers().find(x => String(x.id) === id);
+    if (s) label = s.name || label;
+  }
+  editWithApproval(entityType, entityId, label, editFn);
+}
+
+function _editProductWithApproval(productId, editFn) {
+  const p = (STATE.products || []).find(x => String(x.id) === String(productId));
+  // Strip "p" prefix — API entity_id is integer, (int)"p12" = 0 → "Invalid entity"
+  const numericId = String(productId).replace(/\D/g, '');
+  editWithApproval('product', numericId, (p?.name || 'Product #' + numericId), editFn);
+}
+
 function renderDashboard() {
-  renderRevenueChart('monthly');
-  renderDonutChart();
-  renderCalendar();
-  renderDashRecent();
-  renderDashKpis();
-  renderDashTopClients();
-  renderDashAlerts();
-  renderNotifications();
-  updateDashStats();
-  renderDashWAActivity();
-  _buildReminderQueue(); // update WA queued pill in topbar
+  const biz = STATE.settings.businessType || 'service';
+  const showService = (biz === 'service' || biz === 'both');
+  const showProduct = (biz === 'product' || biz === 'both');
+  const sd = document.getElementById('dash-service');
+  const pd = document.getElementById('dash-product');
+  if (sd) sd.style.display = showService ? '' : 'none';
+  if (pd) pd.style.display = showProduct ? '' : 'none';
+
+  // Initialise date range on first call
+  const fromEl = document.getElementById('db-from'), toEl = document.getElementById('db-to');
+  if (fromEl && toEl && !fromEl.value) {
+    fromEl.value = BIZ_FROM_DATE;
+    toEl.value = fmt_date(new Date());
+  }
+
+  if (showService) {
+    renderRevenueChart('monthly');
+    renderDonutChart();
+    renderCalendar();
+    renderDashRecent();
+    renderDashKpis();
+    renderDashTopClients();
+    renderDashAlerts();
+    renderNotifications();
+    updateDashStats();
+    renderDashWAActivity();
+    _buildReminderQueue();
+  }
+  if (showProduct) {
+    renderProductDashboard();
+    loadPendingApprovals(); // admin/owner only — ignored silently for other roles
+  }
+  if (showService) {
+    loadPendingApprovals();
+  }
+}
+
+function renderProductDashboard() {
+  const from = document.getElementById('db-from')?.value || BIZ_FROM_DATE;
+  const to   = document.getElementById('db-to')?.value   || fmt_date(new Date());
+
+  const sales     = (STATE.sales    || []).filter(s => { const d = (s.sale_date||'').slice(0,10); return d >= from && d <= to && s.status !== 'Cancelled'; });
+  const purchases = (STATE.purchases|| []).filter(p => { const d = (p.purchase_date||'').slice(0,10); return d >= from && d <= to; });
+  const allSales  = STATE.sales     || [];
+  const allPur    = STATE.purchases || [];
+  const products  = STATE.products  || [];
+  const stock     = STATE.stock     || [];
+  // Products use prefixed IDs like "p12"; stock uses plain integers.
+  // getStock() strips the prefix so lookups always match.
+  const getStock = (pr) => stock.find(s => String(s.product_id) === String(pr.id).replace(/\D/g,''));
+  const getQty   = (pr) => { const st = getStock(pr); return parseFloat(st?.current_stock ?? st?.available_stock ?? 0); };
+
+  // ── KPI calculations ──────────────────────────────────────────
+  const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
+  const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
+  const grossProfit = totalSales - totalPur;
+  const margin      = totalSales > 0 ? (grossProfit / totalSales * 100) : 0;
+  const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
+  const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
+  const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
+  const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('db-stat-purchase', fmt_money(totalPur));
+  set('db-stat-purchase-sub', purchases.length + ' bills');
+  set('db-stat-sales', fmt_money(totalSales));
+  set('db-stat-sales-sub', sales.length + ' invoices');
+  const profEl = document.getElementById('db-stat-profit');
+  if (profEl) { profEl.textContent = fmt_money(grossProfit); profEl.style.color = grossProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
+  set('db-stat-profit-pct', margin.toFixed(1) + '% margin');
+  set('db-stat-collections', fmt_money(collections));
+  set('db-stat-payable', fmt_money(paid));
+  set('db-stat-stock', fmt_money(stockValue));
+  set('db-stat-stock-sub', totalStockKg.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' Kg');
+
+  // ── Sales vs Purchase chart ────────────────────────────────────
+  const dayMap = {};
+  const cursor = new Date(from);
+  const end    = new Date(to);
+  while (cursor <= end) {
+    dayMap[fmt_date(cursor)] = { s: 0, p: 0 };
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  sales.forEach(s    => { const d = s.sale_date?.slice(0,10);     if (dayMap[d]) dayMap[d].s += parseFloat(s.total)||0; });
+  purchases.forEach(p => { const d = p.purchase_date?.slice(0,10); if (dayMap[d]) dayMap[d].p += parseFloat(p.total)||0; });
+  const labels = Object.keys(dayMap).map(d => { const dt = new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
+  const sVals  = Object.values(dayMap).map(v => v.s);
+  const pVals  = Object.values(dayMap).map(v => v.p);
+
+  set('db-chart-sales-total', fmt_money(totalSales));
+  set('db-chart-pur-total',   fmt_money(totalPur));
+
+  const svpCtx = document.getElementById('db-svp-chart');
+  if (svpCtx) {
+    if (window._dbSvpChart) window._dbSvpChart.destroy();
+    window._dbSvpChart = new Chart(svpCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Sales', data: sVals, borderColor: '#00897B', backgroundColor: '#00897B22', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+          { label: 'Purchase', data: pVals, borderColor: '#7B1FA2', backgroundColor: '#7B1FA222', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } } } }
+    });
+  }
+
+  // ── Alerts ─────────────────────────────────────────────────────
+  const alertsList = document.getElementById('db-alerts-list');
+  if (alertsList) {
+    const lowStock  = products.filter(p => { const qty = getQty(p); const ro = parseFloat(p.reorder_level)||0; return ro > 0 && qty <= ro && qty > 0; });
+    const outStock  = products.filter(p => getQty(p) <= 0);
+    const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
+    const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
+    const alerts = [
+      ...(lowStock.length ? [{ icon:'fa-triangle-exclamation', color:'#E65100', bg:'#FFF3E0', label:'Low Stock Items', sub: lowStock.length+' items below reorder level', n: lowStock.length }] : []),
+      ...(outStock.length ? [{ icon:'fa-ban', color:'#E53935', bg:'#FFEBEE', label:'Out of Stock', sub: outStock.length+' products have zero stock', n: outStock.length }] : []),
+      ...(pendPay.length  ? [{ icon:'fa-file-circle-exclamation', color:'#7B1FA2', bg:'#F3E8FF', label:'Pending Payments', sub: pendPay.length+' supplier bills unpaid', n: pendPay.length }] : []),
+      ...(pendColl.length ? [{ icon:'fa-hand-holding-dollar', color:'#1976D2', bg:'#E3F2FD', label:'Pending Collections', sub: pendColl.length+' customer invoices outstanding', n: pendColl.length }] : []),
+    ];
+    alertsList.innerHTML = alerts.length ? alerts.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="width:34px;height:34px;border-radius:9px;background:${a.bg};color:${a.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px"><i class="fas ${a.icon}"></i></span>
+        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${escHtml(a.label)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(a.sub)}</div></div>
+        <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
+      </div>`).join('') :
+      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
+  }
+
+  // ── Stock donut ────────────────────────────────────────────────
+  const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
+  const others = totalStockKg - topStock.reduce((a,p) => a+p.qty, 0);
+  const donutData  = [...topStock.map(p => p.qty), ...(others > 0 ? [others] : [])];
+  const donutLabels = [...topStock.map(p => p.name), ...(others > 0 ? ['Others'] : [])];
+  const donutColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#388E3C','#9E9E9E'];
+  const donutCtx = document.getElementById('db-stock-donut');
+  const lg = document.getElementById('db-stock-legend');
+  if (donutCtx) {
+    if (window._dbDonutChart) { window._dbDonutChart.destroy(); window._dbDonutChart = null; }
+    if (!donutData.length || donutData.every(v => v === 0)) {
+      // No stock movements yet — show a centred empty state
+      const parent = donutCtx.parentElement;
+      if (parent) {
+        const ph = document.createElement('div');
+        ph.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12.5px;gap:8px';
+        ph.innerHTML = '<i class="fas fa-box-open" style="font-size:26px;color:var(--border)"></i><span>No stock data yet</span><span style="font-size:11px">Add Stock or record a Purchase to see this chart</span>';
+        donutCtx.style.display = 'none';
+        if (!parent.querySelector('.db-stock-empty')) { ph.classList.add('db-stock-empty'); parent.appendChild(ph); }
+      }
+      if (lg) lg.innerHTML = '';
+    } else {
+      // Remove any stale placeholder
+      donutCtx.style.display = '';
+      donutCtx.parentElement?.querySelector('.db-stock-empty')?.remove();
+      const centrePlugin = {
+        id: 'dbDonutCentre',
+        afterDraw(chart) {
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return;
+          const cx = chartArea.left + chartArea.width / 2;
+          const cy = chartArea.top + chartArea.height / 2;
+          ctx.save();
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
+          ctx.fillText('Total Stock', cx, cy - 10);
+          ctx.fillStyle = '#1A1A2E'; ctx.font = 'bold 13px sans-serif';
+          ctx.fillText(totalStockKg.toLocaleString('en-IN', {maximumFractionDigits: 0}) + ' Kg', cx, cy + 8);
+          ctx.restore();
+        }
+      };
+      window._dbDonutChart = new Chart(donutCtx, {
+        type: 'doughnut',
+        data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } },
+        plugins: [centrePlugin]
+      });
+      if (lg) lg.innerHTML = donutLabels.map((l, i) => `
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${donutColors[i]};flex-shrink:0"></span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${escHtml(l)}</span>
+          <span style="color:var(--muted);font-size:10.5px;white-space:nowrap;text-align:right">${totalStockKg > 0 ? (donutData[i]/totalStockKg*100).toFixed(1)+'%' : ''}<br><span style="font-weight:600;color:var(--text)">${donutData[i].toLocaleString('en-IN',{maximumFractionDigits:0})} Kg</span></span>
+        </div>`).join('');
+    }
+  }
+
+  // ── Top Products ───────────────────────────────────────────────
+  const topProdEl = document.getElementById('db-top-products');
+  if (topProdEl) {
+    const rows = [...products].map(pr => { const qty = getQty(pr); return { name: pr.name, qty, val: qty * (parseFloat(pr.purchase_rate ?? pr.rate)||0) }; }).filter(r => r.qty > 0).sort((a,b) => b.qty - a.qty).slice(0,5);
+    topProdEl.innerHTML = rows.length ? rows.map((r,i) => `<tr><td>${i+1}</td><td>${escHtml(r.name)}</td><td style="text-align:right;font-weight:600">${r.qty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(r.val)}</td></tr>`).join('') :
+      '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:12px">No stock data</td></tr>';
+  }
+
+  // ── Recent Transactions ────────────────────────────────────────
+  const txnEl = document.getElementById('db-recent-txns');
+  if (txnEl) {
+    const txns = [
+      ...allSales.slice(0,5).map(s => ({ date: s.sale_date, type: 'Sales Invoice', ref: s.invoice_no, party: s.customer_name||'—', amount: s.total, status: s.payment_status||'Pending', icon: 'fa-file-invoice-dollar', color: '#00897B' })),
+      ...allPur.slice(0,5).map(p  => ({ date: p.purchase_date, type: 'Purchase Entry', ref: p.purchase_no, party: p.supplier_name||'—', amount: p.total, status: p.status||'Pending', icon: 'fa-cart-shopping', color: '#7B1FA2' })),
+    ].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0,8);
+    const statusColor = { Paid:'#00897B', Completed:'#00897B', Partial:'#E65100', Pending:'#1976D2', Unpaid:'#E53935' };
+    txnEl.innerHTML = txns.length ? txns.map(t => `
+      <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="width:28px;height:28px;border-radius:8px;background:${t.color}18;color:${t.color};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"><i class="fas ${t.icon}"></i></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.ref)}</div>
+          <div style="font-size:10.5px;color:var(--muted)">${escHtml(t.party)} · ${fmt_date_disp(t.date)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:12px">${fmt_money(t.amount)}</div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[t.status]||'#888'};background:${statusColor[t.status]||'#888'}18;padding:1px 7px;border-radius:9px">${escHtml(t.status)}</span>
+        </div>
+      </div>`).join('') : '<div style="color:var(--muted);text-align:center;padding:16px;font-size:12.5px">No transactions yet</div>';
+  }
+
+  // ── Business Summary ───────────────────────────────────────────
+  const bizEl = document.getElementById('db-biz-summary');
+  const rngEl = document.getElementById('db-summary-range');
+  if (rngEl) rngEl.textContent = '(' + fmt_date_disp(from) + ' – ' + fmt_date_disp(to) + ')';
+  if (bizEl) {
+    const outstanding = allSales.reduce((a,s) => a + Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0)), 0);
+    const payable     = allPur.reduce((a,p)  => a + Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0)), 0);
+    const rows = [
+      ['Sales (₹)',        fmt_money(totalSales),  'var(--text)'],
+      ['Purchase (₹)',     fmt_money(totalPur),    'var(--text)'],
+      ['Collections (₹)', fmt_money(collections), 'var(--text)'],
+      ['Payments (₹)',     fmt_money(paid),        'var(--text)'],
+    ];
+    bizEl.innerHTML = rows.map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${l}</span><strong>${v}</strong></div>`).join('')
+      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${grossProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(grossProfit)}</strong></div>`;
+  }
+
+  // ── Top Customers ──────────────────────────────────────────────
+  const custEl = document.getElementById('db-top-customers');
+  if (custEl) {
+    const custMap = {};
+    allSales.forEach(s => {
+      const k = s.customer_name||s.customer_id||'Unknown';
+      custMap[k] = (custMap[k]||0) + (parseFloat(s.total)||0);
+    });
+    const top = Object.entries(custMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+    custEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
+      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
+  }
+
+  // ── Top Suppliers ──────────────────────────────────────────────
+  const supEl = document.getElementById('db-top-suppliers');
+  if (supEl) {
+    const supMap = {};
+    allPur.forEach(p => {
+      const k = p.supplier_name||p.supplier_id||'Unknown';
+      supMap[k] = (supMap[k]||0) + (parseFloat(p.total)||0);
+    });
+    const top = Object.entries(supMap).sort((a,b) => b[1]-a[1]).slice(0,5);
+    supEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
+      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
+  }
 }
 function updateDashStats() {
   const e = id => document.getElementById(id);
@@ -13663,22 +14341,49 @@ function _renderTeamPermissionsBody() {
     return;
   }
 
+  // Presets for quick role reset
+  const presets = {
+    admin:      { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
+    manager:    { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
+    accountant: { 'action.delete':0,'action.archive':1,'action.edit':1,'action.create':1 },
+    sales:      { 'action.delete':0,'action.archive':0,'action.edit':1,'action.create':1 },
+    viewer:     { 'action.delete':0,'action.archive':0,'action.edit':0,'action.create':0 },
+  };
+
   // Group by category
   const groups = {};
   TP.catalog.forEach(p => { (groups[p.category || 'General'] = groups[p.category || 'General'] || []).push(p); });
 
-  body.innerHTML = Object.keys(groups).map(cat => `
+  const actionIcons = { 'action.delete':'fa-trash', 'action.archive':'fa-box-archive', 'action.edit':'fa-pen', 'action.create':'fa-plus' };
+
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--muted)">Customise what <strong>${escHtml(roleLabels[role]||role)}</strong> can do — changes take effect on next login</div>
+      <button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="applyRolePreset('${role}')" title="Reset to default permissions for this role">
+        <i class="fas fa-rotate-left"></i> Reset to defaults
+      </button>
+    </div>
+  ` + Object.keys(groups).map(cat => `
     <div style="margin-bottom:18px">
-      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${escHtml(cat)}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        ${cat === 'Actions' ? '<i class="fas fa-shield-halved" style="color:var(--teal)"></i>' : '<i class="fas fa-list" style="color:var(--muted)"></i>'}
+        ${escHtml(cat)}
+      </div>
       <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
         ${groups[cat].map(p => {
           const enabled  = !!p.roles[role];
           const ceiling  = !!p.ceiling;
-          const disabled = !ceiling && !enabled;
+          const disabled = !ceiling;
+          const isAction = p.key.startsWith('action.');
+          const icon = isAction ? `<i class="fas ${actionIcons[p.key]||'fa-circle'}" style="font-size:11px;width:14px;text-align:center;color:${enabled?'var(--teal)':'var(--muted)'}"></i>` : '';
           return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:${enabled ? 'var(--teal-bg)' : 'var(--card)'}">
-            <div style="font-size:13px;color:var(--text);${disabled?'opacity:.5':''}">
-              ${escHtml(p.label)}
-              ${!ceiling ? `<span style="font-size:10px;color:var(--amber);margin-left:6px"><i class="fas fa-lock"></i> not on ${escHtml(TP.plan)} plan</span>` : ''}
+            <div style="display:flex;align-items:center;gap:8px;${disabled?'opacity:.5':''}">
+              ${icon}
+              <div>
+                <div style="font-size:13px;color:var(--text)">${escHtml(p.label)}</div>
+                ${isAction && !enabled ? `<div style="font-size:10.5px;color:var(--red);margin-top:1px"><i class="fas fa-lock" style="font-size:9px"></i> Locked for this role — users will see a lock icon on restricted actions</div>` : ''}
+                ${!ceiling ? `<div style="font-size:10px;color:var(--amber);margin-top:1px"><i class="fas fa-lock"></i> Not available on ${escHtml(TP.plan)} plan</div>` : ''}
+              </div>
             </div>
             <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0">
               <input type="checkbox" ${enabled?'checked':''} ${disabled?'disabled':''} onchange="toggleTeamPermission('${role}','${p.key}',this.checked)" style="opacity:0;width:0;height:0">
@@ -13690,6 +14395,30 @@ function _renderTeamPermissionsBody() {
       </div>
     </div>
   `).join('');
+}
+
+async function applyRolePreset(role) {
+  const presets = {
+    admin:      { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
+    manager:    { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
+    accountant: { 'action.delete':false,'action.archive':true,'action.edit':true,'action.create':true },
+    sales:      { 'action.delete':false,'action.archive':false,'action.edit':true,'action.create':true },
+    viewer:     { 'action.delete':false,'action.archive':false,'action.edit':false,'action.create':false },
+  };
+  const preset = presets[role];
+  if (!preset) return;
+  const conf = await Swal.fire({ title: 'Reset to defaults?', text: `This will reset all action permissions for ${role} to their recommended defaults.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Reset', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
+  if (!conf.isConfirmed) return;
+  try {
+    await api('api/role_permissions.php?action=set_bulk', 'POST', { role, permissions: preset });
+    // Update local catalog
+    Object.entries(preset).forEach(([key, val]) => {
+      const item = TP.catalog.find(p => p.key === key);
+      if (item) item.roles[role] = val;
+    });
+    toast('✅ Reset to defaults', 'success');
+    _renderTeamPermissionsBody();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function toggleTeamPermission(role, key, enabled) {
@@ -13765,8 +14494,8 @@ function _renderProdPage() {
       ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
-      <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
-      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>`;
+      <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
+      ${_delItem("deleteProduct('"+p.id+"')")}`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
     <td><strong>${escHtml(p.name)}</strong></td>
@@ -14239,6 +14968,7 @@ function addProductToInvoice(id) {
 }
 
 async function deleteProduct(id) {
+  if (!assertCanDelete('this product')) return;
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const result = await Swal.fire({
     title: STATE.settings.businessType === 'product' ? 'Delete this product?' : 'Delete this service?',
@@ -14465,15 +15195,15 @@ async function renderSuppliers() {
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editSupplierRich(${s.id})"><i class="fas fa-pen"></i></button>` : ''}
+          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},'${escHtml((s.name||'Supplier #'+s.id).replace(/'/g,"\\'"))}',()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
               ${active
-                ? `<button onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
+                ? _archiveItem("archiveSupplier("+s.id+")")
                 : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              <button onclick="deleteSupplierPermanent(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+              ${_delItem("deleteSupplierPermanent("+s.id+")")}
             </div>
           </span>
         </div>
@@ -14568,6 +15298,66 @@ async function saveSupplier() {
 }
 
 // ── 3-dot action menu (generic) ──
+// ── Action permission helpers ───────────────────────────────────
+// These are the single source of truth for what the current user can do.
+// SERVER.canDelete / canArchive / canEdit / canCreate are set server-side
+// from role_permissions at page load, so they can't be faked client-side.
+
+function canDo(action) {
+  if (action === 'delete')  return SERVER.canDelete  === true;
+  if (action === 'archive') return SERVER.canArchive === true;
+  if (action === 'edit')    return SERVER.canEdit    === true;
+  if (action === 'create')  return SERVER.canCreate  === true;
+  return true;
+}
+
+// Render a delete button — shows a lock icon with tooltip when restricted
+function delBtn(onclick, title = 'Delete') {
+  if (canDo('delete')) {
+    return `<button onclick="${onclick}" class="act-btn" style="color:var(--red)" title="${title}"><i class="fas fa-trash"></i></button>`;
+  }
+  return `<button disabled class="act-btn" style="color:var(--muted);cursor:not-allowed" title="Delete restricted by your role"><i class="fas fa-lock"></i></button>`;
+}
+
+// Render a delete menu item — grayed out with lock when restricted
+function delMenuItem(onclick, label = 'Delete') {
+  if (canDo('delete')) {
+    return `<button onclick="${onclick}"><i class="fas fa-trash" style="color:#E53935"></i> ${label}</button>`;
+  }
+  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
+}
+
+// Render an archive menu item — grayed out with lock when restricted
+function archiveMenuItem(onclick, label = 'Archive') {
+  if (canDo('archive')) {
+    return `<button onclick="${onclick}"><i class="fas fa-box-archive" style="color:#E65100"></i> ${label}</button>`;
+  }
+  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Archive restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
+}
+
+// Guard: call before executing any delete — shows a clear error if restricted
+function assertCanDelete(entityName = 'this record') {
+  if (!canDo('delete')) {
+    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to delete ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant delete access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
+    return false;
+  }
+  return true;
+}
+
+function assertCanArchive(entityName = 'this record') {
+  if (!canDo('archive')) {
+    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to archive ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant archive access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
+    return false;
+  }
+  return true;
+}
+
+// Short-form helpers for use inside template literals — avoids nested backtick
+// syntax which breaks the outer template literal in JS row builders.
+// These are called with a plain string like _delItem("deleteX("+id+")")
+function _delItem(onclick, label='Delete') { return delMenuItem(onclick, label); }
+function _archiveItem(onclick, label='Archive') { return archiveMenuItem(onclick, label); }
+
 function toggleActMenu(ev, btn) {
   ev.stopPropagation();
   const menu = btn.parentElement.querySelector('.act-menu');
@@ -14665,7 +15455,7 @@ function viewCustomerProfile(id) {
   `;
 
   document.getElementById('cp-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-customer-profile'); editCustomerRich(${c.id})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
+    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('customer',${c.id},()=>{closeModal('modal-customer-profile');editCustomerRich(${c.id});})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
     ${active
       ? `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i> Archive</button>`
       : `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); restoreCustomer(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`}
@@ -14742,7 +15532,7 @@ async function viewSaleDetails(id) {
   `;
 
   document.getElementById('sd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="closeModal('modal-sale-details'); editSale(${s.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-outline" onclick="_modalEdit('sale',${s.id},()=>{closeModal('modal-sale-details');editSale(${s.id});})"><i class="fas fa-pen"></i> Edit</button>
     <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Print</button>
   `;
 }
@@ -14815,7 +15605,7 @@ async function viewPurchaseDetails(id) {
   `;
 
   document.getElementById('pd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="closeModal('modal-purchase-details'); editPurchase(${p.id})"><i class="fas fa-pen"></i> Edit</button>
+    <button class="btn btn-outline" onclick="_modalEdit('purchase',${p.id},()=>{closeModal('modal-purchase-details');editPurchase(${p.id});})"><i class="fas fa-pen"></i> Edit</button>
     <button class="btn btn-primary" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i> Print</button>
   `;
 }
@@ -14897,7 +15687,7 @@ function viewSupplierProfile(id) {
 
   // ── Footer actions ──
   document.getElementById('sp-profile-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="closeModal('modal-supplier-profile'); editSupplierRich(${s.id})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
+    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('supplier',${s.id},()=>{closeModal('modal-supplier-profile');editSupplierRich(${s.id});})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
     <button class="btn btn-primary" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
   `;
 
@@ -14959,6 +15749,7 @@ function viewSupplierPdf(id) {
 }
 
 async function deleteSupplierPermanent(id) {
+  if (!assertCanDelete('this supplier')) return;
   const s = splAllSuppliers().find(x => String(x.id) === String(id));
   const conf = await Swal.fire({
     title: 'Permanently delete this supplier?',
@@ -14977,6 +15768,7 @@ async function deleteSupplierPermanent(id) {
 }
 
 async function archiveSupplier(id) {
+  if (!assertCanArchive('this supplier')) return;
   const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
     title: 'Archive supplier?', text: `"${s.name}" will be moved to archived suppliers.`,
@@ -15177,8 +15969,8 @@ function renderPurchases() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editPurchase(${p.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              <button onclick="deletePurchase(${p.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+              <button onclick="editWithApproval('purchase',${p.id},'Purchase ${escHtml((p.purchase_no||'#'+p.id).replace(/'/g,"\\'"))}',()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              ${_delItem("deletePurchase("+p.id+")")}
             </div>
           </span>
         </div>
@@ -15329,13 +16121,13 @@ function renderProductsList() {
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="editProductRich('${p.id}')"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
           <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
-              <button onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+              ${_delItem("deleteProduct('"+p.id+"')")}
             </div>
           </span>
         </div>
@@ -17774,6 +18566,7 @@ async function editSale(id) {
 }
 
 async function deleteSale(id) {
+  if (!assertCanDelete('this sale')) return;
   const s = (STATE.sales||[]).find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
     title: 'Delete this sale?', text: `"${s.invoice_no}" and its stock-out entries will be permanently removed. This cannot be undone.`,
@@ -17938,8 +18731,8 @@ function renderSales() {
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
-              <button onclick="editSale(${s.id})"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              <button onclick="deleteSale(${s.id})"><i class="fas fa-trash" style="color:#E53935"></i> Delete</button>
+              <button onclick="editWithApproval('sale',${s.id},'Invoice ${escHtml((s.invoice_no||'#'+s.id).replace(/'/g,"\\'"))}',()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
+              ${_delItem("deleteSale("+s.id+")")}
             </div>
           </span>
         </div>
@@ -18809,12 +19602,12 @@ async function renderCustomersList() {
         <td>
           <div class="action-cell" style="display:flex;gap:2px;align-items:center">
             <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
-            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editCustomerRich(${c.id})"><i class="fas fa-pen"></i></button>` : ''}
+            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},'${escHtml((c.name||'Customer #'+c.id).replace(/'/g,"\\'"))}',()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
             <span class="act-menu-wrap">
               <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
               <div class="act-menu">
                 ${c.status==='active'
-                  ? `<button onclick="deleteCustomerRich(${c.id})"><i class="fas fa-box-archive" style="color:#E65100"></i> Archive</button>`
+                  ? _archiveItem("deleteCustomerRich("+c.id+")")
                   : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
               </div>
             </span>
@@ -18851,6 +19644,7 @@ async function restoreCustomer(id) {
 }
 
 async function deleteCustomerRich(id) {
+  if (!assertCanDelete('this customer')) return;
   const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
   const conf = await Swal.fire({
     title: 'Archive this customer?', text: `"${c.name}" will be moved out of your active customer list.`,
@@ -19269,6 +20063,7 @@ async function deleteStockInEntry(id) {
 
 
 async function deletePurchase(id) {
+  if (!assertCanDelete('this purchase')) return;
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
   const conf = await Swal.fire({
     title: 'Delete this purchase?',
@@ -22095,6 +22890,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
+  }).catch(function(loadErr) {
+    // loadAllData failed — most common cause: super admin with no database
+    // connected yet (getDB() throws). Still render the dashboard so the
+    // Connect Database button is visible and usable.
+    console.warn('loadAllData failed:', loadErr?.message || loadErr);
+    try {
+      const _pd = document.getElementById('dash-product');
+      if (_pd) _pd.style.display = '';
+      renderDashboard();
+    } catch(e) { /* ignore secondary errors */ }
+    document.addEventListener('click', closeAllDropdowns);
   });
 });
 // ── Populate notification bell from live data ──────────────────
@@ -28151,6 +28957,18 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (document.visibilityState === 'visible') renderWALog();
   }, 60000);
+
+  // Poll for pending edit approvals every 30s (admin/owner only — returns
+  // immediately for other roles). Also refresh on tab focus so admins
+  // see new requests the moment they switch back to this tab.
+  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role)) {
+    setInterval(() => {
+      if (document.visibilityState === 'visible') loadPendingApprovals();
+    }, 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') loadPendingApprovals();
+    });
+  }
 });
 
 // Export function for CSV

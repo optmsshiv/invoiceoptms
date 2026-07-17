@@ -759,6 +759,11 @@ canvas { max-width: 100% !important; }
 .act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
 .act-menu.open { display: block; }
 .act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
+
+@keyframes earPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .85; transform: scale(1.03); }
+}
 .act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
 .act-menu button:hover { background: var(--bg); }
 .act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
@@ -1811,6 +1816,12 @@ const SERVER = {
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
       </button>
+      <?php if (in_array($userRole, ['owner','admin','manager','super_admin'])): ?>
+      <button id="ear-topbar-alert" onclick="showPage('dashboard',null)" style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;background:var(--amber);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;animation:earPulse 2s ease-in-out infinite">
+        <i class="fas fa-shield-halved"></i>
+        <span id="ear-topbar-count">0</span> edit request<span id="ear-topbar-plural"></span> waiting
+      </button>
+      <?php endif; ?>
       <div class="notif-wrap" style="position:relative">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)">
           <i class="fas fa-bell"></i>
@@ -8238,16 +8249,38 @@ async function loadPendingApprovals() {
   if (!['owner','admin','manager','super_admin'].includes(SERVER.user.role)) return;
   try {
     const r = await api('api/edit_approvals.php?action=pending');
+    const prev = EAR_ADMIN_PENDING.length;
     EAR_ADMIN_PENDING = r.data || [];
-    renderPendingApprovalsCard();
-    // Update bell badge
-    const badge = document.getElementById('bellCount');
-    if (badge) {
-      const existingCount = parseInt(badge.textContent) || 0;
-      badge.textContent = existingCount + EAR_ADMIN_PENDING.length;
-      badge.style.display = EAR_ADMIN_PENDING.length > 0 ? '' : (existingCount > 0 ? '' : 'none');
+
+    // ── Topbar alert pill ─────────────────────────────────────────
+    const pill = document.getElementById('ear-topbar-alert');
+    const cnt  = document.getElementById('ear-topbar-count');
+    const plrl = document.getElementById('ear-topbar-plural');
+    if (pill) {
+      if (EAR_ADMIN_PENDING.length > 0) {
+        pill.style.display = 'inline-flex';
+        if (cnt) cnt.textContent = EAR_ADMIN_PENDING.length;
+        if (plrl) plrl.textContent = EAR_ADMIN_PENDING.length > 1 ? 's' : '';
+      } else {
+        pill.style.display = 'none';
+      }
     }
-  } catch(e) { /* non-fatal */ }
+
+    // ── Browser tab title badge ───────────────────────────────────
+    const base = document.title.replace(/^\(\d+\)\s*/, '');
+    document.title = EAR_ADMIN_PENDING.length > 0
+      ? `(${EAR_ADMIN_PENDING.length}) ${base}` : base;
+
+    // ── Toast alert when NEW requests arrive (not on first load) ─
+    if (prev > 0 && EAR_ADMIN_PENDING.length > prev) {
+      const newest = EAR_ADMIN_PENDING[0];
+      toast(`🔔 ${newest.requester_name} is requesting permission to edit ${newest.entity_label || newest.entity_type}`, 'warning', 6000);
+    }
+
+    // ── Update bell count + notification panel ────────────────────
+    renderNotifications();
+    renderPendingApprovalsCard();
+  } catch(e) { /* non-fatal — keep app working even if this fails */ }
 }
 
 function renderPendingApprovalsCard() {
@@ -22143,13 +22176,13 @@ function clearNotifs() {
 // ══════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════
-function toast(msg, type='success') {
+function toast(msg, type='success', duration=3200) {
   const icons = { success:'fa-check-circle', error:'fa-times-circle', info:'fa-info-circle', warning:'fa-exclamation-triangle' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<i class="fas ${icons[type]||'fa-check-circle'}"></i><span>${msg}</span>`;
   document.getElementById('toastContainer').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, 3200);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, duration);
 }
 
 // ══════════════════════════════════════════
@@ -22908,6 +22941,20 @@ function renderNotifications() {
   const today  = new Date();
   const items  = [];
 
+  // ── Pending edit approval requests (admin/owner only) ─────────
+  // Shown at the top of the bell panel so they're impossible to miss
+  // regardless of which page the admin is currently on.
+  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role) && EAR_ADMIN_PENDING.length) {
+    EAR_ADMIN_PENDING.forEach(req => {
+      items.push({
+        type: 'approval',
+        id: req.id,
+        text: `<b>${escHtml(req.requester_name)}</b> wants to edit <b>${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</b>`,
+        reason: req.reason,
+      });
+    });
+  }
+
   // Overdue invoices
   STATE.invoices.filter(i => i.status === 'Overdue').slice(0,3).forEach(inv => {
     const c = STATE.clients.find(x => x.id === inv.client) || {};
@@ -22935,16 +22982,31 @@ function renderNotifications() {
     if (!items.length) {
       el.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;text-align:center">No new notifications</div>';
     } else {
-      el.innerHTML = items.map(n =>
-        `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
+      el.innerHTML = items.map(n => {
+        if (n.type === 'approval') {
+          return `<div class="np-item" style="background:var(--amber-bg);border-left:3px solid var(--amber);flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <i class="fas fa-shield-halved" style="color:var(--amber);margin-top:2px;flex-shrink:0"></i>
+              <div>
+                <div style="font-size:12.5px">${n.text}</div>
+                ${n.reason ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">"${escHtml(n.reason)}"</div>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;padding-left:20px;width:100%">
+              <button class="btn btn-primary" style="flex:1;font-size:11px;padding:4px 0" onclick="approveEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-check"></i> Approve</button>
+              <button class="btn btn-outline" style="flex:1;font-size:11px;padding:4px 0;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-times"></i> Reject</button>
+            </div>
+          </div>`;
+        }
+        return `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
           <i class="fas ${n.type==='warn'?'fa-exclamation-circle':'fa-info-circle'}"></i>
           <div>${n.text}</div>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
     }
   }
 
-  // Update bell count
+  // Update bell count — includes approvals
   const bell = document.getElementById('bellCount');
   if (bell) {
     const count = items.length;
