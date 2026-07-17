@@ -81,15 +81,9 @@ try { switch (true) {
 
     // ── PENDING: admin/owner/manager fetches all pending requests ─────────
     case ($method === 'GET' && $action === 'pending'):
-        // owner/admin/super_admin always — others need action.approve_edits permission
-        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
-        if (!$canApprove) {
-            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
-            $rpChk->execute([$userRole]);
-            $row = $rpChk->fetch();
-            $canApprove = $row && (bool)$row['enabled'];
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
+            jsonResponse(['error' => 'Forbidden'], 403);
         }
-        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $stmt = $db->query(
             'SELECT * FROM edit_approval_requests
               WHERE status="pending" AND expires_at > NOW()
@@ -99,15 +93,9 @@ try { switch (true) {
 
     // ── APPROVE ───────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'approve'):
-        // owner/admin/super_admin always — others need action.approve_edits permission
-        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
-        if (!$canApprove) {
-            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
-            $rpChk->execute([$userRole]);
-            $row = $rpChk->fetch();
-            $canApprove = $row && (bool)$row['enabled'];
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
+            jsonResponse(['error' => 'Forbidden'], 403);
         }
-        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $reqId = (int)($body['id'] ?? 0);
         $note  = trim(substr($body['note'] ?? '', 0, 500));
         if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);
@@ -132,15 +120,9 @@ try { switch (true) {
 
     // ── REJECT ────────────────────────────────────────────────────
     case ($method === 'POST' && $action === 'reject'):
-        // owner/admin/super_admin always — others need action.approve_edits permission
-        $canApprove = in_array($userRole, ['owner','admin','super_admin']);
-        if (!$canApprove) {
-            $rpChk = $db->prepare('SELECT enabled FROM role_permissions WHERE role=? AND permission_key="action.approve_edits"');
-            $rpChk->execute([$userRole]);
-            $row = $rpChk->fetch();
-            $canApprove = $row && (bool)$row['enabled'];
+        if (!in_array($userRole, ['owner','admin','manager','super_admin'])) {
+            jsonResponse(['error' => 'Forbidden'], 403);
         }
-        if (!$canApprove) jsonResponse(['error' => 'Forbidden'], 403);
         $reqId = (int)($body['id'] ?? 0);
         $note  = trim(substr($body['note'] ?? '', 0, 500));
         if (!$reqId) jsonResponse(['error' => 'Missing id'], 400);

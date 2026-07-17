@@ -1532,7 +1532,6 @@ const SERVER = {
   canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.archive'] ?? true)) ?>,
   canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
   canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
-  canApproveEdits: <?= json_encode(in_array($userRole, ['owner','admin','super_admin']) ? true : (bool)($perms['action.approve_edits'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1817,7 +1816,7 @@ const SERVER = {
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
       </button>
-      <?php if ($perms['action.approve_edits'] ?? in_array($userRole, ['owner','admin','super_admin'])): ?>
+      <?php if (in_array($userRole, ['owner','admin','manager','super_admin'])): ?>
       <button id="ear-topbar-alert" onclick="showPage('dashboard',null)" style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;background:var(--amber);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;animation:earPulse 2s ease-in-out infinite">
         <i class="fas fa-shield-halved"></i>
         <span id="ear-topbar-count">0</span> edit request<span id="ear-topbar-plural"></span> waiting
@@ -1826,7 +1825,7 @@ const SERVER = {
       <div class="notif-wrap" style="position:relative">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)">
           <i class="fas fa-bell"></i>
-          <span class="bell-dot" id="bellCount" style="display:none">0</span>
+          <span class="bell-dot" id="bellCount">3</span>
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
@@ -8247,7 +8246,7 @@ function cancelEditRequest() {
 let EAR_ADMIN_PENDING = [];
 
 async function loadPendingApprovals() {
-  if (!SERVER.canApproveEdits) return;
+  if (!['owner','admin','manager','super_admin'].includes(SERVER.user.role)) return;
   try {
     const r = await api('api/edit_approvals.php?action=pending');
     const prev = EAR_ADMIN_PENDING.length;
@@ -22945,7 +22944,7 @@ function renderNotifications() {
   // ── Pending edit approval requests (admin/owner only) ─────────
   // Shown at the top of the bell panel so they're impossible to miss
   // regardless of which page the admin is currently on.
-  if (SERVER.canApproveEdits && EAR_ADMIN_PENDING.length) {
+  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role) && EAR_ADMIN_PENDING.length) {
     EAR_ADMIN_PENDING.forEach(req => {
       items.push({
         type: 'approval',
@@ -29024,7 +29023,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Poll for pending edit approvals every 30s (admin/owner only — returns
   // immediately for other roles). Also refresh on tab focus so admins
   // see new requests the moment they switch back to this tab.
-  if (SERVER.canApproveEdits) {
+  if (['owner','admin','manager','super_admin'].includes(SERVER.user.role)) {
     setInterval(() => {
       if (document.visibilityState === 'visible') loadPendingApprovals();
     }, 30000);
