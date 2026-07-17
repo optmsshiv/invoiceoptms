@@ -16469,8 +16469,8 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
-        <td class="pne-view-cell">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
-        <td class="pne-view-cell">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
+        <td class="pne-view-cell" id="pne-vgross-${it.id}">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
+        <td class="pne-view-cell" id="pne-vtare-${it.id}">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
         <td class="pne-view-cell pne-dhpct-col">${c.dhaltaPct.toFixed(1)}%</td>
         <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
@@ -16568,7 +16568,7 @@ function onPNEProductChange(id, productId) {
       // Auto-fill from product master — only when the field is blank so a
       // user who changes product mid-entry doesn't silently lose what they typed.
       if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
-      if (!it.variety_grade) it.variety_grade = [p.variety, p.grade].filter(Boolean).join(' / ');
+      if (!it.variety_grade) it.variety_grade = p.variety || '';
       if (!it.quality_grade) it.quality_grade = p.grade || '';
       // moisture_limit is the product's stored expected moisture — editable per purchase lot
       if ((it.moisture_pct === null || it.moisture_pct === '' || it.moisture_pct === undefined) && p.moisture_limit)
@@ -16922,14 +16922,17 @@ function calcPNEKantaSummary() {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;
       const c      = pneCalcRow(target);
-      const netEl  = document.getElementById('pne-net-'      + target.id);
-      const billEl = document.getElementById('pne-billable-' + target.id);
-      const amtEl  = document.getElementById('pne-amt-'      + target.id);
-      // Do NOT write back to pne-gross-N / pne-tare-N — those inputs
-      // are the source. Writing back causes cursor-jumping while typing.
-      if (netEl)  netEl.textContent  = c.net.toFixed(2);
-      if (billEl) billEl.textContent = c.billable.toFixed(2);
-      if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
+      const netEl    = document.getElementById('pne-net-'      + target.id);
+      const billEl   = document.getElementById('pne-billable-' + target.id);
+      const amtEl    = document.getElementById('pne-amt-'      + target.id);
+      // Update view-mode gross/tare cells (shown when row is not in edit mode)
+      const vGrossEl = document.getElementById('pne-vgross-'  + target.id);
+      const vTareEl  = document.getElementById('pne-vtare-'   + target.id);
+      if (netEl)    netEl.textContent    = c.net.toFixed(2);
+      if (billEl)   billEl.textContent   = c.billable.toFixed(2);
+      if (amtEl)    amtEl.textContent    = fmt_money(c.amount);
+      if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
+      if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
       // Update footer totals directly — don't call calcPurchaseNewTotals()
       // because that calls calcPNEKantaSummary() creating an infinite loop.
       let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
