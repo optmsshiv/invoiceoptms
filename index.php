@@ -3118,9 +3118,9 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality, Moisture &amp; Dhalta</div>
             <div class="pne-grid4">
-              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
+              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" placeholder="Auto-averaged" step="0.1" oninput="calcPNEQualitySummary()"></div>
               <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Not tracked per item — enter the overall load reading here"></div>
-              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg)" title="Auto-averaged from the Items Details table (net-weight weighted)"></div>
+              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" placeholder="Auto-averaged" step="0.01" oninput="calcPNEQualitySummary()"></div>
               <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-q-dhaltakg" readonly></div>
               <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
@@ -16421,7 +16421,13 @@ function donePNEItem(id) {
     toast('⚠️ Select a product for this line', 'warning'); return;
   }
   it.editing = false;
+  // Reset header weight fields — ready for next item's kanta reading
+  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  // Quality section auto-recalculates from remaining items
   renderPNEItemsTable();
+  calcPurchaseNewTotals();
 }
 
 // Dhalta Kg is the editable figure (matches how it's actually weighed at the
@@ -16457,12 +16463,13 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
         <td class="pne-view-cell">${c.dhaltaPct.toFixed(2)}</td>
+        <td class="pne-view-cell pne-dhpct-col">${c.dhaltaPct.toFixed(1)}%</td>
         <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
         <td class="pne-view-cell">${c.billable.toFixed(2)}</td>
         <td class="pne-view-cell">${(parseFloat(it.rate)||0).toFixed(2)}</td>
         <td class="pne-view-cell">${(parseFloat(it.discount_pct)||0).toFixed(2)}</td>
         <td class="pne-view-cell pne-amount-cell">${fmt_money(c.amount)}</td>
-        <td>
+        <td class="pne-view-cell" style="padding:6px 8px">
           <div class="pne-row-actions">
             <button class="pne-icon-btn edit" onclick="editPNEItem(${it.id})" title="Edit"><i class="fas fa-pencil-alt" style="font-size:11px"></i></button>
             <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
@@ -16491,7 +16498,7 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
       <td class="pne-amount-cell" id="pne-amt-${it.id}">${fmt_money(c.amount)}</td>
-      <td>
+      <td style="padding:6px 8px">
         <div class="pne-row-actions">
           <button class="pne-icon-btn done" onclick="donePNEItem(${it.id})" title="Done"><i class="fas fa-check" style="font-size:11px"></i></button>
           <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
