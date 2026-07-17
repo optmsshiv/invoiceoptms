@@ -17020,35 +17020,36 @@ function calcPNEQualitySummary() {
 // User manually types dhalta Kg in the header — push it back into the
 // single item row (if only one exists) so table stays in sync.
 function onPNEHeaderDhaltaKgInput(val) {
-  const kg = parseFloat(val) || 0;
+  const kg  = parseFloat(val) || 0;
   const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
 
-  // Sync to table — if single item, set its dhalta_kg directly
-  if (PNE.items.length === 1) {
-    PNE.items[0].dhalta_kg = kg;
-    const c      = pneCalcRow(PNE.items[0]);
-    const billEl = document.getElementById('pne-billable-' + PNE.items[0].id);
-    const amtEl  = document.getElementById('pne-amt-'      + PNE.items[0].id);
-    const dhEl   = document.getElementById('pne-dhaltapct-'+ PNE.items[0].id);
-    const vBilEl = document.querySelector(`[id="pne-vbillable-${PNE.items[0].id}"]`);
+  // Find the current editing item (the one this header applies to)
+  const target = PNE.items.length === 1
+    ? PNE.items[0]
+    : PNE.items.find(i => i.editing) || null;
+
+  if (target) {
+    // Update the item object — this is what donePNEItem reads when saving to view mode
+    target.dhalta_kg = kg;
+    const c = pneCalcRow(target);
+
+    // Update edit-mode cells if the row is open
+    const dkIn  = document.getElementById('pne-dkg-'      + target.id);
+    const billEl= document.getElementById('pne-billable-' + target.id);
+    const amtEl = document.getElementById('pne-amt-'      + target.id);
+    const dhEl  = document.getElementById('pne-dhaltapct-'+ target.id);
+    if (dkIn  && document.activeElement !== dkIn) dkIn.value = kg || '';
     if (billEl) billEl.textContent = c.billable.toFixed(2);
     if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
     if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
-    // Update the dhalta_kg input in the edit row if open
-    const dkIn = document.getElementById('pne-dkg-' + PNE.items[0].id);
-    if (dkIn && document.activeElement !== dkIn) dkIn.value = kg || '';
   }
 
-  // Update billable in header
+  // Update billable and dhalta% in header
   const billable = Math.max(0, net - kg);
   const bilEl = document.getElementById('pn-q-billable');
+  const pctEl = document.getElementById('pn-q-dhaltapct');
   if (bilEl) bilEl.value = billable > 0 ? billable.toFixed(2) : '';
-
-  // Update dhalta% header field
-  if (net > 0) {
-    const pctEl = document.getElementById('pn-q-dhaltapct');
-    if (pctEl) pctEl.value = ((kg / net) * 100).toFixed(2);
-  }
+  if (pctEl && net > 0) pctEl.value = kg > 0 ? (kg / net * 100).toFixed(2) : '';
 }
 
 function pneKantaSlipChange(file) {
