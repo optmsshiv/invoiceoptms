@@ -3100,8 +3100,14 @@ const SERVER = {
               <div class="field"><label>Net Weight (Kg)</label><input id="pn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
               <div class="field"><label>Operator Name</label><input id="pn-kanta-operator" placeholder="Optional"></div>
             </div>
-            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
-              <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
+            <!-- Dhalta moved here from Quality section — it's a weight deduction, not a quality metric -->
+            <div class="pne-grid4" style="margin-top:4px">
+              <div class="field pne-dhpct-col"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg);color:var(--muted)" title="Auto-averaged from item rows"></div>
+              <div class="field"><label>Dhalta (Kg)</label><input type="number" id="pn-q-dhaltakg" step="0.01" placeholder="Auto from table" oninput="onPNEHeaderDhaltaKgInput(this.value)"></div>
+              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
+            </div>
+            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal;margin-top:4px">
+              <i class="fas fa-info-circle"></i> Net − Dhalta = Billable Weight &nbsp;|&nbsp; Dhalta Kg auto-syncs from the items table
             </div>
             <div class="pne-grid4" style="margin-top:12px">
               <div class="field" style="grid-column:span 2">
@@ -3115,15 +3121,12 @@ const SERVER = {
             </div>
           </div>
 
-          <!-- Quality, Moisture & Dhalta -->
+          <!-- Quality & Moisture -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality, Moisture &amp; Dhalta</div>
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality &amp; Moisture</div>
             <div class="pne-grid4">
               <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" placeholder="Auto-averaged" step="0.1" oninput="calcPNEQualitySummary()"></div>
-              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Not tracked per item — enter the overall load reading here"></div>
-              <div class="field"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg);color:var(--muted)" title="Auto-calculated from Dhalta Kg ÷ Net Weight"></div>
-              <div class="field"><label>Dhalta Weight (Kg)</label><input id="pn-q-dhaltakg" readonly></div>
-              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
+              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Overall load reading"></div>
             </div>
           </div>
 
@@ -16504,7 +16507,7 @@ function renderPNEItemsTable() {
       <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
       <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
-      <td><input type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
+      <td><input id="pne-dkg-${it.id}" type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
       <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
@@ -16906,6 +16909,11 @@ function calcPNEKantaSummary() {
   const net   = Math.max(0, gross - tare);
   document.getElementById('pn-kanta-net').value = net > 0 ? net.toFixed(2) : '';
 
+  // Apply dhalta% show/hide from settings (same toggle as table column)
+  const showDhaltaPct = (STATE.settings.showDhaltaPct ?? '1') !== '0';
+  const dhaltaPctHeader = document.querySelector('.pne-dhpct-col.field');
+  if (dhaltaPctHeader) dhaltaPctHeader.style.display = showDhaltaPct ? '' : 'none';
+
   // ── Sync to item row gross/tare ──────────────────────────────
   // The header kanta reading IS the weight for the current item being filled.
   // Push gross/tare into the item data and update computed cells directly
@@ -16973,26 +16981,61 @@ function calcPNEKantaSummary() {
 function calcPNEQualitySummary() {
   const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
 
-  // Dhalta Kg — sum directly from item rows (source of truth).
-  // Also update the dhalta% display from actual item average.
+  // Sum dhalta Kg directly from item rows — source of truth
   let totalDhaltaKg = 0, totalNet = 0, dhaltaPctWeighted = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
-    totalDhaltaKg    += c.dhaltaKg;
-    totalNet         += c.net;
+    totalDhaltaKg     += c.dhaltaKg;
+    totalNet          += c.net;
     dhaltaPctWeighted += c.dhaltaPct * c.net;
   });
 
-  // If no items have weight yet, fall back to header net × dhalta%
-  const dhaltaKg = totalNet > 0 ? totalDhaltaKg
-    : Math.max(0, net * (parseFloat(document.getElementById('pn-q-dhaltapct').value) || 0) / 100);
+  const dhaltaKg    = totalNet > 0 ? totalDhaltaKg : 0;
+  const avgPct      = totalNet > 0 ? (dhaltaPctWeighted / totalNet) : 0;
+  const billable    = Math.max(0, net - dhaltaKg);
 
-  const avgDhaltaPct = totalNet > 0 ? (dhaltaPctWeighted / totalNet) : 0;
-  const billable = Math.max(0, net - dhaltaKg);
+  const pctEl = document.getElementById('pn-q-dhaltapct');
+  const kgEl  = document.getElementById('pn-q-dhaltakg');
+  const bilEl = document.getElementById('pn-q-billable');
 
-  document.getElementById('pn-q-dhaltapct').value = avgDhaltaPct > 0 ? avgDhaltaPct.toFixed(2) : '';
-  document.getElementById('pn-q-dhaltakg').value  = dhaltaKg > 0 ? dhaltaKg.toFixed(2) : '';
-  document.getElementById('pn-q-billable').value  = billable > 0 ? billable.toFixed(2) : '';
+  if (pctEl) pctEl.value = avgPct  > 0 ? avgPct.toFixed(2)   : '';
+  // Only update kg field if user isn't actively typing in it
+  if (kgEl && document.activeElement !== kgEl) kgEl.value = dhaltaKg > 0 ? dhaltaKg.toFixed(2) : '';
+  if (bilEl) bilEl.value = billable > 0 ? billable.toFixed(2) : '';
+}
+
+// User manually types dhalta Kg in the header — push it back into the
+// single item row (if only one exists) so table stays in sync.
+function onPNEHeaderDhaltaKgInput(val) {
+  const kg = parseFloat(val) || 0;
+  const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
+
+  // Sync to table — if single item, set its dhalta_kg directly
+  if (PNE.items.length === 1) {
+    PNE.items[0].dhalta_kg = kg;
+    const c      = pneCalcRow(PNE.items[0]);
+    const billEl = document.getElementById('pne-billable-' + PNE.items[0].id);
+    const amtEl  = document.getElementById('pne-amt-'      + PNE.items[0].id);
+    const dhEl   = document.getElementById('pne-dhaltapct-'+ PNE.items[0].id);
+    const vBilEl = document.querySelector(`[id="pne-vbillable-${PNE.items[0].id}"]`);
+    if (billEl) billEl.textContent = c.billable.toFixed(2);
+    if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
+    if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
+    // Update the dhalta_kg input in the edit row if open
+    const dkIn = document.getElementById('pne-dkg-' + PNE.items[0].id);
+    if (dkIn && document.activeElement !== dkIn) dkIn.value = kg || '';
+  }
+
+  // Update billable in header
+  const billable = Math.max(0, net - kg);
+  const bilEl = document.getElementById('pn-q-billable');
+  if (bilEl) bilEl.value = billable > 0 ? billable.toFixed(2) : '';
+
+  // Update dhalta% header field
+  if (net > 0) {
+    const pctEl = document.getElementById('pn-q-dhaltapct');
+    if (pctEl) pctEl.value = ((kg / net) * 100).toFixed(2);
+  }
 }
 
 function pneKantaSlipChange(file) {
