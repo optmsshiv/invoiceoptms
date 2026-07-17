@@ -16394,12 +16394,14 @@ function pneEmptyItem() {
 
 function addPurchaseNewItem() {
   PNE.items.push(pneEmptyItem());
-  // Reset all header weight + dhalta fields for the next product's kanta reading
-  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
+  // Reset the Weight Info section so the user fills fresh kanta readings
+  // for the next product — prevents stale values from the previous item
+  // auto-filling into the new row.
+  const fields = ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net'];
+  fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   calcPNEKantaSummary();
   renderPNEItemsTable();
+  // Scroll to the weight info section so user fills it next
   document.getElementById('pn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -16635,18 +16637,8 @@ function calcPurchaseNewTotals() {
   const dkEl = document.getElementById('pn-q-dhaltakg');
   const blEl = document.getElementById('pn-q-billable');
   const headerNet = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
-  if (dkEl && document.activeElement !== dkEl) {
-    // Only populate header dhalta if current item has weight entered
-    // — prevents accumulated total from bleeding into a fresh empty row
-    const editingItem = PNE.items.find(i => i.editing);
-    const hasWeight = editingItem && (parseFloat(editingItem.gross_weight) > 0 || parseFloat(editingItem.tare_weight) > 0);
-    if (hasWeight) dkEl.value = totalDhalta > 0 ? totalDhalta.toFixed(2) : '';
-  }
-  if (blEl) {
-    const editingItem = PNE.items.find(i => i.editing);
-    const hasWeight = editingItem && (parseFloat(editingItem.gross_weight) > 0 || parseFloat(editingItem.tare_weight) > 0);
-    blEl.value = (headerNet > 0 && hasWeight) ? Math.max(0, headerNet - totalDhalta).toFixed(2) : '';
-  }
+  if (dkEl && document.activeElement !== dkEl) dkEl.value = totalDhalta > 0 ? totalDhalta.toFixed(2) : '';
+  if (blEl) blEl.value = headerNet > 0 ? Math.max(0, headerNet - totalDhalta).toFixed(2) : '';
   // Do NOT call calcPNEKantaSummary() — infinite loop risk
 
   const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
