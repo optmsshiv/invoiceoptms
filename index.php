@@ -3147,6 +3147,7 @@ const SERVER = {
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
               <div class="pne-summary-row" id="pn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="pn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
+              <div class="pne-summary-row" id="pn-sum-deductions-row" style="display:none"><span style="color:#E53935">Less: Deductions</span><strong id="pn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row">
                 <span>GST / Tax <span id="pn-gst-rate-wrap" style="display:none">(<input type="number" id="pn-gst-pct" value="0" min="0" max="28" class="pne-inline-num-sm" oninput="calcPurchaseNewTotals()">%)</span></span>
@@ -16643,6 +16644,11 @@ function calcPurchaseNewTotals() {
   const headerDiscount = parseFloat(document.getElementById('pn-discount').value) || 0;
   const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
+  // Show in Tax & Amount Summary only when deductions exist
+  const dedRow = document.getElementById('pn-sum-deductions-row');
+  const dedVal = document.getElementById('pn-sum-deductions');
+  if (dedRow) dedRow.style.display = totalDeductions > 0 ? '' : 'none';
+  if (dedVal) dedVal.textContent = fmt_money(totalDeductions);
 
   const tradeDiscPct = parseFloat(document.getElementById('pn-tradediscpct').value) || 0;
   const cashDiscPct = parseFloat(document.getElementById('pn-cashdiscpct').value) || 0;
