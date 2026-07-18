@@ -2043,11 +2043,17 @@ const SERVER = {
             <div style="font-size:16px;font-weight:800;color:var(--green)" id="db-stat-sales">₹0</div>
             <div style="font-size:10px;color:var(--muted)" id="db-stat-sales-sub">0 invoices</div>
           </div>
+          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
+            <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
+            <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
+          </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
             <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">GROSS PROFIT</div>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">NET PROFIT</div>
             <div style="font-size:16px;font-weight:800" id="db-stat-profit">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">0% margin</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">Sales − Purchase − Expenses</div>
           </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-collections">
             <span class="sa-chip-icon" style="background:#E0F7FA;color:#00838F;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
@@ -2060,13 +2066,6 @@ const SERVER = {
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAYMENTS</div>
             <div style="font-size:16px;font-weight:800" id="db-stat-payable">₹0</div>
             <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
-          </div>
-          <?php // Expenses — always shown for product/agri businesses ?>
-          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
-            <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
-            <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
           </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
             <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
@@ -8540,7 +8539,6 @@ function renderDashboard() {
   }
   if (showService) {
     loadPendingApprovals();
-    loadDashboardExpenses();
   }
 }
 
@@ -8562,39 +8560,47 @@ function renderProductDashboard() {
   // ── KPI calculations ──────────────────────────────────────────
   const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
   const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
-  const grossProfit = totalSales - totalPur;
-  const margin      = totalSales > 0 ? (grossProfit / totalSales * 100) : 0;
+  const totalExp    = (STATE.expenses||[]).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
+  const netProfit   = totalSales - totalPur - totalExp;  // subtract expenses
+  const margin      = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
   const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
   const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
   const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
   const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
+
+  // Expenses KPI — this period total
+  const expMonthTotal = totalExp;
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('db-stat-purchase', fmt_money(totalPur));
   set('db-stat-purchase-sub', purchases.length + ' bills');
   set('db-stat-sales', fmt_money(totalSales));
   set('db-stat-sales-sub', sales.length + ' invoices');
+  set('db-stat-expenses', fmt_money(expMonthTotal));
+  set('db-stat-expenses-sub', (STATE.expenses||[]).length + ' entries in period');
   const profEl = document.getElementById('db-stat-profit');
-  if (profEl) { profEl.textContent = fmt_money(grossProfit); profEl.style.color = grossProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
-  set('db-stat-profit-pct', margin.toFixed(1) + '% margin');
+  if (profEl) { profEl.textContent = fmt_money(netProfit); profEl.style.color = netProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
+  set('db-stat-profit-pct', margin.toFixed(1) + '% net margin');
   set('db-stat-collections', fmt_money(collections));
   set('db-stat-payable', fmt_money(paid));
   set('db-stat-stock', fmt_money(stockValue));
   set('db-stat-stock-sub', totalStockKg.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' Kg');
 
-  // ── Sales vs Purchase chart ────────────────────────────────────
+  // ── Sales vs Purchase vs Expenses chart ───────────────────────
   const dayMap = {};
   const cursor = new Date(from);
   const end    = new Date(to);
   while (cursor <= end) {
-    dayMap[fmt_date(cursor)] = { s: 0, p: 0 };
+    dayMap[fmt_date(cursor)] = { s: 0, p: 0, e: 0 };
     cursor.setDate(cursor.getDate() + 1);
   }
   sales.forEach(s    => { const d = s.sale_date?.slice(0,10);     if (dayMap[d]) dayMap[d].s += parseFloat(s.total)||0; });
   purchases.forEach(p => { const d = p.purchase_date?.slice(0,10); if (dayMap[d]) dayMap[d].p += parseFloat(p.total)||0; });
+  (STATE.expenses||[]).forEach(e => { const d = e.date?.slice(0,10); if (dayMap[d]) dayMap[d].e += parseFloat(e.amount)||0; });
   const labels = Object.keys(dayMap).map(d => { const dt = new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
   const sVals  = Object.values(dayMap).map(v => v.s);
   const pVals  = Object.values(dayMap).map(v => v.p);
+  const eVals  = Object.values(dayMap).map(v => v.e);
 
   set('db-chart-sales-total', fmt_money(totalSales));
   set('db-chart-pur-total',   fmt_money(totalPur));
@@ -8609,6 +8615,7 @@ function renderProductDashboard() {
         datasets: [
           { label: 'Sales', data: sVals, borderColor: '#00897B', backgroundColor: '#00897B22', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
           { label: 'Purchase', data: pVals, borderColor: '#7B1FA2', backgroundColor: '#7B1FA222', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+          { label: 'Expenses', data: eVals, borderColor: '#E53935', backgroundColor: '#E5393522', borderWidth: 2, tension: 0.4, fill: false, pointRadius: labels.length > 20 ? 0 : 3, borderDash: [4,3] },
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
@@ -17870,7 +17877,8 @@ function renderFRCharts(r) {
       labels: r.trend.map(t => fmt_date_disp(t.date).slice(0,5)),
       datasets: [
         { label: 'Income', data: r.trend.map(t => t.income), borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.1)', fill: true, tension: .35 },
-        { label: 'Expense', data: r.trend.map(t => t.expense), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: true, tension: .35 },
+        { label: 'Purchase', data: r.trend.map(t => t.expense), borderColor: '#7B1FA2', backgroundColor: 'rgba(123,31,162,.08)', fill: true, tension: .35 },
+        { label: 'Expenses', data: r.trend.map(t => t.biz_expense||0), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: false, tension: .35, borderDash: [4,3] },
       ],
     },
     options: { plugins: { legend: { position: 'top', labels: { boxWidth: 10 } } }, scales: { y: { ticks: { callback: v => (v/1000)+'L' } } } },

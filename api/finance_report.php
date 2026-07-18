@@ -69,9 +69,18 @@ try {
   $cursor = strtotime($dateFrom);
   while ($cursor <= strtotime($dateTo)) {
     $d = date('Y-m-d', $cursor);
-    $trend[] = ['date' => $d, 'income' => $salesByDay[$d] ?? 0, 'expense' => $purByDay[$d] ?? 0];
+    // Fetch daily expenses for the trend
+    $trend[] = ['date' => $d, 'income' => $salesByDay[$d] ?? 0, 'expense' => $purByDay[$d] ?? 0, 'biz_expense' => 0];
     $cursor = strtotime('+1 day', $cursor);
   }
+
+  // Add business expenses to trend
+  $expTrendStmt = $db->prepare("SELECT `date` d, SUM(amount) t FROM expenses WHERE `date` BETWEEN ? AND ? GROUP BY `date`");
+  $expTrendStmt->execute([$dateFrom, $dateTo]);
+  $expByDay = [];
+  foreach ($expTrendStmt->fetchAll() as $r) $expByDay[$r['d']] = (float)$r['t'];
+  foreach ($trend as &$t) $t['biz_expense'] = $expByDay[$t['date']] ?? 0;
+  unset($t);
 
   // ── Income breakdown — only real source is Sales; no other-income
   // tracking exists in the system, so nothing else is fabricated here. ──
