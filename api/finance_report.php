@@ -190,10 +190,10 @@ try {
   ];
 
   // Expenses
-  $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE expense_date BETWEEN ? AND ?");
+  $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE `date` BETWEEN ? AND ?");
   $expStmt->execute([$dateFrom, $dateTo]);
   $expData = $expStmt->fetch();
-  $expByCatStmt = $db->prepare("SELECT category, SUM(amount) total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category ORDER BY total DESC");
+  $expByCatStmt = $db->prepare("SELECT category, SUM(amount) total FROM expenses WHERE `date` BETWEEN ? AND ? GROUP BY category ORDER BY total DESC");
   $expByCatStmt->execute([$dateFrom, $dateTo]);
   $expByCategory = $expByCatStmt->fetchAll();
 

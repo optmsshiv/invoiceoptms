@@ -2062,7 +2062,7 @@ const SERVER = {
             <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
           </div>
           <?php // Expenses — always shown for product/agri businesses ?>
-          <div class="pne-card" style="padding:14px 16px;cursor:pointer;border-top:3px solid #E53935" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
+          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
             <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
             <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
@@ -8786,20 +8786,15 @@ async function deleteExpense(id) {
 
 // Dashboard card — this month's expenses (service type only)
 async function loadDashboardExpenses() {
-  // Expenses are only tracked for service-type businesses
-  const biz = STATE.settings?.businessType || 'service';
-  const expCard = document.getElementById('db-kpi-expenses');
-  if (biz === 'product') { if (expCard) expCard.style.display = 'none'; return; }
-  if (expCard) expCard.style.display = '';
   try {
     const now = new Date();
     const from = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
     const to   = fmt_date(now);
     const r = await api(`api/expenses.php?action=summary&from=${from}&to=${to}`);
-    const el = document.getElementById('db-stat-expenses');
+    const el  = document.getElementById('db-stat-expenses');
     const sub = document.getElementById('db-stat-expenses-sub');
-    if (el) el.textContent = fmt_money(r.total||0);
-    if (sub) sub.textContent = (r.data||[]).length + ' categories';
+    if (el)  el.textContent  = fmt_money(r.total||0);
+    if (sub) sub.textContent = (r.data||[]).length + ' categories this month';
   } catch(e) {}
 }
 
