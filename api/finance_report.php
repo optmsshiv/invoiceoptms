@@ -120,10 +120,12 @@ try {
   $tradeStmt->execute([$dateFrom, $dateTo]);
   $tradeS = $tradeStmt->fetch();
 
+  // Use purchase-level total (not item-level amount) so the value matches
+  // the Finance Report card exactly — both now read from purchases.total.
+  // Qty/weight/dhalta still come from purchase_items (item level).
   $tradePurStmt = $db->prepare("
     SELECT
       COALESCE(SUM(pi.qty),0)             AS pur_qty,
-      COALESCE(SUM(pi.amount),0)          AS pur_value,
       COALESCE(SUM(pi.dhalta_kg),0)       AS dhalta_kg,
       COALESCE(SUM(pi.gross_weight),0)    AS gross_wt,
       COALESCE(SUM(pi.tare_weight),0)     AS tare_wt,
@@ -133,6 +135,11 @@ try {
     WHERE p.purchase_date BETWEEN ? AND ?" . $whWherePur);
   $tradePurStmt->execute([$dateFrom, $dateTo]);
   $tradeP = $tradePurStmt->fetch();
+
+  // Purchase value from bill totals (distinct per bill, avoids multi-item multiplication)
+  $purValStmt = $db->prepare("SELECT COALESCE(SUM(total),0) pur_value FROM purchases WHERE purchase_date BETWEEN ? AND ?" . $whWherePur);
+  $purValStmt->execute([$dateFrom, $dateTo]);
+  $purVal = $purValStmt->fetchColumn();
 
   // Top products by sale qty
   $topProdStmt = $db->prepare("
@@ -162,7 +169,7 @@ try {
     'sale_qty'      => (float)$tradeS['sale_qty'],
     'sale_value'    => (float)$tradeS['sale_value'],
     'pur_qty'       => (float)$tradeP['pur_qty'],
-    'pur_value'     => (float)$tradeP['pur_value'],
+    'pur_value'     => (float)$purVal,
     'dhalta_kg'     => (float)$tradeP['dhalta_kg'],
     'gross_wt'      => (float)$tradeP['gross_wt'],
     'tare_wt'       => (float)$tradeP['tare_wt'],
