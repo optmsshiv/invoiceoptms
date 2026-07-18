@@ -4272,7 +4272,6 @@ const SERVER = {
                 <select id="sa-direction" onchange="onSADirectionChange()">
                   <option value="out">Decrease Stock (Loss)</option>
                   <option value="in">Increase Stock (Gain)</option>
-                  <option value="adjust">Set Exact Stock (Correction)</option>
                 </select>
               </div>
               <div class="field"><label>Adjustment Type *</label>
@@ -4313,8 +4312,7 @@ const SERVER = {
               <div class="field"><label>Moisture Before (%)</label><input type="number" id="sa-moistbefore" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture After (%)</label><input type="number" id="sa-moistafter" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Moisture Loss (%)</label><input id="sa-moistloss" readonly></div>
-              <div class="field"><label id="sa-qty-label">Weight Loss / Gain (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
-              <div class="field" id="sa-adjustto-row" style="display:none"><label>Adjust Stock To (Kg) *</label><input type="number" id="sa-adjustto" min="0" step="0.01" placeholder="Target stock value" oninput="calcStockAdjustment()"><span style="font-size:11px;color:var(--muted);margin-top:3px;display:block">Enter the correct stock quantity — the system will calculate the difference automatically</span></div>
+              <div class="field"><label id="sa-qty-label">Weight Loss (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
               <div class="field"><label>Final Stock (Kg) *</label><input id="sa-finalstock" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
             <div class="pne-grid2">
@@ -16000,17 +15998,12 @@ function renderPurchases() {
     return;
   }
 
-  const payColor = {
-    Paid:    { color:'#1B5E20', bg:'#E8F5E9' },
-    Partial: { color:'#7B3F00', bg:'#FFF3E0' },
-    Pending: { color:'#7B1FA2', bg:'#F3E8FF' },
-    Received:{ color:'#7B1FA2', bg:'#F3E8FF' },
-  };
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935', Received:'#E53935' };
   tbody.innerHTML = pageRows.map((p, i) => {
     const doc = plDocStatus(p);
     const docColor = doc === 'Completed' ? '#00897B' : '#1976D2';
     const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
-    const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
+    const pc = payColor[p.status] || '#889';
     return `
     <tr>
       <td>${start + i + 1}</td>
@@ -16019,7 +16012,7 @@ function renderPurchases() {
       <td>${escHtml(p.supplier_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
       <td>${escHtml(p.payment_type||'—')}</td>
       <td>
@@ -17191,17 +17184,6 @@ async function savePurchaseEntry(mode) {
   finally { if (btn) btn.disabled = false; }
 }
 
-async 
-function pnePaymentStamp(status) {
-  const cfg = {
-    'Paid':    { color:'#1B5E20', border:'#2E7D32', label:'PAID' },
-    'Partial': { color:'#7B3F00', border:'#E65100', label:'PARTIAL' },
-    'Pending': { color:'#4A148C', border:'#7B1FA2', label:'PENDING' },
-  }[status];
-  if (!cfg) return '';
-  return `<div style="position:absolute;top:100px;right:60px;border:3px solid ${cfg.border};color:${cfg.color};font-weight:800;font-size:20px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">${cfg.label}</div>`;
-}
-
 async function printPurchaseEntry(id) {
   try {
     const r = await api('api/purchases.php?id=' + id);
@@ -17305,7 +17287,7 @@ function printLocalPurchaseVoucher(p) {
         <div class="voucher-meta">Voucher No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>Warehouse: ${escHtml(p.warehouse||'')}</div>
       </div>
     </div>
-    ${pnePaymentStamp(p.payment_status||p.status)}
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -17447,7 +17429,7 @@ function printTaxInvoicePurchase(p) {
         <div class="inv-meta">Invoice No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>${p.reference_po_no?`PO Reference: ${escHtml(p.reference_po_no)}`:''}</div>
       </div>
     </div>
-    ${pnePaymentStamp(p.payment_status||p.status)}
+    ${(p.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -18918,15 +18900,11 @@ function renderSales() {
     return;
   }
 
-  const payColor = {
-    Paid:    { color:'#1B5E20', bg:'#E8F5E9' },
-    Partial: { color:'#7B3F00', bg:'#FFF3E0' },
-    Pending: { color:'#7B1FA2', bg:'#F3E8FF' },
-  };
+  const payColor = { Paid:'#00897B', Partial:'#E65100', Pending:'#E53935' };
   const statusMap = { Confirmed: { label:'Completed', color:'#00897B' }, Draft: { label:'Draft', color:'#1976D2' } };
   tbody.innerHTML = pageRows.map((s, i) => {
     const st = statusMap[s.status||'Confirmed'] || { label: s.status||'—', color:'#889' };
-    const pc = payColor[s.payment_status] || { color:'#555', bg:'#F5F5F5' };
+    const pc = payColor[s.payment_status] || '#889';
     return `
     <tr>
       <td>${start + i + 1}</td>
@@ -18935,7 +18913,7 @@ function renderSales() {
       <td>${escHtml(s.customer_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc};background:${pc}18;padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
       <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
@@ -19063,7 +19041,7 @@ function printSaleInvoice(s) {
         <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
       </div>
     </div>
-    ${pnePaymentStamp(s.payment_status)}
+    ${(s.payment_status==='Paid') ? `<div style="position:absolute;top:100px;right:60px;border:3px solid #2E7D32;color:#2E7D32;font-weight:800;font-size:22px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">PAID</div>` : ''}
 
     <div class="row2">
       <div class="box">
@@ -19224,62 +19202,31 @@ function onSAProductChange() {
 // "Increase" is for recounts that find MORE stock than the system shows,
 // stock returned after processing, etc.
 function onSADirectionChange() {
-  const dir = document.getElementById('sa-direction').value;
-  const isIn     = dir === 'in';
-  const isAdjust = dir === 'adjust';
+  const isIn = document.getElementById('sa-direction').value === 'in';
   document.getElementById('sa-qty-label').textContent = isIn ? 'Weight Gain (Kg) *' : 'Weight Loss (Kg) *';
-  document.getElementById('sa-sum-loss-label').textContent = isIn ? 'Weight Gain (Kg)' : isAdjust ? 'Adjustment (Kg)' : 'Weight Loss (Kg)';
-  document.getElementById('sa-sum-op').textContent = isIn ? '+' : isAdjust ? '±' : '−';
-  // Show/hide weight loss vs adjust-to fields
-  const wlRow  = document.getElementById('sa-weightloss')?.parentElement;
-  const adjRow = document.getElementById('sa-adjustto-row');
-  if (wlRow)  wlRow.style.display  = isAdjust ? 'none' : '';
-  if (adjRow) adjRow.style.display = isAdjust ? '' : 'none';
-  // Auto-fill Opening Stock Correction type when adjust selected
-  if (isAdjust) {
-    const typeEl = document.getElementById('sa-type');
-    if (typeEl) typeEl.value = 'Opening Stock Correction';
-  }
+  document.getElementById('sa-sum-loss-label').textContent = isIn ? 'Weight Gain (Kg)' : 'Weight Loss (Kg)';
+  document.getElementById('sa-sum-op').textContent = isIn ? '+' : '−';
   calcStockAdjustment();
 }
 
 function calcStockAdjustment() {
-  const dir      = document.getElementById('sa-direction')?.value || 'out';
-  const isIn     = dir === 'in';
-  const isAdjust = dir === 'adjust';
-  const opening  = parseFloat(document.getElementById('sa-openingstock').value) || 0;
-  const before   = document.getElementById('sa-moistbefore').value;
-  const after    = document.getElementById('sa-moistafter').value;
+  const isIn = document.getElementById('sa-direction')?.value === 'in';
+  const opening = parseFloat(document.getElementById('sa-openingstock').value) || 0;
+  const before = document.getElementById('sa-moistbefore').value;
+  const after  = document.getElementById('sa-moistafter').value;
   const moistLoss = (before !== '' && after !== '') ? (parseFloat(before) - parseFloat(after)) : null;
   document.getElementById('sa-moistloss').value = moistLoss !== null ? moistLoss.toFixed(2) : '';
-
-  let weightLoss, finalStock;
-  if (isAdjust) {
-    // User enters target stock — we compute the required delta
-    const target = parseFloat(document.getElementById('sa-adjustto').value);
-    if (!isNaN(target)) {
-      const diff = target - opening;
-      weightLoss = Math.abs(diff);
-      finalStock = target;
-      // Auto-set actual direction based on whether we need to add or remove
-      // (stored separately so the API knows which ledger direction to use)
-      document.getElementById('sa-weightloss').value = weightLoss.toFixed(2);
-    } else {
-      weightLoss = 0;
-      finalStock = opening;
-    }
-  } else {
-    weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
-    finalStock = isIn ? opening + weightLoss : Math.max(0, opening - weightLoss);
-  }
-
+  const weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
+  const finalStock = isIn ? opening + weightLoss : Math.max(0, opening - weightLoss);
   document.getElementById('sa-finalstock').value = finalStock.toFixed(2);
+
   document.getElementById('sa-sum-opening').textContent = opening.toFixed(2);
   document.getElementById('sa-sum-loss').textContent = weightLoss.toFixed(2);
   document.getElementById('sa-sum-final').textContent = finalStock.toFixed(2);
   document.getElementById('sa-sum-mbefore').textContent = (parseFloat(before)||0).toFixed(2) + ' %';
   document.getElementById('sa-sum-mafter').textContent = (parseFloat(after)||0).toFixed(2) + ' %';
   document.getElementById('sa-sum-mloss').textContent = (moistLoss !== null ? moistLoss : 0).toFixed(2) + ' %';
+
   document.getElementById('sa-imp-warehouse').textContent = document.getElementById('sa-warehouse').value;
   document.getElementById('sa-imp-batch').textContent = document.getElementById('sa-batchno').value || '—';
 }
@@ -19295,29 +19242,17 @@ function saAttachmentChange(file) {
 
 async function saveStockAdjustmentEntry() {
   const productId = document.getElementById('sa-product').value;
-  const dir = document.getElementById('sa-direction').value;
-  const isAdjust = dir === 'adjust';
   if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
   if (!document.getElementById('sa-date').value) { toast('⚠️ Adjustment date is required', 'warning'); return; }
   if (!document.getElementById('sa-openingstock').value) { toast('⚠️ Opening Stock is required', 'warning'); return; }
-  if (isAdjust && document.getElementById('sa-adjustto').value === '') { toast('⚠️ Target stock value is required', 'warning'); return; }
-  if (!isAdjust && !document.getElementById('sa-weightloss').value) { toast('⚠️ Weight Loss/Gain is required', 'warning'); return; }
+  if (!document.getElementById('sa-weightloss').value) { toast('⚠️ Weight Loss is required', 'warning'); return; }
   if (!document.getElementById('sa-reason').value) { toast('⚠️ Reason / Description is required', 'warning'); return; }
-
-  const opening    = parseFloat(document.getElementById('sa-openingstock').value) || 0;
-  const target     = isAdjust ? parseFloat(document.getElementById('sa-adjustto').value) : null;
-  const diff       = isAdjust ? (target - opening) : null;
-  // For adjust mode: determine actual in/out direction from the diff
-  const actualDir  = isAdjust ? (diff >= 0 ? 'in' : 'out') : dir;
-  const weightLoss = isAdjust ? Math.abs(diff) : (parseFloat(document.getElementById('sa-weightloss').value) || 0);
 
   const payload = {
     adjustment_no: document.getElementById('sa-no').value.trim(),
     adjustment_date: document.getElementById('sa-date').value,
     adjustment_type: document.getElementById('sa-type').value,
-    direction: actualDir,
-    is_exact_correction: isAdjust ? 1 : 0,
-    target_stock: target,
+    direction: document.getElementById('sa-direction').value,
     warehouse: document.getElementById('sa-warehouse').value,
     reference_no: document.getElementById('sa-refno').value.trim(),
     reference_date: document.getElementById('sa-refdate').value || null,
@@ -19329,10 +19264,10 @@ async function saveStockAdjustmentEntry() {
     manufacture_date: document.getElementById('sa-mfgdate').value || null,
     expiry_date: document.getElementById('sa-expdate').value || null,
     supplier_id: document.getElementById('sa-supplier').value || null,
-    opening_stock: opening,
+    opening_stock: parseFloat(document.getElementById('sa-openingstock').value) || 0,
     moisture_before_pct: document.getElementById('sa-moistbefore').value || '',
     moisture_after_pct: document.getElementById('sa-moistafter').value || '',
-    weight_loss_kg: weightLoss,
+    weight_loss_kg: parseFloat(document.getElementById('sa-weightloss').value) || 0,
     reason: document.getElementById('sa-reason').value,
     remarks: document.getElementById('sa-remarks').value.trim(),
     attachment: SA.attachmentDataUrl || undefined,

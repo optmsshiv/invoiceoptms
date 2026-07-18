@@ -19,7 +19,7 @@ function currentStock($db, $productId) {
 }
 
 function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '', $direction = 'out') {
-  // Allow qty=0 — exact corrections that set stock to same level still need a ledger record
+  if ($qty <= 0) return;
   $direction = $direction === 'in' ? 'in' : 'out';
   $bal = currentStock($db, $productId) + ($direction === 'in' ? $qty : -$qty);
   $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"adjustment",?,?,?,0,?,?,?,?,?)');
@@ -78,20 +78,8 @@ switch ($method) {
     $moistBefore = isset($d['moisture_before_pct']) && $d['moisture_before_pct'] !== '' ? (float)$d['moisture_before_pct'] : null;
     $moistAfter  = isset($d['moisture_after_pct'])  && $d['moisture_after_pct']  !== '' ? (float)$d['moisture_after_pct']  : null;
     $moistLoss = ($moistBefore !== null && $moistAfter !== null) ? round($moistBefore - $moistAfter, 2) : null;
-    $isExact   = !empty($d['is_exact_correction']);
-    $target    = isset($d['target_stock']) && $d['target_stock'] !== null ? (float)$d['target_stock'] : null;
-    if ($isExact && $target !== null) {
-        // Compute delta needed to reach the target from current ledger balance
-        $currentBal = currentStock($db, $productId);
-        $diff       = $target - $currentBal;
-        $weightLoss = round(abs($diff), 3);
-        $direction  = $diff >= 0 ? 'in' : 'out';
-        $finalStock = $target;
-        $opening    = $currentBal; // override opening to real current balance
-    } else {
-        $weightLoss = (float)($d['weight_loss_kg'] ?? 0);
-        $finalStock = $direction === 'in' ? round($opening + $weightLoss, 3) : round($opening - $weightLoss, 3);
-    }
+    $weightLoss = (float)($d['weight_loss_kg'] ?? 0);
+    $finalStock = $direction === 'in' ? round($opening + $weightLoss, 3) : round($opening - $weightLoss, 3);
 
     $attachmentPath = saveAttachment($d['attachment'] ?? null);
 
