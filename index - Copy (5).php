@@ -4700,7 +4700,7 @@ const SERVER = {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px" class="ps-stats-row">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
         <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
           <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (₹)</div>
@@ -4726,14 +4726,8 @@ const SERVER = {
           <div style="font-size:10.5px;color:#00897B" id="fr-chg-payments"></div>
         </div>
         <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Business Expenses (₹)</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="fr-stat-expenses">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted)" id="fr-chg-expenses"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:34px;height:34px"><i class="fas fa-piggy-bank"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Sales − Purchase − Expenses" style="cursor:help">ⓘ</span></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Total Sales − Total Purchase − Business Expenses" style="cursor:help">ⓘ</span></div>
           <div style="font-size:17px;font-weight:800" id="fr-stat-profit">₹0.00</div>
           <div style="font-size:10.5px;color:#00897B" id="fr-chg-profit"></div>
         </div>
@@ -4783,6 +4777,11 @@ const SERVER = {
           <div class="pne-card-head">Payment Mode Summary</div>
           <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
+      </div>
+
+      <div class="pne-card" style="margin-top:16px">
+        <div class="pne-card-head pne-head-rose"><i class="fas fa-wallet"></i> Business Expenses</div>
+        <div id="fr-expenses"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
       </div>
 
       <div class="pne-card" style="margin-top:16px">
@@ -6753,13 +6752,17 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Summary cards -->
       <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
-      <!-- Mixed chart: bars = monthly total, stacked per category -->
-      <div class="pne-card" style="margin-bottom:18px" id="exp-charts-row">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:13px;font-weight:700">Monthly Amount &amp; Category Breakdown</div>
-          <div id="exp-mix-legend" style="display:flex;gap:10px;font-size:11px;flex-wrap:wrap"></div>
+      <!-- Charts row -->
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;margin-bottom:18px" id="exp-charts-row" style="display:none">
+        <div class="pne-card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">By Category</div>
+          <div style="height:200px;position:relative"><canvas id="exp-cat-chart"></canvas></div>
+          <div id="exp-cat-legend" style="margin-top:8px;font-size:11px;display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
-        <div style="height:250px;position:relative"><canvas id="exp-mix-chart"></canvas></div>
+        <div class="pne-card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px">Monthly Trend</div>
+          <div style="height:200px;position:relative"><canvas id="exp-trend-chart"></canvas></div>
+        </div>
       </div>
       <!-- Expense table -->
       <div class="table-card">
@@ -17741,12 +17744,6 @@ async function renderFinanceReport() {
     setStat('fr-stat-purchase', s.total_purchase, 'fr-chg-purchase');
     setStat('fr-stat-collections', s.total_collections, 'fr-chg-collections');
     setStat('fr-stat-payments', s.total_payments, 'fr-chg-payments');
-    // Expenses KPI
-    const expTotal = r.expenses?.total || 0;
-    const expEl = document.getElementById('fr-stat-expenses');
-    if (expEl) expEl.textContent = fmt_money(expTotal);
-    const expChgEl = document.getElementById('fr-chg-expenses');
-    if (expChgEl) expChgEl.textContent = (r.expenses?.count||0) + ' entries';
     setStat('fr-stat-profit', s.net_profit, 'fr-chg-profit');
 
     // Cash flow
@@ -17762,11 +17759,11 @@ async function renderFinanceReport() {
       <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${incTotal?((h.amount/incTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
       + `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(incTotal)}</td><td>100.0%</td></tr>`;
 
-    const expHeadTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
+    const expTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
     document.getElementById('fr-expense-tbody').innerHTML = (r.expense_heads.length ? r.expense_heads.map((h,i) => `
-      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expHeadTotal?((h.amount/expHeadTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
+      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expTotal?((h.amount/expTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
       : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
-      + (expHeadTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expHeadTotal)}</td><td>100.0%</td></tr>` : '');
+      + (expTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expTotal)}</td><td>100.0%</td></tr>` : '');
 
     // Payment mode summary
     const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
@@ -17778,6 +17775,37 @@ async function renderFinanceReport() {
       </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
         <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
       : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
+
+    // ── Expenses section (service type only) ────────────────────
+    const exp = r.expenses || {};
+    const expCont = document.getElementById('fr-expenses');
+    const frExpCard = expCont?.closest('.pne-card');
+    if (frExpCard) frExpCard.style.display = ''; // show for all business types
+    if (expCont && exp.total !== undefined) {
+      expCont.innerHTML = exp.total > 0 ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:20px;font-weight:800;color:#E53935">${fmt_money(exp.total)}</div>
+            <div style="font-size:11px;color:var(--muted)">${exp.count} expense entries in this period</div>
+          </div>
+          <button class="btn btn-outline" style="font-size:12px" onclick="showPage('expenses',null);renderExpenses()"><i class="fas fa-arrow-right"></i> View All</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${(exp.by_category||[]).map(c => {
+            const pct = exp.total > 0 ? (c.total/exp.total*100).toFixed(1) : 0;
+            return `<div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                <span style="font-weight:600">${escHtml(c.category)}</span>
+                <span>${fmt_money(c.total)} <span style="color:var(--muted)">(${pct}%)</span></span>
+              </div>
+              <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+                <div style="width:${pct}%;height:100%;background:#E53935;border-radius:3px"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` :
+        '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No expenses recorded in this period</div>';
+    }
 
     renderFRCharts(r);
 
@@ -25375,77 +25403,48 @@ function _renderExpSummary() {
     <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
   </div>`).join('');
 
-  // ── Expense mixed chart: stacked bars per category + total line ──
+  // ── Expense charts ────────────────────────────────────────────
   const chartsRow = document.getElementById('exp-charts-row');
-  if (chartsRow) {
-    chartsRow.style.display = STATE.expenses.length > 0 ? '' : 'none';
-    if (STATE.expenses.length > 0) {
-      // Build month × category matrix
-      const monthSet = new Set();
-      const catSet   = new Set();
-      const matrix   = {}; // matrix[month][category] = amount
+  if (chartsRow && STATE.expenses.length > 0) {
+    chartsRow.style.display = '';
+
+    // Category donut
+    const catCtx = document.getElementById('exp-cat-chart');
+    if (catCtx) {
+      if (window._expCatChart) window._expCatChart.destroy();
+      const cats = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const colors = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#6A4C93','#F57C00'];
+      window._expCatChart = new Chart(catCtx, {
+        type: 'doughnut',
+        data: { labels: cats.map(([k])=>k), datasets: [{ data: cats.map(([,v])=>v), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt_money(ctx.raw)}` } } } }
+      });
+      const lgEl = document.getElementById('exp-cat-legend');
+      if (lgEl) lgEl.innerHTML = cats.map(([k,v],i) =>
+        `<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};flex-shrink:0"></span><span style="font-size:10.5px">${escHtml(k)}</span></span>`
+      ).join('');
+    }
+
+    // Monthly trend bar
+    const trendCtx = document.getElementById('exp-trend-chart');
+    if (trendCtx) {
+      if (window._expTrendChart) window._expTrendChart.destroy();
+      const monthMap = {};
       STATE.expenses.forEach(e => {
         const m = e.date?.slice(0,7); if (!m) return;
-        monthSet.add(m); catSet.add(e.category||'Other');
-        if (!matrix[m]) matrix[m] = {};
-        matrix[m][e.category||'Other'] = (matrix[m][e.category||'Other']||0) + parseFloat(e.amount||0);
+        monthMap[m] = (monthMap[m]||0) + parseFloat(e.amount||0);
       });
-      const months = [...monthSet].sort().slice(-12);
-      const cats   = [...catSet];
-      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + '\'' + y.slice(2); });
-      const colors  = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#F57C00','#6A4C93','#00838F','#C62828'];
-
-      // Stacked bar datasets (one per category)
-      const barDatasets = cats.map((cat, i) => ({
+      const months = Object.keys(monthMap).sort().slice(-12);
+      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + ' ' + y.slice(2); });
+      window._expTrendChart = new Chart(trendCtx, {
         type: 'bar',
-        label: cat,
-        data: months.map(m => matrix[m]?.[cat] || 0),
-        backgroundColor: (colors[i % colors.length]) + 'BB',
-        borderColor: colors[i % colors.length],
-        borderWidth: 1,
-        borderRadius: 3,
-        stack: 'expenses',
-      }));
-
-      // Total line dataset
-      const totalLine = {
-        type: 'line',
-        label: 'Total',
-        data: months.map(m => Object.values(matrix[m]||{}).reduce((s,v)=>s+v,0)),
-        borderColor: '#212121',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#212121',
-        tension: 0.3,
-        order: 0,
-      };
-
-      const mixCtx = document.getElementById('exp-mix-chart');
-      if (mixCtx) {
-        if (window._expMixChart) window._expMixChart.destroy();
-        window._expMixChart = new Chart(mixCtx, {
-          data: { labels: mLabels, datasets: [...barDatasets, totalLine] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt_money(ctx.raw)}` } }
-            },
-            scales: {
-              x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-              y: { stacked: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } }
-            }
-          }
-        });
-      }
-
-      // Legend
-      const lgEl = document.getElementById('exp-mix-legend');
-      if (lgEl) lgEl.innerHTML =
-        cats.map((cat,i) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></span><span>${escHtml(cat)}</span></span>`).join('')
-        + `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#212121;flex-shrink:0"></span><span>Total</span></span>`;
+        data: { labels: mLabels, datasets: [{ label: 'Expenses', data: months.map(m=>monthMap[m]), backgroundColor: '#E5393588', borderColor: '#E53935', borderWidth: 1.5, borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } } } }
+      });
     }
+  } else if (chartsRow) {
+    chartsRow.style.display = 'none';
   }
 }
 
