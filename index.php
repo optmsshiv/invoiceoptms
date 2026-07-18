@@ -17723,61 +17723,53 @@ async function renderFinanceReport() {
       const netWt = (ts.gross_wt||0)-(ts.tare_wt||0);
 
       tsCont.innerHTML = `
-        <!-- Row 1: Purchase vs Sale KPIs -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px">
-          <!-- Purchase block -->
-          <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:#E53935;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-cart-shopping"></i> PURCHASE SUMMARY</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL QTY</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.pur_qty)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.gross_wt)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.tare_wt)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(netWt)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">BILLABLE WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.billable_wt)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px;color:#E53935">${fmt_money(ts.pur_value)}</div></div>
+        <!-- Clean comparison: Purchase vs Sale as two key-value lists -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+
+          <!-- PURCHASE -->
+          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #E53935">
+            <div style="padding:10px 14px;background:#FFF5F5;font-size:11.5px;font-weight:700;color:#E53935;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
+              <i class="fas fa-cart-shopping"></i> PURCHASE
             </div>
+            ${[
+              ['Total Qty',   kgFmt(ts.pur_qty),      ''],
+              ['Gross Wt',    kgFmt(ts.gross_wt),     ''],
+              ['Tare Wt',     kgFmt(ts.tare_wt),      ''],
+              ['Net Wt',      kgFmt(netWt),            ''],
+              ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100'],
+              ['Billable Wt', kgFmt(ts.billable_wt), '#00897B'],
+              ['Total Value', fmt_money(ts.pur_value),'#E53935'],
+            ].map(([l,v,c],i)=>`
+            <div style="display:flex;justify-content:space-between;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <span style="font-size:11.5px;color:var(--muted)">${l}</span>
+              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
+            </div>`).join('')}
           </div>
-          <!-- Sales block -->
-          <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:#00897B;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-file-invoice-dollar"></i> SALES SUMMARY</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL QTY</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_qty)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_gross_wt||0)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_tare_wt||0)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0))}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700;color:#E65100">DHALTA</div><div style="font-size:14px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div></div>
-              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px;color:#00897B">${fmt_money(ts.sale_value)}</div></div>
+
+          <!-- SALE -->
+          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #00897B">
+            <div style="padding:10px 14px;background:#F0FAF8;font-size:11.5px;font-weight:700;color:#00897B;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
+              <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
+            ${[
+              ['Total Qty',   kgFmt(ts.sale_qty),                                                                          ''],
+              ['Gross Wt',    kgFmt(ts.sale_gross_wt||0),                                                                  ''],
+              ['Tare Wt',     kgFmt(ts.sale_tare_wt||0),                                                                   ''],
+              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                           ''],
+              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                  '#E65100'],
+              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),       '#00897B'],
+              ['Total Value', fmt_money(ts.sale_value),                                                                     '#00897B'],
+            ].map(([l,v,c],i)=>`
+            <div style="display:flex;justify-content:space-between;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <span style="font-size:11.5px;color:var(--muted)">${l}</span>
+              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
+            </div>`).join('')}
           </div>
         </div>
 
-        <!-- Row 2: Dhalta block -->
-        <div style="background:#FFF8E1;border-radius:10px;padding:14px;border:1px solid #FFD180;margin-bottom:12px">
-          <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-weight-hanging"></i> DHALTA SUMMARY</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--border)">
-              <div style="font-size:10.5px;font-weight:700;color:#E53935;margin-bottom:8px;display:flex;align-items:center;gap:5px"><i class="fas fa-cart-shopping"></i> PURCHASE DHALTA</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">DHALTA KG</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${kgFmt(ts.dhalta_kg)}</div></div>
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">% OF GROSS</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${dhaltaPct}%</div></div>
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">BILLABLE WT</div><div style="font-size:14px;font-weight:800;margin-top:2px">${kgFmt(ts.billable_wt)}</div></div>
-              </div>
-            </div>
-            <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--border)">
-              <div style="font-size:10.5px;font-weight:700;color:#00897B;margin-bottom:8px;display:flex;align-items:center;gap:5px"><i class="fas fa-file-invoice-dollar"></i> SALE DHALTA</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">DHALTA KG</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div></div>
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">% OF GROSS</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${ts.sale_gross_wt > 0 ? ((ts.sale_dhalta_kg||0)/(ts.sale_gross_wt||1)*100).toFixed(2) : '0.00'}%</div></div>
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div><div style="font-size:14px;font-weight:800;margin-top:2px">${kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0))}</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row 3: Charges breakdown (conditional) -->
         ${hasCharges ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-receipt"></i> PURCHASE BILL BREAKDOWN — Item Value + Charges = Bill Total</div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-receipt"></i> PURCHASE BILL BREAKDOWN</div>
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
             <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">ITEM VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.pur_item_value)}</div></div>
             <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">TRANSPORT</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.transport_amt||0)}</div></div>
@@ -17787,14 +17779,13 @@ async function renderFinanceReport() {
           </div>
         </div>` : ''}
 
-        <!-- Row 4: Two tables -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div>
             <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="fas fa-trophy" style="color:#00897B"></i> Top Products by Sales (Kg)</div>
             <table class="data-table">
               <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Value</th></tr></thead>
               <tbody>${(ts.top_products||[]).length
-                ? ts.top_products.map((p,i) => `<tr><td>${i+1}</td><td>${escHtml(p.name)}</td><td style="text-align:right;font-weight:600">${parseFloat(p.qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(p.value)}</td></tr>`).join('')
+                ? ts.top_products.map((p,i)=>`<tr><td>${i+1}</td><td>${escHtml(p.name)}</td><td style="text-align:right;font-weight:600">${parseFloat(p.qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(p.value)}</td></tr>`).join('')
                 : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px">No sales in this period</td></tr>'}
               </tbody>
             </table>
@@ -17804,7 +17795,7 @@ async function renderFinanceReport() {
             <table class="data-table">
               <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Total Qty</th><th style="text-align:right">Dhalta Kg</th><th style="text-align:right">%</th></tr></thead>
               <tbody>${(ts.dhalta_detail||[]).length
-                ? ts.dhalta_detail.map((d,i) => `<tr><td>${i+1}</td><td>${escHtml(d.name)}</td><td style="text-align:right">${parseFloat(d.total_qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;color:#E65100;font-weight:700">${parseFloat(d.dhalta_kg||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;font-weight:600">${parseFloat(d.dhalta_pct||0).toFixed(2)}%</td></tr>`).join('')
+                ? ts.dhalta_detail.map((d,i)=>`<tr><td>${i+1}</td><td>${escHtml(d.name)}</td><td style="text-align:right">${parseFloat(d.total_qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;color:#E65100;font-weight:700">${parseFloat(d.dhalta_kg||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;font-weight:600">${parseFloat(d.dhalta_pct||0).toFixed(2)}%</td></tr>`).join('')
                 : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No dhalta recorded in this period</td></tr>'}
               </tbody>
             </table>
