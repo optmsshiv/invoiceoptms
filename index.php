@@ -2030,7 +2030,7 @@ const SERVER = {
         </div>
 
         <!-- 6 KPI cards -->
-        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px" class="db-kpi-row">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
             <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
@@ -2061,8 +2061,15 @@ const SERVER = {
             <div style="font-size:16px;font-weight:800" id="db-stat-payable">₹0</div>
             <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
           </div>
+          <?php // Expenses — always shown for product/agri businesses ?>
+          <div class="pne-card" style="padding:14px 16px;cursor:pointer;border-top:3px solid #E53935" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
+            <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
+            <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
+          </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
-            <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
+            <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">STOCK VALUE</div>
             <div style="font-size:16px;font-weight:800" id="db-stat-stock">₹0</div>
             <div style="font-size:10px;color:var(--muted)" id="db-stat-stock-sub">0 Kg total</div>
@@ -4772,12 +4779,111 @@ const SERVER = {
         </div>
       </div>
 
+      <?php if (in_array($settings['businessType']??'service', ['service','both'])): ?>
+      <div class="pne-card" style="margin-top:16px">
+        <div class="pne-card-head pne-head-rose"><i class="fas fa-wallet"></i> Business Expenses</div>
+        <div id="fr-expenses"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
+      </div>
+      <?php endif; ?>
+
       <div class="pne-card" style="margin-top:16px">
         <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
         <div id="fr-trade-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading trade summary…</div></div>
       </div>
 
       <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
+    </div>
+
+    <!-- ═══════════ EXPENSES ═══════════ -->
+    <div id="page-expenses" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h1 style="margin:0">Expenses</h1>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Track business expenses — rent, salary, utilities and more</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddExpense()"><i class="fas fa-plus"></i> Add Expense</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="pne-card" style="padding:12px 16px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field" style="margin:0"><label>From</label><input type="date" id="exp-f-from" onchange="renderExpenses()"></div>
+          <div class="field" style="margin:0"><label>To</label><input type="date" id="exp-f-to" onchange="renderExpenses()"></div>
+          <div class="field" style="margin:0"><label>Category</label>
+            <select id="exp-f-category" onchange="renderExpenses()">
+              <option value="">All Categories</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" onclick="resetExpenseFilters()"><i class="fas fa-rotate-left"></i> Reset</button>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E53935">
+          <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL EXPENSES</div>
+          <div style="font-size:18px;font-weight:800;color:#E53935;margin-top:4px" id="exp-stat-total">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="exp-stat-count">0 entries</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <div style="font-size:10.5px;color:var(--muted);font-weight:700">HIGHEST CATEGORY</div>
+          <div style="font-size:15px;font-weight:800;margin-top:4px" id="exp-stat-top-cat">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="exp-stat-top-amt">₹0.00</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <div style="font-size:10.5px;color:var(--muted);font-weight:700">THIS MONTH</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px" id="exp-stat-month">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="exp-stat-month-cnt">0 entries</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <div style="font-size:10.5px;color:var(--muted);font-weight:700">AVG PER DAY</div>
+          <div style="font-size:18px;font-weight:800;margin-top:4px" id="exp-stat-avg">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">In selected period</div>
+        </div>
+      </div>
+
+      <!-- Category breakdown + table -->
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:14px">
+        <div class="pne-card" style="padding:14px;align-self:start">
+          <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:var(--muted)">BY CATEGORY</div>
+          <div id="exp-cat-breakdown" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+        <div>
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Date</th><th>Category</th><th>Vendor / Paid To</th><th>Notes</th><th>Mode</th><th style="text-align:right">Amount</th><th>Action</th></tr></thead>
+            <tbody id="exp-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Expense Modal -->
+    <div class="modal-overlay" id="modal-expense">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-header">
+          <span id="exp-modal-title"><i class="fas fa-receipt" style="color:var(--teal)"></i> Add Expense</span>
+          <button class="modal-close" onclick="closeModal('modal-expense')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Date *</label><input type="date" id="exp-date"></div>
+          <div class="field"><label>Amount (₹) *</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0.00"></div>
+          <div class="field"><label>Category *</label>
+            <select id="exp-category" onchange="onExpCategoryChange()">
+              <option value="">Select category</option>
+            </select>
+          </div>
+          <div class="field" id="exp-custom-cat-row" style="display:none"><label>Custom Category *</label><input id="exp-custom-cat" placeholder="e.g. Advertisement"></div>
+          <div class="field" style="grid-column:span 2"><label>Vendor / Paid To *</label><input id="exp-vendor" placeholder="e.g. Landlord, BSES, Staff Name"></div>
+          <div class="field"><label>Payment Method</label>
+            <select id="exp-method"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option></select>
+          </div>
+          <div class="field"><label>Notes</label><input id="exp-notes" placeholder="Optional"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-expense')">Cancel</button>
+          <button class="btn btn-primary" onclick="saveExpense()"><i class="fas fa-save"></i> Save Expense</button>
+        </div>
+      </div>
     </div>
 
     <!-- ═══════════ STOCK HISTORY ═══════════ -->
@@ -8475,6 +8581,228 @@ function _editProductWithApproval(productId, editFn) {
   editWithApproval('product', numericId, (p?.name || 'Product #' + numericId), editFn);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  EXPENSES MODULE
+// ═══════════════════════════════════════════════════════════════
+
+const EXP = { editingId: null, categories: [], rows: [] };
+const EXP_FIXED = ['Rent','Salary','Electricity','Fuel','Telephone','Transport','Labour','Maintenance','Stationery','Packaging','Bank Charges','Other'];
+
+async function renderExpenses() {
+  // Expenses page is for service-type businesses only
+  if ((STATE.settings?.businessType || 'service') === 'product') {
+    toast('ℹ️ Expenses are tracked for service-type businesses', 'info');
+    return;
+  }
+  const from = document.getElementById('exp-f-from')?.value || fmt_date(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const to   = document.getElementById('exp-f-to')?.value   || fmt_date(new Date());
+  const cat  = document.getElementById('exp-f-category')?.value || '';
+  if (!document.getElementById('exp-f-from').value) {
+    document.getElementById('exp-f-from').value = from;
+    document.getElementById('exp-f-to').value   = to;
+  }
+
+  // Load categories for filters and modal
+  try {
+    const catR = await api('api/expenses.php?action=categories');
+    EXP.categories = [...catR.fixed, ...catR.custom];
+    _populateExpCategorySelects();
+  } catch(e) {}
+
+  // Load expense list
+  try {
+    const r = await api(`api/expenses.php?from=${from}&to=${to}&category=${encodeURIComponent(cat)}`);
+    EXP.rows = r.data || [];
+    _renderExpenseTable();
+    _renderExpenseStats(from, to);
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function _populateExpCategorySelects() {
+  const all = [...EXP_FIXED, ...EXP.categories.filter(c => !EXP_FIXED.includes(c)), 'Custom…'];
+  ['exp-f-category','exp-category'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    const isFilter = id === 'exp-f-category';
+    el.innerHTML = (isFilter ? '<option value="">All Categories</option>' : '<option value="">Select category</option>') +
+      all.filter(c => isFilter ? c !== 'Custom…' : true).map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+    if (cur) el.value = cur;
+  });
+}
+
+function _renderExpenseTable() {
+  const tbody = document.getElementById('exp-tbody');
+  if (!tbody) return;
+  if (!EXP.rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><i class="fas fa-receipt"></i><br>No expenses in this period</td></tr>';
+    return;
+  }
+  tbody.innerHTML = EXP.rows.map((e,i) => `<tr>
+    <td>${i+1}</td>
+    <td>${fmt_date_disp(e.date)}</td>
+    <td><span style="background:var(--teal-bg);color:var(--teal);font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600">${escHtml(e.category)}</span></td>
+    <td>${escHtml(e.vendor||'—')}</td>
+    <td>${escHtml(e.notes||'—')}</td>
+    <td style="font-size:11px">${escHtml(e.method||'Cash')}</td>
+    <td style="text-align:right;font-weight:700;color:#E53935">${fmt_money(e.amount)}</td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="act-btn" onclick="editExpense(${e.id})" title="Edit"><i class="fas fa-pen"></i></button>
+        ${delBtn('deleteExpense('+e.id+')', 'Delete expense')}
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+function _renderExpenseStats(from, to) {
+  const total = EXP.rows.reduce((s,e) => s + parseFloat(e.amount||0), 0);
+  const catMap = {};
+  EXP.rows.forEach(e => { catMap[e.category] = (catMap[e.category]||0) + parseFloat(e.amount||0); });
+  const topCat = Object.entries(catMap).sort((a,b) => b[1]-a[1])[0];
+  const days = Math.max(1, (new Date(to) - new Date(from)) / 86400000 + 1);
+
+  // This month
+  const now = new Date();
+  const monthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
+  const monthRows = EXP.rows.filter(e => e.date >= monthStart);
+  const monthTotal = monthRows.reduce((s,e) => s + parseFloat(e.amount||0), 0);
+
+  const _s = id => document.getElementById(id);
+  if (_s('exp-stat-total'))    _s('exp-stat-total').textContent    = fmt_money(total);
+  if (_s('exp-stat-count'))    _s('exp-stat-count').textContent    = EXP.rows.length + ' entries';
+  if (_s('exp-stat-top-cat'))  _s('exp-stat-top-cat').textContent  = topCat ? topCat[0] : '—';
+  if (_s('exp-stat-top-amt'))  _s('exp-stat-top-amt').textContent  = topCat ? fmt_money(topCat[1]) : '₹0.00';
+  if (_s('exp-stat-month'))    _s('exp-stat-month').textContent    = fmt_money(monthTotal);
+  if (_s('exp-stat-month-cnt'))_s('exp-stat-month-cnt').textContent = monthRows.length + ' entries';
+  if (_s('exp-stat-avg'))      _s('exp-stat-avg').textContent      = fmt_money(total / days);
+
+  // Category breakdown bars
+  const brkEl = document.getElementById('exp-cat-breakdown');
+  if (brkEl) {
+    const sorted = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+    brkEl.innerHTML = sorted.length ? sorted.map(([cat,amt]) => {
+      const pct = total > 0 ? (amt/total*100).toFixed(1) : 0;
+      return `<div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+          <span style="font-weight:600">${escHtml(cat)}</span>
+          <span style="color:var(--muted)">${fmt_money(amt)}</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:var(--teal);border-radius:3px;transition:.4s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:right;margin-top:1px">${pct}%</div>
+      </div>`;
+    }).join('') : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">No data</div>';
+  }
+}
+
+function resetExpenseFilters() {
+  const now = new Date();
+  document.getElementById('exp-f-from').value     = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
+  document.getElementById('exp-f-to').value       = fmt_date(now);
+  document.getElementById('exp-f-category').value = '';
+  renderExpenses();
+}
+
+function openAddExpense() {
+  EXP.editingId = null;
+  document.getElementById('exp-modal-title').innerHTML = '<i class="fas fa-receipt" style="color:var(--teal)"></i> Add Expense';
+  ['exp-date','exp-amount','exp-vendor','exp-notes','exp-custom-cat'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('exp-date').value    = fmt_date(new Date());
+  document.getElementById('exp-category').value = '';
+  document.getElementById('exp-method').value  = 'Cash';
+  document.getElementById('exp-custom-cat-row').style.display = 'none';
+  _populateExpCategorySelects();
+  openModal('modal-expense');
+}
+
+async function editExpense(id) {
+  const e = EXP.rows.find(r => r.id === id); if (!e) return;
+  EXP.editingId = id;
+  document.getElementById('exp-modal-title').innerHTML = '<i class="fas fa-pen" style="color:var(--teal)"></i> Edit Expense';
+  _populateExpCategorySelects();
+  document.getElementById('exp-date').value        = e.date;
+  document.getElementById('exp-amount').value      = e.amount;
+  document.getElementById('exp-vendor').value  = e.vendor || '';
+  document.getElementById('exp-method').value  = e.method || 'Cash';
+  document.getElementById('exp-notes').value       = e.notes || '';
+  // Handle custom category
+  if (EXP_FIXED.includes(e.category)) {
+    document.getElementById('exp-category').value = e.category;
+    document.getElementById('exp-custom-cat-row').style.display = 'none';
+  } else {
+    document.getElementById('exp-category').value = 'Custom…';
+    document.getElementById('exp-custom-cat-row').style.display = '';
+    document.getElementById('exp-custom-cat').value = e.category;
+  }
+  openModal('modal-expense');
+}
+
+function onExpCategoryChange() {
+  const val = document.getElementById('exp-category').value;
+  document.getElementById('exp-custom-cat-row').style.display = val === 'Custom…' ? '' : 'none';
+}
+
+async function saveExpense() {
+  const cat = document.getElementById('exp-category').value;
+  const finalCat = cat === 'Custom…' ? document.getElementById('exp-custom-cat').value.trim() : cat;
+  if (!finalCat) { toast('⚠️ Select a category', 'warning'); return; }
+  const amount = parseFloat(document.getElementById('exp-amount').value) || 0;
+  if (!amount) { toast('⚠️ Enter an amount', 'warning'); return; }
+  const payload = {
+    date:     document.getElementById('exp-date').value,
+    category: finalCat,
+    amount,
+    vendor:   document.getElementById('exp-vendor').value.trim(),
+    method:   document.getElementById('exp-method').value,
+    notes:    document.getElementById('exp-notes').value.trim(),
+  };
+  try {
+    if (EXP.editingId) {
+      await api(`api/expenses.php?id=${EXP.editingId}`, 'PUT', payload);
+      toast('✅ Expense updated!', 'success');
+    } else {
+      await api('api/expenses.php', 'POST', payload);
+      toast('✅ Expense saved!', 'success');
+    }
+    closeModal('modal-expense');
+    renderExpenses();
+    loadDashboardExpenses(); // refresh dashboard card
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteExpense(id) {
+  if (!assertCanDelete('this expense')) return;
+  const conf = await Swal.fire({ title: 'Delete expense?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' } });
+  if (!conf.isConfirmed) return;
+  try {
+    await api(`api/expenses.php?id=${id}`, 'DELETE');
+    toast('Expense deleted', 'info');
+    renderExpenses();
+    loadDashboardExpenses();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// Dashboard card — this month's expenses (service type only)
+async function loadDashboardExpenses() {
+  // Expenses are only tracked for service-type businesses
+  const biz = STATE.settings?.businessType || 'service';
+  const expCard = document.getElementById('db-kpi-expenses');
+  if (biz === 'product') { if (expCard) expCard.style.display = 'none'; return; }
+  if (expCard) expCard.style.display = '';
+  try {
+    const now = new Date();
+    const from = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
+    const to   = fmt_date(now);
+    const r = await api(`api/expenses.php?action=summary&from=${from}&to=${to}`);
+    const el = document.getElementById('db-stat-expenses');
+    const sub = document.getElementById('db-stat-expenses-sub');
+    if (el) el.textContent = fmt_money(r.total||0);
+    if (sub) sub.textContent = (r.data||[]).length + ' categories';
+  } catch(e) {}
+}
+
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
   const showService = (biz === 'service' || biz === 'both');
@@ -8506,10 +8834,11 @@ function renderDashboard() {
   }
   if (showProduct) {
     renderProductDashboard();
-    loadPendingApprovals(); // admin/owner only — ignored silently for other roles
+    loadPendingApprovals();
   }
   if (showService) {
     loadPendingApprovals();
+    loadDashboardExpenses();
   }
 }
 
@@ -17711,6 +18040,37 @@ async function renderFinanceReport() {
         <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
       : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
 
+    // ── Expenses section (service type only) ────────────────────
+    const exp = r.expenses || {};
+    const expCont = document.getElementById('fr-expenses');
+    const frExpCard = expCont?.closest('.pne-card');
+    if (frExpCard) frExpCard.style.display = (STATE.settings?.businessType||'service') === 'product' ? 'none' : '';
+    if (expCont && exp.total !== undefined) {
+      expCont.innerHTML = exp.total > 0 ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:20px;font-weight:800;color:#E53935">${fmt_money(exp.total)}</div>
+            <div style="font-size:11px;color:var(--muted)">${exp.count} expense entries in this period</div>
+          </div>
+          <button class="btn btn-outline" style="font-size:12px" onclick="showPage('expenses',null);renderExpenses()"><i class="fas fa-arrow-right"></i> View All</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${(exp.by_category||[]).map(c => {
+            const pct = exp.total > 0 ? (c.total/exp.total*100).toFixed(1) : 0;
+            return `<div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                <span style="font-weight:600">${escHtml(c.category)}</span>
+                <span>${fmt_money(c.total)} <span style="color:var(--muted)">(${pct}%)</span></span>
+              </div>
+              <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+                <div style="width:${pct}%;height:100%;background:#E53935;border-radius:3px"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` :
+        '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No expenses recorded in this period</div>';
+    }
+
     renderFRCharts(r);
 
     // ── Trade Summary ─────────────────────────────────────────────
@@ -17752,8 +18112,6 @@ async function renderFinanceReport() {
               <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
             ${[
-              ['Gross Wt',    kgFmt(ts.sale_gross_wt||0),                                                                 '', 'Full truck weight at kanta'],
-              ['Tare Wt',     kgFmt(ts.sale_tare_wt||0),                                                                  '', 'Empty vehicle weight'],
               ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
               ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                 '#E65100', 'Weight deducted at delivery'],
               ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),      '#00897B', 'Net − Dhalta'],
