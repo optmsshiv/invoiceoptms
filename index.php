@@ -17754,26 +17754,22 @@ async function renderFinanceReport() {
         <!-- Row 2: Dhalta block -->
         <div style="background:#FFF8E1;border-radius:10px;padding:14px;border:1px solid #FFD180;margin-bottom:12px">
           <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-weight-hanging"></i> DHALTA SUMMARY</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-            <div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700">PURCHASE DHALTA</div>
-              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.dhalta_kg)}</div>
-              <div style="font-size:10px;color:var(--muted)">${dhaltaPct}% of purchase gross wt</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--border)">
+              <div style="font-size:10.5px;font-weight:700;color:#E53935;margin-bottom:8px;display:flex;align-items:center;gap:5px"><i class="fas fa-cart-shopping"></i> PURCHASE DHALTA</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">DHALTA KG</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${kgFmt(ts.dhalta_kg)}</div></div>
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">% OF GROSS</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${dhaltaPct}%</div></div>
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">BILLABLE WT</div><div style="font-size:14px;font-weight:800;margin-top:2px">${kgFmt(ts.billable_wt)}</div></div>
+              </div>
             </div>
-            <div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700">SALE DHALTA</div>
-              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div>
-              <div style="font-size:10px;color:var(--muted)">${ts.sale_gross_wt > 0 ? ((ts.sale_dhalta_kg||0)/(ts.sale_gross_wt||1)*100).toFixed(2) : '0.00'}% of sale gross wt</div>
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL DHALTA</div>
-              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E53935">${kgFmt((ts.dhalta_kg||0)+(ts.sale_dhalta_kg||0))}</div>
-              <div style="font-size:10px;color:var(--muted)">Purchase + Sale combined</div>
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--muted);font-weight:700">PURCHASE BILLABLE</div>
-              <div style="font-size:16px;font-weight:800;margin-top:3px">${kgFmt(ts.billable_wt)}</div>
-              <div style="font-size:10px;color:var(--muted)">Net − Purchase dhalta</div>
+            <div style="background:var(--card);border-radius:8px;padding:12px;border:1px solid var(--border)">
+              <div style="font-size:10.5px;font-weight:700;color:#00897B;margin-bottom:8px;display:flex;align-items:center;gap:5px"><i class="fas fa-file-invoice-dollar"></i> SALE DHALTA</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">DHALTA KG</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div></div>
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">% OF GROSS</div><div style="font-size:14px;font-weight:800;margin-top:2px;color:#E65100">${ts.sale_gross_wt > 0 ? ((ts.sale_dhalta_kg||0)/(ts.sale_gross_wt||1)*100).toFixed(2) : '0.00'}%</div></div>
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div><div style="font-size:14px;font-weight:800;margin-top:2px">${kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0))}</div></div>
+              </div>
             </div>
           </div>
         </div>
