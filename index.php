@@ -4727,7 +4727,7 @@ const SERVER = {
         </div>
         <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:34px;height:34px"><i class="fas fa-piggy-bank"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Total Sales − Total Purchase (gross margin; doesn't include operating expenses not tracked in Purchases)" style="cursor:help">ⓘ</span></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Total Sales − Total Purchase − Business Expenses" style="cursor:help">ⓘ</span></div>
           <div style="font-size:17px;font-weight:800" id="fr-stat-profit">₹0.00</div>
           <div style="font-size:10.5px;color:#00897B" id="fr-chg-profit"></div>
         </div>
@@ -4779,12 +4779,10 @@ const SERVER = {
         </div>
       </div>
 
-      <?php if (in_array($settings['businessType']??'service', ['service','both'])): ?>
       <div class="pne-card" style="margin-top:16px">
         <div class="pne-card-head pne-head-rose"><i class="fas fa-wallet"></i> Business Expenses</div>
         <div id="fr-expenses"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading…</div></div>
       </div>
-      <?php endif; ?>
 
       <div class="pne-card" style="margin-top:16px">
         <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
@@ -8519,6 +8517,7 @@ function loadDashboardExpenses() {
 
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
+  applyBusinessTypeLabels(); // ensure nav reflects business type on every render
   const showService = (biz === 'service' || biz === 'both');
   const showProduct = (biz === 'product' || biz === 'both');
   const sd = document.getElementById('dash-service');
@@ -8755,11 +8754,12 @@ function renderProductDashboard() {
     const rows = [
       ['Sales (₹)',        fmt_money(totalSales),  'var(--text)'],
       ['Purchase (₹)',     fmt_money(totalPur),    'var(--text)'],
+      ['Expenses (₹)',     fmt_money(totalExp),    '#E53935'],
       ['Collections (₹)', fmt_money(collections), 'var(--text)'],
       ['Payments (₹)',     fmt_money(paid),        'var(--text)'],
     ];
     bizEl.innerHTML = rows.map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${l}</span><strong>${v}</strong></div>`).join('')
-      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${grossProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(grossProfit)}</strong></div>`;
+      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${netProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(netProfit)}</strong></div>`;
   }
 
   // ── Top Customers ──────────────────────────────────────────────

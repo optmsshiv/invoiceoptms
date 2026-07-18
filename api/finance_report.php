@@ -43,8 +43,16 @@ try {
     return round((($cur - $prev) / $prev) * 100, 1);
   };
 
-  $netProfit = (float)$curSales['t'] - (float)$curPur['t'];
-  $prevNetProfit = (float)$prevSales['t'] - (float)$prevPur['t'];
+  // Business expenses for the period
+  $curExpStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) e FROM expenses WHERE `date` BETWEEN ? AND ?");
+  $curExpStmt->execute([$dateFrom, $dateTo]);
+  $curExp = $curExpStmt->fetchColumn();
+  $prevExpStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) e FROM expenses WHERE `date` BETWEEN ? AND ?");
+  $prevExpStmt->execute([$prevFrom, $prevTo]);
+  $prevExp = $prevExpStmt->fetchColumn();
+
+  $netProfit = (float)$curSales['t'] - (float)$curPur['t'] - (float)$curExp;
+  $prevNetProfit = (float)$prevSales['t'] - (float)$prevPur['t'] - (float)$prevExp;
 
   $stats = [
     'total_sales'       => ['value' => (float)$curSales['t'], 'change' => $pctChange($curSales['t'], $prevSales['t'])],
