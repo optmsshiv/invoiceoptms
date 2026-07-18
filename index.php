@@ -16993,7 +16993,6 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
 
-    document.getElementById('pn-discount-remarks').value = p.discount_remarks || '';
     document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
     document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
     document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
