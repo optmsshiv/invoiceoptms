@@ -2089,7 +2089,6 @@ const SERVER = {
             <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-weight:600">
               <span style="color:var(--teal)">Total Sales: <span id="db-chart-sales-total">₹0</span></span>
               <span style="color:#7B1FA2">Total Purchase: <span id="db-chart-pur-total">₹0</span></span>
-              <span style="color:#E53935">Expenses: <span id="db-chart-exp-total">₹0</span></span>
             </div>
           </div>
           <div class="pne-card" id="db-alerts-card">
@@ -6754,18 +6753,6 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Summary cards -->
       <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
-      <!-- Charts row -->
-      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:14px;margin-bottom:18px" id="exp-charts-row" style="display:none">
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">By Category</div>
-          <div style="height:200px;position:relative"><canvas id="exp-cat-chart"></canvas></div>
-          <div id="exp-cat-legend" style="margin-top:8px;font-size:11px;display:flex;flex-wrap:wrap;gap:6px"></div>
-        </div>
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">Monthly Trend</div>
-          <div style="height:200px;position:relative"><canvas id="exp-trend-chart"></canvas></div>
-        </div>
-      </div>
       <!-- Expense table -->
       <div class="table-card">
         <table class="data-table"><thead><tr>
@@ -8617,7 +8604,6 @@ function renderProductDashboard() {
 
   set('db-chart-sales-total', fmt_money(totalSales));
   set('db-chart-pur-total',   fmt_money(totalPur));
-  set('db-chart-exp-total',   fmt_money(totalExp));
 
   const svpCtx = document.getElementById('db-svp-chart');
   if (svpCtx) {
@@ -17780,7 +17766,7 @@ async function renderFinanceReport() {
     const exp = r.expenses || {};
     const expCont = document.getElementById('fr-expenses');
     const frExpCard = expCont?.closest('.pne-card');
-    if (frExpCard) frExpCard.style.display = ''; // show for all business types
+    if (frExpCard) frExpCard.style.display = (STATE.settings?.businessType||'service') === 'product' ? 'none' : '';
     if (expCont && exp.total !== undefined) {
       expCont.innerHTML = exp.total > 0 ? `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -25402,50 +25388,6 @@ function _renderExpSummary() {
     <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
     <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
   </div>`).join('');
-
-  // ── Expense charts ────────────────────────────────────────────
-  const chartsRow = document.getElementById('exp-charts-row');
-  if (chartsRow && STATE.expenses.length > 0) {
-    chartsRow.style.display = '';
-
-    // Category donut
-    const catCtx = document.getElementById('exp-cat-chart');
-    if (catCtx) {
-      if (window._expCatChart) window._expCatChart.destroy();
-      const cats = Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).slice(0,8);
-      const colors = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#6A4C93','#F57C00'];
-      window._expCatChart = new Chart(catCtx, {
-        type: 'doughnut',
-        data: { labels: cats.map(([k])=>k), datasets: [{ data: cats.map(([,v])=>v), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt_money(ctx.raw)}` } } } }
-      });
-      const lgEl = document.getElementById('exp-cat-legend');
-      if (lgEl) lgEl.innerHTML = cats.map(([k,v],i) =>
-        `<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};flex-shrink:0"></span><span style="font-size:10.5px">${escHtml(k)}</span></span>`
-      ).join('');
-    }
-
-    // Monthly trend bar
-    const trendCtx = document.getElementById('exp-trend-chart');
-    if (trendCtx) {
-      if (window._expTrendChart) window._expTrendChart.destroy();
-      const monthMap = {};
-      STATE.expenses.forEach(e => {
-        const m = e.date?.slice(0,7); if (!m) return;
-        monthMap[m] = (monthMap[m]||0) + parseFloat(e.amount||0);
-      });
-      const months = Object.keys(monthMap).sort().slice(-12);
-      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + ' ' + y.slice(2); });
-      window._expTrendChart = new Chart(trendCtx, {
-        type: 'bar',
-        data: { labels: mLabels, datasets: [{ label: 'Expenses', data: months.map(m=>monthMap[m]), backgroundColor: '#E5393588', borderColor: '#E53935', borderWidth: 1.5, borderRadius: 4 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-          scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } } } }
-      });
-    }
-  } else if (chartsRow) {
-    chartsRow.style.display = 'none';
-  }
 }
 
 function _renderExpTable() {
