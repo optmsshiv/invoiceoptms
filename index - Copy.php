@@ -2030,7 +2030,7 @@ const SERVER = {
         </div>
 
         <!-- 6 KPI cards -->
-        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px" class="db-kpi-row">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
             <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
@@ -2043,11 +2043,17 @@ const SERVER = {
             <div style="font-size:16px;font-weight:800;color:var(--green)" id="db-stat-sales">₹0</div>
             <div style="font-size:10px;color:var(--muted)" id="db-stat-sales-sub">0 invoices</div>
           </div>
+          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
+            <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
+            <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
+          </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
             <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">GROSS PROFIT</div>
+            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">NET PROFIT</div>
             <div style="font-size:16px;font-weight:800" id="db-stat-profit">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">0% margin</div>
+            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">Sales − Purchase − Expenses</div>
           </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-collections">
             <span class="sa-chip-icon" style="background:#E0F7FA;color:#00838F;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
@@ -2062,7 +2068,7 @@ const SERVER = {
             <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
           </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
-            <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
+            <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">STOCK VALUE</div>
             <div style="font-size:16px;font-weight:800" id="db-stat-stock">₹0</div>
             <div style="font-size:10px;color:var(--muted)" id="db-stat-stock-sub">0 Kg total</div>
@@ -2083,6 +2089,7 @@ const SERVER = {
             <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-weight:600">
               <span style="color:var(--teal)">Total Sales: <span id="db-chart-sales-total">₹0</span></span>
               <span style="color:#7B1FA2">Total Purchase: <span id="db-chart-pur-total">₹0</span></span>
+              <span style="color:#E53935">Expenses: <span id="db-chart-exp-total">₹0</span></span>
             </div>
           </div>
           <div class="pne-card" id="db-alerts-card">
@@ -3142,6 +3149,28 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
+              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></span>
+                <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
+              </div>
+              <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
+              <div class="pne-charge-total" style="margin-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
+              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
+              <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+              <div class="field"><label>CD Applicable Within</label>
+                <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+              </div>
+              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+                <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+              </div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
+            </div>
+
+            <div class="pne-card">
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
@@ -3234,26 +3263,7 @@ const SERVER = {
             <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
           </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
-              <span><i class="fas fa-minus"></i> Deductions</span>
-              <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
-            </div>
-            <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
-            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-indigo"><i class="fas fa-tags"></i> Discounts</div>
-            <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-            <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-            <div class="field"><label>CD Applicable Within</label>
-              <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
-            </div>
-            <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
-              <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
-            </div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
-          </div>
+
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Invoice / Bill (Optional)</div>
@@ -4690,7 +4700,7 @@ const SERVER = {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px" class="ps-stats-row">
         <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
           <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (₹)</div>
@@ -4716,8 +4726,14 @@ const SERVER = {
           <div style="font-size:10.5px;color:#00897B" id="fr-chg-payments"></div>
         </div>
         <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Business Expenses (₹)</div>
+          <div style="font-size:17px;font-weight:800;color:#E53935" id="fr-stat-expenses">₹0.00</div>
+          <div style="font-size:10.5px;color:var(--muted)" id="fr-chg-expenses"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:34px;height:34px"><i class="fas fa-piggy-bank"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Total Sales − Total Purchase (gross margin; doesn't include operating expenses not tracked in Purchases)" style="cursor:help">ⓘ</span></div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Sales − Purchase − Expenses" style="cursor:help">ⓘ</span></div>
           <div style="font-size:17px;font-weight:800" id="fr-stat-profit">₹0.00</div>
           <div style="font-size:10.5px;color:#00897B" id="fr-chg-profit"></div>
         </div>
@@ -4767,6 +4783,11 @@ const SERVER = {
           <div class="pne-card-head">Payment Mode Summary</div>
           <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
+      </div>
+
+      <div class="pne-card" style="margin-top:16px">
+        <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
+        <div id="fr-trade-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading trade summary…</div></div>
       </div>
 
       <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
@@ -4905,41 +4926,69 @@ const SERVER = {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:16px 0" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-credit-card"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-total">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-total"></div>
+      <!-- ── 6 KPI cards: IN vs OUT clearly separated ── -->
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #00897B">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:32px;height:32px"><i class="fas fa-arrow-down-to-bracket"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL COLLECTED</div>
+          <div style="font-size:15px;font-weight:800;color:#00897B" id="pmt-stat-collected">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">From customers</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-collected"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-shield-halved"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Paid</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-paid">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-paid"></div>
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E53935">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:32px;height:32px"><i class="fas fa-arrow-up-from-bracket"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAID OUT</div>
+          <div style="font-size:15px;font-weight:800;color:#E53935" id="pmt-stat-paidout">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">To suppliers</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-paidout"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-box-archive"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Pending</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-pending">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-pending"></div>
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #7B1FA2">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#7B1FA2;width:32px;height:32px"><i class="fas fa-hand-holding-dollar"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div>
+          <div style="font-size:15px;font-weight:800;color:#7B1FA2" id="pmt-stat-outstanding">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Customers owe you</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-outstanding"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-briefcase"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Cash Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-cash"></div>
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E65100">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:32px;height:32px"><i class="fas fa-file-circle-exclamation"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">PAYABLE</div>
+          <div style="font-size:15px;font-weight:800;color:#E65100" id="pmt-stat-payable">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">You owe suppliers</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-payable"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">UPI/Bank Payments</div>
-          <div style="font-size:16px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
-          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-digital"></div>
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #1976D2">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:32px;height:32px"><i class="fas fa-money-bill-wave"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">CASH</div>
+          <div style="font-size:15px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Cash transactions</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-cash"></div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #6A4C93">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:32px;height:32px"><i class="fas fa-building-columns"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">UPI / BANK</div>
+          <div style="font-size:15px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Digital transactions</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-digital"></div>
+        </div>
+      </div>
+
+      <!-- ── Charts row ── -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-bottom:16px">
+        <div class="pne-card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            Collections vs Payments (30 days)
+            <span style="font-size:11px;font-weight:400;color:var(--muted)">Daily trend</span>
+          </div>
+          <div style="height:160px;position:relative"><canvas id="pmt-trend-chart"></canvas></div>
+        </div>
+        <div class="pne-card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Payment Mode Split</div>
+          <div style="height:130px;position:relative"><canvas id="pmt-mode-chart"></canvas></div>
+          <div id="pmt-mode-legend" style="margin-top:8px;font-size:11px"></div>
+        </div>
+        <div class="pne-card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Status Breakdown</div>
+          <div id="pmt-status-breakdown" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
         </div>
       </div>
 
@@ -6704,6 +6753,14 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Summary cards -->
       <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
+      <!-- Mixed chart: bars = monthly total, stacked per category -->
+      <div class="pne-card" style="margin-bottom:18px" id="exp-charts-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13px;font-weight:700">Monthly Amount &amp; Category Breakdown</div>
+          <div id="exp-mix-legend" style="display:flex;gap:10px;font-size:11px;flex-wrap:wrap"></div>
+        </div>
+        <div style="height:250px;position:relative"><canvas id="exp-mix-chart"></canvas></div>
+      </div>
       <!-- Expense table -->
       <div class="table-card">
         <table class="data-table"><thead><tr>
@@ -8439,8 +8496,25 @@ function _editProductWithApproval(productId, editFn) {
   editWithApproval('product', numericId, (p?.name || 'Product #' + numericId), editFn);
 }
 
+
+// Dashboard card — reads from STATE.expenses (already loaded in loadAllData)
+function loadDashboardExpenses() {
+  try {
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const rows  = (STATE.expenses||[]).filter(e => (e.date||'').startsWith(monthStr));
+    const total = rows.reduce((s,e) => s + parseFloat(e.amount||0), 0);
+    const cats  = new Set(rows.map(e => e.category));
+    const el  = document.getElementById('db-stat-expenses');
+    const sub = document.getElementById('db-stat-expenses-sub');
+    if (el)  el.textContent  = fmt_money(total);
+    if (sub) sub.textContent = cats.size ? cats.size + ' categories' : 'This month';
+  } catch(e) {}
+}
+
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
+  applyBusinessTypeLabels(); // ensure nav reflects business type on every render
   const showService = (biz === 'service' || biz === 'both');
   const showProduct = (biz === 'product' || biz === 'both');
   const sd = document.getElementById('dash-service');
@@ -8470,7 +8544,7 @@ function renderDashboard() {
   }
   if (showProduct) {
     renderProductDashboard();
-    loadPendingApprovals(); // admin/owner only — ignored silently for other roles
+    loadPendingApprovals();
   }
   if (showService) {
     loadPendingApprovals();
@@ -8495,42 +8569,51 @@ function renderProductDashboard() {
   // ── KPI calculations ──────────────────────────────────────────
   const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
   const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
-  const grossProfit = totalSales - totalPur;
-  const margin      = totalSales > 0 ? (grossProfit / totalSales * 100) : 0;
+  const totalExp    = (STATE.expenses||[]).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
+  const netProfit   = totalSales - totalPur - totalExp;  // subtract expenses
+  const margin      = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
   const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
   const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
   const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
   const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
+
+  // Expenses KPI — this period total
+  const expMonthTotal = totalExp;
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('db-stat-purchase', fmt_money(totalPur));
   set('db-stat-purchase-sub', purchases.length + ' bills');
   set('db-stat-sales', fmt_money(totalSales));
   set('db-stat-sales-sub', sales.length + ' invoices');
+  set('db-stat-expenses', fmt_money(expMonthTotal));
+  set('db-stat-expenses-sub', (STATE.expenses||[]).length + ' entries in period');
   const profEl = document.getElementById('db-stat-profit');
-  if (profEl) { profEl.textContent = fmt_money(grossProfit); profEl.style.color = grossProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
-  set('db-stat-profit-pct', margin.toFixed(1) + '% margin');
+  if (profEl) { profEl.textContent = fmt_money(netProfit); profEl.style.color = netProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
+  set('db-stat-profit-pct', margin.toFixed(1) + '% net margin');
   set('db-stat-collections', fmt_money(collections));
   set('db-stat-payable', fmt_money(paid));
   set('db-stat-stock', fmt_money(stockValue));
   set('db-stat-stock-sub', totalStockKg.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' Kg');
 
-  // ── Sales vs Purchase chart ────────────────────────────────────
+  // ── Sales vs Purchase vs Expenses chart ───────────────────────
   const dayMap = {};
   const cursor = new Date(from);
   const end    = new Date(to);
   while (cursor <= end) {
-    dayMap[fmt_date(cursor)] = { s: 0, p: 0 };
+    dayMap[fmt_date(cursor)] = { s: 0, p: 0, e: 0 };
     cursor.setDate(cursor.getDate() + 1);
   }
   sales.forEach(s    => { const d = s.sale_date?.slice(0,10);     if (dayMap[d]) dayMap[d].s += parseFloat(s.total)||0; });
   purchases.forEach(p => { const d = p.purchase_date?.slice(0,10); if (dayMap[d]) dayMap[d].p += parseFloat(p.total)||0; });
+  (STATE.expenses||[]).forEach(e => { const d = e.date?.slice(0,10); if (dayMap[d]) dayMap[d].e += parseFloat(e.amount)||0; });
   const labels = Object.keys(dayMap).map(d => { const dt = new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
   const sVals  = Object.values(dayMap).map(v => v.s);
   const pVals  = Object.values(dayMap).map(v => v.p);
+  const eVals  = Object.values(dayMap).map(v => v.e);
 
   set('db-chart-sales-total', fmt_money(totalSales));
   set('db-chart-pur-total',   fmt_money(totalPur));
+  set('db-chart-exp-total',   fmt_money(totalExp));
 
   const svpCtx = document.getElementById('db-svp-chart');
   if (svpCtx) {
@@ -8542,6 +8625,7 @@ function renderProductDashboard() {
         datasets: [
           { label: 'Sales', data: sVals, borderColor: '#00897B', backgroundColor: '#00897B22', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
           { label: 'Purchase', data: pVals, borderColor: '#7B1FA2', backgroundColor: '#7B1FA222', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
+          { label: 'Expenses', data: eVals, borderColor: '#E53935', backgroundColor: '#E5393522', borderWidth: 2, tension: 0.4, fill: false, pointRadius: labels.length > 20 ? 0 : 3, borderDash: [4,3] },
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
@@ -8667,11 +8751,12 @@ function renderProductDashboard() {
     const rows = [
       ['Sales (₹)',        fmt_money(totalSales),  'var(--text)'],
       ['Purchase (₹)',     fmt_money(totalPur),    'var(--text)'],
+      ['Expenses (₹)',     fmt_money(totalExp),    '#E53935'],
       ['Collections (₹)', fmt_money(collections), 'var(--text)'],
       ['Payments (₹)',     fmt_money(paid),        'var(--text)'],
     ];
     bizEl.innerHTML = rows.map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${l}</span><strong>${v}</strong></div>`).join('')
-      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${grossProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(grossProfit)}</strong></div>`;
+      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${netProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(netProfit)}</strong></div>`;
   }
 
   // ── Top Customers ──────────────────────────────────────────────
@@ -13885,6 +13970,19 @@ function allKnownHsnCodes() {
   return [...new Set((STATE.products||[]).map(p => p.hsn).filter(Boolean))];
 }
 function activeProdSource() { return PROD.archived ? (PROD.archivedList||[]) : STATE.products; }
+function updateProductCatDropdowns() {
+  // Update all category dropdowns in the products page / filter
+  const opts = STATE.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  document.querySelectorAll('.cat-select').forEach(el => {
+    const cur = el.value;
+    el.innerHTML = opts;
+    el.value = cur;
+  });
+  const filter = document.getElementById('productCatFilter');
+  if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
+}
+
+// ── Expense Category Management (pastel badges) ─────────────────
 function renderProducts() { updateProductCatDropdowns(); PROD.list=[...activeProdSource()]; PROD.page=1; _renderProdPage(); }
 
 // ══════════════════════════════════════════
@@ -15566,6 +15664,14 @@ async function viewSaleDetails(id) {
   `;
 
   const items = s.items || [];
+  const grossWt    = parseFloat(s.kanta_gross_weight||0);
+  const tareWt     = parseFloat(s.kanta_tare_weight||0);
+  const netWt      = Math.max(0, grossWt - tareWt);
+  const dhaltaKg   = parseFloat(s.kanta_dhalta_kg||0);
+  const billableWt = Math.max(0, netWt - dhaltaKg);
+  const hasWeight  = grossWt > 0 || tareWt > 0 || dhaltaKg > 0;
+  const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+
   document.getElementById('sd-body').innerHTML = `
     <div style="display:flex;gap:10px">
       <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
@@ -15575,6 +15681,35 @@ async function viewSaleDetails(id) {
       <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
         <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
     </div>
+
+    ${hasWeight ? `
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-weight-hanging"></i> Weight & Dhalta Details</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(grossWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(tareWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(netWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px;border:1px solid #FFD180;background:#FFF8E1">
+          <div style="font-size:10px;color:#E65100;font-weight:700">DHALTA</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(dhaltaKg)}</div>
+          ${netWt > 0 ? `<div style="font-size:10px;color:var(--muted)">${(dhaltaKg/netWt*100).toFixed(2)}% of net</div>` : ''}
+        </div>
+        <div class="pne-card" style="padding:10px 12px;border:1px solid #C8E6C9;background:#E8F5E9">
+          <div style="font-size:10px;color:#2E7D32;font-weight:700">BILLABLE WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#2E7D32">${kgFmt(billableWt)}</div>
+        </div>
+      </div>
+      ${s.kanta_name ? `<div style="font-size:11px;color:var(--muted);margin-top:8px"><i class="fas fa-building"></i> Kanta: ${escHtml(s.kanta_name)}${s.kanta_moisture_pct ? ' &nbsp;|&nbsp; <i class="fas fa-droplet"></i> Moisture: ' + parseFloat(s.kanta_moisture_pct).toFixed(2) + '%' : ''}</div>` : ''}
+    </div>` : ''}
 
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
@@ -15588,13 +15723,22 @@ async function viewSaleDetails(id) {
 
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
-      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
-        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:600px">
+        <thead><tr>
+          <th>Product</th><th>Variety</th><th>Moisture %</th>
+          <th style="text-align:right">Qty (Kg)</th>
+          <th style="text-align:right">Rate (₹/Kg)</th>
+          <th style="text-align:right">Disc %</th>
+          <th style="text-align:right">Amount</th>
+        </tr></thead>
         <tbody>${items.map(it => `<tr>
-          <td>${escHtml(it.product_name||it.description||'—')}</td>
-          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td><strong>${escHtml(it.product_name||it.description||'—')}</strong>${it.variety_grade ? `<div style="font-size:10.5px;color:var(--muted)">${escHtml(it.variety_grade)}</div>` : ''}</td>
+          <td>${escHtml(it.variety_grade||'—')}</td>
+          <td style="text-align:center">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
+          <td style="text-align:right;font-weight:600">${parseFloat(it.qty||0).toFixed(2)}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
-          <td style="text-align:right;font-weight:600">${fmt_money(it.line_total)}</td>
+          <td style="text-align:right">${it.discount_pct ? parseFloat(it.discount_pct).toFixed(2)+'%' : '—'}</td>
+          <td style="text-align:right;font-weight:700">${fmt_money(it.line_total)}</td>
         </tr>`).join('')}</tbody>
       </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
     </div>
@@ -16911,7 +17055,6 @@ async function editPurchase(id) {
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
 
-    document.getElementById('pn-discount-remarks').value = p.discount_remarks || '';
     document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
     document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
     document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
@@ -17065,6 +17208,13 @@ function onPNEHeaderDhaltaKgInput(val) {
     if (billEl) billEl.textContent = c.billable.toFixed(2);
     if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
     if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
+    // Update footer totals
+    let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
+    PNE.items.forEach(i => { const r = pneCalcRow(i); footNet += r.net; footDhalta += r.dhaltaKg; footBillable += r.billable; footAmt += r.amount; });
+    const _sf = id => document.getElementById(id);
+    if (_sf('pne-total-dhalta'))   _sf('pne-total-dhalta').textContent   = footDhalta.toFixed(2) + ' Kg';
+    if (_sf('pne-total-billable')) _sf('pne-total-billable').textContent = footBillable.toFixed(2) + ' Kg';
+    if (_sf('pne-total-amount'))   _sf('pne-total-amount').textContent   = fmt_money(footAmt);
   }
 
   // Update billable and dhalta% in header
@@ -17591,6 +17741,12 @@ async function renderFinanceReport() {
     setStat('fr-stat-purchase', s.total_purchase, 'fr-chg-purchase');
     setStat('fr-stat-collections', s.total_collections, 'fr-chg-collections');
     setStat('fr-stat-payments', s.total_payments, 'fr-chg-payments');
+    // Expenses KPI
+    const expTotal = r.expenses?.total || 0;
+    const expEl = document.getElementById('fr-stat-expenses');
+    if (expEl) expEl.textContent = fmt_money(expTotal);
+    const expChgEl = document.getElementById('fr-chg-expenses');
+    if (expChgEl) expChgEl.textContent = (r.expenses?.count||0) + ' entries';
     setStat('fr-stat-profit', s.net_profit, 'fr-chg-profit');
 
     // Cash flow
@@ -17606,11 +17762,11 @@ async function renderFinanceReport() {
       <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${incTotal?((h.amount/incTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
       + `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(incTotal)}</td><td>100.0%</td></tr>`;
 
-    const expTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
+    const expHeadTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
     document.getElementById('fr-expense-tbody').innerHTML = (r.expense_heads.length ? r.expense_heads.map((h,i) => `
-      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expTotal?((h.amount/expTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
+      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expHeadTotal?((h.amount/expHeadTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
       : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
-      + (expTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expTotal)}</td><td>100.0%</td></tr>` : '');
+      + (expHeadTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expHeadTotal)}</td><td>100.0%</td></tr>` : '');
 
     // Payment mode summary
     const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
@@ -17624,6 +17780,74 @@ async function renderFinanceReport() {
       : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
 
     renderFRCharts(r);
+
+    // ── Trade Summary ─────────────────────────────────────────────
+    const ts = r.trade_summary || {};
+    const tsCont = document.getElementById('fr-trade-summary');
+    if (tsCont && ts.pur_qty !== undefined) {
+      const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+      const dhaltaPct = ts.gross_wt > 0 ? (ts.dhalta_kg/ts.gross_wt*100).toFixed(2) : '0.00';
+      const hasCharges = (ts.transport_amt||0)+(ts.loading_amt||0)+(ts.packing_amt||0)+(ts.other_amt||0) > 0;
+      const netWt = (ts.gross_wt||0)-(ts.tare_wt||0);
+
+      tsCont.innerHTML = `
+        <!-- Clean comparison: Purchase vs Sale as two key-value lists -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+
+          <!-- PURCHASE -->
+          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #E53935">
+            <div style="padding:10px 14px;background:#FFF5F5;font-size:11.5px;font-weight:700;color:#E53935;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
+              <i class="fas fa-cart-shopping"></i> PURCHASE
+            </div>
+            ${[
+              ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
+              ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
+              ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
+              ['Total Value', fmt_money(ts.pur_value),'#E53935', 'Bill total incl. charges'],
+            ].map(([l,v,c,sub],i)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <div>
+                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
+                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
+              </div>
+              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
+            </div>`).join('')}
+          </div>
+
+          <!-- SALE -->
+          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #00897B">
+            <div style="padding:10px 14px;background:#F0FAF8;font-size:11.5px;font-weight:700;color:#00897B;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
+              <i class="fas fa-file-invoice-dollar"></i> SALE
+            </div>
+            ${[
+              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
+              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                 '#E65100', 'Weight deducted at delivery'],
+              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),      '#00897B', 'Net − Dhalta'],
+              ['Total Value', fmt_money(ts.sale_value),                                                                    '#00897B', 'Sum of all sale invoices'],
+            ].map(([l,v,c,sub],i)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <div>
+                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
+                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
+              </div>
+              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        ${hasCharges ? `
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-receipt"></i> PURCHASE BILL BREAKDOWN</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">ITEM VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.pur_item_value)}</div></div>
+            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">TRANSPORT</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.transport_amt||0)}</div></div>
+            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">LOADING</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.loading_amt||0)}</div></div>
+            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">PACKING</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.packing_amt||0)}</div></div>
+            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">OTHER</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.other_amt||0)}</div></div>
+          </div>
+        </div>` : ''}
+`;
+    }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -17639,7 +17863,8 @@ function renderFRCharts(r) {
       labels: r.trend.map(t => fmt_date_disp(t.date).slice(0,5)),
       datasets: [
         { label: 'Income', data: r.trend.map(t => t.income), borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.1)', fill: true, tension: .35 },
-        { label: 'Expense', data: r.trend.map(t => t.expense), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: true, tension: .35 },
+        { label: 'Purchase', data: r.trend.map(t => t.expense), borderColor: '#7B1FA2', backgroundColor: 'rgba(123,31,162,.08)', fill: true, tension: .35 },
+        { label: 'Expenses', data: r.trend.map(t => t.biz_expense||0), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: false, tension: .35, borderDash: [4,3] },
       ],
     },
     options: { plugins: { legend: { position: 'top', labels: { boxWidth: 10 } } }, scales: { y: { ticks: { callback: v => (v/1000)+'L' } } } },
@@ -20859,33 +21084,131 @@ function _renderPmtSummary(){
   const now = new Date();
   const thisMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
   const lastMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const lastMonthEnd = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
+  const lastMonthEnd   = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
 
   const thisMonth = all.filter(p => p.date >= thisMonthStart);
   const lastMonth = all.filter(p => p.date >= lastMonthStart && p.date <= lastMonthEnd);
 
-  const sumAll = list => list.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const sumStatus = (list, st) => list.filter(p=>p.status===st).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  const sumMode = (list, pred) => list.filter(p=>p.method&&pred(p.method.toLowerCase())).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const sum = (list, pred) => list.filter(pred).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
 
-  const pctChange = (cur, prev) => prev === 0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
-  const setCard = (valId, chgId, curTotal, curMonth, prevMonth) => {
-    const el = document.getElementById(valId); if (el) el.textContent = fmt_money(curTotal);
+  const isIn  = p => p.direction === 'in';
+  const isOut = p => p.direction === 'out';
+  const isPending = p => p.status === 'Pending' || p.status === 'Partial';
+
+  // Outstanding = total invoiced to customers − what's been received
+  const totalInvoiced = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
+  const totalCollected = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.amount_received)||0), 0);
+  const outstanding = Math.max(0, totalInvoiced - totalCollected);
+
+  // Payable = total purchased − what's been paid
+  const totalPurchased = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
+  const totalPaidOut   = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.amount_paid)||0), 0);
+  const payable = Math.max(0, totalPurchased - totalPaidOut);
+
+  const pctChange = (cur, prev) => prev===0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
+  const setCard = (id, chgId, val, curM, prevM) => {
+    const el = document.getElementById(id); if (el) el.textContent = fmt_money(val);
     const chgEl = document.getElementById(chgId);
     if (chgEl) {
-      const pct = pctChange(curMonth, prevMonth);
-      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs Last Month`;
+      const pct = pctChange(curM, prevM);
+      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs last month`;
       chgEl.style.color = pct >= 0 ? '#2E7D32' : '#E53935';
     }
   };
 
-  setCard('pmt-stat-total', 'pmt-chg-total', sumAll(all), sumAll(thisMonth), sumAll(lastMonth));
-  setCard('pmt-stat-paid', 'pmt-chg-paid', sumStatus(all,'Paid'), sumStatus(thisMonth,'Paid'), sumStatus(lastMonth,'Paid'));
-  setCard('pmt-stat-pending', 'pmt-chg-pending', sumStatus(all,'Pending'), sumStatus(thisMonth,'Pending'), sumStatus(lastMonth,'Pending'));
-  const cashPred = m => m.includes('cash');
-  const digitalPred = m => m.includes('upi') || m.includes('bank') || m.includes('neft') || m.includes('rtgs');
-  setCard('pmt-stat-cash', 'pmt-chg-cash', sumMode(all,cashPred), sumMode(thisMonth,cashPred), sumMode(lastMonth,cashPred));
-  setCard('pmt-stat-digital', 'pmt-chg-digital', sumMode(all,digitalPred), sumMode(thisMonth,digitalPred), sumMode(lastMonth,digitalPred));
+  setCard('pmt-stat-collected',  'pmt-chg-collected',  sum(all,isIn),  sum(thisMonth,isIn),  sum(lastMonth,isIn));
+  setCard('pmt-stat-paidout',    'pmt-chg-paidout',    sum(all,isOut), sum(thisMonth,isOut), sum(lastMonth,isOut));
+  setCard('pmt-stat-outstanding','pmt-chg-outstanding', outstanding, 0, 0);
+  setCard('pmt-stat-payable',    'pmt-chg-payable',    payable, 0, 0);
+
+  const cashPred   = p => (p.method||'').toLowerCase().includes('cash');
+  const digitalPred = p => /upi|bank|neft|rtgs|imps/i.test(p.method||'');
+  setCard('pmt-stat-cash',    'pmt-chg-cash',    sum(all,cashPred),    sum(thisMonth,cashPred),    sum(lastMonth,cashPred));
+  setCard('pmt-stat-digital', 'pmt-chg-digital', sum(all,digitalPred), sum(thisMonth,digitalPred), sum(lastMonth,digitalPred));
+
+  _renderPmtCharts(all);
+}
+
+function _renderPmtCharts(all) {
+  // ── Chart 1: Daily trend (last 30 days) — Collections vs Paid Out ──
+  const days = 30;
+  const dayMap = {};
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    dayMap[fmt_date(d)] = { in: 0, out: 0 };
+  }
+  all.forEach(p => { if (dayMap[p.date]) { const amt = parseFloat(p.amount)||0; if (p.direction==='in') dayMap[p.date].in += amt; else dayMap[p.date].out += amt; } });
+  const labels  = Object.keys(dayMap).map(d => { const dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
+  const inVals  = Object.values(dayMap).map(v => v.in);
+  const outVals = Object.values(dayMap).map(v => v.out);
+
+  const trendCtx = document.getElementById('pmt-trend-chart');
+  if (trendCtx) {
+    if (window._pmtTrendChart) window._pmtTrendChart.destroy();
+    window._pmtTrendChart = new Chart(trendCtx, {
+      type: 'bar',
+      data: { labels, datasets: [
+        { label: 'Collected', data: inVals, backgroundColor: '#00897B55', borderColor: '#00897B', borderWidth: 1.5 },
+        { label: 'Paid Out', data: outVals, backgroundColor: '#E5393555', borderColor: '#E53935', borderWidth: 1.5 },
+      ]},
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top', labels:{ font:{size:10}, boxWidth:10 } } },
+        scales:{ x:{ grid:{display:false}, ticks:{font:{size:9}, maxTicksLimit:10} }, y:{ grid:{color:'#f0f0f0'}, ticks:{font:{size:9}, callback:v=>'₹'+v.toLocaleString('en-IN')} } } }
+    });
+  }
+
+  // ── Chart 2: Payment mode donut ──
+  const modeMap = {};
+  all.forEach(p => {
+    let m = p.method || 'Unknown';
+    if (m.startsWith('Split:')) m = 'Split';
+    modeMap[m] = (modeMap[m]||0) + (parseFloat(p.amount)||0);
+  });
+  const modeEntries = Object.entries(modeMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const modeColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#E53935','#888'];
+  const modeCtx = document.getElementById('pmt-mode-chart');
+  if (modeCtx && modeEntries.length) {
+    if (window._pmtModeChart) window._pmtModeChart.destroy();
+    window._pmtModeChart = new Chart(modeCtx, {
+      type: 'doughnut',
+      data: { labels: modeEntries.map(([m])=>m), datasets:[{ data: modeEntries.map(([,v])=>v), backgroundColor: modeColors, borderWidth:2, borderColor:'#fff' }] },
+      options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt_money(ctx.raw)}`}} } }
+    });
+    const total = modeEntries.reduce((s,[,v])=>s+v,0);
+    const lgEl = document.getElementById('pmt-mode-legend');
+    if (lgEl) lgEl.innerHTML = modeEntries.map(([m,v],i)=>
+      `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="width:8px;height:8px;border-radius:2px;background:${modeColors[i]};flex-shrink:0"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m)}</span><span style="font-weight:600">${total>0?((v/total)*100).toFixed(1)+'%':''}</span></div>`
+    ).join('');
+  }
+
+  // ── Chart 3: Status breakdown bars ──
+  const sdEl = document.getElementById('pmt-status-breakdown');
+  if (sdEl) {
+    const inTotal  = all.filter(p=>p.direction==='in').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const outTotal = all.filter(p=>p.direction==='out').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const pendingIn  = all.filter(p=>p.direction==='in'  && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const pendingOut = all.filter(p=>p.direction==='out' && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+    const paidIn  = inTotal - pendingIn;
+    const paidOut = outTotal - pendingOut;
+    const bar = (label, paid, pending, color) => {
+      const total = paid + pending;
+      const paidPct = total>0 ? (paid/total*100).toFixed(0) : 0;
+      const pendPct = total>0 ? (pending/total*100).toFixed(0) : 0;
+      return `<div>
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:4px">
+          <span>${escHtml(label)}</span><span style="color:var(--muted);font-weight:400">${fmt_money(total)}</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;display:flex">
+          <div style="width:${paidPct}%;background:${color};border-radius:4px 0 0 4px;transition:.4s"></div>
+          <div style="width:${pendPct}%;background:${color}55;border-radius:0 4px 4px 0;transition:.4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
+          <span><span style="color:${color}">■</span> Received/Paid ${fmt_money(paid)}</span>
+          <span><span style="color:${color}55">■</span> Pending ${fmt_money(pending)}</span>
+        </div>
+      </div>`;
+    };
+    sdEl.innerHTML = bar('Collections (IN)', paidIn, pendingIn, '#00897B') + bar('Payments (OUT)', paidOut, pendingOut, '#E53935');
+  }
 }
 function renderPaymentMethodCell(method, iconClass) {
   if (method && method.startsWith('Split:')) {
@@ -23338,19 +23661,7 @@ async function deleteCategory(idx) {
 async function saveCategories() {
   try { await api('api/settings.php','POST',{ product_categories: JSON.stringify(STATE.categories) }); } catch(e) { console.warn('Cat save err',e); }
 }
-function updateProductCatDropdowns() {
-  // Update all category dropdowns in the products page / filter
-  const opts = STATE.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-  document.querySelectorAll('.cat-select').forEach(el => {
-    const cur = el.value;
-    el.innerHTML = opts;
-    el.value = cur;
-  });
-  const filter = document.getElementById('productCatFilter');
-  if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
-}
 
-// ── Expense Category Management (pastel badges) ─────────────────
 function pastelBg(hex) {
   hex = (hex||'#757575').replace('#','');
   if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
@@ -25063,6 +25374,79 @@ function _renderExpSummary() {
     <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
     <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
   </div>`).join('');
+
+  // ── Expense mixed chart: stacked bars per category + total line ──
+  const chartsRow = document.getElementById('exp-charts-row');
+  if (chartsRow) {
+    chartsRow.style.display = STATE.expenses.length > 0 ? '' : 'none';
+    if (STATE.expenses.length > 0) {
+      // Build month × category matrix
+      const monthSet = new Set();
+      const catSet   = new Set();
+      const matrix   = {}; // matrix[month][category] = amount
+      STATE.expenses.forEach(e => {
+        const m = e.date?.slice(0,7); if (!m) return;
+        monthSet.add(m); catSet.add(e.category||'Other');
+        if (!matrix[m]) matrix[m] = {};
+        matrix[m][e.category||'Other'] = (matrix[m][e.category||'Other']||0) + parseFloat(e.amount||0);
+      });
+      const months = [...monthSet].sort().slice(-12);
+      const cats   = [...catSet];
+      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + '\'' + y.slice(2); });
+      const colors  = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#F57C00','#6A4C93','#00838F','#C62828'];
+
+      // Stacked bar datasets (one per category)
+      const barDatasets = cats.map((cat, i) => ({
+        type: 'bar',
+        label: cat,
+        data: months.map(m => matrix[m]?.[cat] || 0),
+        backgroundColor: (colors[i % colors.length]) + 'BB',
+        borderColor: colors[i % colors.length],
+        borderWidth: 1,
+        borderRadius: 3,
+        stack: 'expenses',
+      }));
+
+      // Total line dataset
+      const totalLine = {
+        type: 'line',
+        label: 'Total',
+        data: months.map(m => Object.values(matrix[m]||{}).reduce((s,v)=>s+v,0)),
+        borderColor: '#212121',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#212121',
+        tension: 0.3,
+        order: 0,
+      };
+
+      const mixCtx = document.getElementById('exp-mix-chart');
+      if (mixCtx) {
+        if (window._expMixChart) window._expMixChart.destroy();
+        window._expMixChart = new Chart(mixCtx, {
+          data: { labels: mLabels, datasets: [...barDatasets, totalLine] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt_money(ctx.raw)}` } }
+            },
+            scales: {
+              x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+              y: { stacked: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } }
+            }
+          }
+        });
+      }
+
+      // Legend
+      const lgEl = document.getElementById('exp-mix-legend');
+      if (lgEl) lgEl.innerHTML =
+        cats.map((cat,i) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></span><span>${escHtml(cat)}</span></span>`).join('')
+        + `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#212121;flex-shrink:0"></span><span>Total</span></span>`;
+    }
+  }
 }
 
 function _renderExpTable() {

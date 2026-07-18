@@ -16422,6 +16422,11 @@ function renderPNDeductions() {
 
 let pneItemSeq = 1;
 
+function goToStockIn() {
+  showPage('stock-in-new');
+  if (typeof loadStockIn === 'function') loadStockIn();
+}
+
 function goToNewPurchase() {
   PNE.editingId = null;
   PNE.items = [pneEmptyItem()];
