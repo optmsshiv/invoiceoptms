@@ -17191,7 +17191,6 @@ async function savePurchaseEntry(mode) {
   finally { if (btn) btn.disabled = false; }
 }
 
-async 
 function pnePaymentStamp(status) {
   const cfg = {
     'Paid':    { color:'#1B5E20', border:'#2E7D32', label:'PAID' },
