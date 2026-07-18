@@ -108,69 +108,6 @@ try {
   $paymentModes = [];
   foreach ($modeMap as $mode => $amt) $paymentModes[] = ['mode' => $mode, 'amount' => $amt];
 
-  // ── Trade Summary: Kg quantities + dhalta (for agri businesses) ──
-  $tradeStmt = $db->prepare("
-    SELECT
-      COALESCE(SUM(si.qty),0)         AS sale_qty,
-      COALESCE(SUM(si.line_total),0)  AS sale_value
-    FROM sale_items si
-    JOIN sales s ON s.id = si.sale_id
-    WHERE s.sale_date BETWEEN ? AND ?
-      AND s.status != 'Cancelled'" . $whWhereSales);
-  $tradeStmt->execute([$dateFrom, $dateTo]);
-  $tradeS = $tradeStmt->fetch();
-
-  $tradePurStmt = $db->prepare("
-    SELECT
-      COALESCE(SUM(pi.qty),0)             AS pur_qty,
-      COALESCE(SUM(pi.amount),0)          AS pur_value,
-      COALESCE(SUM(pi.dhalta_kg),0)       AS dhalta_kg,
-      COALESCE(SUM(pi.gross_weight),0)    AS gross_wt,
-      COALESCE(SUM(pi.tare_weight),0)     AS tare_wt,
-      COALESCE(SUM(pi.billable_weight),0) AS billable_wt
-    FROM purchase_items pi
-    JOIN purchases p ON p.id = pi.purchase_id
-    WHERE p.purchase_date BETWEEN ? AND ?" . $whWherePur);
-  $tradePurStmt->execute([$dateFrom, $dateTo]);
-  $tradeP = $tradePurStmt->fetch();
-
-  // Top products by sale qty
-  $topProdStmt = $db->prepare("
-    SELECT p.name, SUM(si.qty) qty, SUM(si.line_total) value
-    FROM sale_items si
-    JOIN sales s ON s.id = si.sale_id
-    JOIN products p ON p.id = si.product_id
-    WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled'
-    GROUP BY si.product_id, p.name ORDER BY qty DESC LIMIT 10");
-  $topProdStmt->execute([$dateFrom, $dateTo]);
-  $topProducts = $topProdStmt->fetchAll();
-
-  // Dhalta detail by product
-  $dhaltaStmt = $db->prepare("
-    SELECT p.name, SUM(pi.dhalta_kg) dhalta_kg, SUM(pi.qty) total_qty,
-           ROUND(SUM(pi.dhalta_kg)/NULLIF(SUM(pi.qty),0)*100,2) dhalta_pct
-    FROM purchase_items pi
-    JOIN purchases pu ON pu.id = pi.purchase_id
-    JOIN products p ON p.id = pi.product_id
-    WHERE pu.purchase_date BETWEEN ? AND ?
-      AND pi.dhalta_kg > 0
-    GROUP BY pi.product_id, p.name ORDER BY dhalta_kg DESC LIMIT 10");
-  $dhaltaStmt->execute([$dateFrom, $dateTo]);
-  $dhaltaDetail = $dhaltaStmt->fetchAll();
-
-  $tradeSummary = [
-    'sale_qty'      => (float)$tradeS['sale_qty'],
-    'sale_value'    => (float)$tradeS['sale_value'],
-    'pur_qty'       => (float)$tradeP['pur_qty'],
-    'pur_value'     => (float)$tradeP['pur_value'],
-    'dhalta_kg'     => (float)$tradeP['dhalta_kg'],
-    'gross_wt'      => (float)$tradeP['gross_wt'],
-    'tare_wt'       => (float)$tradeP['tare_wt'],
-    'billable_wt'   => (float)$tradeP['billable_wt'],
-    'top_products'  => $topProducts,
-    'dhalta_detail' => $dhaltaDetail,
-  ];
-
   jsonResponse([
     'stats' => $stats,
     'trend' => $trend,
@@ -182,7 +119,6 @@ try {
       'total_payments' => (float)$curPur['p'],
       'net_flow' => (float)$curSales['r'] - (float)$curPur['p'],
     ],
-    'trade_summary' => $tradeSummary,
   ]);
 } catch (Throwable $e) {
   jsonResponse(['error' => 'Finance Report API error: ' . $e->getMessage()], 500);

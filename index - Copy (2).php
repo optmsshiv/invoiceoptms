@@ -3151,19 +3151,6 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
-              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
-              <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>CD Applicable Within</label>
-                <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
-              </div>
-              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
-                <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
-              </div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
-            </div>
-
-            <div class="pne-card">
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
@@ -3256,7 +3243,18 @@ const SERVER = {
             <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
           </div>
-
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-indigo"><i class="fas fa-tags"></i> Discounts</div>
+            <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
+            <div class="field"><label>CD Applicable Within</label>
+              <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
+            </div>
+            <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
+              <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
+          </div>
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Invoice / Bill (Optional)</div>
@@ -4770,11 +4768,6 @@ const SERVER = {
           <div class="pne-card-head">Payment Mode Summary</div>
           <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
-      </div>
-
-      <div class="pne-card" style="margin-top:16px">
-        <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
-        <div id="fr-trade-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading trade summary…</div></div>
       </div>
 
       <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
@@ -17639,61 +17632,6 @@ async function renderFinanceReport() {
       : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
 
     renderFRCharts(r);
-
-    // ── Trade Summary (Kg quantities + dhalta) ──────────────────
-    const ts = r.trade_summary || {};
-    const tsCont = document.getElementById('fr-trade-summary');
-    if (tsCont && ts.pur_qty !== undefined) {
-      const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-      const dhaltaPct = ts.gross_wt > 0 ? (ts.dhalta_kg/ts.gross_wt*100).toFixed(2) : '0.00';
-
-      tsCont.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
-          <div class="pne-card" style="padding:14px">
-            <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES (QTY)</div>
-            <div style="font-size:18px;font-weight:800;margin-top:4px">${kgFmt(ts.pur_qty)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${fmt_money(ts.pur_value)}</div>
-          </div>
-          <div class="pne-card" style="padding:14px">
-            <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL SALES (QTY)</div>
-            <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--green)">${kgFmt(ts.sale_qty)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${fmt_money(ts.sale_value)}</div>
-          </div>
-          <div class="pne-card" style="padding:14px">
-            <div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL DHALTA</div>
-            <div style="font-size:18px;font-weight:800;margin-top:4px;color:var(--amber)">${kgFmt(ts.dhalta_kg)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${dhaltaPct}% of gross weight</div>
-          </div>
-          <div class="pne-card" style="padding:14px">
-            <div style="font-size:10.5px;color:var(--muted);font-weight:700">BILLABLE WEIGHT</div>
-            <div style="font-size:18px;font-weight:800;margin-top:4px">${kgFmt(ts.billable_wt)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">After dhalta deduction</div>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px">Top Products by Sales (Kg)</div>
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Value (₹)</th></tr></thead>
-              <tbody>${(ts.top_products||[]).length ? (ts.top_products).map((p,i) => `
-                <tr><td>${i+1}</td><td>${escHtml(p.name)}</td><td style="text-align:right;font-weight:600">${parseFloat(p.qty||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(p.value)}</td></tr>`).join('') :
-                `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px">No sales in this period</td></tr>`}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px">Dhalta Details by Product</div>
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Dhalta (Kg)</th><th style="text-align:right">Dhalta %</th></tr></thead>
-              <tbody>${(ts.dhalta_detail||[]).length ? (ts.dhalta_detail).map((d,i) => `
-                <tr><td>${i+1}</td><td>${escHtml(d.name)}</td><td style="text-align:right;color:var(--amber);font-weight:600">${parseFloat(d.dhalta_kg||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${parseFloat(d.dhalta_pct||0).toFixed(2)}%</td></tr>`).join('') :
-                `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px">No dhalta recorded in this period</td></tr>`}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-    }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
