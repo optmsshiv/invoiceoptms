@@ -4913,69 +4913,41 @@ const SERVER = {
         </div>
       </div>
 
-      <!-- ── 6 KPI cards: IN vs OUT clearly separated ── -->
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #00897B">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:32px;height:32px"><i class="fas fa-arrow-down-to-bracket"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL COLLECTED</div>
-          <div style="font-size:15px;font-weight:800;color:#00897B" id="pmt-stat-collected">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">From customers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-collected"></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:16px 0" class="ps-stats-row">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-credit-card"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Payments</div>
+          <div style="font-size:16px;font-weight:800" id="pmt-stat-total">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
+          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-total"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E53935">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:32px;height:32px"><i class="fas fa-arrow-up-from-bracket"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAID OUT</div>
-          <div style="font-size:15px;font-weight:800;color:#E53935" id="pmt-stat-paidout">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">To suppliers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-paidout"></div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-shield-halved"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Paid</div>
+          <div style="font-size:16px;font-weight:800" id="pmt-stat-paid">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
+          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-paid"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #7B1FA2">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#7B1FA2;width:32px;height:32px"><i class="fas fa-hand-holding-dollar"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div>
-          <div style="font-size:15px;font-weight:800;color:#7B1FA2" id="pmt-stat-outstanding">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Customers owe you</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-outstanding"></div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-box-archive"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Pending</div>
+          <div style="font-size:16px;font-weight:800" id="pmt-stat-pending">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
+          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-pending"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E65100">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:32px;height:32px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">PAYABLE</div>
-          <div style="font-size:15px;font-weight:800;color:#E65100" id="pmt-stat-payable">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">You owe suppliers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-payable"></div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-briefcase"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Cash Payments</div>
+          <div style="font-size:16px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
+          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-cash"></div>
         </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #1976D2">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:32px;height:32px"><i class="fas fa-money-bill-wave"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">CASH</div>
-          <div style="font-size:15px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Cash transactions</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-cash"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #6A4C93">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:32px;height:32px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">UPI / BANK</div>
-          <div style="font-size:15px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Digital transactions</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-digital"></div>
-        </div>
-      </div>
-
-      <!-- ── Charts row ── -->
-      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-bottom:16px">
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-            Collections vs Payments (30 days)
-            <span style="font-size:11px;font-weight:400;color:var(--muted)">Daily trend</span>
-          </div>
-          <div style="height:160px;position:relative"><canvas id="pmt-trend-chart"></canvas></div>
-        </div>
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Payment Mode Split</div>
-          <div style="height:130px;position:relative"><canvas id="pmt-mode-chart"></canvas></div>
-          <div id="pmt-mode-legend" style="margin-top:8px;font-size:11px"></div>
-        </div>
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Status Breakdown</div>
-          <div id="pmt-status-breakdown" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-building-columns"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">UPI/Bank Payments</div>
+          <div style="font-size:16px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">This Month</div>
+          <div style="font-size:10.5px;font-weight:700" id="pmt-chg-digital"></div>
         </div>
       </div>
 
@@ -20957,131 +20929,33 @@ function _renderPmtSummary(){
   const now = new Date();
   const thisMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
   const lastMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const lastMonthEnd   = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
+  const lastMonthEnd = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
 
   const thisMonth = all.filter(p => p.date >= thisMonthStart);
   const lastMonth = all.filter(p => p.date >= lastMonthStart && p.date <= lastMonthEnd);
 
-  const sum = (list, pred) => list.filter(pred).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+  const sumAll = list => list.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const sumStatus = (list, st) => list.filter(p=>p.status===st).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const sumMode = (list, pred) => list.filter(p=>p.method&&pred(p.method.toLowerCase())).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
 
-  const isIn  = p => p.direction === 'in';
-  const isOut = p => p.direction === 'out';
-  const isPending = p => p.status === 'Pending' || p.status === 'Partial';
-
-  // Outstanding = total invoiced to customers − what's been received
-  const totalInvoiced = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
-  const totalCollected = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.amount_received)||0), 0);
-  const outstanding = Math.max(0, totalInvoiced - totalCollected);
-
-  // Payable = total purchased − what's been paid
-  const totalPurchased = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
-  const totalPaidOut   = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.amount_paid)||0), 0);
-  const payable = Math.max(0, totalPurchased - totalPaidOut);
-
-  const pctChange = (cur, prev) => prev===0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
-  const setCard = (id, chgId, val, curM, prevM) => {
-    const el = document.getElementById(id); if (el) el.textContent = fmt_money(val);
+  const pctChange = (cur, prev) => prev === 0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
+  const setCard = (valId, chgId, curTotal, curMonth, prevMonth) => {
+    const el = document.getElementById(valId); if (el) el.textContent = fmt_money(curTotal);
     const chgEl = document.getElementById(chgId);
     if (chgEl) {
-      const pct = pctChange(curM, prevM);
-      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs last month`;
+      const pct = pctChange(curMonth, prevMonth);
+      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs Last Month`;
       chgEl.style.color = pct >= 0 ? '#2E7D32' : '#E53935';
     }
   };
 
-  setCard('pmt-stat-collected',  'pmt-chg-collected',  sum(all,isIn),  sum(thisMonth,isIn),  sum(lastMonth,isIn));
-  setCard('pmt-stat-paidout',    'pmt-chg-paidout',    sum(all,isOut), sum(thisMonth,isOut), sum(lastMonth,isOut));
-  setCard('pmt-stat-outstanding','pmt-chg-outstanding', outstanding, 0, 0);
-  setCard('pmt-stat-payable',    'pmt-chg-payable',    payable, 0, 0);
-
-  const cashPred   = p => (p.method||'').toLowerCase().includes('cash');
-  const digitalPred = p => /upi|bank|neft|rtgs|imps/i.test(p.method||'');
-  setCard('pmt-stat-cash',    'pmt-chg-cash',    sum(all,cashPred),    sum(thisMonth,cashPred),    sum(lastMonth,cashPred));
-  setCard('pmt-stat-digital', 'pmt-chg-digital', sum(all,digitalPred), sum(thisMonth,digitalPred), sum(lastMonth,digitalPred));
-
-  _renderPmtCharts(all);
-}
-
-function _renderPmtCharts(all) {
-  // ── Chart 1: Daily trend (last 30 days) — Collections vs Paid Out ──
-  const days = 30;
-  const dayMap = {};
-  for (let i = days-1; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate()-i);
-    dayMap[fmt_date(d)] = { in: 0, out: 0 };
-  }
-  all.forEach(p => { if (dayMap[p.date]) { const amt = parseFloat(p.amount)||0; if (p.direction==='in') dayMap[p.date].in += amt; else dayMap[p.date].out += amt; } });
-  const labels  = Object.keys(dayMap).map(d => { const dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
-  const inVals  = Object.values(dayMap).map(v => v.in);
-  const outVals = Object.values(dayMap).map(v => v.out);
-
-  const trendCtx = document.getElementById('pmt-trend-chart');
-  if (trendCtx) {
-    if (window._pmtTrendChart) window._pmtTrendChart.destroy();
-    window._pmtTrendChart = new Chart(trendCtx, {
-      type: 'bar',
-      data: { labels, datasets: [
-        { label: 'Collected', data: inVals, backgroundColor: '#00897B55', borderColor: '#00897B', borderWidth: 1.5 },
-        { label: 'Paid Out', data: outVals, backgroundColor: '#E5393555', borderColor: '#E53935', borderWidth: 1.5 },
-      ]},
-      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top', labels:{ font:{size:10}, boxWidth:10 } } },
-        scales:{ x:{ grid:{display:false}, ticks:{font:{size:9}, maxTicksLimit:10} }, y:{ grid:{color:'#f0f0f0'}, ticks:{font:{size:9}, callback:v=>'₹'+v.toLocaleString('en-IN')} } } }
-    });
-  }
-
-  // ── Chart 2: Payment mode donut ──
-  const modeMap = {};
-  all.forEach(p => {
-    let m = p.method || 'Unknown';
-    if (m.startsWith('Split:')) m = 'Split';
-    modeMap[m] = (modeMap[m]||0) + (parseFloat(p.amount)||0);
-  });
-  const modeEntries = Object.entries(modeMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const modeColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#E53935','#888'];
-  const modeCtx = document.getElementById('pmt-mode-chart');
-  if (modeCtx && modeEntries.length) {
-    if (window._pmtModeChart) window._pmtModeChart.destroy();
-    window._pmtModeChart = new Chart(modeCtx, {
-      type: 'doughnut',
-      data: { labels: modeEntries.map(([m])=>m), datasets:[{ data: modeEntries.map(([,v])=>v), backgroundColor: modeColors, borderWidth:2, borderColor:'#fff' }] },
-      options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt_money(ctx.raw)}`}} } }
-    });
-    const total = modeEntries.reduce((s,[,v])=>s+v,0);
-    const lgEl = document.getElementById('pmt-mode-legend');
-    if (lgEl) lgEl.innerHTML = modeEntries.map(([m,v],i)=>
-      `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="width:8px;height:8px;border-radius:2px;background:${modeColors[i]};flex-shrink:0"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m)}</span><span style="font-weight:600">${total>0?((v/total)*100).toFixed(1)+'%':''}</span></div>`
-    ).join('');
-  }
-
-  // ── Chart 3: Status breakdown bars ──
-  const sdEl = document.getElementById('pmt-status-breakdown');
-  if (sdEl) {
-    const inTotal  = all.filter(p=>p.direction==='in').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const outTotal = all.filter(p=>p.direction==='out').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const pendingIn  = all.filter(p=>p.direction==='in'  && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const pendingOut = all.filter(p=>p.direction==='out' && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const paidIn  = inTotal - pendingIn;
-    const paidOut = outTotal - pendingOut;
-    const bar = (label, paid, pending, color) => {
-      const total = paid + pending;
-      const paidPct = total>0 ? (paid/total*100).toFixed(0) : 0;
-      const pendPct = total>0 ? (pending/total*100).toFixed(0) : 0;
-      return `<div>
-        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:4px">
-          <span>${escHtml(label)}</span><span style="color:var(--muted);font-weight:400">${fmt_money(total)}</span>
-        </div>
-        <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;display:flex">
-          <div style="width:${paidPct}%;background:${color};border-radius:4px 0 0 4px;transition:.4s"></div>
-          <div style="width:${pendPct}%;background:${color}55;border-radius:0 4px 4px 0;transition:.4s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
-          <span><span style="color:${color}">■</span> Received/Paid ${fmt_money(paid)}</span>
-          <span><span style="color:${color}55">■</span> Pending ${fmt_money(pending)}</span>
-        </div>
-      </div>`;
-    };
-    sdEl.innerHTML = bar('Collections (IN)', paidIn, pendingIn, '#00897B') + bar('Payments (OUT)', paidOut, pendingOut, '#E53935');
-  }
+  setCard('pmt-stat-total', 'pmt-chg-total', sumAll(all), sumAll(thisMonth), sumAll(lastMonth));
+  setCard('pmt-stat-paid', 'pmt-chg-paid', sumStatus(all,'Paid'), sumStatus(thisMonth,'Paid'), sumStatus(lastMonth,'Paid'));
+  setCard('pmt-stat-pending', 'pmt-chg-pending', sumStatus(all,'Pending'), sumStatus(thisMonth,'Pending'), sumStatus(lastMonth,'Pending'));
+  const cashPred = m => m.includes('cash');
+  const digitalPred = m => m.includes('upi') || m.includes('bank') || m.includes('neft') || m.includes('rtgs');
+  setCard('pmt-stat-cash', 'pmt-chg-cash', sumMode(all,cashPred), sumMode(thisMonth,cashPred), sumMode(lastMonth,cashPred));
+  setCard('pmt-stat-digital', 'pmt-chg-digital', sumMode(all,digitalPred), sumMode(thisMonth,digitalPred), sumMode(lastMonth,digitalPred));
 }
 function renderPaymentMethodCell(method, iconClass) {
   if (method && method.startsWith('Split:')) {
