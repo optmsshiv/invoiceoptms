@@ -189,14 +189,6 @@ try {
     'dhalta_detail' => $dhaltaDetail,
   ];
 
-  // Expenses
-  $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE expense_date BETWEEN ? AND ?");
-  $expStmt->execute([$dateFrom, $dateTo]);
-  $expData = $expStmt->fetch();
-  $expByCatStmt = $db->prepare("SELECT category, SUM(amount) total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY category ORDER BY total DESC");
-  $expByCatStmt->execute([$dateFrom, $dateTo]);
-  $expByCategory = $expByCatStmt->fetchAll();
-
   jsonResponse([
     'stats' => $stats,
     'trend' => $trend,
@@ -209,11 +201,6 @@ try {
       'net_flow' => (float)$curSales['r'] - (float)$curPur['p'],
     ],
     'trade_summary' => $tradeSummary,
-    'expenses' => [
-      'total'       => (float)$expData['total'],
-      'count'       => (int)$expData['cnt'],
-      'by_category' => $expByCategory,
-    ],
   ]);
 } catch (Throwable $e) {
   jsonResponse(['error' => 'Finance Report API error: ' . $e->getMessage()], 500);

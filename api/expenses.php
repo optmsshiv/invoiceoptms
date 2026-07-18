@@ -50,26 +50,6 @@ try {
 
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
-        // Summary by category
-        if (!$id && !empty($_GET['action']) && $_GET['action'] === 'summary') {
-            $from = $_GET['from'] ?? date('Y-m-01');
-            $to   = $_GET['to']   ?? date('Y-m-d');
-            $stmt = $db->prepare('SELECT category, SUM(amount) total, COUNT(*) cnt FROM expenses WHERE `date` BETWEEN ? AND ? GROUP BY category ORDER BY total DESC');
-            $stmt->execute([$from, $to]);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $total = array_sum(array_column($rows, 'total'));
-            echo json_encode(['success'=>true,'data'=>$rows,'total'=>$total,'count'=>array_sum(array_column($rows,'cnt'))]);
-            exit;
-        }
-        // Categories list
-        if (!$id && !empty($_GET['action']) && $_GET['action'] === 'categories') {
-            $fixed = ['Rent','Salary','Electricity','Fuel','Telephone','Transport','Labour','Maintenance','Stationery','Packaging','Utilities','Bank Charges','Other'];
-            $stmt = $db->query("SELECT DISTINCT category FROM expenses ORDER BY category");
-            $all = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            $custom = array_values(array_diff($all, $fixed));
-            echo json_encode(['success'=>true,'fixed'=>$fixed,'custom'=>$custom]);
-            exit;
-        }
         if ($id) {
             $stmt = $db->prepare('SELECT * FROM expenses WHERE id = :id');
             $stmt->execute([':id' => $id]);
