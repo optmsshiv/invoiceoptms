@@ -4845,6 +4845,21 @@ const SERVER = {
         </div>
       </div>
 
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:10px">
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF8E1;color:#F9A825;width:34px;height:34px"><i class="fas fa-sliders"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Adjustments</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-adj-count">0</div>
+          <div style="font-size:10px;color:var(--muted)" id="sh-stat-adj-sub">0.00 Kg net</div>
+        </div>
+        <div class="pne-card" style="padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Avg Purchase Rate</div>
+          <div style="font-size:16px;font-weight:800" id="sh-stat-avg-rate">—</div>
+          <div style="font-size:10px;color:var(--muted)">per Kg (purchase entries only)</div>
+        </div>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:10px">
         <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
           <span class="ps-tab active">Stock History</span>
@@ -17747,6 +17762,20 @@ async function renderStockHistory() {
     document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
     document.getElementById('sh-stat-value').textContent = fmt_money(stats.current_stock_value||0);
+
+    // ── Total Adjustments ────────────────────────────────────────
+    const adjRows = SH_LAST_ROWS.filter(r => r.ref_type === 'adjustment');
+    const adjNetKg = adjRows.reduce((s, r) => s + (r.direction==='in' ? parseFloat(r.qty||0) : -parseFloat(r.qty||0)), 0);
+    document.getElementById('sh-stat-adj-count').textContent = adjRows.length;
+    document.getElementById('sh-stat-adj-sub').textContent = (adjNetKg >= 0 ? '+' : '') + adjNetKg.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg net';
+    document.getElementById('sh-stat-adj-sub').style.color = adjRows.length > 5 ? '#E65100' : 'var(--muted)';
+
+    // ── Avg Purchase Rate ────────────────────────────────────────
+    const purRows = SH_LAST_ROWS.filter(r => r.ref_type === 'purchase' && r.direction === 'in');
+    const purTotalKg  = purRows.reduce((s, r) => s + parseFloat(r.qty||0), 0);
+    const purTotalVal = purRows.reduce((s, r) => s + parseFloat(r.qty||0) * parseFloat(r.rate||0), 0);
+    const avgRate = purTotalKg > 0 ? purTotalVal / purTotalKg : 0;
+    document.getElementById('sh-stat-avg-rate').textContent = avgRate > 0 ? fmt_money(avgRate) : '—';
 
     renderSHTable();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
