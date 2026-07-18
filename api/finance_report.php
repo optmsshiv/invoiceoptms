@@ -111,8 +111,11 @@ try {
   // ── Trade Summary: Kg quantities + dhalta (for agri businesses) ──
   $tradeStmt = $db->prepare("
     SELECT
-      COALESCE(SUM(si.qty),0)         AS sale_qty,
-      COALESCE(SUM(si.line_total),0)  AS sale_value
+      COALESCE(SUM(si.qty),0)              AS sale_qty,
+      COALESCE(SUM(si.line_total),0)       AS sale_value,
+      COALESCE(SUM(s.kanta_gross_weight),0) AS sale_gross_wt,
+      COALESCE(SUM(s.kanta_tare_weight),0)  AS sale_tare_wt,
+      COALESCE(SUM(s.kanta_dhalta_kg),0)    AS sale_dhalta_kg
     FROM sale_items si
     JOIN sales s ON s.id = si.sale_id
     WHERE s.sale_date BETWEEN ? AND ?
@@ -168,6 +171,9 @@ try {
   $tradeSummary = [
     'sale_qty'        => (float)$tradeS['sale_qty'],
     'sale_value'      => (float)$tradeS['sale_value'],
+    'sale_gross_wt'   => (float)$tradeS['sale_gross_wt'],
+    'sale_tare_wt'    => (float)$tradeS['sale_tare_wt'],
+    'sale_dhalta_kg'  => (float)$tradeS['sale_dhalta_kg'],
     'pur_qty'         => (float)$tradeP['pur_qty'],
     'pur_value'       => (float)$purVal,
     'pur_item_value'  => (float)$exp['purchase_amt'],

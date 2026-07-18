@@ -17695,23 +17695,41 @@ async function renderFinanceReport() {
           <!-- Sales block -->
           <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border)">
             <div style="font-size:11px;font-weight:700;color:#00897B;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-file-invoice-dollar"></i> SALES SUMMARY</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
               <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL QTY</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_qty)}</div></div>
+              <div><div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_gross_wt||0)}</div></div>
+              <div><div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(ts.sale_tare_wt||0)}</div></div>
+              <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div><div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0))}</div></div>
+              <div><div style="font-size:10px;color:var(--muted);font-weight:700;color:#E65100">DHALTA</div><div style="font-size:14px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div></div>
               <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px;color:#00897B">${fmt_money(ts.sale_value)}</div></div>
-            </div>
-            <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
-              <div style="font-size:10px;color:var(--muted)">Note: Sales dhalta is not tracked separately — dhalta is applied at purchase (kanta) time only</div>
             </div>
           </div>
         </div>
 
         <!-- Row 2: Dhalta block -->
         <div style="background:#FFF8E1;border-radius:10px;padding:14px;border:1px solid #FFD180;margin-bottom:12px">
-          <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-weight-hanging"></i> DHALTA SUMMARY (PURCHASE ONLY)</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-            <div><div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL DHALTA</div><div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.dhalta_kg)}</div></div>
-            <div><div style="font-size:10px;color:var(--muted);font-weight:700">% OF GROSS WT</div><div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${dhaltaPct}%</div></div>
-            <div><div style="font-size:10px;color:var(--muted);font-weight:700">NET AFTER DHALTA</div><div style="font-size:16px;font-weight:800;margin-top:3px">${kgFmt(ts.billable_wt)}</div></div>
+          <div style="font-size:11px;font-weight:700;color:#E65100;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="fas fa-weight-hanging"></i> DHALTA SUMMARY</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:700">PURCHASE DHALTA</div>
+              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.dhalta_kg)}</div>
+              <div style="font-size:10px;color:var(--muted)">${dhaltaPct}% of purchase gross wt</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:700">SALE DHALTA</div>
+              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(ts.sale_dhalta_kg||0)}</div>
+              <div style="font-size:10px;color:var(--muted)">${ts.sale_gross_wt > 0 ? ((ts.sale_dhalta_kg||0)/(ts.sale_gross_wt||1)*100).toFixed(2) : '0.00'}% of sale gross wt</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:700">TOTAL DHALTA</div>
+              <div style="font-size:16px;font-weight:800;margin-top:3px;color:#E53935">${kgFmt((ts.dhalta_kg||0)+(ts.sale_dhalta_kg||0))}</div>
+              <div style="font-size:10px;color:var(--muted)">Purchase + Sale combined</div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:700">PURCHASE BILLABLE</div>
+              <div style="font-size:16px;font-weight:800;margin-top:3px">${kgFmt(ts.billable_wt)}</div>
+              <div style="font-size:10px;color:var(--muted)">Net − Purchase dhalta</div>
+            </div>
           </div>
         </div>
 
