@@ -17732,11 +17732,6 @@ async function renderFinanceReport() {
               <i class="fas fa-cart-shopping"></i> PURCHASE
             </div>
             ${[
-              ['Total Qty',   kgFmt(ts.pur_qty),      ''],
-              ['Gross Wt',    kgFmt(ts.gross_wt),     ''],
-              ['Tare Wt',     kgFmt(ts.tare_wt),      ''],
-              ['Net Wt',      kgFmt(netWt),            ''],
-              ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100'],
               ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
               ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
               ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
