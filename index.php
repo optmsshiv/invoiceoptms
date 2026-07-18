@@ -17778,29 +17778,7 @@ async function renderFinanceReport() {
             <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">OTHER</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.other_amt||0)}</div></div>
           </div>
         </div>` : ''}
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="fas fa-trophy" style="color:#00897B"></i> Top Products by Sales (Kg)</div>
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Value</th></tr></thead>
-              <tbody>${(ts.top_products||[]).length
-                ? ts.top_products.map((p,i)=>`<tr><td>${i+1}</td><td>${escHtml(p.name)}</td><td style="text-align:right;font-weight:600">${parseFloat(p.qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(p.value)}</td></tr>`).join('')
-                : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:14px">No sales in this period</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="fas fa-weight-hanging" style="color:#E65100"></i> Dhalta by Product (Purchase)</div>
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Total Qty</th><th style="text-align:right">Dhalta Kg</th><th style="text-align:right">%</th></tr></thead>
-              <tbody>${(ts.dhalta_detail||[]).length
-                ? ts.dhalta_detail.map((d,i)=>`<tr><td>${i+1}</td><td>${escHtml(d.name)}</td><td style="text-align:right">${parseFloat(d.total_qty||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;color:#E65100;font-weight:700">${parseFloat(d.dhalta_kg||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td><td style="text-align:right;font-weight:600">${parseFloat(d.dhalta_pct||0).toFixed(2)}%</td></tr>`).join('')
-                : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No dhalta recorded in this period</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
+`;
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
