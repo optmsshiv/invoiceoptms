@@ -17737,11 +17737,19 @@ async function renderFinanceReport() {
               ['Tare Wt',     kgFmt(ts.tare_wt),      ''],
               ['Net Wt',      kgFmt(netWt),            ''],
               ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100'],
-              ['Billable Wt', kgFmt(ts.billable_wt), '#00897B'],
-              ['Total Value', fmt_money(ts.pur_value),'#E53935'],
-            ].map(([l,v,c],i)=>`
-            <div style="display:flex;justify-content:space-between;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
-              <span style="font-size:11.5px;color:var(--muted)">${l}</span>
+              ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
+              ['Gross Wt',    kgFmt(ts.gross_wt),     '', 'Full truck weight at kanta'],
+              ['Tare Wt',     kgFmt(ts.tare_wt),      '', 'Empty vehicle weight'],
+              ['Net Wt',      kgFmt(netWt),            '', 'Gross − Tare'],
+              ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
+              ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
+              ['Total Value', fmt_money(ts.pur_value),'#E53935', 'Bill total incl. charges'],
+            ].map(([l,v,c,sub],i)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <div>
+                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
+                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
+              </div>
               <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
             </div>`).join('')}
           </div>
@@ -17752,16 +17760,19 @@ async function renderFinanceReport() {
               <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
             ${[
-              ['Total Qty',   kgFmt(ts.sale_qty),                                                                          ''],
-              ['Gross Wt',    kgFmt(ts.sale_gross_wt||0),                                                                  ''],
-              ['Tare Wt',     kgFmt(ts.sale_tare_wt||0),                                                                   ''],
-              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                           ''],
-              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                  '#E65100'],
-              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),       '#00897B'],
-              ['Total Value', fmt_money(ts.sale_value),                                                                     '#00897B'],
-            ].map(([l,v,c],i)=>`
-            <div style="display:flex;justify-content:space-between;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
-              <span style="font-size:11.5px;color:var(--muted)">${l}</span>
+              ['Total Qty',   kgFmt(ts.sale_qty),                                                                         '', 'Invoiced qty billed to customer'],
+              ['Gross Wt',    kgFmt(ts.sale_gross_wt||0),                                                                 '', 'Full truck weight at kanta'],
+              ['Tare Wt',     kgFmt(ts.sale_tare_wt||0),                                                                  '', 'Empty vehicle weight'],
+              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
+              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                 '#E65100', 'Weight deducted at delivery'],
+              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),      '#00897B', 'Net − Dhalta'],
+              ['Total Value', fmt_money(ts.sale_value),                                                                    '#00897B', 'Sum of all sale invoices'],
+            ].map(([l,v,c,sub],i)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
+              <div>
+                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
+                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
+              </div>
               <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
             </div>`).join('')}
           </div>
