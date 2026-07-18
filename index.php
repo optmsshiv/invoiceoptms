@@ -3142,6 +3142,15 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
+              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
+                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></span>
+                <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
+              </div>
+              <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
+              <div class="pne-charge-total" style="margin-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
@@ -3233,14 +3242,6 @@ const SERVER = {
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
-              <span><i class="fas fa-minus"></i> Deductions</span>
-              <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
-            </div>
-            <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
-            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
           </div>
           <div class="pne-card">
             <div class="pne-card-head pne-head-indigo"><i class="fas fa-tags"></i> Discounts</div>
@@ -17065,6 +17066,13 @@ function onPNEHeaderDhaltaKgInput(val) {
     if (billEl) billEl.textContent = c.billable.toFixed(2);
     if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
     if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
+    // Update footer totals
+    let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
+    PNE.items.forEach(i => { const r = pneCalcRow(i); footNet += r.net; footDhalta += r.dhaltaKg; footBillable += r.billable; footAmt += r.amount; });
+    const _sf = id => document.getElementById(id);
+    if (_sf('pne-total-dhalta'))   _sf('pne-total-dhalta').textContent   = footDhalta.toFixed(2) + ' Kg';
+    if (_sf('pne-total-billable')) _sf('pne-total-billable').textContent = footBillable.toFixed(2) + ' Kg';
+    if (_sf('pne-total-amount'))   _sf('pne-total-amount').textContent   = fmt_money(footAmt);
   }
 
   // Update billable and dhalta% in header
