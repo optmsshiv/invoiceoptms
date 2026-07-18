@@ -15602,6 +15602,14 @@ async function viewSaleDetails(id) {
   `;
 
   const items = s.items || [];
+  const grossWt    = parseFloat(s.kanta_gross_weight||0);
+  const tareWt     = parseFloat(s.kanta_tare_weight||0);
+  const netWt      = Math.max(0, grossWt - tareWt);
+  const dhaltaKg   = parseFloat(s.kanta_dhalta_kg||0);
+  const billableWt = Math.max(0, netWt - dhaltaKg);
+  const hasWeight  = grossWt > 0 || tareWt > 0 || dhaltaKg > 0;
+  const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+
   document.getElementById('sd-body').innerHTML = `
     <div style="display:flex;gap:10px">
       <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
@@ -15611,6 +15619,35 @@ async function viewSaleDetails(id) {
       <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
         <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
     </div>
+
+    ${hasWeight ? `
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-weight-hanging"></i> Weight & Dhalta Details</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(grossWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(tareWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(netWt)}</div>
+        </div>
+        <div class="pne-card" style="padding:10px 12px;border:1px solid #FFD180;background:#FFF8E1">
+          <div style="font-size:10px;color:#E65100;font-weight:700">DHALTA</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(dhaltaKg)}</div>
+          ${netWt > 0 ? `<div style="font-size:10px;color:var(--muted)">${(dhaltaKg/netWt*100).toFixed(2)}% of net</div>` : ''}
+        </div>
+        <div class="pne-card" style="padding:10px 12px;border:1px solid #C8E6C9;background:#E8F5E9">
+          <div style="font-size:10px;color:#2E7D32;font-weight:700">BILLABLE WT</div>
+          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#2E7D32">${kgFmt(billableWt)}</div>
+        </div>
+      </div>
+      ${s.kanta_name ? `<div style="font-size:11px;color:var(--muted);margin-top:8px"><i class="fas fa-building"></i> Kanta: ${escHtml(s.kanta_name)}${s.kanta_moisture_pct ? ' &nbsp;|&nbsp; <i class="fas fa-droplet"></i> Moisture: ' + parseFloat(s.kanta_moisture_pct).toFixed(2) + '%' : ''}</div>` : ''}
+    </div>` : ''}
 
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
@@ -15624,13 +15661,22 @@ async function viewSaleDetails(id) {
 
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
-      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
-        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:600px">
+        <thead><tr>
+          <th>Product</th><th>Variety</th><th>Moisture %</th>
+          <th style="text-align:right">Qty (Kg)</th>
+          <th style="text-align:right">Rate (₹/Kg)</th>
+          <th style="text-align:right">Disc %</th>
+          <th style="text-align:right">Amount</th>
+        </tr></thead>
         <tbody>${items.map(it => `<tr>
-          <td>${escHtml(it.product_name||it.description||'—')}</td>
-          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
+          <td><strong>${escHtml(it.product_name||it.description||'—')}</strong>${it.variety_grade ? `<div style="font-size:10.5px;color:var(--muted)">${escHtml(it.variety_grade)}</div>` : ''}</td>
+          <td>${escHtml(it.variety_grade||'—')}</td>
+          <td style="text-align:center">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
+          <td style="text-align:right;font-weight:600">${parseFloat(it.qty||0).toFixed(2)}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
-          <td style="text-align:right;font-weight:600">${fmt_money(it.line_total)}</td>
+          <td style="text-align:right">${it.discount_pct ? parseFloat(it.discount_pct).toFixed(2)+'%' : '—'}</td>
+          <td style="text-align:right;font-weight:700">${fmt_money(it.line_total)}</td>
         </tr>`).join('')}</tbody>
       </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
     </div>
