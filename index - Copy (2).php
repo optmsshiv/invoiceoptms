@@ -3145,6 +3145,8 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Less: Discount</span><strong><input type="number" id="pn-discount" value="0" min="0" class="pne-inline-num" oninput="calcPurchaseNewTotals()"></strong></div>
+              <div class="pne-summary-row" id="pn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="pn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row" id="pn-sum-deductions-row" style="display:none"><span style="color:#E53935">Less: Deductions</span><strong id="pn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row">
@@ -16321,7 +16323,8 @@ function goToNewPurchase() {
   document.getElementById('pn-loadingcharge').value = 0;
   document.getElementById('pn-packingcharge').value = 0;
   document.getElementById('pn-othercharge').value = 0;
-
+  document.getElementById('pn-discount').value = 0;
+  document.getElementById('pn-discount-remarks').value = '';
   document.getElementById('pn-tradediscpct').value = 0;
   document.getElementById('pn-cashdiscpct').value = 0;
   document.getElementById('pn-cdwithin').value = 'Same Day';
@@ -16660,7 +16663,7 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-sum-subtotal').textContent = fmt_money(subtotal);
   document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
 
-  const headerDiscount = 0; // Discount removed — use Deductions section instead
+  const headerDiscount = parseFloat(document.getElementById('pn-discount').value) || 0;
   const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
   // Show in Tax & Amount Summary only when deductions exist
@@ -16679,7 +16682,9 @@ function calcPurchaseNewTotals() {
   const taxable = Math.max(0, subtotal + addCharges - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
 
-  document.getElementById('pne-sb-discount').textContent = fmt_money(totalItemDiscount);
+  // Total Discount in Product Summary = per-item discounts + the header-level
+  // "Less: Discount" from Tax & Amount Summary, so both cards agree.
+  document.getElementById('pne-sb-discount').textContent = fmt_money(totalItemDiscount + headerDiscount);
 
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
   const gstPct = gstApplicable ? (parseFloat(document.getElementById('pn-gst-pct').value) || 0) : 0;
@@ -16910,7 +16915,7 @@ async function editPurchase(id) {
     document.getElementById('pn-loadingcharge').value = p.loading_charge || 0;
     document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
     document.getElementById('pn-othercharge').value = p.other_charges || 0;
-
+    document.getElementById('pn-discount').value = p.discount_amount || 0;
     document.getElementById('pn-discount-remarks').value = p.discount_remarks || '';
     document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
     document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
@@ -17144,7 +17149,8 @@ async function savePurchaseEntry(mode) {
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
     packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
-    discount_amount: 0,
+    discount_amount: parseFloat(document.getElementById('pn-discount').value) || 0,
+    discount_remarks: document.getElementById('pn-discount-remarks').value.trim(),
     deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
