@@ -17752,7 +17752,6 @@ async function renderFinanceReport() {
               <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
             ${[
-              ['Total Qty',   kgFmt(ts.sale_qty),                                                                         '', 'Invoiced qty billed to customer'],
               ['Gross Wt',    kgFmt(ts.sale_gross_wt||0),                                                                 '', 'Full truck weight at kanta'],
               ['Tare Wt',     kgFmt(ts.sale_tare_wt||0),                                                                  '', 'Empty vehicle weight'],
               ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
