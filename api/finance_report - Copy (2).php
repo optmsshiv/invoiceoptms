@@ -166,15 +166,10 @@ try {
   $dhaltaDetail = $dhaltaStmt->fetchAll();
 
   $tradeSummary = [
-    'sale_qty'        => (float)$tradeS['sale_qty'],
-    'sale_value'      => (float)$tradeS['sale_value'],
-    'pur_qty'         => (float)$tradeP['pur_qty'],
-    'pur_value'       => (float)$purVal,
-    'pur_item_value'  => (float)$exp['purchase_amt'],
-    'transport_amt'   => (float)$exp['transport_amt'],
-    'loading_amt'     => (float)$exp['loading_amt'],
-    'packing_amt'     => (float)$exp['packing_amt'],
-    'other_amt'       => (float)$exp['other_amt'],
+    'sale_qty'      => (float)$tradeS['sale_qty'],
+    'sale_value'    => (float)$tradeS['sale_value'],
+    'pur_qty'       => (float)$tradeP['pur_qty'],
+    'pur_value'     => (float)$purVal,
     'dhalta_kg'     => (float)$tradeP['dhalta_kg'],
     'gross_wt'      => (float)$tradeP['gross_wt'],
     'tare_wt'       => (float)$tradeP['tare_wt'],
