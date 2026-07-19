@@ -8570,12 +8570,14 @@ function renderProductDashboard() {
   const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
   const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
   const totalExp    = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
-  const netProfit   = totalSales - totalPur - totalExp;  // subtract expenses
+  const netProfit   = totalSales - totalPur - totalExp;
   const margin      = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
   const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
   const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
   const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
   const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
   set('db-stat-expenses', fmt_money(totalExp));
   const expPeriodCount = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).length;
