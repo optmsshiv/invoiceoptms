@@ -8569,7 +8569,7 @@ function renderProductDashboard() {
   // ── KPI calculations ──────────────────────────────────────────
   const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
   const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
-  const totalExp    = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
+  const totalExp    = (STATE.expenses||[]).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
   const netProfit   = totalSales - totalPur - totalExp;  // subtract expenses
   const margin      = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
   const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
@@ -8577,9 +8577,16 @@ function renderProductDashboard() {
   const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
   const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
 
-  set('db-stat-expenses', fmt_money(totalExp));
-  const expPeriodCount = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).length;
-  set('db-stat-expenses-sub', expPeriodCount + ' entries in period');
+  // Expenses KPI — this period total
+  const expMonthTotal = totalExp;
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('db-stat-purchase', fmt_money(totalPur));
+  set('db-stat-purchase-sub', purchases.length + ' bills');
+  set('db-stat-sales', fmt_money(totalSales));
+  set('db-stat-sales-sub', sales.length + ' invoices');
+  set('db-stat-expenses', fmt_money(expMonthTotal));
+  set('db-stat-expenses-sub', (STATE.expenses||[]).length + ' entries in period');
   const profEl = document.getElementById('db-stat-profit');
   if (profEl) { profEl.textContent = fmt_money(netProfit); profEl.style.color = netProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
   set('db-stat-profit-pct', margin.toFixed(1) + '% net margin');
@@ -8633,35 +8640,18 @@ function renderProductDashboard() {
     const outStock  = products.filter(p => getQty(p) <= 0);
     const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
     const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
-
-    // Update alerts card title with badge count
-    const totalAlerts = lowStock.length + outStock.length + pendPay.length + pendColl.length;
-    const alertsTitle = document.querySelector('#db-alerts-card > div:first-child');
-    if (alertsTitle) alertsTitle.innerHTML = `Alerts &amp; Notifications ${totalAlerts > 0 ? `<span style="background:#E53935;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px">${totalAlerts}</span>` : ''}`;
-
-    alertsList.innerHTML = [
-      ...(outStock.map(p => ({
-        icon:'fa-ban', color:'#E53935', bg:'#FFEBEE',
-        label: escHtml(p.name),
-        sub: 'OUT OF STOCK — reorder immediately',
-        n: '0 Kg',
-        onclick: `showPage('products',null)`
-      }))),
-      ...(lowStock.map(p => ({
-        icon:'fa-triangle-exclamation', color:'#E65100', bg:'#FFF3E0',
-        label: escHtml(p.name),
-        sub: `Low stock: ${getQty(p).toFixed(2)} Kg (reorder at ${parseFloat(p.reorder_level).toFixed(2)} Kg)`,
-        n: getQty(p).toFixed(0)+' Kg',
-        onclick: `showPage('products',null)`
-      }))),
-      ...(pendPay.length  ? [{ icon:'fa-file-circle-exclamation', color:'#7B1FA2', bg:'#F3E8FF', label:'Pending Payments', sub: pendPay.length+' supplier bills unpaid — ₹'+fmt_money(pendPay.reduce((s,p)=>s+(parseFloat(p.total)-parseFloat(p.amount_paid||0)),0)), n: pendPay.length, onclick:`showPaymentsPage()` }] : []),
-      ...(pendColl.length ? [{ icon:'fa-hand-holding-dollar', color:'#1976D2', bg:'#E3F2FD', label:'Pending Collections', sub: pendColl.length+' customer invoices outstanding', n: pendColl.length, onclick:`showPaymentsPage()` }] : []),
-    ].map(a => `
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="${a.onclick||''}">
+    const alerts = [
+      ...(lowStock.length ? [{ icon:'fa-triangle-exclamation', color:'#E65100', bg:'#FFF3E0', label:'Low Stock Items', sub: lowStock.length+' items below reorder level', n: lowStock.length }] : []),
+      ...(outStock.length ? [{ icon:'fa-ban', color:'#E53935', bg:'#FFEBEE', label:'Out of Stock', sub: outStock.length+' products have zero stock', n: outStock.length }] : []),
+      ...(pendPay.length  ? [{ icon:'fa-file-circle-exclamation', color:'#7B1FA2', bg:'#F3E8FF', label:'Pending Payments', sub: pendPay.length+' supplier bills unpaid', n: pendPay.length }] : []),
+      ...(pendColl.length ? [{ icon:'fa-hand-holding-dollar', color:'#1976D2', bg:'#E3F2FD', label:'Pending Collections', sub: pendColl.length+' customer invoices outstanding', n: pendColl.length }] : []),
+    ];
+    alertsList.innerHTML = alerts.length ? alerts.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
         <span style="width:34px;height:34px;border-radius:9px;background:${a.bg};color:${a.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px"><i class="fas ${a.icon}"></i></span>
-        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${a.label}</div><div style="font-size:11px;color:var(--muted)">${a.sub}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${escHtml(a.label)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(a.sub)}</div></div>
         <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
-      </div>`).join('') ||
+      </div>`).join('') :
       '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
   }
 
@@ -15629,34 +15619,6 @@ function viewCustomerProfile(id) {
           <div class="sp-empty-sub">Record one from Sales → New Sale Invoice</div>
         </div>`}
     </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-book-open"></i> Party Ledger</div>
-      ${(() => {
-        const allCustSales = (STATE.sales||[]).filter(s => String(s.customer_id) === String(c.id) && s.status !== 'Cancelled').sort((a,b) => a.sale_date.localeCompare(b.sale_date));
-        if (!allCustSales.length) return '<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No transactions</div></div>';
-        let balance = 0;
-        const rows = allCustSales.map(s => {
-          const invoiced = parseFloat(s.total)||0;
-          const received = parseFloat(s.amount_received)||0;
-          balance += invoiced - received;
-          const status = s.payment_status || (balance <= 0 ? 'Paid' : 'Pending');
-          return `<tr>
-            <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
-            <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
-            <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
-            <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
-            <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
-            <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:${status==='Paid'?'#e3f6ea':status==='Partial'?'#FFF3E0':'#FFEBEE'};color:${status==='Paid'?'#0d7a3f':status==='Partial'?'#E65100':'#E53935'}">${status}</span></td>
-          </tr>`;
-        }).join('');
-        return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
-        </table></div>`;
-      })()}
-    </div>
   `;
 
   document.getElementById('cp-foot').innerHTML = `
@@ -15784,8 +15746,7 @@ async function viewSaleDetails(id) {
 
   document.getElementById('sd-foot').innerHTML = `
     <button class="btn btn-outline" onclick="_modalEdit('sale',${s.id},()=>{closeModal('modal-sale-details');editSale(${s.id});})"><i class="fas fa-pen"></i> Edit</button>
-    <button class="btn btn-outline" onclick="printSalePartyCopy(${s.id})"><i class="fas fa-copy"></i> Party Copy</button>
-    <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Tax Invoice</button>
+    <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Print</button>
   `;
 }
 
@@ -15934,36 +15895,6 @@ function viewSupplierProfile(id) {
           <div class="sp-empty-title">No purchases yet</div>
           <div class="sp-empty-sub">Record one from Purchases → New Purchase Invoice</div>
         </div>`}
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-book-open"></i> Party Ledger</div>
-      ${(() => {
-        const allSupPur = (STATE.purchases||[]).filter(p => String(p.supplier_id) === String(s.id)).sort((a,b) => a.purchase_date.localeCompare(b.purchase_date));
-        if (!allSupPur.length) return '<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No transactions</div></div>';
-        let balance = 0;
-        const rows = allSupPur.map(p => {
-          const billed = parseFloat(p.total)||0;
-          const paid2  = parseFloat(p.amount_paid||0);
-          balance += billed - paid2;
-          const status = p.status || (balance <= 0 ? 'Paid' : 'Pending');
-          return `<tr>
-            <td style="font-size:11px">${fmt_date_disp(p.purchase_date)}</td>
-            <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
-            <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
-            <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
-            <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
-            <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:${status==='Paid'?'#e3f6ea':status==='Partial'?'#FFF3E0':'#FFEBEE'};color:${status==='Paid'?'#0d7a3f':status==='Partial'?'#E65100':'#E53935'}">${status}</span></td>
-          </tr>`;
-        }).join('');
-        const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
-        const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
-        return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
-        </table></div>`;
-      })()}
     </div>
   `;
 
@@ -17661,19 +17592,6 @@ function printTaxInvoicePurchase(p) {
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-    .kanta-box { border: 2px solid #0d3b2e; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; background: #f5faf7; }
-    .kanta-title { font-size: 11px; font-weight: 800; color: #0d3b2e; letter-spacing: 1px; margin-bottom: 12px; }
-    .kanta-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; }
-    .kanta-cell { text-align: center; padding: 10px 6px; background: #fff; border-radius: 7px; border: 1px solid #d0e8dc; }
-    .kanta-dhalta { border-color: #c0392b !important; background: #fff9f9 !important; }
-    .kanta-billable { border-color: #0d7a3f !important; background: #f0faf5 !important; }
-    .kanta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .7px; color: #778; margin-bottom: 5px; font-weight: 700; }
-    .kanta-val { font-size: 18px; font-weight: 800; color: #0d3b2e; line-height: 1.1; }
-    .kanta-dhalta .kanta-val { color: #c0392b; }
-    .kanta-billable .kanta-val { color: #0d7a3f; }
-    .kanta-unit { font-size: 11px; font-weight: 400; }
-    .kanta-pct { font-size: 9.5px; color: #889; margin-top: 3px; }
-    .kanta-meta { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #c8ddd5; font-size: 10px; color: #556; }
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
@@ -19458,141 +19376,6 @@ function printSaleInvoice(s) {
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
     <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-// ── FEATURE 4: Sale Invoice — Clean Party (Customer) Copy ─────────────
-async function printSalePartyCopy(id) {
-  try {
-    const r = await api('api/sales.php?id=' + id);
-    _printSalePartyCopy(r.data);
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _printSalePartyCopy(s) {
-  const co = pneCompanyInfo();
-  const items = s.items || [];
-  const grossWt  = parseFloat(s.kanta_gross_weight||0);
-  const tareWt   = parseFloat(s.kanta_tare_weight||0);
-  const netWt    = Math.max(0, grossWt - tareWt);
-  const dhaltaKg = parseFloat(s.kanta_dhalta_kg||0);
-  const billableWt = Math.max(0, netWt - dhaltaKg);
-  const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
-
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>Sale Invoice — ${escHtml(s.invoice_no)}</title><meta charset="utf-8"><style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; color: #1a1a2e; padding: 28px 36px; font-size: 12px; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 20px; font-weight: 900; color: #0d3b2e; }
-    .co-meta { font-size: 10px; color: #667; margin-top: 4px; line-height: 1.7; }
-    .inv-title { text-align: right; }
-    .inv-title .label { font-size: 22px; font-weight: 900; color: #0d3b2e; letter-spacing: 2px; }
-    .inv-title .no { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .inv-title .date { font-size: 11px; color: #667; }
-    .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .party-box { border: 1px solid #dde; border-radius: 8px; padding: 12px 14px; }
-    .party-box h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #889; margin-bottom: 8px; font-weight: 700; }
-    .party-box .name { font-size: 14px; font-weight: 800; color: #0d3b2e; }
-    .party-box .meta { font-size: 10.5px; color: #556; margin-top: 4px; line-height: 1.6; }
-    ${grossWt > 0 ? `.kanta { display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;padding:12px;background:#f5faf7;border:2px solid #0d3b2e;border-radius:8px; }
-    .kanta h3 { font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#0d3b2e;font-weight:800;grid-column:1/-1;margin-bottom:4px; }
-    .kc { text-align:center;background:#fff;border-radius:6px;border:1px solid #d0e8dc;padding:8px 4px; }
-    .kc.dh { border-color:#c0392b;background:#fff9f9; }
-    .kc.bl { border-color:#0d7a3f;background:#f0faf5; }
-    .kc .lbl { font-size:8px;text-transform:uppercase;color:#889;letter-spacing:.5px;margin-bottom:3px; }
-    .kc .val { font-size:16px;font-weight:800; } .kc.dh .val{color:#c0392b;} .kc.bl .val{color:#0d7a3f;}
-    .kc .unit { font-size:10px;font-weight:400; }` : ''}
-    table { width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px; }
-    th { background:#0d3b2e;color:#fff;padding:8px 7px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left; }
-    th.r, td.r { text-align:right; }
-    td { padding:7px;border-bottom:1px solid #eef; }
-    tfoot td { border-top:2px solid #0d3b2e;font-weight:700;background:#f5faf7; }
-    .summary { display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:16px; }
-    .pay-box { }
-    .pay-row { display:flex;justify-content:space-between;padding:6px 0;font-size:11.5px;border-bottom:1px solid #eef; }
-    .pay-grand { display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:800;color:#0d3b2e;border-top:2px solid #0d3b2e;margin-top:4px; }
-    .outstanding { background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center; }
-    .outstanding .lbl { font-size:11px;font-weight:700;color:#c0392b; }
-    .outstanding .val { font-size:16px;font-weight:800;color:#c0392b; }
-    .words { font-size:10.5px;color:#556;font-style:italic;padding:8px 0;border-top:1px dashed #dde;border-bottom:1px dashed #dde;margin-bottom:14px; }
-    .sig-row { display:flex;justify-content:space-between;margin-top:40px; }
-    .sig { width:28%;border-top:1px solid #aab;text-align:center;padding-top:6px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#778; }
-    .footer { margin-top:20px;border-top:1px solid #eef;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#aab; }
-    .party-copy-stamp { position:fixed;top:120px;right:40px;border:3px solid #1976D2;color:#1976D2;font-weight:900;font-size:18px;padding:5px 18px;border-radius:8px;transform:rotate(-12deg);opacity:.6; }
-  </style></head><body>
-    <div class="party-copy-stamp">PARTY COPY</div>
-    <div class="head">
-      <div>
-        ${co.logo ? `<img src="${co.logo}" style="height:56px;margin-bottom:6px;display:block">` : ''}
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-meta">${co.address ? escHtml(co.address)+'<br>' : ''}${co.phone ? 'Tel: '+escHtml(co.phone) : ''}${co.gst ? ' &nbsp;|&nbsp; GSTIN: '+escHtml(co.gst) : ''}</div>
-      </div>
-      <div class="inv-title">
-        <div class="label">INVOICE</div>
-        <div class="no">${escHtml(s.invoice_no)}</div>
-        <div class="date">Date: ${fmt_date_disp(s.sale_date)}</div>
-        ${s.due_date ? `<div class="date">Due: ${fmt_date_disp(s.due_date)}</div>` : ''}
-      </div>
-    </div>
-
-    <div class="parties">
-      <div class="party-box">
-        <h3>Bill To</h3>
-        <div class="name">${escHtml(s.customer_name||'')}</div>
-        <div class="meta">${s.customer_gstin ? 'GSTIN: '+escHtml(s.customer_gstin)+'<br>' : ''}${s.customer_phone ? 'Tel: '+escHtml(s.customer_phone) : ''}</div>
-      </div>
-      <div class="party-box">
-        <h3>Vehicle &amp; Delivery</h3>
-        <div class="meta">${s.vehicle_no ? 'Vehicle: <strong>'+escHtml(s.vehicle_no)+'</strong><br>' : ''}${s.place_of_supply ? 'Place of Supply: '+escHtml(s.place_of_supply)+'<br>' : ''}${s.warehouse ? 'Warehouse: '+escHtml(s.warehouse) : ''}</div>
-      </div>
-    </div>
-
-    ${grossWt > 0 ? `
-    <div class="kanta">
-      <h3>⚖ Kanta / Weight Details</h3>
-      <div class="kc"><div class="lbl">Gross Wt</div><div class="val">${grossWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc"><div class="lbl">Tare Wt</div><div class="val">${tareWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc"><div class="lbl">Net Wt</div><div class="val">${netWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc dh"><div class="lbl">Dhalta</div><div class="val">${dhaltaKg.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc bl"><div class="lbl">Billable Wt</div><div class="val">${billableWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-    </div>` : ''}
-
-    <table>
-      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
-      <tbody>${items.map((it,i) => `<tr>
-        <td>${i+1}</td>
-        <td><strong>${escHtml(it.product_name||it.description||'')}</strong></td>
-        <td>${escHtml(it.variety_grade||'—')}</td>
-        <td class="r">${parseFloat(it.qty||0).toFixed(2)}</td>
-        <td class="r">${fmt_money(it.rate)}</td>
-        <td class="r"><strong>${fmt_money(it.line_total)}</strong></td>
-      </tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3"><strong>TOTAL</strong></td><td class="r"><strong>${items.reduce((s,i)=>s+parseFloat(i.qty||0),0).toFixed(2)}</strong></td><td></td><td class="r"><strong>${fmt_money(s.subtotal||s.total)}</strong></td></tr></tfoot>
-    </table>
-
-    <div class="summary">
-      <div></div>
-      <div class="pay-box">
-        ${(parseFloat(s.transport_charge)||0) > 0 ? `<div class="pay-row"><span>Transport</span><span>${fmt_money(s.transport_charge)}</span></div>` : ''}
-        ${(parseFloat(s.gst_amount)||0) > 0 ? `<div class="pay-row"><span>GST (${parseFloat(s.gst_pct||0).toFixed(0)}%)</span><span>${fmt_money(s.gst_amount)}</span></div>` : ''}
-        <div class="pay-grand"><span>GRAND TOTAL</span><span>${fmt_money(s.total)}</span></div>
-        ${outstanding > 0 ? `<div class="outstanding"><span class="lbl">Outstanding Balance</span><span class="val">${fmt_money(outstanding)}</span></div>` : ''}
-      </div>
-    </div>
-    <div class="words">Amount in Words: <em>${numToWordsINR(s.total)}</em></div>
-
-    <div class="sig-row">
-      <div class="sig">Receiver's Signature</div>
-      <div class="sig">Checked By</div>
-      <div class="sig">For ${escHtml(co.name)}</div>
-    </div>
-    <div class="footer">
-      <span>This is a computer generated invoice</span>
-      <span>Printed: ${fmt_date_disp(new Date())}</span>
-    </div>
-  <script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
