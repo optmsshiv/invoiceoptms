@@ -10,6 +10,11 @@
 ══════════════════════════════════════════ -->
 <?php include __DIR__ . '/modals/promise_to_pay.php'; ?>
 <?php include __DIR__ . '/modals/balance_reminder.php'; ?>
+<?php include __DIR__ . '/modals/mark_paid.php'; ?>
+<?php include __DIR__ . '/modals/add_client.php'; ?>
+<?php include __DIR__ . '/modals/customer_profile.php'; ?>
+<?php include __DIR__ . '/modals/payment_receipt.php'; ?>
+<?php include __DIR__ . '/modals/add_supplier.php'; ?>
 
 <div class="toast-container" id="toastContainer"></div>
 

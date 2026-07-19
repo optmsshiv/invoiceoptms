@@ -6,7 +6,7 @@
 //  1. addProductToInvoice() used to showPage('create') then push
 //     into the in-memory formItems array on the create page. Since
 //     create.php doesn't exist yet, this now redirects to
-//     /pages/create.php?addProduct=ID — create.php will need to
+//     /pages/invoices/create.php?addProduct=ID — create.php will need to
 //     read that param and add the matching product as a line item
 //     once it's built.
 //  2. updateServiceDropdown() (called after add/edit/delete/restore)
@@ -90,6 +90,13 @@ function _renderProdPage() {
 function prodPage(p) { const t = Math.ceil(PROD.list.length / PROD.per); if (p < 1 || p > t) return; PROD.page = p; _renderProdPage(); }
 
 function editProduct(id) {
+  // Product-mode businesses use the full product-new.php page (richer
+  // fields: batch tracking, moisture limits, weighbridge-relevant
+  // attrs, etc.) — service/both keep this lightweight inline-row edit.
+  if (STATE.settings.businessType === 'product') {
+    window.location.href = '/pages/products/product-new.php?id=' + id;
+    return;
+  }
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const catOpts = STATE.categories.map(c => `<option value="${c.name}" ${c.name === p.category ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('');
   const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
@@ -157,9 +164,10 @@ function _showAddProductRow(prefill) {
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
+  const _namePlaceholder = STATE.settings.businessType === 'both' ? 'Item name *' : 'Service name *';
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill ? 'COPY' : 'NEW'}</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill ? escHtml(prefill.name + ' (Copy)') : ''}"></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="${_namePlaceholder}" value="${prefill ? escHtml(prefill.name + ' (Copy)') : ''}"></td>
     <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill ? prefill.rate : 0}"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill ? escHtml(prefill.hsn) : '998314'}" list="hsn-suggestions"></td>
@@ -223,7 +231,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   // create.php isn't built yet — it will need to read ?addProduct=ID
   // and push a matching line item once it exists.
-  window.location.href = '/pages/create.php?addProduct=' + encodeURIComponent(id);
+  window.location.href = '/pages/invoices/create.php?addProduct=' + encodeURIComponent(id);
 }
 
 async function deleteProduct(id) {

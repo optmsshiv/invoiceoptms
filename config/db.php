@@ -27,6 +27,7 @@ define('APP_VERSION', env('APP_VERSION', '2.0.0'));
 define('APP_URL',     env('APP_URL'));
 
 define('SESSION_LIFETIME', (int) env('SESSION_LIFETIME', 7200));
+define('LOCK_MAX_DURATION', (int) env('LOCK_MAX_DURATION', 1800)); // force real logout if locked & unattended this long
 define('UPLOAD_MAX_SIZE',  (int) env('UPLOAD_MAX_SIZE', 3145728));
 define('UPLOAD_PATH',      __DIR__ . '/../assets/uploads/');
 
@@ -87,15 +88,8 @@ function getDB(): PDO {
         $targetDb = $_SESSION['tenant_db'] ?? null;
     }
 
-    // super_admin with no tenant context → throw, don't hard-exit.
-    // This must be CATCHABLE: index.php's settings loader wraps getDB()
-    // in try/catch and should degrade gracefully (matching pre-fix
-    // behavior), while api/*.php endpoints (which already wrap their
-    // logic in try/catch and call jsonResponse on error) will turn this
-    // into a clean JSON error instead of quietly hitting master.
-    if (!$targetDb) {
-        throw new RuntimeException('No database is connected to this session. Super admin: use "Connect Database" first.');
-    }
+    // super_admin with no tenant context → use master
+    if (!$targetDb) return getMasterDB();
 
     // Re-use if same DB
     if ($tenantPdo !== null && $currentDb === $targetDb) return $tenantPdo;
@@ -140,7 +134,7 @@ function getDBByName(string $dbName): PDO {
 }
 
 // ── DB error handler ──────────────────────────────────────────────
-function _dbError(string $message): never {
+function _dbError(string $message): void {
     while (ob_get_level()) ob_end_clean();
     $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
           || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
@@ -155,49 +149,4 @@ function _dbError(string $message): never {
         <p>{$message}</p></body></html>";
     }
     exit;
-}
-
-// ── Stock ledger rebalancer ────────────────────────────────────────
-// After any edit that changes a stock_ledger row (purchase edit, sale edit,
-// stock-in edit, adjustment edit), the running balance_after column in every
-// SUBSEQUENT row for that product becomes stale. This function corrects the
-// full ledger for one or more product IDs in a single pass, so the Stock
-// Transaction Details "Ledger Flow" table always shows accurate history.
-//
-// It does NOT affect what the stock summary/history pages display (those
-// recompute from SUM(in)-SUM(out) directly) — this is purely for the
-// per-row running balance that shows in the audit trail.
-//
-// Called after every PUT (edit) on purchases, sales, stock_in, adjustments.
-// Wrapped in a try-catch so a rebalance failure never rolls back the actual
-// save — the save is the critical operation; the running balance is display.
-function rebalanceStockLedger(PDO $db, array $productIds): void {
-    foreach (array_unique(array_filter($productIds)) as $productId) {
-        try {
-            // Fetch all ledger rows for this product in the order they
-            // were recorded (movement_date ASC, id ASC for same-day stability)
-            $rows = $db->prepare(
-                'SELECT id, direction, qty FROM stock_ledger
-                  WHERE product_id = ?
-                  ORDER BY movement_date ASC, id ASC'
-            );
-            $rows->execute([(int)$productId]);
-            $all = $rows->fetchAll();
-
-            $running = 0.0;
-            $upd = $db->prepare(
-                'UPDATE stock_ledger SET balance_after = ? WHERE id = ?'
-            );
-            foreach ($all as $row) {
-                $qty = (float)$row['qty'];
-                $running = $row['direction'] === 'in'
-                    ? $running + $qty
-                    : $running - $qty;
-                $upd->execute([round($running, 4), $row['id']]);
-            }
-        } catch (\Throwable $e) {
-            // Log but never let a rebalance failure surface to the user
-            error_log("rebalanceStockLedger: product {$productId}: " . $e->getMessage());
-        }
-    }
 }

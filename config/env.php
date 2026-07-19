@@ -45,7 +45,7 @@ function loadEnv(string $path): void {
 }
 
 // Small typed helper so callers don't have to keep casting getenv() output.
-function env(string $key, mixed $default = null): mixed {
+function env(string $key, $default = null) {
     $value = getenv($key);
     if ($value === false) return $default;
 

@@ -68,20 +68,7 @@ function openAddSupplierModal() {
 }
 
 function editSupplier(id) {
-  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
-  SUP.editingId = id;
-  document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
-  document.getElementById('sup-name').value    = s.name || '';
-  document.getElementById('sup-person').value  = s.contact_person || '';
-  document.getElementById('sup-phone').value   = s.phone || '';
-  document.getElementById('sup-email').value   = s.email || '';
-  document.getElementById('sup-gst').value     = s.gst_number || '';
-  document.getElementById('sup-country').value = s.country || 'India';
-  document.getElementById('sup-address').value = s.address || '';
-  document.getElementById('sup-terms').value   = s.payment_terms || '';
-  document.getElementById('sup-opening').value = s.opening_balance || 0;
-  document.getElementById('sup-notes').value   = s.notes || '';
-  openModal('modal-addsupplier');
+  window.location.href = '/pages/suppliers/supplier-new.php?id=' + id;
 }
 
 async function saveSupplier() {

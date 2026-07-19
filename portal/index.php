@@ -12,14 +12,6 @@
 
 require_once __DIR__ . '/../config/db.php';
 
-// This portal is a PUBLIC route — visitors never log in, so there is no
-// session and therefore no $_SESSION['tenant_db'] for getDB() to resolve.
-// It is pinned to one specific database rather than using getDB()'s
-// session-based lookup. If this portal ever needs to serve links from
-// more than one tenant, the token/URL must carry a tenant identifier and
-// this constant becomes a lookup instead of a fixed value.
-define('PORTAL_TENANT_DB', 'edrppymy_optms_invoice');
-
 // Ensure all date()/strtotime() calls below use IST, regardless of the
 // server's default PHP timezone setting.
 date_default_timezone_set('Asia/Kolkata');
@@ -27,12 +19,6 @@ date_default_timezone_set('Asia/Kolkata');
 $rawToken = $_GET['t'] ?? '';
 $src      = $_GET['src'] ?? 'wa';   // 'email' = email portal, 'wa' = WhatsApp portal (default)
 $isEmailPortal = ($src === 'email');
-// Temporary debug mode: add &debug=1783 to the URL to see the real
-// exception message instead of the generic "server error" text.
-// REMOVE this before considering the portal fully fixed — it's only
-// for tracking down this specific issue, not meant to stay live.
-$debugMode = ($_GET['debug'] ?? '') === '1783';
-$debugDetail = '';
 $error    = '';
 $inv      = null;
 $client   = [];
@@ -56,7 +42,7 @@ if (!$rawToken) {
     if (preg_match('/^[0-9a-f]{32}$/', $rawToken)) {
         // ── Format A: hex token — look up in portal_tokens DB ────
         try {
-            $db = getDBByName(PORTAL_TENANT_DB);
+            $db = getDB();
             // Force IST so NOW(), first_viewed, last_viewed are all stored/read in India time
             $db->exec("SET time_zone = '+05:30'");
 
@@ -123,7 +109,6 @@ if (!$rawToken) {
             }
         } catch (Exception $e) {
             error_log('portal hex token lookup error: ' . $e->getMessage());
-            $debugDetail = $e->getMessage();
             $error = 'A server error occurred. Please try again later.';
         }
 
@@ -148,7 +133,7 @@ if (!$rawToken) {
 
 if (!$error && $invoiceId > 0) {
     try {
-        $db = getDBByName(PORTAL_TENANT_DB);
+        $db = getDB();
         $db->exec("SET time_zone = '+05:30'");
 
         // Fetch invoice — look up by id only (the number in the token is just for display)
@@ -228,7 +213,6 @@ if (!$error && $invoiceId > 0) {
         }
     } catch (Exception $e) {
         error_log('portal/index.php error: ' . $e->getMessage());
-        $debugDetail = $e->getMessage();
         $error = 'A server error occurred. Please try again later.';
     }
 }
@@ -866,9 +850,6 @@ body.src-email .view-badge{display:none}
   <i class="fas fa-link-slash" style="font-size:44px;color:#FFCDD2;display:block;margin-bottom:18px"></i>
   <h2 style="font-size:18px;margin-bottom:10px">Link Unavailable</h2>
   <p style="color:var(--muted);font-size:13px;line-height:1.7"><?= htmlspecialchars($error) ?></p>
-  <?php if ($debugMode && $debugDetail): ?>
-  <p style="margin-top:14px;padding:10px 14px;background:#FFF3E0;border-radius:8px;font-size:12px;font-family:monospace;text-align:left;color:#E65100;word-break:break-all"><?= htmlspecialchars($debugDetail) ?></p>
-  <?php endif; ?>
   <div style="margin-top:24px;font-size:12px;color:var(--muted)">
     Powered by <strong><?= htmlspecialchars($companyName) ?></strong>
   </div>

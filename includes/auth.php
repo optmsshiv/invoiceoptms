@@ -26,13 +26,117 @@ function requireLogin(): void {
     if (empty($_SESSION['user_id'])) {
         _authFail('Not authenticated', '/auth/login.php');
     }
-    // Session timeout check
+
+    // Already locked (from a previous idle timeout, another tab, or a
+    // proactive client-triggered lock) — don't let any protected action
+    // through until the correct password is re-entered.
+    if (!empty($_SESSION['locked'])) {
+        // Safety net: if a locked session sits unattended too long, force
+        // a real logout rather than leaving it locked forever.
+        if (!empty($_SESSION['locked_at']) &&
+            (time() - $_SESSION['locked_at']) > LOCK_MAX_DURATION) {
+            doLogout();
+            _authFail('Session expired', '/auth/login.php');
+        }
+        _lockFail();
+    }
+
+    // Idle timeout → lock the session instead of destroying it.
     if (!empty($_SESSION['last_activity']) &&
         (time() - $_SESSION['last_activity']) > SESSION_LIFETIME) {
-        doLogout();
-        _authFail('Session expired', '/auth/login.php');
+        lockSession();
+        _lockFail();
     }
     $_SESSION['last_activity'] = time();
+
+    // Re-issue the session cookie with a fresh expiry so the browser-side
+    // cookie lifetime slides along with server-side activity, instead of
+    // expiring at a fixed time (login time + SESSION_LIFETIME) regardless
+    // of how active the user is.
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + SESSION_LIFETIME,
+            'path'     => $p['path'],
+            'domain'   => $p['domain'],
+            'secure'   => $p['secure'],
+            'httponly' => $p['httponly'],
+            'samesite' => $p['samesite'] ?? 'Lax',
+        ]);
+    }
+}
+
+// ── Lock the current session (idle timeout, or user-triggered) ────
+// Keeps $_SESSION intact (user stays "logged in" server-side) but blocks
+// every protected action until unlockSession() succeeds.
+function lockSession(): void {
+    startSession();
+    if (!empty($_SESSION['user_id']) && empty($_SESSION['locked'])) {
+        $_SESSION['locked']          = true;
+        $_SESSION['locked_at']       = time();
+        $_SESSION['unlock_attempts'] = 0;
+        masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null,
+                        'lock', 'Session locked (idle timeout)');
+    }
+}
+
+function isLocked(): bool {
+    startSession();
+    return !empty($_SESSION['locked']);
+}
+
+// ── Attempt to unlock the current session with the user's password ──
+// Returns an array: ['ok' => bool, 'reason' => string, 'attempts_left' => int]
+function unlockSession(string $password): array {
+    startSession();
+    if (empty($_SESSION['user_id'])) {
+        return ['ok' => false, 'reason' => 'no_session'];
+    }
+
+    $_SESSION['unlock_attempts'] = ($_SESSION['unlock_attempts'] ?? 0) + 1;
+    if ($_SESSION['unlock_attempts'] > 5) {
+        masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null,
+                        'lock_failed', 'Too many failed unlock attempts — forced logout');
+        doLogout();
+        return ['ok' => false, 'reason' => 'too_many_attempts'];
+    }
+
+    try {
+        $stmt = getMasterDB()->prepare('SELECT password FROM users WHERE id = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $hash = $stmt->fetchColumn();
+        if (!$hash || !password_verify($password, $hash)) {
+            return [
+                'ok'            => false,
+                'reason'        => 'wrong_password',
+                'attempts_left' => max(0, 5 - $_SESSION['unlock_attempts']),
+            ];
+        }
+    } catch (Exception $e) {
+        error_log('unlockSession error: ' . $e->getMessage());
+        return ['ok' => false, 'reason' => 'error'];
+    }
+
+    // Correct password — unlock and refresh the session as if freshly active.
+    $_SESSION['locked']          = false;
+    $_SESSION['unlock_attempts'] = 0;
+    unset($_SESSION['locked_at']);
+    $_SESSION['last_activity'] = time();
+
+    if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + SESSION_LIFETIME,
+            'path'     => $p['path'],
+            'domain'   => $p['domain'],
+            'secure'   => $p['secure'],
+            'httponly' => $p['httponly'],
+            'samesite' => $p['samesite'] ?? 'Lax',
+        ]);
+    }
+
+    masterAuditLog($_SESSION['user_id'], $_SESSION['tenant_id'] ?? null, 'unlock', 'Session unlocked');
+    return ['ok' => true];
 }
 
 // ── Require specific role(s) ──────────────────────────────────────
@@ -301,6 +405,33 @@ function getSetting(string $key, string $default = ''): string {
     return $cache[$key];
 }
 
+// ── Session-timeout frontend config ───────────────────────────────
+// Echo this once in your authenticated layout (e.g. right before the
+// closing </body> tag) to wire up assets/js/session-timeout.js:
+//
+//   <?php renderSessionTimeoutAssets(); ?>
+//
+function renderSessionTimeoutAssets(int $warningSeconds = 120): void {
+    if (empty($_SESSION['user_id'])) return; // only needed once logged in
+    $lifetime = SESSION_LIFETIME;
+    $userName = htmlspecialchars($_SESSION['user_name'] ?? '', ENT_QUOTES);
+    echo <<<HTML
+    <script>
+      window.OPTMS_SESSION_CONFIG = {
+        lifetime: {$lifetime},
+        warningSecs: {$warningSeconds},
+        keepaliveUrl: '/includes/session_keepalive.php',
+        lockUrl: '/includes/session_lock.php',
+        unlockUrl: '/includes/session_unlock.php',
+        loginUrl: '/auth/login.php',
+        logoutUrl: '/auth/logout.php',
+        userName: "{$userName}"
+      };
+    </script>
+    <script src="/assets/js/session-timeout.js"></script>
+    HTML;
+}
+
 // ── JSON response helper ──────────────────────────────────────────
 function jsonResponse(mixed $data, int $code = 200): never {
     while (ob_get_level()) ob_end_clean();
@@ -312,6 +443,18 @@ function jsonResponse(mixed $data, int $code = 200): never {
 }
 
 // ── Internal helpers ──────────────────────────────────────────────
+function _lockFail(): never {
+    $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
+          || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'))
+          || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+              strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+    if ($isApi) {
+        jsonResponse(['error' => 'Session locked', 'locked' => true, 'redirect' => '/auth/locked.php'], 423);
+    }
+    header('Location: /auth/locked.php?return=' . urlencode($_SERVER['REQUEST_URI'] ?? '/'));
+    exit;
+}
+
 function _authFail(string $msg, string $redirect): never {
     $isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false
           || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'))
