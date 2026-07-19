@@ -292,6 +292,9 @@ tbody tr:hover td{background:#FAFBFD}
         <button class="btn btn-outline" onclick="openPlanDefaults()">
           <i class="fas fa-sliders-h"></i> Plan Defaults
         </button>
+        <button class="btn btn-outline" onclick="openAttachExisting()">
+          <i class="fas fa-plug"></i> Attach Existing Database
+        </button>
         <button class="btn btn-primary" onclick="openCreateTenant()">
           <i class="fas fa-plus"></i> New Tenant
         </button>
@@ -362,6 +365,14 @@ tbody tr:hover td{background:#FAFBFD}
         </div>
       </div>
       <div class="field">
+        <label>Business Type <span style="font-weight:400;font-size:11px;color:var(--text-mute)">(sets wording on their Products page)</span></label>
+        <select id="t-business-type">
+          <option value="service">Services (consulting, web dev, ERP…)</option>
+          <option value="product">Products (trading, import/export, retail…)</option>
+          <option value="both" selected>Both / Mixed</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Temp Password (leave blank to auto-generate)</label>
         <input id="t-password" class="mono" placeholder="Auto-generated if blank">
       </div>
@@ -375,7 +386,73 @@ tbody tr:hover td{background:#FAFBFD}
   </div>
 </div>
 
-<!-- Tenant Users Modal -->
+<!-- Attach Existing Database Modal -->
+<div class="modal-overlay" id="modal-attach-existing">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-attach-existing')"><i class="fas fa-times"></i></button>
+    <div class="modal-head">
+      <div class="modal-icon"><i class="fas fa-plug"></i></div>
+      <div>
+        <h3>Attach Existing Database</h3>
+        <p>Registers a database that already has data (e.g. an older deployment) as a tenant — no schema is created and no existing data is modified.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="attach-alert"></div>
+      <div class="field">
+        <label>Database Name *</label>
+        <input id="a-dbname" class="mono" placeholder="e.g. edrppymy_oldclient">
+        <div style="font-size:11px;color:var(--text-mute);margin-top:4px">Exact name from cPanel → MySQL Databases</div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Company Name *</label>
+          <input id="a-company" placeholder="Old Client Pvt Ltd">
+        </div>
+        <div class="field">
+          <label>Slug (auto)</label>
+          <input id="a-slug" class="mono" placeholder="old_client">
+        </div>
+      </div>
+      <div class="field">
+        <label>Owner Email * <span style="font-weight:400;font-size:11px;color:var(--text-mute)">(must match an existing user's email inside that database)</span></label>
+        <input id="a-owner-email" type="email" placeholder="owner@oldclient.com">
+      </div>
+      <div class="field">
+        <label>Business Type</label>
+        <select id="a-business-type">
+          <option value="service" selected>Services (Invoices, Clients, Payments)</option>
+          <option value="product">Products (Sales, Purchases, Stock)</option>
+          <option value="both">Both / Mixed</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Phone</label>
+          <input id="a-phone" placeholder="9876543210">
+        </div>
+        <div class="field">
+          <label>Plan</label>
+          <select id="a-plan">
+            <option value="trial">Trial</option>
+            <option value="basic">Basic</option>
+            <option value="pro" selected>Pro</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-mute);background:var(--bg);border-radius:8px;padding:10px 12px;margin-top:4px">
+        <i class="fas fa-circle-info"></i> Existing users keep their current passwords — nothing is reset. Users whose email is already used by another tenant will be skipped and listed after attaching, for you to resolve manually.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-attach-existing')">Cancel</button>
+      <button class="btn btn-primary" onclick="attachExistingTenant()">
+        <i class="fas fa-plug"></i> Attach Database
+      </button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-users">
   <div class="modal" style="max-width:680px">
     <button class="modal-close" onclick="closeModal('modal-users')"><i class="fas fa-times"></i></button>
@@ -658,6 +735,7 @@ async function createTenant() {
     owner_email:  document.getElementById('t-owner-email').value.trim(),
     phone:        document.getElementById('t-phone').value.trim(),
     plan:         document.getElementById('t-plan').value,
+    business_type:document.getElementById('t-business-type').value,
     password:     document.getElementById('t-password').value.trim() || undefined,
   };
   if (!payload.company_name || !payload.owner_email) {
@@ -740,6 +818,61 @@ async function finishProvision() {
 }
 
 // ── Suspend / Activate ──────────────────────────────────────────
+function openAttachExisting() {
+  document.getElementById('attach-alert').innerHTML = '';
+  ['a-dbname','a-company','a-slug','a-owner-email','a-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('modal-attach-existing').classList.add('open');
+}
+
+document.getElementById('a-company').addEventListener('input', function() {
+  const slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  document.getElementById('a-slug').value = slug;
+});
+
+async function attachExistingTenant() {
+  const payload = {
+    db_name:      document.getElementById('a-dbname').value.trim(),
+    company_name: document.getElementById('a-company').value.trim(),
+    slug:         document.getElementById('a-slug').value.trim(),
+    owner_email:  document.getElementById('a-owner-email').value.trim(),
+    business_type:document.getElementById('a-business-type').value,
+    phone:        document.getElementById('a-phone').value.trim(),
+    plan:         document.getElementById('a-plan').value,
+  };
+  if (!payload.db_name || !payload.company_name || !payload.owner_email) {
+    showAlert('attach-alert', 'Database name, company name and owner email are required', 'error');
+    return;
+  }
+  const btn = event.target.closest('button');
+  btn.disabled = true; btn.textContent = 'Attaching…';
+  try {
+    const r = await fetch('/api/tenant.php?action=attach_existing', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (data.success) {
+      let html = `✅ ${esc(data.message)}<br><strong>Login:</strong> ${esc(data.owner_email)}<br><strong>DB:</strong> ${esc(data.db_name)}<br><em>Their existing password still works — nothing was reset.</em>`;
+      if (data.migrated_users?.length) {
+        html += `<br><br><strong>Migrated (${data.migrated_users.length}):</strong><br>` +
+          data.migrated_users.map(u => `${esc(u.email)} (${esc(u.role)})`).join('<br>');
+      }
+      if (data.skipped_users?.length) {
+        html += `<br><br><strong style="color:#c0392b">Needs manual review (${data.skipped_users.length}):</strong><br>` +
+          data.skipped_users.map(u => `${esc(u.email||'id '+u.old_id)} — ${esc(u.reason)}`).join('<br>');
+      }
+      showAlert('attach-alert', html, 'success');
+      loadTenants();
+    } else {
+      showAlert('attach-alert', data.error || 'Failed', 'error');
+    }
+  } catch(e) {
+    showAlert('attach-alert', 'Network error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Attach Database';
+  }
+}
+
 async function suspendTenant(id) {
   if (!confirm('Suspend this tenant? Their users will not be able to log in.')) return;
   await fetch('/api/tenant.php?action=suspend', {

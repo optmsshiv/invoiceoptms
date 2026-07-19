@@ -22,13 +22,6 @@ ServerSignature Off
     Deny from all
 </FilesMatch>
 
-# ── Protect PHP's default error_log files (no dot before "log",
-#    so the pattern above doesn't catch them) ────────────────────
-<Files "error_log">
-    Order allow,deny
-    Deny from all
-</Files>
-
 # ── Block direct access to config & includes ────────────────────
 <FilesMatch "^(db|auth)\.php$">
     Order allow,deny

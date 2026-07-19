@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   `company_name` VARCHAR(200)     NOT NULL,
   `db_name`      VARCHAR(100)     NOT NULL COMMENT 'optms_acme',
   `plan`         ENUM('trial','basic','pro','enterprise') NOT NULL DEFAULT 'trial',
+  `business_type` ENUM('service','product','both') NOT NULL DEFAULT 'both' COMMENT 'Controls which menu the tenant sees — mirrored into the tenant DB\'s own settings table too',
   `status`       ENUM('active','suspended','cancelled')   NOT NULL DEFAULT 'active',
   `trial_ends`   DATE             NULL     DEFAULT NULL,
   `owner_email`  VARCHAR(200)     NOT NULL,
@@ -116,73 +117,3 @@ VALUES
   (NULL, 'Super Admin', 'superadmin@optmstech.in',
    '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
    'super_admin', 'active');
-
-
--- ── Permission system ────────────────────────────────────────────
--- Matches the confirmed-working live schema exactly (verified against
--- an actual database export) — see config/migrations/003_*.sql for
--- the note on why 4 extra keys (menu.suppliers/purchases/sales/stock)
--- are seeded here beyond what the original SPA used.
-CREATE TABLE IF NOT EXISTS `permissions` (
-    `id`               INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `key`              VARCHAR(80) NOT NULL,
-    `label`            VARCHAR(150) NOT NULL,
-    `category`         ENUM('menu','action') NOT NULL DEFAULT 'menu',
-    `default_min_role` ENUM('viewer','sales','accountant','manager','admin','owner') NOT NULL DEFAULT 'viewer',
-    `sort_order`       INT(11) NOT NULL DEFAULT 0,
-    UNIQUE KEY `uk_key` (`key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `plan_permissions` (
-    `id`             INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `plan`           ENUM('trial','basic','pro','enterprise') NOT NULL,
-    `permission_key` VARCHAR(80) NOT NULL,
-    `enabled`        TINYINT(1) NOT NULL DEFAULT 1,
-    UNIQUE KEY `uk_plan_key` (`plan`, `permission_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `tenant_permission_overrides` (
-    `id`             INT(10) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `tenant_id`      INT(10) UNSIGNED NOT NULL,
-    `permission_key` VARCHAR(80) NOT NULL,
-    `enabled`        TINYINT(1) NOT NULL COMMENT '1 = force on, 0 = force off',
-    `set_by`         INT(10) UNSIGNED DEFAULT NULL,
-    `created_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY `uk_tenant_key` (`tenant_id`, `permission_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-INSERT INTO `permissions` (`key`, `label`, `category`, `default_min_role`, `sort_order`) VALUES
-('menu.dashboard',    'Dashboard',            'menu', 'viewer',     10),
-('menu.invoices',     'Invoices',             'menu', 'viewer',     20),
-('menu.create',       'New Invoice',          'menu', 'sales',      30),
-('menu.clients',      'Clients',              'menu', 'viewer',     40),
-('menu.products',     'Services / Products',  'menu', 'sales',      50),
-('menu.suppliers',    'Suppliers',            'menu', 'sales',      51),
-('menu.purchases',    'Purchases',            'menu', 'sales',      52),
-('menu.sales',        'Sales',                'menu', 'sales',      53),
-('menu.stock',        'Stock Ledger',         'menu', 'sales',      54),
-('menu.payments',     'Payments',             'menu', 'accountant', 60),
-('menu.credit_notes', 'Credit Notes',         'menu', 'accountant', 70),
-('menu.reports',      'Reports',              'menu', 'manager',    80),
-('menu.aging',        'Aging Report',         'menu', 'manager',    90),
-('menu.expenses',     'Expenses',             'menu', 'accountant', 100),
-('menu.tax',          'Tax Summary',          'menu', 'accountant', 110),
-('menu.reminders',    'Reminders',            'menu', 'manager',    120),
-('menu.recurring',    'Recurring',            'menu', 'manager',    130),
-('menu.portal',       'Client Portal',        'menu', 'viewer',     140),
-('menu.activity',     'Activity Log',         'menu', 'manager',    150),
-('menu.templates',    'PDF Templates',        'menu', 'admin',      160),
-('menu.whatsapp',     'WhatsApp Setup',       'menu', 'admin',      170),
-('menu.email_setup',  'Email Setup',          'menu', 'admin',      180),
-('menu.settings',     'Settings',             'menu', 'owner',      190),
-('menu.backup',       'Backup & Export',      'menu', 'owner',      200),
-('menu.team',         'Team',                 'menu', 'owner',      210),
-('menu.msglog',       'Message Log',          'menu', 'viewer',     220),
-('action.delete',        'Delete Records',       'action', 'manager', 300),
-('action.archive',       'Archive Records',      'action', 'manager', 310),
-('action.edit',          'Edit Records',         'action', 'sales',   320),
-('action.create',        'Create Records',       'action', 'sales',   330),
-('action.approve_edits', 'Approve Edit Requests','action', 'admin',   340)
-ON DUPLICATE KEY UPDATE
-    `label` = VALUES(`label`), `category` = VALUES(`category`),
-    `default_min_role` = VALUES(`default_min_role`), `sort_order` = VALUES(`sort_order`);
