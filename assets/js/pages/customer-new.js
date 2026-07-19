@@ -31,7 +31,7 @@ function cancelCustomerEntry() {
   window.location.href = '/pages/customers.php';
 }
 
-function cusnAddDocs(files) {
+async function cusnAddDocs(files) {
   for (const f of Array.from(files)) { const url = await cusnFileToDataUrl(f); if (url) CUSN.docs.push({ name: f.name, url }); }
   document.getElementById('cusn-docs-input').value = '';
   renderCusnDocs();
@@ -44,7 +44,7 @@ function onCusnSameAddrToggle() {
   if (same) document.getElementById('cusn-shipping').value = document.getElementById('cusn-billing').value;
 }
 
-function saveCustomerEntry(mode) {
+async function saveCustomerEntry(mode) {
   const name = document.getElementById('cusn-name').value.trim();
   if (!document.getElementById('cusn-type').value) { toast('⚠️ Select a customer type', 'warning'); return; }
   if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
@@ -126,7 +126,7 @@ function renderCusnDocs() {
 
 function cusnRemoveDoc(idx) { CUSN.docs.splice(idx, 1); renderCusnDocs(); }
 
-function populateCusnSalesPersonDropdown() {
+async function populateCusnSalesPersonDropdown() {
   const sel = document.getElementById('cusn-salesperson');
   if (!sel) return;
   try {

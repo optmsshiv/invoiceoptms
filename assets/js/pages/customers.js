@@ -57,7 +57,7 @@ function custOverdueTotal() {
   }, 0);
 }
 
-function deleteCustomerRich(id) {
+async function deleteCustomerRich(id) {
   if (!assertCanDelete('this customer')) return;
   const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
   const conf = await Swal.fire({
@@ -216,7 +216,7 @@ function viewCustomerProfile(id) {
   openModal('modal-customer-profile');
 }
 
-function restoreCustomer(id) {
+async function restoreCustomer(id) {
   const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
   try {
     await api('/api/customers.php?action=restore&id=' + id, 'POST');

@@ -209,7 +209,7 @@ function goToNewCustomerFromSale() {
   window.location.href = '/pages/customer-new.php?return_to=sale-new';
 }
 
-function onCustomerPicked() {
+async function onCustomerPicked() {
   const id = document.getElementById('sn-customer').value;
   if (!id) { clearCustomerAutofill(); document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>'; return; }
   const c = STATE.customers.find(x => String(x.id) === String(id));
@@ -253,7 +253,7 @@ function printCurrentSaleInvoice() {
   toast('⚠️ Save this sale first, then Print Invoice will open the actual invoice', 'warning');
 }
 
-function saveSaleEntry(mode) {
+async function saveSaleEntry(mode) {
   const customerId = document.getElementById('sn-customer').value;
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
   if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
@@ -335,7 +335,7 @@ function saveSaleEntry(mode) {
   finally { if (btn) btn.disabled = false; }
 }
 
-function snAddAttachments(files) {
+async function snAddAttachments(files) {
   for (const f of Array.from(files)) { const url = await snFileToDataUrl(f); if (url) SN.attachments.push({ name: f.name, url }); }
   document.getElementById('sn-attachments-input').value = '';
   renderSNAttachments();
@@ -515,7 +515,7 @@ function updateSNPartialCard(grand, payStatus) {
   document.getElementById('sn-partial-bar').style.width = pct.toFixed(1) + '%';
 }
 
-function printSaleEntry(id) {
+async function printSaleEntry(id) {
   try {
     const r = await api('/api/sales.php?id=' + id);
     printSaleInvoice(r.data);

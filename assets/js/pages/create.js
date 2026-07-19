@@ -220,52 +220,59 @@ function livePreview() {
 function markFormPaid() { openPaidModal(null); }
 
 function onServiceSelect(val) {
-//   if (!val) return;
-   // Sync text input
-//   const customInp = document.getElementById('f-service-custom');
-//   if (customInp) customInp.value = val;
-   // Auto-fill first line item if it's empty
-//   if (formItems.length === 1 && !formItems[0].desc && !formItems[0].rate) {
-//     const sel = document.getElementById('f-service');
-//     const opt = sel ? Array.from(sel.options).find(o => o.value === val) : null;
-//     if (opt) {
-//       const rate    = parseFloat(opt.dataset.rate) || 0;
-//       const gst     = parseFloat(opt.dataset.gst)  || 0;
-//       const itype   = opt.dataset.type || 'Service';
-//       formItems[0].desc     = val;
-//       formItems[0].rate     = rate;
-//       formItems[0].gst      = gst;
-//       formItems[0].itemType = itype;
-//       renderFormItems();
-//       livePreview();
-//       if (rate > 0) toast(`✅ Auto-filled: ${val} @ ₹${rate.toLocaleString(_moneyLocale())} | GST ${gst}%`, 'success');
-//     }
-//   }
-// }
+  if (!val) return;
+  const customInp = document.getElementById('f-service-custom');
+  if (customInp) customInp.value = val;
+}
 
 function onStatusChange(newStatus) {
-//  const numEl = document.getElementById('f-num');
-//  if (!numEl) return;
-//  const current = numEl.value || '';
-//  const pfx    = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
-//  const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
-//  if (newStatus === 'Estimate') {
-//    // Switch invoice prefix to estimate prefix
-//    if (current.startsWith(pfx)) {
-//      numEl.value = current.replace(pfx, estPfx);
-//    } else if (!current.startsWith(estPfx)) {
-//      numEl.value = estPfx + '001';
-//    }
-//  } else {
-//    // Switch estimate prefix back to invoice prefix when moving away from Estimate
-//    if (current.startsWith(estPfx)) {
-//      numEl.value = current.replace(estPfx, pfx);
-//    } else if (current.startsWith('QT-')) {
-//      // Legacy fallback for old QT- numbers
-//      numEl.value = pfx + '001';
-//    }
-//  }
-//}
+    const numEl = document.getElementById('f-num');
+    if (!numEl) return;
+
+    const estPfx = STATE.settings.estPrefix || ('QT-' + new Date().getFullYear() + '-');
+    const invPfx = STATE.settings.prefix    || ('OT-' + new Date().getFullYear() + '-');
+
+    if (newStatus === 'Estimate') {
+        // If editing a Draft, rename its INV- number to QT- prefix (keep sequence)
+        if (STATE.editingInvoiceId && STATE._editOrigStatus === 'Draft') {
+            const current = numEl.value || '';
+            const seqMatch = current.match(/(\d+)$/);
+            const seq = seqMatch ? seqMatch[1] : '001';
+            numEl.value = estPfx + seq.padStart(3, '0');
+            return;
+        }
+        // New estimate — auto-generate next QT number
+        let nextSeq = 1;
+        STATE.invoices.forEach(inv => {
+            const n = inv.num || inv.invoice_number || '';
+            if (n.startsWith(estPfx)) {
+                const seq = parseInt(n.slice(estPfx.length), 10);
+                if (!isNaN(seq) && seq >= nextSeq) nextSeq = seq + 1;
+            }
+        });
+        if (nextSeq === 1) {
+            const estCount = STATE.invoices.filter(i => i.status === 'Estimate').length;
+            if (estCount > 0) nextSeq = estCount + 1;
+        }
+        numEl.value = estPfx + String(nextSeq).padStart(3, '0');
+        return;
+    }
+
+    // Switching back to Invoice from Estimate: regenerate invoice number
+    const current = numEl.value || '';
+    if (current.startsWith(estPfx)) {
+        let nextInvSeq = 1;
+        STATE.invoices.forEach(inv => {
+            const n = inv.num || inv.invoice_number || '';
+            if (n.startsWith(invPfx)) {
+                const seq = parseInt(n.slice(invPfx.length), 10);
+                if (!isNaN(seq) && seq >= nextInvSeq) nextInvSeq = seq + 1;
+            }
+        });
+        if (nextInvSeq === 1 && STATE.invoices.length > 0) nextInvSeq = STATE.invoices.length + 1;
+        numEl.value = invPfx + String(nextInvSeq).padStart(3, '0');
+    }
+}
 
 function openProductPicker() {
   const list = document.getElementById('productPickerList');

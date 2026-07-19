@@ -114,7 +114,7 @@ function renderSales() {
   }).join('');
 }
 
-function deleteSale(id) {
+async function deleteSale(id) {
   if (!assertCanDelete('this sale')) return;
   const s = (STATE.sales||[]).find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
@@ -137,7 +137,7 @@ function editSale(id) {
   window.location.href = '/pages/sale-new.php?edit_id=' + id;
 }
 
-function viewSaleDetails(id) {
+async function viewSaleDetails(id) {
   openModal('modal-sale-details');
   document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
   document.getElementById('sd-body').innerHTML = '';
@@ -337,7 +337,7 @@ function populateSaleCustomerDropdown() {
   if (cur) sel.value = cur;
 }
 
-function populateSalesExecDropdown(selected, selectId) {
+async function populateSalesExecDropdown(selected, selectId) {
   selectId = selectId || 'sn-salesexec';
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -491,7 +491,7 @@ function printSaleInvoice(s) {
   win.document.close();
 }
 
-function printSalePartyCopy(id) {
+async function printSalePartyCopy(id) {
   try {
     const r = await api('/api/sales.php?id=' + id);
     _printSalePartyCopy(r.data);
@@ -710,7 +710,7 @@ function delMenuItem(onclick, label = 'Delete') {
   return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
 }
 
-function renderCustomersList() {
+async function renderCustomersList() {
   try {
     // Fetch both active and archived so the Status filter and Restore
     // action have real data to work with (previously only active ones

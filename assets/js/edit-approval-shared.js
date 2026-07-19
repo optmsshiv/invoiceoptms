@@ -15,8 +15,7 @@ const EAR = {
 };
 let EAR_ADMIN_PENDING = [];
 
---- requestEditApproval (lines approx) ---
-function requestEditApproval(entityType, entityId, entityLabel, editFn) {
+async function requestEditApproval(entityType, entityId, entityLabel, editFn) {
   EAR.entityType  = entityType;
   EAR.entityId    = entityId;
   EAR.entityLabel = entityLabel;
@@ -37,14 +36,12 @@ function requestEditApproval(entityType, entityId, entityLabel, editFn) {
   } catch(e) { /* no existing request, show request form */ }
 }
 
---- hasActiveApproval (lines approx) ---
 function hasActiveApproval(entityType, entityId) {
   return EAR.approvedFor &&
     EAR.approvedFor.entityType === entityType &&
     String(EAR.approvedFor.entityId) === String(entityId);
 }
 
---- editWithApproval (lines approx) ---
 function editWithApproval(entityType, entityId, entityLabel, editFn) {
   if (canDo('edit') || hasActiveApproval(entityType, entityId)) {
     editFn();
@@ -53,14 +50,12 @@ function editWithApproval(entityType, entityId, entityLabel, editFn) {
   }
 }
 
---- proceedWithEdit (lines approx) ---
 function proceedWithEdit() {
   closeModal('modal-edit-approval');
   clearInterval(EAR.pollTimer);
   if (EAR.editCallback) EAR.editCallback();
 }
 
---- _earShowApproved (lines approx) ---
 function _earShowApproved(req) {
   _earShowView('approved');
   const byEl = document.getElementById('ear-approved-by');
@@ -76,7 +71,6 @@ function _earShowApproved(req) {
   }, 2000);
 }
 
---- _earShowView (lines approx) ---
 function _earShowView(view) {
   ['request','waiting','approved','rejected'].forEach(v => {
     const el = document.getElementById(`ear-${v}-view`);
@@ -84,7 +78,6 @@ function _earShowView(view) {
   });
 }
 
---- _earStartPolling (lines approx) ---
 function _earStartPolling() {
   clearInterval(EAR.pollTimer);
   EAR.pollTimer = setInterval(async () => {
@@ -104,7 +97,6 @@ function _earStartPolling() {
   }, 10000); // poll every 10 seconds
 }
 
---- _earShowRejected (lines approx) ---
 function _earShowRejected(req) {
   _earShowView('rejected');
   const byEl = document.getElementById('ear-rejected-by');
@@ -113,8 +105,7 @@ function _earShowRejected(req) {
   if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : 'No reason given.';
 }
 
---- consumeEditApproval (lines approx) ---
-function consumeEditApproval() {
+async function consumeEditApproval() {
   if (!EAR.requestId) return;
   const id = EAR.requestId;
   EAR.requestId = null;
@@ -125,7 +116,6 @@ function consumeEditApproval() {
   } catch(e) { /* non-fatal — server also expires it on next poll */ }
 }
 
---- canDo (lines approx) ---
 function canDo(action) {
   if (action === 'delete')  return SERVER.canDelete  === true;
   if (action === 'archive') return SERVER.canArchive === true;
@@ -134,7 +124,6 @@ function canDo(action) {
   return true;
 }
 
---- assertCanDelete (lines approx) ---
 function assertCanDelete(entityName = 'this record') {
   if (!canDo('delete')) {
     Swal.fire({ title: 'Permission Denied', html: `You don't have permission to delete ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant delete access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });

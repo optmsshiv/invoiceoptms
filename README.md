@@ -22,11 +22,19 @@ This is the **entire project**, ready to deploy wholesale — not a diff. It rep
 
 **This package does not include `.env`** (it has your DB credentials and secrets — I don't want to risk you deploying a stale/wrong one over your working one). **Keep your existing `.env` on the server exactly as it is.** Everything else here is safe to overwrite.
 
+## Changelog — round 3 fixes (after your syntax error report + DB dump)
+
+- **12 functions across 4 files were missing `async`** despite using `await` — a gap in my earlier extraction script that a plain browser load wouldn't catch until that exact code path ran. Found via `node --check` on every file (real syntax validation, not pattern-matching) plus your two reported errors. Fixed in `sales-shared.js`, `edit-approval-shared.js`, `sale-new.js`, `customer-new.js`, `customers.js`.
+- **`edit-approval-shared.js` had 11 leftover extraction debug comments** (`--- functionName ---`) that aren't valid JS syntax at all — this was your exact reported error. Stripped.
+- **`create.js`'s `onServiceSelect()` and `onStatusChange()` were built from entirely commented-out dead code** in your source file — your SPA has both an active version and an earlier, fully-commented-out duplicate of each function, and my extraction script grabbed the wrong (commented) one both times, leaving an unclosed brace that broke the entire file's parsing. Replaced both with the real, active versions from your source. Audited all 706 functions I've ever extracted for this same pattern — only these two were affected.
+- **Migration SQL was completely rewritten** after you shared your real master DB dump — the previous version would have failed outright (`permissions.label` is `NOT NULL` with no default, and I never provided one). Also corrected a wrong assumption: `menu.sales` and `menu.stock` already exist in your permissions table; only `menu.customers` and `menu.stock_history` are genuinely new. See `migrations/add_new_permission_keys.sql`.
+- Every JS file now passes `node --check` (real syntax validation) and every PHP page has been re-verified for balanced markup.
+
 ## Deploy steps
 
 1. **Back up your entire live site and DB first.** This is a full cutover, not an incremental patch.
 2. Upload everything in this package to your server root, **except `.env`** — let it overwrite everything else, including your current `index.php`, `dashboard.php`, and everything under `assets/`, `includes/`, `pages/`.
-3. Run both files in `migrations/` against your **master** database (verify column names against your actual schema first — see comments in each file).
+3. Run `migrations/add_new_permission_keys.sql` against your **master** database.
 4. Clear any PHP opcode cache if your host uses one (cPanel: usually not needed, but worth knowing).
 5. Visit your site root. It should now redirect straight to `/dashboard.php`.
 
