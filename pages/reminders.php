@@ -132,6 +132,6 @@ require_once __DIR__ . '/../includes/layout_header.php';
 
 
 <?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/pages/shared-data.js"></script>
-<script src="/assets/js/pages/wa-shared.js"></script>
+<script src="/assets/js/shared-data.js"></script>
+<script src="/assets/js/wa-shared.js"></script>
 <script src="/assets/js/pages/reminders.js"></script>

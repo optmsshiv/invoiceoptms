@@ -1,185 +1,50 @@
-# OPTMS Tech Invoice Manager — PHP/MySQL Setup Guide
+# AgriTrade Invoice Manager — Complete Project (Full MPA Cutover)
 
-## Requirements
-- PHP 8.0+
-- MySQL 8.0+ or MariaDB 10.6+
-- Apache with mod_rewrite enabled (or Nginx)
-- Composer (optional, for future packages)
+This is the **entire project**, ready to deploy wholesale — not a diff. It replaces your incremental deployment from before. `dashboard.php` stays at your project root, as requested.
 
----
+## What changed from your original zip
 
-## Quick Setup
+- **`index.php`** — no longer renders the SPA. It now just checks login and redirects to `/dashboard.php`. The original 30,000-line SPA is preserved untouched as **`index_spa_backup.php`** (not linked anywhere, inert) in case you need to roll back — rename it to `index.php` to restore the old behavior.
+- **`dashboard.php`** — fixed: its own includes were written as if it lived in `/pages/dashboard.php` (using `../` paths), but the file is at your root. This would have fatal-errored the moment anyone loaded it. Paths fixed to be root-relative. Also added `invoice-render-shared.js` to its scripts so the "click an invoice to preview" feature works from the dashboard.
+- **`includes/auth.php`** — added `renderSessionTimeoutAssets()`, which was missing (only existed in the unused `includes/new_auth.php`) and was causing a fatal error on every single page. **This was your 500 error.**
+- **`includes/layout_header.php` / `layout_footer.php`** — nav additions (Sales, Customers, Stock History), dashboard href fixed to `/dashboard.php`, +4 global modal includes.
+- **`includes/modals/`** — 4 files that `layout_footer.php` already referenced but didn't exist (fatal error #2, now fixed).
+- **`assets/css/app-core.css`** (new file) — 1,391 lines of CSS that were embedded inline in the old SPA's `<style>` tags and never made it into an external stylesheet. Without this, every new page's card/grid layouts fell back to unstyled stacking. Loaded after `app.css` in `layout_header.php`.
+- **File organization**: JS files used by 2+ pages (`shared-data.js`, `wa-shared.js`, `edit-approval-shared.js`, `stock-shared.js`, `sales-shared.js`, `invoice-render-shared.js`) now live at `assets/js/` (matching where `common.js` and `dashboard.js` already were) instead of `assets/js/pages/`. Page-specific files stay in `assets/js/pages/`. All `<script>` tags updated to match.
+- **`assets/js/suppliers.js`, `purchases.js`, `payments.js`** — replaced (confirmed stale against your current app — see full detail in the git history of our conversation, or ask me to re-explain).
+- **36 new pages** in `pages/` covering Stock, Sales, Customers, Invoices, Payments, Products, Purchases, Suppliers, Finance, Comms, and Admin.
 
-### 1. Place Files
-Copy the entire `optms_invoice/` folder into your web root:
-```
-/var/www/html/optms_invoice/     ← Linux/Apache
-C:\xampp\htdocs\optms_invoice\   ← XAMPP Windows
-/Applications/MAMP/htdocs/optms_invoice/ ← MAMP Mac
-```
+## What did NOT change (copied through as-is)
 
-### 2. Create Database
-Open phpMyAdmin or MySQL CLI and run:
-```sql
-source /path/to/optms_invoice/config/schema.sql
-```
-Or paste the contents of `config/schema.sql` into phpMyAdmin SQL tab.
+`api/` (all 39 endpoints), `config/`, `auth/`, `admin/` (super admin panel), `portal/` (public client portal), `.htaccess`, `composer.json/lock`.
 
-### 3. Configure Database
-Edit `config/db.php`:
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'optms_invoice');
-define('DB_USER', 'your_mysql_username');
-define('DB_PASS', 'your_mysql_password');
-define('APP_URL', 'http://localhost/optms_invoice');
-```
+## Critical: your `.env` file
 
-### 4. Copy the App JS/CSS
-From `optms_invoice_manager_v6.html`:
-- Copy everything between `<style>` and `</style>` → paste into `assets/css/app.css`
-- Copy everything between `<script>` tags (the main app block) → paste into `index.php` before the closing `</body>`, **above** the `assets/js/app.js` script tag
+**This package does not include `.env`** (it has your DB credentials and secrets — I don't want to risk you deploying a stale/wrong one over your working one). **Keep your existing `.env` on the server exactly as it is.** Everything else here is safe to overwrite.
 
-### 5. Set Permissions
-```bash
-chmod 755 assets/uploads/
-chmod 644 config/db.php
-```
+## Deploy steps
 
-### 6. Open in Browser
-```
-http://localhost/optms_invoice/
-```
-You'll be redirected to the login page.
+1. **Back up your entire live site and DB first.** This is a full cutover, not an incremental patch.
+2. Upload everything in this package to your server root, **except `.env`** — let it overwrite everything else, including your current `index.php`, `dashboard.php`, and everything under `assets/`, `includes/`, `pages/`.
+3. Run both files in `migrations/` against your **master** database (verify column names against your actual schema first — see comments in each file).
+4. Clear any PHP opcode cache if your host uses one (cPanel: usually not needed, but worth knowing).
+5. Visit your site root. It should now redirect straight to `/dashboard.php`.
 
----
+## Rollback plan
 
-## Default Login
-| Field    | Value                   |
-|----------|-------------------------|
-| Email    | admin@optmstech.in      |
-| Password | Admin@1234              |
+If something's badly broken and you need the SPA back immediately:
+1. Rename `index_spa_backup.php` → `index.php` (overwriting the redirect version)
+2. Your site is back to exactly how it was before this cutover — nothing else needs to change, since the SPA is self-contained and doesn't depend on any of the new `/pages/*.php` files.
 
-**⚠️ Change the password immediately after first login.**
+## Testing checklist
 
----
+- [ ] Site root redirects to `/dashboard.php` when logged in, to `/auth/login.php` when not
+- [ ] Dashboard loads with real data (revenue chart, stats, recent activity)
+- [ ] Every sidebar link works and shows correctly filtered data
+- [ ] Sidebar shows/hides Sales, Customers, and the right Products/Payments view per your tenant's Business Type — now that the earlier 500 error is fixed, this should resolve on its own; check it explicitly
+- [ ] Full checklist from the previous delivery still applies: create/edit flows in Stock, Sales, Invoices, Payments, Products, Purchases, Suppliers; Finance reports load; WhatsApp/Email send; Recurring schedules
+- [ ] Browser console clean on every page — tell me about anything logged
 
-## Folder Structure
-```
-optms_invoice/
-├── index.php               ← Main app (requires login)
-├── .htaccess               ← Apache security rules
-├── README.md
-│
-├── auth/
-│   ├── login.php           ← Login page
-│   ├── logout.php          ← Clears session, redirects
-│   └── forgot_password.php ← Password reset request
-│
-├── config/
-│   ├── db.php              ← DB credentials + PDO connection
-│   └── schema.sql          ← Database tables + default data
-│
-├── includes/
-│   └── auth.php            ← Session, login, logout helpers
-│
-├── api/
-│   ├── invoices.php        ← GET/POST/PUT/DELETE invoices
-│   ├── clients.php         ← GET/POST/PUT/DELETE clients
-│   ├── products.php        ← GET/POST/PUT/DELETE products/services
-│   ├── payments.php        ← GET/POST payments
-│   ├── reports.php         ← GET report data (summary + charts)
-│   ├── settings.php        ← GET/POST company settings
-│   └── upload.php          ← POST file uploads (logo, signature)
-│
-└── assets/
-    ├── css/
-    │   └── app.css         ← Paste CSS from v6 HTML here
-    ├── js/
-    │   └── app.js          ← API override layer (already complete)
-    ├── img/                ← Static images
-    └── uploads/            ← User-uploaded logos & signatures
-```
+## If something's still broken
 
----
-
-## How the Architecture Works
-
-```
-Browser                    PHP/Apache               MySQL
-   │                           │                      │
-   │── GET /index.php ─────────▶ requireLogin()        │
-   │                           │── SELECT user ───────▶│
-   │◀── HTML + SERVER{} ───────│                       │
-   │                           │                       │
-   │── fetch('api/invoices')──▶│── SELECT invoices ───▶│
-   │◀── JSON [{...}] ──────────│◀── rows ──────────────│
-   │                           │                       │
-   │── saveInvoice() JS ───────│                       │
-   │── fetch('api/invoices',   │                       │
-   │         POST, payload) ──▶│── INSERT invoice ────▶│
-   │◀── {success:true} ────────│◀── lastInsertId ──────│
-```
-
-- `index.php` gates the entire app behind PHP session auth
-- On load, JS calls all 4 API endpoints in parallel to populate STATE
-- All create/edit/delete actions call the API which writes to MySQL
-- The `assets/js/app.js` overrides the in-memory save functions with API calls
-- Falls back gracefully if API fails (keeps working with in-memory data)
-
----
-
-## API Reference
-
-### Invoices
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET    | api/invoices.php | List all invoices |
-| GET    | api/invoices.php?id=5 | Get single invoice with items |
-| GET    | api/invoices.php?status=Paid&from=2025-01-01 | Filter |
-| POST   | api/invoices.php | Create invoice (JSON body) |
-| PUT    | api/invoices.php?id=5 | Update invoice |
-| DELETE | api/invoices.php?id=5 | Delete invoice |
-
-### Clients
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET    | api/clients.php | List all clients |
-| POST   | api/clients.php | Create client |
-| PUT    | api/clients.php?id=3 | Update client |
-| DELETE | api/clients.php?id=3 | Soft delete (is_active=0) |
-
-### Payments
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET    | api/payments.php | List all payments |
-| GET    | api/payments.php?from=2025-03-01&to=2025-03-31 | Date filter |
-| POST   | api/payments.php | Record payment (also marks invoice Paid) |
-
-### Upload
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST   | api/upload.php | Upload image file (multipart/form-data) |
-|        | fields: file, type (logo/signature/qr/client_logo) | |
-
----
-
-## Security Notes
-- Passwords stored as bcrypt hashes (`password_hash()`)
-- All DB queries use PDO prepared statements (SQL injection proof)
-- Sessions regenerated on login (`session_regenerate_id`)
-- `.htaccess` blocks direct access to `config/` and `includes/`
-- Upload directory blocks PHP execution
-- Add CSRF token validation for production (token field exists in login form)
-
----
-
-## Production Checklist
-- [ ] Change default admin password
-- [ ] Set `APP_URL` to your live domain
-- [ ] Enable HTTPS and set `secure` cookie flag
-- [ ] Configure SMTP for email (update `email-setup` page settings)
-- [ ] Set `display_errors = Off` in php.ini
-- [ ] Set up MySQL user with minimal privileges (not root)
-- [ ] Configure regular database backups
-- [ ] Set folder permissions: uploads 755, config 640
+Check the PHP error log first (cPanel → Metrics → Errors) — it'll tell us exactly what's failing, same as last time. I can't test this live, so precise error messages are the fastest path to a fix.

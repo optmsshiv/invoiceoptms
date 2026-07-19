@@ -157,6 +157,6 @@ require_once __DIR__ . '/../includes/layout_header.php';
 
 
 <?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/pages/shared-data.js"></script>
-<script src="/assets/js/pages/edit-approval-shared.js"></script>
+<script src="/assets/js/shared-data.js"></script>
+<script src="/assets/js/edit-approval-shared.js"></script>
 <script src="/assets/js/pages/suppliers.js"></script>

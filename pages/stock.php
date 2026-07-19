@@ -101,7 +101,7 @@ require_once __DIR__ . '/../includes/layout_header.php';
 
 
 <?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/pages/stock-shared.js"></script>
+<script src="/assets/js/stock-shared.js"></script>
 <script src="/assets/js/pages/stock.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', async () => {

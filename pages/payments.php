@@ -232,5 +232,5 @@ $isProductView = in_array($businessType, ['product', 'both'], true);
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/pages/shared-data.js"></script>
+<script src="/assets/js/shared-data.js"></script>
 <script src="/assets/js/pages/payments.js"></script>

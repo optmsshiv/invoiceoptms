@@ -63,5 +63,5 @@ require_once __DIR__ . '/../includes/layout_header.php';
 
 
 <?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/pages/shared-data.js"></script>
+<script src="/assets/js/shared-data.js"></script>
 <script src="/assets/js/pages/reports.js"></script>

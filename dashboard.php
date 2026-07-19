@@ -1,9 +1,12 @@
 <?php
 // ================================================================
-//  pages/dashboard.php
+//  dashboard.php — lives at project ROOT (fixed during MPA cutover;
+//  this file's own comment used to say pages/dashboard.php and its
+//  includes used '../' paths as if it lived in a subdirectory, which
+//  would have fatal-errored the moment anyone loaded it at root).
 // ================================================================
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/auth.php';
 
 requireLogin();
 requirePermission('menu.dashboard');
@@ -15,9 +18,9 @@ $greeting = $hourNow < 12 ? 'Good morning' : ($hourNow < 17 ? 'Good afternoon' :
 
 $activePage = 'dashboard';
 $pageTitle  = 'Dashboard';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/dashboard.js'];
+$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/invoice-render-shared.js', '/assets/js/dashboard.js'];
 
-include __DIR__ . '/../includes/layout_header.php';
+include __DIR__ . '/includes/layout_header.php';
 ?>
       <!-- Greeting Header -->
       <div style="margin-bottom:16px">
@@ -197,4 +200,4 @@ include __DIR__ . '/../includes/layout_header.php';
           <div id="dashTopClients"></div>
         </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+<?php include __DIR__ . '/includes/layout_footer.php'; ?>
