@@ -4,18 +4,15 @@
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-
 requireLogin();
 requirePermission('menu.invoices');
-
 $user = currentUser();
 
-$activePage  = 'invoices';
-$pageTitle   = 'Invoices';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/invoices.js'];
-
-include __DIR__ . '/../includes/layout_header.php';
+$activePage = 'invoices';
+$pageTitle  = 'Invoices';
+require_once __DIR__ . '/../includes/layout_header.php';
 ?>
+
       <!-- Bulk action bar (shown when rows are selected) -->
       <div id="bulkBar" style="display:none;align-items:center;gap:10px;background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:10px;padding:10px 16px;margin-bottom:12px">
         <span id="bulkCount" style="font-size:13px;font-weight:700;color:var(--teal)">0 selected</span>
@@ -69,32 +66,29 @@ include __DIR__ . '/../includes/layout_header.php';
           <tbody id="invoicesTbody"></tbody>
         </table>
         <div class="table-footer">
-          <div class="tf-info" id="tfInfo">Showing 0 of 0</div>
+          <div class="tf-info" id="tfInfo">Showing 1–10 of 34</div>
           <div class="pagination" id="pagination"></div>
         </div>
       </div>
 
-      <!-- Delete confirmation modal — invoices-page-specific, not a
-           cross-page shared modal, so it lives here rather than in
-           layout_footer.php. -->
-      <div class="modal-overlay" id="modal-delete">
-        <div class="modal modal-sm">
-          <div class="modal-header"><span>Delete Invoice</span><button class="modal-close" onclick="closeModal('modal-delete')"><i class="fas fa-times"></i></button></div>
-          <div class="modal-body" style="padding:24px;text-align:center">
-            <i class="fas fa-trash" style="font-size:40px;color:#e53935;margin-bottom:12px"></i>
-            <p>Are you sure you want to delete <strong id="del-inv-num"></strong>?<br>This action cannot be undone.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn" style="background:#e53935;color:#fff" onclick="confirmDelete()"><i class="fas fa-trash"></i> Delete</button>
-            <button class="btn btn-outline" onclick="closeModal('modal-delete')">Cancel</button>
-          </div>
-        </div>
-      </div>
+    <!-- Delete Confirmation Modal (relocated from SPA global-modals tail section) -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal modal-sm">
+    <div class="modal-header"><span>Delete Invoice</span><button class="modal-close" onclick="closeModal('modal-delete')"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body" style="padding:24px;text-align:center">
+      <i class="fas fa-trash" style="font-size:40px;color:#e53935;margin-bottom:12px"></i>
+      <p>Are you sure you want to delete <strong id="del-inv-num"></strong>?<br>This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" style="background:#e53935;color:#fff" onclick="confirmDelete()"><i class="fas fa-trash"></i> Delete</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-delete')">Cancel</button>
+    </div>
+  </div>
+</div>
 
-      <!-- Row context menu + quick-status dropdown — also
-           invoices-page-specific, positioned via JS on click. -->
-      <div class="row-menu" id="rowMenu"></div>
-      <div id="quickStatusMenu" style="display:none;position:fixed;z-index:9999;background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);padding:6px;min-width:150px">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:4px 8px 6px">Change Status</div>
-      </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+
+<?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
+<script src="/assets/js/pages/shared-data.js"></script>
+<script src="/assets/js/pages/wa-shared.js"></script>
+<script src="/assets/js/pages/invoice-render-shared.js"></script>
+<script src="/assets/js/pages/invoices.js"></script>

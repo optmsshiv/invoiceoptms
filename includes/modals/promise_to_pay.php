@@ -1,3 +1,15 @@
+<?php
+// ================================================================
+//  includes/modals/promise_to_pay.php
+//  Global modal — same situation as balance_reminder.php above.
+//  Backs openPromiseModal()/savePromise() (Promise-to-Pay tracking,
+//  used from invoices.php and reminders.php per layout_footer.php's
+//  own comment). NOTE: openPromiseModal() and closePromiseModal()
+//  are defined TWICE in the original SPA (identical duplicates) —
+//  flagging as a pre-existing duplication bug, not fixed here since
+//  it doesn't affect this page-level extraction.
+// ================================================================
+?>
 <div id="promise-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden">
     <div style="background:linear-gradient(135deg,#6D28D9,#4C1D95);padding:18px 20px;display:flex;align-items:center;justify-content:space-between">

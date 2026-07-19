@@ -4,44 +4,33 @@
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-
 requireLogin();
-
+requirePermission('menu.profile');
 $user = currentUser();
 
-// Only used on this page, so defined here rather than in auth.php.
-function optms_time_ago(string $datetime): string {
-    $diff = time() - strtotime($datetime);
-    if ($diff < 60)     return 'Just now';
-    if ($diff < 3600)   return floor($diff / 60) . ' min ago';
-    if ($diff < 86400)  return floor($diff / 3600) . ' hr ago';
-    if ($diff < 604800) { $d = floor($diff / 86400); return $d . ' day' . ($d > 1 ? 's' : '') . ' ago'; }
-    return date('d M Y, h:i A', strtotime($datetime));
-}
-$loginActivity = getRecentLoginActivity((int)$user['id'], 20);
-
-$activePage  = 'profile';
-$pageTitle   = 'My Profile';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/profile.js'];
-
-include __DIR__ . '/../includes/layout_header.php';
+$activePage = 'profile';
+$pageTitle  = 'My Profile';
+require_once __DIR__ . '/../includes/layout_header.php';
 ?>
+
       <div class="profile-page-wrap">
+
        <div class="profile-2col">
 
-        <!-- LEFT COLUMN -->
+        <!-- ══════════ LEFT COLUMN ══════════ -->
         <div class="profile-col-left">
 
+        <!-- Identity card -->
         <div class="profile-left-card">
           <div class="profile-banner"></div>
           <div class="profile-left-body">
             <div class="profile-av-wrap profile-av-row">
               <label style="cursor:pointer;display:inline-block" title="Click to change photo">
                 <div class="profile-av-lg" id="profile-avatar-preview">
-                  <?php if (!empty($user['avatar'])): ?>
+                  <?php if(!empty($user['avatar'])): ?>
                     <img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover">
                   <?php else: ?>
-                    <?= strtoupper(substr($user['name'], 0, 2)) ?>
+                    <?= strtoupper(substr($user['name'],0,2)) ?>
                   <?php endif; ?>
                   <div class="pav-overlay"><i class="fas fa-camera"></i></div>
                 </div>
@@ -92,6 +81,7 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
 
+        <!-- Account Security -->
         <div class="pcard">
           <div class="pcard-body">
             <div class="acct-security-row">
@@ -104,6 +94,7 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
 
+        <!-- Log Out -->
         <div class="pcard profile-logout-card" onclick="confirmLogout()">
           <div class="pcard-body">
             <div class="acct-security-row">
@@ -113,6 +104,7 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
 
+        <!-- Activity Timeline -->
         <div class="pcard">
           <div class="pcard-header">
             <i class="fas fa-history"></i>
@@ -148,9 +140,10 @@ include __DIR__ . '/../includes/layout_header.php';
         </div>
         <!-- /profile-col-left -->
 
-        <!-- RIGHT COLUMN -->
+        <!-- ══════════ RIGHT COLUMN ══════════ -->
         <div class="profile-col-right">
 
+        <!-- Account Information -->
         <div class="pcard">
           <div class="pcard-header">
             <i class="fas fa-user"></i>
@@ -173,6 +166,7 @@ include __DIR__ . '/../includes/layout_header.php';
           </div>
         </div>
 
+        <!-- Change Password -->
         <div class="pcard">
           <div class="pcard-header">
             <i class="fas fa-lock"></i>
@@ -193,5 +187,13 @@ include __DIR__ . '/../includes/layout_header.php';
 
        </div>
        <!-- /profile-2col -->
+
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+    
+
+    <!--
+
+
+<?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
+<script src="/assets/js/pages/shared-data.js"></script>
+<script src="/assets/js/pages/profile.js"></script>

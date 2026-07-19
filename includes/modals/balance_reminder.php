@@ -1,3 +1,13 @@
+<?php
+// ================================================================
+//  includes/modals/balance_reminder.php
+//  Global modal — layout_footer.php already includes this on every
+//  page (was referenced there but the file didn't exist yet in the
+//  zip, which meant every page was throwing a fatal PHP include
+//  error). Backs openBalanceReminderModal() in invoices.js
+//  (invoice-render-shared.js additions, Phase 3).
+// ================================================================
+?>
 <div id="balance-reminder-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden">
     <div style="background:linear-gradient(135deg,#D97706,#92400E);padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
@@ -52,3 +62,4 @@
   </div>
 </div>
 
+<!-- ── Promise-to-Pay Modal ──────────────────────────────────── -->

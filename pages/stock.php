@@ -1,81 +1,112 @@
 <?php
 // ================================================================
-//  pages/stock.php
+//  pages/stock.php — Stock Summary (Phase 1: Stock module)
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-
 requireLogin();
 requirePermission('menu.stock');
-
 $user = currentUser();
 
-$activePage  = 'stock';
-$pageTitle   = 'Stock Ledger';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/stock.js'];
-
-include __DIR__ . '/../includes/layout_header.php';
+$activePage = 'stock';
+$pageTitle  = 'Stock Ledger';
+require_once __DIR__ . '/../includes/layout_header.php';
 ?>
-      <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
+
+      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock</span></div>
+      <div class="page-toolbar" style="padding:14px 24px 0;align-items:flex-end">
+        <div class="field" style="min-width:160px"><label>Product</label><select id="ps-f-product" class="table-filter" onchange="renderProductStock()"><option value="">All Products</option></select></div>
+        <div class="field" style="min-width:160px"><label>Warehouse</label><select id="ps-f-warehouse" class="table-filter" onchange="renderProductStock()"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
+        <div class="field" style="min-width:160px"><label>Batch / Lot No.</label><input class="table-search" id="ps-f-batch" placeholder="Enter batch / lot no." oninput="renderProductStock()"></div>
+        <div class="field"><label>Date</label><input type="date" class="table-search" id="ps-f-date"></div>
         <div style="flex:1"></div>
-        <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
-        <button class="btn btn-outline" onclick="openStockAdjustModal()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
+        <a class="btn btn-outline" href="/pages/stock-adjust-new.php"><i class="fas fa-sliders-h"></i> Adjust Stock</a>
+        <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
+        <button class="btn btn-outline" onclick="exportProductStockCsv()"><i class="fas fa-download"></i> Export</button>
+        <a class="btn btn-primary" href="/pages/stock-in-new.php"><i class="fas fa-plus"></i> Add Stock</a>
       </div>
-      <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Last Movement</th><th>Actions</th></tr></thead>
-          <tbody id="stockTbody"></tbody>
-        </table>
-        <div class="table-footer"><div class="tf-info" id="stockInfo"></div></div>
+      <div style="padding:6px 24px 0;text-align:right;font-size:11.5px;color:var(--muted)">
+        Stock as on: <span id="ps-asof"></span> <i class="fas fa-rotate" style="cursor:pointer" onclick="renderProductStock()"></i>
       </div>
 
-      <!-- Stock Adjustment Modal — stock-page-specific -->
-      <div class="modal-overlay" id="modal-stockadjust">
-        <div class="modal" style="max-width:460px">
-          <div class="modal-header">
-            <span>Adjust Stock</span>
-            <button class="modal-close" onclick="closeModal('modal-stockadjust')"><i class="fas fa-times"></i></button>
-          </div>
-          <div class="modal-body">
-            <div class="field"><label>Product *</label>
-              <select id="adj-product"><option value="">Select product…</option></select>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="field"><label>Direction *</label>
-                <select id="adj-direction">
-                  <option value="in">Stock In (+)</option>
-                  <option value="out">Stock Out (−)</option>
-                </select>
-              </div>
-              <div class="field"><label>Quantity *</label><input type="number" id="adj-qty" min="0" step="0.001" placeholder="0"></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="field"><label>Date *</label><input type="date" id="adj-date"></div>
-              <div class="field"><label>Rate (optional)</label><input type="number" id="adj-rate" min="0" step="0.01" placeholder="0.00"></div>
-            </div>
-            <div class="field"><label>Reason / Notes</label><input id="adj-notes" placeholder="e.g. Damaged in transit, physical recount"></div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline" onclick="closeModal('modal-stockadjust')">Cancel</button>
-            <button class="btn btn-primary" id="adj-save-btn" onclick="saveStockAdjustment()"><i class="fas fa-check"></i> Save Adjustment</button>
+      <div class="ps-stats-row" style="padding:14px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:38px;height:38px"><i class="fas fa-clipboard-list"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Products</span><strong id="ps-stat-products" style="font-size:18px">0</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:38px;height:38px"><i class="fas fa-cubes"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Stock (Kg)</span><strong id="ps-stat-stock" style="font-size:18px">0.00</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:38px;height:38px"><i class="fas fa-sack-dollar"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Value (₹)</span><strong id="ps-stat-value" style="font-size:18px">₹0.00</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:38px;height:38px"><i class="fas fa-clipboard-check"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">In Stock</span><strong id="ps-stat-instock" style="font-size:18px">0</strong></div>
+        </div>
+        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:38px;height:38px"><i class="fas fa-triangle-exclamation"></i></span>
+          <div><span style="display:block;font-size:11px;color:var(--muted)">Low Stock Items</span><strong id="ps-stat-lowstock" style="font-size:18px">0</strong></div>
+        </div>
+      </div>
+
+      <div style="padding:18px 24px 0">
+        <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
+          <span class="ps-tab active" id="ps-tab-summary" onclick="switchProductStockTab('summary')">Stock Summary</span>
+          <span class="ps-tab" id="ps-tab-batch" onclick="switchProductStockTab('batch')">Batch Wise Stock</span>
+        </div>
+      </div>
+
+      <div style="padding:14px 24px 0">
+        <div class="table-card" style="overflow-x:auto">
+          <table class="data-table ps-stock-table" style="min-width:1100px;table-layout:fixed">
+            <colgroup>
+              <col style="width:30px"><col style="width:130px"><col style="width:85px"><col style="width:95px"><col style="width:85px">
+              <col style="width:90px"><col style="width:85px"><col style="width:75px"><col style="width:85px">
+              <col style="width:80px"><col style="width:90px"><col style="width:85px"><col style="width:45px">
+            </colgroup>
+            <thead><tr>
+              <th>#</th><th>Product</th><th>Variety / Grade</th><th>Warehouse</th><th id="ps-batch-col">Batch / Lot No.</th>
+              <th>Available Stock (Kg)</th><th>Reserved Stock (Kg)</th><th>In Transit (Kg)</th><th>Total Stock (Kg)</th>
+              <th>Avg. Cost (₹/Kg)</th><th>Stock Value (₹)</th><th>Last Inward Date</th><th>Action</th>
+            </tr></thead>
+            <tbody id="ps-tbody"></tbody>
+          </table>
+          <div class="table-footer">
+            <div class="tf-info" id="ps-info"></div>
+            <div class="pagination" id="ps-pagination"></div>
           </div>
         </div>
       </div>
 
-      <!-- Stock History Modal — stock-page-specific -->
-      <div class="modal-overlay" id="modal-stockhistory">
-        <div class="modal" style="max-width:640px">
-          <div class="modal-header">
-            <span id="sh-product-name">Stock History</span>
-            <button class="modal-close" onclick="closeModal('modal-stockhistory')"><i class="fas fa-times"></i></button>
-          </div>
-          <div class="modal-body">
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>Date</th><th>Source</th><th>Direction</th><th>Qty</th><th>Rate</th><th>Balance</th><th>Notes</th><th></th></tr></thead>
-              <tbody id="sh-tbody"></tbody>
+      <div class="ps-bottom-grid" style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
+        <div class="pne-card">
+          <div class="pne-card-head">Stock Movement Summary (Last 7 Days)</div>
+          <div style="overflow-x:auto">
+            <table class="data-table" style="font-size:12.5px;min-width:640px">
+              <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+              <tbody id="ps-movement-tbody"></tbody>
             </table>
           </div>
         </div>
+        <div class="pne-card">
+          <div class="pne-card-head">Stock Trend (Last 7 Days)</div>
+          <canvas id="ps-trend-chart" height="220"></canvas>
+        </div>
       </div>
-<?php include __DIR__ . '/../includes/layout_footer.php'; ?>
+
+      <div style="padding:14px 24px 30px;font-size:11px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Stock values are calculated based on average cost method.</div>
+
+
+<?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
+<script src="/assets/js/pages/stock-shared.js"></script>
+<script src="/assets/js/pages/stock.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  await bootStockPageState();
+  populatePSProductFilter();
+  await renderProductStock();
+});
+</script>
