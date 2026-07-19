@@ -17679,7 +17679,7 @@ function printTaxInvoicePurchase(p) {
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:92px;height:92px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
