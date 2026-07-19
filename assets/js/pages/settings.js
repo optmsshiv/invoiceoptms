@@ -28,8 +28,24 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadCoreData(['invoices', 'clients', 'products', 'payments', 'settings']);
+  // applyBusinessTypeLabels()/currentBizLabels() below use
+  // STATE.settings.businessType (camelCase, runtime-only, for live
+  // preview as the dropdown changes) — seed it from the real saved
+  // value (business_type, snake_case, from the DB/API) so labels are
+  // correct on first load, not just after the user touches the dropdown.
+  STATE.settings.businessType = STATE.settings.business_type || 'both';
   populateSettingsForm();
 });
+
+// Added retroactively — currentBizLabels()/applyBusinessTypeLabels()
+// below reference this; was missing entirely from the original
+// extraction (defined earlier in the SPA than where these two
+// functions were pulled from, so it wasn't picked up).
+const BUSINESS_TYPE_LABELS = {
+  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
+  product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
+  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
+};
 
 function settingsTab(name, btn) {
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
@@ -372,16 +388,6 @@ function applyBusinessTypeLabels(type) {
   const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
   const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
-}
-
-function exportCSV() {
-  const headers = ['Invoice#','Client','Service','Issue Date','Due Date','Amount','Status'];
-  const rows = STATE.invoices.map(inv => {
-    const c = STATE.clients.find(x=>x.id===inv.client);
-    return [inv.num, c?.name||'', inv.service, inv.issued, inv.due, inv.amount, inv.status].map(v=>`"${v}"`).join(',');
-  });
-  downloadFile('optms_invoices.csv', [headers.join(','),...rows].join('\n'), 'text/csv');
-  toast('✅ CSV exported!', 'success');
 }
 
 function currentBizLabels() {

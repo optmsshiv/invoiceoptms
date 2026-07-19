@@ -176,7 +176,7 @@ require_once __DIR__ . '/../includes/layout_header.php';
             <div class="sb-title"><i class="fas fa-database" style="color:var(--teal)"></i> Backup &amp; Export</div>
             <div class="backup-actions">
               <button class="backup-btn" onclick="exportAllJSON()"><i class="fas fa-file-code"></i><span>Export All Data (JSON)</span></button>
-              <button class="backup-btn" onclick="exportCSV()"><i class="fas fa-file-csv"></i><span>Export Invoices (CSV)</span></button>
+              <button class="backup-btn" onclick="settingsExportCSV()"><i class="fas fa-file-csv"></i><span>Export Invoices (CSV)</span></button>
               <button class="backup-btn" onclick="importData()"><i class="fas fa-file-upload"></i><span>Import Data (JSON)</span></button>
               <button class="backup-btn" onclick="clearAllData()"><i class="fas fa-trash"></i><span>Clear All Data</span></button>
             </div>
