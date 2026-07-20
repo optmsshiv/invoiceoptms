@@ -8631,6 +8631,8 @@ function loadProductFormConfig() {
   Object.keys(PF_DROPDOWN_DEFAULTS).forEach(k => {
     if (!PFC.dropdowns[k]) PFC.dropdowns[k] = [...PF_DROPDOWN_DEFAULTS[k]];
   });
+  // Rebuild variety-grade link maps from saved config
+  if (Object.keys(PFC.varGradeMap).length) _rebuildVarGradeMaps();
 }
 
 function renderProductFormBuilder() {
@@ -8669,9 +8671,8 @@ function renderProductFormBuilder() {
 function _pfHighlightPreset(active) {
   document.querySelectorAll('.pf-preset-btn').forEach(btn => {
     const isActive = btn.dataset.preset === active;
-    btn.style.background  = isActive ? 'var(--teal)' : '';
-    btn.style.color       = isActive ? '#fff' : '';
-    btn.style.borderColor = isActive ? 'var(--teal)' : '';
+    btn.classList.toggle('btn-primary', isActive);
+    btn.classList.toggle('btn-outline', !isActive);
   });
 }
 
@@ -23975,6 +23976,10 @@ async function loadAllData() {
       if (s.product_form_config) STATE.settings.product_form_config = s.product_form_config;
       if (s.product_dropdowns)   STATE.settings.product_dropdowns   = s.product_dropdowns;
       if (s.product_var_grade_map) STATE.settings.product_var_grade_map = s.product_var_grade_map;
+      // Apply form config immediately so variety-grade maps are live
+      if (s.product_form_config || s.product_var_grade_map) {
+        setTimeout(() => { if (typeof loadProductFormConfig === 'function') { loadProductFormConfig(); } }, 100);
+      }
       if (s.product_categories) {
         try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
       }
