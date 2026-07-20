@@ -24,34 +24,9 @@ $userId   = (int)$_SESSION['user_id'];
 $userName = $_SESSION['user_name'] ?? 'Unknown';
 $userRole = $_SESSION['user_role'] ?? 'viewer';
 
-// Ensure table exists (auto-create if migration not yet run)
-try {
-    $db->exec("CREATE TABLE IF NOT EXISTS `edit_approval_requests` (
-        `id`             INT(11) NOT NULL AUTO_INCREMENT,
-        `requested_by`   INT(11) NOT NULL,
-        `requester_name` VARCHAR(200) DEFAULT '',
-        `entity_type`    VARCHAR(50)  NOT NULL,
-        `entity_id`      INT(11)      NOT NULL,
-        `entity_label`   VARCHAR(500) DEFAULT '',
-        `reason`         VARCHAR(500) DEFAULT '',
-        `status`         ENUM('pending','approved','rejected','expired') DEFAULT 'pending',
-        `reviewed_by`    INT(11) DEFAULT NULL,
-        `reviewer_name`  VARCHAR(200) DEFAULT NULL,
-        `review_note`    VARCHAR(500) DEFAULT NULL,
-        `approved_at`    DATETIME DEFAULT NULL,
-        `expires_at`     DATETIME NOT NULL,
-        `created_at`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (`id`),
-        KEY `idx_status` (`status`),
-        KEY `idx_requester` (`requested_by`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-} catch (Throwable $e) { /* table may already exist */ }
-
 // Auto-expire old requests before every response
-try {
-    $db->exec("UPDATE edit_approval_requests SET status='expired'
-               WHERE status='pending' AND expires_at < NOW()");
-} catch (Throwable $e) { /* ignore if table issue */ }
+$db->exec("UPDATE edit_approval_requests SET status='expired'
+           WHERE status='pending' AND expires_at < NOW()");
 
 try { switch (true) {
 
@@ -152,6 +127,8 @@ try { switch (true) {
             'UPDATE edit_approval_requests
                 SET status="approved", reviewed_by=?, reviewer_name=?,
                     review_note=?, approved_at=NOW(),
+                    -- Short window: real expiry is consume-on-save (single use).
+                    -- 15 min is just the safety-net in case the user never saves.
                     expires_at=DATE_ADD(NOW(), INTERVAL 15 MINUTE)
               WHERE id=? AND status="pending"'
         )->execute([$userId, $userName, $note, $reqId]);
