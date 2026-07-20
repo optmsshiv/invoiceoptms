@@ -120,19 +120,19 @@ switch ($method) {
     $stmt->execute($vals);
     $id = $db->lastInsertId();
 
-    // If opening_stock > 0, create a stock_ledger entry so the actual
-    // balance reflects it immediately — without this the opening_stock
-    // field on the product record has no effect on stock summaries.
+    // If opening_stock > 0, create a stock_ledger entry (only if table exists — product DBs only)
     $openingStock = (float)($d['opening_stock'] ?? 0);
     if ($openingStock != 0) {
-        $qty       = abs($openingStock);
-        $direction = $openingStock > 0 ? 'in' : 'out';
-        $date      = date('Y-m-d');
-        $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
-        $db->prepare(
-            'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
-             VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
-        )->execute([$id, $id, $direction, $qty, $openingStock, $date, 'Opening Stock', $warehouse]);
+        try {
+            $qty       = abs($openingStock);
+            $direction = $openingStock > 0 ? 'in' : 'out';
+            $date      = date('Y-m-d');
+            $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
+            $db->prepare(
+                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
+                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
+            )->execute([$id, $id, $direction, $qty, $openingStock, $date, 'Opening Stock', $warehouse]);
+        } catch (Throwable $e) { /* stock_ledger not present on this DB — skip */ }
     }
 
     logActivity((int)$_SESSION['user_id'], 'create', 'product', (int)$id, 'Product added: ' . $d['name']);
@@ -160,20 +160,21 @@ switch ($method) {
 
     $db->prepare("UPDATE products SET $setSql WHERE id=?")->execute($vals);
 
-    // Sync opening_stock change to stock_ledger (ref_type="opening")
-    // Delete the old opening entry and recreate with new value
+    // Sync opening_stock change to stock_ledger (only if table exists — product DBs only)
     $openingStock = (float)($d['opening_stock'] ?? 0);
-    $db->prepare('DELETE FROM stock_ledger WHERE product_id=? AND ref_type="opening"')->execute([$id]);
-    if ($openingStock != 0) {
-        $qty       = abs($openingStock);
-        $direction = $openingStock > 0 ? 'in' : 'out';
-        $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
-        $db->prepare(
-            'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
-             VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
-        )->execute([$id, $id, $direction, $qty, $openingStock, date('Y-m-d'), 'Opening Stock', $warehouse]);
-        rebalanceStockLedger($db, [$id]);
-    }
+    try {
+        $db->prepare('DELETE FROM stock_ledger WHERE product_id=? AND ref_type="opening"')->execute([$id]);
+        if ($openingStock != 0) {
+            $qty       = abs($openingStock);
+            $direction = $openingStock > 0 ? 'in' : 'out';
+            $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
+            $db->prepare(
+                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
+                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
+            )->execute([$id, $id, $direction, $qty, $openingStock, date('Y-m-d'), 'Opening Stock', $warehouse]);
+            rebalanceStockLedger($db, [$id]);
+        }
+    } catch (Throwable $e) { /* stock_ledger table not present on this DB — skip */ }
 
     logActivity((int)$_SESSION['user_id'], 'update', 'product', $id, 'Product updated: ' . ($d['name'] ?? ''));
     jsonResponse(['success' => true]);
