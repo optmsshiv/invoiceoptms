@@ -3460,7 +3460,7 @@ const SERVER = {
               </div>
               <div class="field" id="pne-field-brand"><label id="pne-label-brand">Brand</label><input id="pp-brand" data-pf-dropdown="brand" placeholder="e.g. AgriTrade"></div>
               <div class="field" id="pne-field-category"><label id="pne-label-category">Category *</label>
-                <select id="pp-category" data-pf-dropdown="category"><option value="">Select category...</option></select>
+                <select id="pp-category" data-pf-dropdown="category"></select>
               </div>
               <div class="field" id="pne-field-hsn"><label id="pne-label-hsn">HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
               <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
@@ -3598,8 +3598,8 @@ const SERVER = {
           <!-- Tags -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
-            <input id="pp-tags-input" class="table-search" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
-            <div id="pp-tags-chips" class="pp-tags-chips" style="margin-top:8px"></div>
+            <div id="pp-tags-chips" class="pp-tags-chips"></div>
+            <input id="pp-tags-input" class="table-search" style="margin-top:8px" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
           </div>
 
           <!-- Attachments -->
@@ -8668,9 +8668,7 @@ function loadProductFormConfig() {
 }
 
 function renderProductFormBuilder() {
-  // Only load from settings if PFC.config is empty (first open)
-  // Do NOT reload here — it would wipe any unsaved preset changes
-  if (!Object.keys(PFC.config).length) loadProductFormConfig();
+  loadProductFormConfig();
   const container = document.getElementById('pf-field-list');
   if (!container) return;
 
@@ -8686,7 +8684,7 @@ function renderProductFormBuilder() {
     </div>
     ${fields.map(f => {
       const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
-      return `<div data-field-id="${f.id}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
         <label class="tog ${cfg.visible ? 'on' : ''}" onclick="pfToggleField(\'${f.id}\',this)" style="flex-shrink:0"></label>
         <div style="flex:1;min-width:0">
           <input value="${escHtml(cfg.label)}" onchange="pfRenameField(\'${f.id}\',this.value)"
@@ -8708,11 +8706,12 @@ function _pfHighlightPreset(active) {
     if (isActive) {
       btn.classList.add('btn-primary');
       btn.classList.remove('btn-outline');
+      btn.style.opacity = '1';
     } else {
       btn.classList.remove('btn-primary');
       btn.classList.add('btn-outline');
+      btn.style.opacity = '0.7';
     }
-    btn.style.opacity = '1'; // always 100%
   });
 }
 
@@ -8733,24 +8732,15 @@ function pfRenameField(id, newLabel) {
 }
 
 function applyProductFormPreset(preset) {
-  if (!Object.keys(PFC.config).length) loadProductFormConfig();
   const onFields = new Set(PF_PRESETS[preset] || PF_PRESETS.all);
   PF_FIELDS.forEach(f => {
     if (!PFC.config[f.id]) PFC.config[f.id] = { visible: f.def, label: f.label };
     PFC.config[f.id].visible = f.req || onFields.has(f.id);
   });
   PFC.activePreset = preset;
-  // Update toggle DOM directly without re-calling loadProductFormConfig
-  document.querySelectorAll('#pf-field-list [data-field-id]').forEach(row => {
-    const fid = row.dataset.fieldId;
-    const cfg = PFC.config[fid]; if (!cfg) return;
-    const tog = row.querySelector('.tog');
-    const inp = row.querySelector('input');
-    if (tog) tog.classList.toggle('on', cfg.visible);
-    if (inp) { inp.style.fontWeight = cfg.visible ? '600' : '400'; inp.style.color = cfg.visible ? 'var(--text)' : 'var(--muted)'; }
-  });
-  _pfHighlightPreset(preset);
-  toast(`✅ ${preset === 'all' ? 'Show All' : preset.charAt(0).toUpperCase()+preset.slice(1)} preset applied — click Save to confirm`, 'info');
+  renderProductFormBuilder(); // re-renders field toggles based on PFC.config
+  // Highlight runs inside renderProductFormBuilder via _pfHighlightPreset
+  toast(`✅ ${preset.charAt(0).toUpperCase()+preset.slice(1)} preset applied — click Save to confirm`, 'info');
 }
 
 async function saveProductFormConfig() {
@@ -8896,8 +8886,7 @@ function updateProductFormDropdown(fieldId) {
   const options = PFC.dropdowns[fieldId]; if (!options||!options.length) return;
   const sel = document.querySelector(`[data-pf-dropdown="${fieldId}"]`); if (!sel) return;
   const cur = sel.value;
-  const placeholder = sel.options[0] && sel.options[0].value === '' ? sel.options[0].text : 'Select...';
-  sel.innerHTML = `<option value="">${placeholder}</option>` + options.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('');
+  sel.innerHTML = `<option value="">Select…</option>` + options.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('');
   if (cur) sel.value = cur;
 }
 function updateAllProductFormDropdowns() { Object.keys(PFC.dropdowns).forEach(k=>updateProductFormDropdown(k)); }
@@ -15246,13 +15235,8 @@ async function pnpAddImages(files) {
 }
 function pnpRemoveImage(idx) { PNP.images.splice(idx, 1); renderPNPImages(); }
 function renderPNPImages() {
-  const el = document.getElementById('pp-images-preview');
-  if (!el) return;
-  el.innerHTML = PNP.images.length
-    ? `<div class="pp-thumb-grid">${PNP.images.map((src, i) =>
-        `<div class="pp-thumb"><img src="${src}"><button class="pp-thumb-remove" onclick="pnpRemoveImage(${i})">✕</button></div>`
-      ).join('')}</div>`
-    : '';
+  document.getElementById('pp-images-preview').innerHTML = PNP.images.map((src, i) => `
+    <div class="pp-thumb"><img src="${src}"><button class="pp-thumb-remove" onclick="pnpRemoveImage(${i})">✕</button></div>`).join('');
 }
 
 async function pnpAddAttachments(files) {
@@ -15265,46 +15249,8 @@ async function pnpAddAttachments(files) {
 }
 function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
 function renderPNPAttachments() {
-  const el = document.getElementById('pp-attachments-list');
-  if (!el) return;
-  el.innerHTML = PNP.attachments.map((a, i) => {
-    const isImg = a.name && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name);
-    const viewBtn = a.url
-      ? `<button class="pp-attach-view" onclick="pnpPreviewAttachment(${i})" title="Preview"><i class="fas fa-eye"></i></button>`
-      : '';
-    return `<div class="pp-attach-row">
-      <span><i class="fas fa-file${isImg?'-image':''}"></i> ${escHtml(a.name)}</span>
-      <span class="pp-attach-actions">${viewBtn}<button onclick="pnpRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span>
-    </div>`;
-  }).join('');
-}
-
-function pnpPreviewAttachment(idx) {
-  const a = PNP.attachments[idx];
-  if (!a || !a.url) return;
-  const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name);
-  const isPdf = /\.pdf$/i.test(a.name);
-  // Create overlay
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-  overlay.onclick = () => overlay.remove();
-  if (isImg) {
-    const img = document.createElement('img');
-    img.src = a.url;
-    img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5)';
-    overlay.appendChild(img);
-  } else {
-    const frame = document.createElement('iframe');
-    frame.src = a.url;
-    frame.style.cssText = 'width:80vw;height:85vh;border:none;border-radius:12px';
-    overlay.appendChild(frame);
-  }
-  const closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '✕';
-  closeBtn.style.cssText = 'position:absolute;top:20px;right:24px;background:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer;font-weight:700';
-  closeBtn.onclick = () => overlay.remove();
-  overlay.appendChild(closeBtn);
-  document.body.appendChild(overlay);
+  document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
+    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="pnpRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
 function pnpTagKeydown(e) {
@@ -24667,11 +24613,7 @@ window.saveProfilePassword = async function() {
 
 // ── Settings Tab ───────────────────────────────────────────────
 window.settingsTab = function(name, btn) {
-  if (name === 'productform') {
-    // Always load fresh from settings when tab opens, then render
-    loadProductFormConfig();
-    renderProductFormBuilder();
-  }
+  if (name === 'productform') { renderProductFormBuilder(); }
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
   const pane = document.getElementById('stab-' + name);
