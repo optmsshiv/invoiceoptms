@@ -3548,17 +3548,13 @@ const SERVER = {
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-align-left"></i></span> Product Description</div>
             <div class="pne-grid-auto">
               <div class="field" id="pne-field-short_description" style="grid-column:span 3"><label id="pne-label-short_description">Short Description</label>
-                <input id="pp-shortdesc" maxlength="300" placeholder="Brief product description (shown on invoice)" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',300)">
-                <span id="pp-shortdesc-count" style="font-size:10px;color:var(--muted)">0/300</span>
+                <input id="pp-shortdesc" maxlength="200" placeholder="Brief product description (shown on invoice)" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',200)">
+                <span id="pp-shortdesc-count" style="font-size:10px;color:var(--muted)">0/200</span>
               </div>
-              <div class="field" id="pne-field-detailed_description" style="grid-column:span 2"><label id="pne-label-detailed_description">Detailed Description</label>
-                <textarea id="pp-detaildesc" rows="3" maxlength="2000" placeholder="Full product description" oninput="pnpCharCount('pp-detaildesc','pp-detaildesc-count',2000)"></textarea>
-                <span id="pp-detaildesc-count" style="font-size:10px;color:var(--muted)">0/2000</span>
+              <div class="field" id="pne-field-detailed_description" style="grid-column:span 5"><label id="pne-label-detailed_description">Detailed Description</label>
+                <textarea id="pp-detaildesc" rows="3" maxlength="500" placeholder="Full product description" oninput="pnpCharCount('pp-detaildesc','pp-detaildesc-count',500)" style="width:100%;resize:vertical"></textarea>
+                <span id="pp-detaildesc-count" style="font-size:10px;color:var(--muted)">0/500</span>
               </div>
-              <div class="field" id="pne-field-country_of_origin"><label id="pne-label-country_of_origin">Country of Origin</label><input id="pp-country" placeholder="e.g. India"></div>
-              <div class="field" id="pne-field-manufacturer"><label id="pne-label-manufacturer">Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="e.g. FarmFresh Co."></div>
-              <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">FSSAI License No.</label><input id="pp-fssai" placeholder="e.g. 10013021001234"></div>
-              <div class="field" id="pne-field-iec_code"><label id="pne-label-iec_code">IEC Code</label><input id="pp-iec" placeholder="e.g. AACCA1234A"></div>
             </div>
           </div>
 
@@ -3566,28 +3562,59 @@ const SERVER = {
 
         <!-- Right sidebar -->
         <div class="pne-sidebar">
+
+          <!-- Product Images -->
           <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-image"></i> Product Images</div>
-            <div id="pp-images-preview" class="pp-images-preview"></div>
-            <label class="pp-upload-btn"><i class="fas fa-upload"></i> Upload Images<input type="file" id="pp-images-input" multiple accept="image/*" style="display:none" onchange="handlePNPImageUpload(this)"></label>
+            <div class="pne-card-head"><i class="fas fa-images"></i> Product Images</div>
+            <div id="pp-images-preview" class="pp-images-preview" ondragover="event.preventDefault()" ondrop="handlePNPImageDrop(event)"
+              style="min-height:100px;border:2px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;padding:16px;cursor:pointer;color:var(--muted);font-size:12px;text-align:center"
+              onclick="document.getElementById('pp-images-input').click()">
+              <i class="fas fa-cloud-arrow-up" style="font-size:26px;color:var(--teal)"></i>
+              <div style="font-weight:600;color:var(--text)">Drag &amp; drop images here</div>
+              <div>or click to upload</div>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:2px">Recommended size: 800×800px (Max 5MB each)</div>
+            </div>
+            <input type="file" id="pp-images-input" multiple accept="image/*" style="display:none" onchange="handlePNPImageUpload(this)">
           </div>
+
+          <!-- Additional Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Info</div>
-            <div class="field"><label>Status</label>
-              <label class="tog on" id="pp-status" onclick="this.classList.toggle('on');document.getElementById('pp-status-label').textContent=this.classList.contains('on')?'Active':'Inactive'"></label>
-              <span id="pp-status-label" style="font-size:12px;margin-left:6px;color:var(--muted)">Active</span>
+            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
+            <div class="field"><label>Country of Origin</label><input id="pp-country" placeholder="e.g. India"></div>
+            <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="e.g. AgriTrade Import Export Pvt. Ltd."></div>
+            <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="e.g. 12345678901234"></div>
+            <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="e.g. AAECA1234B"></div>
+            <div class="field" style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <label style="font-weight:600;font-size:13px">Product Status</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <label class="tog on" id="pp-status" onclick="this.classList.toggle('on');document.getElementById('pp-status-label').textContent=this.classList.contains('on')?'Active':'Inactive'"></label>
+                <span id="pp-status-label" style="font-size:12.5px;color:var(--muted)">Active</span>
+              </div>
             </div>
           </div>
+
+          <!-- Tags -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
             <div id="pp-tags-chips" class="pp-tags-chips"></div>
-            <input id="pp-tags-input" class="table-search" placeholder="Add tag, press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addPNPTag(this.value);this.value='';}">
+            <input id="pp-tags-input" class="table-search" style="margin-top:8px" placeholder="Add tags and press enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addPNPTag(this.value);this.value='';}">
           </div>
+
+          <!-- Attachments -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
             <div id="pp-attachments-list"></div>
-            <label class="pp-upload-btn" style="margin-top:6px"><i class="fas fa-upload"></i> Attach File<input type="file" id="pp-attachments-input" multiple style="display:none" onchange="handlePNPAttachment(this)"></label>
+            <div ondragover="event.preventDefault()" ondrop="handlePNPAttachDrop(event)"
+              onclick="document.getElementById('pp-attachments-input').click()"
+              style="min-height:80px;border:2px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin-top:8px;cursor:pointer;color:var(--muted);font-size:12px;text-align:center;padding:12px">
+              <i class="fas fa-cloud-arrow-up" style="font-size:22px;color:var(--teal)"></i>
+              <div style="font-weight:600;color:var(--text)">Drag &amp; drop files here</div>
+              <div>or click to upload</div>
+              <div style="font-size:10.5px;margin-top:2px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
+            </div>
+            <input type="file" id="pp-attachments-input" multiple style="display:none" onchange="handlePNPAttachment(this)">
           </div>
+
         </div><!-- /.pne-sidebar -->
 
       </div><!-- /.pne-layout -->
@@ -8631,6 +8658,8 @@ function loadProductFormConfig() {
   Object.keys(PF_DROPDOWN_DEFAULTS).forEach(k => {
     if (!PFC.dropdowns[k]) PFC.dropdowns[k] = [...PF_DROPDOWN_DEFAULTS[k]];
   });
+  // Restore active preset from settings
+  PFC.activePreset = STATE.settings.product_active_preset || null;
   // Rebuild variety-grade link maps from saved config
   if (Object.keys(PFC.varGradeMap).length) _rebuildVarGradeMaps();
 }
@@ -8710,9 +8739,10 @@ async function saveProductFormConfig() {
       product_dropdowns:     JSON.stringify(PFC.dropdowns),
       product_var_grade_map: JSON.stringify(PFC.varGradeMap),
     });
-    STATE.settings.product_form_config   = JSON.stringify(PFC.config);
-    STATE.settings.product_dropdowns     = JSON.stringify(PFC.dropdowns);
-    STATE.settings.product_var_grade_map = JSON.stringify(PFC.varGradeMap);
+    STATE.settings.product_form_config    = JSON.stringify(PFC.config);
+    STATE.settings.product_dropdowns      = JSON.stringify(PFC.dropdowns);
+    STATE.settings.product_var_grade_map  = JSON.stringify(PFC.varGradeMap);
+    STATE.settings.product_active_preset  = PFC.activePreset || '';
     _rebuildVarGradeMaps();
     applyProductFormToPage();
     toast('✅ Product form configuration saved!', 'success');
@@ -8726,6 +8756,7 @@ function _pfAutoSave() {
       await api('api/settings.php', 'POST', {
         product_dropdowns:     JSON.stringify(PFC.dropdowns),
         product_var_grade_map: JSON.stringify(PFC.varGradeMap),
+        product_active_preset: PFC.activePreset || '',
       });
       STATE.settings.product_dropdowns     = JSON.stringify(PFC.dropdowns);
       STATE.settings.product_var_grade_map = JSON.stringify(PFC.varGradeMap);
@@ -8852,6 +8883,8 @@ function updateAllProductFormDropdowns() { Object.keys(PFC.dropdowns).forEach(k=
 // Apply current form config to the product new/edit page
 function applyProductFormToPage() {
   loadProductFormConfig();
+  // Always rebuild variety-grade maps so auto-link works
+  if (Object.keys(PFC.varGradeMap).length) _rebuildVarGradeMaps();
   PF_FIELDS.forEach(f => {
     const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
     const fieldEl = document.getElementById('pne-field-' + f.id);
@@ -23975,7 +24008,8 @@ async function loadAllData() {
       // Load categories from settings JSON if saved
       if (s.product_form_config) STATE.settings.product_form_config = s.product_form_config;
       if (s.product_dropdowns)   STATE.settings.product_dropdowns   = s.product_dropdowns;
-      if (s.product_var_grade_map) STATE.settings.product_var_grade_map = s.product_var_grade_map;
+      if (s.product_var_grade_map)  STATE.settings.product_var_grade_map  = s.product_var_grade_map;
+      if (s.product_active_preset) STATE.settings.product_active_preset = s.product_active_preset;
       // Apply form config immediately so variety-grade maps are live
       if (s.product_form_config || s.product_var_grade_map) {
         setTimeout(() => { if (typeof loadProductFormConfig === 'function') { loadProductFormConfig(); } }, 100);
