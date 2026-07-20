@@ -941,24 +941,8 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
     if (empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
         return ['success'=>false,'error'=>'SMTP not configured. Fill all fields and Save first.'];
     }
-    // Use standalone helper (no composer needed) with PHPMailer fallback
-    $helperFile = __DIR__ . '/email_helper.php';
-    if (file_exists($helperFile)) {
-        require_once $helperFile;
-        // Also try to load PHPMailer if vendor exists and is complete
-        foreach ([__DIR__.'/../vendor/autoload.php', __DIR__.'/../../vendor/autoload.php'] as $p) {
-            if (file_exists($p)) { try { @require_once $p; } catch (\Throwable $e) {} break; }
-        }
-        try {
-            $ok = sendEmailViaSMTP($smtp, $to, $toName, $subject, $htmlBody, $ccSelf !== $to ? $ccSelf : '');
-            return $ok ? ['success'=>true] : ['success'=>false,'error'=>'SMTP send failed — check host/credentials'];
-        } catch (\Throwable $e) {
-            return ['success'=>false,'error'=>$e->getMessage()];
-        }
-    }
-    // Legacy: try PHPMailer directly
     foreach ([__DIR__.'/../vendor/autoload.php', __DIR__.'/../../vendor/autoload.php'] as $p) {
-        if (file_exists($p)) { try { require_once $p; } catch (\Throwable $e) { break; } break; }
+        if (file_exists($p)) { require_once $p; break; }
     }
     if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -985,12 +969,13 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
             return ['success'=>false,'error'=>$mail->ErrorInfo ?: $e->getMessage()];
         }
     }
-    // Final fallback: native PHP mail()
+    // Fallback: native PHP mail()
     $headers  = "MIME-Version: 1.0\r\nContent-type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$smtp['name']} <{$smtp['from']}>\r\nReply-To: {$smtp['from']}\r\n";
     if ($ccSelf && $ccSelf !== $to) $headers .= "CC: {$ccSelf}\r\n";
     $sent = @mail($to, $subject, $htmlBody, $headers);
-    return $sent ? ['success'=>true] : ['success'=>false,'error'=>'All send methods failed. Upload email_helper.php to api/ folder.'];
+    if ($sent) return ['success'=>true];
+    return ['success'=>false,'error'=>'PHPMailer not found & PHP mail() failed. Run: composer require phpmailer/phpmailer'];
 }
 
 // ── Log sent email ───────────────────────────────────────────────

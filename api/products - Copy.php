@@ -44,7 +44,7 @@ function processFileArray($items, $subdir) {
 }
 
 $FIELDS = [
-  'name','category','rate','gst','unit_family',
+  'name','category','rate','hsn','gst','unit_family',
   'sku','unit','brand','variety','grade','barcode','shelf_life_months','storage_type',
   'base_unit_label','sale_unit','purchase_unit','min_order_qty',
   'moisture_limit','foreign_matter_limit','broken_damage_limit','oil_content','admixture_limit',
@@ -56,19 +56,6 @@ $FIELDS = [
 ];
 
 try {
-// Dynamically filter $FIELDS to only columns that exist in the live DB
-// Handles both old schema (service: hsn_code, gst_rate) and new schema (product: hsn, gst)
-$colStmt = $db->query("SHOW COLUMNS FROM products");
-$existingCols = array_column($colStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
-$existingColsSet = array_flip($existingCols);
-
-// Column name aliases: new_name => old_name (for legacy service DBs)
-$COL_ALIASES = ['hsn' => 'hsn_code', 'gst' => 'gst_rate'];
-
-$FIELDS = array_values(array_filter($FIELDS, fn($f) => isset($existingColsSet[$f])));
-// Add back aliased columns: if 'hsn' not in DB but 'hsn_code' is, keep 'hsn' mapped
-// handled in POST/PUT by rewriting the column name before building INSERT/UPDATE
-
 switch ($method) {
   case 'GET':
     $status = $_GET['status'] ?? 'active';
@@ -80,9 +67,6 @@ switch ($method) {
       $r['tags'] = $r['tags'] ? json_decode($r['tags'], true) : [];
       $r['images'] = $r['images'] ? json_decode($r['images'], true) : [];
       $r['attachments'] = $r['attachments'] ? json_decode($r['attachments'], true) : [];
-      // Map legacy column names to new names for JS compatibility
-      if (!isset($r['hsn']) && isset($r['hsn_code']))   $r['hsn'] = $r['hsn_code'];
-      if (!isset($r['gst']) && isset($r['gst_rate']))   $r['gst'] = $r['gst_rate'];
     }
     unset($r);
     jsonResponse(['data' => $rows]);
@@ -106,10 +90,7 @@ switch ($method) {
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
-    $cols = array_merge(
-      array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS),
-      ['tags', 'images', 'attachments', 'status']
-    );
+    $cols = array_merge($FIELDS, ['tags', 'images', 'attachments', 'status']);
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     $vals[] = json_encode($tags);
     $vals[] = json_encode($images);
@@ -151,8 +132,7 @@ switch ($method) {
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
-    $mappedFields = array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS);
-    $setSql = implode(',', array_map(fn($f) => "`$f`=?", $mappedFields)) . ', tags=?, images=?, attachments=?';
+    $setSql = implode(',', array_map(fn($f) => "`$f`=?", $FIELDS)) . ', tags=?, images=?, attachments=?';
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     $vals[] = json_encode($tags);
     $vals[] = json_encode($images);
