@@ -8579,10 +8579,6 @@ function renderProductDashboard() {
 
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-  set('db-stat-purchase',     fmt_money(totalPur));
-  set('db-stat-purchase-sub', purchases.length + ' bills');
-  set('db-stat-sales',        fmt_money(totalSales));
-  set('db-stat-sales-sub',    sales.length + ' invoices');
   set('db-stat-expenses', fmt_money(totalExp));
   const expPeriodCount = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).length;
   set('db-stat-expenses-sub', expPeriodCount + ' entries in period');
@@ -17528,7 +17524,7 @@ function printLocalPurchaseVoucher(p) {
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:92px;height:92px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -19388,7 +19384,7 @@ function printSaleInvoice(s) {
   </style></head><body>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
