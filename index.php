@@ -8866,6 +8866,27 @@ function updateProductFormDropdown(fieldId) {
 }
 function updateAllProductFormDropdowns() { Object.keys(PFC.dropdowns).forEach(k=>updateProductFormDropdown(k)); }
 
+// Apply current form config to the product new/edit page
+function applyProductFormToPage() {
+  loadProductFormConfig();
+  PF_FIELDS.forEach(f => {
+    const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
+    const fieldEl = document.getElementById('pne-field-' + f.id);
+    if (fieldEl) fieldEl.style.display = cfg.visible ? '' : 'none';
+    const labelEl = document.getElementById('pne-label-' + f.id);
+    if (labelEl) labelEl.textContent = cfg.label + (f.req ? ' *' : '');
+    updateProductFormDropdown(f.id);
+  });
+  // Hide section cards where all controlled fields are hidden
+  document.querySelectorAll('#page-product-new .pne-card').forEach(card => {
+    const fields = card.querySelectorAll('.field[id^="pne-field-"]');
+    if (!fields.length) return;
+    const allHidden = [...fields].every(f => f.style.display === 'none');
+    const grids = card.querySelectorAll('.pne-grid4, .pne-grid5');
+    grids.forEach(g => g.style.display = allHidden ? 'none' : '');
+  });
+}
+
 
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
