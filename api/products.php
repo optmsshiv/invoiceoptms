@@ -156,9 +156,6 @@ switch ($method) {
     if (isset($existingColsSet['images']))      { $setParts[] = 'images=?';      $vals[] = json_encode($images); }
     if (isset($existingColsSet['attachments'])) { $setParts[] = 'attachments=?'; $vals[] = json_encode($attachments); }
     $setSql = implode(',', $setParts);
-    $vals[] = json_encode($tags);
-    $vals[] = json_encode($images);
-    $vals[] = json_encode($attachments);
     $vals[] = $id;
 
     $db->prepare("UPDATE products SET $setSql WHERE id=?")->execute($vals);
