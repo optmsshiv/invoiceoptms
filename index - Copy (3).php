@@ -6531,10 +6531,10 @@ View Invoice: {{6}}</pre></details>
             <!-- Preset buttons -->
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
               <span style="font-size:12px;font-weight:700;color:var(--muted);align-self:center">Presets:</span>
-              <button class="btn btn-outline pf-preset-btn" data-preset="agri" style="font-size:12px" onclick="applyProductFormPreset('agri')"><i class="fas fa-seedling"></i> Agri Commodity</button>
-              <button class="btn btn-outline pf-preset-btn" data-preset="kirana" style="font-size:12px" onclick="applyProductFormPreset('kirana')"><i class="fas fa-store"></i> Kirana Wholesale</button>
-              <button class="btn btn-outline pf-preset-btn" data-preset="service" style="font-size:12px" onclick="applyProductFormPreset('service')"><i class="fas fa-briefcase"></i> Service</button>
-              <button class="btn btn-outline pf-preset-btn" data-preset="all" style="font-size:12px" onclick="applyProductFormPreset('all')"><i class="fas fa-list"></i> Show All</button>
+              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('agri')"><i class="fas fa-seedling"></i> Agri Commodity</button>
+              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('kirana')"><i class="fas fa-store"></i> Kirana Wholesale</button>
+              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('service')"><i class="fas fa-briefcase"></i> Service</button>
+              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('all')"><i class="fas fa-list"></i> Show All</button>
             </div>
             <!-- Field list -->
             <div id="pf-field-list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
@@ -8620,9 +8620,6 @@ const PF_PRESETS = {
 const PFC = {
   config: {},      // { fieldId: { visible: bool, label: string } }
   dropdowns: {},   // { fieldId: ['option1', 'option2', ...] }
-  varGradeMap: {}, // { variety: grade } — linked pair map
-  activePreset: null,
-  _saveTimer: null,
 };
 
 // Default dropdown options
@@ -8637,12 +8634,16 @@ const PF_DROPDOWN_DEFAULTS = {
 };
 
 function loadProductFormConfig() {
+  // Load from STATE.settings
   const cfg = STATE.settings.product_form_config;
-  if (cfg) { try { PFC.config = JSON.parse(cfg); } catch(e) { PFC.config = {}; } }
+  if (cfg) {
+    try { PFC.config = JSON.parse(cfg); } catch(e) { PFC.config = {}; }
+  }
   const dd = STATE.settings.product_dropdowns;
-  if (dd) { try { PFC.dropdowns = JSON.parse(dd); } catch(e) { PFC.dropdowns = {}; } }
-  const vgm = STATE.settings.product_var_grade_map;
-  if (vgm) { try { PFC.varGradeMap = JSON.parse(vgm); } catch(e) { PFC.varGradeMap = {}; } }
+  if (dd) {
+    try { PFC.dropdowns = JSON.parse(dd); } catch(e) { PFC.dropdowns = {}; }
+  }
+  // Fill in defaults for any missing fields
   PF_FIELDS.forEach(f => {
     if (!PFC.config[f.id]) PFC.config[f.id] = { visible: f.def, label: f.label };
   });
@@ -8656,6 +8657,7 @@ function renderProductFormBuilder() {
   const container = document.getElementById('pf-field-list');
   if (!container) return;
 
+  // Group by section
   const sections = {};
   PF_FIELDS.forEach(f => {
     if (!sections[f.section]) sections[f.section] = [];
@@ -8669,9 +8671,9 @@ function renderProductFormBuilder() {
     ${fields.map(f => {
       const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-        <label class="tog ${cfg.visible ? 'on' : ''}" onclick="pfToggleField(\'${f.id}\',this)" style="flex-shrink:0"></label>
+        <label class="tog ${cfg.visible ? 'on' : ''}" onclick="pfToggleField('${f.id}',this)" style="flex-shrink:0"></label>
         <div style="flex:1;min-width:0">
-          <input value="${escHtml(cfg.label)}" onchange="pfRenameField(\'${f.id}\',this.value)"
+          <input value="${escHtml(cfg.label)}" onchange="pfRenameField('${f.id}',this.value)"
             style="width:100%;border:none;background:transparent;font-size:12.5px;font-weight:${cfg.visible?'600':'400'};color:${cfg.visible?'var(--text)':'var(--muted)'};outline:none;padding:0"
             ${f.req ? 'readonly title="Required field — always shown"' : ''}>
         </div>
@@ -8680,17 +8682,7 @@ function renderProductFormBuilder() {
     }).join('')}
   `).join('');
 
-  _pfHighlightPreset(PFC.activePreset);
   renderDropdownEditor();
-}
-
-function _pfHighlightPreset(active) {
-  document.querySelectorAll('.pf-preset-btn').forEach(btn => {
-    const isActive = btn.dataset.preset === active;
-    btn.style.background  = isActive ? 'var(--teal)' : '';
-    btn.style.color       = isActive ? '#fff' : '';
-    btn.style.borderColor = isActive ? 'var(--teal)' : '';
-  });
 }
 
 function pfToggleField(id, togEl) {
@@ -8698,10 +8690,9 @@ function pfToggleField(id, togEl) {
   const visible = togEl.classList.contains('on');
   if (!PFC.config[id]) PFC.config[id] = { visible, label: PF_FIELDS.find(f=>f.id===id)?.label || id };
   PFC.config[id].visible = visible;
+  // Update input styling
   const input = togEl.parentElement.querySelector('input');
   if (input) { input.style.fontWeight = visible ? '600' : '400'; input.style.color = visible ? 'var(--text)' : 'var(--muted)'; }
-  PFC.activePreset = null;
-  _pfHighlightPreset(null);
 }
 
 function pfRenameField(id, newLabel) {
@@ -8715,7 +8706,6 @@ function applyProductFormPreset(preset) {
     if (!PFC.config[f.id]) PFC.config[f.id] = { visible: f.def, label: f.label };
     PFC.config[f.id].visible = f.req || onFields.has(f.id);
   });
-  PFC.activePreset = preset;
   renderProductFormBuilder();
   toast(`✅ ${preset.charAt(0).toUpperCase()+preset.slice(1)} preset applied — click Save to confirm`, 'info');
 }
@@ -8723,45 +8713,14 @@ function applyProductFormPreset(preset) {
 async function saveProductFormConfig() {
   try {
     await api('api/settings.php', 'POST', {
-      product_form_config:   JSON.stringify(PFC.config),
-      product_dropdowns:     JSON.stringify(PFC.dropdowns),
-      product_var_grade_map: JSON.stringify(PFC.varGradeMap),
+      product_form_config: JSON.stringify(PFC.config),
+      product_dropdowns:   JSON.stringify(PFC.dropdowns),
     });
-    STATE.settings.product_form_config   = JSON.stringify(PFC.config);
-    STATE.settings.product_dropdowns     = JSON.stringify(PFC.dropdowns);
-    STATE.settings.product_var_grade_map = JSON.stringify(PFC.varGradeMap);
-    _rebuildVarGradeMaps();
+    STATE.settings.product_form_config = JSON.stringify(PFC.config);
+    STATE.settings.product_dropdowns   = JSON.stringify(PFC.dropdowns);
     applyProductFormToPage();
     toast('✅ Product form configuration saved!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _pfAutoSave() {
-  clearTimeout(PFC._saveTimer);
-  PFC._saveTimer = setTimeout(async () => {
-    try {
-      await api('api/settings.php', 'POST', {
-        product_dropdowns:     JSON.stringify(PFC.dropdowns),
-        product_var_grade_map: JSON.stringify(PFC.varGradeMap),
-      });
-      STATE.settings.product_dropdowns     = JSON.stringify(PFC.dropdowns);
-      STATE.settings.product_var_grade_map = JSON.stringify(PFC.varGradeMap);
-      _rebuildVarGradeMaps();
-      applyProductFormToPage();
-    } catch(e) {}
-  }, 1200);
-}
-
-function _rebuildVarGradeMaps() {
-  if (!Object.keys(PFC.varGradeMap).length) return;
-  Object.keys(PP_GRADE_VARIETY_MAP).forEach(k => delete PP_GRADE_VARIETY_MAP[k]);
-  Object.keys(PP_VARIETY_GRADE_MAP).forEach(k => delete PP_VARIETY_GRADE_MAP[k]);
-  Object.entries(PFC.varGradeMap).forEach(([variety, grade]) => {
-    PP_GRADE_VARIETY_MAP[grade]   = variety;
-    PP_VARIETY_GRADE_MAP[variety] = grade;
-    if (PFC.dropdowns.variety && !PFC.dropdowns.variety.includes(variety)) PFC.dropdowns.variety.push(variety);
-    if (PFC.dropdowns.grade   && !PFC.dropdowns.grade.includes(grade))     PFC.dropdowns.grade.push(grade);
-  });
 }
 
 function renderDropdownEditor() {
@@ -8769,103 +8728,73 @@ function renderDropdownEditor() {
   const container = document.getElementById('pf-dropdown-editor');
   if (!sel || !container) return;
   const key = sel.value;
-  if (key === 'variety' || key === 'grade') { _renderVarGradeEditor(container); return; }
   const options = PFC.dropdowns[key] || [];
   const fieldLabel = PF_FIELDS.find(f=>f.id===key)?.label || key;
+
   container.innerHTML = `
     <div style="font-size:12px;font-weight:700;margin-bottom:8px">${escHtml(fieldLabel)} options:</div>
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+    <div id="pf-dd-items" style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
       ${options.map((opt,i) => `
         <div style="display:flex;gap:6px;align-items:center">
-          <input value="${escHtml(opt)}" onchange="pfUpdateDropdownOption(\'${key}\',${i},this.value)"
+          <input value="${escHtml(opt)}" onchange="pfUpdateDropdownOption('${key}',${i},this.value)"
             style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
-          <button class="act-btn" style="color:#E53935" onclick="pfRemoveDropdownOption(\'${key}\',${i})"><i class="fas fa-times"></i></button>
+          <button class="act-btn" style="color:#E53935" onclick="pfRemoveDropdownOption('${key}',${i})"><i class="fas fa-times"></i></button>
         </div>`).join('')}
     </div>
     <div style="display:flex;gap:6px">
       <input id="pf-dd-new-val" placeholder="Add new option…" class="table-search" style="flex:1">
-      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="pfAddDropdownOption(\'${key}\')"><i class="fas fa-plus"></i> Add</button>
+      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="pfAddDropdownOption('${key}')"><i class="fas fa-plus"></i> Add</button>
     </div>`;
 }
 
-function _renderVarGradeEditor(container) {
-  const pairs = Object.keys(PFC.varGradeMap).length
-    ? Object.entries(PFC.varGradeMap)
-    : Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]);
-  container.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 20px 1fr 32px;gap:6px;align-items:center;margin-bottom:6px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;background:var(--bg);border-radius:5px">VARIETY</div>
-      <div></div>
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;background:var(--bg);border-radius:5px">GRADE</div>
-      <div></div>
-    </div>
-    <div id="pf-vg-pairs" style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
-      ${pairs.map(([variety, grade], i) => `
-        <div style="display:grid;grid-template-columns:1fr 20px 1fr 32px;gap:6px;align-items:center">
-          <input value="${escHtml(variety)}" placeholder="Variety" onchange="pfUpdatePair(${i},'variety',this.value)"
-            style="border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
-          <span style="color:var(--muted);font-size:12px;text-align:center">↔</span>
-          <input value="${escHtml(grade)}" placeholder="Grade" onchange="pfUpdatePair(${i},'grade',this.value)"
-            style="border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
-          <button class="act-btn" style="color:#E53935" onclick="pfRemovePair(${i})"><i class="fas fa-times"></i></button>
-        </div>`).join('')}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 20px 1fr 32px;gap:6px;align-items:center">
-      <input id="pf-vg-new-variety" placeholder="New variety…" class="table-search">
-      <span style="color:var(--muted);font-size:12px;text-align:center">↔</span>
-      <input id="pf-vg-new-grade" placeholder="New grade…" class="table-search">
-      <button class="btn btn-primary" style="padding:5px 8px;font-size:12px" onclick="pfAddPair()"><i class="fas fa-plus"></i></button>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px"><i class="fas fa-circle-info"></i> Variety ↔ Grade are linked — selecting one auto-fills the other. Auto-saves after 1.2s.</div>`;
-}
-
-function _getPairs() {
-  return Object.keys(PFC.varGradeMap).length
-    ? Object.entries(PFC.varGradeMap).map(([v,g]) => [v,g])
-    : Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]);
-}
-function _setPairs(pairs) {
-  PFC.varGradeMap = Object.fromEntries(pairs.filter(([v,g]) => v&&g));
-  PFC.dropdowns.variety = [...new Set(pairs.map(([v]) => v).filter(Boolean))];
-  PFC.dropdowns.grade   = [...new Set(pairs.map(([,g]) => g).filter(Boolean))];
-  _pfAutoSave();
-}
-function pfAddPair() {
-  const v = document.getElementById('pf-vg-new-variety').value.trim();
-  const g = document.getElementById('pf-vg-new-grade').value.trim();
-  if (!v || !g) { toast('⚠️ Enter both variety and grade', 'warning'); return; }
-  const pairs = _getPairs(); pairs.push([v,g]); _setPairs(pairs); renderDropdownEditor();
-}
-function pfUpdatePair(i, field, val) {
-  const pairs = _getPairs();
-  if (field==='variety') pairs[i][0]=val; else pairs[i][1]=val;
-  _setPairs(pairs);
-}
-function pfRemovePair(i) {
-  const pairs = _getPairs(); pairs.splice(i,1); _setPairs(pairs); renderDropdownEditor();
-}
 function pfAddDropdownOption(key) {
   const inp = document.getElementById('pf-dd-new-val');
-  const val = inp.value.trim(); if (!val) return;
+  const val = inp.value.trim();
+  if (!val) return;
   if (!PFC.dropdowns[key]) PFC.dropdowns[key] = [];
-  if (!PFC.dropdowns[key].includes(val)) PFC.dropdowns[key].push(val);
-  inp.value = ''; _pfAutoSave(); renderDropdownEditor();
+  PFC.dropdowns[key].push(val);
+  inp.value = '';
+  renderDropdownEditor();
 }
+
 function pfUpdateDropdownOption(key, idx, val) {
-  if (PFC.dropdowns[key]) { PFC.dropdowns[key][idx]=val; _pfAutoSave(); }
+  if (PFC.dropdowns[key]) PFC.dropdowns[key][idx] = val;
 }
+
 function pfRemoveDropdownOption(key, idx) {
-  if (PFC.dropdowns[key]) { PFC.dropdowns[key].splice(idx,1); _pfAutoSave(); renderDropdownEditor(); }
+  if (PFC.dropdowns[key]) { PFC.dropdowns[key].splice(idx, 1); renderDropdownEditor(); }
 }
+
+// Apply form config to the actual product new/edit page
+function applyProductFormToPage() {
+  loadProductFormConfig();
+  PF_FIELDS.forEach(f => {
+    const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
+    // Find the field row in the product form — look for label text or input id
+    const fieldEl = document.getElementById('pne-field-' + f.id);
+    if (fieldEl) fieldEl.style.display = cfg.visible ? '' : 'none';
+    // Update the label text
+    const labelEl = document.getElementById('pne-label-' + f.id);
+    if (labelEl) labelEl.textContent = cfg.label + (f.req ? ' *' : '');
+    // Update dropdowns with custom options
+    updateProductFormDropdown(f.id);
+  });
+}
+
 function updateProductFormDropdown(fieldId) {
-  const options = PFC.dropdowns[fieldId]; if (!options||!options.length) return;
-  const sel = document.querySelector(`[data-pf-dropdown="${fieldId}"]`); if (!sel) return;
+  const options = PFC.dropdowns[fieldId];
+  if (!options || !options.length) return;
+  // Find select by data-pf-dropdown attribute (keeps original pp- id intact)
+  const sel = document.querySelector(`[data-pf-dropdown="${fieldId}"]`);
+  if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = `<option value="">Select…</option>` + options.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('');
   if (cur) sel.value = cur;
 }
-function updateAllProductFormDropdowns() { Object.keys(PFC.dropdowns).forEach(k=>updateProductFormDropdown(k)); }
 
+function updateAllProductFormDropdowns() {
+  Object.keys(PFC.dropdowns).forEach(k => updateProductFormDropdown(k));
+}
 
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
@@ -23971,7 +23900,6 @@ async function loadAllData() {
       // Load categories from settings JSON if saved
       if (s.product_form_config) STATE.settings.product_form_config = s.product_form_config;
       if (s.product_dropdowns)   STATE.settings.product_dropdowns   = s.product_dropdowns;
-      if (s.product_var_grade_map) STATE.settings.product_var_grade_map = s.product_var_grade_map;
       if (s.product_categories) {
         try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
       }
