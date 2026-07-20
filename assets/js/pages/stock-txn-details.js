@@ -1,3 +1,5 @@
+let SH_LAST_ROWS = [];
+
 // ============================================================
 // stock-txn-details.js — page-specific JS for pages/stock-txn-details.php
 // Depends on: common.js, app.js, stock-shared.js

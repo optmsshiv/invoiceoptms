@@ -1,3 +1,16 @@
+const TPL_CUSTOM = {
+  color1: '#1A2332', color2: '#4DB6AC',
+  font: "'Public Sans',sans-serif",
+  headerStyle: 'gradient', tableStyle: 'dark',
+  footerText: '', tagline: '', watermarkText: 'PAID',
+  companyNameSize: '28', companyNameColor: '#ffffff',
+  companyNameWeight: '800', companyNameStyle: 'normal',
+  logoPosition: 'left',
+  colorTheme: 1
+};
+
+
+
 // ============================================================
 // templates.js — page-specific JS for pages/templates.php
 // Depends on: common.js, shared-data.js

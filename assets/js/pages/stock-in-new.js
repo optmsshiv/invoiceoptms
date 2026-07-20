@@ -1,3 +1,7 @@
+const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
+const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
+const STI_RECONCILE_TOLERANCE_PCT = 2;
+
 // ============================================================
 // stock-in-new.js — page-specific JS for pages/stock-in-new.php
 // Depends on: common.js, app.js, stock-shared.js

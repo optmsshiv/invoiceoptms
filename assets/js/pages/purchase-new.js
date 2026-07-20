@@ -1,3 +1,9 @@
+const PNE_SPLIT_COLORS = {
+  'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100',
+};
+
+
+
 // ============================================================
 // purchase-new.js — page-specific JS for pages/purchase-new.php
 // Depends on: common.js, shared-data.js, edit-approval-shared.js

@@ -1,3 +1,6 @@
+const POPT_STORAGE_KEY = 'optms_popt_prefs';
+const POPT_IDS = ['popt-bank','popt-qr','popt-sign','popt-logo','popt-client-logo','popt-notes','popt-tnc','popt-gst-col','popt-footer','popt-watermark','popt-payment-block','popt-previous-due'];
+
 // ============================================================
 // create.js — page-specific JS for pages/create.php (New/Edit Invoice)
 // Depends on: common.js, shared-data.js, wa-shared.js,

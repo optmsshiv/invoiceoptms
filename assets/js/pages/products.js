@@ -295,6 +295,9 @@ async function restoreProduct(id) {
 // server-side branch that decides which HTML (and therefore which
 // of these vs. the functions above) actually runs.
 // ============================================================
+let PRL_PAGE = 1;
+const PRL_PAGESIZE = 10;
+
 function renderProductsList() {
   const tbody = document.getElementById('prl-tbody');
   if (!tbody) return;
@@ -449,40 +452,7 @@ function exportProductsExcel() {
 }
 
 function editProductRich(id) {
-  const p = STATE.products.find(x => x.id === id); if (!p) return;
-  PNP.editingId = id;
-  PNP.images = Array.isArray(p.images) ? [...p.images] : [];
-  PNP.attachments = Array.isArray(p.attachments) ? p.attachments.map(url => ({ name: url.split('/').pop(), url })) : [];
-  PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
-  document.getElementById('pnp-title').textContent = 'Edit Product';
-  document.getElementById('pnp-subtitle').textContent = p.name;
-  populateProductCategoryDropdown();
-  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
-  set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
-  set('pp-category', p.category); set('pp-hsn', p.hsn); set('pp-shelflife', p.shelf_life_months);
-  set('pp-variety', p.variety); set('pp-barcode', p.barcode); set('pp-storagetype', p.storage_type || 'Dry');
-  set('pp-grade', p.grade); set('pp-minorderqty', p.min_order_qty || 0);
-  pnpSyncUnits();
-  set('pp-moisture', p.moisture_limit); set('pp-foreignmatter', p.foreign_matter_limit);
-  set('pp-brokendamage', p.broken_damage_limit); set('pp-oilcontent', p.oil_content); set('pp-admixture', p.admixture_limit);
-  set('pp-color', p.color); set('pp-aroma', p.aroma); set('pp-shapesize', p.shape_size);
-  set('pp-packingtype', p.packing_type || 'PP Bag'); set('pp-packingsize', p.packing_size);
-  set('pp-purchaserate', p.purchase_rate || 0); set('pp-salerate', p.sale_rate || 0); set('pp-mrp', p.mrp || 0);
-  set('pp-gst', p.gst ?? 18); set('pp-taxtype', p.tax_type || 'Intra-State (CGST+SGST)');
-  set('pp-openingstock', p.opening_stock || 0); set('pp-reorderlevel', p.reorder_level || 0);
-  set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
-  document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
-  document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
-  pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
-  set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
-  set('pp-fssai', p.fssai_license); set('pp-iec', p.iec_code);
-  document.getElementById('pp-status').classList.toggle('on', (p.status||'active') === 'active');
-  document.getElementById('pp-status-label').textContent = (p.status||'active') === 'active' ? 'Active' : 'Inactive';
-  document.getElementById('pp-status').onclick = toggleProductStatus;
-  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
   window.location.href = '/pages/product-new.php?edit_id=' + id;
-  return;
 }
 
 function _editProductWithApproval(productId, editFn) {

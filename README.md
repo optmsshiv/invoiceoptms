@@ -30,6 +30,16 @@ This is the **entire project**, ready to deploy wholesale — not a diff. It rep
 - **Migration SQL was completely rewritten** after you shared your real master DB dump — the previous version would have failed outright (`permissions.label` is `NOT NULL` with no default, and I never provided one). Also corrected a wrong assumption: `menu.sales` and `menu.stock` already exist in your permissions table; only `menu.customers` and `menu.stock_history` are genuinely new. See `migrations/add_new_permission_keys.sql`.
 - Every JS file now passes `node --check` (real syntax validation) and every PHP page has been re-verified for balanced markup.
 
+## Changelog — round 4 fixes (after your 403 + ReferenceError reports)
+
+- **`customers.php` 403 Forbidden**: not a code bug — `requirePermission()` denies access when a key doesn't exist yet in the `permissions` catalog, with no fallback default (unlike the nav display, which is lenient). This resolves as soon as you run `migrations/add_new_permission_keys.sql` — if you haven't run it yet, do that now.
+- **`escHtml`, `fmt_money`, `fmt_date`, `fmt_date_disp` were undefined on every Stock and Sales/Customers page** — these only ever lived in `shared-data.js`, which Stock/Sales deliberately don't load. Added to `common.js` (loaded on every page) so this is fixed everywhere at once, not just for the one function you hit.
+- **19 missing module-level state variables** across 11 files (`PRL_PAGESIZE`, `SL_PAGE`, `SH_PAGE`/`SH_PAGESIZE`, `CUST_LIST_PAGE`, `INDIA_STATES`, `PP_GRADE_VARIETY_MAP`, and more) — same root cause as the async-keyword bugs from last round: my extraction pulled the functions but not the state declarations sitting near them in your source. Found via a full audit of every file, not just the one you hit, and fixed all of them.
+- **Found and fixed a real regression**: `editProductRich()` in `products.js` still had ~70 lines of dead field-population code left over from before I converted it to a redirect — my earlier fix only patched the navigation line, not the whole function, so the old broken code was still running first (and would have thrown the same kind of error you just reported). Checked the two other functions I fixed the same way in that batch (`editSupplierRich`, `editPurchase`) — both were already correct, only this one had the leftover bug.
+- Every JS file re-verified with `node --check` (real parser, not pattern matching) after every fix in this round.
+
+
+
 ## Deploy steps
 
 1. **Back up your entire live site and DB first.** This is a full cutover, not an incremental patch.

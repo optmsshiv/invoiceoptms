@@ -1,3 +1,6 @@
+const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
+const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
+
 // ============================================================
 // product-new.js — page-specific JS for pages/product-new.php
 // Depends on: common.js, shared-data.js

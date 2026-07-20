@@ -1,3 +1,6 @@
+let SH_PAGE = 1;
+const SH_PAGESIZE = 20;
+
 // ============================================================
 // stock-history.js — page-specific JS for pages/stock-history.php
 // Depends on: common.js, app.js, stock-shared.js

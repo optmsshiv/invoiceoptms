@@ -1,3 +1,5 @@
+let SL_PAGE = 1;
+
 // ============================================================
 // sales.js — page-specific JS for pages/sales.php
 // Depends on: common.js, app.js, sales-shared.js
