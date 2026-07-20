@@ -3453,13 +3453,13 @@ const SERVER = {
               <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
               <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
               <div class="field" id="pne-field-unit"><label id="pne-label-unit">Unit *</label>
-                <select id="pne-sel-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
+                <select id="pp-unit" data-pf-dropdown="unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
               </div>
-              <div class="field" id="pne-field-brand"><label id="pne-label-brand">Brand</label><input id="pne-sel-brand" placeholder="e.g. AgriTrade"></div>
+              <div class="field" id="pne-field-brand"><label id="pne-label-brand">Brand</label><input id="pp-brand" data-pf-dropdown="brand" placeholder="e.g. AgriTrade"></div>
             </div>
             <div class="pne-grid4">
               <div class="field" id="pne-field-category"><label id="pne-label-category">Category *</label>
-                <select id="pne-sel-category"></select>
+                <select id="pp-category" data-pf-dropdown="category"></select>
               </div>
               <div class="field" id="pne-field-hsn"><label id="pne-label-hsn">HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
               <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
@@ -3467,7 +3467,7 @@ const SERVER = {
             </div>
             <div class="pne-grid4">
               <div class="field" id="pne-field-variety"><label id="pne-label-variety">Variety</label>
-                <select id="pne-sel-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+                <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
@@ -3477,12 +3477,12 @@ const SERVER = {
               </div>
               <div class="field" id="pne-field-sale_unit"><label id="pne-label-sale_unit">Sale Unit</label><input id="pp-saleunit" readonly></div>
               <div class="field" id="pne-field-storage_type"><label id="pne-label-storage_type">Storage Type</label>
-                <select id="pne-sel-storage_type"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
+                <select id="pp-storagetype" data-pf-dropdown="storage_type"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
               </div>
             </div>
             <div class="pne-grid4">
               <div class="field" id="pne-field-grade"><label id="pne-label-grade">Grade</label>
-                <select id="pne-sel-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
+                <select id="pp-grade" data-pf-dropdown="grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
               </div>
               <div class="field"><label>QR Code</label>
                 <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
@@ -3509,7 +3509,7 @@ const SERVER = {
             </div>
             <div class="pne-grid4">
               <div class="field" id="pne-field-packing_type"><label id="pne-label-packing_type">Packing Type</label>
-                <select id="pne-sel-packing_type"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
+                <select id="pp-packingtype" data-pf-dropdown="packing_type"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
               </div>
               <div class="field" id="pne-field-packing_size"><label id="pne-label-packing_size">Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
               <div></div><div></div>
@@ -8784,10 +8784,12 @@ function applyProductFormToPage() {
 function updateProductFormDropdown(fieldId) {
   const options = PFC.dropdowns[fieldId];
   if (!options || !options.length) return;
-  const sel = document.getElementById('pne-sel-' + fieldId);
+  // Find select by data-pf-dropdown attribute (keeps original pp- id intact)
+  const sel = document.querySelector(`[data-pf-dropdown="${fieldId}"]`);
   if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = `<option value="">Select…</option>` + options.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
 function updateAllProductFormDropdowns() {
