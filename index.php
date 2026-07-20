@@ -3566,15 +3566,17 @@ const SERVER = {
           <!-- Product Images -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-images"></i> Product Images</div>
-            <div id="pp-images-preview" class="pp-images-preview" ondragover="event.preventDefault()" ondrop="handlePNPImageDrop(event)"
-              style="min-height:100px;border:2px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;padding:16px;cursor:pointer;color:var(--muted);font-size:12px;text-align:center"
-              onclick="document.getElementById('pp-images-input').click()">
-              <i class="fas fa-cloud-arrow-up" style="font-size:26px;color:var(--teal)"></i>
-              <div style="font-weight:600;color:var(--text)">Drag &amp; drop images here</div>
-              <div>or click to upload</div>
-              <div style="font-size:10.5px;color:var(--muted);margin-top:2px">Recommended size: 800×800px (Max 5MB each)</div>
+            <div ondragover="event.preventDefault()" ondrop="pnpAddImages(event.dataTransfer.files);event.preventDefault()"
+              onclick="document.getElementById('pp-images-input').click()"
+              style="border:2px dashed var(--border);border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;margin-bottom:10px;transition:.2s"
+              onmouseenter="this.style.borderColor='var(--teal)'" onmouseleave="this.style.borderColor='var(--border)'">
+              <i class="fas fa-cloud-arrow-up" style="font-size:28px;color:var(--teal);display:block;margin-bottom:8px"></i>
+              <div style="font-weight:600;font-size:13px;color:var(--text)">Drag &amp; drop images here</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px">or click to upload</div>
             </div>
-            <input type="file" id="pp-images-input" multiple accept="image/*" style="display:none" onchange="handlePNPImageUpload(this)">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Recommended size: 800×800px (Max 5MB each)</div>
+            <input type="file" id="pp-images-input" multiple accept="image/*" style="display:none" onchange="pnpAddImages(this.files)">
+            <div id="pp-images-preview" class="pp-images-preview"></div>
           </div>
 
           <!-- Additional Information -->
@@ -3584,8 +3586,8 @@ const SERVER = {
             <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="e.g. AgriTrade Import Export Pvt. Ltd."></div>
             <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="e.g. 12345678901234"></div>
             <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="e.g. AAECA1234B"></div>
-            <div class="field" style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
-              <label style="font-weight:600;font-size:13px">Product Status</label>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;margin-top:4px">
+              <span style="font-weight:600;font-size:13px">Product Status</span>
               <div style="display:flex;align-items:center;gap:8px">
                 <label class="tog on" id="pp-status" onclick="this.classList.toggle('on');document.getElementById('pp-status-label').textContent=this.classList.contains('on')?'Active':'Inactive'"></label>
                 <span id="pp-status-label" style="font-size:12.5px;color:var(--muted)">Active</span>
@@ -3597,22 +3599,23 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
             <div id="pp-tags-chips" class="pp-tags-chips"></div>
-            <input id="pp-tags-input" class="table-search" style="margin-top:8px" placeholder="Add tags and press enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addPNPTag(this.value);this.value='';}">
+            <input id="pp-tags-input" class="table-search" style="margin-top:8px" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
           </div>
 
           <!-- Attachments -->
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
             <div id="pp-attachments-list"></div>
-            <div ondragover="event.preventDefault()" ondrop="handlePNPAttachDrop(event)"
+            <div ondragover="event.preventDefault()" ondrop="pnpAddAttachments(event.dataTransfer.files);event.preventDefault()"
               onclick="document.getElementById('pp-attachments-input').click()"
-              style="min-height:80px;border:2px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin-top:8px;cursor:pointer;color:var(--muted);font-size:12px;text-align:center;padding:12px">
-              <i class="fas fa-cloud-arrow-up" style="font-size:22px;color:var(--teal)"></i>
-              <div style="font-weight:600;color:var(--text)">Drag &amp; drop files here</div>
-              <div>or click to upload</div>
-              <div style="font-size:10.5px;margin-top:2px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
+              style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;margin-top:8px;transition:.2s"
+              onmouseenter="this.style.borderColor='var(--teal)'" onmouseleave="this.style.borderColor='var(--border)'">
+              <i class="fas fa-cloud-arrow-up" style="font-size:22px;color:var(--teal);display:block;margin-bottom:6px"></i>
+              <div style="font-weight:600;font-size:12.5px;color:var(--text)">Drag &amp; drop files here</div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px">or click to upload</div>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
             </div>
-            <input type="file" id="pp-attachments-input" multiple style="display:none" onchange="handlePNPAttachment(this)">
+            <input type="file" id="pp-attachments-input" multiple style="display:none" onchange="pnpAddAttachments(this.files)">
           </div>
 
         </div><!-- /.pne-sidebar -->
@@ -8700,8 +8703,15 @@ function renderProductFormBuilder() {
 function _pfHighlightPreset(active) {
   document.querySelectorAll('.pf-preset-btn').forEach(btn => {
     const isActive = btn.dataset.preset === active;
-    btn.classList.toggle('btn-primary', isActive);
-    btn.classList.toggle('btn-outline', !isActive);
+    if (isActive) {
+      btn.classList.add('btn-primary');
+      btn.classList.remove('btn-outline');
+      btn.style.opacity = '1';
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+      btn.style.opacity = '0.7';
+    }
   });
 }
 
@@ -8728,7 +8738,8 @@ function applyProductFormPreset(preset) {
     PFC.config[f.id].visible = f.req || onFields.has(f.id);
   });
   PFC.activePreset = preset;
-  renderProductFormBuilder();
+  renderProductFormBuilder(); // re-renders field toggles based on PFC.config
+  // Highlight runs inside renderProductFormBuilder via _pfHighlightPreset
   toast(`✅ ${preset.charAt(0).toUpperCase()+preset.slice(1)} preset applied — click Save to confirm`, 'info');
 }
 
@@ -15364,13 +15375,32 @@ const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3'
 const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
 function onPPGradeChange() {
   const grade = document.getElementById('pp-grade').value;
-  const variety = PP_GRADE_VARIETY_MAP[grade];
-  if (variety) document.getElementById('pp-variety').value = variety;
+  // Try PFC map first (inverted: grade→variety), then hardcoded
+  const gradeToVariety = PFC.varGradeMap ? Object.fromEntries(Object.entries(PFC.varGradeMap).map(([v,g])=>[g,v])) : {};
+  const variety = gradeToVariety[grade] || PP_GRADE_VARIETY_MAP[grade];
+  if (variety) {
+    const varEl = document.getElementById('pp-variety');
+    if (varEl) varEl.value = variety;
+  }
 }
 function onPPVarietyChange() {
   const variety = document.getElementById('pp-variety').value;
-  const grade = PP_VARIETY_GRADE_MAP[variety];
-  if (grade) document.getElementById('pp-grade').value = grade;
+  // Try PFC map first (custom pairs), then fallback to hardcoded map
+  const grade = (PFC.varGradeMap && PFC.varGradeMap[variety]) || PP_VARIETY_GRADE_MAP[variety];
+  if (grade) {
+    const gradeEl = document.getElementById('pp-grade');
+    if (gradeEl) {
+      gradeEl.value = grade;
+      // If grade field is hidden, make sure it still has the value
+      if (!Array.from(gradeEl.options).find(o => o.value === grade)) {
+        // Grade not in options - add it temporarily
+        const opt = document.createElement('option');
+        opt.value = grade; opt.textContent = grade;
+        gradeEl.appendChild(opt);
+        gradeEl.value = grade;
+      }
+    }
+  }
 }
 
 async function saveProductEntry(mode) {
