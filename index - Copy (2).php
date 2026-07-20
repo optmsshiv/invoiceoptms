@@ -2233,7 +2233,7 @@ const SERVER = {
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-hashtag"></i> Invoice Details</div>
             <div class="form-grid g2">
-              <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
+              <div class="field"><label>Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
               <div class="field"><label>Service Type</label>
                 <select id="f-service" onchange="onServiceSelect(this.value);livePreview()" style="margin-bottom:5px">
                   <option value="">-- Select from your services --</option>
@@ -3450,24 +3450,24 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
-              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
-              <div class="field" id="pne-field-unit"><label id="pne-label-unit">Unit *</label>
-                <select id="pne-sel-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
+              <div class="field"><label>Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
+              <div class="field"><label>Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
+              <div class="field"><label>Unit *</label>
+                <select id="pp-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
               </div>
-              <div class="field" id="pne-field-brand"><label id="pne-label-brand">Brand</label><input id="pne-sel-brand" placeholder="e.g. AgriTrade"></div>
+              <div class="field"><label>Brand</label><input id="pp-brand" placeholder="e.g. AgriTrade"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-category"><label id="pne-label-category">Category *</label>
-                <select id="pne-sel-category"></select>
+              <div class="field"><label>Category *</label>
+                <select id="pp-category"></select>
               </div>
-              <div class="field" id="pne-field-hsn"><label id="pne-label-hsn">HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
-              <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
-              <div class="field" id="pne-field-shelf_life_months"><label id="pne-label-shelf_life_months">Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
+              <div class="field"><label>HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
+              <div class="field"><label>Base Unit</label><input id="pp-baseunit" readonly></div>
+              <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-variety"><label id="pne-label-variety">Variety</label>
-                <select id="pne-sel-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+              <div class="field"><label>Variety</label>
+                <select id="pp-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
@@ -3475,20 +3475,20 @@ const SERVER = {
                   <button type="button" class="btn btn-outline" style="padding:0 12px" title="Scan barcode" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i></button>
                 </div>
               </div>
-              <div class="field" id="pne-field-sale_unit"><label id="pne-label-sale_unit">Sale Unit</label><input id="pp-saleunit" readonly></div>
-              <div class="field" id="pne-field-storage_type"><label id="pne-label-storage_type">Storage Type</label>
-                <select id="pne-sel-storage_type"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
+              <div class="field"><label>Sale Unit</label><input id="pp-saleunit" readonly></div>
+              <div class="field"><label>Storage Type</label>
+                <select id="pp-storagetype"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
               </div>
             </div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-grade"><label id="pne-label-grade">Grade</label>
-                <select id="pne-sel-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
+              <div class="field"><label>Grade</label>
+                <select id="pp-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
               </div>
               <div class="field"><label>QR Code</label>
                 <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
               </div>
-              <div class="field" id="pne-field-purchase_unit"><label id="pne-label-purchase_unit">Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
-              <div class="field" id="pne-field-min_order_qty"><label id="pne-label-min_order_qty">Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
+              <div class="field"><label>Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
             </div>
           </div>
 
@@ -3496,22 +3496,22 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-flask"></i></span> Product Specifications</div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-moisture_limit"><label id="pne-label-moisture_limit">Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
-              <div class="field" id="pne-field-foreign_matter_limit"><label id="pne-label-foreign_matter_limit">Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
-              <div class="field" id="pne-field-broken_damage_limit"><label id="pne-label-broken_damage_limit">Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
-              <div class="field" id="pne-field-oil_content"><label id="pne-label-oil_content">Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
+              <div class="field"><label>Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
+              <div class="field"><label>Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
+              <div class="field"><label>Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
+              <div class="field"><label>Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-admixture_limit"><label id="pne-label-admixture_limit">Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
-              <div class="field" id="pne-field-color"><label id="pne-label-color">Color</label><input id="pp-color" placeholder="e.g. White"></div>
-              <div class="field" id="pne-field-aroma"><label id="pne-label-aroma">Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
-              <div class="field" id="pne-field-shape_size"><label id="pne-label-shape_size">Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
+              <div class="field"><label>Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
+              <div class="field"><label>Color</label><input id="pp-color" placeholder="e.g. White"></div>
+              <div class="field"><label>Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
+              <div class="field"><label>Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-packing_type"><label id="pne-label-packing_type">Packing Type</label>
-                <select id="pne-sel-packing_type"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
+              <div class="field"><label>Packing Type</label>
+                <select id="pp-packingtype"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
               </div>
-              <div class="field" id="pne-field-packing_size"><label id="pne-label-packing_size">Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
+              <div class="field"><label>Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
               <div></div><div></div>
             </div>
           </div>
@@ -3520,13 +3520,13 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-tags"></i></span> Pricing &amp; Tax Information</div>
             <div class="pne-grid5">
-              <div class="field" id="pne-field-purchase_rate"><label id="pne-label-purchase_rate">Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-sale_rate"><label id="pne-label-sale_rate">Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-mrp"><label id="pne-label-mrp">MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-gst"><label id="pne-label-gst">GST % *</label>
+              <div class="field"><label>Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>GST % *</label>
                 <select id="pp-gst"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option></select>
               </div>
-              <div class="field" id="pne-field-tax_type"><label id="pne-label-tax_type">Tax Type</label>
+              <div class="field"><label>Tax Type</label>
                 <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
               </div>
             </div>
@@ -3536,10 +3536,10 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-warehouse"></i></span> Inventory Information</div>
             <div class="pne-grid4">
-              <div class="field" id="pne-field-opening_stock"><label id="pne-label-opening_stock">Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-reorder_level"><label id="pne-label-reorder_level">Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-max_stock"><label id="pne-label-max_stock">Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-default_warehouse"><label id="pne-label-default_warehouse">Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
+              <div class="field"><label>Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
+              <div class="field"><label>Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
             </div>
             <div style="display:flex;gap:28px;margin-top:4px">
               <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Batch</span><div class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></div></div>
@@ -3580,10 +3580,10 @@ const SERVER = {
 
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
-            <div class="field" id="pne-field-country_of_origin"><label id="pne-label-country_of_origin">Country of Origin</label><input id="pp-country" value="India"></div>
-            <div class="field" id="pne-field-manufacturer"><label id="pne-label-manufacturer">Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
-            <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
-            <div class="field" id="pne-field-iec_code"><label id="pne-label-iec_code">IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
+            <div class="field"><label>Country of Origin</label><input id="pp-country" value="India"></div>
+            <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
+            <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
+            <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
               <span style="font-size:12.5px;font-weight:600">Product Status</span>
               <div style="display:flex;align-items:center;gap:8px">
@@ -6369,7 +6369,6 @@ View Invoice: {{6}}</pre></details>
           <button class="stab-btn active" onclick="settingsTab('company',this)"><i class="fas fa-building"></i> Company</button>
           <button class="stab-btn" onclick="settingsTab('invoice',this)"><i class="fas fa-file-invoice"></i> Invoice</button>
           <button class="stab-btn" onclick="settingsTab('catalog',this)"><i class="fas fa-tags"></i> Catalog</button>
-          <button class="stab-btn" onclick="settingsTab('productform',this)"><i class="fas fa-table-columns"></i> Product Form</button>
           <button class="stab-btn" onclick="settingsTab('backup',this)"><i class="fas fa-database"></i> Backup</button>
         </div>
 
@@ -6517,51 +6516,6 @@ View Invoice: {{6}}</pre></details>
               <button class="btn btn-primary" style="padding:6px 14px;font-size:13px" onclick="addItemType()"><i class="fas fa-plus"></i> Add Type</button>
             </div>
             <p style="font-size:11px;color:var(--muted);margin-top:10px"><i class="fas fa-info-circle"></i> Default types (Service, Product, Labour, Other) are always available even if deleted.</p>
-          </div>
-        </div>
-
-        <!-- ══ TAB: PRODUCT FORM ══ -->
-        <div id="stab-productform" class="stab-pane">
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-table-columns" style="color:var(--teal)"></i> Product Form Builder</div>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-              Control which fields appear in the Add/Edit Product form. Toggle fields on or off and rename labels to suit your business.
-              Changes apply immediately — no page reload needed.
-            </p>
-            <!-- Preset buttons -->
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-              <span style="font-size:12px;font-weight:700;color:var(--muted);align-self:center">Presets:</span>
-              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('agri')"><i class="fas fa-seedling"></i> Agri Commodity</button>
-              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('kirana')"><i class="fas fa-store"></i> Kirana Wholesale</button>
-              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('service')"><i class="fas fa-briefcase"></i> Service</button>
-              <button class="btn btn-outline" style="font-size:12px" onclick="applyProductFormPreset('all')"><i class="fas fa-list"></i> Show All</button>
-            </div>
-            <!-- Field list -->
-            <div id="pf-field-list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
-            <div style="margin-top:16px;display:flex;gap:10px">
-              <button class="btn btn-primary" onclick="saveProductFormConfig()"><i class="fas fa-save"></i> Save Form Config</button>
-            </div>
-          </div>
-
-          <!-- Dropdown Manager -->
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-list-ul" style="color:var(--teal)"></i> Dropdown Options Manager</div>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-              Customize the options in each product field dropdown. Add, remove, or rename values.
-            </p>
-            <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-              <select id="pf-dropdown-select" class="table-search" style="max-width:220px" onchange="renderDropdownEditor()">
-                <option value="category">Category</option>
-                <option value="unit">Unit</option>
-                <option value="brand">Brand</option>
-                <option value="grade">Grade</option>
-                <option value="variety">Variety</option>
-                <option value="packing_type">Packing Type</option>
-                <option value="storage_type">Storage Type</option>
-              </select>
-              <span style="font-size:12px;color:var(--muted);align-self:center">Select a dropdown to edit its options</span>
-            </div>
-            <div id="pf-dropdown-editor" style="max-width:480px"></div>
           </div>
         </div>
 
@@ -8201,7 +8155,6 @@ function showPage(name, el) {
   if (name === 'templates') { renderTemplatesGrid(); setTimeout(populateTemplateForm,100); }
   if (name === 'whatsapp')  { setTimeout(populateWAPage, 100); setTimeout(renderFestivalCampaigns, 200); }
   if (name === 'settings')  { populateSettingsForm(); settingsTab('company', document.querySelector('.stab-btn')); }
-  if (name === 'product-new') { applyProductFormToPage(); }
   if (name === 'email-setup') { populateSettingsForm(); loadEmailAutoSettings(); }
   if (name === 'msglog')    renderMsgLog();
   if (name === 'aging')     renderAgingReport();
@@ -8557,241 +8510,6 @@ function loadDashboardExpenses() {
     if (el)  el.textContent  = fmt_money(total);
     if (sub) sub.textContent = cats.size ? cats.size + ' categories' : 'This month';
   } catch(e) {}
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  PRODUCT FORM BUILDER
-// ═══════════════════════════════════════════════════════════════
-
-// Master field definitions — all possible product fields
-const PF_FIELDS = [
-  // id, default label, section, shown-by-default
-  { id:'name',                  label:'Product Name',            section:'Basic',         req:true,  def:true  },
-  { id:'sku',                   label:'Product Code / SKU',      section:'Basic',         req:false, def:true  },
-  { id:'category',              label:'Category',                section:'Basic',         req:false, def:true  },
-  { id:'unit',                  label:'Unit',                    section:'Basic',         req:false, def:true  },
-  { id:'brand',                 label:'Brand',                   section:'Basic',         req:false, def:true  },
-  { id:'hsn',                   label:'HSN / SAC Code',          section:'Basic',         req:false, def:true  },
-  { id:'gst',                   label:'GST %',                   section:'Basic',         req:false, def:true  },
-  { id:'barcode',               label:'Barcode',                 section:'Basic',         req:false, def:false },
-  { id:'base_unit_label',       label:'Base Unit',               section:'Basic',         req:false, def:false },
-  { id:'sale_unit',             label:'Sale Unit',               section:'Basic',         req:false, def:false },
-  { id:'purchase_unit',         label:'Purchase Unit',           section:'Basic',         req:false, def:false },
-  { id:'min_order_qty',         label:'Min Order Qty',           section:'Basic',         req:false, def:false },
-  { id:'shelf_life_months',     label:'Shelf Life (Months)',     section:'Basic',         req:false, def:false },
-  { id:'storage_type',          label:'Storage Type',            section:'Basic',         req:false, def:false },
-  { id:'variety',               label:'Variety',                 section:'Quality',       req:false, def:false },
-  { id:'grade',                 label:'Grade',                   section:'Quality',       req:false, def:false },
-  { id:'moisture_limit',        label:'Moisture Limit (%)',      section:'Quality',       req:false, def:false },
-  { id:'foreign_matter_limit',  label:'Foreign Matter Limit (%)',section:'Quality',       req:false, def:false },
-  { id:'broken_damage_limit',   label:'Broken / Damage Limit (%)',section:'Quality',     req:false, def:false },
-  { id:'oil_content',           label:'Oil Content (%)',         section:'Quality',       req:false, def:false },
-  { id:'admixture_limit',       label:'Admixture Limit (%)',     section:'Quality',       req:false, def:false },
-  { id:'color',                 label:'Color',                   section:'Quality',       req:false, def:false },
-  { id:'aroma',                 label:'Aroma',                   section:'Quality',       req:false, def:false },
-  { id:'shape_size',            label:'Shape / Size',            section:'Quality',       req:false, def:false },
-  { id:'packing_type',          label:'Packing Type',            section:'Quality',       req:false, def:false },
-  { id:'packing_size',          label:'Packing Size',            section:'Quality',       req:false, def:false },
-  { id:'purchase_rate',         label:'Purchase Rate (₹)',       section:'Pricing',       req:false, def:true  },
-  { id:'sale_rate',             label:'Default Sale Rate (₹)',   section:'Pricing',       req:false, def:true  },
-  { id:'mrp',                   label:'MRP (₹)',                 section:'Pricing',       req:false, def:false },
-  { id:'tax_type',              label:'Tax Type',                section:'Pricing',       req:false, def:true  },
-  { id:'opening_stock',         label:'Opening Stock',           section:'Inventory',     req:false, def:true  },
-  { id:'reorder_level',         label:'Reorder Level',           section:'Inventory',     req:false, def:true  },
-  { id:'max_stock',             label:'Maximum Stock',           section:'Inventory',     req:false, def:false },
-  { id:'default_warehouse',     label:'Default Warehouse',       section:'Inventory',     req:false, def:false },
-  { id:'short_description',     label:'Short Description',       section:'Description',   req:false, def:true  },
-  { id:'detailed_description',  label:'Detailed Description',    section:'Description',   req:false, def:false },
-  { id:'country_of_origin',     label:'Country of Origin',       section:'Description',   req:false, def:false },
-  { id:'manufacturer',          label:'Manufacturer / Producer', section:'Description',   req:false, def:false },
-  { id:'fssai_license',         label:'FSSAI License No.',       section:'Description',   req:false, def:false },
-  { id:'iec_code',              label:'IEC Code',                section:'Description',   req:false, def:false },
-];
-
-// Presets: which fields are ON for each business type
-const PF_PRESETS = {
-  agri:    ['name','category','unit','hsn','gst','variety','grade','moisture_limit','foreign_matter_limit','purchase_rate','sale_rate','tax_type','opening_stock','reorder_level','default_warehouse','short_description','fssai_license'],
-  kirana:  ['name','sku','category','unit','brand','hsn','gst','barcode','shelf_life_months','packing_type','packing_size','purchase_rate','sale_rate','mrp','tax_type','opening_stock','reorder_level','max_stock','default_warehouse','short_description','manufacturer','fssai_license'],
-  service: ['name','category','hsn','gst','sale_rate','tax_type','short_description'],
-  all:     PF_FIELDS.map(f => f.id),
-};
-
-// STATE for form config
-const PFC = {
-  config: {},      // { fieldId: { visible: bool, label: string } }
-  dropdowns: {},   // { fieldId: ['option1', 'option2', ...] }
-};
-
-// Default dropdown options
-const PF_DROPDOWN_DEFAULTS = {
-  category:     ['General','Raw Material','Finished Goods','Packaging','Services','Other'],
-  unit:         ['Kg','Quintal','MT','Gram','Litre','Ml','Piece','Box','Bag','Packet','Bundle','Dozen','Pair'],
-  brand:        [],
-  grade:        ['Premium','Grade A','Grade B','Grade C','Standard','Ungraded'],
-  variety:      [],
-  packing_type: ['Loose','Jute Bag','HDPE Bag','PP Bag','Carton','Tin','Bottle','Pouch'],
-  storage_type: ['Dry','Cold Storage','Ambient','Refrigerated','Frozen'],
-};
-
-function loadProductFormConfig() {
-  // Load from STATE.settings
-  const cfg = STATE.settings.product_form_config;
-  if (cfg) {
-    try { PFC.config = JSON.parse(cfg); } catch(e) { PFC.config = {}; }
-  }
-  const dd = STATE.settings.product_dropdowns;
-  if (dd) {
-    try { PFC.dropdowns = JSON.parse(dd); } catch(e) { PFC.dropdowns = {}; }
-  }
-  // Fill in defaults for any missing fields
-  PF_FIELDS.forEach(f => {
-    if (!PFC.config[f.id]) PFC.config[f.id] = { visible: f.def, label: f.label };
-  });
-  Object.keys(PF_DROPDOWN_DEFAULTS).forEach(k => {
-    if (!PFC.dropdowns[k]) PFC.dropdowns[k] = [...PF_DROPDOWN_DEFAULTS[k]];
-  });
-}
-
-function renderProductFormBuilder() {
-  loadProductFormConfig();
-  const container = document.getElementById('pf-field-list');
-  if (!container) return;
-
-  // Group by section
-  const sections = {};
-  PF_FIELDS.forEach(f => {
-    if (!sections[f.section]) sections[f.section] = [];
-    sections[f.section].push(f);
-  });
-
-  container.innerHTML = Object.entries(sections).map(([section, fields]) => `
-    <div style="grid-column:span 2;margin-top:12px">
-      <div style="font-size:11px;font-weight:800;color:var(--teal);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">${section}</div>
-    </div>
-    ${fields.map(f => {
-      const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-        <label class="tog ${cfg.visible ? 'on' : ''}" onclick="pfToggleField('${f.id}',this)" style="flex-shrink:0"></label>
-        <div style="flex:1;min-width:0">
-          <input value="${escHtml(cfg.label)}" onchange="pfRenameField('${f.id}',this.value)"
-            style="width:100%;border:none;background:transparent;font-size:12.5px;font-weight:${cfg.visible?'600':'400'};color:${cfg.visible?'var(--text)':'var(--muted)'};outline:none;padding:0"
-            ${f.req ? 'readonly title="Required field — always shown"' : ''}>
-        </div>
-        ${f.req ? '<span style="font-size:10px;color:var(--teal);font-weight:700">REQ</span>' : ''}
-      </div>`;
-    }).join('')}
-  `).join('');
-
-  renderDropdownEditor();
-}
-
-function pfToggleField(id, togEl) {
-  togEl.classList.toggle('on');
-  const visible = togEl.classList.contains('on');
-  if (!PFC.config[id]) PFC.config[id] = { visible, label: PF_FIELDS.find(f=>f.id===id)?.label || id };
-  PFC.config[id].visible = visible;
-  // Update input styling
-  const input = togEl.parentElement.querySelector('input');
-  if (input) { input.style.fontWeight = visible ? '600' : '400'; input.style.color = visible ? 'var(--text)' : 'var(--muted)'; }
-}
-
-function pfRenameField(id, newLabel) {
-  if (!PFC.config[id]) PFC.config[id] = { visible: true, label: newLabel };
-  PFC.config[id].label = newLabel;
-}
-
-function applyProductFormPreset(preset) {
-  const onFields = new Set(PF_PRESETS[preset] || PF_PRESETS.all);
-  PF_FIELDS.forEach(f => {
-    if (!PFC.config[f.id]) PFC.config[f.id] = { visible: f.def, label: f.label };
-    PFC.config[f.id].visible = f.req || onFields.has(f.id);
-  });
-  renderProductFormBuilder();
-  toast(`✅ ${preset.charAt(0).toUpperCase()+preset.slice(1)} preset applied — click Save to confirm`, 'info');
-}
-
-async function saveProductFormConfig() {
-  try {
-    await api('api/settings.php', 'POST', {
-      product_form_config: JSON.stringify(PFC.config),
-      product_dropdowns:   JSON.stringify(PFC.dropdowns),
-    });
-    STATE.settings.product_form_config = JSON.stringify(PFC.config);
-    STATE.settings.product_dropdowns   = JSON.stringify(PFC.dropdowns);
-    applyProductFormToPage();
-    toast('✅ Product form configuration saved!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function renderDropdownEditor() {
-  const sel = document.getElementById('pf-dropdown-select');
-  const container = document.getElementById('pf-dropdown-editor');
-  if (!sel || !container) return;
-  const key = sel.value;
-  const options = PFC.dropdowns[key] || [];
-  const fieldLabel = PF_FIELDS.find(f=>f.id===key)?.label || key;
-
-  container.innerHTML = `
-    <div style="font-size:12px;font-weight:700;margin-bottom:8px">${escHtml(fieldLabel)} options:</div>
-    <div id="pf-dd-items" style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
-      ${options.map((opt,i) => `
-        <div style="display:flex;gap:6px;align-items:center">
-          <input value="${escHtml(opt)}" onchange="pfUpdateDropdownOption('${key}',${i},this.value)"
-            style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
-          <button class="act-btn" style="color:#E53935" onclick="pfRemoveDropdownOption('${key}',${i})"><i class="fas fa-times"></i></button>
-        </div>`).join('')}
-    </div>
-    <div style="display:flex;gap:6px">
-      <input id="pf-dd-new-val" placeholder="Add new option…" class="table-search" style="flex:1">
-      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="pfAddDropdownOption('${key}')"><i class="fas fa-plus"></i> Add</button>
-    </div>`;
-}
-
-function pfAddDropdownOption(key) {
-  const inp = document.getElementById('pf-dd-new-val');
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!PFC.dropdowns[key]) PFC.dropdowns[key] = [];
-  PFC.dropdowns[key].push(val);
-  inp.value = '';
-  renderDropdownEditor();
-}
-
-function pfUpdateDropdownOption(key, idx, val) {
-  if (PFC.dropdowns[key]) PFC.dropdowns[key][idx] = val;
-}
-
-function pfRemoveDropdownOption(key, idx) {
-  if (PFC.dropdowns[key]) { PFC.dropdowns[key].splice(idx, 1); renderDropdownEditor(); }
-}
-
-// Apply form config to the actual product new/edit page
-function applyProductFormToPage() {
-  loadProductFormConfig();
-  PF_FIELDS.forEach(f => {
-    const cfg = PFC.config[f.id] || { visible: f.def, label: f.label };
-    // Find the field row in the product form — look for label text or input id
-    const fieldEl = document.getElementById('pne-field-' + f.id);
-    if (fieldEl) fieldEl.style.display = cfg.visible ? '' : 'none';
-    // Update the label text
-    const labelEl = document.getElementById('pne-label-' + f.id);
-    if (labelEl) labelEl.textContent = cfg.label + (f.req ? ' *' : '');
-    // Update dropdowns with custom options
-    updateProductFormDropdown(f.id);
-  });
-}
-
-function updateProductFormDropdown(fieldId) {
-  const options = PFC.dropdowns[fieldId];
-  if (!options || !options.length) return;
-  const sel = document.getElementById('pne-sel-' + fieldId);
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = `<option value="">Select…</option>` + options.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('');
-}
-
-function updateAllProductFormDropdowns() {
-  Object.keys(PFC.dropdowns).forEach(k => updateProductFormDropdown(k));
 }
 
 function renderDashboard() {
@@ -15154,7 +14872,6 @@ function toggleProductStatus() {
 }
 
 function goToNewProductPage() {
-  applyProductFormToPage();
   PNP.editingId = null;
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
   document.getElementById('pnp-title').textContent = 'New Product';
@@ -23896,8 +23613,6 @@ async function loadAllData() {
         email_max_followup:  s.email_max_followup  || '3',
       };
       // Load categories from settings JSON if saved
-      if (s.product_form_config) STATE.settings.product_form_config = s.product_form_config;
-      if (s.product_dropdowns)   STATE.settings.product_dropdowns   = s.product_dropdowns;
       if (s.product_categories) {
         try { const cats = JSON.parse(s.product_categories); if (Array.isArray(cats) && cats.length) STATE.categories = cats; } catch(e) {}
       }
@@ -24467,7 +24182,6 @@ window.saveProfilePassword = async function() {
 
 // ── Settings Tab ───────────────────────────────────────────────
 window.settingsTab = function(name, btn) {
-  if (name === 'productform') { renderProductFormBuilder(); }
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
   const pane = document.getElementById('stab-' + name);
