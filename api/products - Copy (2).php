@@ -77,9 +77,9 @@ switch ($method) {
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) {
       $r['id'] = 'p' . $r['id'];
-      $r['tags'] = isset($r['tags']) && $r['tags'] ? json_decode($r['tags'], true) : [];
-      $r['images'] = isset($r['images']) && $r['images'] ? json_decode($r['images'], true) : [];
-      $r['attachments'] = isset($r['attachments']) && $r['attachments'] ? json_decode($r['attachments'], true) : [];
+      $r['tags'] = $r['tags'] ? json_decode($r['tags'], true) : [];
+      $r['images'] = $r['images'] ? json_decode($r['images'], true) : [];
+      $r['attachments'] = $r['attachments'] ? json_decode($r['attachments'], true) : [];
       // Map legacy column names to new names for JS compatibility
       if (!isset($r['hsn']) && isset($r['hsn_code']))   $r['hsn'] = $r['hsn_code'];
       if (!isset($r['gst']) && isset($r['gst_rate']))   $r['gst'] = $r['gst_rate'];
@@ -106,13 +106,15 @@ switch ($method) {
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
-    $cols = array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS);
+    $cols = array_merge(
+      array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS),
+      ['tags', 'images', 'attachments', 'status']
+    );
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
-    // Only add json columns if they exist in this DB
-    if (isset($existingColsSet['tags']))        { $cols[] = 'tags';        $vals[] = json_encode($tags); }
-    if (isset($existingColsSet['images']))      { $cols[] = 'images';      $vals[] = json_encode($images); }
-    if (isset($existingColsSet['attachments'])) { $cols[] = 'attachments'; $vals[] = json_encode($attachments); }
-    $cols[] = 'status'; $vals[] = 'active';
+    $vals[] = json_encode($tags);
+    $vals[] = json_encode($images);
+    $vals[] = json_encode($attachments);
+    $vals[] = 'active'; // new products always start active
 
     $placeholders = implode(',', array_fill(0, count($cols), '?'));
     $colList = implode(',', array_map(fn($c) => "`$c`", $cols));
@@ -150,12 +152,8 @@ switch ($method) {
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
     $mappedFields = array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS);
-    $setParts = array_map(fn($f) => "`$f`=?", $mappedFields);
+    $setSql = implode(',', array_map(fn($f) => "`$f`=?", $mappedFields)) . ', tags=?, images=?, attachments=?';
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
-    if (isset($existingColsSet['tags']))        { $setParts[] = 'tags=?';        $vals[] = json_encode($tags); }
-    if (isset($existingColsSet['images']))      { $setParts[] = 'images=?';      $vals[] = json_encode($images); }
-    if (isset($existingColsSet['attachments'])) { $setParts[] = 'attachments=?'; $vals[] = json_encode($attachments); }
-    $setSql = implode(',', $setParts);
     $vals[] = json_encode($tags);
     $vals[] = json_encode($images);
     $vals[] = json_encode($attachments);
