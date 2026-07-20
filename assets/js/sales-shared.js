@@ -1,3 +1,10 @@
+const BIZ_FROM_DATE = '2026-05-01';
+let SL_PAGE = 1;
+const SL_PAGESIZE = 10;
+let CUST_LIST_SEARCH = '';
+let CUST_LIST_PAGE = 1;
+const CUST_LIST_PAGESIZE = 10;
+
 // ============================================================
 // sales-shared.js — shared across Sales & Customers module pages
 // (sales.php, sale-new.php, customers.php, customer-new.php)

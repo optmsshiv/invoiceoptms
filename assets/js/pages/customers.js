@@ -1,6 +1,3 @@
-let CUST_LIST_SEARCH = '';
-let CUST_LIST_PAGE = 1;
-
 // ============================================================
 // customers.js — page-specific JS for pages/customers.php
 // Depends on: common.js, app.js, sales-shared.js, edit-approval-shared.js

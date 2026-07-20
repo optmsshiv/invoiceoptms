@@ -40,6 +40,11 @@ This is the **entire project**, ready to deploy wholesale — not a diff. It rep
 
 
 
+## Changelog — round 5 fixes (after your BIZ_FROM_DATE report + dashboard business-type request)
+
+- **`BIZ_FROM_DATE` undefined, plus a deeper issue it exposed**: fixing it led me to redo the missing-declaration audit properly this time (the previous round only checked page-specific files, not the shared ones). Found `CUST_LIST_PAGESIZE`, `SL_PAGESIZE`, and `BIZ_FROM_DATE` were used by functions living in `sales-shared.js` (shared across Sales, Customers, and both "-new" pages) but declared only in one page's own file — meaning they'd crash on the other three pages. Moved all Sales/Customers module state constants into `sales-shared.js` where the code that actually uses them lives.
+- **Dashboard now differentiates by business type.** The pre-existing `dashboard.php`/`dashboard.js` (built before I started, not something I'd touched beyond path fixes) never had this — it's a fully custom implementation, not a port of the SPA's dashboard, so I built a new "Product Business" section from scratch matching its existing visual style: sales/purchases KPIs for a date range, a trend chart, recent sales, and top products, shown/hidden alongside the existing invoice-focused section based on `$businessType`.
+
 ## Deploy steps
 
 1. **Back up your entire live site and DB first.** This is a full cutover, not an incremental patch.

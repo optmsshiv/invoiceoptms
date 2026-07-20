@@ -65,6 +65,11 @@ include __DIR__ . '/includes/layout_header.php';
                showPage()+setTimeout() hack from the SPA. -->
         </div>
       </div>
+      <?php
+        $showService = in_array($businessType, ['service', 'both'], true);
+        $showProduct = in_array($businessType, ['product', 'both'], true);
+      ?>
+      <?php if ($showService): ?>
       <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
            plan including Pro (the plan exclusion below only affects the
            glowing automation banner beneath it). -->
@@ -200,4 +205,79 @@ include __DIR__ . '/includes/layout_header.php';
           <div id="dashTopClients"></div>
         </div>
       </div>
+      <?php endif; // $showService ?>
+
+      <?php if ($showProduct): ?>
+      <!-- ================================================================
+           Product Business Dashboard — added during MPA cutover. The
+           original SPA had a parallel "dash-product" panel here driven
+           by renderProductDashboard(); this dashboard.php predates that
+           SPA and was invoice/service-only, so this section is a fresh
+           build (same visual conventions as the service section above:
+           dash-card / stat-card / card-header classes) rather than a
+           literal port — the SPA's element ids don't exist in this file.
+      ================================================================ -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 12px">
+        <div style="font-size:15px;font-weight:700;color:var(--text)">Product Business</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="pdb-from" class="dash-date-input" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
+          <span style="color:var(--muted);font-size:12px">to</span>
+          <input type="date" id="pdb-to" class="dash-date-input" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">
+          <button class="cf-btn" onclick="renderProductDashboard()"><i class="fas fa-rotate"></i></button>
+        </div>
+      </div>
+
+      <div class="dash-stats-row">
+        <div class="stat-card" data-color="green">
+          <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-cash-register"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="pdb-sales-total">₹0</div>
+            <div class="stat-lbl">Sales (period)</div>
+            <div class="stat-trend neutral" id="pdb-sales-count">0 sales</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="blue">
+          <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-dolly"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="pdb-purchases-total">₹0</div>
+            <div class="stat-lbl">Purchases (period)</div>
+            <div class="stat-trend neutral" id="pdb-purchases-count">0 purchases</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="teal">
+          <div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-warehouse"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="pdb-stock-value">₹0</div>
+            <div class="stat-lbl">Current Stock Value</div>
+            <div class="stat-trend neutral" id="pdb-stock-count">0 items</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="amber">
+          <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-triangle-exclamation"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="pdb-lowstock-count">0</div>
+            <div class="stat-lbl">Low Stock Items</div>
+            <div class="stat-trend neutral">at or below reorder level</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
+        <div class="dash-card" style="flex:2;min-width:0">
+          <div class="card-header"><span class="card-title">Sales vs Purchases</span></div>
+          <div class="chart-wrap"><canvas id="pdbTrendChart"></canvas></div>
+        </div>
+        <div class="dash-card" style="flex:1;min-width:0">
+          <div class="card-header">
+            <span class="card-title">Recent Sales</span>
+            <a class="cf-btn" href="/pages/sales.php">View All</a>
+          </div>
+          <div id="pdbRecentSales"></div>
+        </div>
+        <div class="dash-card" style="flex:0 0 210px;min-width:0">
+          <div class="card-header"><span class="card-title">Top Products</span></div>
+          <div id="pdbTopProducts"></div>
+        </div>
+      </div>
+      <?php endif; // $showProduct ?>
 <?php include __DIR__ . '/includes/layout_footer.php'; ?>

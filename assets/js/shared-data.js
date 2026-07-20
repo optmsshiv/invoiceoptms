@@ -14,7 +14,7 @@
 const STATE = {
   invoices: [], clients: [], products: [], payments: [],
   creditNotes: [], suppliers: [], purchases: [], activity: [], expenses: [], recurring: [],
-  reminders: [], promises: [], _remSettings: {},
+  reminders: [], promises: [], _remSettings: {}, sales: [], stock: [],
   settings: {}, filteredInvoices: [],
   currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
   _clientFilter: '', activeMenuInvoiceId: null,
@@ -267,6 +267,7 @@ const CORE_ENDPOINTS = {
   purchases:   '/api/purchases.php',
   expenses:    '/api/expenses.php',
   stock:       '/api/stock.php',
+  sales:       '/api/sales.php',
 };
 
 async function loadCoreData(keys) {

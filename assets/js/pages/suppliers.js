@@ -1,3 +1,5 @@
+const BIZ_FROM_DATE = '2026-05-01';
+
 // ============================================================
 // suppliers.js — page-specific JS for pages/suppliers.php
 // Depends on: common.js, shared-data.js, edit-approval-shared.js
