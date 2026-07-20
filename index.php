@@ -562,6 +562,10 @@ canvas { max-width: 100% !important; }
 .pne-small-btn { font-size: 12px; padding: 6px 12px; }
 
 .pne-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+.pne-grid-auto { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 4px; }
+.pne-grid-auto .field[style*="display: none"], .pne-grid-auto .field[style*="display:none"] { display: none !important; }
+@media (max-width: 1200px) { .pne-grid-auto { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px)  { .pne-grid-auto { grid-template-columns: repeat(2, 1fr); } }
 .pne-grid4:last-child { margin-bottom: 0; }
 @media (max-width: 1100px) { .pne-grid4 { grid-template-columns: repeat(2, 1fr); } .pne-layout { grid-template-columns: 1fr; } }
 
@@ -3448,99 +3452,100 @@ const SERVER = {
 
           <!-- 1. Product Information -->
           <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
-            <div class="pne-grid4">
-              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
-              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
+            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information
               <div class="field" id="pne-field-unit"><label id="pne-label-unit">Unit *</label>
                 <select id="pp-unit" data-pf-dropdown="unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
               </div>
               <div class="field" id="pne-field-brand"><label id="pne-label-brand">Brand</label><input id="pp-brand" data-pf-dropdown="brand" placeholder="e.g. AgriTrade"></div>
-            </div>
-            <div class="pne-grid4">
+            
               <div class="field" id="pne-field-category"><label id="pne-label-category">Category *</label>
                 <select id="pp-category" data-pf-dropdown="category"></select>
               </div>
               <div class="field" id="pne-field-hsn"><label id="pne-label-hsn">HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
               <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
               <div class="field" id="pne-field-shelf_life_months"><label id="pne-label-shelf_life_months">Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
-            </div>
-            <div class="pne-grid4">
+            
               <div class="field" id="pne-field-variety"><label id="pne-label-variety">Variety</label>
                 <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
+            </div>
               <div class="field"><label>Barcode</label>
                 <div style="display:flex;gap:6px">
                   <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
                   <button type="button" class="btn btn-outline" style="padding:0 12px" title="Scan barcode" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i></button>
                 </div>
               </div>
-              <div class="field" id="pne-field-sale_unit"><label id="pne-label-sale_unit">Sale Unit</label><input id="pp-saleunit" readonly></div>
-              <div class="field" id="pne-field-storage_type"><label id="pne-label-storage_type">Storage Type</label>
-                <select id="pp-storagetype" data-pf-dropdown="storage_type"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
-              </div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field" id="pne-field-grade"><label id="pne-label-grade">Grade</label>
-                <select id="pp-grade" data-pf-dropdown="grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
-              </div>
-              <div class="field"><label>QR Code</label>
+                                                        <div class="field"><label>QR Code</label>
                 <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
               </div>
-              <div class="field" id="pne-field-purchase_unit"><label id="pne-label-purchase_unit">Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
-              <div class="field" id="pne-field-min_order_qty"><label id="pne-label-min_order_qty">Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
-            </div>
+                                        </div>
           </div>
 
           <!-- 2. Product Specifications -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-flask"></i></span> Product Specifications</div>
-            <div class="pne-grid4">
-              <div class="field" id="pne-field-moisture_limit"><label id="pne-label-moisture_limit">Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-flask"></i></span> Product Specifications
+              <div class="field" id="pne-field-purchase_unit"><label id="pne-label-purchase_unit">Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
+              <div class="field" id="pne-field-grade"><label id="pne-label-grade">Grade</label>
+                <select id="pp-grade" data-pf-dropdown="grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
+              </div>
+              <div class="field" id="pne-field-storage_type"><label id="pne-label-storage_type">Storage Type</label>
+                <select id="pp-storagetype" data-pf-dropdown="storage_type"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
+              </div>
+              <div class="field" id="pne-field-sale_unit"><label id="pne-label-sale_unit">Sale Unit</label><input id="pp-saleunit" readonly></div>
+              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)">
+            </div>            <div class="pne-grid-auto">
+              <div class="field" id="pne-field-moisture_limit"><label id="pne-label-moisture_limit">Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00">
+            </div>            <div class="pne-grid-auto">
+              <div class="field" id="pne-field-min_order_qty"><label id="pne-label-min_order_qty">Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
+
+              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
+
               <div class="field" id="pne-field-foreign_matter_limit"><label id="pne-label-foreign_matter_limit">Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
               <div class="field" id="pne-field-broken_damage_limit"><label id="pne-label-broken_damage_limit">Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
               <div class="field" id="pne-field-oil_content"><label id="pne-label-oil_content">Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
-            </div>
-            <div class="pne-grid4">
+            
               <div class="field" id="pne-field-admixture_limit"><label id="pne-label-admixture_limit">Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
               <div class="field" id="pne-field-color"><label id="pne-label-color">Color</label><input id="pp-color" placeholder="e.g. White"></div>
               <div class="field" id="pne-field-aroma"><label id="pne-label-aroma">Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
               <div class="field" id="pne-field-shape_size"><label id="pne-label-shape_size">Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
-            </div>
-            <div class="pne-grid4">
+            
               <div class="field" id="pne-field-packing_type"><label id="pne-label-packing_type">Packing Type</label>
                 <select id="pp-packingtype" data-pf-dropdown="packing_type"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
               </div>
               <div class="field" id="pne-field-packing_size"><label id="pne-label-packing_size">Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
+            </div>
               <div></div><div></div>
             </div>
           </div>
 
           <!-- 3. Pricing & Tax Information -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-tags"></i></span> Pricing &amp; Tax Information</div>
-            <div class="pne-grid5">
-              <div class="field" id="pne-field-purchase_rate"><label id="pne-label-purchase_rate">Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-sale_rate"><label id="pne-label-sale_rate">Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
+            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-tags"></i></span> Pricing &amp; Tax Information
               <div class="field" id="pne-field-mrp"><label id="pne-label-mrp">MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
               <div class="field" id="pne-field-gst"><label id="pne-label-gst">GST % *</label>
                 <select id="pp-gst"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option></select>
               </div>
-              <div class="field" id="pne-field-tax_type"><label id="pne-label-tax_type">Tax Type</label>
-                <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
-              </div>
             </div>
+                          </div>
           </div>
 
           <!-- 4. Inventory Information -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-warehouse"></i></span> Inventory Information</div>
-            <div class="pne-grid4">
-              <div class="field" id="pne-field-opening_stock"><label id="pne-label-opening_stock">Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
+            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-warehouse"></i></span> Inventory Information
+              <div class="field" id="pne-field-purchase_rate"><label id="pne-label-purchase_rate">Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0">
+            </div>            <div class="pne-grid-auto">
+              <div class="field" id="pne-field-opening_stock"><label id="pne-label-opening_stock">Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0">
+            </div>            <div class="pne-grid-auto">
+              <div class="field" id="pne-field-tax_type"><label id="pne-label-tax_type">Tax Type</label>
+                <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
+              </div>
+
+              <div class="field" id="pne-field-sale_rate"><label id="pne-label-sale_rate">Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
+
               <div class="field" id="pne-field-reorder_level"><label id="pne-label-reorder_level">Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
               <div class="field" id="pne-field-max_stock"><label id="pne-label-max_stock">Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
-              <div class="field" id="pne-field-default_warehouse"><label id="pne-label-default_warehouse">Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
             </div>
+                          </div>
             <div style="display:flex;gap:28px;margin-top:4px">
               <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Batch</span><div class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></div></div>
               <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Serial No.</span><div class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></div></div>
@@ -3549,12 +3554,12 @@ const SERVER = {
 
           <!-- 5. Product Description -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-align-left"></i></span> Product Description</div>
-            <div class="pne-grid2">
-              <div class="field">
+            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-align-left"></i></span> Product Description
+<div class="field">
                 <label>Short Description</label>
                 <textarea id="pp-shortdesc" maxlength="200" style="min-height:90px" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',200)" placeholder="One-line summary shown in listings"></textarea>
-                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-shortdesc-count">0</span>/200</div>
+                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-shortdesc-count">0</span>/200
+            </div>
               </div>
               <div class="field">
                 <label>Detailed Description</label>
@@ -3579,11 +3584,14 @@ const SERVER = {
           </div>
 
           <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
+            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>            <div class="pne-grid-auto">
+              <div class="field" id="pne-field-default_warehouse"><label id="pne-label-default_warehouse">Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
+
             <div class="field" id="pne-field-country_of_origin"><label id="pne-label-country_of_origin">Country of Origin</label><input id="pp-country" value="India"></div>
             <div class="field" id="pne-field-manufacturer"><label id="pne-label-manufacturer">Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
             <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
             <div class="field" id="pne-field-iec_code"><label id="pne-label-iec_code">IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
+            </div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
               <span style="font-size:12.5px;font-weight:600">Product Status</span>
               <div style="display:flex;align-items:center;gap:8px">
