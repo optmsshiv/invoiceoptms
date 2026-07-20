@@ -328,7 +328,7 @@ function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
       log[existing].error = error || '';
       if (wamid) log[existing].wamid = wamid;
       saveMsgLog(log);
-      api('/api/wa_log.php', 'POST', { id: log[existing].id, wamid: wamid || '', type: log[existing].type, status: status || 'sent_web', error: error || '' })
+      api('api/wa_log.php', 'POST', { id: log[existing].id, wamid: wamid || '', type: log[existing].type, status: status || 'sent_web', error: error || '' })
         .catch(e => console.warn('[wa_log] DB update failed:', e.message));
       _updateMsglogBadge(log);
       return;
@@ -346,7 +346,7 @@ function logWAMessage({ inv, client, type, msg, status, error, wamid }) {
   };
   log.unshift(entry);
   saveMsgLog(log);
-  api('/api/wa_log.php', 'POST', {
+  api('api/wa_log.php', 'POST', {
     id: entry.id, wamid: entry.wamid || '', ts: entry.ts, type: entry.type, status: entry.status,
     client: entry.client, phone: entry.phone !== '—' ? entry.phone : '',
     inv_id: entry.inv_id || '', inv_num: entry.inv_num || '', inv_amt: entry.inv_amt || '',
@@ -468,7 +468,7 @@ async function sendWA(phone, message, tplName, inv, client) {
     if (inv && inv.id) {
       const _pid = String(inv.id || inv._dbId || '');
       if (_pid && !_portalTokenCache[_pid]) {
-        try { const _pr = await api('/api/portal.php', 'POST', { invoice_id: parseInt(_pid) }); if (_pr && _pr.token) _portalTokenCache[_pid] = _pr.token; }
+        try { const _pr = await api('api/portal.php', 'POST', { invoice_id: parseInt(_pid) }); if (_pr && _pr.token) _portalTokenCache[_pid] = _pr.token; }
         catch (e) { /* continue without portal link */ }
       }
     }
@@ -503,7 +503,7 @@ async function sendWAForInvoice(inv) {
   const tpl = tplKey || tplDefault;
   const invIdForPortal = String(inv.id || inv._dbId || '');
   if (invIdForPortal && !_portalTokenCache[invIdForPortal]) {
-    try { const pr = await api('/api/portal.php', 'POST', { invoice_id: parseInt(invIdForPortal) }); if (pr && pr.token) _portalTokenCache[invIdForPortal] = pr.token; }
+    try { const pr = await api('api/portal.php', 'POST', { invoice_id: parseInt(invIdForPortal) }); if (pr && pr.token) _portalTokenCache[invIdForPortal] = pr.token; }
     catch (e) { /* portal link unavailable, continue without it */ }
   }
   const msg = formatWAMsg(tpl, inv, client, STATE.settings);
@@ -693,7 +693,7 @@ async function _sendStatementEmail(c, unpaid, totalAmt, sc) {
   const subject = `Account Statement — ${unpaid.length} Outstanding Invoice${unpaid.length > 1 ? 's' : ''} | ${fmt_money(totalAmt)}`;
   try {
     toast('📧 Sending statement...', 'info');
-    const r = await api('/api/email.php', 'POST', { action: 'send', type: 'statement', to: c.email, to_name: c.name, subject, body: htmlBody, invoice_id: null });
+    const r = await api('api/email.php', 'POST', { action: 'send', type: 'statement', to: c.email, to_name: c.name, subject, body: htmlBody, invoice_id: null });
     if (r?.success) toast(`✅ Statement emailed to ${c.email}`, 'success');
     else toast('❌ Email failed: ' + (r?.error || 'Unknown error'), 'error');
   } catch (e) { toast('❌ ' + e.message, 'error'); }

@@ -14,7 +14,7 @@
 const STATE = {
   invoices: [], clients: [], products: [], payments: [],
   creditNotes: [], suppliers: [], purchases: [], activity: [], expenses: [], recurring: [],
-  reminders: [], promises: [], _remSettings: {}, sales: [], stock: [],
+  reminders: [], promises: [], _remSettings: {},
   settings: {}, filteredInvoices: [],
   currentPage: 1, invoicesPerPage: 10, sortField: null, sortDir: 'asc',
   _clientFilter: '', activeMenuInvoiceId: null,
@@ -170,7 +170,7 @@ async function syncOverdueToDb(invoices) {
   if (!toUpdate.length) return;
   await Promise.allSettled(
     toUpdate.map(inv =>
-      api('/api/invoices.php?id=' + parseInt(inv.id), 'PATCH', { status: 'Overdue' })
+      api('api/invoices.php?id=' + parseInt(inv.id), 'PATCH', { status: 'Overdue' })
         .then(() => { delete inv._autoOverdue; })
         .catch(() => {})
     )
@@ -241,7 +241,7 @@ function logActivity(type, label, detail, invoiceId) {
   };
   STATE.activity.unshift(entry);
   if (STATE.activity.length > 500) STATE.activity = STATE.activity.slice(0, 500);
-  api('/api/activity.php', 'POST', {
+  api('api/activity.php', 'POST', {
     type, label, detail: detail || '',
     invoice_id: invoiceId ? parseInt(invoiceId) : null,
   }).catch(e => console.warn('activity log write failed:', e.message));
@@ -257,17 +257,15 @@ function logActivity(type, label, detail, invoiceId) {
 //   await loadCoreData(['invoices', 'clients', 'payments', 'settings']);
 // ══════════════════════════════════════════
 const CORE_ENDPOINTS = {
-  invoices:    '/api/invoices.php',
-  clients:     '/api/clients.php',
-  products:    '/api/products.php',
-  payments:    '/api/payments.php',
-  settings:    '/api/settings.php',
-  creditNotes: '/api/credit_notes.php',
-  suppliers:   '/api/suppliers.php',
-  purchases:   '/api/purchases.php',
-  expenses:    '/api/expenses.php',
-  stock:       '/api/stock.php',
-  sales:       '/api/sales.php',
+  invoices:    'api/invoices.php',
+  clients:     'api/clients.php',
+  products:    'api/products.php',
+  payments:    'api/payments.php',
+  settings:    'api/settings.php',
+  creditNotes: 'api/credit_notes.php',
+  suppliers:   'api/suppliers.php',
+  purchases:   'api/purchases.php',
+  expenses:    'api/expenses.php',
 };
 
 async function loadCoreData(keys) {

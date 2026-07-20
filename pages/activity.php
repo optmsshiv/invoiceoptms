@@ -4,15 +4,18 @@
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+
 requireLogin();
 requirePermission('menu.activity');
+
 $user = currentUser();
 
-$activePage = 'activity';
-$pageTitle  = 'Activity Log';
-require_once __DIR__ . '/../includes/layout_header.php';
-?>
+$activePage  = 'activity';
+$pageTitle   = 'Activity Log';
+$pageScripts = ['/assets/js/shared-data.js', '/assets/js/activity.js'];
 
+include __DIR__ . '/../includes/layout_header.php';
+?>
       <div class="page-toolbar">
         <div class="toolbar-left">
           <input type="text" class="table-search" placeholder="Search activity…" oninput="filterActivity(this.value)" id="activity-search">
@@ -50,11 +53,4 @@ require_once __DIR__ . '/../includes/layout_header.php';
       <div style="text-align:center;padding:16px" id="activity-load-more" style="display:none">
         <button class="btn btn-outline" onclick="loadMoreActivity()">Load More</button>
       </div>
-    
-
-    <!--
-
-
-<?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/shared-data.js"></script>
-<script src="/assets/js/pages/activity.js"></script>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

@@ -336,33 +336,3 @@ function _roleFail(string $role): never {
     <a href='/'>← Back to Dashboard</a></body></html>";
     exit;
 }
-// ================================================================
-// Added during MPA conversion — every new /pages/*.php file's
-// layout_footer.php calls renderSessionTimeoutAssets() unconditionally,
-// but this file (auth.php, which every page requires) never defined
-// it — only includes/new_auth.php did, which nothing requires. This
-// was causing a PHP fatal error ("call to undefined function") on
-// EVERY page load. Copied verbatim from new_auth.php; only depends
-// on the SESSION_LIFETIME constant (config/db.php) and $_SESSION,
-// both already available wherever this runs.
-// ================================================================
-function renderSessionTimeoutAssets(int $warningSeconds = 120): void {
-    if (empty($_SESSION['user_id'])) return; // only needed once logged in
-    $lifetime = SESSION_LIFETIME;
-    $userName = htmlspecialchars($_SESSION['user_name'] ?? '', ENT_QUOTES);
-    echo <<<HTML
-    <script>
-      window.OPTMS_SESSION_CONFIG = {
-        lifetime: {$lifetime},
-        warningSecs: {$warningSeconds},
-        keepaliveUrl: '/includes/session_keepalive.php',
-        lockUrl: '/includes/session_lock.php',
-        unlockUrl: '/includes/session_unlock.php',
-        loginUrl: '/auth/login.php',
-        logoutUrl: '/auth/logout.php',
-        userName: "{$userName}"
-      };
-    </script>
-    <script src="/assets/js/session-timeout.js"></script>
-    HTML;
-}

@@ -73,7 +73,6 @@ $pageTitle = $pageTitle ?? 'Dashboard';
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="/assets/css/app.css">
-<link rel="stylesheet" href="/assets/css/app-core.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 </head>
@@ -117,30 +116,23 @@ const SERVER = {
     <div class="nav-section-label">MAIN</div>
     <?php
     // page => [icon, label, href, permission key]
-    $businessType = $settings['business_type'] ?? 'both';
     $navMain = [
-        'dashboard'     => ['fas fa-th-large',          'Dashboard',           '/dashboard.php',    'menu.dashboard'],
+        'dashboard'     => ['fas fa-th-large',          'Dashboard',           '/pages/dashboard.php',    'menu.dashboard'],
         'invoices'      => ['fas fa-file-invoice',      'Invoices',            '/pages/invoices.php',     'menu.invoices'],
         'create'        => ['fas fa-plus-circle',       'New Invoice',         '/pages/create.php',       'menu.create'],
         'clients'       => ['fas fa-users',              'Clients',            '/pages/clients.php',      'menu.clients'],
-        'customers'     => ['fas fa-address-book',       'Customers',          '/pages/customers.php',    'menu.customers', ['product','both']],
-        'sales'         => ['fas fa-cash-register',      'Sales',              '/pages/sales.php',        'menu.sales', ['product','both']],
         'products'      => ['fas fa-box',                'Services / Products','/pages/products.php',     'menu.products'],
         'suppliers'     => ['fas fa-truck-loading',      'Suppliers',          '/pages/suppliers.php',    'menu.suppliers'],
         'purchases'     => ['fas fa-dolly',               'Purchases',         '/pages/purchases.php',    'menu.purchases'],
         'stock'         => ['fas fa-warehouse',          'Stock Ledger',        '/pages/stock.php',        'menu.stock'],
-        'stock-history' => ['fas fa-clock-rotate-left',   'Stock History',       '/pages/stock-history.php', 'menu.stock_history'],
         'payments'      => ['fas fa-credit-card',        'Payments',           '/pages/payments.php',      'menu.payments'],
-        'credit-notes'  => ['fas fa-file-circle-minus',  'Credit Notes',        '/pages/credit-notes.php', 'menu.credit_notes'],
+        'credit-notes'  => ['fas fa-file-circle-minus',  'Credit Notes',        '/pages/credit_notes.php', 'menu.credit_notes'],
         'reports'       => ['fas fa-chart-bar',          'Reports',            '/pages/reports.php',       'menu.reports'],
         'aging'         => ['fas fa-hourglass-half',     'Aging Report',        '/pages/aging.php',        'menu.aging'],
         'expenses'      => ['fas fa-wallet',              'Expenses',          '/pages/expenses.php',     'menu.expenses'],
         'tax'           => ['fas fa-landmark',            'Tax Summary',       '/pages/tax.php',           'menu.tax'],
     ];
-    foreach ($navMain as $key => $navItem):
-        [$icon, $label, $href, $perm] = $navItem;
-        $allowedBizTypes = $navItem[4] ?? null; // null = visible for every business_type
-        if ($allowedBizTypes !== null && !in_array($businessType, $allowedBizTypes, true)) continue;
+    foreach ($navMain as $key => [$icon, $label, $href, $perm]):
         if (!($perms[$perm] ?? true)) continue;
         $active = $activePage === $key ? ' active' : '';
     ?>
@@ -161,7 +153,7 @@ const SERVER = {
         'activity'     => ['fas fa-history',       'Activity Log',   '/pages/activity.php',     'menu.activity'],
         'templates'    => ['fas fa-palette',       'PDF Templates',  '/pages/templates.php',    'menu.templates'],
         'whatsapp'     => ['fab fa-whatsapp',      'WhatsApp Setup', '/pages/whatsapp.php',      'menu.whatsapp'],
-        'email-setup'  => ['fas fa-envelope',      'Email Setup',    '/pages/email-setup.php',  'menu.email_setup'],
+        'email-setup'  => ['fas fa-envelope',      'Email Setup',    '/pages/email_setup.php',  'menu.email_setup'],
     ];
     foreach ($navTools as $key => [$icon, $label, $href, $perm]):
         if (!($perms[$perm] ?? true)) continue;

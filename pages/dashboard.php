@@ -15,7 +15,7 @@ $greeting = $hourNow < 12 ? 'Good morning' : ($hourNow < 17 ? 'Good afternoon' :
 
 $activePage = 'dashboard';
 $pageTitle  = 'Dashboard';
-$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/dashboard.js'];
+$pageScripts = ['/assets/js/shared-data.js', '/assets/js/dashboard.js'];
 
 include __DIR__ . '/../includes/layout_header.php';
 ?>

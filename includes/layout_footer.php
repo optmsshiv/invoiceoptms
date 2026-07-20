@@ -10,8 +10,6 @@
 ══════════════════════════════════════════ -->
 <?php include __DIR__ . '/modals/promise_to_pay.php'; ?>
 <?php include __DIR__ . '/modals/balance_reminder.php'; ?>
-<?php include __DIR__ . '/modals/invoice_preview.php'; ?>
-<?php include __DIR__ . '/modals/mark_paid.php'; ?>
 
 <div class="toast-container" id="toastContainer"></div>
 

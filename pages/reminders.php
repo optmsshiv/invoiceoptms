@@ -4,15 +4,21 @@
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+
 requireLogin();
 requirePermission('menu.reminders');
+
 $user = currentUser();
 
-$activePage = 'reminders';
-$pageTitle  = 'Reminders';
-require_once __DIR__ . '/../includes/layout_header.php';
-?>
+// $settings is computed by layout_header.php (included below) before
+// this page's HTML runs, so no need to fetch it again here.
 
+$activePage  = 'reminders';
+$pageTitle   = 'Reminders';
+$pageScripts = ['/assets/js/shared-data.js', '/assets/js/wa-shared.js', '/assets/js/reminders.js'];
+
+include __DIR__ . '/../includes/layout_header.php';
+?>
       <div style="display:flex;gap:16px;align-items:stretch;margin-bottom:18px;flex-wrap:wrap">
         <div class="dash-card" style="flex:0 0 300px;min-width:260px">
           <div class="card-header"><span class="card-title"><i class="fas fa-cog" style="color:var(--teal)"></i> Reminder Rules</span></div>
@@ -79,7 +85,7 @@ require_once __DIR__ . '/../includes/layout_header.php';
         </div>
       </div>
 
-      <!-- ── Auto-Reminder Health Check ─────────────────────────── -->
+      <!-- Auto-Reminder Health Check -->
       <div class="dash-card" id="rem-health-card" style="margin-bottom:16px">
         <div class="card-header">
           <span class="card-title"><i class="fas fa-heartbeat" style="color:#E53935"></i> Auto-Reminder Health</span>
@@ -93,7 +99,7 @@ require_once __DIR__ . '/../includes/layout_header.php';
       <div class="table-card">
         <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;overflow-x:auto;min-height:44px;flex-wrap:nowrap">
           <span style="font-weight:700;font-size:14px;white-space:nowrap">Reminder History</span>
-          <input id="rem-hist-search" type="text" placeholder="&#x1F50D; Client / Invoice" oninput="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;width:160px;flex-shrink:0">
+          <input id="rem-hist-search" type="text" placeholder="🔍 Client / Invoice" oninput="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;width:160px;flex-shrink:0">
           <select id="rem-hist-type" onchange="window._remHistPage=1;_renderReminderHistory()" style="font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
             <option value="">All Types</option>
             <option value="due_soon">Due Soon</option>
@@ -127,11 +133,4 @@ require_once __DIR__ . '/../includes/layout_header.php';
           <div id="rem-hist-page-btns" style="display:flex;gap:5px"></div>
         </div>
       </div>
-    
-    <!--
-
-
-<?php require_once __DIR__ . '/../includes/layout_footer.php'; ?>
-<script src="/assets/js/shared-data.js"></script>
-<script src="/assets/js/wa-shared.js"></script>
-<script src="/assets/js/pages/reminders.js"></script>
+<?php include __DIR__ . '/../includes/layout_footer.php'; ?>

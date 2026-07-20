@@ -1,73 +1,185 @@
-# AgriTrade Invoice Manager — Complete Project (Full MPA Cutover)
+# OPTMS Tech Invoice Manager — PHP/MySQL Setup Guide
 
-This is the **entire project**, ready to deploy wholesale — not a diff. It replaces your incremental deployment from before. `dashboard.php` stays at your project root, as requested.
+## Requirements
+- PHP 8.0+
+- MySQL 8.0+ or MariaDB 10.6+
+- Apache with mod_rewrite enabled (or Nginx)
+- Composer (optional, for future packages)
 
-## What changed from your original zip
+---
 
-- **`index.php`** — no longer renders the SPA. It now just checks login and redirects to `/dashboard.php`. The original 30,000-line SPA is preserved untouched as **`index_spa_backup.php`** (not linked anywhere, inert) in case you need to roll back — rename it to `index.php` to restore the old behavior.
-- **`dashboard.php`** — fixed: its own includes were written as if it lived in `/pages/dashboard.php` (using `../` paths), but the file is at your root. This would have fatal-errored the moment anyone loaded it. Paths fixed to be root-relative. Also added `invoice-render-shared.js` to its scripts so the "click an invoice to preview" feature works from the dashboard.
-- **`includes/auth.php`** — added `renderSessionTimeoutAssets()`, which was missing (only existed in the unused `includes/new_auth.php`) and was causing a fatal error on every single page. **This was your 500 error.**
-- **`includes/layout_header.php` / `layout_footer.php`** — nav additions (Sales, Customers, Stock History), dashboard href fixed to `/dashboard.php`, +4 global modal includes.
-- **`includes/modals/`** — 4 files that `layout_footer.php` already referenced but didn't exist (fatal error #2, now fixed).
-- **`assets/css/app-core.css`** (new file) — 1,391 lines of CSS that were embedded inline in the old SPA's `<style>` tags and never made it into an external stylesheet. Without this, every new page's card/grid layouts fell back to unstyled stacking. Loaded after `app.css` in `layout_header.php`.
-- **File organization**: JS files used by 2+ pages (`shared-data.js`, `wa-shared.js`, `edit-approval-shared.js`, `stock-shared.js`, `sales-shared.js`, `invoice-render-shared.js`) now live at `assets/js/` (matching where `common.js` and `dashboard.js` already were) instead of `assets/js/pages/`. Page-specific files stay in `assets/js/pages/`. All `<script>` tags updated to match.
-- **`assets/js/suppliers.js`, `purchases.js`, `payments.js`** — replaced (confirmed stale against your current app — see full detail in the git history of our conversation, or ask me to re-explain).
-- **36 new pages** in `pages/` covering Stock, Sales, Customers, Invoices, Payments, Products, Purchases, Suppliers, Finance, Comms, and Admin.
+## Quick Setup
 
-## What did NOT change (copied through as-is)
+### 1. Place Files
+Copy the entire `optms_invoice/` folder into your web root:
+```
+/var/www/html/optms_invoice/     ← Linux/Apache
+C:\xampp\htdocs\optms_invoice\   ← XAMPP Windows
+/Applications/MAMP/htdocs/optms_invoice/ ← MAMP Mac
+```
 
-`api/` (all 39 endpoints), `config/`, `auth/`, `admin/` (super admin panel), `portal/` (public client portal), `.htaccess`, `composer.json/lock`.
+### 2. Create Database
+Open phpMyAdmin or MySQL CLI and run:
+```sql
+source /path/to/optms_invoice/config/schema.sql
+```
+Or paste the contents of `config/schema.sql` into phpMyAdmin SQL tab.
 
-## Critical: your `.env` file
+### 3. Configure Database
+Edit `config/db.php`:
+```php
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'optms_invoice');
+define('DB_USER', 'your_mysql_username');
+define('DB_PASS', 'your_mysql_password');
+define('APP_URL', 'http://localhost/optms_invoice');
+```
 
-**This package does not include `.env`** (it has your DB credentials and secrets — I don't want to risk you deploying a stale/wrong one over your working one). **Keep your existing `.env` on the server exactly as it is.** Everything else here is safe to overwrite.
+### 4. Copy the App JS/CSS
+From `optms_invoice_manager_v6.html`:
+- Copy everything between `<style>` and `</style>` → paste into `assets/css/app.css`
+- Copy everything between `<script>` tags (the main app block) → paste into `index.php` before the closing `</body>`, **above** the `assets/js/app.js` script tag
 
-## Changelog — round 3 fixes (after your syntax error report + DB dump)
+### 5. Set Permissions
+```bash
+chmod 755 assets/uploads/
+chmod 644 config/db.php
+```
 
-- **12 functions across 4 files were missing `async`** despite using `await` — a gap in my earlier extraction script that a plain browser load wouldn't catch until that exact code path ran. Found via `node --check` on every file (real syntax validation, not pattern-matching) plus your two reported errors. Fixed in `sales-shared.js`, `edit-approval-shared.js`, `sale-new.js`, `customer-new.js`, `customers.js`.
-- **`edit-approval-shared.js` had 11 leftover extraction debug comments** (`--- functionName ---`) that aren't valid JS syntax at all — this was your exact reported error. Stripped.
-- **`create.js`'s `onServiceSelect()` and `onStatusChange()` were built from entirely commented-out dead code** in your source file — your SPA has both an active version and an earlier, fully-commented-out duplicate of each function, and my extraction script grabbed the wrong (commented) one both times, leaving an unclosed brace that broke the entire file's parsing. Replaced both with the real, active versions from your source. Audited all 706 functions I've ever extracted for this same pattern — only these two were affected.
-- **Migration SQL was completely rewritten** after you shared your real master DB dump — the previous version would have failed outright (`permissions.label` is `NOT NULL` with no default, and I never provided one). Also corrected a wrong assumption: `menu.sales` and `menu.stock` already exist in your permissions table; only `menu.customers` and `menu.stock_history` are genuinely new. See `migrations/add_new_permission_keys.sql`.
-- Every JS file now passes `node --check` (real syntax validation) and every PHP page has been re-verified for balanced markup.
+### 6. Open in Browser
+```
+http://localhost/optms_invoice/
+```
+You'll be redirected to the login page.
 
-## Changelog — round 4 fixes (after your 403 + ReferenceError reports)
+---
 
-- **`customers.php` 403 Forbidden**: not a code bug — `requirePermission()` denies access when a key doesn't exist yet in the `permissions` catalog, with no fallback default (unlike the nav display, which is lenient). This resolves as soon as you run `migrations/add_new_permission_keys.sql` — if you haven't run it yet, do that now.
-- **`escHtml`, `fmt_money`, `fmt_date`, `fmt_date_disp` were undefined on every Stock and Sales/Customers page** — these only ever lived in `shared-data.js`, which Stock/Sales deliberately don't load. Added to `common.js` (loaded on every page) so this is fixed everywhere at once, not just for the one function you hit.
-- **19 missing module-level state variables** across 11 files (`PRL_PAGESIZE`, `SL_PAGE`, `SH_PAGE`/`SH_PAGESIZE`, `CUST_LIST_PAGE`, `INDIA_STATES`, `PP_GRADE_VARIETY_MAP`, and more) — same root cause as the async-keyword bugs from last round: my extraction pulled the functions but not the state declarations sitting near them in your source. Found via a full audit of every file, not just the one you hit, and fixed all of them.
-- **Found and fixed a real regression**: `editProductRich()` in `products.js` still had ~70 lines of dead field-population code left over from before I converted it to a redirect — my earlier fix only patched the navigation line, not the whole function, so the old broken code was still running first (and would have thrown the same kind of error you just reported). Checked the two other functions I fixed the same way in that batch (`editSupplierRich`, `editPurchase`) — both were already correct, only this one had the leftover bug.
-- Every JS file re-verified with `node --check` (real parser, not pattern matching) after every fix in this round.
+## Default Login
+| Field    | Value                   |
+|----------|-------------------------|
+| Email    | admin@optmstech.in      |
+| Password | Admin@1234              |
 
+**⚠️ Change the password immediately after first login.**
 
+---
 
-## Changelog — round 5 fixes (after your BIZ_FROM_DATE report + dashboard business-type request)
+## Folder Structure
+```
+optms_invoice/
+├── index.php               ← Main app (requires login)
+├── .htaccess               ← Apache security rules
+├── README.md
+│
+├── auth/
+│   ├── login.php           ← Login page
+│   ├── logout.php          ← Clears session, redirects
+│   └── forgot_password.php ← Password reset request
+│
+├── config/
+│   ├── db.php              ← DB credentials + PDO connection
+│   └── schema.sql          ← Database tables + default data
+│
+├── includes/
+│   └── auth.php            ← Session, login, logout helpers
+│
+├── api/
+│   ├── invoices.php        ← GET/POST/PUT/DELETE invoices
+│   ├── clients.php         ← GET/POST/PUT/DELETE clients
+│   ├── products.php        ← GET/POST/PUT/DELETE products/services
+│   ├── payments.php        ← GET/POST payments
+│   ├── reports.php         ← GET report data (summary + charts)
+│   ├── settings.php        ← GET/POST company settings
+│   └── upload.php          ← POST file uploads (logo, signature)
+│
+└── assets/
+    ├── css/
+    │   └── app.css         ← Paste CSS from v6 HTML here
+    ├── js/
+    │   └── app.js          ← API override layer (already complete)
+    ├── img/                ← Static images
+    └── uploads/            ← User-uploaded logos & signatures
+```
 
-- **`BIZ_FROM_DATE` undefined, plus a deeper issue it exposed**: fixing it led me to redo the missing-declaration audit properly this time (the previous round only checked page-specific files, not the shared ones). Found `CUST_LIST_PAGESIZE`, `SL_PAGESIZE`, and `BIZ_FROM_DATE` were used by functions living in `sales-shared.js` (shared across Sales, Customers, and both "-new" pages) but declared only in one page's own file — meaning they'd crash on the other three pages. Moved all Sales/Customers module state constants into `sales-shared.js` where the code that actually uses them lives.
-- **Dashboard now differentiates by business type.** The pre-existing `dashboard.php`/`dashboard.js` (built before I started, not something I'd touched beyond path fixes) never had this — it's a fully custom implementation, not a port of the SPA's dashboard, so I built a new "Product Business" section from scratch matching its existing visual style: sales/purchases KPIs for a date range, a trend chart, recent sales, and top products, shown/hidden alongside the existing invoice-focused section based on `$businessType`.
+---
 
-## Deploy steps
+## How the Architecture Works
 
-1. **Back up your entire live site and DB first.** This is a full cutover, not an incremental patch.
-2. Upload everything in this package to your server root, **except `.env`** — let it overwrite everything else, including your current `index.php`, `dashboard.php`, and everything under `assets/`, `includes/`, `pages/`.
-3. Run `migrations/add_new_permission_keys.sql` against your **master** database.
-4. Clear any PHP opcode cache if your host uses one (cPanel: usually not needed, but worth knowing).
-5. Visit your site root. It should now redirect straight to `/dashboard.php`.
+```
+Browser                    PHP/Apache               MySQL
+   │                           │                      │
+   │── GET /index.php ─────────▶ requireLogin()        │
+   │                           │── SELECT user ───────▶│
+   │◀── HTML + SERVER{} ───────│                       │
+   │                           │                       │
+   │── fetch('api/invoices')──▶│── SELECT invoices ───▶│
+   │◀── JSON [{...}] ──────────│◀── rows ──────────────│
+   │                           │                       │
+   │── saveInvoice() JS ───────│                       │
+   │── fetch('api/invoices',   │                       │
+   │         POST, payload) ──▶│── INSERT invoice ────▶│
+   │◀── {success:true} ────────│◀── lastInsertId ──────│
+```
 
-## Rollback plan
+- `index.php` gates the entire app behind PHP session auth
+- On load, JS calls all 4 API endpoints in parallel to populate STATE
+- All create/edit/delete actions call the API which writes to MySQL
+- The `assets/js/app.js` overrides the in-memory save functions with API calls
+- Falls back gracefully if API fails (keeps working with in-memory data)
 
-If something's badly broken and you need the SPA back immediately:
-1. Rename `index_spa_backup.php` → `index.php` (overwriting the redirect version)
-2. Your site is back to exactly how it was before this cutover — nothing else needs to change, since the SPA is self-contained and doesn't depend on any of the new `/pages/*.php` files.
+---
 
-## Testing checklist
+## API Reference
 
-- [ ] Site root redirects to `/dashboard.php` when logged in, to `/auth/login.php` when not
-- [ ] Dashboard loads with real data (revenue chart, stats, recent activity)
-- [ ] Every sidebar link works and shows correctly filtered data
-- [ ] Sidebar shows/hides Sales, Customers, and the right Products/Payments view per your tenant's Business Type — now that the earlier 500 error is fixed, this should resolve on its own; check it explicitly
-- [ ] Full checklist from the previous delivery still applies: create/edit flows in Stock, Sales, Invoices, Payments, Products, Purchases, Suppliers; Finance reports load; WhatsApp/Email send; Recurring schedules
-- [ ] Browser console clean on every page — tell me about anything logged
+### Invoices
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET    | api/invoices.php | List all invoices |
+| GET    | api/invoices.php?id=5 | Get single invoice with items |
+| GET    | api/invoices.php?status=Paid&from=2025-01-01 | Filter |
+| POST   | api/invoices.php | Create invoice (JSON body) |
+| PUT    | api/invoices.php?id=5 | Update invoice |
+| DELETE | api/invoices.php?id=5 | Delete invoice |
 
-## If something's still broken
+### Clients
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET    | api/clients.php | List all clients |
+| POST   | api/clients.php | Create client |
+| PUT    | api/clients.php?id=3 | Update client |
+| DELETE | api/clients.php?id=3 | Soft delete (is_active=0) |
 
-Check the PHP error log first (cPanel → Metrics → Errors) — it'll tell us exactly what's failing, same as last time. I can't test this live, so precise error messages are the fastest path to a fix.
+### Payments
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET    | api/payments.php | List all payments |
+| GET    | api/payments.php?from=2025-03-01&to=2025-03-31 | Date filter |
+| POST   | api/payments.php | Record payment (also marks invoice Paid) |
+
+### Upload
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST   | api/upload.php | Upload image file (multipart/form-data) |
+|        | fields: file, type (logo/signature/qr/client_logo) | |
+
+---
+
+## Security Notes
+- Passwords stored as bcrypt hashes (`password_hash()`)
+- All DB queries use PDO prepared statements (SQL injection proof)
+- Sessions regenerated on login (`session_regenerate_id`)
+- `.htaccess` blocks direct access to `config/` and `includes/`
+- Upload directory blocks PHP execution
+- Add CSRF token validation for production (token field exists in login form)
+
+---
+
+## Production Checklist
+- [ ] Change default admin password
+- [ ] Set `APP_URL` to your live domain
+- [ ] Enable HTTPS and set `secure` cookie flag
+- [ ] Configure SMTP for email (update `email-setup` page settings)
+- [ ] Set `display_errors = Off` in php.ini
+- [ ] Set up MySQL user with minimal privileges (not root)
+- [ ] Configure regular database backups
+- [ ] Set folder permissions: uploads 755, config 640

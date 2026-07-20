@@ -49,9 +49,6 @@ $ROLE_BADGE_COLORS = [
 $userRole      = $user['role'] ?? 'viewer';
 $isSuperAdmin  = $userRole === 'super_admin';
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
-// Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
-$connectedDb    = $_SESSION['tenant_db'] ?? null;
-$connectedLabel = $_SESSION['tenant_db_label'] ?? $connectedDb;
 $roleBadgeLabel= $isSuperAdmin ? 'Super Admin' : ucfirst($userRole);
 
 // Adjust this if your super-admin panel lives at a different path.
@@ -75,13 +72,6 @@ $companyName    = $settings['company_name']     ?? 'OPTMS Tech';
 $prefix         = $settings['invoice_prefix']   ?? 'OT-' . date('Y') . '-';
 $estPrefix      = $settings['estimate_prefix']  ?? 'QT-' . date('Y') . '-';
 $companyGst     = $settings['company_gst']      ?? '';
-$companyPan     = $settings['company_pan']      ?? '';
-$companyIec     = $settings['company_iec']      ?? '';
-$companyFssai   = $settings['company_fssai']    ?? '';
-$companyApeda   = $settings['company_apeda']    ?? '';
-$companyCin     = $settings['company_cin']      ?? '';
-$companyMsme    = $settings['company_msme']     ?? '';
-$showDhaltaPct  = $settings['show_dhalta_pct']  ?? '1';
 $companyPhone   = $settings['company_phone']    ?? '';
 $companyEmail   = $settings['company_email']    ?? '';
 $companyWebsite = $settings['company_website']  ?? '';
@@ -95,7 +85,6 @@ $dueDays        = $settings['due_days']         ?? '';
 $activeTemplate = $settings['active_template']  ?? '';
 $defaultTnc     = $settings['default_tnc']      ?? '';
 $defaultCurrency= $settings['default_currency'] ?? '₹';
-$businessType   = $settings['business_type']    ?? 'both';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -344,7 +333,7 @@ canvas { max-width: 100% !important; }
 /* ══════════════════════════════════════════
    PAGES
 ══════════════════════════════════════════ */
-.pages-container { flex: 1; overflow-y: auto; overflow-x: hidden; min-width: 0; }
+.pages-container { flex: 1; overflow-y: auto; }
 .page { display: none; padding: 24px 28px; }
 .page.active { display: block; }
 
@@ -507,239 +496,6 @@ canvas { max-width: 100% !important; }
 .data-table tbody tr:hover { background: #fafafa; }
 .data-table input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; }
 
-/* Purchase-modal line-items table: compact inputs that still match the app's field styling */
-.pit-card { margin: 0; }
-.pit-table { table-layout: fixed; }
-.pit-table td { padding: 7px 10px; vertical-align: top; padding-top: 10px; }
-.pit-table th { padding: 9px 10px; font-size: 10.5px; }
-.pit-table input, .pit-table select {
-  width: 100%; padding: 6px 8px; font-size: 12.5px; border-radius: 6px;
-}
-.pit-table td.pit-product { vertical-align: top; }
-.pit-table .pit-desc { margin-top: 5px; }
-.pit-table td.pit-amount { font-weight: 700; white-space: nowrap; color: var(--text); }
-.pit-table .item-del {
-  width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--border);
-  background: var(--card); color: var(--muted); cursor: pointer; transition: .2s;
-  display: flex; align-items: center; justify-content: center;
-}
-.pit-table .item-del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
-
-/* ══════ New Purchase Entry (full page) ══════ */
-.pne-topbar {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 20;
-}
-.pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
-.pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-.pne-actions { display: flex; gap: 8px; }
-.pne-btn-save, .pne-btn-savenew, .pne-btn-print { background: var(--teal); color: #fff; border: none; }
-@keyframes pp-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
-.pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
-.pne-split { display: flex; }
-
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
-.pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
-
-.pne-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
-.pne-card-head {
-  display: flex; align-items: center; gap: 9px; font-size: 14.5px; font-weight: 700;
-  color: var(--text); margin-bottom: 16px;
-}
-.pne-num {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--teal); color: #fff;
-  font-size: 11px; flex-shrink: 0; position: relative; display: inline-flex;
-}
-.pne-num i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
-.pne-head-blue .pne-num   { background: #1976D2; }
-.pne-head-amber .pne-num  { background: #E65100; }
-.pne-head-purple .pne-num { background: #6A4C93; }
-.pne-head-rose .pne-num   { background: #C2185B; }
-.pne-head-green .pne-num  { background: #2E7D32; }
-.pne-head-indigo .pne-num { background: #3949AB; }
-.pne-small-btn { font-size: 12px; padding: 6px 12px; }
-
-.pne-grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
-.pne-grid4:last-child { margin-bottom: 0; }
-@media (max-width: 1100px) { .pne-grid4 { grid-template-columns: repeat(2, 1fr); } .pne-layout { grid-template-columns: 1fr; } }
-
-.pne-pill-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--border); }
-.pne-pill {
-  flex: 1; padding: 9px 0; border: none; background: var(--bg); color: var(--muted);
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: .2s; font-family: var(--font);
-}
-.pne-pill.active { background: var(--teal); color: #fff; }
-
-.pne-items-table { font-size: 12px; min-width: 1060px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
-.pne-items-table thead { background: #EEF1FA; }
-.pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
-.pne-items-table th {
-  padding: 9px 6px; font-size: 11px; text-align: center; white-space: normal;
-  text-transform: none; letter-spacing: 0; line-height: 1.35; color: #2E3A59; font-weight: 700;
-}
-.pne-items-table td { padding: 8px 6px; vertical-align: middle; text-align: center; white-space: normal; word-break: break-word; }
-.pne-items-table td:nth-child(2) { text-align: left; }
-.pne-items-table input, .pne-items-table select { width: 100%; min-width: 0; padding: 7px 6px; font-size: 12.5px; border-radius: 6px; text-align: center; box-sizing: border-box; }
-.pne-items-table td:nth-child(2) input { text-align: left; }
-.pne-computed { background: var(--bg); color: var(--muted); font-weight: 600; padding: 6px 4px; border-radius: 6px; font-size: 12px; }
-.pne-amount-cell { font-weight: 700; color: var(--teal); white-space: nowrap; }
-.pne-view-cell { padding: 10px 8px; font-size: 12.5px; color: var(--text); }
-.pne-row-actions { display: flex; gap: 6px; justify-content: center; }
-.pne-icon-btn {
-  width: 32px; height: 32px; border-radius: 7px; border: 1.5px solid var(--border);
-  background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-  transition: .2s; color: var(--muted);
-}
-.pne-icon-btn.edit:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,137,123,.08); }
-.pne-icon-btn.done:hover { border-color: #00897B; color: #00897B; background: rgba(0,137,123,.08); }
-.pne-icon-btn.del:hover { border-color: #E53935; color: #E53935; background: #FEF2F2; }
-
-.pne-items-footer {
-  display: flex; gap: 26px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px;
-  border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted);
-}
-.pne-items-footer strong { color: var(--text); margin-left: 5px; }
-.pne-total-amt { color: var(--teal) !important; font-size: 15px; }
-.pne-note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; }
-
-.pne-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-.pne-row2-eq { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
-@media (max-width: 1000px) { .pne-row2-eq { grid-template-columns: 1fr; } }
-@media (max-width: 1100px) { .pne-row3 { grid-template-columns: 1fr; } }
-.pne-row3 .field { margin-bottom: 10px; }
-.pne-charge-total {
-  display: flex; justify-content: space-between; padding-top: 10px; margin-top: 4px;
-  border-top: 1px solid var(--border); font-size: 13px; font-weight: 700;
-}
-.pne-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; }
-.pne-summary-strong { border-top: 1px dashed var(--border); font-weight: 700; margin-top: 4px; padding-top: 10px; }
-.pne-inline-num { width: 90px; padding: 4px 8px; font-size: 13px; text-align: right; }
-.pne-inline-num-sm { width: 44px; padding: 2px 4px; font-size: 12px; text-align: center; }
-.pne-gst-note { font-size: 11px; color: var(--muted); text-align: right; margin-top: -4px; margin-bottom: 6px; }
-.pne-grand-total {
-  display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 12px;
-  border-top: 2px solid var(--teal); font-size: 17px; font-weight: 800; color: var(--teal);
-}
-
-.pne-summary-empty { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12.5px; color: var(--muted); }
-.pne-kv strong { color: var(--text); font-weight: 700; }
-
-.pne-grid5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 12px; }
-.pne-grid5:last-child { margin-bottom: 0; }
-.pne-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
-.pne-grid2:last-child { margin-bottom: 0; }
-@media (max-width: 1100px) { .pne-grid5 { grid-template-columns: repeat(2, 1fr); } .pne-grid2 { grid-template-columns: 1fr; } }
-
-.pp-dropzone {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  border: 2px dashed var(--border); border-radius: 10px; padding: 26px 12px; cursor: pointer;
-  color: var(--muted); font-size: 12px; text-align: center; transition: .2s;
-}
-.pp-dropzone:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,137,123,.04); }
-.pp-dropzone i { font-size: 22px; color: var(--muted); }
-.pp-dropzone:hover i { color: var(--teal); }
-.pp-thumb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-.pp-thumb { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 1; border: 1px solid var(--border); }
-.pp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pp-thumb-remove {
-  position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(0,0,0,.6); color: #fff; border: none; font-size: 10px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.pp-qr-box {
-  width: 100%; height: 38px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg);
-  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px;
-}
-.pp-tag-chip {
-  display: inline-flex; align-items: center; gap: 6px; background: #FFF3E0; color: #E65100;
-  padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600;
-}
-.pp-tag-chip button { background: none; border: none; color: #E65100; cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
-.pp-attach-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-radius: 7px; padding: 6px 10px; font-size: 12px; }
-.pp-attach-row button { background: none; border: none; color: #E53935; cursor: pointer; }
-.pp-attach-row .pp-attach-actions { display: flex; align-items: center; gap: 10px; }
-.pp-attach-row .pp-attach-view { color: var(--teal); }
-
-.pne-split-card { border: 1.5px solid #FFCC80; border-left: 4px solid #FB8C00; border-radius: 10px; background: #FFF8E1; padding: 14px; }
-.pne-split-card-head { font-weight: 700; font-size: 13px; color: #E65100; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.pne-split-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-.pne-split-addbtn { background: none; border: 1.5px dashed #66BB6A; color: #2E7D32; font-weight: 700; font-size: 12px; padding: 7px 14px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.pne-split-addbtn:hover { background: #E8F5E9; }
-.pne-split-totallabel { font-size: 13px; color: #445; }
-.pne-split-totallabel strong { color: #E65100; font-size: 15px; }
-.pne-split-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.pne-split-row:last-child { margin-bottom: 0; }
-.pne-split-method { flex: 1; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
-.pne-split-amt { width: 110px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 12px; }
-.pne-split-row-auto .pne-split-amt { background: #E8F5E9; color: #00897B; font-weight: 700; cursor: not-allowed; }
-.pne-split-row.pne-split-over .pne-split-amt { background: #FFEBEE; color: #C62828; }
-.pne-split-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #2E7D32; }
-.pne-split-auto-tag {
-  font-size: 10px; font-weight: 700; color: #00897B; background: #E8F5E9; border-radius: 6px;
-  padding: 6px 10px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
-}
-.pne-split-row button { padding: 6px 10px; background: #FFEBEE; color: #C62828; border: none; border-radius: 7px; cursor: pointer; font-size: 12px; }
-.pne-split-footer { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 11.5px; line-height: 1.6; }
-.pne-split-footer-total {
-  font-size: 13px; font-weight: 700; color: var(--teal); background: rgba(0,137,123,.08);
-  border-radius: 7px; padding: 6px 10px; display: flex; justify-content: space-between; margin-bottom: 8px;
-}
-.pne-split-footer-breakdown { display: flex; flex-wrap: wrap; gap: 6px; }
-.pne-split-chip {
-  font-size: 11.5px; font-weight: 600; color: #6A4C93; background: #F3E8FF;
-  border-radius: 12px; padding: 4px 10px;
-}
-.pne-split-chip strong { color: #4A2C7A; }
-
-.ps-tab { padding: 10px 4px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
-.ps-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
-.ps-stock-table th { white-space: normal; word-break: break-word; line-height: 1.3; padding: 8px 6px; font-size: 10px; }
-.ps-stock-table td { padding: 8px 6px; font-size: 12px; word-break: break-word; }
-.sh-history-table th { white-space: normal; word-break: break-word; line-height: 1.3; padding: 8px 6px; font-size: 10px; }
-.sh-history-table td { padding: 8px 6px; font-size: 11.5px; word-break: break-word; }
-@media (max-width: 1200px) { .ps-stats-row { grid-template-columns: repeat(3, 1fr) !important; } }
-@media (max-width: 700px)  { .ps-stats-row { grid-template-columns: repeat(2, 1fr) !important; } }
-@media (max-width: 1000px) { .ps-bottom-grid { grid-template-columns: 1fr !important; } }
-@media (max-width: 1100px) { .fr-mid-grid { grid-template-columns: 1fr !important; } }
-
-.pne-feature-footer {
-  display: flex; flex-wrap: wrap; gap: 22px; padding: 16px 24px; margin: 0 4px;
-  border-top: 1px solid var(--border); background: var(--card);
-}
-.pne-feature-item { display: flex; align-items: center; gap: 10px; }
-.pne-feature-icon {
-  width: 30px; height: 30px; border-radius: 50%; background: rgba(0,137,123,.1); color: var(--teal);
-  display: flex; font-size: 13px; flex-shrink: 0; position: relative;
-}
-.pne-feature-icon i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
-.pne-feature-item strong { display: block; font-size: 12px; color: var(--text); }
-.pne-feature-item span { display: block; font-size: 10.5px; color: var(--muted); }
-
-.pne-kanta-summary { margin-top: 14px; background: var(--bg); border-radius: 10px; padding: 14px 16px; }
-.pne-kanta-summary-head { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--teal); margin-bottom: 8px; }
-.pne-kanta-summary-head span { font-weight: 400; color: var(--muted); font-size: 11px; }
-.pne-kanta-summary-billable { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 8px; }
-.pne-kanta-summary-billable strong { color: var(--teal); font-size: 14px; }
-
-.pne-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 12px; }
-.pne-grid3:last-child { margin-bottom: 0; }
-@media (max-width: 1100px) { .pne-grid3 { grid-template-columns: 1fr; } }
-.pne-signature-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-@media (max-width: 1100px) { .pne-signature-row { grid-template-columns: repeat(2, 1fr); } }
-.pne-sig-block label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
-.pne-sig-line { border-bottom: 1.5px dashed var(--border); height: 34px; }
-
-.sa-summary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-.sa-summary-chip { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 10px; padding: 10px 14px; }
-.sa-summary-chip span { display: block; font-size: 10.5px; color: var(--muted); }
-.sa-summary-chip strong { display: block; font-size: 15px; color: var(--text); }
-.sa-chip-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; font-size: 13px; flex-shrink: 0; position: relative; }
-.sa-chip-icon i { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
-.sa-op { font-size: 16px; font-weight: 700; color: var(--muted); }
-
 /* Client avatar in table */
 .client-cell { display: flex; align-items: center; gap: 10px; }
 .cc-avatar {
@@ -754,21 +510,6 @@ canvas { max-width: 100% !important; }
 
 /* Actions cell */
 .action-cell { display: flex; align-items: center; gap: 6px; }
-/* 3-dot action dropdown menu */
-.act-menu-wrap { position: relative; display: inline-block; }
-.act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
-.act-menu.open { display: block; }
-.act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
-
-@keyframes earPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: .85; transform: scale(1.03); }
-}
-.act-menu button { display: flex; align-items: center; gap: 9px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 6px; cursor: pointer; font-family: inherit; }
-.act-menu button:hover { background: var(--bg); }
-.act-menu button i { width: 14px; text-align: center; font-size: 11px; color: var(--muted); }
-.act-menu button.danger { color: #E53935; }
-.act-menu button.danger i { color: #E53935; }
 .act-btn {
   width: 30px; height: 30px; border-radius: 7px; border: none;
   background: var(--bg); cursor: pointer; font-size: 12px; color: var(--muted);
@@ -1280,38 +1021,6 @@ select { cursor: pointer; }
   flex-shrink: 0;
 }
 
-/* ── Supplier Profile modal ── */
-.sp-avatar {
-  width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
-  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 800; color: #fff; letter-spacing: .5px;
-}
-.sp-stat-tile {
-  flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
-}
-.sp-stat-tile .sp-stat-icon {
-  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center;
-  justify-content: center; font-size: 15px; flex-shrink: 0;
-}
-.sp-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-top: 12px; }
-.sp-section-title { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
-.sp-section-title i { color: var(--teal); font-size: 11px; }
-.sp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
-.sp-info-item { display: flex; gap: 9px; align-items: flex-start; min-width: 0; }
-.sp-info-item i { width: 26px; height: 26px; border-radius: 7px; background: var(--teal-bg); color: var(--teal); display: flex; align-items: center; justify-content: center; font-size: 10.5px; flex-shrink: 0; margin-top: 1px; }
-.sp-info-item div { min-width: 0; }
-.sp-info-item .sp-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
-.sp-info-item .sp-val { font-size: 12.5px; font-weight: 600; color: var(--text); overflow-wrap: break-word; }
-.sp-purchase-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
-.sp-purchase-row:last-child { border-bottom: none; }
-.sp-purchase-row:hover { background: var(--bg); margin: 0 -8px; padding: 9px 8px; border-radius: 8px; }
-.sp-empty { text-align: center; padding: 22px 10px; color: var(--muted); }
-.sp-empty i { font-size: 22px; color: var(--border2); margin-bottom: 8px; display: block; }
-.sp-empty .sp-empty-title { font-size: 12.5px; font-weight: 600; color: var(--text2); margin-bottom: 3px; }
-.sp-empty .sp-empty-sub { font-size: 11.5px; }
-
 /* ══════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════ */
@@ -1523,16 +1232,6 @@ const SERVER = {
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
   year:     <?= date('Y') ?>,
-  // Action-level permissions — owner/super_admin always true, others follow role_permissions
-  // owner and super_admin always have full access.
-  // admin/manager/accountant/sales/viewer respect role_permissions.
-  // If the action.* keys are missing from the catalog (migration not yet run),
-  // default to true so nobody is unexpectedly locked out after deploying.
-  canDelete:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.delete']  ?? true)) ?>,
-  canArchive: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.archive'] ?? true)) ?>,
-  canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
-  canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
-  canApproveEdits: <?= json_encode(in_array($userRole, ['owner','admin','super_admin']) ? true : (bool)($perms['action.approve_edits'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1629,8 +1328,8 @@ const SERVER = {
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.products'] ?? true): ?>
-    <a class="nav-item" data-page="products" onclick="goToProductsPage(this)">
-      <i class="fas fa-box"></i><span id="nav-products-label">Services / Products</span>
+    <a class="nav-item" data-page="products" onclick="showPage('products',this)">
+      <i class="fas fa-box"></i><span>Services / Products</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.suppliers'] ?? true): ?>
@@ -1648,23 +1347,8 @@ const SERVER = {
       <i class="fas fa-warehouse"></i><span>Stock Ledger</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.stock'] ?? true): ?>
-    <a class="nav-item" data-page="stock-history" onclick="showPage('stock-history',this); goToStockHistory();">
-      <i class="fas fa-clock-rotate-left"></i><span>Stock History</span>
-    </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.sales'] ?? true): ?>
-    <a class="nav-item" data-page="sales-list" id="nav-sales-item" onclick="showPage('sales-list',this); renderSales();" style="display:none">
-      <i class="fas fa-file-invoice-dollar"></i><span>Sales</span>
-    </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.sales'] ?? true): ?>
-    <a class="nav-item" data-page="customers-list" id="nav-customers-item" onclick="showPage('customers-list',this); renderCustomersList();" style="display:none">
-      <i class="fas fa-users"></i><span>Customers</span>
-    </a>
-    <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
-    <a class="nav-item" data-page="payments" onclick="showPaymentsPage(this)">
+    <a class="nav-item" data-page="payments" onclick="showPage('payments',this)">
       <i class="fas fa-credit-card"></i><span>Payments</span>
     </a>
     <?php endif; ?>
@@ -1677,11 +1361,6 @@ const SERVER = {
     <?php if ($perms['menu.reports'] ?? true): ?>
     <a class="nav-item" data-page="reports" onclick="showPage('reports',this)">
       <i class="fas fa-chart-bar"></i><span>Reports</span>
-    </a>
-    <?php endif; ?>
-    <?php if ($perms['menu.finance_report'] ?? true): ?>
-    <a class="nav-item" data-page="finance-report" onclick="showPage('finance-report',this); renderFinanceReport();">
-      <i class="fas fa-sack-dollar"></i><span>Finance Report</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.aging'] ?? true): ?>
@@ -1794,19 +1473,6 @@ const SERVER = {
         <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
         <?= htmlspecialchars($roleBadgeLabel) ?>
       </span>
-      <?php if ($isSuperAdmin): ?>
-        <?php if ($connectedDb): ?>
-          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:600" title="Session is connected to this database — Sales/Invoices/etc. read from it">
-            <i class="fas fa-database" style="font-size:11px"></i> <?= htmlspecialchars($connectedLabel) ?>
-            <button onclick="disconnectDb()" title="Disconnect — return to admin view" style="background:none;border:none;color:#1565C0;cursor:pointer;padding:0;margin-left:2px;font-size:12px"><i class="fas fa-times-circle"></i></button>
-          </span>
-        <?php else: ?>
-          <button onclick="connectDbPrompt()" title="Connect your session to any database to browse it through this app"
-            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:var(--bg);border:1px dashed var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">
-            <i class="fas fa-plug" style="font-size:11px"></i> Connect Database
-          </button>
-        <?php endif; ?>
-      <?php endif; ?>
       <div class="search-bar">
         <i class="fas fa-search"></i>
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
@@ -1817,16 +1483,10 @@ const SERVER = {
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
       </button>
-      <?php if ($perms['action.approve_edits'] ?? in_array($userRole, ['owner','admin','super_admin'])): ?>
-      <button id="ear-topbar-alert" onclick="showPage('dashboard',null)" style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;background:var(--amber);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;animation:earPulse 2s ease-in-out infinite">
-        <i class="fas fa-shield-halved"></i>
-        <span id="ear-topbar-count">0</span> edit request<span id="ear-topbar-plural"></span> waiting
-      </button>
-      <?php endif; ?>
       <div class="notif-wrap" style="position:relative">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifPanel(event)">
           <i class="fas fa-bell"></i>
-          <span class="bell-dot" id="bellCount" style="display:none">0</span>
+          <span class="bell-dot" id="bellCount">3</span>
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
@@ -1877,287 +1537,179 @@ const SERVER = {
 
     <!-- ─────────── DASHBOARD ─────────── -->
     <div id="page-dashboard" class="page active">
-      <!-- ── Greeting header (shared) ────────────────────────── -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-        <div>
-          <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-            <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
-          </div>
-          <div style="font-size:12.5px;color:var(--muted);margin-top:4px">
-            <?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?>
-          </div>
+      <!-- Greeting Header -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:21px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+          <?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>! <span>👋</span>
         </div>
-        <!-- Date range filter + refresh -->
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px">
-            <i class="fas fa-calendar" style="color:var(--teal)"></i>
-            <input type="date" id="db-from" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
-            <span style="color:var(--muted)">–</span>
-            <input type="date" id="db-to" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
-          </div>
-          <button class="btn btn-outline" onclick="renderDashboard()" style="font-size:12px;padding:7px 14px"><i class="fas fa-rotate-right"></i> Refresh</button>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span><?= htmlspecialchars($firmName) ?> · <?= date('l, d M Y') ?></span>
         </div>
       </div>
-
-      <!-- ── Service dashboard (invoices/clients/WA) ─────────── -->
-      <div id="dash-service">
-        <?php
-          $qaCatalog = [
-            'create'   => ['icon'=>'fas fa-plus','label'=>'New Invoice','page'=>'create','style'=>'btn-primary','perm'=>'menu.create'],
-            'clients'  => ['icon'=>'fas fa-users','label'=>'Clients','page'=>'clients','style'=>'btn-outline','perm'=>'menu.clients'],
-            'payments' => ['icon'=>'fas fa-credit-card','label'=>'Payments','page'=>'payments','style'=>'btn-outline','perm'=>'menu.payments'],
-            'reports'  => ['icon'=>'fas fa-chart-bar','label'=>'Reports','page'=>'reports','style'=>'btn-outline','perm'=>'menu.reports'],
-          ];
-          $qaOrder = ['create','clients','payments','reports'];
+      <!-- Quick Actions -->
+      <?php
+        // Role-tailored quick-action order. Falls back to the default order
+        // for any role not explicitly listed. Each button is still gated by
+        // $perms so it always matches what that role can actually access.
+        $qaCatalog = [
+          'create'   => ['icon' => 'fas fa-plus',         'label' => 'New Invoice',   'page' => 'create',   'style' => 'btn-primary', 'perm' => 'menu.create'],
+          'clients'  => ['icon' => 'fas fa-users',        'label' => 'Clients',       'page' => 'clients',  'style' => 'btn-outline', 'perm' => 'menu.clients'],
+          'payments' => ['icon' => 'fas fa-credit-card',  'label' => 'Payments',      'page' => 'payments', 'style' => 'btn-outline', 'perm' => 'menu.payments'],
+          'reports'  => ['icon' => 'fas fa-chart-bar',    'label' => 'Reports',       'page' => 'reports',  'style' => 'btn-outline', 'perm' => 'menu.reports'],
+          'tax'      => ['icon' => 'fas fa-landmark',     'label' => 'Tax Summary',   'page' => 'tax',      'style' => 'btn-outline', 'perm' => 'menu.tax'],
+          'expenses' => ['icon' => 'fas fa-wallet',       'label' => 'Expenses',      'page' => 'expenses', 'style' => 'btn-outline', 'perm' => 'menu.expenses'],
+        ];
+        $qaOrderByRole = [
+          'accountant' => ['payments', 'tax', 'expenses', 'clients'],
+        ];
+        $qaOrder = $qaOrderByRole[$user['role'] ?? ''] ?? ['create', 'clients', 'payments', 'reports'];
+      ?>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <?php foreach ($qaOrder as $qaKey):
+          $qa = $qaCatalog[$qaKey];
+          if (!($perms[$qa['perm']] ?? true)) continue;
         ?>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-          <?php foreach ($qaOrder as $qaKey):
-            $qa = $qaCatalog[$qaKey];
-            if (!($perms[$qa['perm']] ?? true)) continue;
-          ?>
-          <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
-          <?php endforeach; ?>
-          <div style="margin-left:auto;display:flex;gap:8px">
-            <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
-            <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
-            <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
+        <button class="btn <?= $qa['style'] ?>" onclick="showPage('<?= $qa['page'] ?>',null)"><i class="<?= $qa['icon'] ?>"></i> <?= $qa['label'] ?></button>
+        <?php endforeach; ?>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <span id="dashOverdueAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:700"></span>
+          <span id="dashDueSoonAlert" style="display:none;padding:5px 12px;border-radius:20px;background:var(--amber-bg);color:var(--amber);font-size:12px;font-weight:700"></span>
+          <span id="dashDraftAlert" style="display:none;padding:5px 12px;border-radius:20px;background:#F5F5F5;color:#616161;font-size:12px;font-weight:700;cursor:pointer" onclick="showPage('invoices');setTimeout(()=>{const f=document.getElementById('inv-filter-status');if(f){f.value='Draft';applyFiltersAndRender();}},300)"></span>
+        </div>
+      </div>
+      <!-- WhatsApp mini-KPI row: follows role permission only, shown on every
+           plan including Pro (the plan exclusion below only affects the
+           glowing automation banner beneath it). -->
+      <?php if ($perms['menu.whatsapp'] ?? true): ?>
+      <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
+      <?php endif; ?>
+      <!-- WhatsApp Automation banner (finance/accountant roles don't need this;
+           also hidden on the Pro plan specifically — a plan-tier decision,
+           independent of role permissions, so it doesn't touch the
+           WhatsApp Setup sidebar link, the KPI row above, or any other
+           role's access) -->
+      <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
+      <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
+      <div id="dashWACard" style="margin-bottom:16px"></div>
+      <?php endif; ?>
+      <?php unset($hideWACardForPlan); ?>
+      <div id="dashPartialCard" style="margin-bottom:16px"></div>
+      <!-- Revenue Card (60%) + WA Activity Card (40%) — WA column collapses if role can't see WhatsApp -->
+      <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px;">
+        <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
+        <div id="s-outstanding-card" style="display:none"></div>
+        <?php if ($perms['menu.whatsapp'] ?? true): ?>
+        <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
+            <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+          </div>
+          <div id="waActivityRows"></div>
+        </div>
+        <?php endif; ?>
+      </div>
+      <div class="dash-stats-row">
+        <div class="stat-card" data-color="amber">
+          <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-pending">₹0</div>
+            <div class="stat-lbl">Pending</div>
+            <div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="red">
+          <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-overdue">₹0</div>
+            <div class="stat-lbl">Overdue</div>
+            <div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="blue">
+          <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-total">0</div>
+            <div class="stat-lbl">Total Invoices</div>
+            <div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div>
+          </div>
+        </div>
+        <div class="stat-card" data-color="green">
+          <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-clients">0</div>
+            <div class="stat-lbl">Active Clients</div>
+            <div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div>
           </div>
         </div>
         <?php if ($perms['menu.whatsapp'] ?? true): ?>
-        <div id="dashWAKpiRow" style="margin-bottom:16px"></div>
+        <div class="stat-card" data-color="teal">
+          <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
+          <div class="stat-body">
+            <div class="stat-val" id="s-wa-today">0</div>
+            <div class="stat-lbl">WA Sent Today</div>
+            <div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div>
+          </div>
+        </div>
         <?php endif; ?>
-        <?php $hideWACardForPlan = (($user['plan'] ?? '') === 'pro'); ?>
-        <?php if (($perms['menu.whatsapp'] ?? true) && !$hideWACardForPlan): ?>
-        <div id="dashWACard" style="margin-bottom:16px"></div>
-        <?php endif; ?>
-        <?php unset($hideWACardForPlan); ?>
-        <div id="dashPartialCard" style="margin-bottom:16px"></div>
-        <div id="db-edit-approvals-card-svc"></div>
-        <div style="display:grid;grid-template-columns:<?= ($perms['menu.whatsapp'] ?? true) ? '60fr 40fr' : '1fr' ?>;gap:14px;margin-bottom:16px">
-          <div id="s-revenue-card" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)"></div>
-          <div id="s-outstanding-card" style="display:none"></div>
-          <?php if ($perms['menu.whatsapp'] ?? true): ?>
-          <div id="dashWAActivityCard" style="background:var(--card);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <span style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px"><i class="fab fa-whatsapp" style="color:#25D366"></i> WA Activity</span>
-              <span style="font-size:11px;color:var(--muted)" id="waActivityDate">Today</span>
+      </div>
+
+      <!-- Row 1: Revenue Overview + Invoice Calendar + Status Split (all in one row) -->
+      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
+        <!-- Revenue Chart -->
+        <div class="dash-card" style="flex:2;min-width:0">
+          <div class="card-header">
+            <span class="card-title">Revenue Overview</span>
+            <div class="chart-filter">
+              <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
+              <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
+              <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
             </div>
-            <div id="waActivityRows"></div>
           </div>
-          <?php endif; ?>
+          <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
         </div>
-        <div class="dash-stats-row">
-          <div class="stat-card" data-color="teal">
-            <div class="stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-revenue">₹0</div><div class="stat-lbl">Revenue</div><div class="stat-trend up" id="s-revenue-trend"><i class="fas fa-arrow-up"></i> 0%</div></div>
-          </div>
-          <div class="stat-card" data-color="amber">
-            <div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-clock"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-pending">₹0</div><div class="stat-lbl">Pending</div><div class="stat-trend neutral" id="s-pending-trend"><i class="fas fa-minus"></i> 0 invoices</div></div>
-          </div>
-          <div class="stat-card" data-color="red">
-            <div class="stat-icon" style="background:#fce4ec;color:#e53935"><i class="fas fa-exclamation-circle"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-overdue">₹0</div><div class="stat-lbl">Overdue</div><div class="stat-trend down" id="s-overdue-trend"><i class="fas fa-arrow-down"></i> 0 invoices</div></div>
-          </div>
-          <div class="stat-card" data-color="blue">
-            <div class="stat-icon" style="background:#e3f2fd;color:#1976D2"><i class="fas fa-file-invoice"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total Invoices</div><div class="stat-trend up" id="s-total-trend"><i class="fas fa-arrow-up"></i> 0 this month</div></div>
-          </div>
-          <div class="stat-card" data-color="green">
-            <div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-users"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-clients">0</div><div class="stat-lbl">Active Clients</div><div class="stat-trend up" id="s-clients-trend"><i class="fas fa-arrow-up"></i> 0 total</div></div>
-          </div>
-          <?php if ($perms['menu.whatsapp'] ?? true): ?>
-          <div class="stat-card" data-color="teal">
-            <div class="stat-icon" style="background:#e8f5e9;color:#2E7D32"><i class="fab fa-whatsapp"></i></div>
-            <div class="stat-body"><div class="stat-val" id="s-wa-today">0</div><div class="stat-lbl">WA Sent Today</div><div class="stat-trend neutral" id="s-wa-today-trend"><i class="fas fa-minus"></i> 0 failed</div></div>
-          </div>
-          <?php endif; ?>
-        </div>
-        <div style="display:flex;gap:16px;margin-top:16px;margin-bottom:24px;align-items:stretch">
-          <div class="dash-card" style="flex:2;min-width:0">
-            <div class="card-header"><span class="card-title">Revenue Overview</span>
-              <div class="chart-filter">
-                <button class="cf-btn active" onclick="switchChart('monthly',this)">Monthly</button>
-                <button class="cf-btn" onclick="switchChart('weekly',this)">Weekly</button>
-                <button class="cf-btn" onclick="switchChart('yearly',this)">Yearly</button>
-              </div>
+        <!-- Invoice Calendar -->
+        <div class="dash-card" style="flex:1.2;min-width:0">
+          <div class="card-header">
+            <span class="card-title">Invoice Calendar</span>
+            <div style="display:flex;gap:6px">
+              <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
+              <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
             </div>
-            <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
           </div>
-          <div class="dash-card" style="flex:1.2;min-width:0">
-            <div class="card-header"><span class="card-title">Invoice Calendar</span>
-              <div style="display:flex;gap:6px">
-                <button class="cf-btn" onclick="calPrev()"><i class="fas fa-chevron-left"></i></button>
-                <button class="cf-btn" onclick="calNext()"><i class="fas fa-chevron-right"></i></button>
-              </div>
-            </div>
-            <div id="calendarWidget"></div>
-            <div class="cal-legend"><span class="cal-dot" style="background:#F9A825"></span>Due<span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue<span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid</div>
-          </div>
-          <div class="dash-card" style="flex:0 0 220px;min-width:0">
-            <div class="card-header"><span class="card-title">Status Split</span></div>
-            <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
-            <div id="donutLegend" style="margin-top:6px"></div>
+          <div id="calendarWidget"></div>
+          <div class="cal-legend">
+            <span class="cal-dot" style="background:#F9A825"></span>Due
+            <span class="cal-dot" style="background:#e53935;margin-left:10px"></span>Overdue
+            <span class="cal-dot" style="background:#1976D2;margin-left:10px"></span>Paid
           </div>
         </div>
-        <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
-          <div class="dash-card" style="flex:0 0 200px;min-width:0">
-            <div class="card-header"><span class="card-title">Quick Insights</span></div>
-            <div id="dashQuickKpis"></div>
-          </div>
-          <div class="dash-card" style="flex:1;min-width:0">
-            <div class="card-header"><span class="card-title">Recent Activity</span><button class="cf-btn" onclick="showPage('invoices',null)">View All</button></div>
-            <div id="dashRecentList"></div>
-          </div>
-          <div class="dash-card" style="flex:0 0 210px;min-width:0">
-            <div class="card-header"><span class="card-title">Top Clients</span></div>
-            <div id="dashTopClients"></div>
-          </div>
+        <!-- Status Split Donut -->
+        <div class="dash-card" style="flex:0 0 220px;min-width:0">
+          <div class="card-header"><span class="card-title">Status Split</span></div>
+          <div style="position:relative;height:160px"><canvas id="donutChart"></canvas></div>
+          <div id="donutLegend" style="margin-top:6px"></div>
         </div>
       </div>
 
-      <!-- ── Product dashboard (sales/purchases/stock) ────────── -->
-      <div id="dash-product">
-        <!-- Quick actions -->
-        <div id="db-edit-approvals-card"></div>
-        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-cart-shopping"></i> New Purchase</button>
-          <button class="btn btn-outline" onclick="goToNewSale()"><i class="fas fa-file-invoice-dollar"></i> New Sale Invoice</button>
-          <button class="btn btn-outline" onclick="goToStockIn()"><i class="fas fa-boxes-stacked"></i> Add Stock</button>
-          <button class="btn btn-outline" onclick="showPage('stock-adjust-new',null)"><i class="fas fa-sliders"></i> Stock Adjustment</button>
-          <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-receipt"></i> Payment Entry</button>
+      <!-- Row 2: Quick Insights + Recent Activity + Top Clients -->
+      <div style="display:flex;gap:16px;margin-bottom:24px;align-items:stretch">
+        <!-- Quick KPIs -->
+        <div class="dash-card" style="flex:0 0 200px;min-width:0">
+          <div class="card-header"><span class="card-title">Quick Insights</span></div>
+          <div id="dashQuickKpis"></div>
         </div>
-
-        <!-- 6 KPI cards -->
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
-            <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
-            <div style="font-size:16px;font-weight:800" id="db-stat-purchase">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-purchase-sub">0 bills</div>
+        <!-- Recent Activity -->
+        <div class="dash-card" style="flex:1;min-width:0">
+          <div class="card-header">
+            <span class="card-title">Recent Activity</span>
+            <button class="cf-btn" onclick="showPage('invoices',null)">View All</button>
           </div>
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-sales">
-            <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL SALES</div>
-            <div style="font-size:16px;font-weight:800;color:var(--green)" id="db-stat-sales">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-sales-sub">0 invoices</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-expenses" onclick="showPage('expenses',null);renderExpenses()">
-            <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
-            <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
-            <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">NET PROFIT</div>
-            <div style="font-size:16px;font-weight:800" id="db-stat-profit">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-profit-pct">Sales − Purchase − Expenses</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-collections">
-            <span class="sa-chip-icon" style="background:#E0F7FA;color:#00838F;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">COLLECTIONS</div>
-            <div style="font-size:16px;font-weight:800" id="db-stat-collections">₹0</div>
-            <div style="font-size:10px;color:var(--muted)">Amount received</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-payable">
-            <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-file-circle-exclamation"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAYMENTS</div>
-            <div style="font-size:16px;font-weight:800" id="db-stat-payable">₹0</div>
-            <div style="font-size:10px;color:var(--muted)">Paid to suppliers</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px" id="db-kpi-stock">
-            <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-warehouse"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">STOCK VALUE</div>
-            <div style="font-size:16px;font-weight:800" id="db-stat-stock">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-stock-sub">0 Kg total</div>
-          </div>
+          <div id="dashRecentList"></div>
         </div>
-
-        <!-- Row 1: Sales vs Purchase chart + Alerts -->
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
-          <div class="pne-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <span style="font-size:14px;font-weight:700">Sales vs Purchase (₹)</span>
-              <div style="display:flex;gap:12px;font-size:11px;font-weight:600">
-                <span style="color:var(--teal)"><span style="display:inline-block;width:10px;height:3px;background:var(--teal);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Sales</span>
-                <span style="color:#7B1FA2"><span style="display:inline-block;width:10px;height:3px;background:#7B1FA2;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Purchase</span>
-              </div>
-            </div>
-            <div style="height:180px;position:relative"><canvas id="db-svp-chart"></canvas></div>
-            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;font-weight:600">
-              <span style="color:var(--teal)">Total Sales: <span id="db-chart-sales-total">₹0</span></span>
-              <span style="color:#7B1FA2">Total Purchase: <span id="db-chart-pur-total">₹0</span></span>
-              <span style="color:#E53935">Expenses: <span id="db-chart-exp-total">₹0</span></span>
-            </div>
-          </div>
-          <div class="pne-card" id="db-alerts-card">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px">Alerts &amp; Notifications</div>
-            <div id="db-alerts-list"></div>
-          </div>
-        </div>
-
-        <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
-        <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
-          <!-- Stock Overview -->
-          <div class="pne-card">
-            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Stock Overview</div>
-            <div style="display:flex;gap:16px;align-items:center">
-              <div style="width:160px;height:160px;flex-shrink:0;position:relative"><canvas id="db-stock-donut"></canvas></div>
-              <div id="db-stock-legend" style="flex:1;font-size:12px;min-width:0"></div>
-            </div>
-            <button class="btn btn-outline" style="width:100%;margin-top:14px;font-size:12px" onclick="showPage('stock',null)">View Stock Details →</button>
-          </div>
-          <!-- Top Products by Stock -->
-          <div class="pne-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <span style="font-size:14px;font-weight:700">Top Products by Stock</span>
-              <button class="cf-btn" onclick="goToProductsPage()">View All →</button>
-            </div>
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Stock (Kg)</th><th style="text-align:right">Value (₹)</th></tr></thead>
-              <tbody id="db-top-products"></tbody>
-            </table>
-          </div>
-          <!-- Recent Transactions -->
-          <div class="pne-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <span style="font-size:14px;font-weight:700">Recent Transactions</span>
-            </div>
-            <div id="db-recent-txns" style="font-size:12px"></div>
-          </div>
-        </div>
-
-        <!-- Row 3: Business Summary Today + Top Customers + Top Suppliers -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
-          <!-- Business Summary Today -->
-          <div class="pne-card">
-            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Business Summary <span style="font-size:11px;color:var(--muted);font-weight:400" id="db-summary-range">(Today)</span></div>
-            <div id="db-biz-summary"></div>
-          </div>
-          <!-- Top Customers -->
-          <div class="pne-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <span style="font-size:14px;font-weight:700">Top Customers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Sales)</span></span>
-              <button class="cf-btn" onclick="showPage('customers',null)">View All →</button>
-            </div>
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>Customer</th><th style="text-align:right">Sales (₹)</th></tr></thead>
-              <tbody id="db-top-customers"></tbody>
-            </table>
-          </div>
-          <!-- Top Suppliers -->
-          <div class="pne-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <span style="font-size:14px;font-weight:700">Top Suppliers <span style="font-size:10.5px;color:var(--muted);font-weight:400">(Purchase)</span></span>
-              <button class="cf-btn" onclick="showPage('suppliers',null)">View All →</button>
-            </div>
-            <table class="data-table" style="font-size:12px">
-              <thead><tr><th>Supplier</th><th style="text-align:right">Purchase (₹)</th></tr></thead>
-              <tbody id="db-top-suppliers"></tbody>
-            </table>
-          </div>
+        <!-- Top Clients -->
+        <div class="dash-card" style="flex:0 0 210px;min-width:0">
+          <div class="card-header"><span class="card-title">Top Clients</span></div>
+          <div id="dashTopClients"></div>
         </div>
       </div>
     </div>
@@ -2555,103 +2107,20 @@ const SERVER = {
     </div>
 
     <!-- ─────────── SERVICES / PRODUCTS ─────────── -->
-    <!-- ─────────── PRODUCT LIST (product businesses — reference design) ─────────── -->
-    <div id="page-products-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Product List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Inventory &gt; Product List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewProductPage()"><i class="fas fa-plus"></i> Add New Product</button>
-          <button class="btn btn-outline" onclick="exportProductsExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
-      </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>Search Product</label><input id="prl-f-search" placeholder="Search by product name, SKU / code" oninput="PRL_PAGE=1; renderProductsList()"></div>
-          <div class="field"><label>Category</label><select id="prl-f-category"><option value="">All Categories</option></select></div>
-          <div class="field"><label>Unit</label><select id="prl-f-unit"><option value="">All Units</option></select></div>
-          <div class="field"><label>Status</label><select id="prl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-          <div class="field"><label>HSN Code</label><input id="prl-f-hsn" placeholder="Enter HSN Code"></div>
-        </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>Warehouse</label><select id="prl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="PRL_PAGE=1; renderProductsList()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetProductsListFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-boxes-stacked"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Products</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-total">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px"><span id="prl-stat-active">0</span> Active Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-box-open"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">In Stock</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-instock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-triangle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Low Stock</div>
-          <div style="font-size:18px;font-weight:800;color:#E65100" id="prl-stat-lowstock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Below reorder level</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-ban"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Out of Stock</div>
-          <div style="font-size:18px;font-weight:800;color:#E53935" id="prl-stat-outstock">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-box-archive"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Products</div>
-          <div style="font-size:18px;font-weight:800" id="prl-stat-inactive">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Products</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Products</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:1020px">
-            <thead><tr><th>#</th><th>Product Name</th><th>SKU / Code</th><th>Category</th><th>Unit</th><th>HSN Code</th><th style="text-align:right">Sale Rate (₹)</th><th style="text-align:right">Purchase Rate (₹)</th><th style="text-align:right">Current Stock</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="prl-tbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="prl-info"></div>
-          <div style="display:flex;gap:5px" id="prl-pagination"></div>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- ─────────── SERVICES / PRODUCTS (legacy shared page — service & both tenants) ─────────── -->
     <div id="page-products" class="page">
       <div class="page-toolbar">
-        <input type="text" class="table-search" placeholder="Search…" oninput="filterProducts(this.value)" id="productSearch">
+        <input type="text" class="table-search" placeholder="Search services…" oninput="filterProducts(this.value)" id="productSearch">
         <select class="table-filter" onchange="filterProductsCat(this.value)" id="productCatFilter">
           <option value="">All Categories</option>
         </select>
         <div style="flex:1"></div>
         <span id="prodCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
         <button class="btn btn-outline" id="prodArchiveToggleBtn" onclick="toggleArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
-        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> <span id="prodAddBtnLabel">Add Service</span></button>
+        <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> Add Service</button>
       </div>
       <div class="table-card">
         <table class="data-table">
-          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th>Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -2663,176 +2132,22 @@ const SERVER = {
 
     <!-- ─────────── SUPPLIERS ─────────── -->
     <div id="page-suppliers" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Supplier List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Master &gt; Supplier List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewSupplierPage()"><i class="fas fa-plus"></i> Add New Supplier</button>
-          <button class="btn btn-outline" onclick="exportSuppliersExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search suppliers…" oninput="filterSuppliers(this.value)" id="supplierSearch">
+        <div style="flex:1"></div>
+        <span id="supCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" id="supArchiveToggleBtn" onclick="toggleSupplierArchivedView()"><i class="fas fa-box-archive"></i> View Archived</button>
+        <button class="btn btn-primary" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i> Add Supplier</button>
       </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>Search Supplier</label><input id="spl-f-search" placeholder="Search by supplier name, mobile, email…" oninput="SPL_PAGE=1; renderSuppliers()"></div>
-          <div class="field"><label>Supplier Type</label><select id="spl-f-type"><option value="">All Types</option></select></div>
-          <div class="field"><label>State</label><select id="spl-f-state"><option value="">All States</option></select></div>
-          <div class="field"><label>Status</label><select id="spl-f-status"><option value="">All Status</option><option value="active">Active</option><option value="archived">Inactive</option></select></div>
-          <div class="field"><label>Payment Terms</label><select id="spl-f-terms"><option value="">All Payment Terms</option></select></div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Phone</th><th>Country</th><th>GST No.</th><th>Actions</th></tr></thead>
+          <tbody id="suppliersTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="supInfo"></div>
+          <div class="pagination" id="supPagination"></div>
         </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>From Date</label><input type="date" id="spl-f-from"></div>
-          <div class="field"><label>To Date</label><input type="date" id="spl-f-to"></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="SPL_PAGE=1; renderSuppliers()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetSuppliersFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-users"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-total">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">All Suppliers</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-user-check"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Active Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-active">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Active</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-user-xmark"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Inactive Suppliers</div>
-          <div style="font-size:18px;font-weight:800" id="spl-stat-inactive">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Inactive</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
-          <div style="font-size:17px;font-weight:800" id="spl-stat-purchases">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="spl-stat-range1">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="spl-stat-out">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-users"></i> Suppliers</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:1080px">
-            <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Mobile No.</th><th>Email</th><th>State</th><th>Payment Terms</th><th style="text-align:right">Total Purchases (₹)</th><th style="text-align:right">Outstanding (₹)</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="suppliersTbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="supInfo"></div>
-          <div style="display:flex;gap:5px" id="spl-pagination"></div>
-        </div>
-      </div>
-
-      <div id="spl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> Click on <i class="fas fa-eye"></i> to view supplier details, <i class="fas fa-pen"></i> to edit supplier information.</div>
-        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('spl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
-      </div>
-    </div>
-
-    <!-- Purchase Details Modal (eye button — quick in-app view) -->
-    <div class="modal-overlay" id="modal-purchase-details">
-      <div class="modal modal-xl" style="overflow:hidden;position:relative">
-        <button class="modal-close" onclick="closeModal('modal-purchase-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
-        <div id="pd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
-        <div class="modal-body" id="pd-body" style="padding:20px 22px;background:var(--bg)"></div>
-        <div class="modal-footer" id="pd-foot"></div>
-      </div>
-    </div>
-
-    <!-- Sale Details Modal (eye button — quick in-app view) -->
-    <div class="modal-overlay" id="modal-sale-details">
-      <div class="modal modal-xl" style="overflow:hidden;position:relative">
-        <button class="modal-close" onclick="closeModal('modal-sale-details')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
-        <div id="sd-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
-        <div class="modal-body" id="sd-body" style="padding:20px 22px;background:var(--bg)"></div>
-        <div class="modal-footer" id="sd-foot"></div>
-      </div>
-    </div>
-
-    <!-- Customer Profile Modal (eye button — quick in-app view) -->
-    <div class="modal-overlay" id="modal-customer-profile">
-      <div class="modal modal-md" style="overflow:hidden;position:relative">
-        <button class="modal-close" onclick="closeModal('modal-customer-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
-        <div id="cp-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
-        <div class="modal-body" id="cp-body" style="padding:20px 22px;background:var(--bg)"></div>
-        <div class="modal-footer" id="cp-foot"></div>
-      </div>
-    </div>
-
-    <!-- Edit Approval Request Modal -->
-    <div class="modal-overlay" id="modal-edit-approval">
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <span style="display:flex;align-items:center;gap:8px"><i class="fas fa-shield-halved" style="color:var(--teal)"></i> Request Edit Permission</span>
-          <button class="modal-close" onclick="cancelEditRequest()"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:20px">
-          <div id="ear-request-view">
-            <div style="font-size:13px;color:var(--text);margin-bottom:14px">
-              You need permission to edit <strong id="ear-entity-label"></strong>. Describe why you need to make this change — your admin will be notified immediately.
-            </div>
-            <div class="field">
-              <label>Reason for edit <span style="color:var(--red)">*</span></label>
-              <textarea id="ear-reason" placeholder="e.g. Wrong supplier was selected, rate needs correction…" style="min-height:80px;resize:vertical"></textarea>
-            </div>
-            <button class="btn btn-primary" style="width:100%" onclick="submitEditRequest()"><i class="fas fa-paper-plane"></i> Send Request to Admin</button>
-          </div>
-          <div id="ear-waiting-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">⏳</div>
-            <div style="font-size:15px;font-weight:700;margin-bottom:6px">Waiting for approval…</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-waiting-sub">Your admin or manager has been notified. This window polls automatically — you don't need to do anything.</div>
-            <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px">
-              <i class="fas fa-info-circle"></i> Once approved, you get <strong>one edit only</strong> — the approval expires immediately after you save.
-            </div>
-            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Cancel Request</button>
-          </div>
-          <div id="ear-approved-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">✅</div>
-            <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:6px">Approved!</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-approved-by"></div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-approved-note"></div>
-            <div style="font-size:11px;color:var(--amber);margin-bottom:14px"><i class="fas fa-exclamation-triangle"></i> This approval is valid for <strong>one edit only</strong> — it expires as soon as you save</div>
-            <button class="btn btn-primary" style="width:100%" onclick="proceedWithEdit()"><i class="fas fa-pen"></i> Proceed to Edit</button>
-          </div>
-          <div id="ear-rejected-view" style="display:none;text-align:center;padding:10px 0">
-            <div style="font-size:36px;margin-bottom:12px">❌</div>
-            <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px">Request Declined</div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px" id="ear-rejected-by"></div>
-            <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px" id="ear-rejected-note"></div>
-            <button class="btn btn-outline" style="width:100%" onclick="cancelEditRequest()">Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Admin: Pending Edit Requests shown in dashboard via renderPendingApprovalsCard() -->
-
-    <!-- Supplier Profile modal -->
-    <div class="modal-overlay" id="modal-supplier-profile">
-      <div class="modal modal-md" style="overflow:hidden;position:relative">
-        <button class="modal-close" onclick="closeModal('modal-supplier-profile')" style="position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
-        <div id="sp-profile-head" style="position:relative;padding:26px 24px 20px;background:linear-gradient(135deg,var(--teal) 0%,#00695C 100%);flex-shrink:0"></div>
-        <div class="modal-body" id="sp-profile-body" style="padding:20px 22px;background:var(--bg)"></div>
-        <div class="modal-footer" id="sp-profile-foot"></div>
       </div>
     </div>
 
@@ -2845,23 +2160,23 @@ const SERVER = {
         </div>
         <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Supplier / Company Name *</label><input id="supq-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
-            <div class="field"><label>Contact Person</label><input id="supq-person" placeholder="e.g. Rajeev Kumar"></div>
+            <div class="field"><label>Supplier / Company Name *</label><input id="sup-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
+            <div class="field"><label>Contact Person</label><input id="sup-person" placeholder="e.g. Rajeev Kumar"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Phone</label><input id="supq-phone" placeholder="+91 XXXXX XXXXX"></div>
-            <div class="field"><label>Email</label><input id="supq-email" type="email" placeholder="supplier@example.com"></div>
+            <div class="field"><label>Phone</label><input id="sup-phone" placeholder="+91 XXXXX XXXXX"></div>
+            <div class="field"><label>Email</label><input id="sup-email" type="email" placeholder="supplier@example.com"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>GST Number</label><input id="supq-gst" placeholder="22AAAAA0000A1Z5"></div>
-            <div class="field"><label>Country</label><input id="supq-country" value="India"></div>
+            <div class="field"><label>GST Number</label><input id="sup-gst" placeholder="22AAAAA0000A1Z5"></div>
+            <div class="field"><label>Country</label><input id="sup-country" value="India"></div>
           </div>
-          <div class="field"><label>Address</label><input id="supq-address" placeholder="Full address"></div>
+          <div class="field"><label>Address</label><input id="sup-address" placeholder="Full address"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Terms</label><input id="supq-terms" placeholder="e.g. Net 30, Advance"></div>
-            <div class="field"><label>Opening Balance (₹)</label><input id="supq-opening" type="number" value="0"></div>
+            <div class="field"><label>Payment Terms</label><input id="sup-terms" placeholder="e.g. Net 30, Advance"></div>
+            <div class="field"><label>Opening Balance (₹)</label><input id="sup-opening" type="number" value="0"></div>
           </div>
-          <div class="field"><label>Notes</label><input id="supq-notes" placeholder="Optional"></div>
+          <div class="field"><label>Notes</label><input id="sup-notes" placeholder="Optional"></div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addsupplier')">Cancel</button>
@@ -2872,507 +2187,106 @@ const SERVER = {
 
     <!-- ─────────── PURCHASES ─────────── -->
     <div id="page-purchases" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Purchase List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Purchase &gt; Purchase List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewPurchase()"><i class="fas fa-plus"></i> New Purchase Invoice</button>
-          <button class="btn btn-outline" onclick="exportPurchasesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search purchases…" oninput="filterPurchases(this.value)" id="purchaseSearch">
+        <select class="table-filter" onchange="renderPurchases()" id="purStatusFilter">
+          <option value="">All Status</option>
+          <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
+        </select>
+        <div style="flex:1"></div>
+        <span id="purCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-primary" onclick="openAddPurchaseModal()"><i class="fas fa-plus"></i> Add Purchase</button>
       </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>From Date</label><input type="date" id="pl-f-from"></div>
-          <div class="field"><label>To Date</label><input type="date" id="pl-f-to"></div>
-          <div class="field"><label>Supplier</label><select id="pl-f-supplier"><option value="">All Suppliers</option></select></div>
-          <div class="field"><label>Warehouse</label><select id="pl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-          <div class="field"><label>Status</label><select id="pl-f-status"><option value="">All Status</option><option>Completed</option><option>Pending</option></select></div>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>PO No.</th><th>Supplier</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="purchasesTbody"></tbody>
+        </table>
+        <div class="table-footer">
+          <div class="tf-info" id="purInfo"></div>
+          <div class="pagination" id="purPagination"></div>
         </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>Payment Status</label><select id="pl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
-          <div class="field"><label>Invoice No.</label><input id="pl-f-invno" placeholder="Enter Invoice No."></div>
-          <div class="field"><label>Product</label><select id="pl-f-product"><option value="">All Products</option></select></div>
-          <div class="field"><label>Payment Type</label><select id="pl-f-paytype"><option value="">All Payment Types</option></select></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="PL_PAGE=1; renderPurchases()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetPurchasesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-cart-shopping"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchases</div>
-          <div style="font-size:18px;font-weight:800" id="pl-stat-count">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="pl-stat-range1">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
-          <div style="font-size:18px;font-weight:800" id="pl-stat-qty">0.00 Kg</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchase Amount</div>
-          <div style="font-size:17px;font-weight:800" id="pl-stat-amount">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="pl-stat-paid">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="pl-stat-out">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
-            <tbody id="purchasesTbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="purInfo"></div>
-          <div style="display:flex;gap:5px" id="pl-pagination"></div>
-        </div>
-      </div>
-
-      <div id="pl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share purchase invoices using the action buttons.</div>
-        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('pl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
     </div>
 
-    <!-- ═══════════ NEW PURCHASE ENTRY (full page) ═══════════ -->
-    <div id="page-purchase-new" class="page">
-      <div class="pne-topbar">
-        <div>
-          <div class="pne-title" id="pne-title">New Purchase Entry</div>
-          <div class="pne-subtitle" id="pne-subtitle">Local Purchase — grains, spices &amp; other produce</div>
+    <!-- Add/Edit Purchase Modal -->
+    <div class="modal-overlay" id="modal-addpurchase">
+      <div class="modal" style="max-width:820px">
+        <div class="modal-header">
+          <span>Add New Purchase</span>
+          <button class="modal-close" onclick="closeModal('modal-addpurchase')"><i class="fas fa-times"></i></button>
         </div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelPurchaseEntry()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="savePurchaseEntry('stay')">Save</button>
-          <button class="btn pne-btn-savenew" onclick="savePurchaseEntry('new')">Save &amp; New</button>
-          <div class="pne-split">
-            <button class="btn pne-btn-print" onclick="savePurchaseEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field"><label>Supplier *</label>
+              <select id="pur-supplier"><option value="">Select supplier…</option></select>
+            </div>
+            <div class="field"><label>Purchase Date *</label><input type="date" id="pur-date"></div>
+            <div class="field"><label>Supplier Invoice Ref</label><input id="pur-invref" placeholder="Their bill/invoice no."></div>
           </div>
-        </div>
-      </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="field"><label>PO Number <span style="font-weight:400;color:var(--muted)">(auto if blank)</span></label><input id="pur-no" placeholder="Auto-generated"></div>
+            <div class="field"><label>Currency</label>
+              <select id="pur-currency" onchange="calcPurchaseTotals()">
+                <option value="INR">INR (₹)</option><option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+            <div class="field"><label>Exchange Rate (→ ₹)</label><input type="number" id="pur-fx" value="1" min="0" step="0.0001" oninput="calcPurchaseTotals()"></div>
+          </div>
 
-      <div class="pne-layout">
-        <div class="pne-main">
+          <!-- Line items -->
+          <div style="margin-top:6px">
+            <table class="data-table" style="font-size:12px">
+              <thead><tr>
+                <th style="width:26%">Product</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate</th><th>GST%</th><th>Amount</th><th></th>
+              </tr></thead>
+              <tbody id="pur-items-tbody"></tbody>
+            </table>
+            <button class="btn btn-outline" style="font-size:12px;margin-top:8px" onclick="addPurchaseItem()"><i class="fas fa-plus"></i> Add Item</button>
+          </div>
 
-          <!-- 1. Purchase Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-file-invoice"></i></span> Purchase Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
-              <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
-              <div class="field"><label>Supplier Type *</label>
-                <select id="pn-suppliertype" onchange="onSupplierTypeChange()">
-                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
-                </select>
-              </div>
-              <div class="field"><label>Reference (PO No.)</label><input id="pn-refpo" placeholder="Enter (Optional)"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field" style="grid-column:span 1;position:relative">
-                <label>Supplier / Farmer Name *</label>
-                <div style="display:flex;gap:6px">
-                  <select id="pn-supplier" style="flex:1" onchange="onSupplierPicked()"><option value="">Select or add supplier…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new supplier" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i></button>
-                </div>
-              </div>
-              <div class="field"><label>Mobile No.</label><input id="pn-mobile" placeholder="+91 XXXXX XXXXX" readonly></div>
-              <div class="field"><label>State *</label><input id="pn-state" placeholder="—" readonly></div>
-              <div class="field"><label>District</label><input id="pn-district" placeholder="—" readonly></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Address</label><input id="pn-address" placeholder="—" readonly></div>
-              <div class="field"><label>GST Applicable?</label>
-                <div class="pne-pill-toggle">
-                  <button type="button" class="pne-pill active" id="pn-gst-no" onclick="setGstApplicable(false)">No (Exempt)</button>
-                  <button type="button" class="pne-pill" id="pn-gst-yes" onclick="setGstApplicable(true)">Yes</button>
-                </div>
-              </div>
-              <div class="field"><label>Supplier GSTIN</label><input id="pn-gstin" placeholder="Enter GSTIN (If applicable)" disabled></div>
-              <div class="field"><label>Supply Type</label>
-                <select id="pn-supplytype" disabled>
-                  <option>Intra-State</option><option>Inter-State</option>
-                </select>
-              </div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Invoice / Bill No. <i class="fas fa-info-circle" title="Supplier's own invoice number, if any" style="color:var(--muted)"></i></label><input id="pn-invno" placeholder="NA (Farmer Purchase)"></div>
-              <div class="field"><label>Transport Mode</label>
-                <select id="pn-transportmode"><option>Road</option><option>Rail</option><option>Air</option><option>Self Pickup</option></select>
-              </div>
-              <div class="field"><label>Vehicle No.</label><input id="pn-vehicleno" placeholder="e.g. BR-07-GA-1234"></div>
-              <div class="field"><label>Driver Name</label><input id="pn-drivername" placeholder="Optional"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Warehouse *</label>
-                <select id="pn-warehouse"><option>Main Warehouse</option></select>
-              </div>
-              <div class="field"><label>Payment Terms</label>
-                <select id="pn-paymentterms"><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
-              </div>
-              <div class="field"><label>Payment Type</label>
-                <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">Split</option></select>
-              </div>
-              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
+          <!-- Totals -->
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <div style="width:260px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Subtotal</span><strong id="pur-subtotal">₹0.00</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>GST</span><strong id="pur-gst">₹0.00</strong></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);font-size:15px"><span>Total</span><strong id="pur-total">₹0.00</strong></div>
             </div>
           </div>
 
-          <!-- Items Details -->
-          <div class="pne-card">
-            <div class="pne-card-head" style="justify-content:space-between">
-              <span class="pne-head-purple"><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Items Details</span>
-              <span style="display:flex;gap:8px;align-items:center">
-                <button class="btn btn-outline pne-small-btn" onclick="addPurchaseNewItem()"><i class="fas fa-plus"></i> Add Item</button>
-                <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <select id="pne-entry-mode" class="table-filter" style="font-size:12px" title="New items will use this entry mode">
-                  <option value="catalog">Catalog product</option>
-                  <option value="freetext">Free text (misc. line)</option>
-                </select>
-              </span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+            <div class="field"><label>Status</label>
+              <select id="pur-status">
+                <option>Pending</option><option>Received</option><option>Partial</option><option>Paid</option>
+              </select>
             </div>
-            <div class="table-card pit-card" style="overflow-x:auto">
-              <table class="data-table pne-items-table">
-                <colgroup>
-                  <col style="width:30px"><col style="width:140px"><col style="width:90px">
-                  <col style="width:70px"><col style="width:90px">
-                  <col style="width:72px"><col style="width:72px"><col style="width:78px">
-                  <col style="width:55px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
-                  <col style="width:90px">
-                  <col style="width:82px"><col style="width:58px"><col style="width:92px"><col style="width:80px">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety</th>
-                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
-                    <th colspan="3">Weight (Kg)</th>
-                    <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
-                    <th rowspan="2">Billable Wt</th>
-                    <th rowspan="2">Rate (₹/Kg)</th><th rowspan="2">Disc %</th><th rowspan="2">Amount (₹)</th><th rowspan="2">Action</th>
-                  </tr>
-                  <tr>
-                    <th>Gross</th><th>Tare</th><th>Net</th>
-                    <th class="pne-dhpct-col">%</th><th>Kg</th>
-                  </tr>
-                </thead>
-                <tbody id="pne-items-tbody"></tbody>
-              </table>
-            </div>
-            <div class="pne-items-footer">
-              <span>Total Net Weight <strong id="pne-total-net">0.00 Kg</strong></span>
-              <span>Total Dhalta <strong id="pne-total-dhalta">0.00 Kg</strong></span>
-              <span>Total Billable Weight <strong id="pne-total-billable">0.00 Kg</strong></span>
-              <span>Total Amount <strong id="pne-total-amount" class="pne-total-amt">₹0.00</strong></span>
-            </div>
-            <div class="pne-note">Note: Net Weight = Gross Weight − Tare Weight &nbsp;|&nbsp; Billable Weight = Net Weight − Dhalta</div>
-          </div>
-
-          <!-- Weight Information (Kanta / Dharam Kanta) -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight Information (Kanta / Dharam Kanta)</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Weighing Type *</label>
-                <select id="pn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
-              </div>
-              <div class="field"><label>Dharam Kanta Name *</label><input id="pn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
-              <div class="field"><label>Weighbridge Slip No. *</label><input id="pn-slipno" placeholder="e.g. DK-24581"></div>
-              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="pn-weightdatetime"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="pn-kanta-gross" placeholder="Enter gross weight" step="0.01" onchange="calcPNEKantaSummary()" oninput="calcPNEKantaSummary()"></div>
-              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="pn-kanta-tare" placeholder="Enter tare weight" step="0.01" onchange="calcPNEKantaSummary()" oninput="calcPNEKantaSummary()"></div>
-              <div class="field"><label>Net Weight (Kg)</label><input id="pn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-              <div class="field"><label>Operator Name</label><input id="pn-kanta-operator" placeholder="Optional"></div>
-            </div>
-            <!-- Dhalta moved here from Quality section — it's a weight deduction, not a quality metric -->
-            <div class="pne-grid4" style="margin-top:4px">
-              <div class="field pne-dhpct-col"><label>Dhalta (%)</label><input type="number" id="pn-q-dhaltapct" readonly style="background:var(--bg);color:var(--muted)" title="Auto-averaged from item rows"></div>
-              <div class="field"><label>Dhalta (Kg)</label><input type="number" id="pn-q-dhaltakg" step="0.01" placeholder="Auto from table" oninput="onPNEHeaderDhaltaKgInput(this.value)"></div>
-              <div class="field"><label>Billable Weight (Kg)</label><input id="pn-q-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-            </div>
-            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal;margin-top:4px">
-              <i class="fas fa-info-circle"></i> Net − Dhalta = Billable Weight &nbsp;|&nbsp; Dhalta Kg auto-syncs from the items table
-            </div>
-            <div class="pne-grid4" style="margin-top:12px">
-              <div class="field" style="grid-column:span 2">
-                <label>Upload Weight Slip</label>
-                <label class="pp-dropzone" for="pn-kanta-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="pn-kanta-slip-label">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
-                </label>
-                <input type="file" id="pn-kanta-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="pneKantaSlipChange(this.files[0])">
-              </div>
-            </div>
-          </div>
-
-          <!-- Quality & Moisture -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-vial"></i></span> Quality &amp; Moisture</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Moisture (%)</label><input type="number" id="pn-q-moisture" placeholder="Auto-averaged" step="0.1" oninput="calcPNEQualitySummary()"></div>
-              <div class="field"><label>Impurity / Foreign Matter (%)</label><input type="number" id="pn-q-impurity" min="0" max="100" step="0.01" title="Overall load reading"></div>
-            </div>
-          </div>
-
-          <!-- 3/4/5 row -->
-          <div class="pne-row3">
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-rose"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
-              <div class="field"><label>Transport Charge (₹)</label><input type="number" id="pn-transportcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>Loading / Unloading (₹)</label><input type="number" id="pn-loadingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>Packing Charge (₹)</label><input type="number" id="pn-packingcharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>Other Charges (₹)</label><input type="number" id="pn-othercharge" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
-              <div class="pne-charge-total"><span>Total Additional Charges</span><strong id="pn-addcharges-total">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
-                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></span>
-                <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNDeduction()"><i class="fas fa-plus"></i></button>
-              </div>
-              <div id="pn-deductions-list" style="display:flex;flex-direction:column;gap:8px"></div>
-              <div class="pne-charge-total" style="margin-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
-              <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
-              <div class="field"><label>CD Applicable Within</label>
-                <select id="pn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
-              </div>
-              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
-                <span style="color:#2E7D32;font-weight:700;font-size:12px">Cash Discount Amt</span><strong id="pn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
-              </div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" id="pn-cashdisc-note">(0% of Total Gross Amount)</div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
-              <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
-              <div class="pne-summary-row" id="pn-sum-deductions-row" style="display:none"><span style="color:#E53935">Less: Deductions</span><strong id="pn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
-              <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
-              <div class="pne-summary-row">
-                <span>GST / Tax <span id="pn-gst-rate-wrap" style="display:none">(<input type="number" id="pn-gst-pct" value="0" min="0" max="28" class="pne-inline-num-sm" oninput="calcPurchaseNewTotals()">%)</span></span>
-                <strong id="pn-sum-gst">₹0.00</strong>
-              </div>
-              <div class="pne-gst-note" id="pn-gst-note">(Purchase is Exempt from GST)</div>
-              <div class="pne-grand-total"><span>Grand Total (₹)</span><strong id="pn-sum-grand">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
-              <div class="field"><label>Payment Status</label>
-                <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
-              </div>
-              <div class="field"><label>Amount Paid (₹)</label><input type="number" id="pn-amountpaid" value="0" min="0" oninput="calcPurchaseNewTotals()"></div>
-
-              <div id="pn-partial-card" style="display:none;border:1px solid #FFCC80;border-radius:10px;overflow:hidden;margin-bottom:14px;font-size:12px">
-                <div style="background:#FB8C00;color:#fff;padding:8px 12px;font-weight:700;font-size:12px;display:flex;align-items:center;gap:7px"><i class="fas fa-triangle-exclamation" style="font-size:11px"></i> Partial Payment Detected</div>
-                <div style="background:#FFF8E1;padding:12px">
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">INVOICE TOTAL</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px" id="pn-partial-total">₹0.00</div>
-                    </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">RECEIVED</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#2E7D32" id="pn-partial-received">₹0.00</div>
-                    </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">REMAINING</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#C62828" id="pn-partial-remaining">₹0.00</div>
-                    </div>
-                  </div>
-                  <div style="height:5px;background:#E0E0E0;border-radius:3px;overflow:hidden;margin-bottom:10px"><div id="pn-partial-bar" style="height:100%;background:#43A047;width:0%;transition:width .2s"></div></div>
-                  <label style="display:flex;gap:9px;align-items:flex-start;background:#fff;border-radius:7px;padding:9px;cursor:pointer">
-                    <input type="checkbox" id="pn-partial-keepactive" checked style="margin-top:2px">
-                    <span>
-                      <strong style="font-size:11.5px;display:flex;align-items:center;gap:5px;font-weight:700"><i class="fas fa-check-square" style="color:#FB8C00;font-size:11px"></i> Record as partial payment</strong>
-                      <span style="font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.4">Purchase stays active — you can pay the remaining amount later. If unchecked, purchase will be marked Paid.</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="field"><label>Payment Mode</label>
-                <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
-              </div>
-              <div id="pne-split-panel" style="display:none">
-                <div class="pne-split-card">
-                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                  <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                  <div class="pne-split-actions">
-                    <button type="button" class="pne-split-addbtn" onclick="addPNESplitRow(); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                    <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
-                  </div>
-                  <div id="pne-split-footer" class="pne-split-footer"></div>
-                  <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                </div>
-              </div>
-              <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
-              <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
-            </div>
+            <div class="field"><label>Notes</label><input id="pur-notes" placeholder="Optional"></div>
           </div>
         </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><i class="fas fa-calculator"></i> Weight Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Auto Calculated)</span></div>
-            <div class="pne-kv"><span>Gross Weight</span><strong id="pnk-sum-gross">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Tare Weight</span><strong id="pnk-sum-tare">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Net Weight</span><strong id="pnk-sum-net">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Dhalta Weight</span><strong id="pnk-sum-dhalta">0.00 Kg</strong></div>
-            <div class="pne-kv pne-kanta-summary-billable"><span>Billable Weight</span><strong id="pnk-sum-billable">0.00 Kg</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Supplier Summary</div>
-            <div id="pne-supplier-summary" class="pne-summary-empty">Select a supplier to see their purchase history.</div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-box"></i> Product Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Selected Items)</span></div>
-            <div class="pne-kv"><span>Total Items</span><strong id="pne-sb-items">0</strong></div>
-            <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Total Discount</span><strong id="pne-sb-discount" style="color:#E65100">₹0.00</strong></div>
-            <div class="pne-kv"><span>Total Amount</span><strong id="pne-sb-amount">₹0.00</strong></div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Invoice / Bill (Optional)</div>
-            <input type="file" id="pn-attachment" accept="image/png,image/jpeg,application/pdf" style="font-size:12px">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
-            <textarea id="pn-notes" placeholder="Type any additional notes here…" style="min-height:80px"></textarea>
-          </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-addpurchase')">Cancel</button>
+          <button class="btn btn-primary" id="pur-save-btn" onclick="savePurchase()"><i class="fas fa-check"></i> Save Purchase</button>
         </div>
-      </div>
-      <div class="pne-feature-footer">
-        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-shield-alt"></i></span><div><strong>No GST (Farmer Purchase)</strong><span>Purchase is GST Exempt</span></div></div>
-        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-award"></i></span><div><strong>Quality First</strong><span>Moisture &amp; Grade Tracked</span></div></div>
-        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-warehouse"></i></span><div><strong>Stock Updated</strong><span>Real-time Inventory Update</span></div></div>
-        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-chart-bar"></i></span><div><strong>Reports &amp; Analytics</strong><span>Better Purchase Insights</span></div></div>
-        <div class="pne-feature-item"><span class="pne-feature-icon"><i class="fas fa-file-shield"></i></span><div><strong>Audit Ready</strong><span>Complete Purchase Trail</span></div></div>
       </div>
     </div>
 
 
     <!-- ─────────── STOCK LEDGER ─────────── -->
-    <div id="page-stock" class="page" style="overflow-x:hidden;max-width:100%">
-      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock</span></div>
-      <div class="page-toolbar" style="padding:14px 24px 0;align-items:flex-end">
-        <div class="field" style="min-width:160px"><label>Product</label><select id="ps-f-product" class="table-filter" onchange="renderProductStock()"><option value="">All Products</option></select></div>
-        <div class="field" style="min-width:160px"><label>Warehouse</label><select id="ps-f-warehouse" class="table-filter" onchange="renderProductStock()"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-        <div class="field" style="min-width:160px"><label>Batch / Lot No.</label><input class="table-search" id="ps-f-batch" placeholder="Enter batch / lot no." oninput="renderProductStock()"></div>
-        <div class="field"><label>Date</label><input type="date" class="table-search" id="ps-f-date"></div>
+    <div id="page-stock" class="page">
+      <div class="page-toolbar">
+        <input type="text" class="table-search" placeholder="Search products…" oninput="filterStock(this.value)" id="stockSearch">
         <div style="flex:1"></div>
-        <button class="btn btn-outline" onclick="goToNewStockAdjustment()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
-        <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
-        <button class="btn btn-outline" onclick="exportProductStockCsv()"><i class="fas fa-download"></i> Export</button>
-        <button class="btn btn-primary" onclick="goToNewStockIn()"><i class="fas fa-plus"></i> Add Stock</button>
+        <span id="stockCountInfo" style="font-size:12px;color:var(--muted);margin-right:8px"></span>
+        <button class="btn btn-outline" onclick="openStockAdjustModal()"><i class="fas fa-sliders-h"></i> Adjust Stock</button>
       </div>
-      <div style="padding:6px 24px 0;text-align:right;font-size:11.5px;color:var(--muted)">
-        Stock as on: <span id="ps-asof"></span> <i class="fas fa-rotate" style="cursor:pointer" onclick="renderProductStock()"></i>
+      <div class="table-card">
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Category</th><th>Current Stock</th><th>Last Movement</th><th>Actions</th></tr></thead>
+          <tbody id="stockTbody"></tbody>
+        </table>
+        <div class="table-footer"><div class="tf-info" id="stockInfo"></div></div>
       </div>
-
-      <div class="ps-stats-row" style="padding:14px 24px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
-        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:38px;height:38px"><i class="fas fa-clipboard-list"></i></span>
-          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Products</span><strong id="ps-stat-products" style="font-size:18px">0</strong></div>
-        </div>
-        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:38px;height:38px"><i class="fas fa-cubes"></i></span>
-          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Stock (Kg)</span><strong id="ps-stat-stock" style="font-size:18px">0.00</strong></div>
-        </div>
-        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:38px;height:38px"><i class="fas fa-sack-dollar"></i></span>
-          <div><span style="display:block;font-size:11px;color:var(--muted)">Total Value (₹)</span><strong id="ps-stat-value" style="font-size:18px">₹0.00</strong></div>
-        </div>
-        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:38px;height:38px"><i class="fas fa-clipboard-check"></i></span>
-          <div><span style="display:block;font-size:11px;color:var(--muted)">In Stock</span><strong id="ps-stat-instock" style="font-size:18px">0</strong></div>
-        </div>
-        <div class="pne-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:38px;height:38px"><i class="fas fa-triangle-exclamation"></i></span>
-          <div><span style="display:block;font-size:11px;color:var(--muted)">Low Stock Items</span><strong id="ps-stat-lowstock" style="font-size:18px">0</strong></div>
-        </div>
-      </div>
-
-      <div style="padding:18px 24px 0">
-        <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
-          <span class="ps-tab active" id="ps-tab-summary" onclick="switchProductStockTab('summary')">Stock Summary</span>
-          <span class="ps-tab" id="ps-tab-batch" onclick="switchProductStockTab('batch')">Batch Wise Stock</span>
-        </div>
-      </div>
-
-      <div style="padding:14px 24px 0">
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table ps-stock-table" style="min-width:1100px;table-layout:fixed">
-            <colgroup>
-              <col style="width:30px"><col style="width:130px"><col style="width:85px"><col style="width:95px"><col style="width:85px">
-              <col style="width:90px"><col style="width:85px"><col style="width:75px"><col style="width:85px">
-              <col style="width:80px"><col style="width:90px"><col style="width:85px"><col style="width:45px">
-            </colgroup>
-            <thead><tr>
-              <th>#</th><th>Product</th><th>Variety / Grade</th><th>Warehouse</th><th id="ps-batch-col">Batch / Lot No.</th>
-              <th>Available Stock (Kg)</th><th>Reserved Stock (Kg)</th><th>In Transit (Kg)</th><th>Total Stock (Kg)</th>
-              <th>Avg. Cost (₹/Kg)</th><th>Stock Value (₹)</th><th>Last Inward Date</th><th>Action</th>
-            </tr></thead>
-            <tbody id="ps-tbody"></tbody>
-          </table>
-          <div class="table-footer">
-            <div class="tf-info" id="ps-info"></div>
-            <div class="pagination" id="ps-pagination"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="ps-bottom-grid" style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
-        <div class="pne-card">
-          <div class="pne-card-head">Stock Movement Summary (Last 7 Days)</div>
-          <div style="overflow-x:auto">
-            <table class="data-table" style="font-size:12.5px;min-width:640px">
-              <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
-              <tbody id="ps-movement-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head">Stock Trend (Last 7 Days)</div>
-          <canvas id="ps-trend-chart" height="220"></canvas>
-        </div>
-      </div>
-
-      <div style="padding:14px 24px 30px;font-size:11px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Stock values are calculated based on average cost method.</div>
     </div>
 
     <!-- Stock Adjustment Modal -->
@@ -3424,1667 +2338,27 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- ═══════════ NEW PRODUCT ENTRY (full page, business_type='product' only) ═══════════ -->
-    <div id="page-product-new" class="page">
-
-
-      <div class="pne-topbar">
-        <div>
-          <div class="pne-title" id="pnp-title">New Product</div>
-          <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
-        </div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
-        </div>
-      </div>
-      <div id="pp-loading-bar" style="display:none;height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin:-6px 0 12px">
-        <div style="height:100%;width:35%;background:#00897B;border-radius:99px;animation:pp-slide 1.1s ease-in-out infinite"></div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Product Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
-              <div class="field"><label>Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
-              <div class="field"><label>Unit *</label>
-                <select id="pp-unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
-              </div>
-              <div class="field"><label>Brand</label><input id="pp-brand" placeholder="e.g. AgriTrade"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Category *</label>
-                <select id="pp-category"></select>
-              </div>
-              <div class="field"><label>HSN Code</label><input id="pp-hsn" placeholder="e.g. 07134000" list="hsn-suggestions"></div>
-              <div class="field"><label>Base Unit</label><input id="pp-baseunit" readonly></div>
-              <div class="field"><label>Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Variety</label>
-                <select id="pp-variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
-              </div>
-              <div class="field"><label>Barcode</label>
-                <div style="display:flex;gap:6px">
-                  <input id="pp-barcode" style="flex:1" placeholder="Scan or type">
-                  <button type="button" class="btn btn-outline" style="padding:0 12px" title="Scan barcode" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i></button>
-                </div>
-              </div>
-              <div class="field"><label>Sale Unit</label><input id="pp-saleunit" readonly></div>
-              <div class="field"><label>Storage Type</label>
-                <select id="pp-storagetype"><option>Dry</option><option>Cold Storage</option><option>Frozen</option><option>Ambient</option></select>
-              </div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Grade</label>
-                <select id="pp-grade" onchange="onPPGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select>
-              </div>
-              <div class="field"><label>QR Code</label>
-                <div id="pp-qr-preview" class="pp-qr-box"><i class="fas fa-qrcode"></i></div>
-              </div>
-              <div class="field"><label>Purchase Unit</label><input id="pp-purchaseunit" readonly></div>
-              <div class="field"><label>Min Order Qty</label><input type="number" id="pp-minorderqty" min="0" step="0.01" value="0"></div>
-            </div>
-          </div>
-
-          <!-- 2. Product Specifications -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-flask"></i></span> Product Specifications</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Moisture Limit (%) *</label><input type="number" id="pp-moisture" min="0" max="100" step="0.01" placeholder="12.00"></div>
-              <div class="field"><label>Foreign Matter Limit (%)</label><input type="number" id="pp-foreignmatter" min="0" max="100" step="0.01" placeholder="2.00"></div>
-              <div class="field"><label>Broken / Damage Limit (%)</label><input type="number" id="pp-brokendamage" min="0" max="100" step="0.01" placeholder="5.00"></div>
-              <div class="field"><label>Oil Content (%)</label><input type="number" id="pp-oilcontent" min="0" max="100" step="0.01" placeholder="Enter oil content"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Admixture Limit (%)</label><input type="number" id="pp-admixture" min="0" max="100" step="0.01" placeholder="0.50"></div>
-              <div class="field"><label>Color</label><input id="pp-color" placeholder="e.g. White"></div>
-              <div class="field"><label>Aroma</label><input id="pp-aroma" placeholder="e.g. Natural"></div>
-              <div class="field"><label>Shape / Size</label><input id="pp-shapesize" placeholder="e.g. Medium"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Packing Type</label>
-                <select id="pp-packingtype"><option>PP Bag</option><option>Jute Bag</option><option>Carton</option><option>Pouch</option><option>Loose</option></select>
-              </div>
-              <div class="field"><label>Packing Size</label><input id="pp-packingsize" placeholder="e.g. 25 Kg"></div>
-              <div></div><div></div>
-            </div>
-          </div>
-
-          <!-- 3. Pricing & Tax Information -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-tags"></i></span> Pricing &amp; Tax Information</div>
-            <div class="pne-grid5">
-              <div class="field"><label>Purchase Rate (₹/Kg)</label><input type="number" id="pp-purchaserate" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Default Sale Rate (₹/Kg)</label><input type="number" id="pp-salerate" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>MRP (₹/Kg)</label><input type="number" id="pp-mrp" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>GST % *</label>
-                <select id="pp-gst"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18" selected>18%</option><option value="28">28%</option></select>
-              </div>
-              <div class="field"><label>Tax Type</label>
-                <select id="pp-taxtype"><option>Intra-State (CGST+SGST)</option><option>Inter-State (IGST)</option></select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Inventory Information -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-warehouse"></i></span> Inventory Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Opening Stock (Kg)</label><input type="number" id="pp-openingstock" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Reorder Level (Kg)</label><input type="number" id="pp-reorderlevel" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
-              <div class="field"><label>Default Warehouse</label><select id="pp-warehouse"><option>Main Warehouse</option></select></div>
-            </div>
-            <div style="display:flex;gap:28px;margin-top:4px">
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Batch</span><div class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></div></div>
-              <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12.5px;font-weight:600">Track Serial No.</span><div class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></div></div>
-            </div>
-          </div>
-
-          <!-- 5. Product Description -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-align-left"></i></span> Product Description</div>
-            <div class="pne-grid2">
-              <div class="field">
-                <label>Short Description</label>
-                <textarea id="pp-shortdesc" maxlength="200" style="min-height:90px" oninput="pnpCharCount('pp-shortdesc','pp-shortdesc-count',200)" placeholder="One-line summary shown in listings"></textarea>
-                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-shortdesc-count">0</span>/200</div>
-              </div>
-              <div class="field">
-                <label>Detailed Description</label>
-                <textarea id="pp-detaildesc" maxlength="500" style="min-height:90px" oninput="pnpCharCount('pp-detaildesc','pp-detaildesc-count',500)" placeholder="Full description for the product page / export documents"></textarea>
-                <div style="text-align:right;font-size:10px;color:var(--muted)"><span id="pp-detaildesc-count">0</span>/500</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-image"></i> Product Images</div>
-            <label class="pp-dropzone" for="pp-images-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop images here<br>or click to upload</div>
-            </label>
-            <input type="file" id="pp-images-input" accept="image/png,image/jpeg,image/webp" multiple style="display:none" onchange="pnpAddImages(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Recommended size: 800x800px (Max 5MB each)</div>
-            <div id="pp-images-preview" class="pp-thumb-grid"></div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-circle-info"></i> Additional Information</div>
-            <div class="field"><label>Country of Origin</label><input id="pp-country" value="India"></div>
-            <div class="field"><label>Manufacturer / Producer</label><input id="pp-manufacturer" placeholder="Optional"></div>
-            <div class="field"><label>FSSAI License No.</label><input id="pp-fssai" placeholder="Optional"></div>
-            <div class="field"><label>IEC Code</label><input id="pp-iec" placeholder="Optional"></div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-              <span style="font-size:12.5px;font-weight:600">Product Status</span>
-              <div style="display:flex;align-items:center;gap:8px">
-                <div class="tog on" id="pp-status"></div><span id="pp-status-label" style="font-size:12px;color:var(--muted)">Active</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-tags"></i> Tags</div>
-            <input id="pp-tags-input" placeholder="Add tags and press enter" onkeydown="pnpTagKeydown(event)">
-            <div id="pp-tags-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
-          </div>
-
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <label class="pp-dropzone" for="pp-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here<br>or click to upload</div>
-            </label>
-            <input type="file" id="pp-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="pnpAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="pp-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ NEW SALE ENTRY (full page, business_type='product' only) ═══════════ -->
-    <div id="page-sale-new" class="page">
-      <div class="pne-topbar">
-        <div>
-          <div class="pne-title" id="psn-title">New Sale Entry</div>
-          <div class="pne-subtitle" id="psn-subtitle">Create an export / local sale invoice</div>
-        </div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelSaleEntry()">Cancel</button>
-          <button class="btn btn-outline" onclick="saveSaleEntry('draft')">Save Draft</button>
-          <button class="btn pne-btn-save" onclick="saveSaleEntry('stay')">Save</button>
-          <button class="btn pne-btn-print" onclick="saveSaleEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
-          <button class="btn pne-btn-savenew" onclick="toast('🚚 E-Way Bill generation needs GST-portal integration — coming soon','info')"><i class="fas fa-truck"></i> Generate E-Way Bill</button>
-        </div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Customer Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-user"></i></span> Customer Information</div>
-            <div class="pne-grid4">
-              <div class="field">
-                <label>Customer Name *</label>
-                <div style="display:flex;gap:6px">
-                  <select id="sn-customer" style="flex:1" onchange="onCustomerPicked()"><option value="">Select or add customer…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="goToNewCustomerFromSale()"><i class="fas fa-plus"></i></button>
-                </div>
-              </div>
-              <div class="field"><label>Customer Type *</label>
-                <select id="sn-customertype"><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
-              </div>
-              <div class="field"><label>Customer Mobile</label><input id="sn-mobile" readonly></div>
-              <div class="field"><label>GSTIN *</label><input id="sn-gstin" placeholder="—" readonly></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>State *</label><input id="sn-state" readonly></div>
-              <div class="field"><label>District *</label><input id="sn-district" readonly></div>
-              <div class="field"><label>Billing Address *</label><input id="sn-billing" readonly></div>
-              <div class="field"><label>Shipping Address *</label><input id="sn-shipping"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Sales Executive</label><select id="sn-salesexec"><option value="">— Select —</option></select></div>
-              <div class="field"><label>Invoice No.</label><input id="sn-invno" placeholder="Auto-generated"></div>
-              <div class="field"><label>Invoice Date *</label><input type="date" id="sn-invdate"></div>
-              <div class="field"><label>Due Date</label><input type="date" id="sn-duedate"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Payment Terms</label>
-                <select id="sn-paymentterms"><option>Immediate</option><option>7 Days</option><option>15 Days</option><option>30 Days</option><option>Advance</option></select>
-              </div>
-              <div class="field"><label>Sales Type</label>
-                <select id="sn-salestype" onchange="onSalesTypeChange()"><option>Local Sales</option><option>Export Sales</option><option>Interstate Sales</option></select>
-              </div>
-              <div class="field"><label>Place of Supply</label><input id="sn-placeofsupply" readonly></div>
-              <div class="field"><label>Currency</label>
-                <select id="sn-currency"><option value="INR">INR</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Weight / Measurement Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Weighing Type *</label>
-                <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
-              </div>
-              <div class="field"><label>Dharam Kanta Name</label><input id="sn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
-              <div class="field"><label>Weighbridge Slip No. *</label><input id="sn-slipno" placeholder="e.g. DK-24581"></div>
-              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="sn-weightdatetime"></div>
-              <div class="field"><label>Operator Name</label><input id="sn-kantaoperator" placeholder="Optional"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="sn-kanta-gross" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
-              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="sn-kanta-tare" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
-              <div class="field"><label>Net Weight (Kg)</label><input id="sn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-              <div class="field"><label>Moisture %</label><input type="number" id="sn-kanta-moisture" min="0" max="100" step="0.01" oninput="calcSNWeightSummary()"></div>
-              <div class="field"><label>Dhalta (Kg)</label><input type="number" id="sn-kanta-dhaltakg" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Billable Weight (Kg)</label><input id="sn-kanta-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
-            </div>
-          </div>
-
-          <!-- 2. Product Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-purple" style="justify-content:space-between">
-              <span><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Product Details</span>
-              <span style="display:flex;gap:8px;align-items:center">
-                <button class="btn btn-outline pne-small-btn" onclick="addSaleNewItem()"><i class="fas fa-plus"></i> Add Item</button>
-                <button class="btn btn-outline pne-small-btn" onclick="toast('📷 Barcode scanning needs a camera-enabled device — coming soon','info')"><i class="fas fa-barcode"></i> Scan Barcode</button>
-                <button class="btn btn-outline pne-small-btn" onclick="toast('📊 Excel import — coming soon','info')"><i class="fas fa-file-excel"></i> Import Excel</button>
-              </span>
-            </div>
-            <div class="table-card pit-card" style="overflow-x:auto">
-              <table class="data-table pne-items-table" id="sn-items-table">
-                <colgroup>
-                  <col style="width:30px"><col style="width:130px"><col style="width:90px">
-                  <col style="width:85px"><col style="width:65px"><col style="width:80px"><col style="width:65px">
-                  <col style="width:90px"><col style="width:100px"><col style="width:75px">
-                  <col style="width:55px"><col style="width:80px"><col style="width:70px">
-                  <col style="width:55px"><col style="width:85px"><col style="width:90px"><col style="width:56px">
-                </colgroup>
-                <thead><tr>
-                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
-                  <th>Available Stock (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th><th>Unit</th>
-                  <th>Rate (₹/Kg)</th><th>Discount (%)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
-                </tr></thead>
-                <tbody id="sn-items-tbody"></tbody>
-              </table>
-            </div>
-            <div class="pne-items-footer">
-              <span>Total Items <strong id="sn-total-items">0</strong></span>
-              <span>Total Quantity <strong id="sn-total-qty">0.00 Kg</strong></span>
-            </div>
-          </div>
-
-          <!-- 4. Deductions & Discounts -->
-          <div class="pne-row2-eq">
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-rose" style="justify-content:space-between">
-                <span><span class="pne-num"><i class="fas fa-minus"></i></span> Deductions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple deduction lines)</span></span>
-                <button class="btn btn-outline pne-small-btn" onclick="addSNDeduction()"><i class="fas fa-plus"></i> Add Deduction</button>
-              </div>
-              <div class="table-card" style="overflow-x:auto">
-                <table class="data-table" style="min-width:420px">
-                  <thead><tr><th style="width:30px">#</th><th>Deduction Type</th><th>Description</th><th style="width:120px">Amount (₹)</th><th style="width:60px">Action</th></tr></thead>
-                  <tbody id="sn-deductions-tbody"></tbody>
-                </table>
-              </div>
-              <div class="pne-charge-total" style="margin-top:10px"><span>Total Deductions</span><strong id="sn-deductions-total" style="color:#E53935">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
-              <div class="field"><label>Trade Discount (%)</label><input type="number" id="sn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="sn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>CD Applicable Within</label>
-                <select id="sn-cdwithin"><option>Same Day</option><option>7 Days</option><option>15 Days</option><option>30 Days</option></select>
-              </div>
-              <div class="pne-charge-total" style="margin-top:6px;background:#E8F5E9;border-radius:8px;padding:10px 12px">
-                <span style="color:#2E7D32;font-weight:700">Cash Discount Amount</span><strong id="sn-cashdisc-amt" style="color:#2E7D32">₹0.00</strong>
-              </div>
-              <div style="font-size:10.5px;color:var(--muted);margin-top:4px" id="sn-cashdisc-note">(0% of Total Gross Amount)</div>
-            </div>
-          </div>
-
-          <!-- 3/4/5 row -->
-          <div class="pne-row3">
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-rose"><span class="pne-num"><i class="fas fa-coins"></i></span> Additional Charges</div>
-              <div class="field"><label>Transport Charges (₹)</label><input type="number" id="sn-transportcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Loading Charges (₹)</label><input type="number" id="sn-loadingcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Packing Charges (₹)</label><input type="number" id="sn-packingcharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Insurance (₹)</label><input type="number" id="sn-insurance" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Other Charges (₹)</label><input type="number" id="sn-othercharge" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-              <div class="field"><label>Round Off (₹)</label><input type="number" id="sn-roundoff" value="0" step="0.01" oninput="calcSaleNewTotals()"></div>
-              <div class="pne-charge-total"><span>Total Additional Charges</span><strong id="sn-addcharges-total">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
-              <div class="field"><label>Payment Status *</label>
-                <select id="sn-paystatus" onchange="calcSaleNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
-              </div>
-              <div class="field"><label>Amount Received (₹)</label><input type="number" id="sn-amountreceived" value="0" min="0" oninput="calcSaleNewTotals()"></div>
-
-              <div id="sn-partial-card" style="display:none;border:1px solid #FFCC80;border-radius:10px;overflow:hidden;margin-bottom:14px;font-size:12px">
-                <div style="background:#FB8C00;color:#fff;padding:8px 12px;font-weight:700;font-size:12px;display:flex;align-items:center;gap:7px"><i class="fas fa-triangle-exclamation" style="font-size:11px"></i> Partial Payment Detected</div>
-                <div style="background:#FFF8E1;padding:12px">
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">INVOICE TOTAL</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px" id="sn-partial-total">₹0.00</div>
-                    </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">RECEIVED</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#2E7D32" id="sn-partial-received">₹0.00</div>
-                    </div>
-                    <div style="background:#fff;border:1px solid #eee;border-radius:7px;padding:7px;text-align:center">
-                      <div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.3px">REMAINING</div>
-                      <div style="font-size:13px;font-weight:800;margin-top:2px;color:#C62828" id="sn-partial-remaining">₹0.00</div>
-                    </div>
-                  </div>
-                  <div style="height:5px;background:#E0E0E0;border-radius:3px;overflow:hidden;margin-bottom:10px"><div id="sn-partial-bar" style="height:100%;background:#43A047;width:0%;transition:width .2s"></div></div>
-                  <label style="display:flex;gap:9px;align-items:flex-start;background:#fff;border-radius:7px;padding:9px;cursor:pointer">
-                    <input type="checkbox" id="sn-partial-keepactive" checked style="margin-top:2px">
-                    <span>
-                      <strong style="font-size:11.5px;display:flex;align-items:center;gap:5px;font-weight:700"><i class="fas fa-check-square" style="color:#FB8C00;font-size:11px"></i> Record as partial payment</strong>
-                      <span style="font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.4">Invoice stays active — you can collect the remaining amount later. If unchecked, invoice will be marked Paid.</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="field"><label>Payment Method *</label>
-                <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
-              </div>
-              <div id="sn-split-panel" style="display:none">
-                <div class="pne-split-card">
-                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                  <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                  <div class="pne-split-actions">
-                    <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                    <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
-                  </div>
-                  <div id="sn-split-footer" class="pne-split-footer"></div>
-                  <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                </div>
-              </div>
-              <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
-              <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
-            </div>
-
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Invoice Summary</div>
-              <div class="pne-summary-row"><span>Sub Total</span><strong id="sn-sum-subtotal">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
-              <div class="pne-summary-row" id="sn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="sn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
-              <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
-              <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
-              <div class="pne-summary-row" id="sn-cgst-row"><span>CGST</span><strong id="sn-sum-cgst">₹0.00</strong></div>
-              <div class="pne-summary-row" id="sn-sgst-row"><span>SGST</span><strong id="sn-sum-sgst">₹0.00</strong></div>
-              <div class="pne-summary-row" id="sn-igst-row"><span>IGST</span><strong id="sn-sum-igst">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Total Tax</span><strong id="sn-sum-totaltax">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Additional Charges</span><strong id="sn-sum-addcharges2">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Round Off</span><strong id="sn-sum-roundoff">₹0.00</strong></div>
-              <div class="pne-grand-total"><span>Grand Total (₹)</span><strong id="sn-sum-grand">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Amount Received</span><strong id="sn-sum-received">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Balance Due</span><strong id="sn-sum-balance" style="color:#E53935">₹0.00</strong></div>
-            </div>
-          </div>
-
-          <!-- Notes -->
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-sticky-note"></i> Notes</div>
-            <div class="pne-grid3">
-              <div class="field"><label>Customer Notes</label><textarea id="sn-customernotes" style="min-height:70px" placeholder="Visible to customer on the invoice"></textarea></div>
-              <div class="field"><label>Internal Notes</label><textarea id="sn-internalnotes" style="min-height:70px" placeholder="Internal use only"></textarea></div>
-              <div class="field"><label>Delivery Instructions</label><textarea id="sn-deliveryinstructions" style="min-height:70px" placeholder="e.g. Deliver before 5 PM"></textarea></div>
-            </div>
-          </div>
-
-          <!-- Signatures -->
-          <div class="pne-card">
-            <div class="pne-signature-row">
-              <div class="pne-sig-block"><label>Prepared By</label><input id="sn-preparedby" placeholder="Name"></div>
-              <div class="pne-sig-block"><label>Checked By</label><input id="sn-checkedby" placeholder="Name"></div>
-              <div class="pne-sig-block"><label>Approved By</label><input id="sn-approvedby" placeholder="Name"></div>
-              <div class="pne-sig-block"><label>Customer Signature</label><div class="pne-sig-line"></div></div>
-              <div class="pne-sig-block"><label>Authorised Signatory</label><div class="pne-sig-line"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Customer Summary</div>
-            <div id="sn-customer-summary" class="pne-summary-empty">Select a customer to see their sales history.</div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
-            <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
-            <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
-            <div class="pne-kv"><span>Total Additional Charges</span><strong id="sn-sb-addcharges">₹0.00</strong></div>
-            <div class="pne-kv"><span>Taxable Amount</span><strong id="sn-sb-taxable">₹0.00</strong></div>
-            <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
-            <div class="pne-kv"><span>Invoice Value</span><strong id="sn-sb-invvalue">₹0.00</strong></div>
-            <div class="pne-kv"><span>Paid Amount</span><strong id="sn-sb-paidamount">₹0.00</strong></div>
-            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span>Net Payable</span><strong id="sn-sb-netpayable" style="color:var(--teal)">₹0.00</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-paperclip"></i> Attachments</div>
-            <label class="pp-dropzone" for="sn-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here<br>or click to upload</div>
-            </label>
-            <input type="file" id="sn-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="snAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="sn-attachments-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><i class="fas fa-bolt"></i> Quick Actions</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <button class="btn btn-outline" onclick="showPage('sales-list'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page==='sales-list'))">View Previous Sales</button>
-              <button class="btn btn-outline" onclick="toast('🧾 Payment receipt creation — coming soon','info')">Create Payment Receipt</button>
-              <button class="btn btn-outline" onclick="printCurrentSaleInvoice()">Print Invoice</button>
-              <button class="btn btn-outline" onclick="toast('📤 Sharing via Email/WhatsApp — coming soon','info')">Share Invoice (Email/WhatsApp)</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── SALES LIST ─────────── -->
-    <div id="page-sales-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Sales List</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Sales &gt; Sales List</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="goToNewSale()"><i class="fas fa-plus"></i> New Sale Invoice</button>
-          <button class="btn btn-outline" onclick="exportSalesExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
-        </div>
-      </div>
-
-      <!-- Filters -->
-      <div class="pne-card" style="margin-bottom:16px">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field"><label>From Date</label><input type="date" id="sl-f-from"></div>
-          <div class="field"><label>To Date</label><input type="date" id="sl-f-to"></div>
-          <div class="field"><label>Customer</label><select id="sl-f-customer"><option value="">All Customers</option></select></div>
-          <div class="field"><label>Warehouse</label><select id="sl-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-          <div class="field"><label>Status</label><select id="sl-f-status"><option value="">All Status</option><option>Confirmed</option><option>Draft</option></select></div>
-        </div>
-        <div class="pne-grid5" style="align-items:end;margin-top:10px">
-          <div class="field"><label>Payment Status</label><select id="sl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
-          <div class="field"><label>Invoice No.</label><input id="sl-f-invno" placeholder="Enter Invoice No."></div>
-          <div class="field"><label>Product</label><select id="sl-f-product"><option value="">All Products</option></select></div>
-          <div class="field"><label>Sales Executive</label><select id="sl-f-exec"><option value="">All Sales Executive</option></select></div>
-          <div class="field" style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="SL_PAGE=1; renderSales()"><i class="fas fa-magnifying-glass"></i> Search</button>
-            <button class="btn btn-outline" onclick="resetSalesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stat cards -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-file-invoice"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Invoices</div>
-          <div style="font-size:18px;font-weight:800" id="sl-stat-count">0</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sl-stat-range1">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-weight-hanging"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Quantity</div>
-          <div style="font-size:18px;font-weight:800" id="sl-stat-qty">0.00 Kg</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-indian-rupee-sign"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales Amount</div>
-          <div style="font-size:17px;font-weight:800" id="sl-stat-amount">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-hand-holding-dollar"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Paid Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#2E7D32" id="sl-stat-paid">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:36px;height:36px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Outstanding Amount</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="sl-stat-out">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Filtered period</div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Sales Invoices</div>
-        <div class="table-card" style="overflow-x:auto">
-          <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
-            <tbody id="salesTbody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="saleInfo"></div>
-          <div style="display:flex;gap:5px" id="sl-pagination"></div>
-        </div>
-      </div>
-
-      <div id="sl-note-banner" style="margin-top:14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share invoices using the action buttons.</div>
-        <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('sl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
-      </div>
-    </div>
-
-    <!-- ─────────── CUSTOMERS LIST ─────────── -->
-    <div id="page-customers-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">All Customers</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Customers &gt; All Customers</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
-          <button class="btn btn-outline" onclick="exportCustomersCsv()"><i class="fas fa-download"></i> Export</button>
-          <button class="btn btn-primary" onclick="goToNewCustomerPage()"><i class="fas fa-plus"></i> Add New Customer</button>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:36px;height:36px"><i class="fas fa-users"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Customers</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-total">0</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Active Customers</div>
-          <div style="font-size:13px;font-weight:700;color:#00897B" id="cust-stat-active">0</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:36px;height:36px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Credit Limit</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-creditlimit">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Available Credit</div>
-          <div style="font-size:13px;font-weight:700;color:#2E7D32" id="cust-stat-available">₹0.00</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:36px;height:36px"><i class="fas fa-file-invoice-dollar"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Outstanding</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-outstanding">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Overdue Amount</div>
-          <div style="font-size:13px;font-weight:700;color:#E53935" id="cust-stat-overdue">₹0.00</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:36px;height:36px"><i class="fas fa-building"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (This Month)</div>
-          <div style="font-size:18px;font-weight:800" id="cust-stat-monthsales">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">This Month Collections</div>
-          <div style="font-size:13px;font-weight:700;color:#00897B" id="cust-stat-monthcoll">₹0.00</div>
-        </div>
-      </div>
-
-      <div class="pne-card">
-        <div class="pne-card-head" style="margin-bottom:14px">Customers List</div>
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field" style="grid-column:span 2"><label>Search</label><input class="table-search" style="max-width:none" id="custSearch" placeholder="Search by name, code, phone, email…" oninput="filterCustomersList(this.value)"></div>
-          <div class="field"><label>Customer Type</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custTypeFilter">
-              <option value="">All Types</option>
-              <option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option>
-            </select>
-          </div>
-          <div class="field"><label>Status</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custStatusFilterList">
-              <option value="">All Status</option><option value="active">Active</option><option value="archived">Inactive</option>
-            </select>
-          </div>
-          <div class="field"><label>State</label>
-            <select class="table-filter" style="max-width:none" onchange="renderCustomersList()" id="custStateFilter"><option value="">All States</option></select>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:-6px;margin-bottom:12px">
-          <button class="btn btn-outline" onclick="resetCustomersFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          <button class="btn pne-btn-save" onclick="renderCustomersList()"><i class="fas fa-filter"></i> Apply Filters</button>
-        </div>
-
-        <div style="overflow-x:auto">
-          <table class="data-table ps-stock-table" style="min-width:1100px;table-layout:fixed">
-            <colgroup>
-              <col style="width:30px"><col style="width:95px"><col style="width:150px"><col style="width:85px"><col style="width:110px">
-              <col style="width:150px"><col style="width:80px"><col style="width:95px"><col style="width:95px"><col style="width:70px"><col style="width:70px">
-            </colgroup>
-            <thead><tr>
-              <th>#</th><th>Customer Code</th><th>Customer Name</th><th>Type</th><th>Phone</th>
-              <th>Email</th><th>State</th><th>Credit Limit (₹)</th><th>Outstanding (₹)</th><th>Status</th><th>Action</th>
-            </tr></thead>
-            <tbody id="custListTbody"></tbody>
-          </table>
-        </div>
-        <div class="table-footer"><div class="tf-info" id="custListInfo"></div><div class="pagination" id="custListPagination"></div></div>
-      </div>
-      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> Click on a customer to view detailed information, ledger, transactions and more.</div>
-    </div>
-
-    <!-- ═══════════ ADD NEW CUSTOMER (full page) ═══════════ -->
-    <div id="page-customer-new" class="page">
-      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Customers &gt; <strong style="color:var(--text)" id="cusn-crumb">Add New Customer</strong></span></div>
-      <div class="pne-topbar">
-        <div><div class="pne-title" id="cusn-title">Add New Customer</div></div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelCustomerEntry()">Cancel</button>
-          <button class="btn btn-outline" onclick="saveCustomerEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveCustomerEntry('close')">Save Customer</button>
-        </div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Basic Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Customer Type *</label>
-                <select id="cusn-type"><option value="">Select Type</option><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
-              </div>
-              <div class="field"><label>Customer Code *</label><input id="cusn-code" placeholder="Auto Generate"><span style="font-size:10px;color:var(--muted)">Automatically generated code</span></div>
-              <div class="field"><label>Customer Name *</label><input id="cusn-name" placeholder="Enter customer name"></div>
-              <div class="field"><label>Business Name</label><input id="cusn-bizname" placeholder="Enter business name (if any)"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Display Name *</label><input id="cusn-displayname" placeholder="Enter display name"><span style="font-size:10px;color:var(--muted)">Name will be used in documents</span></div>
-              <div class="field"><label>Group</label><select id="cusn-group"><option value="">Select Group</option><option>Retail</option><option>Wholesale</option><option>VIP</option></select></div>
-              <div class="field"><label>Status *</label><select id="cusn-status"><option>Active</option><option>Inactive</option></select></div>
-              <div class="field"><label>Credit Limit (₹)</label><input type="number" id="cusn-creditlimit" min="0" step="0.01" value="0"><span style="font-size:10px;color:var(--muted)">Set credit limit for this customer</span></div>
-            </div>
-          </div>
-
-          <!-- 2. Contact Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-address-book"></i></span> Contact Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Phone Number *</label><input id="cusn-phone" placeholder="Enter phone number"></div>
-              <div class="field"><label>Alternate Phone</label><input id="cusn-altphone" placeholder="Enter alternate number"></div>
-              <div class="field"><label>Email Address</label><input id="cusn-email" type="email" placeholder="Enter email address"></div>
-              <div class="field"><label>WhatsApp No.</label><input id="cusn-whatsapp" placeholder="Enter WhatsApp number"></div>
-            </div>
-            <div class="pne-grid2">
-              <div class="field"><label>Billing Address *</label><textarea id="cusn-billing" style="min-height:60px" placeholder="Enter complete billing address"></textarea></div>
-              <div class="field">
-                <label style="display:flex;justify-content:space-between;align-items:center">Shipping Address
-                  <span style="font-weight:400;text-transform:none;font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cusn-sameaddr" checked onchange="onCusnSameAddrToggle()"> Same as Billing Address</span>
-                </label>
-                <textarea id="cusn-shipping" style="min-height:60px" placeholder="Enter shipping address (if different)" disabled></textarea>
-              </div>
-            </div>
-            <div class="pne-grid3">
-              <div class="field"><label>City *</label><input id="cusn-city" placeholder="Enter city"></div>
-              <div class="field"><label>District</label><input id="cusn-district" placeholder="Enter district"></div>
-              <div class="field"><label>State *</label><select id="cusn-state"><option value="">Select state</option></select></div>
-            </div>
-            <div class="pne-grid2">
-              <div class="field"><label>Pincode *</label><input id="cusn-pincode" placeholder="Enter pincode"></div>
-            </div>
-            <div class="pne-grid3" id="cusn-shipaddr-row" style="display:none">
-              <div class="field"><label>City</label><input id="cusn-shipcity" placeholder="Enter city"></div>
-              <div class="field"><label>State</label><select id="cusn-shipstate"><option value="">Select state</option></select></div>
-              <div class="field"><label>Pincode</label><input id="cusn-shippincode" placeholder="Enter pincode"></div>
-            </div>
-          </div>
-
-          <!-- 3. Business Information -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-briefcase"></i></span> Business Information</div>
-            <div class="pne-grid4">
-              <div class="field"><label>GST No.</label><input id="cusn-gst" placeholder="Enter GST number"></div>
-              <div class="field"><label>PAN No.</label><input id="cusn-pan" placeholder="Enter PAN number"></div>
-              <div class="field"><label>Business Type</label><select id="cusn-biztype"><option value="">Select Business Type</option><option>Proprietorship</option><option>Partnership</option><option>Pvt Ltd</option><option>LLP</option><option>Other</option></select></div>
-              <div class="field"><label>TAN No.</label><input id="cusn-tan" placeholder="Enter TAN number"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>IEC No.</label><input id="cusn-iec" placeholder="Enter IEC number"></div>
-              <div class="field"><label>Trade License No.</label><input id="cusn-tradelicense" placeholder="Enter trade license number"></div>
-              <div class="field"><label>Currency</label><select id="cusn-currency"><option value="INR">INR - Indian Rupee</option><option value="USD">USD - US Dollar</option><option value="EUR">EUR - Euro</option></select></div>
-              <div class="field"><label>Default Payment Terms</label><select id="cusn-paymentterms"><option value="">Select Payment Terms</option><option>Immediate</option><option>7 Days</option><option>15 Days</option><option>30 Days</option><option>Advance</option></select></div>
-            </div>
-          </div>
-
-          <!-- 4. Additional Information -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-circle-info"></i></span> Additional Information (Optional)</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Opening Balance (₹)</label><input type="number" id="cusn-openingbal" min="0" step="0.01" value="0"><span style="font-size:10px;color:var(--muted)">If customer has opening balance</span></div>
-              <div class="field"><label>Opening Balance Type</label><select id="cusn-openingbaltype"><option>Debit</option><option>Credit</option></select></div>
-              <div class="field"><label>Preferred Sales Person</label><select id="cusn-salesperson"><option value="">Select Sales Person</option></select></div>
-              <div class="field"><label>Notes</label><textarea id="cusn-notes-inline" style="min-height:44px" placeholder="Enter any additional notes"></textarea></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head"><i class="fas fa-user-circle"></i> Customer Summary</div>
-            <div class="pne-kv"><span>Customer Code</span><strong id="cusn-sum-code">Auto Generate</strong></div>
-            <div class="pne-kv"><span>Status</span><strong id="cusn-sum-status" style="color:#00897B">Active</strong></div>
-            <div class="pne-kv"><span>Credit Limit</span><strong id="cusn-sum-creditlimit">₹0.00</strong></div>
-            <div class="pne-kv"><span>Opening Balance</span><strong id="cusn-sum-openingbal">₹0.00</strong></div>
-            <div class="pne-kv"><span>Current Balance</span><strong id="cusn-sum-currentbal">₹0.00</strong></div>
-            <div class="pne-kv"><span>Payment Terms</span><strong id="cusn-sum-paymentterms">Not Set</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><i class="fas fa-cloud-upload-alt"></i> Upload Documents <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></div>
-            <label class="pp-dropzone" for="cusn-docs-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here or<br><span style="color:var(--teal);font-weight:600">Browse Files</span></div>
-            </label>
-            <input type="file" id="cusn-docs-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="cusnAddDocs(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supports: JPG, PNG, PDF (Max 5MB)</div>
-            <div id="cusn-docs-list" style="margin-top:8px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><i class="fas fa-note-sticky"></i> Notes</div>
-            <textarea id="cusn-notes-sidebar" style="min-height:80px" placeholder="Add any notes about this customer…" oninput="document.getElementById('cusn-notes-inline').value=this.value"></textarea>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add/Edit Customer Modal (quick-add, used from Sale Entry's inline + button) -->
-    <div class="modal-overlay" id="modal-addcustomer">
-      <div class="modal" style="max-width:520px">
-        <div class="modal-header">
-          <span>Add New Customer</span>
-          <button class="modal-close" onclick="closeModal('modal-addcustomer')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Customer Name *</label><input id="cus-name" placeholder="e.g. Patel Exports"></div>
-            <div class="field"><label>Customer Type</label>
-              <select id="cus-type"><option>Domestic</option><option>Exporter</option><option>Wholesaler</option><option>Retailer</option></select>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Mobile</label><input id="cus-mobile" placeholder="+91 XXXXX XXXXX"></div>
-            <div class="field"><label>Email</label><input id="cus-email" type="email"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>GSTIN</label><input id="cus-gstin" placeholder="Optional"></div>
-            <div class="field"><label>State</label><input id="cus-state"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>District</label><input id="cus-district"></div>
-            <div class="field"><label>Credit Limit (₹)</label><input id="cus-creditlimit" type="number" value="0" min="0"></div>
-          </div>
-          <div class="field"><label>Billing Address</label><input id="cus-billing"></div>
-          <div class="field"><label>Shipping Address</label><input id="cus-shipping"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Terms</label><input id="cus-paymentterms" placeholder="e.g. 15 Days"></div>
-            <div class="field"><label>Sales Executive</label><select id="cus-salesexec"><option value="">— Select —</option></select></div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-addcustomer')">Cancel</button>
-          <button class="btn btn-primary" id="cus-save-btn" onclick="saveCustomer()"><i class="fas fa-check"></i> Save Customer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ STOCK ADJUSTMENT / MOISTURE ADJUSTMENT (full page) ═══════════ -->
-    <div id="page-stock-adjust-new" class="page">
-      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Stock Adjustment &gt; <strong style="color:var(--text)">Add New</strong></span></div>
-      <div class="pne-topbar">
-        <div>
-          <div class="pne-title">Stock Adjustment / Moisture Adjustment</div>
-        </div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
-        </div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Adjustment Details -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-sliders-h"></i></span> Adjustment Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Adjustment No.</label><input id="sa-no" placeholder="Auto-generated"></div>
-              <div class="field"><label>Adjustment Date *</label><input type="date" id="sa-date"></div>
-              <div class="field"><label>Direction *</label>
-                <select id="sa-direction" onchange="onSADirectionChange()">
-                  <option value="out">Decrease Stock (Loss)</option>
-                  <option value="in">Increase Stock (Gain)</option>
-                  <option value="adjust">Set Exact Stock (Correction)</option>
-                </select>
-              </div>
-              <div class="field"><label>Adjustment Type *</label>
-                <select id="sa-type"><option>Moisture Loss</option><option>Damage Loss</option><option>Cleaning Loss</option><option>Recount</option><option>Opening Stock Correction</option><option>Other</option></select>
-              </div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Warehouse *</label><select id="sa-warehouse"><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-              <div class="field"><label>Reference No.</label><input id="sa-refno" placeholder="Enter reference no. (optional)"></div>
-              <div class="field"><label>Reference Date</label><input type="date" id="sa-refdate"></div>
-            </div>
-          </div>
-
-          <!-- 2. Product & Batch Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-box"></i></span> Product &amp; Batch Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Product *</label>
-                <select id="sa-product" onchange="onSAProductChange()"><option value="">Select product…</option></select>
-              </div>
-              <div class="field"><label>Variety</label><input id="sa-variety" placeholder="Optional"></div>
-              <div class="field"><label>Grade</label><input id="sa-grade" placeholder="Optional"></div>
-              <div class="field"><label>Unit</label><input id="sa-unit" readonly></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Batch / Lot No.</label><input id="sa-batchno" placeholder="Optional"></div>
-              <div class="field"><label>Manufacture Date</label><input type="date" id="sa-mfgdate"></div>
-              <div class="field"><label>Expiry Date</label><input type="date" id="sa-expdate"></div>
-              <div class="field"><label>Supplier / Farmer</label><select id="sa-supplier"><option value="">Select or —</option></select></div>
-            </div>
-          </div>
-
-          <!-- 3. Stock & Moisture Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-tint"></i></span> Stock &amp; Moisture Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Opening Stock (Kg) *</label><input type="number" id="sa-openingstock" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
-              <div class="field"><label>Moisture Before (%)</label><input type="number" id="sa-moistbefore" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
-              <div class="field"><label>Moisture After (%)</label><input type="number" id="sa-moistafter" min="0" max="100" step="0.01" oninput="calcStockAdjustment()"></div>
-              <div class="field"><label>Moisture Loss (%)</label><input id="sa-moistloss" readonly></div>
-              <div class="field"><label id="sa-qty-label">Weight Loss / Gain (Kg) *</label><input type="number" id="sa-weightloss" min="0" step="0.01" oninput="calcStockAdjustment()"></div>
-              <div class="field" id="sa-adjustto-row" style="display:none"><label>Adjust Stock To (Kg) *</label><input type="number" id="sa-adjustto" min="0" step="0.01" placeholder="Target stock value" oninput="calcStockAdjustment()"><span style="font-size:11px;color:var(--muted);margin-top:3px;display:block">Enter the correct stock quantity — the system will calculate the difference automatically</span></div>
-              <div class="field"><label>Final Stock (Kg) *</label><input id="sa-finalstock" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
-            </div>
-            <div class="pne-grid2">
-              <div class="field"><label>Reason / Description *</label>
-                <select id="sa-reason"><option>Drying / Moisture Loss</option><option>Physical Damage</option><option>Cleaning / Impurity Removal</option><option>Physical Recount</option><option>Pest / Spoilage</option><option>Other</option></select>
-              </div>
-              <div class="field"><label>Remarks (optional)</label><textarea id="sa-remarks" style="min-height:44px" placeholder="Optional notes"></textarea></div>
-            </div>
-          </div>
-
-          <!-- 4. Summary -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-calculator"></i></span> Summary</div>
-            <div class="sa-summary-row">
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-box"></i></span><div><span>Opening Stock (Kg)</span><strong id="sa-sum-opening">0.00</strong></div></div>
-              <span class="sa-op" id="sa-sum-op">−</span>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-weight-hanging"></i></span><div><span id="sa-sum-loss-label">Weight Loss (Kg)</span><strong id="sa-sum-loss">0.00</strong></div></div>
-              <span class="sa-op">=</span>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B"><i class="fas fa-check-circle"></i></span><div><span>Final Stock (Kg)</span><strong id="sa-sum-final">0.00</strong></div></div>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2"><i class="fas fa-tint"></i></span><div><span>Moisture Before</span><strong id="sa-sum-mbefore">0.00 %</strong></div></div>
-              <span class="sa-op"><i class="fas fa-arrow-right"></i></span>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100"><i class="fas fa-tint-slash"></i></span><div><span>Moisture After</span><strong id="sa-sum-mafter">0.00 %</strong></div></div>
-              <div class="sa-summary-chip"><span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828"><i class="fas fa-chart-line"></i></span><div><span>Moisture Loss</span><strong id="sa-sum-mloss">0.00 %</strong></div></div>
-            </div>
-          </div>
-
-          <!-- 5. Attachment & Approval -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-paperclip"></i></span> Attachment &amp; Approval</div>
-            <div class="pne-grid4">
-              <div class="field" style="grid-column:span 1">
-                <label>Attachment (optional)</label>
-                <label class="pp-dropzone" for="sa-attachment-input" id="sa-attachment-label">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <div>Drag &amp; drop files here<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>
-                </label>
-                <input type="file" id="sa-attachment-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="saAttachmentChange(this.files[0])">
-              </div>
-              <div class="field"><label>Approved By</label><select id="sa-approvedby"><option value="">Select…</option></select></div>
-              <div class="field"><label>Approval Date</label><input type="date" id="sa-approvaldate"></div>
-              <div class="field"><label>Notes (optional)</label><textarea id="sa-notes" style="min-height:44px" placeholder="Optional"></textarea></div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-            <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><i class="fas fa-bullseye"></i> Adjustment Impact</div>
-            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">This adjustment will affect the available stock.</div>
-            <div class="pne-kv" style="display:block;padding-top:8px"><span>Warehouse</span><br><strong id="sa-imp-warehouse">Main Warehouse</strong></div>
-            <div class="pne-kv" style="display:block;padding-top:8px"><span>Product</span><br><strong id="sa-imp-product">—</strong></div>
-            <div class="pne-kv" style="display:block;padding-top:8px"><span>Batch / Lot No.</span><br><strong id="sa-imp-batch">—</strong></div>
-            <div class="pne-kv" style="display:block;padding-top:8px"><span>Impact</span><br><strong style="color:#E53935">Stock Decrease</strong></div>
-            <div class="pne-kv" style="display:block;padding-top:8px"><span>Accounting Impact</span><br><strong>Inventory Adjustment (Loss)</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head" style="justify-content:space-between">
-              <span><i class="fas fa-history"></i> Recent Adjustments</span>
-              <a href="#" style="font-size:11px;color:var(--teal)" onclick="event.preventDefault()">View All</a>
-            </div>
-            <div id="sa-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ ADD SUPPLIER / FARMER (full page) ═══════════ -->
-    <div id="page-supplier-new" class="page">
-      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Masters &gt; Supplier / Farmer &gt; <strong style="color:var(--text)" id="supn-crumb">Add New</strong></span></div>
-      <div class="pne-topbar">
-        <div><div class="pne-title" id="supn-title">Add Supplier / Farmer</div></div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
-        </div>
-      </div>
-
-      <div class="pne-layout" style="grid-template-columns:1fr">
-        <div class="pne-main">
-
-          <!-- 1. Basic Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
-            <div class="pne-grid5">
-              <div class="field"><label>Type *</label>
-                <select id="sup-type" onchange="onSupplierTypeChangeRich()">
-                  <option value="">Select Type</option>
-                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
-                </select>
-              </div>
-              <div class="field"><label>Name / Company / Organization *</label><input id="sup-name" placeholder="Enter name"></div>
-              <div class="field"><label>Contact Person *</label><input id="sup-contactperson" placeholder="Enter contact person"></div>
-              <div class="field"><label>Mobile No. *</label><input id="sup-mobile" placeholder="Enter mobile number"></div>
-              <div class="field"><label>Email ID</label><input id="sup-email" type="email" placeholder="Enter email id"></div>
-            </div>
-            <div class="pne-grid5">
-              <div class="field"><label>Date of Registration</label><input type="date" id="sup-regdate"></div>
-              <div class="field"><label>Business Nature</label>
-                <select id="sup-bizNature"><option value="">Select business nature</option><option>Wholesale</option><option>Retail</option><option>Farming</option><option>Processing</option><option>Export/Import</option></select>
-              </div>
-              <div class="field"><label>Website</label><input id="sup-website" placeholder="Enter website (optional)"></div>
-            </div>
-          </div>
-
-          <div class="pne-row3" style="grid-template-columns:1fr 1fr">
-            <!-- 2. Address Information -->
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-location-dot"></i></span> Address Information</div>
-              <div class="field"><label>Address *</label><textarea id="sup-address" style="min-height:60px" placeholder="Enter full address"></textarea></div>
-              <div class="pne-grid2">
-                <div class="field"><label>City *</label><input id="sup-city" placeholder="Enter city"></div>
-                <div class="field"><label>District</label><input id="sup-district" placeholder="Enter district"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>State *</label><select id="sup-state"><option value="">Select state</option></select></div>
-                <div class="field"><label>Pincode *</label><input id="sup-pincode" placeholder="Enter pincode"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>Country</label><select id="sup-country"><option>India</option></select></div>
-              </div>
-            </div>
-
-            <!-- 3. Tax & Registration -->
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-file-invoice"></i></span> Tax &amp; Registration</div>
-              <div class="pne-grid2" id="sup-gstin-wrap">
-                <div class="field"><label>GSTIN / ID No.</label><input id="sup-gstin" placeholder="Enter GSTIN or ID number"></div>
-                <div class="field"><label>PAN No.</label><input id="sup-pan" placeholder="Enter PAN number"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>Aadhaar No.</label><input id="sup-aadhaar" placeholder="Enter Aadhaar number"></div>
-                <div class="field"><label>State Code</label><input id="sup-statecode" placeholder="Enter state code"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>TAN No.</label><input id="sup-tan" placeholder="Enter TAN number"></div>
-                <div class="field"><label>MSME No.</label><input id="sup-msme" placeholder="Enter MSME number"></div>
-              </div>
-              <div class="field"><label>FSSAI No.</label><input id="sup-fssai" placeholder="Enter FSSAI number (if any)"></div>
-              <div id="sup-farmer-note" class="pne-note" style="display:none;background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal;margin-top:6px">
-                <i class="fas fa-info-circle"></i> Farmer purchases are typically GST-exempt — GSTIN hidden for this supplier type.
-              </div>
-            </div>
-          </div>
-
-          <div class="pne-row3" style="grid-template-columns:1fr 1fr">
-            <!-- 4. Additional Information -->
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-building-columns"></i></span> Additional Information</div>
-              <div class="pne-grid2">
-                <div class="field"><label>Bank Name</label><input id="sup-bankname" placeholder="Enter bank name"></div>
-                <div class="field"><label>Bank Account No.</label><input id="sup-bankacc" placeholder="Enter account number"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>IFSC Code</label><input id="sup-ifsc" placeholder="Enter IFSC code"></div>
-                <div class="field"><label>Account Holder Name</label><input id="sup-accholder" placeholder="Enter account holder name"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>Credit Limit (₹)</label><input type="number" id="sup-creditlimit" min="0" step="0.01" placeholder="Enter credit limit"></div>
-                <div class="field"><label>Opening Balance (₹)</label><input type="number" id="sup-openingbal" min="0" step="0.01" value="0"></div>
-              </div>
-              <div class="pne-grid2">
-                <div class="field"><label>Payment Terms</label>
-                  <select id="sup-paymentterms"><option value="">Select payment terms</option><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
-                </div>
-                <div class="field"><label>Default Price List</label>
-                  <select id="sup-pricelist"><option value="">Select price list</option><option>Standard</option><option>Wholesale</option><option>Premium</option></select>
-                </div>
-              </div>
-              <div class="field"><label>Notes</label><textarea id="sup-notes" style="min-height:44px" placeholder="Enter notes (optional)"></textarea></div>
-            </div>
-
-            <!-- 5. Status & Documents -->
-            <div class="pne-card">
-              <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-shield-halved"></i></span> Status &amp; Documents</div>
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-                <div class="tog on" id="sup-status" onclick="this.classList.toggle('on')"></div>
-                <span style="font-size:13px;font-weight:600">Active</span>
-              </div>
-              <label>Upload Documents</label>
-              <label class="pp-dropzone" for="sup-docs-input" style="margin-top:6px">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <div>Drag &amp; drop files here<br>or click to upload</div>
-              </label>
-              <input type="file" id="sup-docs-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="supAddDocs(this.files)">
-              <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported formats: PDF, JPG, PNG (Max 5MB)</div>
-              <div id="sup-docs-list" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-            </div>
-          </div>
-
-          <div style="font-size:11.5px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Fields marked with * are mandatory</div>
-          <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-            <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ ADD PRODUCT TO STOCK (STOCK IN) ═══════════ -->
-    <div id="page-stock-in-new" class="page">
-      <div style="padding:14px 24px 0"><span style="font-size:12px;color:var(--muted)">Dashboard &gt; Inventory &gt; Product Stock &gt; <strong style="color:var(--text)">Add Stock</strong></span></div>
-      <div class="pne-topbar">
-        <div><div class="pne-title" id="sti-page-title">Add Product to Stock (Stock In)</div></div>
-        <div class="pne-actions">
-          <button class="btn btn-outline" onclick="cancelStockIn()">Cancel</button>
-          <button class="btn pne-btn-savenew" onclick="saveStockInEntry('new')"><i class="fas fa-plus"></i> Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveStockInEntry('close')"><i class="fas fa-plus"></i> Save &amp; Close</button>
-        </div>
-      </div>
-
-      <div class="pne-layout">
-        <div class="pne-main">
-
-          <!-- 1. Basic Information -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-clipboard-list"></i></span> Basic Information</div>
-            <div class="pne-grid5">
-              <div class="field"><label>Reference No.</label><input id="sti-refno" placeholder="Auto-generated"></div>
-              <div class="field"><label>Reference Date *</label><input type="date" id="sti-refdate"></div>
-              <div class="field"><label>Warehouse *</label><select id="sti-warehouse"><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-              <div class="field"><label>Stock In Type *</label>
-                <select id="sti-type"><option>Purchase</option><option>Transfer</option><option>Return</option><option>Adjustment</option><option>Other</option></select>
-              </div>
-              <div class="field"><label>Remarks</label><input id="sti-remarks" placeholder="Optional"></div>
-            </div>
-          </div>
-
-          <!-- 2. Product Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-purple"><span class="pne-num"><i class="fas fa-boxes-stacked"></i></span> Product Details</div>
-            <div class="pne-grid5" style="margin-bottom:6px">
-              <div class="field"><label>Product *</label><select id="sti-p-product"><option value="">Select product…</option></select></div>
-              <div class="field"><label>Variety</label><select id="sti-p-variety" onchange="onSTIVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select></div>
-              <div class="field"><label>Grade</label><select id="sti-p-grade" onchange="onSTIGradeChange()"><option value="">—</option><option>Grade-1</option><option>Grade-2</option><option>Grade-3</option><option>Grade-4</option><option>Grade-5</option></select></div>
-              <div class="field"><label>Category</label><input id="sti-p-category" readonly></div>
-              <div class="field"><label>Unit</label><input id="sti-p-unit" readonly></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field" style="display:flex;flex-direction:row;gap:6px;align-items:flex-end">
-                <div style="flex:1"><label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:5px">Batch / Lot No.</label><input id="sti-p-batchno" placeholder="Optional"></div>
-              </div>
-              <div class="field"><label>Mfg. Date</label><input type="date" id="sti-p-mfgdate"></div>
-              <div class="field"><label>Expiry Date</label><input type="date" id="sti-p-expdate"></div>
-              <div class="field" style="display:flex;gap:8px;align-items:flex-end">
-                <div style="flex:1"><label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:5px">Qty (Kg) / Rate (₹)</label>
-                  <div style="display:flex;gap:6px"><input type="number" id="sti-p-qty" placeholder="Qty" min="0" step="0.01"><input type="number" id="sti-p-rate" placeholder="Rate" min="0" step="0.01"></div>
-                </div>
-              </div>
-            </div>
-            <button class="btn btn-outline pne-small-btn" style="margin-top:10px" onclick="addSTIProduct()"><i class="fas fa-plus"></i> Add Product</button>
-
-            <div class="table-card pit-card" style="overflow-x:auto;margin-top:14px">
-              <table class="data-table pne-items-table">
-                <colgroup><col style="width:30px"><col style="width:135px"><col style="width:85px"><col style="width:80px"><col style="width:100px"><col style="width:95px"><col style="width:95px"><col style="width:85px"><col style="width:85px"><col style="width:95px"><col style="width:56px"></colgroup>
-                <thead><tr><th>#</th><th>Product</th><th>Variety</th><th>Grade</th><th>Batch / Lot No.</th><th>Mfg. Date</th><th>Expiry Date</th><th>Quantity (Kg)</th><th>Rate (₹/Kg)</th><th>Amount (₹)</th><th>Action</th></tr></thead>
-                <tbody id="sti-items-tbody"></tbody>
-              </table>
-            </div>
-            <div class="pne-items-footer">
-              <span>Total Quantity <strong id="sti-total-qty">0.00 Kg</strong></span>
-              <span style="margin-left:auto">Total Amount <strong id="sti-total-amount" class="pne-total-amt">₹0.00</strong></span>
-            </div>
-          </div>
-
-          <!-- 3. Weight / Measurement Details -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
-            <div class="pne-grid4">
-              <div class="field"><label>Weighing Type *</label>
-                <select id="sti-weighingtype"><option>Own Weighbridge</option><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Self Declared</option></select>
-              </div>
-              <div class="field"><label>Weighbridge Name *</label><input id="sti-weighbridgename" placeholder="e.g. AgriTrade Weighbridge - 1"></div>
-              <div class="field"><label>Weighbridge Slip No.</label><input id="sti-slipno" placeholder="Optional"></div>
-              <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="sti-weightdatetime"></div>
-            </div>
-            <div class="pne-grid4">
-              <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="sti-gross" min="0" step="0.01" oninput="calcSTIWeight()"></div>
-              <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="sti-tare" min="0" step="0.01" oninput="calcSTIWeight()"></div>
-              <div class="field"><label>Net Weight (Kg)</label><input id="sti-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-              <div class="field"><label>Operator Name</label><input id="sti-operator" placeholder="Optional"></div>
-            </div>
-            <div class="pne-note" style="background:var(--blue-bg);color:var(--blue);border-radius:7px;padding:8px 12px;font-style:normal">
-              <i class="fas fa-info-circle"></i> Net Weight (Kg) = Gross Weight (Kg) − Tare Weight (Kg)
-            </div>
-            <div id="sti-reconcile-banner" style="display:none;border-radius:7px;padding:9px 12px;margin-top:8px;font-size:12.5px;font-weight:600"></div>
-            <div class="field" style="margin-top:12px;max-width:340px">
-              <label>Upload Slip</label>
-              <label class="pp-dropzone" for="sti-slip-input" style="padding:14px;flex-direction:row;justify-content:flex-start;gap:12px" id="sti-slip-label">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: JPG, PNG, PDF (Max 5MB)</span></div>
-              </label>
-              <input type="file" id="sti-slip-input" accept="application/pdf,image/png,image/jpeg" style="display:none" onchange="stiSlipChange(this.files[0])">
-            </div>
-          </div>
-
-          <!-- 4. Additional Information -->
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-circle-info"></i></span> Additional Information</div>
-            <div class="pne-grid5">
-              <div class="field"><label>Supplier</label><select id="sti-supplier"><option value="">Select or —</option></select></div>
-              <div class="field"><label>Challan No.</label><input id="sti-challanno" placeholder="Optional"></div>
-              <div class="field"><label>Challan Date</label><input type="date" id="sti-challandate"></div>
-              <div class="field"><label>Vehicle No.</label><input id="sti-vehicleno" placeholder="Optional"></div>
-              <div class="field"><label>Driver Name</label><input id="sti-drivername" placeholder="Optional"></div>
-            </div>
-          </div>
-
-          <!-- 5. Attachments -->
-          <div class="pne-card">
-            <div class="pne-card-head"><span class="pne-num"><i class="fas fa-paperclip"></i></span> Attachments (Optional)</div>
-            <label class="pp-dropzone" for="sti-attachments-input">
-              <i class="fas fa-cloud-upload-alt"></i>
-              <div>Drag &amp; drop files here or click to upload</div>
-            </label>
-            <input type="file" id="sti-attachments-input" accept="application/pdf,image/png,image/jpeg" multiple style="display:none" onchange="stiAddAttachments(this.files)">
-            <div style="font-size:10px;color:var(--muted);margin-top:6px">Supported: PDF, JPG, PNG (Max 5MB)</div>
-            <div id="sti-attachments-list" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-        </div>
-
-        <!-- Right sidebar -->
-        <div class="pne-sidebar">
-          <div class="pne-card">
-            <div class="pne-card-head pne-head-green"><i class="fas fa-boxes-packing"></i> Stock Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(After This Inward)</span></div>
-            <div class="pne-kv"><span>Product</span><strong id="sti-sum-product">—</strong></div>
-            <div class="pne-kv"><span>Batch / Lot No.</span><strong id="sti-sum-batch">—</strong></div>
-            <div class="pne-kv"><span>Warehouse</span><strong id="sti-sum-warehouse">Main Warehouse</strong></div>
-            <div class="pne-kv"><span>Before Stock</span><strong id="sti-sum-before">0.00 Kg</strong></div>
-            <div class="pne-kv"><span>Inward Quantity</span><strong id="sti-sum-inward" style="color:#00897B">0.00 Kg</strong></div>
-            <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span>After Stock</span><strong id="sti-sum-after" style="color:var(--teal)">0.00 Kg</strong></div>
-          </div>
-          <div class="pne-card">
-            <div class="pne-card-head" style="justify-content:space-between">
-              <span><i class="fas fa-history"></i> Recent Stock In History</span>
-              <a href="#" style="font-size:11px;color:var(--teal)" id="sti-viewall-link" onclick="event.preventDefault(); expandSTIHistory();">View All</a>
-            </div>
-            <div id="sti-recent-list" style="display:flex;flex-direction:column;gap:12px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════ FINANCE REPORT ═══════════ -->
-    <div id="page-finance-report" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Finance Report</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Reports &gt; Finance Report</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="toast('📤 Export — coming soon','info')"><i class="fas fa-download"></i> Export</button>
-        </div>
-      </div>
-
-      <div class="pne-card" style="margin-top:16px">
-        <div class="pne-grid4">
-          <div class="field"><label>Report Type</label><select id="fr-type"><option>Finance Summary</option></select></div>
-          <div class="field"><label>Date Range</label>
-            <div style="display:flex;gap:6px">
-              <input type="date" id="fr-from" class="table-search" style="max-width:none;flex:1">
-              <input type="date" id="fr-to" class="table-search" style="max-width:none;flex:1">
-              <button class="btn btn-outline" style="white-space:nowrap" title="See totals across everything, not just the current range" onclick="setFRAllTime()">All Time</button>
-            </div>
-          </div>
-          <div class="field"><label>Warehouse</label><select id="fr-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-          <div class="field" style="display:flex;align-items:flex-end;gap:8px">
-            <button class="btn pne-btn-save" style="flex:1" onclick="renderFinanceReport()">Apply Filter</button>
-            <button class="btn btn-outline" onclick="resetFinanceFilter()"><i class="fas fa-rotate-left"></i></button>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-chart-line"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Sales (₹)</div>
-          <div style="font-size:17px;font-weight:800" id="fr-stat-sales">₹0.00</div>
-          <div style="font-size:10.5px;color:#00897B" id="fr-chg-sales"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Purchase (₹)</div>
-          <div style="font-size:17px;font-weight:800" id="fr-stat-purchase">₹0.00</div>
-          <div style="font-size:10.5px;color:#00897B" id="fr-chg-purchase"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Collections (₹)</div>
-          <div style="font-size:17px;font-weight:800" id="fr-stat-collections">₹0.00</div>
-          <div style="font-size:10.5px;color:#00897B" id="fr-chg-collections"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-file-invoice-dollar"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Payments (₹)</div>
-          <div style="font-size:17px;font-weight:800" id="fr-stat-payments">₹0.00</div>
-          <div style="font-size:10.5px;color:#00897B" id="fr-chg-payments"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-wallet"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Business Expenses (₹)</div>
-          <div style="font-size:17px;font-weight:800;color:#E53935" id="fr-stat-expenses">₹0.00</div>
-          <div style="font-size:10.5px;color:var(--muted)" id="fr-chg-expenses"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:34px;height:34px"><i class="fas fa-piggy-bank"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Net Profit (₹) <span title="Sales − Purchase − Expenses" style="cursor:help">ⓘ</span></div>
-          <div style="font-size:17px;font-weight:800" id="fr-stat-profit">₹0.00</div>
-          <div style="font-size:10.5px;color:#00897B" id="fr-chg-profit"></div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-top:16px;align-items:start" class="fr-mid-grid">
-        <div class="pne-card">
-          <div class="pne-card-head">Income vs Expense Trend</div>
-          <canvas id="fr-trend-chart" height="230"></canvas>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head">Income Distribution (₹)</div>
-          <canvas id="fr-income-chart" height="230"></canvas>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head">Cash Flow Summary</div>
-          <div class="pne-kv"><span>Total Collections</span><strong style="color:#00897B" id="fr-cf-collections">₹0.00</strong></div>
-          <div class="pne-kv"><span>Total Payments</span><strong style="color:#E53935" id="fr-cf-payments">₹0.00</strong></div>
-          <div class="pne-kv" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:10px"><span>Net Cash Flow</span><strong id="fr-cf-net" style="font-size:15px">₹0.00</strong></div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5"><i class="fas fa-circle-info"></i> Opening/Closing balances need bank &amp; cash account tracking, not yet built — showing period cash movement only.</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px;align-items:start" class="fr-mid-grid">
-        <div class="pne-card">
-          <div class="pne-card-head">Top Income Heads</div>
-          <table class="data-table" style="font-size:12px">
-            <thead><tr><th>#</th><th>Income Head</th><th>Amount (₹)</th><th>%</th></tr></thead>
-            <tbody id="fr-income-tbody"></tbody>
-          </table>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head">Top Expense Heads</div>
-          <table class="data-table" style="font-size:12px">
-            <thead><tr><th>#</th><th>Expense Head</th><th>Amount (₹)</th><th>%</th></tr></thead>
-            <tbody id="fr-expense-tbody"></tbody>
-          </table>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head">Expense Summary (₹)</div>
-          <canvas id="fr-expense-chart" height="220"></canvas>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px">
-        <div class="pne-card">
-          <div class="pne-card-head">Payment Mode Summary</div>
-          <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
-        </div>
-      </div>
-
-      <div class="pne-card" style="margin-top:16px">
-        <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
-        <div id="fr-trade-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading trade summary…</div></div>
-      </div>
-
-      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
-    </div>
-
-    <!-- ═══════════ STOCK HISTORY ═══════════ -->
-    <div id="page-stock-txn-details" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div>
-          <h1 style="margin:0">Stock Transaction Details</h1>
-          <div style="font-size:11.5px;color:var(--muted);margin-top:3px">Dashboard › Inventory › Stock History › Transaction Details</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="showPage('stock-history'); renderStockHistory();"><i class="fas fa-arrow-left"></i> Back to Stock History</button>
-          <button class="btn btn-outline" onclick="printStockTxnDetails()"><i class="fas fa-print"></i> Print</button>
-        </div>
-      </div>
-      <div id="stx-body"></div>
-    </div>
-
-    <div id="page-stock-history" class="page">
-      <div style="font-size:20px;font-weight:800;color:var(--text)">Stock History</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:2px;margin-bottom:16px">Dashboard &gt; Inventory &gt; Stock History</div>
-
-      <div class="pne-card">
-        <div class="pne-grid4" style="grid-template-columns:repeat(3,1fr)">
-          <div class="field"><label>Product</label><select id="sh-f-product" onchange="onSHProductChange()"><option value="">All Products</option></select></div>
-          <div class="field"><label>Batch / Lot No.</label><select id="sh-f-batch"><option value="">Select Batch / Lot</option></select></div>
-          <div class="field"><label>Warehouse</label><select id="sh-f-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
-        </div>
-        <div class="pne-grid4" style="grid-template-columns:repeat(3,1fr)">
-          <div class="field"><label>Date Range</label>
-            <div style="display:flex;gap:6px">
-              <input type="date" id="sh-f-from" class="table-search" style="max-width:none;flex:1">
-              <input type="date" id="sh-f-to" class="table-search" style="max-width:none;flex:1">
-              <button class="btn btn-outline" style="white-space:nowrap" title="See full history — useful for tracing a negative Opening Stock back to its source" onclick="setSHAllTime()">All Time</button>
-            </div>
-          </div>
-          <div class="field"><label>Transaction Type</label><select id="sh-f-txntype"><option value="">All</option><option value="in">Stock In</option><option value="out">Stock Out</option><option value="adjustment">Stock Adjustment</option></select></div>
-          <div class="field"><label>Reference Type</label><select id="sh-f-reftype"><option value="">All</option><option value="purchase">Purchase Entry</option><option value="stock_in">Stock In Entry</option><option value="sale">Sales Invoice</option><option value="adjustment">Stock Adjustment</option></select></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button class="btn btn-outline" onclick="resetSHFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
-          <button class="btn pne-btn-save" onclick="renderStockHistory()"><i class="fas fa-filter"></i> Apply Filter</button>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-box"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-opening">0.00 Kg</div>
-          <div style="font-size:10px;color:var(--muted)" id="sh-stat-opening-date"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#2E7D32;width:34px;height:34px"><i class="fas fa-right-to-bracket"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Stock In</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-in">0.00 Kg</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#C62828;width:34px;height:34px"><i class="fas fa-right-from-bracket"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Stock Out</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-out">0.00 Kg</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-boxes-packing"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Closing Stock</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-closing">0.00 Kg</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:34px;height:34px"><i class="fas fa-coins"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Current Stock Value</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-value">₹0.00</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:10px">
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#FFF8E1;color:#F9A825;width:34px;height:34px"><i class="fas fa-sliders"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Total Adjustments</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-adj-count">0</div>
-          <div style="font-size:10px;color:var(--muted)" id="sh-stat-adj-sub">0.00 Kg net</div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px">
-          <span class="sa-chip-icon" style="background:#E8EAF6;color:#3949AB;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Avg Purchase Rate</div>
-          <div style="font-size:16px;font-weight:800" id="sh-stat-avg-rate">—</div>
-          <div style="font-size:10px;color:var(--muted)">per Kg (purchase entries only)</div>
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:10px">
-        <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)">
-          <span class="ps-tab active">Stock History</span>
-          <span class="ps-tab" onclick="showPage('stock',document.querySelector('.nav-item[data-page=&quot;stock&quot;]')); renderStock();">Stock Summary</span>
-        </div>
-        <button class="btn btn-outline" onclick="exportStockHistoryCsv()"><i class="fas fa-file-excel"></i> Export Excel</button>
-      </div>
-
-      <div class="table-card" style="overflow-x:auto">
-        <table class="data-table sh-history-table" style="min-width:1100px;table-layout:fixed">
-          <colgroup>
-            <col style="width:30px"><col style="width:110px"><col style="width:100px"><col style="width:100px"><col style="width:95px">
-            <col style="width:90px"><col style="width:90px"><col style="width:75px"><col style="width:75px"><col style="width:80px">
-            <col style="width:130px"><col style="width:45px">
-          </colgroup>
-          <thead><tr>
-            <th>#</th><th>Date &amp; Time</th><th>Transaction Type</th><th>Reference Type</th><th>Reference No.</th>
-            <th>Batch / Lot No.</th><th>Warehouse</th><th>In (Kg)</th><th>Out (Kg)</th><th>Balance (Kg)</th>
-            <th>Remarks</th><th>Action</th>
-          </tr></thead>
-          <tbody id="sh-history-tbody"></tbody>
-        </table>
-        <div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div class="tf-info" id="sh-history-info"></div><div style="display:flex;gap:5px" id="sh-pagination"></div></div>
-      </div>
-
-      <div style="padding:16px 0 30px">
-        <div style="background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:10px 16px;font-size:11.5px;border-left:3px solid var(--blue)">
-          <i class="fas fa-circle-info"></i> <strong>Note:</strong> In (Kg) increases stock. Out (Kg) decreases stock.
-        </div>
-      </div>
-    </div>
-
 
     <!-- ─────────── PAYMENTS ─────────── -->
-    <div id="page-payments-product" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Payments</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Payments</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-outline" onclick="toast('🔧 Advanced filters — coming soon','info')"><i class="fas fa-filter"></i> Filters</button>
-          <button class="btn btn-outline" onclick="exportPmtCSV()"><i class="fas fa-download"></i> Export</button>
-          <button class="btn btn-primary" onclick="openMakePaymentModal()"><i class="fas fa-plus"></i> Make Payment</button>
-        </div>
-      </div>
-
-      <!-- ── 6 KPI cards: IN vs OUT clearly separated ── -->
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0" class="ps-stats-row">
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #00897B">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:32px;height:32px"><i class="fas fa-arrow-down-to-bracket"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL COLLECTED</div>
-          <div style="font-size:15px;font-weight:800;color:#00897B" id="pmt-stat-collected">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">From customers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-collected"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E53935">
-          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:32px;height:32px"><i class="fas fa-arrow-up-from-bracket"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PAID OUT</div>
-          <div style="font-size:15px;font-weight:800;color:#E53935" id="pmt-stat-paidout">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">To suppliers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-paidout"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #7B1FA2">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#7B1FA2;width:32px;height:32px"><i class="fas fa-hand-holding-dollar"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div>
-          <div style="font-size:15px;font-weight:800;color:#7B1FA2" id="pmt-stat-outstanding">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Customers owe you</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-outstanding"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #E65100">
-          <span class="sa-chip-icon" style="background:#FFF3E0;color:#E65100;width:32px;height:32px"><i class="fas fa-file-circle-exclamation"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">PAYABLE</div>
-          <div style="font-size:15px;font-weight:800;color:#E65100" id="pmt-stat-payable">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">You owe suppliers</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-payable"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #1976D2">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:32px;height:32px"><i class="fas fa-money-bill-wave"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">CASH</div>
-          <div style="font-size:15px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Cash transactions</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-cash"></div>
-        </div>
-        <div class="pne-card" style="padding:14px 16px;border-top:3px solid #6A4C93">
-          <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:32px;height:32px"><i class="fas fa-building-columns"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">UPI / BANK</div>
-          <div style="font-size:15px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Digital transactions</div>
-          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-digital"></div>
-        </div>
-      </div>
-
-      <!-- ── Charts row ── -->
-      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-bottom:16px">
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-            Collections vs Payments (30 days)
-            <span style="font-size:11px;font-weight:400;color:var(--muted)">Daily trend</span>
-          </div>
-          <div style="height:160px;position:relative"><canvas id="pmt-trend-chart"></canvas></div>
-        </div>
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Payment Mode Split</div>
-          <div style="height:130px;position:relative"><canvas id="pmt-mode-chart"></canvas></div>
-          <div id="pmt-mode-legend" style="margin-top:8px;font-size:11px"></div>
-        </div>
-        <div class="pne-card">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px">Status Breakdown</div>
-          <div id="pmt-status-breakdown" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
-        </div>
-      </div>
-
-      <div class="pne-card">
-        <div class="pne-grid5" style="align-items:end">
-          <div class="field" style="grid-column:span 1"><label>Search</label><input class="table-search" style="max-width:none" placeholder="Search by reference no., party name, payment mode…" oninput="filterPayments(this.value)" id="pmtSearch"></div>
-          <div class="field"><label>Payment Type</label><select class="table-filter" style="max-width:none" id="pmtTypeFilter" onchange="renderPayments()"><option value="">All</option><option value="in">Received</option><option value="out">Paid Out</option></select></div>
-          <div class="field"><label>Payment Mode</label>
-            <select class="table-filter" style="max-width:none" onchange="renderPayments()" id="pmtMethodFilter">
-              <option value="">All</option>
-              <option>Bank Transfer (NEFT/RTGS)</option><option>UPI (GPay/PhonePe/Paytm)</option>
-              <option>Cash</option><option>Cheque</option><option>NEFT</option><option>RTGS</option>
-            </select>
-          </div>
-          <div class="field"><label>Party Type</label><select class="table-filter" style="max-width:none" id="pmtPartyTypeFilter" onchange="renderPayments()"><option value="">All</option><option>Customer</option><option>Supplier</option><option>Transporter</option><option>Vendor</option></select></div>
-          <div class="field"><label>Status</label><select class="table-filter" style="max-width:none" id="pmtStatusFilter" onchange="renderPayments()"><option value="">All</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:-6px;margin-bottom:10px">
-          <button class="btn btn-outline" onclick="resetPmtFilters()"><i class="fas fa-rotate-left"></i> Reset</button>
-        </div>
-
-        <div style="overflow-x:auto">
-          <table class="data-table ps-stock-table" style="min-width:1150px;table-layout:fixed">
-            <colgroup>
-              <col style="width:30px"><col style="width:90px"><col style="width:100px"><col style="width:130px"><col style="width:85px">
-              <col style="width:160px"><col style="width:95px"><col style="width:90px"><col style="width:70px"><col style="width:75px">
-            </colgroup>
-            <thead><tr>
-              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th><th>Party Type</th>
-              <th>Payment For</th><th>Payment Mode</th><th>Amount (₹)</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody id="paymentsTbody"></tbody>
-          </table>
-        </div>
-        <div class="table-footer">
-          <div class="tf-info" id="pmtInfo"></div>
-          <div class="pagination" id="pmtPagination"></div>
-        </div>
-      </div>
-      <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> Payments are made to suppliers, vendors, transporters and other parties.</div>
-    </div>
-
-    <!-- Make Payment Modal -->
-    <div class="modal-overlay" id="modal-makepayment">
-      <div class="modal" style="max-width:480px">
-        <div class="modal-header">
-          <span>Make Payment</span>
-          <button class="modal-close" onclick="closeModal('modal-makepayment')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Date *</label><input type="date" id="mp-date"></div>
-            <div class="field"><label>Direction *</label><select id="mp-direction"><option value="out">Paid Out (to Vendor/Transporter/Supplier)</option><option value="in">Received (from Customer)</option></select></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Party Type *</label><select id="mp-partytype"><option>Vendor</option><option>Transporter</option><option>Supplier</option><option>Customer</option><option>Other</option></select></div>
-            <div class="field"><label>Party Name *</label><input id="mp-partyname" placeholder="e.g. Bharat Transport"></div>
-          </div>
-          <div class="field"><label>Payment For *</label><input id="mp-paymentfor" placeholder="e.g. Transport Charges - May 2024"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Mode *</label><select id="mp-mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>Cheque</option></select></div>
-            <div class="field"><label>Amount (₹) *</label><input type="number" id="mp-amount" min="0" step="0.01"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Status</label><select id="mp-status"><option>Paid</option><option>Pending</option></select></div>
-            <div class="field"><label>Reference No.</label><input id="mp-refno" placeholder="Auto-generated"></div>
-          </div>
-          <div class="field"><label>Notes</label><textarea id="mp-notes" style="min-height:44px" placeholder="Optional"></textarea></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-makepayment')">Cancel</button>
-          <button class="btn btn-primary" id="mp-save-btn" onclick="saveMakePayment()"><i class="fas fa-check"></i> Save Payment</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── PAYMENTS (Service businesses — simple list) ─────────── -->
-    <div id="page-payments-service" class="page">
+    <div id="page-payments" class="page">
       <!-- Summary cards -->
-      <div class="dash-stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px" id="pmtsSummary"></div>
+      <div class="dash-stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px" id="pmtSummary"></div>
       <!-- Toolbar -->
       <div class="page-toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <input type="text" class="table-search" placeholder="Search payments…" oninput="filterPaymentsSvc(this.value)" id="pmtsSearch">
-        <select class="table-filter" onchange="filterPaymentsSvcByMethod(this.value)" id="pmtsMethodFilter">
+        <input type="text" class="table-search" placeholder="Search payments…" oninput="filterPayments(this.value)" id="pmtSearch">
+        <select class="table-filter" onchange="filterPaymentsByMethod(this.value)" id="pmtMethodFilter">
           <option value="">All Methods</option>
           <option>Bank Transfer (NEFT/RTGS)</option>
           <option>UPI (GPay/PhonePe/Paytm)</option>
           <option>Cash</option><option>Cheque</option><option>Credit Card</option>
         </select>
-        <button class="cf-btn" onclick="setPmtsSvcRange('today')" id="pmtsToday">Today</button>
-        <button class="cf-btn" onclick="setPmtsSvcRange('week')" id="pmtsWeek">This Week</button>
-        <button class="cf-btn" onclick="setPmtsSvcRange('month')" id="pmtsMonth">This Month</button>
-        <input type="date" class="table-filter" id="pmtsFrom" onchange="filterPmtsSvcByDate()" style="max-width:130px">
-        <input type="date" class="table-filter" id="pmtsTo" onchange="filterPmtsSvcByDate()" style="max-width:130px">
+        <button class="cf-btn" onclick="setPmtRange('today')" id="pmtToday">Today</button>
+        <button class="cf-btn" onclick="setPmtRange('week')" id="pmtWeek">This Week</button>
+        <button class="cf-btn" onclick="setPmtRange('month')" id="pmtMonth">This Month</button>
+        <input type="date" class="table-filter" id="pmtFrom" onchange="filterPmtByDate()" style="max-width:130px">
+        <input type="date" class="table-filter" id="pmtTo" onchange="filterPmtByDate()" style="max-width:130px">
         <div style="flex:1"></div>
-        <button class="btn btn-outline" onclick="exportPmtsSvcCSV()"><i class="fas fa-download"></i> Export</button>
+        <button class="btn btn-outline" onclick="exportPmtCSV()"><i class="fas fa-download"></i> Export</button>
       </div>
       <!-- Table -->
       <div class="table-card">
@@ -5093,15 +2367,15 @@ const SERVER = {
             <th>Date</th><th>Invoice #</th><th>Client</th>
             <th>Method</th><th>Txn ID</th><th>Amount</th><th>Status</th><th>Action</th>
           </tr></thead>
-          <tbody id="paymentsSvcTbody"></tbody>
+          <tbody id="paymentsTbody"></tbody>
         </table>
         <div style="padding:6px 14px 2px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
           <i class="fas fa-layer-group" style="font-size:10px"></i>
           <span>Rows sharing the same invoice number share a colour chip. <i class="fas fa-layer-group" style="font-size:9px"></i> icon = multiple payments (partial instalments).</span>
         </div>
         <div class="table-footer">
-          <div class="tf-info" id="pmtsInfo"></div>
-          <div class="pagination" id="pmtsPagination"></div>
+          <div class="tf-info" id="pmtInfo"></div>
+          <div class="pagination" id="pmtPagination"></div>
         </div>
       </div>
     </div>
@@ -6379,12 +3653,6 @@ View Invoice: {{6}}</pre></details>
             <div class="form-grid g2">
               <div class="field"><label>Company Name</label><input id="sc-name" value="<?= htmlspecialchars($companyName) ?>"></div>
               <div class="field"><label>GST Number</label><input id="sc-gst" value="<?= htmlspecialchars($companyGst) ?>"></div>
-              <div class="field"><label>PAN</label><input id="sc-pan" placeholder="AAAAA0000A" value="<?= htmlspecialchars($companyPan) ?>"></div>
-              <div class="field"><label>IEC Number</label><input id="sc-iec" placeholder="Import Export Code" value="<?= htmlspecialchars($companyIec) ?>"></div>
-              <div class="field"><label>FSSAI License</label><input id="sc-fssai" placeholder="14-digit FSSAI license no." value="<?= htmlspecialchars($companyFssai) ?>"></div>
-              <div class="field"><label>APEDA RCMC</label><input id="sc-apeda" placeholder="APEDA RCMC No." value="<?= htmlspecialchars($companyApeda) ?>"></div>
-              <div class="field"><label>CIN</label><input id="sc-cin" placeholder="Corporate Identification No." value="<?= htmlspecialchars($companyCin) ?>"></div>
-              <div class="field"><label>MSME / Udyam No.</label><input id="sc-msme" placeholder="UDYAM-XX-00-0000000" value="<?= htmlspecialchars($companyMsme) ?>"></div>
               <div class="field"><label>Phone</label><input id="sc-phone" value="<?= htmlspecialchars($companyPhone) ?>"></div>
               <div class="field"><label>Email</label><input id="sc-email" value="<?= htmlspecialchars($companyEmail) ?>"></div>
               <div class="field"><label>Website</label><input id="sc-web" value="<?= htmlspecialchars($companyWebsite) ?>"></div>
@@ -6394,21 +3662,6 @@ View Invoice: {{6}}</pre></details>
               </div>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
-              <div class="field">
-                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page)</span></label>
-                <select id="sc-business-type" onchange="applyBusinessTypeLabels(this.value)">
-                  <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
-                  <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
-                  <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Dhalta % Column <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(purchase items table &amp; local voucher)</span></label>
-                <select id="sc-show-dhaltapct">
-                  <option value="1" <?= $showDhaltaPct!=='0'?'selected':'' ?>>Show Dhalta %</option>
-                  <option value="0" <?= $showDhaltaPct==='0'?'selected':'' ?>>Hide Dhalta %</option>
-                </select>
-              </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
               <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
                 <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
@@ -6753,14 +4006,6 @@ View Invoice: {{6}}</pre></details>
       </div>
       <!-- Summary cards -->
       <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
-      <!-- Mixed chart: bars = monthly total, stacked per category -->
-      <div class="pne-card" style="margin-bottom:18px" id="exp-charts-row">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:13px;font-weight:700">Monthly Amount &amp; Category Breakdown</div>
-          <div id="exp-mix-legend" style="display:flex;gap:10px;font-size:11px;flex-wrap:wrap"></div>
-        </div>
-        <div style="height:250px;position:relative"><canvas id="exp-mix-chart"></canvas></div>
-      </div>
       <!-- Expense table -->
       <div class="table-card">
         <table class="data-table"><thead><tr>
@@ -7889,10 +5134,7 @@ const STATE = {
   suppliers: [],
   purchases: [],
   stock: [],
-  customers: [],
-  sales: [],
   payments: [],
-  paymentVouchers: [],
   itemTypes: [
     {name:'Service',  color:'#00897B'},
     {name:'Product',  color:'#1976D2'},
@@ -7921,13 +5163,6 @@ const STATE = {
   settings: {
     company:         <?= json_encode($companyName)    ?>,
     gst:             <?= json_encode($companyGst)     ?>,
-    pan:             <?= json_encode($companyPan)     ?>,
-    iec:             <?= json_encode($companyIec)     ?>,
-    fssai:           <?= json_encode($companyFssai)   ?>,
-    apeda:           <?= json_encode($companyApeda)   ?>,
-    cin:             <?= json_encode($companyCin)     ?>,
-    msme:            <?= json_encode($companyMsme)    ?>,
-    showDhaltaPct:   <?= json_encode($showDhaltaPct)  ?>,
     phone:           <?= json_encode($companyPhone)   ?>,
     email:           <?= json_encode($companyEmail)   ?>,
     website:         <?= json_encode($companyWebsite) ?>,
@@ -7943,8 +5178,7 @@ const STATE = {
     waPid:           <?= json_encode($settings['wa_pid']   ?? '') ?>,
     activeTemplate:  <?= json_encode($activeTemplate ?: '2') ?>,
     defaultGST:      <?= json_encode((float)($defaultGst ?: 18)) ?>,
-    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>,
-    businessType:    <?= json_encode($businessType) ?>
+    dueDays:         <?= json_encode((int)($dueDays ?: 15)) ?>
   },
   currentPage: 1,
   invoicesPerPage: 10,
@@ -7996,19 +5230,7 @@ window.addEventListener('DOMContentLoaded', () => {
   addItem();
   updateClientDropdown();
   updateServiceDropdown();
-  // Only render the service dashboard on DOMContentLoaded — it uses STATE data
-  // already encoded server-side (invoices, clients). The product dashboard needs
-  // STATE.stock and STATE.products which only arrive after loadAllData(); it will
-  // render correctly in the loadAllData().then() callback below.
-  const _biz = STATE.settings.businessType || 'service';
-  if (_biz === 'service' || _biz === 'both') renderDashboard();
-  // Product dashboard needs STATE.stock/products from loadAllData — hide until ready
-  // Exception: super admin with no tenant connected — don't hide, let the catch
-  // handler in loadAllData show the dashboard with empty data instead of a blank screen
-  const _isSuperAdmin = <?= json_encode($isSuperAdmin) ?>;
-  const _hasTenant = <?= json_encode(!empty($_SESSION['tenant_db'])) ?>;
-  const _pd = document.getElementById('dash-product');
-  if (_pd && !_isSuperAdmin && (_biz === 'product' || _biz === 'both')) _pd.style.display = 'none';
+  renderDashboard();
   renderInvoicesTable();
   renderClients();
   renderProducts();
@@ -8111,8 +5333,7 @@ function toggleSidebar() {
 
 const breadcrumbs = {
   dashboard:'Dashboard', invoices:'Invoices', create:'Create Invoice',
-  'stock-txn-details':'Stock Transaction Details',
-  clients:'Clients', products:'Services & Products', payments:'Payments', 'payments-product':'Payments', 'payments-service':'Payments',
+  clients:'Clients', products:'Services & Products', payments:'Payments',
   'credit-notes':'Credit Notes',
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
   'email-setup':'Email Setup', settings:'Settings',
@@ -8120,16 +5341,6 @@ const breadcrumbs = {
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
   activity:'Activity Log', profile:'My Profile', team:'Team'
 };
-
-// Payments has two distinct experiences: a simple Invoice-payments list for
-// Service businesses (they have no Purchases/Sales/Vendors), and the rich
-// Purchase/Sale/Vendor payment dashboard for Product businesses — same
-// pattern as how Products/Sales/Customers already gate on business type.
-function showPaymentsPage(el) {
-  const isProduct = STATE.settings.businessType === 'product';
-  showPage(isProduct ? 'payments-product' : 'payments-service', el);
-  if (isProduct) renderPayments(); else renderPaymentsService();
-}
 
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -8198,604 +5409,18 @@ function renderDashWAActivity() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  EDIT APPROVAL WORKFLOW
-//  Non-owner/admin users who try to edit a saved record are routed
-//  through this system instead of opening the edit form directly.
-//  Admin/owner sees pending requests in the dashboard bell and a
-//  card; approval unlocks the edit form for 1 hour.
-// ═══════════════════════════════════════════════════════════════
-
-const EAR = {
-  requestId: null,        // active request id
-  entityType: null,
-  entityId: null,
-  entityLabel: null,
-  editCallback: null,     // fn to call when approved
-  pollTimer: null,
-  approvedFor: null,      // { entityType, entityId } — tracks which record was unlocked
-};
-
-// Called after every successful save — consumes the single-use approval
-// so the same approval can't be reused for another edit.
-async function consumeEditApproval() {
-  if (!EAR.requestId) return;
-  const id = EAR.requestId;
-  EAR.requestId = null;
-  EAR.approvedFor = null;
-  clearInterval(EAR.pollTimer);
-  try {
-    await api('api/edit_approvals.php?action=consume', 'POST', { id });
-  } catch(e) { /* non-fatal — server also expires it on next poll */ }
-}
-
-// Check if the current user has an active approval for this specific entity
-function hasActiveApproval(entityType, entityId) {
-  return EAR.approvedFor &&
-    EAR.approvedFor.entityType === entityType &&
-    String(EAR.approvedFor.entityId) === String(entityId);
-}
-
-// ── Intercept: called instead of editX() when user lacks action.edit ──
-// entityType: 'purchase'|'sale'|'supplier'|'customer'|'product'
-// entityId, entityLabel: for display and deduplication
-// editFn: the actual edit function to call when approved
-async function requestEditApproval(entityType, entityId, entityLabel, editFn) {
-  EAR.entityType  = entityType;
-  EAR.entityId    = entityId;
-  EAR.entityLabel = entityLabel;
-  EAR.editCallback = editFn;
-  EAR.requestId   = null;
-  clearInterval(EAR.pollTimer);
-
-  document.getElementById('ear-entity-label').textContent = entityLabel;
-  document.getElementById('ear-reason').value = '';
-  _earShowView('request');
-  openModal('modal-edit-approval');
-
-  // Check if there's already a live request for this entity
-  try {
-    const r = await api(`api/edit_approvals.php?action=check_entity&entity_type=${entityType}&entity_id=${entityId}`);
-    if (r.data?.status === 'pending') { EAR.requestId = r.data.id; _earShowView('waiting'); _earStartPolling(); }
-    else if (r.data?.status === 'approved') { EAR.requestId = r.data.id; _earShowApproved(r.data); }
-  } catch(e) { /* no existing request, show request form */ }
-}
-
-async function submitEditRequest() {
-  const reason = document.getElementById('ear-reason').value.trim();
-  if (!reason) { toast('⚠️ Please describe why you need to edit this record', 'warning'); return; }
-  try {
-    const r = await api('api/edit_approvals.php?action=request', 'POST', {
-      entity_type: EAR.entityType, entity_id: EAR.entityId,
-      entity_label: EAR.entityLabel, reason
-    });
-    EAR.requestId = r.id;
-    _earShowView('waiting');
-    _earStartPolling();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _earStartPolling() {
-  clearInterval(EAR.pollTimer);
-  EAR.pollTimer = setInterval(async () => {
-    if (!EAR.requestId) return;
-    try {
-      const r = await api(`api/edit_approvals.php?action=check&id=${EAR.requestId}`);
-      const req = r.data;
-      if (!req) return;
-      if (req.status === 'approved') { clearInterval(EAR.pollTimer); _earShowApproved(req); }
-      else if (req.status === 'rejected') { clearInterval(EAR.pollTimer); _earShowRejected(req); }
-      else if (req.status === 'expired') {
-        clearInterval(EAR.pollTimer);
-        toast('⏰ Your edit request expired — please submit a new one', 'warning');
-        _earShowView('request');
-      }
-    } catch(e) { /* network blip, keep polling */ }
-  }, 10000); // poll every 10 seconds
-}
-
-function _earShowApproved(req) {
-  _earShowView('approved');
-  const byEl = document.getElementById('ear-approved-by');
-  const noteEl = document.getElementById('ear-approved-note');
-  if (byEl) byEl.textContent = 'Approved by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note?.replace(' [Used — edit saved]','') ? '"' + req.review_note + '"' : '';
-  // Track which entity this approval covers
-  EAR.approvedFor = { entityType: EAR.entityType, entityId: EAR.entityId };
-  // Auto-dismiss and open edit after 2s
-  setTimeout(() => {
-    const modal = document.getElementById('modal-edit-approval');
-    if (modal?.classList.contains('open')) proceedWithEdit();
-  }, 2000);
-}
-
-function _earShowRejected(req) {
-  _earShowView('rejected');
-  const byEl = document.getElementById('ear-rejected-by');
-  const noteEl = document.getElementById('ear-rejected-note');
-  if (byEl) byEl.textContent = 'Declined by ' + (req.reviewer_name || 'Admin');
-  if (noteEl) noteEl.textContent = req.review_note ? '"' + req.review_note + '"' : 'No reason given.';
-}
-
-function _earShowView(view) {
-  ['request','waiting','approved','rejected'].forEach(v => {
-    const el = document.getElementById(`ear-${v}-view`);
-    if (el) el.style.display = v === view ? '' : 'none';
-  });
-}
-
-function proceedWithEdit() {
-  closeModal('modal-edit-approval');
-  clearInterval(EAR.pollTimer);
-  if (EAR.editCallback) EAR.editCallback();
-}
-
-function cancelEditRequest() {
-  clearInterval(EAR.pollTimer);
-  closeModal('modal-edit-approval');
-}
-
-// ── Admin dashboard: pending approvals card ────────────────────
-let EAR_ADMIN_PENDING = [];
-
-async function loadPendingApprovals() {
-  if (!SERVER.canApproveEdits) return;
-  try {
-    const r = await api('api/edit_approvals.php?action=pending');
-    const prev = EAR_ADMIN_PENDING.length;
-    EAR_ADMIN_PENDING = r.data || [];
-
-    // ── Topbar alert pill ─────────────────────────────────────────
-    const pill = document.getElementById('ear-topbar-alert');
-    const cnt  = document.getElementById('ear-topbar-count');
-    const plrl = document.getElementById('ear-topbar-plural');
-    if (pill) {
-      if (EAR_ADMIN_PENDING.length > 0) {
-        pill.style.display = 'inline-flex';
-        if (cnt) cnt.textContent = EAR_ADMIN_PENDING.length;
-        if (plrl) plrl.textContent = EAR_ADMIN_PENDING.length > 1 ? 's' : '';
-      } else {
-        pill.style.display = 'none';
-      }
-    }
-
-    // ── Browser tab title badge ───────────────────────────────────
-    const base = document.title.replace(/^\(\d+\)\s*/, '');
-    document.title = EAR_ADMIN_PENDING.length > 0
-      ? `(${EAR_ADMIN_PENDING.length}) ${base}` : base;
-
-    // ── Toast alert when NEW requests arrive (not on first load) ─
-    if (prev > 0 && EAR_ADMIN_PENDING.length > prev) {
-      const newest = EAR_ADMIN_PENDING[0];
-      toast(`🔔 ${newest.requester_name} is requesting permission to edit ${newest.entity_label || newest.entity_type}`, 'warning', 6000);
-    }
-
-    // ── Update bell count + notification panel ────────────────────
-    renderNotifications();
-    renderPendingApprovalsCard();
-  } catch(e) { /* non-fatal — keep app working even if this fails */ }
-}
-
-function renderPendingApprovalsCard() {
-  const cards = ['db-edit-approvals-card','db-edit-approvals-card-svc']
-    .map(id => document.getElementById(id)).filter(Boolean);
-  if (!cards.length) return;
-
-  if (!EAR_ADMIN_PENDING.length) {
-    cards.forEach(c => { c.style.display = 'none'; c.innerHTML = ''; });
-    return;
-  }
-
-  const entityIcons = { purchase:'fa-cart-shopping', sale:'fa-file-invoice-dollar', supplier:'fa-truck', customer:'fa-user', product:'fa-box', stock_adjustment:'fa-sliders', stock_in:'fa-boxes-stacked' };
-
-  const requestsHtml = EAR_ADMIN_PENDING.map(req => {
-    const icon = entityIcons[req.entity_type] || 'fa-file';
-    const age = Math.round((new Date() - new Date(req.created_at.replace(' ','T'))) / 60000);
-    const ageStr = age < 60 ? age + 'm ago' : Math.round(age/60) + 'h ago';
-    return `<div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <span style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fas ${icon}"></i></span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${escHtml(req.requester_name)} wants to edit <span style="color:var(--teal)">${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</span></div>
-          ${req.reason ? '<div style="font-size:12px;color:var(--muted);margin-top:3px;font-style:italic">"' + escHtml(req.reason) + '"</div>' : ''}
-          <div style="font-size:11px;color:var(--muted);margin-top:4px"><i class="fas fa-clock"></i> ${ageStr}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-primary" style="flex:1;font-size:12px" onclick="approveEditRequest(${req.id})"><i class="fas fa-check"></i> Approve</button>
-        <button class="btn btn-outline" style="flex:1;font-size:12px;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${req.id})"><i class="fas fa-times"></i> Reject</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  const html = `<div class="pne-card" style="border:2px solid var(--amber);margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <span style="width:36px;height:36px;border-radius:10px;background:var(--amber-bg);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0"><i class="fas fa-shield-halved"></i></span>
-      <div>
-        <div style="font-size:14px;font-weight:700">Edit Approval Requests <span style="background:var(--amber);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px">${EAR_ADMIN_PENDING.length}</span></div>
-        <div style="font-size:11.5px;color:var(--muted)">Team members waiting for your approval to edit records</div>
-      </div>
-    </div>
-    ${requestsHtml}
-  </div>`;
-
-  cards.forEach(c => { c.style.display = ''; c.innerHTML = html; });
-}
-
-
-async function approveEditRequest(id) {
-  const { value: note } = await Swal.fire({
-    title: 'Approve edit request?',
-    input: 'text', inputPlaceholder: 'Optional note to the requester…',
-    showCancelButton: true, confirmButtonText: 'Approve',
-    confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' }
-  });
-  if (note === undefined) return; // cancelled
-  try {
-    await api('api/edit_approvals.php?action=approve', 'POST', { id, note: note||'' });
-    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
-    toast('✅ Edit request approved — the user can now proceed', 'success');
-    renderPendingApprovalsCard();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function rejectEditRequest(id) {
-  const { value: note } = await Swal.fire({
-    title: 'Reject edit request?',
-    input: 'text', inputPlaceholder: 'Reason for rejection (shown to user)…',
-    showCancelButton: true, confirmButtonText: 'Reject',
-    confirmButtonColor: '#E53935', customClass: { popup: 'swal-compact' }
-  });
-  if (note === undefined) return;
-  try {
-    await api('api/edit_approvals.php?action=reject', 'POST', { id, note: note||'' });
-    EAR_ADMIN_PENDING = EAR_ADMIN_PENDING.filter(r => r.id !== id);
-    toast('Request rejected', 'info');
-    renderPendingApprovalsCard();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// ── editWithApproval: gate function for all edit buttons ────────
-// If user has action.edit permission → call editFn directly.
-// Otherwise → route through the approval workflow.
-function editWithApproval(entityType, entityId, entityLabel, editFn) {
-  if (canDo('edit') || hasActiveApproval(entityType, entityId)) {
-    editFn();
-  } else {
-    requestEditApproval(entityType, entityId, entityLabel, editFn);
-  }
-}
-
-// ── Modal edit helper ───────────────────────────────────────────
-// Used by detail-view modal footers (Customer Profile, Sale Details etc)
-// where inline string escaping in onclick attributes is messy.
-// Looks up the entity label from STATE at click time.
-function _modalEdit(entityType, entityId, editFn) {
-  let label = entityType + ' #' + entityId;
-  const id = String(entityId);
-  if (entityType === 'customer') {
-    const c = (STATE.customers||[]).find(x => String(x.id) === id);
-    if (c) label = c.name || label;
-  } else if (entityType === 'sale') {
-    const s = (STATE.sales||[]).find(x => String(x.id) === id);
-    if (s) label = 'Invoice ' + (s.invoice_no || label);
-  } else if (entityType === 'purchase') {
-    const p = (STATE.purchases||[]).find(x => String(x.id) === id);
-    if (p) label = 'Purchase ' + (p.purchase_no || label);
-  } else if (entityType === 'supplier') {
-    const s = splAllSuppliers().find(x => String(x.id) === id);
-    if (s) label = s.name || label;
-  }
-  editWithApproval(entityType, entityId, label, editFn);
-}
-
-function _editProductWithApproval(productId, editFn) {
-  const p = (STATE.products || []).find(x => String(x.id) === String(productId));
-  // Strip "p" prefix — API entity_id is integer, (int)"p12" = 0 → "Invalid entity"
-  const numericId = String(productId).replace(/\D/g, '');
-  editWithApproval('product', numericId, (p?.name || 'Product #' + numericId), editFn);
-}
-
-
-// Dashboard card — reads from STATE.expenses (already loaded in loadAllData)
-function loadDashboardExpenses() {
-  try {
-    const now = new Date();
-    const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const rows  = (STATE.expenses||[]).filter(e => (e.date||'').startsWith(monthStr));
-    const total = rows.reduce((s,e) => s + parseFloat(e.amount||0), 0);
-    const cats  = new Set(rows.map(e => e.category));
-    const el  = document.getElementById('db-stat-expenses');
-    const sub = document.getElementById('db-stat-expenses-sub');
-    if (el)  el.textContent  = fmt_money(total);
-    if (sub) sub.textContent = cats.size ? cats.size + ' categories' : 'This month';
-  } catch(e) {}
-}
-
 function renderDashboard() {
-  const biz = STATE.settings.businessType || 'service';
-  applyBusinessTypeLabels(); // ensure nav reflects business type on every render
-  const showService = (biz === 'service' || biz === 'both');
-  const showProduct = (biz === 'product' || biz === 'both');
-  const sd = document.getElementById('dash-service');
-  const pd = document.getElementById('dash-product');
-  if (sd) sd.style.display = showService ? '' : 'none';
-  if (pd) pd.style.display = showProduct ? '' : 'none';
-
-  // Initialise date range on first call
-  const fromEl = document.getElementById('db-from'), toEl = document.getElementById('db-to');
-  if (fromEl && toEl && !fromEl.value) {
-    fromEl.value = BIZ_FROM_DATE;
-    toEl.value = fmt_date(new Date());
-  }
-
-  if (showService) {
-    renderRevenueChart('monthly');
-    renderDonutChart();
-    renderCalendar();
-    renderDashRecent();
-    renderDashKpis();
-    renderDashTopClients();
-    renderDashAlerts();
-    renderNotifications();
-    updateDashStats();
-    renderDashWAActivity();
-    _buildReminderQueue();
-  }
-  if (showProduct) {
-    renderProductDashboard();
-    loadPendingApprovals();
-  }
-  if (showService) {
-    loadPendingApprovals();
-  }
-}
-
-function renderProductDashboard() {
-  const from = document.getElementById('db-from')?.value || BIZ_FROM_DATE;
-  const to   = document.getElementById('db-to')?.value   || fmt_date(new Date());
-
-  const sales     = (STATE.sales    || []).filter(s => { const d = (s.sale_date||'').slice(0,10); return d >= from && d <= to && s.status !== 'Cancelled'; });
-  const purchases = (STATE.purchases|| []).filter(p => { const d = (p.purchase_date||'').slice(0,10); return d >= from && d <= to; });
-  const allSales  = STATE.sales     || [];
-  const allPur    = STATE.purchases || [];
-  const products  = STATE.products  || [];
-  const stock     = STATE.stock     || [];
-  // Products use prefixed IDs like "p12"; stock uses plain integers.
-  // getStock() strips the prefix so lookups always match.
-  const getStock = (pr) => stock.find(s => String(s.product_id) === String(pr.id).replace(/\D/g,''));
-  const getQty   = (pr) => { const st = getStock(pr); return parseFloat(st?.current_stock ?? st?.available_stock ?? 0); };
-
-  // ── KPI calculations ──────────────────────────────────────────
-  const totalSales  = sales.reduce((a,s)  => a + (parseFloat(s.total)||0), 0);
-  const totalPur    = purchases.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
-  const totalExp    = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).reduce((a,e) => a + (parseFloat(e.amount)||0), 0);
-  const netProfit   = totalSales - totalPur - totalExp;
-  const margin      = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
-  const collections = sales.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
-  const paid        = purchases.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
-  const stockValue  = products.reduce((p, pr) => getQty(pr) * (parseFloat(pr.purchase_rate ?? pr.rate) || 0) + p, 0);
-  const totalStockKg = products.reduce((a, pr) => a + getQty(pr), 0);
-
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-
-  set('db-stat-expenses', fmt_money(totalExp));
-  const expPeriodCount = (STATE.expenses||[]).filter(e => { const d = e.date?.slice(0,10)||''; return d >= from && d <= to; }).length;
-  set('db-stat-expenses-sub', expPeriodCount + ' entries in period');
-  const profEl = document.getElementById('db-stat-profit');
-  if (profEl) { profEl.textContent = fmt_money(netProfit); profEl.style.color = netProfit >= 0 ? 'var(--green)' : 'var(--red)'; }
-  set('db-stat-profit-pct', margin.toFixed(1) + '% net margin');
-  set('db-stat-collections', fmt_money(collections));
-  set('db-stat-payable', fmt_money(paid));
-  set('db-stat-stock', fmt_money(stockValue));
-  set('db-stat-stock-sub', totalStockKg.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' Kg');
-
-  // ── Sales vs Purchase vs Expenses chart ───────────────────────
-  const dayMap = {};
-  const cursor = new Date(from);
-  const end    = new Date(to);
-  while (cursor <= end) {
-    dayMap[fmt_date(cursor)] = { s: 0, p: 0, e: 0 };
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  sales.forEach(s    => { const d = s.sale_date?.slice(0,10);     if (dayMap[d]) dayMap[d].s += parseFloat(s.total)||0; });
-  purchases.forEach(p => { const d = p.purchase_date?.slice(0,10); if (dayMap[d]) dayMap[d].p += parseFloat(p.total)||0; });
-  (STATE.expenses||[]).forEach(e => { const d = e.date?.slice(0,10); if (dayMap[d]) dayMap[d].e += parseFloat(e.amount)||0; });
-  const labels = Object.keys(dayMap).map(d => { const dt = new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
-  const sVals  = Object.values(dayMap).map(v => v.s);
-  const pVals  = Object.values(dayMap).map(v => v.p);
-  const eVals  = Object.values(dayMap).map(v => v.e);
-
-  set('db-chart-sales-total', fmt_money(totalSales));
-  set('db-chart-pur-total',   fmt_money(totalPur));
-  set('db-chart-exp-total',   fmt_money(totalExp));
-
-  const svpCtx = document.getElementById('db-svp-chart');
-  if (svpCtx) {
-    if (window._dbSvpChart) window._dbSvpChart.destroy();
-    window._dbSvpChart = new Chart(svpCtx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Sales', data: sVals, borderColor: '#00897B', backgroundColor: '#00897B22', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
-          { label: 'Purchase', data: pVals, borderColor: '#7B1FA2', backgroundColor: '#7B1FA222', borderWidth: 2, tension: 0.4, fill: true, pointRadius: labels.length > 20 ? 0 : 3 },
-          { label: 'Expenses', data: eVals, borderColor: '#E53935', backgroundColor: '#E5393522', borderWidth: 2, tension: 0.4, fill: false, pointRadius: labels.length > 20 ? 0 : 3, borderDash: [4,3] },
-        ]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } } } }
-    });
-  }
-
-  // ── Alerts ─────────────────────────────────────────────────────
-  const alertsList = document.getElementById('db-alerts-list');
-  if (alertsList) {
-    const lowStock  = products.filter(p => { const qty = getQty(p); const ro = parseFloat(p.reorder_level)||0; return ro > 0 && qty <= ro && qty > 0; });
-    const outStock  = products.filter(p => getQty(p) <= 0);
-    const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
-    const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
-
-    // Update alerts card title with badge count
-    const totalAlerts = lowStock.length + outStock.length + pendPay.length + pendColl.length;
-    const alertsTitle = document.querySelector('#db-alerts-card > div:first-child');
-    if (alertsTitle) alertsTitle.innerHTML = `Alerts &amp; Notifications ${totalAlerts > 0 ? `<span style="background:#E53935;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px">${totalAlerts}</span>` : ''}`;
-
-    alertsList.innerHTML = [
-      ...(outStock.map(p => ({
-        icon:'fa-ban', color:'#E53935', bg:'#FFEBEE',
-        label: escHtml(p.name),
-        sub: 'OUT OF STOCK — reorder immediately',
-        n: '0 Kg',
-        onclick: `showPage('products',null)`
-      }))),
-      ...(lowStock.map(p => ({
-        icon:'fa-triangle-exclamation', color:'#E65100', bg:'#FFF3E0',
-        label: escHtml(p.name),
-        sub: `Low stock: ${getQty(p).toFixed(2)} Kg (reorder at ${parseFloat(p.reorder_level).toFixed(2)} Kg)`,
-        n: getQty(p).toFixed(0)+' Kg',
-        onclick: `showPage('products',null)`
-      }))),
-      ...(pendPay.length  ? [{ icon:'fa-file-circle-exclamation', color:'#7B1FA2', bg:'#F3E8FF', label:'Pending Payments', sub: pendPay.length+' supplier bills unpaid — ₹'+fmt_money(pendPay.reduce((s,p)=>s+(parseFloat(p.total)-parseFloat(p.amount_paid||0)),0)), n: pendPay.length, onclick:`showPaymentsPage()` }] : []),
-      ...(pendColl.length ? [{ icon:'fa-hand-holding-dollar', color:'#1976D2', bg:'#E3F2FD', label:'Pending Collections', sub: pendColl.length+' customer invoices outstanding', n: pendColl.length, onclick:`showPaymentsPage()` }] : []),
-    ].map(a => `
-      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="${a.onclick||''}">
-        <span style="width:34px;height:34px;border-radius:9px;background:${a.bg};color:${a.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px"><i class="fas ${a.icon}"></i></span>
-        <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${a.label}</div><div style="font-size:11px;color:var(--muted)">${a.sub}</div></div>
-        <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
-      </div>`).join('') ||
-      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
-  }
-
-  // ── Stock donut ────────────────────────────────────────────────
-  const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
-  const others = totalStockKg - topStock.reduce((a,p) => a+p.qty, 0);
-  const donutData  = [...topStock.map(p => p.qty), ...(others > 0 ? [others] : [])];
-  const donutLabels = [...topStock.map(p => p.name), ...(others > 0 ? ['Others'] : [])];
-  const donutColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#388E3C','#9E9E9E'];
-  const donutCtx = document.getElementById('db-stock-donut');
-  const lg = document.getElementById('db-stock-legend');
-  if (donutCtx) {
-    if (window._dbDonutChart) { window._dbDonutChart.destroy(); window._dbDonutChart = null; }
-    if (!donutData.length || donutData.every(v => v === 0)) {
-      // No stock movements yet — show a centred empty state
-      const parent = donutCtx.parentElement;
-      if (parent) {
-        const ph = document.createElement('div');
-        ph.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12.5px;gap:8px';
-        ph.innerHTML = '<i class="fas fa-box-open" style="font-size:26px;color:var(--border)"></i><span>No stock data yet</span><span style="font-size:11px">Add Stock or record a Purchase to see this chart</span>';
-        donutCtx.style.display = 'none';
-        if (!parent.querySelector('.db-stock-empty')) { ph.classList.add('db-stock-empty'); parent.appendChild(ph); }
-      }
-      if (lg) lg.innerHTML = '';
-    } else {
-      // Remove any stale placeholder
-      donutCtx.style.display = '';
-      donutCtx.parentElement?.querySelector('.db-stock-empty')?.remove();
-      const centrePlugin = {
-        id: 'dbDonutCentre',
-        afterDraw(chart) {
-          const { ctx, chartArea } = chart;
-          if (!chartArea) return;
-          const cx = chartArea.left + chartArea.width / 2;
-          const cy = chartArea.top + chartArea.height / 2;
-          ctx.save();
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
-          ctx.fillText('Total Stock', cx, cy - 10);
-          ctx.fillStyle = '#1A1A2E'; ctx.font = 'bold 13px sans-serif';
-          ctx.fillText(totalStockKg.toLocaleString('en-IN', {maximumFractionDigits: 0}) + ' Kg', cx, cy + 8);
-          ctx.restore();
-        }
-      };
-      window._dbDonutChart = new Chart(donutCtx, {
-        type: 'doughnut',
-        data: { labels: donutLabels, datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 2, borderColor: '#fff' }] },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('en-IN')} Kg` } } } },
-        plugins: [centrePlugin]
-      });
-      if (lg) lg.innerHTML = donutLabels.map((l, i) => `
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-          <span style="width:10px;height:10px;border-radius:50%;background:${donutColors[i]};flex-shrink:0"></span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${escHtml(l)}</span>
-          <span style="color:var(--muted);font-size:10.5px;white-space:nowrap;text-align:right">${totalStockKg > 0 ? (donutData[i]/totalStockKg*100).toFixed(1)+'%' : ''}<br><span style="font-weight:600;color:var(--text)">${donutData[i].toLocaleString('en-IN',{maximumFractionDigits:0})} Kg</span></span>
-        </div>`).join('');
-    }
-  }
-
-  // ── Top Products ───────────────────────────────────────────────
-  const topProdEl = document.getElementById('db-top-products');
-  if (topProdEl) {
-    const rows = [...products].map(pr => { const qty = getQty(pr); return { name: pr.name, qty, val: qty * (parseFloat(pr.purchase_rate ?? pr.rate)||0) }; }).filter(r => r.qty > 0).sort((a,b) => b.qty - a.qty).slice(0,5);
-    topProdEl.innerHTML = rows.length ? rows.map((r,i) => `<tr><td>${i+1}</td><td>${escHtml(r.name)}</td><td style="text-align:right;font-weight:600">${r.qty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td style="text-align:right">${fmt_money(r.val)}</td></tr>`).join('') :
-      '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:12px">No stock data</td></tr>';
-  }
-
-  // ── Recent Transactions ────────────────────────────────────────
-  const txnEl = document.getElementById('db-recent-txns');
-  if (txnEl) {
-    const txns = [
-      ...allSales.slice(0,5).map(s => ({ date: s.sale_date, type: 'Sales Invoice', ref: s.invoice_no, party: s.customer_name||'—', amount: s.total, status: s.payment_status||'Pending', icon: 'fa-file-invoice-dollar', color: '#00897B' })),
-      ...allPur.slice(0,5).map(p  => ({ date: p.purchase_date, type: 'Purchase Entry', ref: p.purchase_no, party: p.supplier_name||'—', amount: p.total, status: p.status||'Pending', icon: 'fa-cart-shopping', color: '#7B1FA2' })),
-    ].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0,8);
-    const statusColor = { Paid:'#00897B', Completed:'#00897B', Partial:'#E65100', Pending:'#1976D2', Unpaid:'#E53935' };
-    txnEl.innerHTML = txns.length ? txns.map(t => `
-      <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <span style="width:28px;height:28px;border-radius:8px;background:${t.color}18;color:${t.color};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"><i class="fas ${t.icon}"></i></span>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.ref)}</div>
-          <div style="font-size:10.5px;color:var(--muted)">${escHtml(t.party)} · ${fmt_date_disp(t.date)}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-weight:700;font-size:12px">${fmt_money(t.amount)}</div>
-          <span style="font-size:10px;font-weight:700;color:${statusColor[t.status]||'#888'};background:${statusColor[t.status]||'#888'}18;padding:1px 7px;border-radius:9px">${escHtml(t.status)}</span>
-        </div>
-      </div>`).join('') : '<div style="color:var(--muted);text-align:center;padding:16px;font-size:12.5px">No transactions yet</div>';
-  }
-
-  // ── Business Summary ───────────────────────────────────────────
-  const bizEl = document.getElementById('db-biz-summary');
-  const rngEl = document.getElementById('db-summary-range');
-  if (rngEl) rngEl.textContent = '(' + fmt_date_disp(from) + ' – ' + fmt_date_disp(to) + ')';
-  if (bizEl) {
-    const outstanding = allSales.reduce((a,s) => a + Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0)), 0);
-    const payable     = allPur.reduce((a,p)  => a + Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0)), 0);
-    const rows = [
-      ['Sales (₹)',        fmt_money(totalSales),  'var(--text)'],
-      ['Purchase (₹)',     fmt_money(totalPur),    'var(--text)'],
-      ['Expenses (₹)',     fmt_money(totalExp),    '#E53935'],
-      ['Collections (₹)', fmt_money(collections), 'var(--text)'],
-      ['Payments (₹)',     fmt_money(paid),        'var(--text)'],
-    ];
-    bizEl.innerHTML = rows.map(([l,v]) => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">${l}</span><strong>${v}</strong></div>`).join('')
-      + `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;font-size:14px"><span style="font-weight:700;color:var(--teal)">Net Profit (₹)</span><strong style="color:${netProfit>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt_money(netProfit)}</strong></div>`;
-  }
-
-  // ── Top Customers ──────────────────────────────────────────────
-  const custEl = document.getElementById('db-top-customers');
-  if (custEl) {
-    const custMap = {};
-    allSales.forEach(s => {
-      const k = s.customer_name||s.customer_id||'Unknown';
-      custMap[k] = (custMap[k]||0) + (parseFloat(s.total)||0);
-    });
-    const top = Object.entries(custMap).sort((a,b) => b[1]-a[1]).slice(0,5);
-    custEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
-      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
-  }
-
-  // ── Top Suppliers ──────────────────────────────────────────────
-  const supEl = document.getElementById('db-top-suppliers');
-  if (supEl) {
-    const supMap = {};
-    allPur.forEach(p => {
-      const k = p.supplier_name||p.supplier_id||'Unknown';
-      supMap[k] = (supMap[k]||0) + (parseFloat(p.total)||0);
-    });
-    const top = Object.entries(supMap).sort((a,b) => b[1]-a[1]).slice(0,5);
-    supEl.innerHTML = top.length ? top.map(([n,v]) => `<tr><td>${escHtml(n)}</td><td style="text-align:right;font-weight:600">${fmt_money(v)}</td></tr>`).join('') :
-      '<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:10px">No data</td></tr>';
-  }
+  renderRevenueChart('monthly');
+  renderDonutChart();
+  renderCalendar();
+  renderDashRecent();
+  renderDashKpis();
+  renderDashTopClients();
+  renderDashAlerts();
+  renderNotifications();
+  updateDashStats();
+  renderDashWAActivity();
+  _buildReminderQueue(); // update WA queued pill in topbar
 }
 function updateDashStats() {
   const e = id => document.getElementById(id);
@@ -13982,19 +10607,6 @@ function allKnownHsnCodes() {
   return [...new Set((STATE.products||[]).map(p => p.hsn).filter(Boolean))];
 }
 function activeProdSource() { return PROD.archived ? (PROD.archivedList||[]) : STATE.products; }
-function updateProductCatDropdowns() {
-  // Update all category dropdowns in the products page / filter
-  const opts = STATE.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-  document.querySelectorAll('.cat-select').forEach(el => {
-    const cur = el.value;
-    el.innerHTML = opts;
-    el.value = cur;
-  });
-  const filter = document.getElementById('productCatFilter');
-  if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
-}
-
-// ── Expense Category Management (pastel badges) ─────────────────
 function renderProducts() { updateProductCatDropdowns(); PROD.list=[...activeProdSource()]; PROD.page=1; _renderProdPage(); }
 
 // ══════════════════════════════════════════
@@ -14520,49 +11132,22 @@ function _renderTeamPermissionsBody() {
     return;
   }
 
-  // Presets for quick role reset
-  const presets = {
-    admin:      { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
-    manager:    { 'action.delete':1,'action.archive':1,'action.edit':1,'action.create':1 },
-    accountant: { 'action.delete':0,'action.archive':1,'action.edit':1,'action.create':1 },
-    sales:      { 'action.delete':0,'action.archive':0,'action.edit':1,'action.create':1 },
-    viewer:     { 'action.delete':0,'action.archive':0,'action.edit':0,'action.create':0 },
-  };
-
   // Group by category
   const groups = {};
   TP.catalog.forEach(p => { (groups[p.category || 'General'] = groups[p.category || 'General'] || []).push(p); });
 
-  const actionIcons = { 'action.delete':'fa-trash', 'action.archive':'fa-box-archive', 'action.edit':'fa-pen', 'action.create':'fa-plus' };
-
-  body.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:12px;color:var(--muted)">Customise what <strong>${escHtml(roleLabels[role]||role)}</strong> can do — changes take effect on next login</div>
-      <button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="applyRolePreset('${role}')" title="Reset to default permissions for this role">
-        <i class="fas fa-rotate-left"></i> Reset to defaults
-      </button>
-    </div>
-  ` + Object.keys(groups).map(cat => `
+  body.innerHTML = Object.keys(groups).map(cat => `
     <div style="margin-bottom:18px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        ${cat === 'Actions' ? '<i class="fas fa-shield-halved" style="color:var(--teal)"></i>' : '<i class="fas fa-list" style="color:var(--muted)"></i>'}
-        ${escHtml(cat)}
-      </div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${escHtml(cat)}</div>
       <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
         ${groups[cat].map(p => {
           const enabled  = !!p.roles[role];
           const ceiling  = !!p.ceiling;
-          const disabled = !ceiling;
-          const isAction = p.key.startsWith('action.');
-          const icon = isAction ? `<i class="fas ${actionIcons[p.key]||'fa-circle'}" style="font-size:11px;width:14px;text-align:center;color:${enabled?'var(--teal)':'var(--muted)'}"></i>` : '';
+          const disabled = !ceiling && !enabled;
           return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:${enabled ? 'var(--teal-bg)' : 'var(--card)'}">
-            <div style="display:flex;align-items:center;gap:8px;${disabled?'opacity:.5':''}">
-              ${icon}
-              <div>
-                <div style="font-size:13px;color:var(--text)">${escHtml(p.label)}</div>
-                ${isAction && !enabled ? `<div style="font-size:10.5px;color:var(--red);margin-top:1px"><i class="fas fa-lock" style="font-size:9px"></i> Locked for this role — users will see a lock icon on restricted actions</div>` : ''}
-                ${!ceiling ? `<div style="font-size:10px;color:var(--amber);margin-top:1px"><i class="fas fa-lock"></i> Not available on ${escHtml(TP.plan)} plan</div>` : ''}
-              </div>
+            <div style="font-size:13px;color:var(--text);${disabled?'opacity:.5':''}">
+              ${escHtml(p.label)}
+              ${!ceiling ? `<span style="font-size:10px;color:var(--amber);margin-left:6px"><i class="fas fa-lock"></i> not on ${escHtml(TP.plan)} plan</span>` : ''}
             </div>
             <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0">
               <input type="checkbox" ${enabled?'checked':''} ${disabled?'disabled':''} onchange="toggleTeamPermission('${role}','${p.key}',this.checked)" style="opacity:0;width:0;height:0">
@@ -14574,30 +11159,6 @@ function _renderTeamPermissionsBody() {
       </div>
     </div>
   `).join('');
-}
-
-async function applyRolePreset(role) {
-  const presets = {
-    admin:      { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
-    manager:    { 'action.delete':true,'action.archive':true,'action.edit':true,'action.create':true },
-    accountant: { 'action.delete':false,'action.archive':true,'action.edit':true,'action.create':true },
-    sales:      { 'action.delete':false,'action.archive':false,'action.edit':true,'action.create':true },
-    viewer:     { 'action.delete':false,'action.archive':false,'action.edit':false,'action.create':false },
-  };
-  const preset = presets[role];
-  if (!preset) return;
-  const conf = await Swal.fire({ title: 'Reset to defaults?', text: `This will reset all action permissions for ${role} to their recommended defaults.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Reset', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/role_permissions.php?action=set_bulk', 'POST', { role, permissions: preset });
-    // Update local catalog
-    Object.entries(preset).forEach(([key, val]) => {
-      const item = TP.catalog.find(p => p.key === key);
-      if (item) item.roles[role] = val;
-    });
-    toast('✅ Reset to defaults', 'success');
-    _renderTeamPermissionsBody();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function toggleTeamPermission(role, key, enabled) {
@@ -14673,8 +11234,8 @@ function _renderProdPage() {
       ? `<button class="act-btn" title="Restore" onclick="restoreProduct('${p.id}')"><i class="fas fa-rotate-left"></i></button>`
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
-      <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
-      ${_delItem("deleteProduct('"+p.id+"')")}`;
+      <button class="act-btn" title="Edit" onclick="editProduct('${p.id}')"><i class="fas fa-edit"></i></button>
+      <button class="act-btn del" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash"></i></button>`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
     <td><strong>${escHtml(p.name)}</strong></td>
@@ -14682,9 +11243,8 @@ function _renderProdPage() {
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
     <td><strong>${p.gst}%</strong></td>
-    <td><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${escHtml(p.unit_family || 'count')}</span></td>
     <td><div class="action-cell">${actions}</div></td>
-  </tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
+  </tr>`}).join('')||`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -14693,7 +11253,6 @@ function _renderProdPage() {
 }
 function prodPage(p){const t=Math.ceil(PROD.list.length/PROD.per);if(p<1||p>t)return;PROD.page=p;_renderProdPage();}
 function editProduct(id){
-  if (STATE.settings.businessType === 'product') { editProductRich(id); return; }
   const p=STATE.products.find(x=>x.id===id); if(!p) return;
   const catOpts=STATE.categories.map(c=>`<option value="${c.name}" ${c.name===p.category?'selected':''}>${escHtml(c.name)}</option>`).join('');
   const row = document.querySelector(`#productsTbody tr[data-id="${CSS.escape(id)}"]`);
@@ -14705,11 +11264,6 @@ function editProduct(id){
   <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
   <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
   <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
-  <td><select id="ep-unitfam" class="table-filter">
-    <option value="count" ${!p.unit_family||p.unit_family==='count'?'selected':''}>Count (pcs)</option>
-    <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
-    <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
-  </select></td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
   ensureHsnDatalist();
 }
@@ -14740,8 +11294,7 @@ async function saveEditProd(id) {
   const payload = { name:n, category:document.getElementById('ep-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
-    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
-    unit_family: document.getElementById('ep-unitfam')?.value || 'count' };
+    gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18) };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -14750,7 +11303,6 @@ async function saveEditProd(id) {
 }
 
 function openAddProductModal() {
-  if (STATE.settings.businessType === 'product') { goToNewProductPage(); return; }
   if (PROD.archived) return; // Adding isn't relevant while viewing archived services
   // Toggle: if the add-row is already open, close it instead of opening a fresh one
   const existing = document.getElementById('add-product-row');
@@ -14759,308 +11311,6 @@ function openAddProductModal() {
 }
 // Builds the inline "add service" row. Pass `prefill` (an existing product)
 // to use this for cloning — always replaces any row already open.
-// Multi-tenant wording: different clients run service businesses (consulting, web dev)
-// vs product/trading businesses (import-export, retail) vs a mix of both — this swaps
-// the Products page's labels to match, driven by Settings → Company → Business Type.
-const BUSINESS_TYPE_LABELS = {
-  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
-  product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
-  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
-};
-function currentBizLabels() {
-  return BUSINESS_TYPE_LABELS[STATE.settings.businessType] || BUSINESS_TYPE_LABELS.both;
-}
-function applyBusinessTypeLabels(type) {
-  if (type) STATE.settings.businessType = type;
-  const L = currentBizLabels();
-  const navEl = document.getElementById('nav-products-label'); if (navEl) navEl.textContent = L.nav;
-  const btnEl = document.getElementById('prodAddBtnLabel');    if (btnEl) btnEl.textContent = L.addBtn;
-  const colEl = document.getElementById('prodNameColLabel');   if (colEl) colEl.textContent = L.nameCol;
-  const searchEl = document.getElementById('productSearch');  if (searchEl) searchEl.placeholder = L.searchPlaceholder;
-  const nameInput = document.getElementById('np-name');       if (nameInput) nameInput.placeholder = L.namePlaceholder;
-  const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
-  const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
-}
-
-// ══════════════════════════════════════════
-// NEW PRODUCT ENTRY (full page) — only used when Settings → Business Type
-// is "product". Service/Both tenants keep the original inline add-row.
-// ══════════════════════════════════════════
-const PNP = { editingId: null, images: [], attachments: [], tags: [] };
-
-function populateProductCategoryDropdown() {
-  const sel = document.getElementById('pp-category');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = (STATE.categories||[]).map(c => `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`).join('') || '<option value="Other">Other</option>';
-  if (cur) sel.value = cur;
-}
-
-function pnpSyncUnits() {
-  const u = document.getElementById('pp-unit').value;
-  document.getElementById('pp-baseunit').value = u;
-  document.getElementById('pp-saleunit').value = u;
-  document.getElementById('pp-purchaseunit').value = u;
-}
-
-function pnpCharCount(fieldId, countId, max) {
-  const val = document.getElementById(fieldId).value || '';
-  document.getElementById(countId).textContent = Math.min(val.length, max);
-}
-
-function pnpFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function pnpAddImages(files) {
-  for (const f of Array.from(files)) {
-    const url = await pnpFileToDataUrl(f);
-    if (url) PNP.images.push(url);
-  }
-  document.getElementById('pp-images-input').value = '';
-  renderPNPImages();
-}
-function pnpRemoveImage(idx) { PNP.images.splice(idx, 1); renderPNPImages(); }
-function renderPNPImages() {
-  document.getElementById('pp-images-preview').innerHTML = PNP.images.map((src, i) => `
-    <div class="pp-thumb"><img src="${src}"><button class="pp-thumb-remove" onclick="pnpRemoveImage(${i})">✕</button></div>`).join('');
-}
-
-async function pnpAddAttachments(files) {
-  for (const f of Array.from(files)) {
-    const url = await pnpFileToDataUrl(f);
-    if (url) PNP.attachments.push({ name: f.name, url });
-  }
-  document.getElementById('pp-attachments-input').value = '';
-  renderPNPAttachments();
-}
-function pnpRemoveAttachment(idx) { PNP.attachments.splice(idx, 1); renderPNPAttachments(); }
-function renderPNPAttachments() {
-  document.getElementById('pp-attachments-list').innerHTML = PNP.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="pnpRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
-}
-
-function pnpTagKeydown(e) {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  const val = e.target.value.trim();
-  if (!val) return;
-  if (!PNP.tags.includes(val)) PNP.tags.push(val);
-  e.target.value = '';
-  renderPNPTags();
-}
-function pnpRemoveTag(i) { PNP.tags.splice(i, 1); renderPNPTags(); }
-function renderPNPTags() {
-  document.getElementById('pp-tags-chips').innerHTML = PNP.tags.map((t, i) => `
-    <span class="pp-tag-chip">${escHtml(t)} <button onclick="pnpRemoveTag(${i})">✕</button></span>`).join('');
-}
-
-function toggleProductStatus() {
-  const el = document.getElementById('pp-status');
-  el.classList.toggle('on');
-  document.getElementById('pp-status-label').textContent = el.classList.contains('on') ? 'Active' : 'Inactive';
-}
-
-function goToNewProductPage() {
-  PNP.editingId = null;
-  PNP.images = []; PNP.attachments = []; PNP.tags = [];
-  document.getElementById('pnp-title').textContent = 'New Product';
-  document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
-  ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
-   'pp-manufacturer','pp-fssai','pp-iec','pp-shortdesc','pp-detaildesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('pp-unit').value = 'Kg'; pnpSyncUnits();
-  populateProductCategoryDropdown();
-  document.getElementById('pp-shelflife').value = '';
-  document.getElementById('pp-storagetype').value = 'Dry';
-  document.getElementById('pp-grade').value = '';
-  document.getElementById('pp-minorderqty').value = 0;
-  ['pp-moisture','pp-foreignmatter','pp-brokendamage','pp-oilcontent','pp-admixture'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('pp-packingtype').value = 'PP Bag';
-  document.getElementById('pp-purchaserate').value = 0;
-  document.getElementById('pp-salerate').value = 0;
-  document.getElementById('pp-mrp').value = 0;
-  document.getElementById('pp-gst').value = '18';
-  document.getElementById('pp-taxtype').value = 'Intra-State (CGST+SGST)';
-  document.getElementById('pp-openingstock').value = 0;
-  document.getElementById('pp-reorderlevel').value = 0;
-  document.getElementById('pp-maxstock').value = 0;
-  document.getElementById('pp-warehouse').value = 'Main Warehouse';
-  document.getElementById('pp-trackbatch').classList.remove('on');
-  document.getElementById('pp-trackserial').classList.remove('on');
-  document.getElementById('pp-country').value = 'India';
-  document.getElementById('pp-status').classList.add('on');
-  document.getElementById('pp-status-label').textContent = 'Active';
-  document.getElementById('pp-status').onclick = toggleProductStatus;
-  document.getElementById('pp-shortdesc-count').textContent = 0;
-  document.getElementById('pp-detaildesc-count').textContent = 0;
-  document.getElementById('pp-images-input').value = '';
-  document.getElementById('pp-attachments-input').value = '';
-  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
-  showPage('product-new');
-  document.querySelector('.nav-item[data-page="products"]')?.classList.add('active');
-}
-
-// Products nav router: product-type tenants get the rich Product List page,
-// service/both tenants keep the original shared Services/Products page.
-function goToProductsPage(el) {
-  if (STATE.settings.businessType === 'product') {
-    showPage('products-list', el);
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-    renderProductsList();
-  } else {
-    showPage('products', el);
-    renderProducts();
-  }
-}
-
-function cancelProductEntry() {
-  goToProductsPage();
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-}
-
-function editProductRich(id) {
-  const p = STATE.products.find(x => x.id === id); if (!p) return;
-  PNP.editingId = id;
-  PNP.images = Array.isArray(p.images) ? [...p.images] : [];
-  PNP.attachments = Array.isArray(p.attachments) ? p.attachments.map(url => ({ name: url.split('/').pop(), url })) : [];
-  PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
-  document.getElementById('pnp-title').textContent = 'Edit Product';
-  document.getElementById('pnp-subtitle').textContent = p.name;
-  populateProductCategoryDropdown();
-  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
-  set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
-  set('pp-category', p.category); set('pp-hsn', p.hsn); set('pp-shelflife', p.shelf_life_months);
-  set('pp-variety', p.variety); set('pp-barcode', p.barcode); set('pp-storagetype', p.storage_type || 'Dry');
-  set('pp-grade', p.grade); set('pp-minorderqty', p.min_order_qty || 0);
-  pnpSyncUnits();
-  set('pp-moisture', p.moisture_limit); set('pp-foreignmatter', p.foreign_matter_limit);
-  set('pp-brokendamage', p.broken_damage_limit); set('pp-oilcontent', p.oil_content); set('pp-admixture', p.admixture_limit);
-  set('pp-color', p.color); set('pp-aroma', p.aroma); set('pp-shapesize', p.shape_size);
-  set('pp-packingtype', p.packing_type || 'PP Bag'); set('pp-packingsize', p.packing_size);
-  set('pp-purchaserate', p.purchase_rate || 0); set('pp-salerate', p.sale_rate || 0); set('pp-mrp', p.mrp || 0);
-  set('pp-gst', p.gst ?? 18); set('pp-taxtype', p.tax_type || 'Intra-State (CGST+SGST)');
-  set('pp-openingstock', p.opening_stock || 0); set('pp-reorderlevel', p.reorder_level || 0);
-  set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
-  document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
-  document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
-  pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
-  set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
-  set('pp-fssai', p.fssai_license); set('pp-iec', p.iec_code);
-  document.getElementById('pp-status').classList.toggle('on', (p.status||'active') === 'active');
-  document.getElementById('pp-status-label').textContent = (p.status||'active') === 'active' ? 'Active' : 'Inactive';
-  document.getElementById('pp-status').onclick = toggleProductStatus;
-  renderPNPImages(); renderPNPAttachments(); renderPNPTags();
-  showPage('product-new');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'products'));
-}
-
-// Grade and Variety are linked by a fixed mapping — picking a Grade
-// auto-selects the corresponding Variety, and vice versa.
-const PP_GRADE_VARIETY_MAP = { 'Grade-1': 'Premium', 'Grade-2': 'SBD', 'Grade-3': 'BD', 'Grade-4': 'CD', 'Grade-5': 'RBD' };
-const PP_VARIETY_GRADE_MAP = Object.fromEntries(Object.entries(PP_GRADE_VARIETY_MAP).map(([g,v]) => [v,g]));
-function onPPGradeChange() {
-  const grade = document.getElementById('pp-grade').value;
-  const variety = PP_GRADE_VARIETY_MAP[grade];
-  if (variety) document.getElementById('pp-variety').value = variety;
-}
-function onPPVarietyChange() {
-  const variety = document.getElementById('pp-variety').value;
-  const grade = PP_VARIETY_GRADE_MAP[variety];
-  if (grade) document.getElementById('pp-grade').value = grade;
-}
-
-async function saveProductEntry(mode) {
-  const name = document.getElementById('pp-name').value.trim();
-  const sku  = document.getElementById('pp-sku').value.trim();
-  if (!name) { toast('⚠️ Product name is required', 'warning'); return; }
-  if (!sku)  { toast('⚠️ Product Code / SKU is required', 'warning'); return; }
-  if (!document.getElementById('pp-moisture').value) { toast('⚠️ Moisture Limit (%) is required', 'warning'); return; }
-
-  const payload = {
-    name, sku, category: document.getElementById('pp-category').value || 'Other',
-    unit: document.getElementById('pp-unit').value, brand: document.getElementById('pp-brand').value.trim(),
-    hsn: document.getElementById('pp-hsn').value.trim(),
-    base_unit_label: document.getElementById('pp-baseunit').value, shelf_life_months: document.getElementById('pp-shelflife').value || null,
-    variety: document.getElementById('pp-variety').value.trim(), barcode: document.getElementById('pp-barcode').value.trim(),
-    sale_unit: document.getElementById('pp-saleunit').value, storage_type: document.getElementById('pp-storagetype').value,
-    grade: document.getElementById('pp-grade').value, purchase_unit: document.getElementById('pp-purchaseunit').value,
-    min_order_qty: parseFloat(document.getElementById('pp-minorderqty').value) || 0,
-    moisture_limit: parseFloat(document.getElementById('pp-moisture').value) || 0,
-    foreign_matter_limit: parseFloat(document.getElementById('pp-foreignmatter').value) || 0,
-    broken_damage_limit: parseFloat(document.getElementById('pp-brokendamage').value) || 0,
-    oil_content: document.getElementById('pp-oilcontent').value ? parseFloat(document.getElementById('pp-oilcontent').value) : null,
-    admixture_limit: parseFloat(document.getElementById('pp-admixture').value) || 0,
-    color: document.getElementById('pp-color').value.trim(), aroma: document.getElementById('pp-aroma').value.trim(),
-    shape_size: document.getElementById('pp-shapesize').value.trim(), packing_type: document.getElementById('pp-packingtype').value,
-    packing_size: document.getElementById('pp-packingsize').value.trim(),
-    purchase_rate: parseFloat(document.getElementById('pp-purchaserate').value) || 0,
-    sale_rate: parseFloat(document.getElementById('pp-salerate').value) || 0,
-    rate: parseFloat(document.getElementById('pp-salerate').value) || 0, // legacy 'rate' column mirrors sale rate for compatibility
-    mrp: parseFloat(document.getElementById('pp-mrp').value) || 0,
-    gst: parseInt(document.getElementById('pp-gst').value) || 0,
-    tax_type: document.getElementById('pp-taxtype').value,
-    opening_stock: parseFloat(document.getElementById('pp-openingstock').value) || 0,
-    reorder_level: parseFloat(document.getElementById('pp-reorderlevel').value) || 0,
-    max_stock: parseFloat(document.getElementById('pp-maxstock').value) || 0,
-    default_warehouse: document.getElementById('pp-warehouse').value,
-    track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
-    track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
-    short_description: document.getElementById('pp-shortdesc').value.trim(),
-    detailed_description: document.getElementById('pp-detaildesc').value.trim(),
-    country_of_origin: document.getElementById('pp-country').value.trim() || 'India',
-    manufacturer: document.getElementById('pp-manufacturer').value.trim(),
-    fssai_license: document.getElementById('pp-fssai').value.trim(), iec_code: document.getElementById('pp-iec').value.trim(),
-    unit_family: 'weight', // AgriTrade-style products are always weight-tracked (Kg base) for Stock Ledger purposes
-    status: document.getElementById('pp-status').classList.contains('on') ? 'active' : 'inactive',
-    tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
-  };
-
-  // Loading state — product payloads can be large (base64 images/attachments),
-  // so make it obvious that the save is in progress rather than frozen.
-  const payloadSizeMB = JSON.stringify(payload).length / (1024 * 1024);
-  if (payloadSizeMB > 8) {
-    toast(`⚠️ Attachments/images total ~${payloadSizeMB.toFixed(1)} MB — upload may take a while or be rejected by the server. Consider smaller images.`, 'warning');
-  }
-  const btn = event?.target?.closest('button');
-  const allBtns = ['pp-btn-cancel','pp-btn-savenew','pp-btn-save'].map(id => document.getElementById(id)).filter(Boolean);
-  const origHtml = btn ? btn.innerHTML : '';
-  allBtns.forEach(b => b.disabled = true);
-  if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
-  const loadBar = document.getElementById('pp-loading-bar');
-  if (loadBar) loadBar.style.display = 'block';
-  try {
-    if (PNP.editingId) {
-      await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Product updated!', 'success');
-    } else {
-      await api('api/products.php', 'POST', payload);
-      consumeEditApproval(); toast('✅ Product saved!', 'success');
-    }
-    const r = await api('api/products.php');
-    STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
-    updateServiceDropdown();
-    if (mode === 'new') {
-      goToNewProductPage();
-    } else {
-      cancelProductEntry();
-      renderProducts();
-      renderProductsList();
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally {
-    allBtns.forEach(b => b.disabled = false);
-    if (btn) btn.innerHTML = origHtml;
-    if (loadBar) loadBar.style.display = 'none';
-  }
-}
-
 function _showAddProductRow(prefill) {
   const tbody = document.getElementById('productsTbody');
   document.getElementById('add-product-row')?.remove();
@@ -15069,7 +11319,7 @@ function _showAddProductRow(prefill) {
   row.style.background = '#f0fdf4';
   row.innerHTML = `
     <td><span style="color:var(--teal);font-size:12px;font-weight:700">${prefill?'COPY':'NEW'}</span></td>
-    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="${currentBizLabels().namePlaceholder}" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
+    <td><input id="np-name" class="table-search" style="width:100%;min-width:150px" placeholder="Service name *" value="${prefill?escHtml(prefill.name+' (Copy)'):''}"></td>
     <td><select id="np-cat" class="table-filter cat-select" style="min-width:120px" onchange="hsnPrefill('np-cat','np-hsn')"></select></td>
     <td><input id="np-rate" type="number" class="table-search" style="width:100px" placeholder="Rate ₹" value="${prefill?prefill.rate:0}"></td>
     <td><input id="np-hsn" class="table-search" style="width:80px" placeholder="HSN" value="${prefill?escHtml(prefill.hsn):'998314'}" list="hsn-suggestions"></td>
@@ -15077,13 +11327,6 @@ function _showAddProductRow(prefill) {
       <select id="np-gst" class="table-filter">
         <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
-    </td>
-    <td>
-      <select id="np-unitfam" class="table-filter">
-        <option value="count" ${!prefill||!prefill.unit_family||prefill.unit_family==='count'?'selected':''}>Count (pcs)</option>
-        <option value="weight" ${prefill&&prefill.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
-        <option value="volume" ${prefill&&prefill.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
-      </select>
     </td>
     <td>
       <div class="action-cell">
@@ -15123,8 +11366,7 @@ async function saveNewProduct() {
   const payload = { name:n, category:document.getElementById('np-cat')?.value||'Other',
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
-    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
-    unit_family: document.getElementById('np-unitfam')?.value || 'count' };
+    gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18) };
   try {
     await api('api/products.php', 'POST', payload);
     const r = await api('api/products.php');
@@ -15147,11 +11389,10 @@ function addProductToInvoice(id) {
 }
 
 async function deleteProduct(id) {
-  if (!assertCanDelete('this product')) return;
   const p = STATE.products.find(x => x.id === id); if (!p) return;
   const result = await Swal.fire({
-    title: STATE.settings.businessType === 'product' ? 'Delete this product?' : 'Delete this service?',
-    html: `<strong>${escHtml(p.name)}</strong> will be removed from your ${STATE.settings.businessType === 'product' ? 'product' : 'services'} list.`,
+    title: 'Delete this service?',
+    html: `<strong>${escHtml(p.name)}</strong> will be removed from your services list.`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Delete',
@@ -15164,7 +11405,7 @@ async function deleteProduct(id) {
   try {
     await api('api/products.php?id=' + dbId, 'DELETE');
     STATE.products = STATE.products.filter(x => x.id !== id);
-    renderProducts(); renderProductsList(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
+    renderProducts(); updateServiceDropdown(); toast('🗑️ Deleted', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
@@ -15225,203 +11466,44 @@ function activeSupSource() {
 
 function filterSuppliers(q) { SUP.search = q || ''; renderSuppliers(); }
 
-// ── Supplier List page ──────────────────────────────────────────
-let SPL_PAGE = 1;
-const SPL_PAGESIZE = 10;
-let SPL_ARCH_REQUESTED = false; // archived suppliers fetched once, lazily
-
-function splAllSuppliers() {
-  // Active suppliers + archived ones (shown as "Inactive")
-  return [...(STATE.suppliers||[]), ...((SUP.archivedList)||[])];
-}
-
-function populateSuppliersFilters() {
-  const all = splAllSuppliers();
-  const fill = (id, values, allLabel) => {
-    const sel = document.getElementById(id); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">${allLabel}</option>` +
-      values.map(v => `<option ${v===cur?'selected':''}>${escHtml(v)}</option>`).join('');
-  };
-  fill('spl-f-type',  [...new Set(all.map(s => (s.supplier_type||'').trim()).filter(Boolean))].sort(), 'All Types');
-  fill('spl-f-state', [...new Set(all.map(s => (s.state||'').trim()).filter(Boolean))].sort(), 'All States');
-  fill('spl-f-terms', [...new Set(all.map(s => (s.payment_terms||'').trim()).filter(Boolean))].sort(), 'All Payment Terms');
-  const fromEl = document.getElementById('spl-f-from'), toEl = document.getElementById('spl-f-to');
-  if (fromEl && toEl && !fromEl.value && !toEl.value) {
-    fromEl.value = BIZ_FROM_DATE;
-    toEl.value = fmt_date(new Date());
-  }
-}
-
-function resetSuppliersFilter() {
-  document.getElementById('spl-f-search').value = '';
-  ['spl-f-type','spl-f-state','spl-f-status','spl-f-terms'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('spl-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('spl-f-to').value = fmt_date(new Date());
-  SPL_PAGE = 1;
-  renderSuppliers();
-}
-
-// Per-supplier purchase totals within the selected date range
-function splPurchaseTotals() {
-  const from = document.getElementById('spl-f-from')?.value || '';
-  const to = document.getElementById('spl-f-to')?.value || '';
-  const map = {};
-  (STATE.purchases||[]).forEach(p => {
-    const d = (p.purchase_date||'').slice(0,10);
-    if (from && d < from) return;
-    if (to && d > to) return;
-    const sid = String(p.supplier_id);
-    if (!map[sid]) map[sid] = { total: 0, outstanding: 0 };
-    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
-    map[sid].total += total;
-    map[sid].outstanding += Math.max(0, total - paid);
-  });
-  return map;
-}
-
-function splFilteredSuppliers() {
-  const q = (document.getElementById('spl-f-search')?.value || '').trim().toLowerCase();
-  const type = document.getElementById('spl-f-type')?.value || '';
-  const state = document.getElementById('spl-f-state')?.value || '';
-  const status = document.getElementById('spl-f-status')?.value || '';
-  const terms = document.getElementById('spl-f-terms')?.value || '';
-
-  return splAllSuppliers().filter(s => {
-    if (q && !(s.name||'').toLowerCase().includes(q) && !(s.phone||'').toLowerCase().includes(q) && !(s.email||'').toLowerCase().includes(q)) return false;
-    if (type && (s.supplier_type||'').trim() !== type) return false;
-    if (state && (s.state||'').trim() !== state) return false;
-    if (status && (s.status||'active') !== status) return false;
-    if (terms && (s.payment_terms||'').trim() !== terms) return false;
-    return true;
-  });
-}
-
-async function renderSuppliers() {
+function renderSuppliers() {
   const tbody = document.getElementById('suppliersTbody');
   if (!tbody) return;
-
-  // Lazily fetch archived (inactive) suppliers once so Status filter and
-  // stats can cover them — active list is already loaded at bootstrap.
-  if (!SPL_ARCH_REQUESTED) {
-    SPL_ARCH_REQUESTED = true;
-    try {
-      const r = await api('api/suppliers.php?status=archived');
-      SUP.archivedList = Array.isArray(r.data) ? r.data : [];
-    } catch(e) { SUP.archivedList = SUP.archivedList || []; }
-  }
-
-  populateSuppliersFilters();
-  const list = splFilteredSuppliers();
-  const totals = splPurchaseTotals();
-
-  // ── Stats ──────────────────────────────────────────────────
-  const all = splAllSuppliers();
-  document.getElementById('spl-stat-total').textContent = all.length;
-  document.getElementById('spl-stat-active').textContent = all.filter(s => (s.status||'active') === 'active').length;
-  document.getElementById('spl-stat-inactive').textContent = all.filter(s => (s.status||'active') !== 'active').length;
-  const grandTotal = Object.values(totals).reduce((a,t) => a + t.total, 0);
-  const grandOut = Object.values(totals).reduce((a,t) => a + t.outstanding, 0);
-  document.getElementById('spl-stat-purchases').textContent = fmt_money(grandTotal);
-  document.getElementById('spl-stat-out').textContent = fmt_money(grandOut);
-  const fromV = document.getElementById('spl-f-from')?.value, toV = document.getElementById('spl-f-to')?.value;
-  document.getElementById('spl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / SPL_PAGESIZE));
-  if (SPL_PAGE > totalPages) SPL_PAGE = totalPages;
-  const start = (SPL_PAGE - 1) * SPL_PAGESIZE;
-  const pageRows = list.slice(start, start + SPL_PAGESIZE);
-  document.getElementById('supInfo').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+SPL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('spl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="splPage(${SPL_PAGE-1})" ${SPL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SPL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===SPL_PAGE?'active':''}" onclick="splPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="splPage(${SPL_PAGE+1})" ${SPL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No suppliers found — click "Add New Supplier" to get started</td></tr>`;
+  const list = activeSupSource();
+  document.getElementById('supInfo').textContent = list.length + ' supplier' + (list.length===1?'':'s');
+  document.getElementById('supCountInfo').textContent = STATE.suppliers.length + ' active';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">
+      ${SUP.archived ? 'No archived suppliers' : 'No suppliers yet — click "Add Supplier" to get started'}</td></tr>`;
     return;
   }
-
-  tbody.innerHTML = pageRows.map((s, i) => {
-    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-    const active = (s.status||'active') === 'active';
-    return `
+  tbody.innerHTML = list.map((s, i) => `
     <tr>
-      <td>${start + i + 1}</td>
+      <td>${i+1}</td>
       <td><strong>${escHtml(s.name)}</strong></td>
-      <td>${escHtml(s.contact_person||'—')}</td>
-      <td>${escHtml(s.phone||'—')}</td>
-      <td>${escHtml(s.email||'—')}</td>
-      <td>${escHtml(s.state||'—')}</td>
-      <td>${escHtml(s.payment_terms||'—')}</td>
-      <td style="text-align:right">${t.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${t.outstanding > 0 ? '#E53935' : 'var(--text)'}">${t.outstanding.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#E53935'};background:${active?'#00897B':'#E53935'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
+      <td>${escHtml(s.contact_person || '—')}</td>
+      <td>${escHtml(s.phone || '—')}</td>
+      <td>${escHtml(s.country || '—')}</td>
+      <td>${escHtml(s.gst_number || '—')}</td>
       <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View supplier profile" onclick="viewSupplierProfile(${s.id})"><i class="fas fa-eye"></i></button>
-          ${active ? `<button class="act-btn" title="Edit" onclick="editWithApproval('supplier',${s.id},'${escHtml((s.name||'Supplier #'+s.id).replace(/'/g,"\\'"))}',()=>editSupplierRich(${s.id}))"><i class="fas fa-pen"></i></button>` : ''}
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf" style="color:#00897B"></i> View PDF</button>
-              ${active
-                ? _archiveItem("archiveSupplier("+s.id+")")
-                : `<button onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              ${_delItem("deleteSupplierPermanent("+s.id+")")}
-            </div>
-          </span>
+        <div class="action-cell">
+          ${SUP.archived
+            ? `<button class="act-btn" title="Restore" onclick="restoreSupplier(${s.id})"><i class="fas fa-rotate-left"></i></button>`
+            : `<button class="act-btn" title="Edit" onclick="editSupplier(${s.id})"><i class="fas fa-pen"></i></button>
+               <button class="act-btn" title="Archive" onclick="archiveSupplier(${s.id})"><i class="fas fa-box-archive"></i></button>`}
         </div>
       </td>
-    </tr>`;
-  }).join('');
-}
-
-function splPage(p) {
-  const totalPages = Math.max(1, Math.ceil(splFilteredSuppliers().length / SPL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  SPL_PAGE = p;
-  renderSuppliers();
-}
-
-function exportSuppliersExcel() {
-  const list = splFilteredSuppliers();
-  if (!list.length) { toast('⚠️ No suppliers to export for the selected filters', 'warning'); return; }
-  const totals = splPurchaseTotals();
-  const rows = [['#','Supplier Name','Contact Person','Mobile No.','Email','State','Payment Terms','GST Number','Total Purchases','Outstanding','Status']];
-  list.forEach((s, i) => {
-    const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-    rows.push([
-      i+1, s.name||'', s.contact_person||'', s.phone||'', s.email||'', s.state||'', s.payment_terms||'', s.gst_number||'',
-      t.total.toFixed(2), t.outstanding.toFixed(2), (s.status||'active') === 'active' ? 'Active' : 'Inactive'
-    ]);
-  });
-  _downloadCSV(rows, 'supplier_list.csv');
-  toast('✅ Exported ' + list.length + ' suppliers', 'success');
+    </tr>`).join('');
 }
 
 function openAddSupplierModal() {
   SUP.editingId = null;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
-  ['supq-name','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
+  ['sup-name','sup-person','sup-phone','sup-email','sup-gst','sup-address','sup-terms','sup-notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('supq-country').value = 'India';
-  document.getElementById('supq-opening').value = '0';
+  document.getElementById('sup-country').value = 'India';
+  document.getElementById('sup-opening').value = '0';
   openModal('modal-addsupplier');
 }
 
@@ -15429,40 +11511,40 @@ function editSupplier(id) {
   const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
   SUP.editingId = id;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
-  document.getElementById('supq-name').value    = s.name || '';
-  document.getElementById('supq-person').value  = s.contact_person || '';
-  document.getElementById('supq-phone').value   = s.phone || '';
-  document.getElementById('supq-email').value   = s.email || '';
-  document.getElementById('supq-gst').value     = s.gst_number || '';
-  document.getElementById('supq-country').value = s.country || 'India';
-  document.getElementById('supq-address').value = s.address || '';
-  document.getElementById('supq-terms').value   = s.payment_terms || '';
-  document.getElementById('supq-opening').value = s.opening_balance || 0;
-  document.getElementById('supq-notes').value   = s.notes || '';
+  document.getElementById('sup-name').value    = s.name || '';
+  document.getElementById('sup-person').value  = s.contact_person || '';
+  document.getElementById('sup-phone').value   = s.phone || '';
+  document.getElementById('sup-email').value   = s.email || '';
+  document.getElementById('sup-gst').value     = s.gst_number || '';
+  document.getElementById('sup-country').value = s.country || 'India';
+  document.getElementById('sup-address').value = s.address || '';
+  document.getElementById('sup-terms').value   = s.payment_terms || '';
+  document.getElementById('sup-opening').value = s.opening_balance || 0;
+  document.getElementById('sup-notes').value   = s.notes || '';
   openModal('modal-addsupplier');
 }
 
 async function saveSupplier() {
-  const name = document.getElementById('supq-name')?.value?.trim();
+  const name = document.getElementById('sup-name')?.value?.trim();
   if (!name) { toast('⚠️ Supplier name required', 'warning'); return; }
   const btn = document.getElementById('sup-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
     name,
-    contact_person:  document.getElementById('supq-person').value.trim(),
-    phone:           document.getElementById('supq-phone').value.trim(),
-    email:           document.getElementById('supq-email').value.trim(),
-    gst_number:      document.getElementById('supq-gst').value.trim(),
-    country:         document.getElementById('supq-country').value.trim() || 'India',
-    address:         document.getElementById('supq-address').value.trim(),
-    payment_terms:   document.getElementById('supq-terms').value.trim(),
-    opening_balance: parseFloat(document.getElementById('supq-opening').value) || 0,
-    notes:           document.getElementById('supq-notes').value.trim(),
+    contact_person:  document.getElementById('sup-person').value.trim(),
+    phone:           document.getElementById('sup-phone').value.trim(),
+    email:           document.getElementById('sup-email').value.trim(),
+    gst_number:      document.getElementById('sup-gst').value.trim(),
+    country:         document.getElementById('sup-country').value.trim() || 'India',
+    address:         document.getElementById('sup-address').value.trim(),
+    payment_terms:   document.getElementById('sup-terms').value.trim(),
+    opening_balance: parseFloat(document.getElementById('sup-opening').value) || 0,
+    notes:           document.getElementById('sup-notes').value.trim(),
   };
   try {
     if (SUP.editingId) {
       await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
+      toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
@@ -15476,583 +11558,7 @@ async function saveSupplier() {
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Supplier'; } }
 }
 
-// ── 3-dot action menu (generic) ──
-// ── Action permission helpers ───────────────────────────────────
-// These are the single source of truth for what the current user can do.
-// SERVER.canDelete / canArchive / canEdit / canCreate are set server-side
-// from role_permissions at page load, so they can't be faked client-side.
-
-function canDo(action) {
-  if (action === 'delete')  return SERVER.canDelete  === true;
-  if (action === 'archive') return SERVER.canArchive === true;
-  if (action === 'edit')    return SERVER.canEdit    === true;
-  if (action === 'create')  return SERVER.canCreate  === true;
-  return true;
-}
-
-// Render a delete button — shows a lock icon with tooltip when restricted
-function delBtn(onclick, title = 'Delete') {
-  if (canDo('delete')) {
-    return `<button onclick="${onclick}" class="act-btn" style="color:var(--red)" title="${title}"><i class="fas fa-trash"></i></button>`;
-  }
-  return `<button disabled class="act-btn" style="color:var(--muted);cursor:not-allowed" title="Delete restricted by your role"><i class="fas fa-lock"></i></button>`;
-}
-
-// Render a delete menu item — grayed out with lock when restricted
-function delMenuItem(onclick, label = 'Delete') {
-  if (canDo('delete')) {
-    return `<button onclick="${onclick}"><i class="fas fa-trash" style="color:#E53935"></i> ${label}</button>`;
-  }
-  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
-}
-
-// Render an archive menu item — grayed out with lock when restricted
-function archiveMenuItem(onclick, label = 'Archive') {
-  if (canDo('archive')) {
-    return `<button onclick="${onclick}"><i class="fas fa-box-archive" style="color:#E65100"></i> ${label}</button>`;
-  }
-  return `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Archive restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> ${label} <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`;
-}
-
-// Guard: call before executing any delete — shows a clear error if restricted
-function assertCanDelete(entityName = 'this record') {
-  if (!canDo('delete')) {
-    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to delete ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant delete access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-    return false;
-  }
-  return true;
-}
-
-function assertCanArchive(entityName = 'this record') {
-  if (!canDo('archive')) {
-    Swal.fire({ title: 'Permission Denied', html: `You don't have permission to archive ${entityName}.<br><small style="color:var(--muted)">Ask your Admin or Owner to grant archive access via Team Settings.</small>`, icon: 'error', confirmButtonColor: 'var(--teal)', customClass: { popup: 'swal-compact' } });
-    return false;
-  }
-  return true;
-}
-
-// Short-form helpers for use inside template literals — avoids nested backtick
-// syntax which breaks the outer template literal in JS row builders.
-// These are called with a plain string like _delItem("deleteX("+id+")")
-function _delItem(onclick, label='Delete') { return delMenuItem(onclick, label); }
-function _archiveItem(onclick, label='Archive') { return archiveMenuItem(onclick, label); }
-
-function toggleActMenu(ev, btn) {
-  ev.stopPropagation();
-  const menu = btn.parentElement.querySelector('.act-menu');
-  const wasOpen = menu.classList.contains('open');
-  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
-  if (!wasOpen) {
-    menu.classList.add('open');
-    // Two things can clip this menu: the browser viewport, and the
-    // .table-card ancestor itself (overflow:hidden, for its rounded
-    // corners) — the table card's own bottom edge is usually what's
-    // actually cutting it off, not the viewport. Check both and flip
-    // upward if either would clip it.
-    const rect = btn.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 160;
-    const clipAncestor = btn.closest('.table-card, .pne-card') || document.body;
-    const clipRect = clipAncestor.getBoundingClientRect();
-    const spaceBelowViewport = window.innerHeight - rect.bottom;
-    const spaceBelowCard = clipRect.bottom - rect.bottom;
-    if (Math.min(spaceBelowViewport, spaceBelowCard) < menuHeight + 12) {
-      menu.classList.add('act-menu-up');
-    }
-  }
-}
-document.addEventListener('click', () => {
-  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
-});
-
-// In-app Customer Profile — quick view without leaving the list page.
-function viewCustomerProfile(id) {
-  const c = (STATE.customers||[]).find(x => String(x.id) === String(id));
-  if (!c) { toast('❌ Customer not found', 'error'); return; }
-
-  const outstanding = (custOutstandingMap())[c.id] || 0;
-  const active = (c.status || 'active') === 'active';
-  const initials = (c.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-
-  const recentSales = (STATE.sales || [])
-    .filter(s => String(s.customer_id) === String(c.id))
-    .sort((a, b) => (b.sale_date || '').localeCompare(a.sale_date || ''))
-    .slice(0, 5);
-  const ytdTotal = (STATE.sales||[]).filter(s => String(s.customer_id) === String(c.id) && s.status !== 'Cancelled' && (s.sale_date||'').slice(0,4) === String(new Date().getFullYear()))
-    .reduce((sum,s) => sum + (parseFloat(s.total)||0), 0);
-
-  document.getElementById('cp-head').innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
-      <div class="sp-avatar">${escHtml(initials)}</div>
-      <div style="min-width:0">
-        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
-      </div>
-    </div>
-    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
-      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
-    </span>
-  `;
-
-  const infoItem = (icon, label, val) => val ? `
-    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
-
-  document.getElementById('cp-body').innerHTML = `
-    <div style="display:flex;gap:10px">
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-chart-line"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">SALES THIS YEAR</div><div style="font-size:17px;font-weight:800">${fmt_money(ytdTotal)}</div></div></div>
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
-      <div class="sp-info-grid">
-        ${infoItem('id-badge', 'Customer Code', c.customer_code)}
-        ${infoItem('phone', 'Mobile', c.mobile)}
-        ${infoItem('envelope', 'Email', c.email)}
-        ${infoItem('file-invoice', 'GSTIN', c.gstin)}
-        ${infoItem('id-card', 'PAN', c.pan_no)}
-        ${infoItem('handshake', 'Payment Terms', c.payment_terms)}
-        ${infoItem('user-tie', 'Sales Executive', c.sales_executive)}
-        ${infoItem('map-pin', 'Billing Address', [c.billing_address, c.billing_city, c.state].filter(Boolean).join(', '))}
-      </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Sales</div>
-      ${recentSales.length ? recentSales.map(s => `
-        <div class="sp-purchase-row">
-          <div><strong style="font-size:12.5px">${escHtml(s.invoice_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(s.sale_date)}</div></div>
-          <div style="font-weight:700;font-size:13px">${fmt_money(s.total)}</div>
-        </div>`).join('') : `
-        <div class="sp-empty">
-          <i class="fas fa-inbox"></i>
-          <div class="sp-empty-title">No sales yet</div>
-          <div class="sp-empty-sub">Record one from Sales → New Sale Invoice</div>
-        </div>`}
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-book-open"></i> Party Ledger</div>
-      ${(() => {
-        const allCustSales = (STATE.sales||[]).filter(s => String(s.customer_id) === String(c.id) && s.status !== 'Cancelled').sort((a,b) => a.sale_date.localeCompare(b.sale_date));
-        if (!allCustSales.length) return '<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No transactions</div></div>';
-        let balance = 0;
-        const rows = allCustSales.map(s => {
-          const invoiced = parseFloat(s.total)||0;
-          const received = parseFloat(s.amount_received)||0;
-          balance += invoiced - received;
-          const status = s.payment_status || (balance <= 0 ? 'Paid' : 'Pending');
-          return `<tr>
-            <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
-            <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
-            <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
-            <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
-            <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
-            <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:${status==='Paid'?'#e3f6ea':status==='Partial'?'#FFF3E0':'#FFEBEE'};color:${status==='Paid'?'#0d7a3f':status==='Partial'?'#E65100':'#E53935'}">${status}</span></td>
-          </tr>`;
-        }).join('');
-        return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
-        </table></div>`;
-      })()}
-    </div>
-  `;
-
-  document.getElementById('cp-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('customer',${c.id},()=>{closeModal('modal-customer-profile');editCustomerRich(${c.id});})"><i class="fas fa-pen"></i> Edit Customer</button>` : ''}
-    ${active
-      ? `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); deleteCustomerRich(${c.id})"><i class="fas fa-box-archive"></i> Archive</button>`
-      : `<button class="btn btn-primary" onclick="closeModal('modal-customer-profile'); restoreCustomer(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`}
-  `;
-
-  openModal('modal-customer-profile');
-}
-
-// In-app Sale Details — quick view before deciding to edit or print.
-async function viewSaleDetails(id) {
-  openModal('modal-sale-details');
-  document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
-  document.getElementById('sd-body').innerHTML = '';
-  document.getElementById('sd-foot').innerHTML = '';
-
-  let s;
-  try {
-    const r = await api('api/sales.php?id=' + id);
-    s = r.data;
-  } catch(e) {
-    document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load sale</div>`;
-    return;
-  }
-
-  const total = parseFloat(s.total) || 0, received = parseFloat(s.amount_received) || 0, outstanding = Math.max(0, total - received);
-  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[s.payment_status] || '#fff';
-
-  document.getElementById('sd-head').innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
-      <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
-      <div style="min-width:0">
-        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
-      </div>
-    </div>
-    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
-      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((s.payment_status||'Pending').toUpperCase())}
-    </span>
-  `;
-
-  const items = s.items || [];
-  const grossWt    = parseFloat(s.kanta_gross_weight||0);
-  const tareWt     = parseFloat(s.kanta_tare_weight||0);
-  const netWt      = Math.max(0, grossWt - tareWt);
-  const dhaltaKg   = parseFloat(s.kanta_dhalta_kg||0);
-  const billableWt = Math.max(0, netWt - dhaltaKg);
-  const hasWeight  = grossWt > 0 || tareWt > 0 || dhaltaKg > 0;
-  const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-
-  document.getElementById('sd-body').innerHTML = `
-    <div style="display:flex;gap:10px">
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">RECEIVED</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(received)}</div></div></div>
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
-    </div>
-
-    ${hasWeight ? `
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-weight-hanging"></i> Weight & Dhalta Details</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
-        <div class="pne-card" style="padding:10px 12px">
-          <div style="font-size:10px;color:var(--muted);font-weight:700">GROSS WT</div>
-          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(grossWt)}</div>
-        </div>
-        <div class="pne-card" style="padding:10px 12px">
-          <div style="font-size:10px;color:var(--muted);font-weight:700">TARE WT</div>
-          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(tareWt)}</div>
-        </div>
-        <div class="pne-card" style="padding:10px 12px">
-          <div style="font-size:10px;color:var(--muted);font-weight:700">NET WT</div>
-          <div style="font-size:14px;font-weight:800;margin-top:3px">${kgFmt(netWt)}</div>
-        </div>
-        <div class="pne-card" style="padding:10px 12px;border:1px solid #FFD180;background:#FFF8E1">
-          <div style="font-size:10px;color:#E65100;font-weight:700">DHALTA</div>
-          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#E65100">${kgFmt(dhaltaKg)}</div>
-          ${netWt > 0 ? `<div style="font-size:10px;color:var(--muted)">${(dhaltaKg/netWt*100).toFixed(2)}% of net</div>` : ''}
-        </div>
-        <div class="pne-card" style="padding:10px 12px;border:1px solid #C8E6C9;background:#E8F5E9">
-          <div style="font-size:10px;color:#2E7D32;font-weight:700">BILLABLE WT</div>
-          <div style="font-size:14px;font-weight:800;margin-top:3px;color:#2E7D32">${kgFmt(billableWt)}</div>
-        </div>
-      </div>
-      ${s.kanta_name ? `<div style="font-size:11px;color:var(--muted);margin-top:8px"><i class="fas fa-building"></i> Kanta: ${escHtml(s.kanta_name)}${s.kanta_moisture_pct ? ' &nbsp;|&nbsp; <i class="fas fa-droplet"></i> Moisture: ' + parseFloat(s.kanta_moisture_pct).toFixed(2) + '%' : ''}</div>` : ''}
-    </div>` : ''}
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
-      <div class="sp-info-grid">
-        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(s.warehouse||'Main Warehouse')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-user-tie"></i><div><div class="sp-label">Sales Executive</div><div class="sp-val">${escHtml(s.sales_executive||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(s.payment_terms||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-calendar-check"></i><div><div class="sp-label">Due Date</div><div class="sp-val">${s.due_date ? fmt_date_disp(s.due_date) : '—'}</div></div></div>
-      </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
-      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:600px">
-        <thead><tr>
-          <th>Product</th><th>Variety</th><th>Moisture %</th>
-          <th style="text-align:right">Qty (Kg)</th>
-          <th style="text-align:right">Rate (₹/Kg)</th>
-          <th style="text-align:right">Disc %</th>
-          <th style="text-align:right">Amount</th>
-        </tr></thead>
-        <tbody>${items.map(it => `<tr>
-          <td><strong>${escHtml(it.product_name||it.description||'—')}</strong>${it.variety_grade ? `<div style="font-size:10.5px;color:var(--muted)">${escHtml(it.variety_grade)}</div>` : ''}</td>
-          <td>${escHtml(it.variety_grade||'—')}</td>
-          <td style="text-align:center">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
-          <td style="text-align:right;font-weight:600">${parseFloat(it.qty||0).toFixed(2)}</td>
-          <td style="text-align:right">${fmt_money(it.rate)}</td>
-          <td style="text-align:right">${it.discount_pct ? parseFloat(it.discount_pct).toFixed(2)+'%' : '—'}</td>
-          <td style="text-align:right;font-weight:700">${fmt_money(it.line_total)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
-    </div>
-  `;
-
-  document.getElementById('sd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="_modalEdit('sale',${s.id},()=>{closeModal('modal-sale-details');editSale(${s.id});})"><i class="fas fa-pen"></i> Edit</button>
-    <button class="btn btn-outline" onclick="printSalePartyCopy(${s.id})"><i class="fas fa-copy"></i> Party Copy</button>
-    <button class="btn btn-primary" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i> Tax Invoice</button>
-  `;
-}
-
-// In-app Purchase Details — quick view before deciding to edit or print.
-async function viewPurchaseDetails(id) {
-  openModal('modal-purchase-details');
-  document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
-  document.getElementById('pd-body').innerHTML = '';
-  document.getElementById('pd-foot').innerHTML = '';
-
-  let p;
-  try {
-    const r = await api('api/purchases.php?id=' + id);
-    p = r.data;
-  } catch(e) {
-    document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
-    return;
-  }
-
-  const total = parseFloat(p.total) || 0, paid = parseFloat(p.amount_paid) || 0, outstanding = Math.max(0, total - paid);
-  const payColor = { Paid: '#69F0AE', Partial: '#FFD180', Pending: '#FF8A80' }[p.status] || '#fff';
-
-  document.getElementById('pd-head').innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
-      <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
-      <div style="min-width:0">
-        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
-      </div>
-    </div>
-    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
-      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${payColor}"></i>${escHtml((p.status||'Pending').toUpperCase())}
-    </span>
-  `;
-
-  const items = p.items || [];
-  document.getElementById('pd-body').innerHTML = `
-    <div style="display:flex;gap:10px">
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-indian-rupee-sign"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL AMOUNT</div><div style="font-size:16px;font-weight:800">${fmt_money(total)}</div></div></div>
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:var(--green-bg);color:var(--green)"><i class="fas fa-check"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">PAID</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmt_money(paid)}</div></div></div>
-      <div class="sp-stat-tile"><span class="sp-stat-icon" style="background:${outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:16px;font-weight:800;color:${outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(outstanding)}</div></div></div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-circle-info"></i> Details</div>
-      <div class="sp-info-grid">
-        <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(p.warehouse||'Main Warehouse')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
-      </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
-      ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
-        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
-        <tbody>${items.map(it => `<tr>
-          <td>${escHtml(it.description||'—')}</td>
-          <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
-          <td style="text-align:right">${fmt_money(it.rate)}</td>
-          <td style="text-align:right;font-weight:600">${fmt_money(it.amount)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>` : `<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No items</div></div>`}
-    </div>
-  `;
-
-  document.getElementById('pd-foot').innerHTML = `
-    <button class="btn btn-outline" onclick="_modalEdit('purchase',${p.id},()=>{closeModal('modal-purchase-details');editPurchase(${p.id});})"><i class="fas fa-pen"></i> Edit</button>
-    <button class="btn btn-primary" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i> Print</button>
-  `;
-}
-
-// In-app supplier profile — quick view without leaving the list page.
-// PDF/print stays available separately via the 3-dot menu (viewSupplierPdf).
-function viewSupplierProfile(id) {
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
-  if (!s) { toast('❌ Supplier not found', 'error'); return; }
-
-  const totals = splPurchaseTotals();
-  const t = totals[String(s.id)] || { total: 0, outstanding: 0 };
-  const active = (s.status || 'active') === 'active';
-  const initials = (s.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-
-  const recentPurchases = (STATE.purchases || [])
-    .filter(p => String(p.supplier_id) === String(s.id))
-    .sort((a, b) => (b.purchase_date || '').localeCompare(a.purchase_date || ''))
-    .slice(0, 5);
-
-  // ── Header band ──
-  document.getElementById('sp-profile-head').innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center;padding-right:30px">
-      <div class="sp-avatar">${escHtml(initials)}</div>
-      <div style="min-width:0">
-        <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
-      </div>
-    </div>
-    <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
-      <i class="fas fa-circle" style="font-size:6px;margin-right:5px;color:${active?'#69F0AE':'#FF8A80'}"></i>${active?'ACTIVE':'INACTIVE'}
-    </span>
-  `;
-
-  // ── Body: stats, contact, recent purchases ──
-  const infoItem = (icon, label, val) => val ? `
-    <div class="sp-info-item"><i class="fas fa-${icon}"></i><div><div class="sp-label">${escHtml(label)}</div><div class="sp-val">${escHtml(String(val))}</div></div></div>` : '';
-
-  document.getElementById('sp-profile-body').innerHTML = `
-    <div style="display:flex;gap:10px">
-      <div class="sp-stat-tile">
-        <span class="sp-stat-icon" style="background:var(--teal-bg);color:var(--teal)"><i class="fas fa-cart-shopping"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASES</div><div style="font-size:17px;font-weight:800">${fmt_money(t.total)}</div></div>
-      </div>
-      <div class="sp-stat-tile">
-        <span class="sp-stat-icon" style="background:${t.outstanding>0?'var(--red-bg)':'var(--teal-bg)'};color:${t.outstanding>0?'var(--red)':'var(--teal)'}"><i class="fas fa-scale-balanced"></i></span>
-        <div><div style="font-size:10.5px;color:var(--muted);font-weight:700">OUTSTANDING</div><div style="font-size:17px;font-weight:800;color:${t.outstanding>0?'var(--red)':'var(--text)'}">${fmt_money(t.outstanding)}</div></div>
-      </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-address-card"></i> Contact &amp; Registration</div>
-      <div class="sp-info-grid">
-        ${infoItem('user', 'Contact Person', s.contact_person)}
-        ${infoItem('phone', 'Mobile', s.phone)}
-        ${infoItem('envelope', 'Email', s.email)}
-        ${infoItem('file-invoice', 'GST Number', s.gst_number)}
-        ${infoItem('id-card', 'PAN', s.pan_no)}
-        ${infoItem('handshake', 'Payment Terms', s.payment_terms)}
-        ${infoItem('building-columns', 'Bank', s.bank_name ? s.bank_name + (s.bank_account_no ? ' · ' + s.bank_account_no : '') : '')}
-        ${infoItem('map-pin', 'Address', [s.address, s.city, s.state].filter(Boolean).join(', '))}
-      </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Recent Purchases</div>
-      ${recentPurchases.length ? recentPurchases.map(p => `
-        <div class="sp-purchase-row">
-          <div><strong style="font-size:12.5px">${escHtml(p.purchase_no)}</strong><div style="font-size:11px;color:var(--muted);margin-top:1px">${fmt_date_disp(p.purchase_date)}</div></div>
-          <div style="font-weight:700;font-size:13px">${fmt_money(p.total)}</div>
-        </div>`).join('') : `
-        <div class="sp-empty">
-          <i class="fas fa-inbox"></i>
-          <div class="sp-empty-title">No purchases yet</div>
-          <div class="sp-empty-sub">Record one from Purchases → New Purchase Invoice</div>
-        </div>`}
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-book-open"></i> Party Ledger</div>
-      ${(() => {
-        const allSupPur = (STATE.purchases||[]).filter(p => String(p.supplier_id) === String(s.id)).sort((a,b) => a.purchase_date.localeCompare(b.purchase_date));
-        if (!allSupPur.length) return '<div class="sp-empty"><i class="fas fa-inbox"></i><div class="sp-empty-title">No transactions</div></div>';
-        let balance = 0;
-        const rows = allSupPur.map(p => {
-          const billed = parseFloat(p.total)||0;
-          const paid2  = parseFloat(p.amount_paid||0);
-          balance += billed - paid2;
-          const status = p.status || (balance <= 0 ? 'Paid' : 'Pending');
-          return `<tr>
-            <td style="font-size:11px">${fmt_date_disp(p.purchase_date)}</td>
-            <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
-            <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
-            <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
-            <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
-            <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;background:${status==='Paid'?'#e3f6ea':status==='Partial'?'#FFF3E0':'#FFEBEE'};color:${status==='Paid'?'#0d7a3f':status==='Partial'?'#E65100':'#E53935'}">${status}</span></td>
-          </tr>`;
-        }).join('');
-        const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
-        const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
-        return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
-        </table></div>`;
-      })()}
-    </div>
-  `;
-
-  // ── Footer actions ──
-  document.getElementById('sp-profile-foot').innerHTML = `
-    ${active ? `<button class="btn btn-outline" onclick="_modalEdit('supplier',${s.id},()=>{closeModal('modal-supplier-profile');editSupplierRich(${s.id});})"><i class="fas fa-pen"></i> Edit Supplier</button>` : ''}
-    <button class="btn btn-primary" onclick="viewSupplierPdf(${s.id})"><i class="fas fa-file-pdf"></i> View / Print PDF</button>
-  `;
-
-  openModal('modal-supplier-profile');
-}
-
-// Printable supplier profile — opens in a new tab, ready for Save as PDF.
-function viewSupplierPdf(id) {
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
-  if (!s) { toast('❌ Supplier not found', 'error'); return; }
-  const co = pneCompanyInfo();
-  const kv = (label, val) => val ? `<div class="kv"><span>${label}</span><b>${escHtml(String(val))}</b></div>` : '';
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(s.name)} — Supplier Profile</title><style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 17px; font-weight: 800; color: #0d3b2e; }
-    .badge { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
-    h2 { font-size: 16px; margin: 0 0 2px; }
-    .sub { font-size: 11px; color: #6b7c93; margin-bottom: 14px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .box { border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
-    .box h3 { font-size: 11px; color: #0d3b2e; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .5px; }
-    .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; padding: 4px 0; color: #667; }
-    .kv b { color: #223; text-align: right; }
-    .footer { margin-top: 26px; border-top: 1px solid #eef0f3; padding-top: 10px; font-size: 9.5px; color: #99a; display: flex; justify-content: space-between; }
-  </style></head><body>
-    <div class="head">
-      <div style="display:flex;gap:12px;align-items:center">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:6px">` : ''}
-        <div class="co-name">${escHtml(co.name)}</div>
-      </div>
-      <div class="badge">SUPPLIER PROFILE</div>
-    </div>
-    <h2>${escHtml(s.name)}</h2>
-    <div class="sub">${escHtml(s.supplier_type||'')}${s.status==='archived'?' · ARCHIVED':''}</div>
-    <div class="grid">
-      <div class="box"><h3>Contact</h3>
-        ${kv('Contact Person', s.contact_person)}${kv('Phone', s.phone)}${kv('Email', s.email)}
-        ${kv('Address', s.address)}${kv('City', s.city)}${kv('State', s.state)}${kv('Country', s.country)}${kv('PIN Code', s.pincode)}
-      </div>
-      <div class="box"><h3>Tax &amp; Registration</h3>
-        ${kv('GSTIN', s.gst_number)}${kv('PAN No.', s.pan_no)}${kv('Aadhaar No.', s.aadhaar_no)}
-        ${kv('FSSAI License', s.fssai_no)}${kv('Payment Terms', s.payment_terms)}
-      </div>
-      <div class="box"><h3>Bank Details</h3>
-        ${kv('Bank Name', s.bank_name)}${kv('Account No.', s.bank_account_no)}${kv('IFSC Code', s.bank_ifsc)}${kv('Branch', s.bank_branch)}
-      </div>
-      <div class="box"><h3>Other</h3>
-        ${kv('Opening Balance', s.opening_balance ? fmt_money(s.opening_balance) : '')}
-        ${kv('Notes', s.notes)}
-      </div>
-    </div>
-    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())}</span></div>
-    <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-async function deleteSupplierPermanent(id) {
-  if (!assertCanDelete('this supplier')) return;
-  const s = splAllSuppliers().find(x => String(x.id) === String(id));
-  const conf = await Swal.fire({
-    title: 'Permanently delete this supplier?',
-    html: `"<b>${escHtml(s?.name||'')}</b>" will be removed forever. This cannot be undone.<br><br><span style="font-size:12px;color:#888">Suppliers with purchase history cannot be deleted — use Archive for those.</span>`,
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete Permanently', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/suppliers.php?id=' + id + '&permanent=1', 'DELETE');
-    STATE.suppliers = (STATE.suppliers||[]).filter(x => String(x.id) !== String(id));
-    SUP.archivedList = (SUP.archivedList||[]).filter(x => String(x.id) !== String(id));
-    toast('🗑️ Supplier permanently deleted', 'info');
-    renderSuppliers();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 async function archiveSupplier(id) {
-  if (!assertCanArchive('this supplier')) return;
   const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
   const conf = await Swal.fire({
     title: 'Archive supplier?', text: `"${s.name}" will be moved to archived suppliers.`,
@@ -16062,8 +11568,6 @@ async function archiveSupplier(id) {
   try {
     await api('api/suppliers.php?id=' + id, 'DELETE');
     STATE.suppliers = STATE.suppliers.filter(x => String(x.id) !== String(id));
-    SUP.archivedList = SUP.archivedList || [];
-    SUP.archivedList.push({ ...s, status: 'archived' });
     renderSuppliers();
     toast('🗑️ Archived', 'info');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
@@ -16107,345 +11611,38 @@ function fmt_money_sym(n, sym) { return (sym||'₹') + Number(n||0).toLocaleStri
 
 function filterPurchases(q) { PUR.search = q || ''; renderPurchases(); }
 
-// ── Purchase List page ──────────────────────────────────────────
-let PL_PAGE = 1;
-const PL_PAGESIZE = 10;
-
-// Doc status is derived from payment: anything paid at all → Completed,
-// nothing paid yet → Pending. (Purchases store payment state in `status`.)
-function plDocStatus(p) {
-  return (p.status === 'Paid' || p.status === 'Partial' || p.status === 'Received') ? 'Completed' : 'Pending';
-}
-
-function populatePurchaseListFilters() {
-  const supSel = document.getElementById('pl-f-supplier');
-  if (supSel && supSel.options.length <= 1) {
-    supSel.innerHTML = '<option value="">All Suppliers</option>' +
-      (STATE.suppliers||[]).map(su => `<option value="${su.id}">${escHtml(su.name)}</option>`).join('');
-  }
-  const prodSel = document.getElementById('pl-f-product');
-  if (prodSel && prodSel.options.length <= 1) {
-    prodSel.innerHTML = '<option value="">All Products</option>' +
-      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
-  }
-  const ptSel = document.getElementById('pl-f-paytype');
-  if (ptSel) {
-    const cur = ptSel.value;
-    const types = [...new Set((STATE.purchases||[]).map(p => (p.payment_type||'').trim()).filter(Boolean))].sort();
-    ptSel.innerHTML = '<option value="">All Payment Types</option>' +
-      types.map(t => `<option ${t===cur?'selected':''}>${escHtml(t)}</option>`).join('');
-  }
-  const fromEl = document.getElementById('pl-f-from'), toEl = document.getElementById('pl-f-to');
-  if (fromEl && toEl && !fromEl.value && !toEl.value) {
-    fromEl.value = BIZ_FROM_DATE;
-    toEl.value = fmt_date(new Date());
-  }
-}
-
-function resetPurchasesFilter() {
-  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('pl-f-to').value = fmt_date(new Date());
-  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('pl-f-invno').value = '';
-  PL_PAGE = 1;
-  renderPurchases();
-}
-
-function plFilteredPurchases() {
-  const from = document.getElementById('pl-f-from')?.value || '';
-  const to = document.getElementById('pl-f-to')?.value || '';
-  const sup = document.getElementById('pl-f-supplier')?.value || '';
-  const wh = document.getElementById('pl-f-warehouse')?.value || '';
-  const status = document.getElementById('pl-f-status')?.value || '';
-  const pay = document.getElementById('pl-f-paystatus')?.value || '';
-  const invno = (document.getElementById('pl-f-invno')?.value || '').trim().toLowerCase();
-  const prod = document.getElementById('pl-f-product')?.value || '';
-  const ptype = document.getElementById('pl-f-paytype')?.value || '';
-
-  return (STATE.purchases||[]).filter(p => {
-    const d = (p.purchase_date||'').slice(0,10);
-    if (from && d < from) return false;
-    if (to && d > to) return false;
-    if (sup && String(p.supplier_id) !== String(sup)) return false;
-    if (wh && (p.warehouse||'Main Warehouse') !== wh) return false;
-    if (status && plDocStatus(p) !== status) return false;
-    if (pay && (p.status === 'Received' ? 'Pending' : p.status) !== pay) return false;
-    if (invno && !(p.purchase_no||'').toLowerCase().includes(invno) && !(p.supplier_invoice_ref||'').toLowerCase().includes(invno)) return false;
-    if (prod) {
-      const ids = String(p.product_ids||'').split(',').map(x => x.trim());
-      if (!ids.includes(prod)) return false;
-    }
-    if (ptype && (p.payment_type||'').trim() !== ptype) return false;
-    return true;
-  });
-}
-
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
-  populatePurchaseListFilters();
-  const list = plFilteredPurchases();
-
-  // ── Stats over the filtered set ────────────────────────────
-  const totQty = list.reduce((a,p) => a + (parseFloat(p.total_qty)||0), 0);
-  const totAmt = list.reduce((a,p) => a + (parseFloat(p.total)||0), 0);
-  const totPaid = list.reduce((a,p) => a + (parseFloat(p.amount_paid)||0), 0);
-  const totOut = Math.max(0, totAmt - totPaid);
-  document.getElementById('pl-stat-count').textContent = list.length;
-  document.getElementById('pl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-  document.getElementById('pl-stat-amount').textContent = fmt_money(totAmt);
-  document.getElementById('pl-stat-paid').textContent = fmt_money(totPaid);
-  document.getElementById('pl-stat-out').textContent = fmt_money(totOut);
-  const fromV = document.getElementById('pl-f-from')?.value, toV = document.getElementById('pl-f-to')?.value;
-  document.getElementById('pl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / PL_PAGESIZE));
-  if (PL_PAGE > totalPages) PL_PAGE = totalPages;
-  const start = (PL_PAGE - 1) * PL_PAGESIZE;
-  const pageRows = list.slice(start, start + PL_PAGESIZE);
-  document.getElementById('purInfo').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+PL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('pl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="plPage(${PL_PAGE-1})" ${PL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===PL_PAGE?'active':''}" onclick="plPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="plPage(${PL_PAGE+1})" ${PL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
+  const statusF = document.getElementById('purStatusFilter')?.value || '';
+  let list = STATE.purchases || [];
+  if (PUR.search) {
+    const q = PUR.search.toLowerCase();
+    list = list.filter(p => (p.purchase_no||'').toLowerCase().includes(q) || (p.supplier_name||'').toLowerCase().includes(q) || (p.supplier_invoice_ref||'').toLowerCase().includes(q));
   }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
+  if (statusF) list = list.filter(p => p.status === statusF);
+  document.getElementById('purInfo').textContent = list.length + ' purchase' + (list.length===1?'':'s');
+  document.getElementById('purCountInfo').textContent = (STATE.purchases||[]).length + ' total';
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No purchases yet — click "Add Purchase" to record one</td></tr>`;
     return;
   }
-
-  const payColor = {
-    Paid:    { color:'#1B5E20', bg:'#E8F5E9' },
-    Partial: { color:'#7B3F00', bg:'#FFF3E0' },
-    Pending: { color:'#7B1FA2', bg:'#F3E8FF' },
-    Received:{ color:'#7B1FA2', bg:'#F3E8FF' },
-  };
-  tbody.innerHTML = pageRows.map((p, i) => {
-    const doc = plDocStatus(p);
-    const docColor = doc === 'Completed' ? '#00897B' : '#1976D2';
-    const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
-    const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
-    return `
+  const statusColor = { Pending:'#FFA000', Received:'#1976D2', Partial:'#E65100', Paid:'#00897B' };
+  tbody.innerHTML = list.map(p => `
     <tr>
-      <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td>${fmt_date_disp(p.purchase_date)}</td>
       <td>${escHtml(p.supplier_name||'—')}</td>
-      <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
-      <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
-      <td>${escHtml(p.payment_type||'—')}</td>
+      <td>${fmt_date_disp(p.purchase_date)}</td>
+      <td>${p.item_count ?? ''}</td>
+      <td>${fmt_money_sym(p.total, p.currency==='INR'?'₹':(p.currency==='USD'?'$':(p.currency==='EUR'?'€':(p.currency==='GBP'?'£':''))))}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${statusColor[p.status]||'#888'};background:${statusColor[p.status]||'#888'}18;padding:2px 8px;border-radius:10px">${escHtml(p.status)}</span></td>
       <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View" onclick="viewPurchaseDetails(${p.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Print" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-print"></i></button>
-          <button class="act-btn" title="Download PDF" onclick="printPurchaseEntry(${p.id})"><i class="fas fa-download"></i></button>
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="editWithApproval('purchase',${p.id},'Purchase ${escHtml((p.purchase_no||'#'+p.id).replace(/'/g,"\\'"))}',()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${_delItem("deletePurchase("+p.id+")")}
-            </div>
-          </span>
+        <div class="action-cell">
+          <button class="act-btn" title="Edit" onclick="editPurchase(${p.id})"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" title="Delete" onclick="deletePurchase(${p.id})"><i class="fas fa-trash"></i></button>
         </div>
       </td>
-    </tr>`;
-  }).join('');
-}
-
-function plPage(p) {
-  const totalPages = Math.max(1, Math.ceil(plFilteredPurchases().length / PL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  PL_PAGE = p;
-  renderPurchases();
-}
-
-function exportPurchasesExcel() {
-  const list = plFilteredPurchases();
-  if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Status','Payment Type','Warehouse']];
-  list.forEach((p, i) => {
-    const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
-    rows.push([
-      i+1, p.purchase_no||'', p.purchase_date||'', p.supplier_name||'',
-      (parseFloat(p.total_qty)||0).toFixed(2), total.toFixed(2), paid.toFixed(2), Math.max(0, total-paid).toFixed(2),
-      p.status === 'Received' ? 'Pending' : (p.status||''), plDocStatus(p), p.payment_type||'', p.warehouse||'Main Warehouse'
-    ]);
-  });
-  _downloadCSV(rows, 'purchase_list.csv');
-  toast('✅ Exported ' + list.length + ' purchases', 'success');
-}
-
-// ── Product List page (product businesses) ──────────────────────
-let PRL_PAGE = 1;
-const PRL_PAGESIZE = 10;
-
-function prlStock(p) { return snAvailableStockSafe(p.id); }
-
-function populateProductsListFilters() {
-  const catSel = document.getElementById('prl-f-category');
-  if (catSel) {
-    const cur = catSel.value;
-    const cats = [...new Set((STATE.products||[]).map(p => (p.category||'').trim()).filter(Boolean))].sort();
-    catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option ${c===cur?'selected':''}>${escHtml(c)}</option>`).join('');
-  }
-  const unitSel = document.getElementById('prl-f-unit');
-  if (unitSel) {
-    const cur = unitSel.value;
-    const units = [...new Set((STATE.products||[]).map(p => (p.unit||'').trim()).filter(Boolean))].sort();
-    unitSel.innerHTML = '<option value="">All Units</option>' + units.map(u => `<option ${u===cur?'selected':''}>${escHtml(u)}</option>`).join('');
-  }
-}
-
-function resetProductsListFilter() {
-  document.getElementById('prl-f-search').value = '';
-  document.getElementById('prl-f-hsn').value = '';
-  ['prl-f-category','prl-f-unit','prl-f-status','prl-f-warehouse'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  PRL_PAGE = 1;
-  renderProductsList();
-}
-
-function prlFilteredProducts() {
-  const q = (document.getElementById('prl-f-search')?.value || '').trim().toLowerCase();
-  const cat = document.getElementById('prl-f-category')?.value || '';
-  const unit = document.getElementById('prl-f-unit')?.value || '';
-  const status = document.getElementById('prl-f-status')?.value || '';
-  const hsn = (document.getElementById('prl-f-hsn')?.value || '').trim().toLowerCase();
-  const wh = document.getElementById('prl-f-warehouse')?.value || '';
-
-  return (STATE.products||[]).filter(p => {
-    if (q && !(p.name||'').toLowerCase().includes(q) && !(p.sku||'').toLowerCase().includes(q)) return false;
-    if (cat && (p.category||'').trim() !== cat) return false;
-    if (unit && (p.unit||'').trim() !== unit) return false;
-    if (status && (p.status||'active') !== status) return false;
-    if (hsn && !(p.hsn||'').toLowerCase().includes(hsn)) return false;
-    if (wh && (p.default_warehouse||'Main Warehouse') !== wh) return false;
-    return true;
-  });
-}
-
-function renderProductsList() {
-  const tbody = document.getElementById('prl-tbody');
-  if (!tbody) return;
-  populateProductsListFilters();
-  const list = prlFilteredProducts();
-
-  // ── Stats (over ALL products, independent of filters, like the reference) ──
-  const all = STATE.products||[];
-  let inStock = 0, lowStock = 0, outStock = 0;
-  all.forEach(p => {
-    const st = prlStock(p);
-    const reorder = parseFloat(p.reorder_level) || 0;
-    if (st <= 0) outStock++;
-    else if (reorder > 0 && st <= reorder) lowStock++;
-    else inStock++;
-  });
-  document.getElementById('prl-stat-total').textContent = all.length;
-  document.getElementById('prl-stat-active').textContent = all.filter(p => (p.status||'active') === 'active').length;
-  document.getElementById('prl-stat-instock').textContent = inStock;
-  document.getElementById('prl-stat-lowstock').textContent = lowStock;
-  document.getElementById('prl-stat-outstock').textContent = outStock;
-  document.getElementById('prl-stat-inactive').textContent = all.filter(p => (p.status||'active') !== 'active').length;
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / PRL_PAGESIZE));
-  if (PRL_PAGE > totalPages) PRL_PAGE = totalPages;
-  const start = (PRL_PAGE - 1) * PRL_PAGESIZE;
-  const pageRows = list.slice(start, start + PRL_PAGESIZE);
-  document.getElementById('prl-info').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+PRL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('prl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="prlPage(${PRL_PAGE-1})" ${PRL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - PRL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===PRL_PAGE?'active':''}" onclick="prlPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="prlPage(${PRL_PAGE+1})" ${PRL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No products found — click "Add New Product" to create one</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = pageRows.map((p, i) => {
-    const stock = prlStock(p);
-    const reorder = parseFloat(p.reorder_level) || 0;
-    const stockColor = stock <= 0 ? '#E53935' : (reorder > 0 && stock <= reorder ? '#E65100' : 'var(--text)');
-    const active = (p.status||'active') === 'active';
-    return `
-    <tr>
-      <td>${start + i + 1}</td>
-      <td><strong>${escHtml(p.name)}</strong></td>
-      <td>${escHtml(p.sku||'—')}</td>
-      <td>${escHtml(p.category||'—')}</td>
-      <td>${escHtml(p.unit||'Kg')}</td>
-      <td>${escHtml(p.hsn||'—')}</td>
-      <td style="text-align:right">${(parseFloat(p.sale_rate ?? p.rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right">${(parseFloat(p.purchase_rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600;color:${stockColor}">${stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escHtml(p.unit||'Kg')}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
-      <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProductRich('${p.id}'))"><i class="fas fa-pen"></i></button>
-          <button class="act-btn" title="Stock History" onclick="goToStockHistory('${p.id}', '${escHtml((p.name||'').replace(/'/g,"\\'"))}')"><i class="fas fa-eye"></i></button>
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="goToStockHistory('${p.id}')"><i class="fas fa-clock-rotate-left" style="color:#00897B"></i> Stock History</button>
-              ${_delItem("deleteProduct('"+p.id+"')")}
-            </div>
-          </span>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function prlPage(p) {
-  const totalPages = Math.max(1, Math.ceil(prlFilteredProducts().length / PRL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  PRL_PAGE = p;
-  renderProductsList();
-}
-
-function exportProductsExcel() {
-  const list = prlFilteredProducts();
-  if (!list.length) { toast('⚠️ No products to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Product Name','SKU / Code','Category','Unit','HSN Code','Sale Rate','Purchase Rate','Current Stock','Reorder Level','Warehouse','Status']];
-  list.forEach((p, i) => {
-    rows.push([
-      i+1, p.name||'', p.sku||'', p.category||'', p.unit||'Kg', p.hsn||'',
-      (parseFloat(p.sale_rate ?? p.rate)||0).toFixed(2), (parseFloat(p.purchase_rate)||0).toFixed(2),
-      prlStock(p).toFixed(2), (parseFloat(p.reorder_level)||0).toFixed(2),
-      p.default_warehouse||'Main Warehouse', (p.status||'active') === 'active' ? 'Active' : 'Inactive'
-    ]);
-  });
-  _downloadCSV(rows, 'product_list.csv');
-  toast('✅ Exported ' + list.length + ' products', 'success');
+    </tr>`).join('');
 }
 
 function fmt_date_disp(d) {
@@ -16455,4344 +11652,153 @@ function fmt_date_disp(d) {
   return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
 }
 
-
-// ══════════════════════════════════════════
-// NEW PURCHASE ENTRY (full page)
-// ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [] };
-let pnDeductionSeq = 1;
-
-// ── Deductions (Purchase Entry sidebar — compact card list) ──
-function addPNDeduction() {
-  PNE.deductions.push({ id: pnDeductionSeq++, type: '', description: '', amount: 0 });
-  renderPNDeductions();
-}
-function removePNDeduction(id) {
-  PNE.deductions = PNE.deductions.filter(d => d.id !== id);
-  renderPNDeductions();
-}
-function updatePNDeduction(id, field, val) {
-  const d = PNE.deductions.find(x => x.id === id); if (!d) return;
-  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
-  calcPurchaseNewTotals();
-}
-function renderPNDeductions() {
-  const box = document.getElementById('pn-deductions-list');
-  if (!box) return;
-  box.innerHTML = PNE.deductions.length ? PNE.deductions.map(d => `
-    <div style="background:var(--bg);border-radius:7px;padding:8px">
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input placeholder="Type" style="flex:1;font-size:11px;padding:5px 7px" value="${escHtml(d.type)}" oninput="updatePNDeduction(${d.id},'type',this.value)">
-        <button class="item-del" style="width:24px;height:24px" onclick="removePNDeduction(${d.id})" title="Remove"><i class="fas fa-times" style="font-size:10px"></i></button>
-      </div>
-      <input placeholder="Description" style="width:100%;font-size:11px;padding:5px 7px;margin-bottom:6px" value="${escHtml(d.description)}" oninput="updatePNDeduction(${d.id},'description',this.value)">
-      <input type="number" placeholder="Amount (₹)" style="width:100%;font-size:11px;padding:5px 7px" min="0" step="0.01" value="${d.amount}" oninput="updatePNDeduction(${d.id},'amount',this.value)">
-    </div>`).join('') : `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">No deductions added</div>`;
-  calcPurchaseNewTotals();
-}
-
-let pneItemSeq = 1;
-
-function goToStockIn() {
-  showPage('stock-in-new');
-  if (typeof loadStockIn === 'function') loadStockIn();
-}
-
-function goToNewPurchase() {
-  PNE.editingId = null;
-  PNE.items = [pneEmptyItem()];
-  PNE.deductions = [];
-  PNE.attachmentDataUrl = null;
-  PNE.attachmentExisting = null;
-  document.getElementById('pne-title').textContent = 'New Purchase Entry';
-  document.getElementById('pne-subtitle').textContent = 'Local Purchase — grains, spices & other produce';
-  document.getElementById('pn-no').value = '';
-  document.getElementById('pn-date').value = fmt_date(new Date());
-  document.getElementById('pn-suppliertype').value = 'Farmer';
-  document.getElementById('pn-refpo').value = '';
-  document.getElementById('pn-weighingtype').value = 'Dharam Kanta';
-  document.getElementById('pn-kantaname').value = '';
-  document.getElementById('pn-slipno').value = '';
-  document.getElementById('pn-weightdatetime').value = '';
-  document.getElementById('pn-kanta-gross').value = '';
-  document.getElementById('pn-kanta-tare').value = '';
-  document.getElementById('pn-kanta-net').value = '';
-  document.getElementById('pn-kanta-operator').value = '';
-  document.getElementById('pn-kanta-slip-input').value = '';
-  document.getElementById('pn-kanta-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
-  PNE.kantaSlipDataUrl = null;
-  document.getElementById('pn-q-moisture').value = '';
-  document.getElementById('pn-q-impurity').value = '';
-  document.getElementById('pn-q-dhaltapct').value = '';
-  calcPNEKantaSummary();
-  populatePNESupplierDropdown();
-  document.getElementById('pn-supplier').value = '';
-  clearSupplierAutofill();
-  document.getElementById('pn-invno').value = '';
-  document.getElementById('pn-transportmode').value = 'Road';
-  document.getElementById('pn-vehicleno').value = '';
-  document.getElementById('pn-drivername').value = '';
-  document.getElementById('pn-warehouse').value = 'Main Warehouse';
-  document.getElementById('pn-paymentterms').value = 'Immediate';
-  document.getElementById('pn-paymenttype').value = 'Cash';
-  document.getElementById('pn-remarks').value = '';
-  setGstApplicable(false);
-  document.getElementById('pn-transportcharge').value = 0;
-  document.getElementById('pn-loadingcharge').value = 0;
-  document.getElementById('pn-packingcharge').value = 0;
-  document.getElementById('pn-othercharge').value = 0;
-
-  document.getElementById('pn-tradediscpct').value = 0;
-  document.getElementById('pn-cashdiscpct').value = 0;
-  document.getElementById('pn-cdwithin').value = 'Same Day';
-  renderPNDeductions();
-  document.getElementById('pn-gst-pct').value = 0;
-  document.getElementById('pn-paystatus').value = 'Pending';
-  document.getElementById('pn-amountpaid').value = 0;
-  document.getElementById('pn-paymode').value = 'Cash';
-  document.getElementById('pne-split-panel').style.display = 'none';
-  document.getElementById('pne-split-rows').innerHTML = '';
-  document.getElementById('pn-transactionno').value = '';
-  document.getElementById('pn-paydate').value = fmt_date(new Date());
-  document.getElementById('pn-notes').value = '';
-  document.getElementById('pn-attachment').value = '';
-  document.getElementById('pne-supplier-summary').innerHTML = '<div class="pne-summary-empty">Select a supplier to see their purchase history.</div>';
-  renderPNEItemsTable();
-  showPage('purchase-new');
-  document.querySelector('.nav-item[data-page="purchases"]')?.classList.add('active');
-}
-
-function cancelPurchaseEntry() {
-  showPage('purchases');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
-}
-
-function clearSupplierAutofill() {
-  document.getElementById('pn-mobile').value = '';
-  document.getElementById('pn-state').value = '';
-  document.getElementById('pn-district').value = '';
-  document.getElementById('pn-address').value = '';
-  document.getElementById('pn-gstin').value = '';
-}
-
-function populatePNESupplierDropdown() {
-  const sel = document.getElementById('pn-supplier');
+function populatePurchaseSupplierDropdown() {
+  const sel = document.getElementById('pur-supplier');
   if (!sel) return;
   const cur = sel.value;
-  sel.innerHTML = '<option value="">Select or add supplier…</option>' +
+  sel.innerHTML = '<option value="">Select supplier…</option>' +
     (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
   if (cur) sel.value = cur;
 }
 
-function onSupplierTypeChange() {
-  // Convenience default: farmer purchases are conventionally GST-exempt in mandi trade
-  if (document.getElementById('pn-suppliertype').value === 'Farmer') setGstApplicable(false);
+function addPurchaseItem(prefill) {
+  PUR.items.push(Object.assign({ id: purItemSeq++, product_id:'', description:'', hsn:'', qty:1, unit:'pcs', rate:0, gst_pct: STATE.settings.defaultGST ?? 18 }, prefill||{}));
+  renderPurchaseItems();
 }
 
-async function onSupplierPicked() {
-  const id = document.getElementById('pn-supplier').value;
-  if (!id) { clearSupplierAutofill(); document.getElementById('pne-supplier-summary').innerHTML = '<div class="pne-summary-empty">Select a supplier to see their purchase history.</div>'; return; }
-  const s = STATE.suppliers.find(x => String(x.id) === String(id));
-  if (s) {
-    document.getElementById('pn-mobile').value   = s.phone || '';
-    document.getElementById('pn-state').value    = s.state || '';
-    document.getElementById('pn-district').value = s.district || '';
-    document.getElementById('pn-address').value  = s.address || '';
-    document.getElementById('pn-gstin').value    = s.gst_number || '';
-    if (s.supplier_type) document.getElementById('pn-suppliertype').value = s.supplier_type;
-  }
-  try {
-    const r = await api('api/suppliers.php?summary_for=' + id);
-    const sm = r.data || {};
-    document.getElementById('pne-supplier-summary').innerHTML = `
-      <div class="pne-kv"><span>Supplier Name</span><strong>${escHtml(s?.name||'—')}</strong></div>
-      <div class="pne-kv"><span>Supplier Type</span><strong>${escHtml(s?.supplier_type||'—')}</strong></div>
-      <div class="pne-kv"><span>Mobile No.</span><strong>${escHtml(s?.phone||'—')}</strong></div>
-      <div class="pne-kv"><span>State</span><strong>${escHtml(s?.state||'—')}</strong></div>
-      <div class="pne-kv"><span>GSTIN</span><strong>${escHtml(s?.gst_number||'Not Applicable')}</strong></div>
-      <div class="pne-kv" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><span>Previous Purchases</span><strong>${fmt_money(sm.total_purchases||0)}</strong></div>
-      <div class="pne-kv"><span>Total Paid</span><strong>${fmt_money(sm.total_paid||0)}</strong></div>
-      <div class="pne-kv"><span>Outstanding</span><strong style="color:${(sm.outstanding||0)>0?'#E53935':'inherit'}">${fmt_money(sm.outstanding||0)}</strong></div>`;
-  } catch(e) { /* non-fatal — sidebar just stays on basic info */ }
+function removePurchaseItem(id) {
+  PUR.items = PUR.items.filter(i => i.id !== id);
+  renderPurchaseItems();
 }
 
-function setGstApplicable(applicable) {
-  document.getElementById('pn-gst-no').classList.toggle('active', !applicable);
-  document.getElementById('pn-gst-yes').classList.toggle('active', applicable);
-  document.getElementById('pn-gstin').disabled = !applicable;
-  document.getElementById('pn-supplytype').disabled = !applicable;
-  document.getElementById('pn-gst-rate-wrap').style.display = applicable ? 'inline' : 'none';
-  document.getElementById('pn-gst-note').style.display = applicable ? 'none' : 'block';
-  calcPurchaseNewTotals();
-}
-
-function pneEmptyItem() {
-  const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
-  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
-    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
-}
-
-function addPurchaseNewItem() {
-  PNE.items.push(pneEmptyItem());
-  // Reset all header weight + dhalta fields for the next product's kanta reading
-  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  calcPNEKantaSummary();
-  renderPNEItemsTable();
-  document.getElementById('pn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function removePNEItem(id) {
-  if (PNE.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
-  PNE.items = PNE.items.filter(i => i.id !== id);
-  renderPNEItemsTable();
-  calcPurchaseNewTotals();
-  calcPNEKantaSummary();
-}
-
-function editPNEItem(id) {
-  const it = PNE.items.find(i => i.id === id); if (!it) return;
-  it.editing = true;
-  // Restore this item's weight + dhalta back to the header fields
-  const gEl  = document.getElementById('pn-kanta-gross');
-  const tEl  = document.getElementById('pn-kanta-tare');
-  const dEl  = document.getElementById('pn-q-dhaltakg');
-  if (gEl) gEl.value = it.gross_weight || '';
-  if (tEl) tEl.value = it.tare_weight  || '';
-  if (dEl) dEl.value = it.dhalta_kg    || '';
-  calcPNEKantaSummary();  // recalculates net
-  calcPNEQualitySummary(); // recalculates dhalta% + billable
-  renderPNEItemsTable();
-}
-
-function donePNEItem(id) {
-  const it = PNE.items.find(i => i.id === id); if (!it) return;
-  if (it.mode === 'freetext') {
-    if (!it.description || !it.description.trim()) { toast('⚠️ Enter a description for this line', 'warning'); return; }
-  } else if (!it.product_id) {
-    toast('⚠️ Select a product for this line', 'warning'); return;
-  }
-  it.editing = false;
-  // Reset header weight + dhalta fields — ready for next item's kanta reading
-  ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  renderPNEItemsTable();
-  calcPurchaseNewTotals();
-}
-
-// Dhalta Kg is the editable figure (matches how it's actually weighed at the
-// mandi); Dhalta % is derived from it for display, not the other way round.
-function pneCalcRow(it) {
-  const gross = parseFloat(it.gross_weight) || 0;
-  const tare  = parseFloat(it.tare_weight)  || 0;
-  const net   = Math.max(0, gross - tare);
-  const dhaltaKg  = Math.max(0, parseFloat(it.dhalta_kg) || 0);
-  const dhaltaPct = net > 0 ? +(dhaltaKg / net * 100).toFixed(2) : 0;
-  const billable  = Math.max(0, net - dhaltaKg);
-  const rate      = parseFloat(it.rate) || 0;
-  const discPct   = parseFloat(it.discount_pct) || 0;
-  const grossAmt  = billable * rate;
-  const discountAmt = +(grossAmt * discPct / 100).toFixed(2);
-  const amount    = +(grossAmt - discountAmt).toFixed(2);
-  return { net, dhaltaKg, dhaltaPct, billable, amount, discountAmt };
-}
-
-function renderPNEItemsTable() {
-  const tbody = document.getElementById('pne-items-tbody');
+function renderPurchaseItems() {
+  const tbody = document.getElementById('pur-items-tbody');
   if (!tbody) return;
-  tbody.innerHTML = PNE.items.map((it, idx) => {
-    const c = pneCalcRow(it);
-    if (!it.editing) {
-      // ── View mode: plain values, pencil to edit, trash to remove ──
-      const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
-      return `<tr data-row="${it.id}">
-        <td class="pne-view-cell">${idx+1}</td>
-        <td class="pne-view-cell" style="text-align:left"><strong>${escHtml(prod?.name || it.description || '—')}</strong></td>
-        <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
-        <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
-        <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
-        <td class="pne-view-cell" id="pne-vgross-${it.id}">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
-        <td class="pne-view-cell" id="pne-vtare-${it.id}">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
-        <td class="pne-view-cell">${c.net.toFixed(2)}</td>
-        <td class="pne-view-cell pne-dhpct-col">${c.dhaltaPct.toFixed(1)}%</td>
-        <td class="pne-view-cell">${c.dhaltaKg.toFixed(2)}</td>
-        <td class="pne-view-cell">${c.billable.toFixed(2)}</td>
-        <td class="pne-view-cell">${(parseFloat(it.rate)||0).toFixed(2)}</td>
-        <td class="pne-view-cell">${(parseFloat(it.discount_pct)||0).toFixed(2)}</td>
-        <td class="pne-view-cell pne-amount-cell">${fmt_money(c.amount)}</td>
-        <td class="pne-view-cell" style="padding:6px 8px">
-          <div class="pne-row-actions">
-            <button class="pne-icon-btn edit" onclick="editPNEItem(${it.id})" title="Edit"><i class="fas fa-pencil-alt" style="font-size:11px"></i></button>
-            <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
-          </div>
-        </td>
-      </tr>`;
-    }
-    // ── Edit mode: live-computed inputs ──
-    return `<tr data-row="${it.id}">
-      <td>${idx+1}</td>
+  tbody.innerHTML = PUR.items.map(it => {
+    const amt = (it.qty||0) * (it.rate||0);
+    return `<tr>
       <td>
-        ${it.mode === 'freetext'
-          ? `<input value="${escHtml(it.description)}" placeholder="e.g. Gunny bags, Labour advance" oninput="updatePNEItem(${it.id},'description',this.value,true)">`
-          : `<select onchange="onPNEProductChange(${it.id}, this.value)">
-               <option value="">Select product…</option>
-               ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
-             </select>`}
+        <select style="width:100%;font-size:12px" onchange="onPurItemProductChange(${it.id}, this.value)">
+          <option value="">— free text —</option>
+          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+        </select>
+        ${!it.product_id ? `<input style="width:100%;font-size:12px;margin-top:4px" placeholder="Item description" value="${escHtml(it.description)}" oninput="updatePurItem(${it.id},'description',this.value)">` : ''}
       </td>
-      <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium Grade" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
-      <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
-      <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
-      <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
-      <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
-      <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
-      <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
-      <td><input id="pne-dkg-${it.id}" type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
-      <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
-      <td class="pne-amount-cell" id="pne-amt-${it.id}">${fmt_money(c.amount)}</td>
-      <td style="padding:6px 8px">
-        <div class="pne-row-actions">
-          <button class="pne-icon-btn done" onclick="donePNEItem(${it.id})" title="Done"><i class="fas fa-check" style="font-size:11px"></i></button>
-          <button class="pne-icon-btn del" onclick="removePNEItem(${it.id})" title="Remove"><i class="fas fa-trash" style="font-size:11px"></i></button>
-        </div>
-      </td>
+      <td><input style="width:70px;font-size:12px" value="${escHtml(it.hsn)}" oninput="updatePurItem(${it.id},'hsn',this.value)"></td>
+      <td><input type="number" style="width:60px;font-size:12px" value="${it.qty}" min="0" step="0.001" oninput="updatePurItem(${it.id},'qty',this.value)"></td>
+      <td><input style="width:55px;font-size:12px" value="${escHtml(it.unit)}" oninput="updatePurItem(${it.id},'unit',this.value)"></td>
+      <td><input type="number" style="width:80px;font-size:12px" value="${it.rate}" min="0" step="0.01" oninput="updatePurItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" style="width:55px;font-size:12px" value="${it.gst_pct}" min="0" step="0.01" oninput="updatePurItem(${it.id},'gst_pct',this.value)"></td>
+      <td style="font-weight:600;white-space:nowrap">${fmt_money(amt)}</td>
+      <td><button class="item-del" onclick="removePurchaseItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
     </tr>`;
   }).join('');
-  applyDhaltaPctVisibility();
-  calcPurchaseNewTotals();
+  calcPurchaseTotals();
 }
 
-// Show/hide the Dhalta % sub-column per Settings → Company (show_dhalta_pct).
-// The Kg column always stays — only the derived percentage is optional.
-function applyDhaltaPctVisibility() {
-  const show = (STATE.settings.showDhaltaPct ?? '1') !== '0';
-  document.querySelectorAll('.pne-dhpct-col').forEach(el => { el.style.display = show ? '' : 'none'; });
-  const g = document.getElementById('pne-th-dhalta-group');
-  if (g) { g.colSpan = show ? 2 : 1; g.textContent = show ? 'Dhalta' : 'Dhalta (Kg)'; }
-
-  // The colgroup assigns widths by DOM position, so when hiding Dhalta %
-  // we physically remove its <col> — otherwise every column after it shifts
-  // one slot and headers no longer align with cells.
-  // IMPORTANT: renderPNEItemsTable() replaces the whole table, so after any
-  // re-render a fresh <col id="pne-col-dhpct"> exists in the DOM. We must
-  // always re-read from the DOM, never use a stale JS reference from a
-  // previous render. The variable is intentionally dropped after each use.
-  const colPct = document.getElementById('pne-col-dhpct');
-  const colKg  = document.getElementById('pne-col-dhkg');
-
-  if (!show && colPct) {
-    // Store on the colKg node itself so it survives re-renders (colKg also
-    // gets a stable id and is never removed, only width-adjusted)
-    colKg._dhpctCol = colPct;
-    colPct.remove();
-  } else if (show && colKg) {
-    // Restore: either the col is already there (show re-applied after render)
-    // or we need to put the stashed one back
-    const stash = colKg._dhpctCol;
-    if (!document.getElementById('pne-col-dhpct') && stash) {
-      colKg.parentNode.insertBefore(stash, colKg);
-      colKg._dhpctCol = null;
-    }
-  }
-
-  // Widen the Kg col when % is hidden (more room to type values like 1250.50)
-  if (colKg) colKg.style.width = show ? '65px' : '100px';
-}
-
-function onPNEProductChange(id, productId) {
-  const it = PNE.items.find(i => i.id === id); if (!it) return;
+function onPurItemProductChange(id, productId) {
+  const it = PUR.items.find(i => i.id === id); if (!it) return;
   it.product_id = productId || '';
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) {
-      it.description = p.name;
-      // Auto-fill from product master — only when the field is blank so a
-      // user who changes product mid-entry doesn't silently lose what they typed.
-      if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
-      if (!it.variety_grade) it.variety_grade = p.variety || '';
-      if (!it.quality_grade) it.quality_grade = p.grade || '';
-      // moisture_limit is the product's stored expected moisture — editable per purchase lot
-      if ((it.moisture_pct === null || it.moisture_pct === '' || it.moisture_pct === undefined) && p.moisture_limit)
-        it.moisture_pct = parseFloat(p.moisture_limit);
-    }
+    if (p) { it.description = p.name; it.hsn = p.hsn || it.hsn; it.rate = parseFloat(p.rate)||it.rate; it.gst_pct = (p.gst!==undefined?p.gst:it.gst_pct); }
   }
-  renderPNEItemsTable();
+  renderPurchaseItems();
 }
 
-// Non-destructive update: recompute this row's derived cells (Net/Dhalta%/Billable/Amount)
-// directly via DOM instead of re-rendering the whole table — keeps focus in the input
-// the person is actively typing in (see the earlier "disables after one letter" fix).
-function updatePNEItem(id, field, val, isText) {
-  const it = PNE.items.find(i => i.id === id); if (!it) return;
-  it[field] = val;
-  const c = pneCalcRow(it);
-  const netEl = document.getElementById('pne-net-' + id);      if (netEl) netEl.textContent = c.net.toFixed(2);
-  const dpEl  = document.getElementById('pne-dhaltapct-' + id); if (dpEl) dpEl.textContent = c.dhaltaPct.toFixed(2);
-  const bwEl  = document.getElementById('pne-billable-' + id); if (bwEl) bwEl.textContent = c.billable.toFixed(2);
-  const amtEl = document.getElementById('pne-amt-' + id);      if (amtEl) amtEl.textContent = fmt_money(c.amount);
-  calcPurchaseNewTotals();
+function updatePurItem(id, field, val) {
+  const it = PUR.items.find(i => i.id === id); if (!it) return;
+  it[field] = (field==='description' || field==='hsn' || field==='unit') ? val : (parseFloat(val)||0);
+  renderPurchaseItems();
 }
 
-
-function calcPurchaseNewTotals() {
-  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalItemDiscount = 0;
-  let sumGross = 0, sumTare = 0, moistureWeighted = 0, dhaltaPctWeighted = 0;
-  PNE.items.forEach(it => {
-    const c = pneCalcRow(it);
-    totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount; totalItemDiscount += c.discountAmt;
-    sumGross += parseFloat(it.gross_weight) || 0;
-    sumTare  += parseFloat(it.tare_weight)  || 0;
-    moistureWeighted   += (parseFloat(it.moisture_pct) || 0) * c.net;
-    dhaltaPctWeighted  += c.dhaltaPct * c.net;
+function calcPurchaseTotals() {
+  const sym = { INR:'₹', USD:'$', EUR:'€', GBP:'£' }[document.getElementById('pur-currency')?.value] || '₹';
+  let subtotal = 0, gst = 0;
+  PUR.items.forEach(it => {
+    const amt = (it.qty||0) * (it.rate||0);
+    subtotal += amt;
+    gst += amt * ((it.gst_pct||0)/100);
   });
-  document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
-  document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
-  document.getElementById('pne-total-billable').textContent = totalBillable.toFixed(2) + ' Kg';
-  document.getElementById('pne-total-amount').textContent = fmt_money(subtotal);
-  document.getElementById('pne-sb-items').textContent = PNE.items.length;
-  document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
-  document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
-  document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
-  document.getElementById('pne-sb-amount').textContent = fmt_money(subtotal);
-
-  // ── Weight Summary sidebar — driven from PNE.items so it stays
-  // correct even after the header fields reset on Done / row removed ──
-  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '0.00 Kg';
-  document.getElementById('pnk-sum-gross').textContent    = fmt(sumGross);
-  document.getElementById('pnk-sum-tare').textContent     = fmt(sumTare);
-  document.getElementById('pnk-sum-net').textContent      = fmt(totalNet);
-  document.getElementById('pnk-sum-dhalta').textContent   = fmt(totalDhalta);
-  document.getElementById('pnk-sum-billable').textContent = fmt(totalBillable);
-  // Do NOT write back to pn-q-moisture / pn-q-dhaltapct / pn-q-dhaltakg / pn-q-billable here.
-  // Those are per-item header fields for the current row being entered —
-  // writing the accumulated total into them causes every new item to inherit
-  // the previous rows' combined values. calcPNEQualitySummary() handles them
-  // when the user is actively filling an item.
-
-  const addCharges = (parseFloat(document.getElementById('pn-transportcharge').value)||0)
-    + (parseFloat(document.getElementById('pn-loadingcharge').value)||0)
-    + (parseFloat(document.getElementById('pn-packingcharge').value)||0)
-    + (parseFloat(document.getElementById('pn-othercharge').value)||0);
-  document.getElementById('pn-addcharges-total').textContent = fmt_money(addCharges);
-  document.getElementById('pn-sum-subtotal').textContent = fmt_money(subtotal);
-  document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
-
-  const headerDiscount = 0; // Discount removed — use Deductions section instead
-  const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
-  document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
-  // Show in Tax & Amount Summary only when deductions exist
-  const dedRow = document.getElementById('pn-sum-deductions-row');
-  const dedVal = document.getElementById('pn-sum-deductions');
-  if (dedRow) dedRow.style.display = totalDeductions > 0 ? '' : 'none';
-  if (dedVal) dedVal.textContent = fmt_money(totalDeductions);
-
-  const tradeDiscPct = parseFloat(document.getElementById('pn-tradediscpct').value) || 0;
-  const cashDiscPct = parseFloat(document.getElementById('pn-cashdiscpct').value) || 0;
-  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
-  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
-  document.getElementById('pn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
-  document.getElementById('pn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
-
-  const taxable = Math.max(0, subtotal + addCharges - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
-  document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
-
-  document.getElementById('pne-sb-discount').textContent = fmt_money(totalItemDiscount);
-
-  const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
-  const gstPct = gstApplicable ? (parseFloat(document.getElementById('pn-gst-pct').value) || 0) : 0;
-  const gstAmt = gstApplicable ? +(taxable * gstPct / 100).toFixed(2) : 0;
-  document.getElementById('pn-sum-gst').textContent = fmt_money(gstAmt);
-
-  const grand = +(taxable + gstAmt).toFixed(2);
-  document.getElementById('pn-sum-grand').textContent = fmt_money(grand);
-
-  // Keep Amount Paid sane if Payment Status is set to Paid
-  const payStatus = document.getElementById('pn-paystatus').value;
-  if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
-
-  updatePNEPartialCard(grand, payStatus);
-  updatePNESplitMismatch();
+  document.getElementById('pur-subtotal').textContent = fmt_money_sym(subtotal, sym);
+  document.getElementById('pur-gst').textContent       = fmt_money_sym(gst, sym);
+  document.getElementById('pur-total').textContent     = fmt_money_sym(subtotal+gst, sym);
 }
 
-function updatePNEPartialCard(grand, payStatus) {
-  const card = document.getElementById('pn-partial-card');
-  if (!card) return;
-  const show = payStatus === 'Partial';
-  card.style.display = show ? 'block' : 'none';
-  if (!show) return;
-  const paid = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-  const remaining = Math.max(0, grand - paid);
-  const pct = grand > 0 ? Math.min(100, (paid / grand) * 100) : 0;
-  document.getElementById('pn-partial-total').textContent = fmt_money(grand);
-  document.getElementById('pn-partial-received').textContent = fmt_money(paid);
-  document.getElementById('pn-partial-remaining').textContent = fmt_money(remaining);
-  document.getElementById('pn-partial-bar').style.width = pct.toFixed(1) + '%';
+function openAddPurchaseModal() {
+  PUR.editingId = null;
+  PUR.items = [];
+  document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Add New Purchase';
+  populatePurchaseSupplierDropdown();
+  document.getElementById('pur-supplier').value = '';
+  document.getElementById('pur-date').value = fmt_date(new Date());
+  document.getElementById('pur-invref').value = '';
+  document.getElementById('pur-no').value = '';
+  document.getElementById('pur-currency').value = 'INR';
+  document.getElementById('pur-fx').value = '1';
+  document.getElementById('pur-status').value = 'Pending';
+  document.getElementById('pur-notes').value = '';
+  addPurchaseItem();
+  openModal('modal-addpurchase');
 }
-
-// ── Split Payment (Payment Information) ──────────────────────────
-// Mirrors the existing invoice Record-Payment split pattern, scoped with a
-// "pne" prefix so it doesn't collide with that modal's own split UI.
-//
-// Design: row 0 is always the AUTO row — its amount is never typed directly,
-// it's continuously recomputed as (Amount Paid − sum of every other row).
-// Rows 1+ are freely editable. This guarantees the split always reconciles
-// to Amount Paid by construction, rather than hoping the user's manual
-// entries happen to add up.
-const PNE_SPLIT_COLORS = {
-  'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100',
-};
-function pneSplitColor(method) { return PNE_SPLIT_COLORS[method] || '#455A64'; }
-
-function togglePNESplitPayment() {
-  const isSplit = document.getElementById('pn-paymode').value === 'Split Payment';
-  const panel = document.getElementById('pne-split-panel');
-  panel.style.display = isSplit ? 'block' : 'none';
-  if (isSplit && document.getElementById('pne-split-rows').children.length === 0) {
-    addPNESplitRow(); addPNESplitRow();
-    // syncPNESplitAutoRow fills row 1 with (Amount Paid − others) = the
-    // full Amount Paid on a fresh open, and keeps rebalancing it live as
-    // amounts are typed into the other rows.
-    syncPNESplitAutoRow();
-  }
-}
-
-// Auto-balance: the FIRST method row acts as the remainder — whenever you
-// type an amount into any OTHER row, row 1 is recomputed as
-// (Amount Paid − sum of all other rows), live. Editing row 1 directly is
-// still allowed (that edit is respected as-is; the mismatch warning covers
-// any resulting gap). `changedEl` is the input the user actually typed in.
-function syncPNESplitAutoRow(changedEl) {
-  const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
-  if (rows.length > 1) {
-    const firstAmt = rows[0].querySelector('.pne-split-amt');
-    const editedFirstRow = changedEl && rows[0].contains(changedEl);
-    if (!editedFirstRow && firstAmt) {
-      const target = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-      let othersSum = 0;
-      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
-      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
-    }
-  }
-  renderPNESplitFooter();
-  updatePNESplitMismatch();
-}
-
-// Reconstructs real, editable rows from a saved "Split: Cash: ₹X + UPI: ₹Y"
-// label — so editing a split-paid purchase shows exactly what was saved,
-// not a text hint asking the person to re-type it from memory.
-function restorePNESplitFromLabel(label) {
-  const body = label.replace(/^Split:\s*/, '');
-  const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
-    const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
-    return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
-  }).filter(Boolean);
-
-  if (parts.length === 0) { addPNESplitRow(); addPNESplitRow(); syncPNESplitAutoRow(); return; }
-  parts.forEach((p, i) => {
-    addPNESplitRow();
-    setPNESplitRowMethod(i, p.method);
-    const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
-    rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
-  });
-  // Pass row 1's input as the "changed" element so restore shows the exact
-  // saved amounts rather than recomputing row 1 as a remainder.
-  const firstRowAmt = document.querySelector('#pne-split-rows .pne-split-row .pne-split-amt');
-  syncPNESplitAutoRow(firstRowAmt);
-}
-function setPNESplitRowMethod(rowIndex, method) {
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
-  const sel = rows[rowIndex]?.querySelector('.pne-split-method');
-  if (!sel) return;
-  const match = Array.from(sel.options).find(o => o.value.split(' (')[0] === method);
-  if (match) sel.value = match.value;
-}
-
-function addPNESplitRow() {
-  const container = document.getElementById('pne-split-rows');
-  const row = document.createElement('div');
-  row.className = 'pne-split-row';
-  row.innerHTML = `<select class="pne-split-method" onchange="renderPNESplitFooter()">
-      <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
-    </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncPNESplitAutoRow(this)">
-    <button type="button" onclick="removePNESplitRow(this)"><i class="fas fa-times"></i></button>`;
-  container.appendChild(row);
-  renderPNESplitFooter();
-}
-
-function removePNESplitRow(btn) {
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
-  if (rows.length <= 1) { toast('⚠️ Keep at least 1 split method', 'warning'); return; }
-  btn.closest('.pne-split-row').remove();
-  syncPNESplitAutoRow();
-}
-
-// Live Split Total + a pipe-separated colored breakdown bar, matching the
-// reference design: "Total: ₹X | UPI: ₹X | Cash: ₹X"
-function renderPNESplitFooter() {
-  const rows = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-row'));
-  let splitTotal = 0;
-  const parts = rows.map(r => {
-    const method = r.querySelector('.pne-split-method')?.value || '';
-    const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
-    splitTotal += amt;
-    const shortMethod = method.split(' (')[0];
-    const color = pneSplitColor(shortMethod);
-    return `<span style="color:${color};font-weight:700">${escHtml(shortMethod)}: ${fmt_money(amt)}</span>`;
-  });
-  const totalEl = document.getElementById('pne-split-total-amt');
-  if (totalEl) totalEl.textContent = fmt_money(splitTotal);
-  const footer = document.getElementById('pne-split-footer');
-  if (footer) footer.innerHTML = parts.length
-    ? `<strong>Total: ${fmt_money(splitTotal)}</strong>` + parts.map(p => ' &nbsp;|&nbsp; ' + p).join('')
-    : '';
-}
-
-function updatePNESplitMismatch() {
-  const warnEl = document.getElementById('pne-split-mismatch');
-  if (!warnEl || document.getElementById('pn-paymode').value !== 'Split Payment') { if(warnEl) warnEl.style.display='none'; return; }
-  const amts = Array.from(document.querySelectorAll('#pne-split-rows .pne-split-amt')).map(el => parseFloat(el.value)||0);
-  const splitSum = amts.reduce((s,v) => s+v, 0);
-  const amountPaid = parseFloat(document.getElementById('pn-amountpaid').value) || 0;
-  if (amountPaid > 0 && Math.abs(splitSum - amountPaid) > 0.01) {
-    warnEl.style.display = 'block';
-    warnEl.textContent = splitSum > amountPaid
-      ? `⚠️ Split total (${fmt_money(splitSum)}) exceeds Amount Paid`
-      : `⚠️ Split total (${fmt_money(splitSum)}) is less than Amount Paid`;
-  } else {
-    warnEl.style.display = 'none';
-  }
-}
-
-function getPNESplitLabel() {
-  const rows = document.querySelectorAll('#pne-split-rows .pne-split-row');
-  const parts = Array.from(rows).map(r => {
-    const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
-    const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
-  }).filter(Boolean);
-  return 'Split: ' + parts.join(' + ');
-}
-
 
 async function editPurchase(id) {
   try {
     const r = await api('api/purchases.php?id=' + id);
     const p = r.data;
-    PNE.editingId = id;
-    PNE.attachmentDataUrl = null;
-    PNE.attachmentExisting = p.attachment_path || null;
-    PNE.items = (p.items||[]).map(it => ({
-      id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
-      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
-      gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
-      rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
-    }));
-    document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
-    document.getElementById('pne-subtitle').textContent = p.purchase_no;
-    document.getElementById('pn-no').value = p.purchase_no;
-    document.getElementById('pn-date').value = p.purchase_date;
-    document.getElementById('pn-suppliertype').value = p.supplier_type || 'Farmer';
-    document.getElementById('pn-refpo').value = p.reference_po_no || '';
-    document.getElementById('pn-weighingtype').value = p.weighing_type || 'Dharam Kanta';
-    document.getElementById('pn-kantaname').value = p.kanta_name || '';
-    document.getElementById('pn-slipno').value = p.weighbridge_slip_no || '';
-    document.getElementById('pn-weightdatetime').value = p.weight_datetime ? p.weight_datetime.replace(' ', 'T').slice(0,16) : '';
-    document.getElementById('pn-kanta-gross').value = p.kanta_gross_weight || '';
-    document.getElementById('pn-kanta-tare').value = p.kanta_tare_weight || '';
-    document.getElementById('pn-kanta-operator').value = p.kanta_operator_name || '';
-    PNE.kantaSlipDataUrl = null;
-    if (p.kanta_slip_path) {
-      document.getElementById('pn-kanta-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
-    }
-    document.getElementById('pn-q-moisture').value = p.header_moisture_pct ?? '';
-    document.getElementById('pn-q-impurity').value = p.header_impurity_pct ?? '';
-    document.getElementById('pn-q-dhaltapct').value = p.header_dhalta_pct ?? '';
-    calcPNEKantaSummary();
-    populatePNESupplierDropdown();
-    document.getElementById('pn-supplier').value = p.supplier_id;
-    await onSupplierPicked();
-    document.getElementById('pn-invno').value = p.supplier_invoice_ref || '';
-    document.getElementById('pn-transportmode').value = p.transport_mode || 'Road';
-    document.getElementById('pn-vehicleno').value = p.vehicle_no || '';
-    document.getElementById('pn-drivername').value = p.driver_name || '';
-    document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
-    document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
-    document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
-    document.getElementById('pn-remarks').value = p.remarks || '';
-    setGstApplicable(!!parseInt(p.gst_applicable));
-    document.getElementById('pn-supplytype').value = p.supply_type || 'Intra-State';
-    document.getElementById('pn-gst-pct').value = p.gst_pct || 0;
-    document.getElementById('pn-transportcharge').value = p.transport_charge || 0;
-    document.getElementById('pn-loadingcharge').value = p.loading_charge || 0;
-    document.getElementById('pn-packingcharge').value = p.packing_charge || 0;
-    document.getElementById('pn-othercharge').value = p.other_charges || 0;
-
-    document.getElementById('pn-tradediscpct').value = p.trade_discount_pct || 0;
-    document.getElementById('pn-cashdiscpct').value = p.cash_discount_pct || 0;
-    document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
-    PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
-    renderPNDeductions();
-    document.getElementById('pn-paystatus').value = p.status || 'Pending';
-    document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
-    const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
-    document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
-    document.getElementById('pne-split-panel').style.display = isSplitSaved ? 'block' : 'none';
-    document.getElementById('pne-split-rows').innerHTML = '';
-    if (isSplitSaved) {
-      restorePNESplitFromLabel(p.payment_mode);
-    }
-    document.getElementById('pn-transactionno').value = p.transaction_no || '';
-    document.getElementById('pn-paydate').value = p.payment_date || '';
-    document.getElementById('pn-notes').value = p.notes || '';
-    renderPNEItemsTable();
-    showPage('purchase-new');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
+    PUR.editingId = id;
+    PUR.items = (p.items||[]).map(it => ({ id: purItemSeq++, product_id: it.product_id||'', description: it.description, hsn: it.hsn, qty: parseFloat(it.qty), unit: it.unit, rate: parseFloat(it.rate), gst_pct: parseFloat(it.gst_pct) }));
+    document.querySelector('#modal-addpurchase .modal-header span').textContent = 'Edit Purchase';
+    populatePurchaseSupplierDropdown();
+    document.getElementById('pur-supplier').value = p.supplier_id;
+    document.getElementById('pur-date').value = p.purchase_date;
+    document.getElementById('pur-invref').value = p.supplier_invoice_ref || '';
+    document.getElementById('pur-no').value = p.purchase_no;
+    document.getElementById('pur-currency').value = p.currency || 'INR';
+    document.getElementById('pur-fx').value = p.exchange_rate || 1;
+    document.getElementById('pur-status').value = p.status;
+    document.getElementById('pur-notes').value = p.notes || '';
+    renderPurchaseItems();
+    openModal('modal-addpurchase');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-function calcPNEKantaSummary() {
-  const gross = parseFloat(document.getElementById('pn-kanta-gross').value) || 0;
-  const tare  = parseFloat(document.getElementById('pn-kanta-tare').value) || 0;
-  const net   = Math.max(0, gross - tare);
-  document.getElementById('pn-kanta-net').value = net > 0 ? net.toFixed(2) : '';
-
-  // Apply dhalta% show/hide from settings (same toggle as table column)
-  const showDhaltaPct = (STATE.settings.showDhaltaPct ?? '1') !== '0';
-  const dhaltaPctHeader = document.querySelector('.pne-dhpct-col.field');
-  if (dhaltaPctHeader) dhaltaPctHeader.style.display = showDhaltaPct ? '' : 'none';
-
-  // ── Sync to item row gross/tare ──────────────────────────────
-  // The header kanta reading IS the weight for the current item being filled.
-  // Push gross/tare into the item data and update computed cells directly
-  // WITHOUT re-rendering the whole table (which would cause an infinite loop
-  // since the gross/tare inputs have oninput → this function).
-  if (gross > 0 || tare > 0) {
-    let target = null;
-    if (PNE.items.length === 1) {
-      target = PNE.items[0];
-    } else {
-      target = PNE.items.find(it => it.editing) || null;
-    }
-    if (target) {
-      target.gross_weight = gross || 0;
-      target.tare_weight  = tare  || 0;
-      const c        = pneCalcRow(target);
-      // Update edit-mode inputs (exist when row is in edit mode)
-      const grossIn  = document.getElementById('pne-gross-'   + target.id);
-      const tareIn   = document.getElementById('pne-tare-'    + target.id);
-      // Update view-mode cells (exist when row is saved/view mode)
-      const vGrossEl = document.getElementById('pne-vgross-'  + target.id);
-      const vTareEl  = document.getElementById('pne-vtare-'   + target.id);
-      const netEl    = document.getElementById('pne-net-'     + target.id);
-      const billEl   = document.getElementById('pne-billable-'+ target.id);
-      const amtEl    = document.getElementById('pne-amt-'     + target.id);
-      // Edit mode inputs — update value without cursor interference
-      // (these are the header→table sync, not user typing in the input)
-      if (grossIn && document.activeElement !== grossIn) grossIn.value = gross || '';
-      if (tareIn  && document.activeElement !== tareIn)  tareIn.value  = tare  || '';
-      // View mode cells
-      if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
-      if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
-      if (netEl)    netEl.textContent    = c.net.toFixed(2);
-      if (billEl)   billEl.textContent   = c.billable.toFixed(2);
-      if (amtEl)    amtEl.textContent    = fmt_money(c.amount);
-      // Update footer totals directly — don't call calcPurchaseNewTotals()
-      // because that calls calcPNEKantaSummary() creating an infinite loop.
-      let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
-      PNE.items.forEach(i => { const r = pneCalcRow(i); footNet += r.net; footDhalta += r.dhaltaKg; footBillable += r.billable; footAmt += r.amount; });
-      const _s = id => document.getElementById(id);
-      if (_s('pne-total-net'))      _s('pne-total-net').textContent      = footNet.toFixed(2) + ' Kg';
-      if (_s('pne-total-dhalta'))   _s('pne-total-dhalta').textContent   = footDhalta.toFixed(2) + ' Kg';
-      if (_s('pne-total-billable')) _s('pne-total-billable').textContent = footBillable.toFixed(2) + ' Kg';
-      if (_s('pne-total-amount'))   _s('pne-total-amount').textContent   = fmt_money(footAmt);
-    }
-  }
-
-  // Update sidebar weight summary — accumulate from ALL saved items so
-  // the summary stays correct after Done resets the header fields.
-  let sumGross2 = 0, sumTare2 = 0, sumNet2 = 0, sumDhalta2 = 0, sumBillable2 = 0;
-  PNE.items.forEach(it => {
-    const c = pneCalcRow(it);
-    sumGross2    += parseFloat(it.gross_weight) || 0;
-    sumTare2     += parseFloat(it.tare_weight)  || 0;
-    sumNet2      += c.net;
-    sumDhalta2   += c.dhaltaKg;
-    sumBillable2 += c.billable;
-  });
-  // If header has active values being filled, show current header net in summary
-  const dispNet  = net  > 0 ? net  : sumNet2;
-  const dispGross= gross> 0 ? gross: sumGross2;
-  const dispTare = tare > 0 ? tare : sumTare2;
-
-  const fmt = v => v > 0 ? v.toFixed(2) + ' Kg' : '0.00 Kg';
-  document.getElementById('pnk-sum-gross').textContent    = fmt(dispGross);
-  document.getElementById('pnk-sum-tare').textContent     = fmt(dispTare);
-  document.getElementById('pnk-sum-net').textContent      = fmt(dispNet);
-  document.getElementById('pnk-sum-dhalta').textContent   = fmt(sumDhalta2);
-  document.getElementById('pnk-sum-billable').textContent = fmt(sumBillable2);
-  calcPNEQualitySummary();
-}
-
-// Quality, Moisture & Dhalta header fields reflect the CURRENT item being
-// entered — not a running total. Dhalta Kg and % show what was entered for
-// this specific row; Billable = current item's net − its own dhalta.
-function calcPNEQualitySummary() {
-  const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
-  if (!net) return; // no weight entered yet — leave fields blank
-
-  // Use only the current editing item's dhalta (per-row, not total)
-  const editingItem = PNE.items.find(i => i.editing);
-  const dhaltaKg = editingItem ? (parseFloat(editingItem.dhalta_kg) || 0) : 0;
-  const dhaltaPct = net > 0 ? (dhaltaKg / net * 100) : 0;
-  const billable  = Math.max(0, net - dhaltaKg);
-
-  const pctEl = document.getElementById('pn-q-dhaltapct');
-  const kgEl  = document.getElementById('pn-q-dhaltakg');
-  const bilEl = document.getElementById('pn-q-billable');
-
-  if (pctEl) pctEl.value = dhaltaPct > 0 ? dhaltaPct.toFixed(2) : '';
-  if (kgEl && document.activeElement !== kgEl) kgEl.value = dhaltaKg > 0 ? dhaltaKg.toFixed(2) : '';
-  if (bilEl) bilEl.value = billable  > 0 ? billable.toFixed(2)  : '';
-}
-
-// User manually types dhalta Kg in the header — push it back into the
-// single item row (if only one exists) so table stays in sync.
-function onPNEHeaderDhaltaKgInput(val) {
-  const kg  = parseFloat(val) || 0;
-  const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
-
-  // Find the current editing item (the one this header applies to)
-  const target = PNE.items.length === 1
-    ? PNE.items[0]
-    : PNE.items.find(i => i.editing) || null;
-
-  if (target) {
-    // Update the item object — this is what donePNEItem reads when saving to view mode
-    target.dhalta_kg = kg;
-    const c = pneCalcRow(target);
-
-    // Update edit-mode cells if the row is open
-    const dkIn  = document.getElementById('pne-dkg-'      + target.id);
-    const billEl= document.getElementById('pne-billable-' + target.id);
-    const amtEl = document.getElementById('pne-amt-'      + target.id);
-    const dhEl  = document.getElementById('pne-dhaltapct-'+ target.id);
-    if (dkIn  && document.activeElement !== dkIn) dkIn.value = kg || '';
-    if (billEl) billEl.textContent = c.billable.toFixed(2);
-    if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
-    if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
-    // Update footer totals
-    let footNet = 0, footDhalta = 0, footBillable = 0, footAmt = 0;
-    PNE.items.forEach(i => { const r = pneCalcRow(i); footNet += r.net; footDhalta += r.dhaltaKg; footBillable += r.billable; footAmt += r.amount; });
-    const _sf = id => document.getElementById(id);
-    if (_sf('pne-total-dhalta'))   _sf('pne-total-dhalta').textContent   = footDhalta.toFixed(2) + ' Kg';
-    if (_sf('pne-total-billable')) _sf('pne-total-billable').textContent = footBillable.toFixed(2) + ' Kg';
-    if (_sf('pne-total-amount'))   _sf('pne-total-amount').textContent   = fmt_money(footAmt);
-  }
-
-  // Update billable and dhalta% in header
-  const billable = Math.max(0, net - kg);
-  const bilEl = document.getElementById('pn-q-billable');
-  const pctEl = document.getElementById('pn-q-dhaltapct');
-  if (bilEl) bilEl.value = billable > 0 ? billable.toFixed(2) : '';
-  if (pctEl && net > 0) pctEl.value = kg > 0 ? (kg / net * 100).toFixed(2) : '';
-}
-
-function pneKantaSlipChange(file) {
-  if (!file) return;
-  if (file.size > 5*1024*1024) { toast('⚠️ Weight slip must be under 5MB', 'warning'); return; }
-  const label = document.getElementById('pn-kanta-slip-label');
-  label.innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">${escHtml(file.name)}<br><span style="font-size:10px">${(file.size/1024).toFixed(0)} KB</span></div>`;
-  const reader = new FileReader();
-  reader.onload = () => { PNE.kantaSlipDataUrl = reader.result; };
-  reader.readAsDataURL(file);
-}
-
-function pneReadAttachment() {
-  return new Promise(resolve => {
-    const f = document.getElementById('pn-attachment')?.files?.[0];
-    if (!f) return resolve(null);
-    if (f.size > 5*1024*1024) { toast('⚠️ Attachment must be under 5MB — skipping upload', 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(f);
-  });
-}
-
-async function savePurchaseEntry(mode) {
-  const supplierId = document.getElementById('pn-supplier').value;
+async function savePurchase() {
+  const supplierId = document.getElementById('pur-supplier').value;
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
-  if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
-  if (!PNE.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
-  const badItem = PNE.items.find(it => it.mode === 'freetext' ? !(it.description||'').trim() : !it.product_id);
-  if (badItem) {
-    toast('⚠️ Every item needs a product (or a description for free-text lines)', 'warning'); return;
-  }
-
-  const attachment = await pneReadAttachment();
-  const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
-
+  if (!PUR.items.length) { toast('⚠️ Add at least one item', 'warning'); return; }
+  const btn = document.getElementById('pur-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
-    purchase_no: document.getElementById('pn-no').value.trim(),
     supplier_id: parseInt(supplierId),
-    purchase_date: document.getElementById('pn-date').value,
-    supplier_type: document.getElementById('pn-suppliertype').value,
-    reference_po_no: document.getElementById('pn-refpo').value.trim(),
-    weighing_type: document.getElementById('pn-weighingtype').value,
-    kanta_name: document.getElementById('pn-kantaname').value.trim(),
-    weighbridge_slip_no: document.getElementById('pn-slipno').value.trim(),
-    weight_datetime: document.getElementById('pn-weightdatetime').value || null,
-    kanta_gross_weight: parseFloat(document.getElementById('pn-kanta-gross').value) || 0,
-    kanta_tare_weight: parseFloat(document.getElementById('pn-kanta-tare').value) || 0,
-    kanta_operator_name: document.getElementById('pn-kanta-operator').value.trim(),
-    kanta_slip: PNE.kantaSlipDataUrl || undefined,
-    header_moisture_pct: document.getElementById('pn-q-moisture').value || null,
-    header_impurity_pct: document.getElementById('pn-q-impurity').value || null,
-    header_dhalta_pct: document.getElementById('pn-q-dhaltapct').value || null,
-    header_dhalta_kg: document.getElementById('pn-q-dhaltakg').value || null,
-    header_billable_weight: document.getElementById('pn-q-billable').value || null,
-    invoice_bill_no: document.getElementById('pn-invno').value.trim(),
-    gst_applicable: gstApplicable,
-    gst_pct: parseFloat(document.getElementById('pn-gst-pct').value) || 0,
-    supply_type: document.getElementById('pn-supplytype').value,
-    transport_mode: document.getElementById('pn-transportmode').value,
-    vehicle_no: document.getElementById('pn-vehicleno').value.trim(),
-    driver_name: document.getElementById('pn-drivername').value.trim(),
-    warehouse: document.getElementById('pn-warehouse').value,
-    payment_terms: document.getElementById('pn-paymentterms').value,
-    payment_type: document.getElementById('pn-paymenttype').value,
-    remarks: document.getElementById('pn-remarks').value.trim(),
-    transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
-    loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
-    packing_charge: parseFloat(document.getElementById('pn-packingcharge').value) || 0,
-    other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
-    discount_amount: 0,
-    deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
-    trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
-    cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
-    cd_applicable_within: document.getElementById('pn-cdwithin').value,
-    payment_status: document.getElementById('pn-paystatus').value,
-    amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
-    payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
-    transaction_no: document.getElementById('pn-transactionno').value.trim(),
-    payment_date: document.getElementById('pn-paydate').value || null,
-    notes: document.getElementById('pn-notes').value.trim(),
-    attachment: attachment || undefined,
-    items: PNE.items.map(it => ({
-      product_id: it.product_id || null, description: it.description, hsn: '',
-      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade,
-      gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
-      dhalta_kg: parseFloat(it.dhalta_kg)||0, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
-    })),
+    purchase_no: document.getElementById('pur-no').value.trim(),
+    supplier_invoice_ref: document.getElementById('pur-invref').value.trim(),
+    purchase_date: document.getElementById('pur-date').value,
+    currency: document.getElementById('pur-currency').value,
+    exchange_rate: parseFloat(document.getElementById('pur-fx').value) || 1,
+    status: document.getElementById('pur-status').value,
+    notes: document.getElementById('pur-notes').value.trim(),
+    items: PUR.items.map(it => ({ product_id: it.product_id || null, description: it.description, hsn: it.hsn, qty: it.qty, unit: it.unit, rate: it.rate, gst_pct: it.gst_pct })),
   };
-
-  const btn = event?.target?.closest('button');
-  if (btn) { btn.disabled = true; }
   try {
-    let savedId = PNE.editingId;
-    if (PNE.editingId) {
-      await api('api/purchases.php?id=' + PNE.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Purchase updated!', 'success');
+    if (PUR.editingId) {
+      await api('api/purchases.php?id=' + PUR.editingId, 'PUT', payload);
+      toast('✅ Purchase updated!', 'success');
     } else {
-      const res = await api('api/purchases.php', 'POST', payload);
-      savedId = res.id;
-      consumeEditApproval(); toast('✅ Purchase saved!', 'success');
+      await api('api/purchases.php', 'POST', payload);
+      toast('✅ Purchase recorded!', 'success');
     }
-    const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
+    const [r, prd] = await Promise.all([api('api/purchases.php'), api('api/products.php')]);
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
     STATE.products  = Array.isArray(prd.data) ? prd.data : STATE.products;
-    STATE.stock     = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    if (document.getElementById('page-stock')?.classList.contains('active')) {
-      renderProductStock();
-    }
-
-    if (mode === 'print') {
-      printPurchaseEntry(savedId);
-      showPage('purchases');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
-      renderPurchases();
-    } else if (mode === 'new') {
-      goToNewPurchase();
-    } else {
-      showPage('purchases');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
-      renderPurchases();
-    }
+    PUR.editingId = null;
+    closeModal('modal-addpurchase');
+    renderPurchases();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Purchase'; } }
 }
-
-function pnePaymentStamp(status) {
-  const cfg = {
-    'Paid':    { color:'#1B5E20', border:'#2E7D32', label:'PAID' },
-    'Partial': { color:'#7B3F00', border:'#E65100', label:'PARTIAL' },
-    'Pending': { color:'#4A148C', border:'#7B1FA2', label:'PENDING' },
-  }[status];
-  if (!cfg) return '';
-  return `<div style="position:absolute;top:100px;right:60px;border:3px solid ${cfg.border};color:${cfg.color};font-weight:800;font-size:20px;padding:4px 22px;border-radius:8px;transform:rotate(-12deg);opacity:.85">${cfg.label}</div>`;
-}
-
-async function printPurchaseEntry(id) {
-  try {
-    const r = await api('api/purchases.php?id=' + id);
-    const p = r.data;
-    const isFarmerVoucher = !parseInt(p.gst_applicable) || p.supplier_type === 'Farmer';
-    if (isFarmerVoucher) printLocalPurchaseVoucher(p); else printTaxInvoicePurchase(p);
-  } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
-}
-
-function pneCompanyInfo() {
-  const s = STATE.settings || {};
-  return {
-    name: s.company || 'Your Company', gst: s.gst || '', phone: s.phone || '', email: s.email || '',
-    address: s.address || '', fssai: s.fssai || '', iec: s.iec || '', logo: s.logo || '',
-    pan: s.pan || '', apeda: s.apeda || '', cin: s.cin || '', msme: s.msme || '',
-  };
-}
-
-// One-line statutory registrations block for invoice headers — shows only
-// the numbers that are actually filled in Settings → Company Profile.
-function pneStatutoryLine(co) {
-  const parts = [];
-  if (co.gst) parts.push('GSTIN: ' + escHtml(co.gst));
-  if (co.pan) parts.push('PAN: ' + escHtml(co.pan));
-  if (co.fssai) parts.push('FSSAI: ' + escHtml(co.fssai));
-  return parts.join(' &nbsp;|&nbsp; ');
-}
-
-// ── Template 1: Local Purchase Voucher (Farmer / GST-exempt purchases) ──
-function printLocalPurchaseVoucher(p) {
-  const co = pneCompanyInfo();
-  const items = p.items || [];
-  const rows = items.map(it => `
-    <tr>
-      <td>${escHtml(it.description||'')}</td><td>${escHtml(it.variety_grade||'—')}</td><td>${escHtml(it.quality_grade||'—')}</td>
-      <td class="r">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(1)+'%' : '—'}</td>
-      <td class="r">${parseFloat(it.gross_weight).toFixed(2)}</td><td class="r">${parseFloat(it.tare_weight).toFixed(2)}</td>
-      <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? parseFloat(it.dhalta_pct||0).toFixed(1)+'%' : parseFloat(it.dhalta_kg||0).toFixed(2)}</td>
-      <td class="r">${parseFloat(it.billable_weight).toFixed(2)}</td><td class="r">${fmt_money(it.rate)}</td><td class="r">${fmt_money(it.amount)}</td>
-    </tr>`).join('');
-  const gGross = items.reduce((s,i)=>s+parseFloat(i.gross_weight||0),0);
-  const gTare  = items.reduce((s,i)=>s+parseFloat(i.tare_weight||0),0);
-  const gNet   = items.reduce((s,i)=>s+parseFloat(i.qty||0),0);
-  const gBill  = items.reduce((s,i)=>s+parseFloat(i.billable_weight||0),0);
-  const gAmt   = items.reduce((s,i)=>s+parseFloat(i.amount||0),0);
-  const addCharges = (parseFloat(p.transport_charge)||0)+(parseFloat(p.loading_charge)||0)+(parseFloat(p.packing_charge)||0)+(parseFloat(p.other_charges)||0);
-  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
-  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
-
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
-    .badge-voucher { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 20px; text-align: center; }
-    .voucher-meta { text-align: right; font-size: 11.5px; color: #445; margin-top: 8px; line-height: 1.7; }
-    .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
-    .box h3 { font-size: 12px; color: #0d3b2e; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 8px; }
-    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
-    .pills { display: flex; gap: 6px; }
-    .pill { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
-    .pill.gray { background: #eef0f3; color: #556; } .pill.green { background: #e3f6ea; color: #0d7a3f; }
-    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #eef0f3; color: #0d3b2e; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #0d3b2e; }
-    table.items td { padding: 7px; border-bottom: 1px solid #eef0f3; }
-    table.items td.r, table.items th.r { text-align: right; }
-    tfoot td { border-top: 2px solid #0d3b2e; border-bottom: 2px solid #0d3b2e; color: #0d3b2e; font-weight: 700; padding: 9px 7px; background: #fff; }
-    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .ded-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
-    .ded-total { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 700; color: #c0392b; display: flex; justify-content: space-between; }
-    .pay-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
-    .pay-net { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 800; font-size: 15px; color: #0d3b2e; display: flex; justify-content: space-between; }
-    .paymode { display: flex; gap: 6px; margin-top: 10px; }
-    .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #eef0f3; color: #889; }
-    .paymode span.active { background: #0d3b2e; color: #fff; }
-    .remark { font-style: italic; color: #556; font-size: 11px; line-height: 1.6; }
-    .attach div { font-size: 11px; color: #445; margin-bottom: 6px; }
-    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-  </style></head><body>
-    <div class="head">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:92px;height:92px;object-fit:contain;border-radius:6px">` : ''}
-        <div>
-          <div class="co-name">${escHtml(co.name)}</div>
-          <div class="co-meta">
-            ${pneStatutoryLine(co)}${pneStatutoryLine(co)?'<br>':''}
-            ${co.iec?`IEC No: ${escHtml(co.iec)}`:''} ${co.phone?' &nbsp; Mobile: '+escHtml(co.phone):''}${co.email?' &nbsp; Email: '+escHtml(co.email):''}<br>
-            ${co.address?`Address: ${escHtml(co.address)}`:''}
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="badge-voucher">LOCAL PURCHASE<br>VOUCHER</div>
-        <div class="voucher-meta">Voucher No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>Warehouse: ${escHtml(p.warehouse||'')}</div>
-      </div>
-    </div>
-    ${pnePaymentStamp(p.payment_status||p.status)}
-
-    <div class="row2">
-      <div class="box">
-        <h3>👤 FARMER INFORMATION <span class="pills"><span class="pill gray">SUPPLIER: ${escHtml((p.supplier_type||'FARMER').toUpperCase())}</span><span class="pill green">GST: EXEMPT</span></span></h3>
-        <div class="kv">Farmer Name<b>${escHtml(p.supplier_name||'')}</b></div>
-        <div class="kv">Location<b>${escHtml(p.district||p.state||'—')}</b></div>
-        <div class="kv">Mobile Number<b>${escHtml(p.supplier_phone||'—')}</b></div>
-      </div>
-      <div class="box">
-        <h3>🚚 LOGISTICS</h3>
-        <div class="kv">Vehicle No<b>${escHtml(p.vehicle_no||'—')}</b></div>
-        <div class="kv">Driver Name<b>${escHtml(p.driver_name||'—')}</b></div>
-        <div class="kv">Mode<b>${escHtml(p.transport_mode||'—')}</b></div>
-      </div>
-    </div>
-
-    <table class="items">
-      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="4">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
-    </table>
-
-    <div class="row3">
-      <div class="box">
-        <h3>ADDITIONAL CHARGES</h3>
-        <div class="ded-row"><span>Loading &amp; Unloading</span><span>${fmt_money(p.loading_charge)}</span></div>
-        <div class="ded-row"><span>Transport Allowance</span><span>${fmt_money(p.transport_charge)}</span></div>
-        <div class="ded-row"><span>Packing Materials</span><span>${fmt_money(p.packing_charge)}</span></div>
-        <div class="ded-row"><span>Other / Mandi Tax</span><span>${fmt_money(p.other_charges)}</span></div>
-        <div class="ded-total" style="color:#0d7a3f"><span>Total Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
-      </div>
-      <div class="box">
-        <h3>PAYMENT SETTLEMENT</h3>
-        <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
-        <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
-        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
-        ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
-        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
-        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
-        <div class="pay-net"><span>Net Payable</span><span>${fmt_money(p.total)}</span></div>
-        <div class="paymode">
-          <span class="${p.payment_mode==='Cash'?'active':''}">Cash</span>
-          <span class="${(p.payment_mode||'').includes('Bank')?'active':''}">Bank Transfer</span>
-          <span class="${(p.payment_mode||'').includes('UPI')?'active':''}">UPI</span>
-        </div>
-      </div>
-    </div>
-    ${deductions.length ? `
-    <div class="box" style="margin-top:12px">
-      <h3>DEDUCTION DETAILS</h3>
-      ${deductions.map(d => `<div class="ded-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
-    </div>` : ''}
-
-    ${p.remarks ? `<div class="box" style="margin-bottom:16px"><h3>OBSERVATIONS &amp; REMARKS</h3><div class="remark">${escHtml(p.remarks)}</div></div>` : ''}
-
-    <div class="sig-row">
-      <div class="sig">Farmer Signature / Thumb</div>
-      <div class="sig">Receiving Officer</div>
-      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
-    </div>
-    <div class="footer">
-      <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
-    </div>
-    <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-// ── Template 2: Tax Invoice — Purchase Entry (regular / GST-applicable purchases) ──
-function printTaxInvoicePurchase(p) {
-  const co = pneCompanyInfo();
-  const items = p.items || [];
-  const rows = items.map(it => `
-    <tr>
-      <td><strong>${escHtml(it.description||'')}</strong><br><span class="muted">${escHtml(it.variety_grade||'')}</span></td>
-      <td>${escHtml(it.hsn||'—')}</td>
-      <td class="r">${parseFloat(it.qty).toFixed(2)} Kg</td>
-      <td class="r">${fmt_money(it.rate)}</td>
-      <td class="r">${fmt_money(it.amount)}</td>
-      <td class="r">${parseFloat(it.gst_pct||0).toFixed(0)}%</td>
-      <td class="r">${fmt_money((it.amount||0) * (it.gst_pct||0) / 100)}</td>
-      <td class="r"><strong>${fmt_money((it.amount||0) * (1 + (it.gst_pct||0)/100))}</strong></td>
-    </tr>`).join('');
-  const isInterstate = p.supply_type === 'Inter-State';
-  const deductions = Array.isArray(p.deductions) ? p.deductions : [];
-  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
-
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
-    .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
-    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
-    .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
-    .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
-    .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
-    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
-    .wt-bar { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 18px; display: flex; justify-content: space-between; margin-bottom: 16px; }
-    .wt-bar div { text-align: center; flex: 1; }
-    .wt-bar span { display: block; font-size: 9.5px; opacity: .8; text-transform: uppercase; }
-    .wt-bar b { font-size: 14px; }
-    .wt-bar .billable { background: rgba(255,255,255,.15); border-radius: 6px; padding: 4px 8px; }
-    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #f3f5f7; color: #445; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #dde3ea; }
-    table.items td { padding: 8px 7px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
-    table.items td.r, table.items th.r { text-align: right; }
-    .muted { color: #99a; font-size: 10px; }
-    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
-    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
-    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
-    .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
-    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-    .kanta-box { border: 2px solid #0d3b2e; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; background: #f5faf7; }
-    .kanta-title { font-size: 11px; font-weight: 800; color: #0d3b2e; letter-spacing: 1px; margin-bottom: 12px; }
-    .kanta-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; }
-    .kanta-cell { text-align: center; padding: 10px 6px; background: #fff; border-radius: 7px; border: 1px solid #d0e8dc; }
-    .kanta-dhalta { border-color: #c0392b !important; background: #fff9f9 !important; }
-    .kanta-billable { border-color: #0d7a3f !important; background: #f0faf5 !important; }
-    .kanta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .7px; color: #778; margin-bottom: 5px; font-weight: 700; }
-    .kanta-val { font-size: 18px; font-weight: 800; color: #0d3b2e; line-height: 1.1; }
-    .kanta-dhalta .kanta-val { color: #c0392b; }
-    .kanta-billable .kanta-val { color: #0d7a3f; }
-    .kanta-unit { font-size: 11px; font-weight: 400; }
-    .kanta-pct { font-size: 9.5px; color: #889; margin-top: 3px; }
-    .kanta-meta { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #c8ddd5; font-size: 10px; color: #556; }
-  </style></head><body>
-    <div class="head">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
-        <div>
-          <div class="co-name">${escHtml(co.name)}</div>
-          <div class="co-meta">
-            ${co.address?escHtml(co.address)+'<br>':''}
-            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="badge-inv">TAX INVOICE<small>PURCHASE ENTRY</small></div>
-        <div class="inv-meta">Invoice No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>${p.reference_po_no?`PO Reference: ${escHtml(p.reference_po_no)}`:''}</div>
-      </div>
-    </div>
-    ${pnePaymentStamp(p.payment_status||p.status)}
-
-    <div class="row2">
-      <div class="box">
-        <h3>SUPPLIER DETAILS</h3>
-        <div class="kv"><b>${escHtml(p.supplier_name||'')}</b></div>
-        <div class="kv">GSTIN<b>${escHtml(p.supplier_gstin||'—')}</b></div>
-        <div class="kv">Contact<b>${escHtml(p.supplier_phone||'—')}</b></div>
-      </div>
-      <div class="box">
-        <h3>SUPPLIER LEDGER SUMMARY</h3>
-        <div class="kv">Outstanding Balance<b style="color:#c0392b">${fmt_money((p.total||0)-(p.amount_paid||0))}</b></div>
-        <div class="kv">Dispatch / Warehouse<b>${escHtml(p.warehouse||'—')}</b></div>
-      </div>
-    </div>
-
-    <div class="wt-bar">
-      <div><span>Gross Weight</span><b>${parseFloat(p.kanta_gross_weight||0).toFixed(2)} Kg</b></div>
-      <div><span>Tare Weight</span><b>${parseFloat(p.kanta_tare_weight||0).toFixed(2)} Kg</b></div>
-      <div><span>Net Weight</span><b>${(parseFloat(p.kanta_gross_weight||0)-parseFloat(p.kanta_tare_weight||0)).toFixed(2)} Kg</b></div>
-      <div><span>Dhalta</span><b>${parseFloat(p.header_dhalta_kg||0).toFixed(2)} Kg</b></div>
-      <div class="billable"><span>Billable Weight</span><b>${parseFloat(p.header_billable_weight||0).toFixed(2)} Kg</b></div>
-    </div>
-
-    <table class="items">
-      <thead><tr><th>Product &amp; Variety</th><th>HSN</th><th class="r">Weight</th><th class="r">Rate</th><th class="r">Value</th><th class="r">GST %</th><th class="r">Tax Amt</th><th class="r">Total</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <div class="row3">
-      <div class="box">
-        <h3>TAX SUMMARY</h3>
-        <div class="tax-row"><span>Taxable Value</span><span>${fmt_money(p.subtotal)}</span></div>
-        ${isInterstate
-          ? `<div class="tax-row"><span>IGST</span><span>${fmt_money(p.gst_amount)}</span></div>`
-          : `<div class="tax-row"><span>CGST (${(p.gst_pct/2).toFixed(1)}%)</span><span>${fmt_money(p.gst_amount/2)}</span></div>
-             <div class="tax-row"><span>SGST (${(p.gst_pct/2).toFixed(1)}%)</span><span>${fmt_money(p.gst_amount/2)}</span></div>`}
-      </div>
-      <div class="box">
-        <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
-        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
-        ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
-        ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
-        ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(p.cash_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
-        <div class="sum-row"><span>Total GST</span><span>${fmt_money(p.gst_amount)}</span></div>
-        <div class="sum-row"><span>Round-off</span><span>${fmt_money(0)}</span></div>
-        <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(p.total)}</b></div>
-      </div>
-    </div>
-    <div class="words">Amount in Words: <strong>${numToWordsINR(p.total)}</strong></div>
-    ${deductions.length ? `
-    <div class="box" style="margin-top:12px">
-      <h3>DEDUCTION DETAILS</h3>
-      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
-    </div>` : ''}
-
-    <div class="sig-row">
-      <div class="sig">Supplier Signature</div>
-      <div class="sig">Seal &amp; Signature</div>
-      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
-    </div>
-    <div class="footer">
-      <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
-    </div>
-    <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-function numToWordsINR(amount) {
-  amount = Math.round(parseFloat(amount) || 0);
-  if (amount === 0) return 'Zero Rupees Only';
-  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-  function two(n) { return n < 20 ? ones[n] : tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : ''); }
-  function three(n) { return (n >= 100 ? ones[Math.floor(n/100)] + ' Hundred ' : '') + two(n % 100); }
-  let n = amount, parts = [];
-  const crore = Math.floor(n / 10000000); n %= 10000000;
-  const lakh = Math.floor(n / 100000); n %= 100000;
-  const thousand = Math.floor(n / 1000); n %= 1000;
-  if (crore) parts.push(three(crore) + ' Crore');
-  if (lakh) parts.push(three(lakh) + ' Lakh');
-  if (thousand) parts.push(three(thousand) + ' Thousand');
-  if (n) parts.push(three(n));
-  return (parts.join(' ').trim() || 'Zero') + ' Rupees Only';
-}
-
-// ══════════════════════════════════════════
-// FINANCE REPORT — real data from Sales + Purchases. Deliberately does NOT
-// include a Finance Ledger / bank-account section: this app has no bank or
-// cash-account tracking anywhere, so fabricating opening/closing balances
-// would just be made-up numbers. Cash Flow here shows real period movement
-// (Collections vs Payments) instead.
-// ══════════════════════════════════════════
-let frTrendChart = null, frIncomeChart = null, frExpenseChart = null;
-
-function frMonthStart() { return BIZ_FROM_DATE; } // default From = business start date for all range-filtered tables
-function setFRAllTime() {
-  document.getElementById('fr-from').value = '2000-01-01';
-  document.getElementById('fr-to').value = fmt_date(new Date());
-  renderFinanceReport();
-}
-function resetFinanceFilter() {
-  document.getElementById('fr-from').value = frMonthStart();
-  document.getElementById('fr-to').value = fmt_date(new Date());
-  document.getElementById('fr-warehouse').value = '';
-  renderFinanceReport();
-}
-
-async function renderFinanceReport() {
-  if (!document.getElementById('fr-from').value) {
-    document.getElementById('fr-from').value = frMonthStart();
-    document.getElementById('fr-to').value = fmt_date(new Date());
-  }
-  const from = document.getElementById('fr-from').value;
-  const to = document.getElementById('fr-to').value;
-  const wh = document.getElementById('fr-warehouse').value;
-
-  try {
-    const params = new URLSearchParams({ date_from: from, date_to: to });
-    if (wh) params.set('warehouse', wh);
-    const r = await api('api/finance_report.php?' + params.toString());
-
-    const s = r.stats;
-    const setStat = (id, val, chgId, chg) => {
-      document.getElementById(id).textContent = fmt_money(val.value !== undefined ? val.value : val);
-      const chgEl = document.getElementById(chgId);
-      const pct = val.change ?? chg ?? 0;
-      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs Previous Period`;
-      chgEl.style.color = pct >= 0 ? '#00897B' : '#E53935';
-    };
-    setStat('fr-stat-sales', s.total_sales, 'fr-chg-sales');
-    setStat('fr-stat-purchase', s.total_purchase, 'fr-chg-purchase');
-    setStat('fr-stat-collections', s.total_collections, 'fr-chg-collections');
-    setStat('fr-stat-payments', s.total_payments, 'fr-chg-payments');
-    // Expenses KPI
-    const expTotal = r.expenses?.total || 0;
-    const expEl = document.getElementById('fr-stat-expenses');
-    if (expEl) expEl.textContent = fmt_money(expTotal);
-    const expChgEl = document.getElementById('fr-chg-expenses');
-    if (expChgEl) expChgEl.textContent = (r.expenses?.count||0) + ' entries';
-    setStat('fr-stat-profit', s.net_profit, 'fr-chg-profit');
-
-    // Cash flow
-    document.getElementById('fr-cf-collections').textContent = fmt_money(r.cash_flow.total_collections);
-    document.getElementById('fr-cf-payments').textContent = fmt_money(r.cash_flow.total_payments);
-    const netEl = document.getElementById('fr-cf-net');
-    netEl.textContent = fmt_money(r.cash_flow.net_flow);
-    netEl.style.color = r.cash_flow.net_flow >= 0 ? '#00897B' : '#E53935';
-
-    // Income / Expense tables
-    const incTotal = r.income_heads.reduce((s,h)=>s+h.amount, 0);
-    document.getElementById('fr-income-tbody').innerHTML = r.income_heads.map((h,i) => `
-      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${incTotal?((h.amount/incTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
-      + `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(incTotal)}</td><td>100.0%</td></tr>`;
-
-    const expHeadTotal = r.expense_heads.reduce((s,h)=>s+h.amount, 0);
-    document.getElementById('fr-expense-tbody').innerHTML = (r.expense_heads.length ? r.expense_heads.map((h,i) => `
-      <tr><td>${i+1}</td><td>${escHtml(h.head)}</td><td>${fmt_money(h.amount)}</td><td>${expHeadTotal?((h.amount/expHeadTotal)*100).toFixed(1):'0.0'}%</td></tr>`).join('')
-      : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
-      + (expHeadTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expHeadTotal)}</td><td>100.0%</td></tr>` : '');
-
-    // Payment mode summary
-    const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
-    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64' };
-    document.getElementById('fr-paymode-list').innerHTML = r.payment_modes.length ? r.payment_modes.map(m => `
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
-        <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${pmTotal?((m.amount/pmTotal)*100).toFixed(2):'0.00'}%)</span></span>
-      </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
-        <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
-      : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
-
-    renderFRCharts(r);
-
-    // ── Trade Summary ─────────────────────────────────────────────
-    const ts = r.trade_summary || {};
-    const tsCont = document.getElementById('fr-trade-summary');
-    if (tsCont && ts.pur_qty !== undefined) {
-      const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-      const dhaltaPct = ts.gross_wt > 0 ? (ts.dhalta_kg/ts.gross_wt*100).toFixed(2) : '0.00';
-      const hasCharges = (ts.transport_amt||0)+(ts.loading_amt||0)+(ts.packing_amt||0)+(ts.other_amt||0) > 0;
-      const netWt = (ts.gross_wt||0)-(ts.tare_wt||0);
-
-      tsCont.innerHTML = `
-        <!-- Clean comparison: Purchase vs Sale as two key-value lists -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
-
-          <!-- PURCHASE -->
-          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #E53935">
-            <div style="padding:10px 14px;background:#FFF5F5;font-size:11.5px;font-weight:700;color:#E53935;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
-              <i class="fas fa-cart-shopping"></i> PURCHASE
-            </div>
-            ${[
-              ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
-              ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
-              ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
-              ['Total Value', fmt_money(ts.pur_value),'#E53935', 'Bill total incl. charges'],
-            ].map(([l,v,c,sub],i)=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
-              <div>
-                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
-                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
-              </div>
-              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
-            </div>`).join('')}
-          </div>
-
-          <!-- SALE -->
-          <div class="pne-card" style="padding:0;overflow:hidden;border-top:3px solid #00897B">
-            <div style="padding:10px 14px;background:#F0FAF8;font-size:11.5px;font-weight:700;color:#00897B;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)">
-              <i class="fas fa-file-invoice-dollar"></i> SALE
-            </div>
-            ${[
-              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
-              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                 '#E65100', 'Weight deducted at delivery'],
-              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),      '#00897B', 'Net − Dhalta'],
-              ['Total Value', fmt_money(ts.sale_value),                                                                    '#00897B', 'Sum of all sale invoices'],
-            ].map(([l,v,c,sub],i)=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
-              <div>
-                <div style="font-size:11.5px;color:var(--muted)">${l}</div>
-                ${sub ? `<div style="font-size:10px;color:var(--muted);opacity:.7;margin-top:1px">${sub}</div>` : ''}
-              </div>
-              <span style="font-size:13px;font-weight:700;${c?'color:'+c:''}">${v}</span>
-            </div>`).join('')}
-          </div>
-        </div>
-
-        ${hasCharges ? `
-        <div style="margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-receipt"></i> PURCHASE BILL BREAKDOWN</div>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
-            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">ITEM VALUE</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.pur_item_value)}</div></div>
-            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">TRANSPORT</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.transport_amt||0)}</div></div>
-            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">LOADING</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.loading_amt||0)}</div></div>
-            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">PACKING</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.packing_amt||0)}</div></div>
-            <div class="pne-card" style="padding:11px 13px"><div style="font-size:10px;color:var(--muted);font-weight:700">OTHER</div><div style="font-size:13px;font-weight:800;margin-top:3px">${fmt_money(ts.other_amt||0)}</div></div>
-          </div>
-        </div>` : ''}
-`;
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function renderFRCharts(r) {
-  if (!window.Chart) return;
-
-  // Trend
-  const trendCtx = document.getElementById('fr-trend-chart');
-  if (frTrendChart) frTrendChart.destroy();
-  frTrendChart = new Chart(trendCtx, {
-    type: 'line',
-    data: {
-      labels: r.trend.map(t => fmt_date_disp(t.date).slice(0,5)),
-      datasets: [
-        { label: 'Income', data: r.trend.map(t => t.income), borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.1)', fill: true, tension: .35 },
-        { label: 'Purchase', data: r.trend.map(t => t.expense), borderColor: '#7B1FA2', backgroundColor: 'rgba(123,31,162,.08)', fill: true, tension: .35 },
-        { label: 'Expenses', data: r.trend.map(t => t.biz_expense||0), borderColor: '#E53935', backgroundColor: 'rgba(229,57,53,.08)', fill: false, tension: .35, borderDash: [4,3] },
-      ],
-    },
-    options: { plugins: { legend: { position: 'top', labels: { boxWidth: 10 } } }, scales: { y: { ticks: { callback: v => (v/1000)+'L' } } } },
-  });
-
-  // Income distribution donut
-  const incCtx = document.getElementById('fr-income-chart');
-  if (frIncomeChart) frIncomeChart.destroy();
-  frIncomeChart = new Chart(incCtx, {
-    type: 'doughnut',
-    data: { labels: r.income_heads.map(h=>h.head), datasets: [{ data: r.income_heads.map(h=>h.amount), backgroundColor: ['#00897B','#1976D2','#6A4C93','#E65100','#2E7D32'] }] },
-    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '65%' },
-  });
-
-  // Expense distribution donut
-  const expCtx = document.getElementById('fr-expense-chart');
-  if (frExpenseChart) frExpenseChart.destroy();
-  frExpenseChart = new Chart(expCtx, {
-    type: 'doughnut',
-    data: { labels: r.expense_heads.map(h=>h.head), datasets: [{ data: r.expense_heads.map(h=>h.amount), backgroundColor: ['#2E7D32','#1976D2','#6A4C93','#C62828','#E65100'] }] },
-    options: { plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }, cutout: '65%' },
-  });
-}
-
-// ══════════════════════════════════════════
-// STOCK HISTORY — full transaction-level ledger view across all products,
-// with real running balances and reference numbers pulled from whichever
-// source (Purchase/Sale/Adjustment/Stock In) generated each entry.
-// ══════════════════════════════════════════
-function populateSHProductDropdown() {
-  const sel = document.getElementById('sh-f-product');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All Products</option>' + STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
-
-function onSHProductChange() {
-  const pid = document.getElementById('sh-f-product').value;
-  const batchSel = document.getElementById('sh-f-batch');
-  const batches = (STATE.stock||[]).filter(s => String(s.product_id) === String(pid).replace(/\D/g,'') && s.batch_no && s.batch_no !== '—').map(s => s.batch_no);
-  const unique = [...new Set(batches)];
-  batchSel.innerHTML = '<option value="">Select Batch / Lot</option>' + unique.map(b => `<option value="${escHtml(b)}">${escHtml(b)}</option>`).join('');
-}
-
-// When Opening Stock is negative, it means something before the current
-// date range moved more stock out than was ever recorded coming in. This
-// jumps the range back far enough to include everything, so that root
-// transaction becomes visible in the table instead of being hidden
-// upstream of "as on" — the actual bug (if any) will show up as a normal
-// row here rather than as an unexplained negative number.
-function setSHAllTime() {
-  document.getElementById('sh-f-from').value = '2000-01-01';
-  document.getElementById('sh-f-to').value = fmt_date(new Date());
-  renderStockHistory();
-}
-function resetSHFilter() {
-  document.getElementById('sh-f-product').value = '';
-  document.getElementById('sh-f-batch').innerHTML = '<option value="">Select Batch / Lot</option>';
-  document.getElementById('sh-f-warehouse').value = '';
-  document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('sh-f-to').value = fmt_date(new Date());
-  document.getElementById('sh-f-txntype').value = '';
-  document.getElementById('sh-f-reftype').value = '';
-  renderStockHistory();
-}
-
-function goToStockHistory(productId, productName) {
-  populateSHProductDropdown();
-  if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
-    document.getElementById('sh-f-to').value = fmt_date(new Date());
-  }
-  if (productId) {
-    document.getElementById('sh-f-product').value = String(productId).replace(/\D/g,'');
-    onSHProductChange();
-  }
-  showPage('stock-history');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock-history'));
-  renderStockHistory();
-}
-
-let SH_LAST_ROWS = [];
-
-async function renderStockHistory() {
-  populateSHProductDropdown();
-  if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
-    document.getElementById('sh-f-to').value = fmt_date(new Date());
-  }
-  try {
-    const params = new URLSearchParams({
-      date_from: document.getElementById('sh-f-from').value,
-      date_to: document.getElementById('sh-f-to').value,
-    });
-    const pid = document.getElementById('sh-f-product').value; if (pid) params.set('product_id', pid);
-    const batch = document.getElementById('sh-f-batch').value; if (batch) params.set('batch_no', batch);
-    const wh = document.getElementById('sh-f-warehouse').value; if (wh) params.set('warehouse', wh);
-    const txn = document.getElementById('sh-f-txntype').value; if (txn) params.set('transaction_type', txn);
-    const ref = document.getElementById('sh-f-reftype').value; if (ref) params.set('reference_type', ref);
-
-    const r = await api('api/stock_history.php?' + params.toString());
-    SH_LAST_ROWS = Array.isArray(r.data) ? r.data : [];
-    SH_PAGE = 1;
-    const stats = r.stats || {};
-
-    const openingVal = stats.opening_stock || 0;
-    const openingEl = document.getElementById('sh-stat-opening');
-    openingEl.textContent = openingVal.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    openingEl.style.color = openingVal < 0 ? '#E53935' : '';
-    document.getElementById('sh-stat-opening-date').innerHTML = 'as on ' + fmt_date_disp(document.getElementById('sh-f-from').value) + (pid ? '' : ' (sum across all products)')
-      + (openingVal < 0 ? '<br><span style="color:#E53935"><i class="fas fa-triangle-exclamation"></i> Negative — click "All Time" to find the cause</span>' : '');
-    document.getElementById('sh-stat-in').textContent = (stats.total_in||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    document.getElementById('sh-stat-out').textContent = (stats.total_out||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    document.getElementById('sh-stat-closing').textContent = (stats.closing_stock||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-    document.getElementById('sh-stat-value').textContent = fmt_money(stats.current_stock_value||0);
-
-    // ── Total Adjustments ────────────────────────────────────────
-    const adjRows = SH_LAST_ROWS.filter(r => r.ref_type === 'adjustment');
-    const adjNetKg = adjRows.reduce((s, r) => s + (r.direction==='in' ? parseFloat(r.qty||0) : -parseFloat(r.qty||0)), 0);
-    document.getElementById('sh-stat-adj-count').textContent = adjRows.length;
-    document.getElementById('sh-stat-adj-sub').textContent = (adjNetKg >= 0 ? '+' : '') + adjNetKg.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg net';
-    document.getElementById('sh-stat-adj-sub').style.color = adjRows.length > 5 ? '#E65100' : 'var(--muted)';
-
-    // ── Avg Purchase Rate ────────────────────────────────────────
-    const purRows = SH_LAST_ROWS.filter(r => r.ref_type === 'purchase' && r.direction === 'in');
-    const purTotalKg  = purRows.reduce((s, r) => s + parseFloat(r.qty||0), 0);
-    const purTotalVal = purRows.reduce((s, r) => s + parseFloat(r.qty||0) * parseFloat(r.rate||0), 0);
-    const avgRate = purTotalKg > 0 ? purTotalVal / purTotalKg : 0;
-    document.getElementById('sh-stat-avg-rate').textContent = avgRate > 0 ? fmt_money(avgRate) : '—';
-
-    renderSHTable();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-let SH_PAGE = 1;
-const SH_PAGESIZE = 20;
-
-function renderSHTable() {
-  const tbody = document.getElementById('sh-history-tbody');
-  const rows = SH_LAST_ROWS;
-  if (!rows.length) {
-    document.getElementById('sh-history-info').textContent = 'No entries';
-    const pg = document.getElementById('sh-pagination'); if (pg) pg.innerHTML = '';
-    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">No stock movement in this period</td></tr>`;
-    return;
-  }
-  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
-  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
-  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
-  // Fallback for any row with a missing ref_type (older data written before
-  // this was consistently set) — infer it from the notes text instead of
-  // just showing a blank cell.
-  function shResolveRefType(row) {
-    if (row.ref_type) return row.ref_type;
-    const n = (row.notes || '').toLowerCase();
-    if (n.startsWith('stock in')) return 'stock_in';
-    if (n.startsWith('purchase')) return 'purchase';
-    if (n.startsWith('sale')) return 'sale';
-    return row.ref_type;
-  }
-  // reverse chronological for display (most recent first), matching the rest of the app
-  const display = [...rows].reverse();
-
-  // ── Pagination (20 per page) ───────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(display.length / SH_PAGESIZE));
-  if (SH_PAGE > totalPages) SH_PAGE = totalPages;
-  if (SH_PAGE < 1) SH_PAGE = 1;
-  const start = (SH_PAGE - 1) * SH_PAGESIZE;
-  const pageRows = display.slice(start, start + SH_PAGESIZE);
-  document.getElementById('sh-history-info').textContent =
-    `Showing ${start+1} to ${Math.min(start+SH_PAGESIZE, display.length)} of ${display.length} entries`;
-  const pager = document.getElementById('sh-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="shPage(${SH_PAGE-1})" ${SH_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SH_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===SH_PAGE?'active':''}" onclick="shPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="shPage(${SH_PAGE+1})" ${SH_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  tbody.innerHTML = pageRows.map((row, idx) => {
-    const refType = shResolveRefType(row);
-    return `
-    <tr>
-      <td>${start + idx + 1}</td>
-      <td>${fmt_date_disp(row.movement_date)}</td>
-      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
-      <td>${refLabel[refType]||'Unknown'}</td>
-      <td>${escHtml(row.reference_no||'—')}</td>
-      <td>${escHtml(row.batch_no||'—')}</td>
-      <td>${escHtml(row.warehouse||'Main Warehouse')}</td>
-      <td style="color:#00897B;font-weight:600">${row.direction==='in'?parseFloat(row.qty).toFixed(2):'—'}</td>
-      <td style="color:#E53935;font-weight:600">${row.direction==='out'?parseFloat(row.qty).toFixed(2):'—'}</td>
-      <td><strong>${parseFloat(row.running_balance).toFixed(2)}</strong></td>
-      <td style="color:var(--muted);font-size:11px">${escHtml((row.notes||'').replace(/^(Purchase|Sale|Stock In)\s*/,'').trim() || row.notes || '—')}</td>
-      <td>${renderSHActionCell({...row, ref_type: refType}, refLabel)}</td>
-    </tr>`;
-  }).join('');
-}
-
-function shPage(p) {
-  const totalPages = Math.max(1, Math.ceil((SH_LAST_ROWS||[]).length / SH_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  SH_PAGE = p;
-  renderSHTable();
-}
-
-function renderSHActionCell(row, refLabel) {
-  // Viewing (eye) is the primary action for every ledger row — corrections
-  // are handled through Stock Adjustment, not by editing history directly.
-  const eye = `<button class="act-btn" title="View transaction details" onclick="viewStockTxnDetails(${row.id})"><i class="fas fa-eye"></i></button>`;
-  if (row.ref_type === 'adjustment') {
-    return eye + `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, '${row.product_id}', '${escHtml(row.product_name||'').replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>`;
-  }
-  return eye;
-}
-
-// ── Stock Transaction Details page ─────────────────────────────
-// Full read-only breakdown of one ledger row: overview, product info,
-// quantity/value summary, and the product's complete ledger flow.
-async function viewStockTxnDetails(ledgerId) {
-  const row = (SH_LAST_ROWS||[]).find(r => String(r.id) === String(ledgerId));
-  if (!row) { toast('❌ Transaction not found — refresh Stock History', 'error'); return; }
-
-  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
-  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
-  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
-  const refType = row.ref_type || '';
-  const prod = (STATE.products||[]).find(p => String(p.id).replace(/\D/g,'') === String(row.product_id)) || {};
-  const rate = parseFloat(row.rate) || parseFloat(prod.rate) || 0;
-  const qty = parseFloat(row.qty) || 0;
-  const bal = parseFloat(row.running_balance) || 0;
-
-  const kv = (label, val) => `<div style="min-width:140px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px">${label}</div><div style="font-size:12.5px;font-weight:600">${val}</div></div>`;
-  const chip = (label, val, color, bg, icon) => `
-    <div style="flex:1;min-width:150px;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:center">
-      <span style="width:40px;height:40px;border-radius:9px;background:${bg};color:${color};display:flex;align-items:center;justify-content:center"><i class="fas fa-${icon}"></i></span>
-      <div><div style="font-size:11px;font-weight:700;color:${color}">${label}</div><div style="font-size:16px;font-weight:800">${val}</div></div>
-    </div>`;
-
-  document.getElementById('stx-body').innerHTML = `
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green"><i class="fas fa-receipt"></i> Transaction Overview</div>
-        <div style="display:flex;flex-wrap:wrap;gap:18px 28px">
-          ${kv('Transaction Type', `<span style="font-size:11px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:3px 10px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span>`)}
-          ${kv('Reference Type', escHtml(refLabel[refType]||'—'))}
-          ${kv('Reference No.', escHtml(row.reference_no||'—'))}
-          ${kv('Date', fmt_date_disp(row.movement_date))}
-          ${kv('Batch / Lot No.', escHtml(row.batch_no||'—'))}
-          ${kv('Warehouse', escHtml(row.warehouse||'Main Warehouse'))}
-          ${kv('Remarks', escHtml(row.notes||'—'))}
-        </div>
-      </div>
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green"><i class="fas fa-box"></i> Product Information</div>
-        <div class="pne-kv"><span>Product</span><strong>${escHtml(row.product_name||prod.name||'—')}</strong></div>
-        <div class="pne-kv"><span>Category</span><strong>${escHtml(prod.category||'—')}</strong></div>
-        <div class="pne-kv"><span>Variety</span><strong>${escHtml(prod.variety||'—')}</strong></div>
-        <div class="pne-kv"><span>Grade</span><strong>${escHtml(prod.grade||'—')}</strong></div>
-        <div class="pne-kv"><span>Unit</span><strong>Kg</strong></div>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px" class="stx-grid">
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green"><i class="fas fa-chart-line"></i> Quantity &amp; Value Summary</div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          ${chip('Quantity In', row.direction==='in' ? qty.toFixed(2)+' Kg' : '—', '#00897B', '#E8F5E9', 'arrow-right-to-bracket')}
-          ${chip('Quantity Out', row.direction==='out' ? qty.toFixed(2)+' Kg' : '—', '#E53935', '#FFEBEE', 'arrow-right-from-bracket')}
-          ${chip('Balance Quantity', bal.toFixed(2)+' Kg', '#1976D2', '#E3F2FD', 'scale-balanced')}
-        </div>
-      </div>
-      <div class="pne-card">
-        <div class="pne-card-head pne-head-green"><i class="fas fa-indian-rupee-sign"></i> Financial Summary</div>
-        <div class="pne-kv"><span>Rate (₹ / Kg)</span><strong>${rate > 0 ? fmt_money(rate) : '—'}</strong></div>
-        <div class="pne-kv"><span>Transaction Value (₹)</span><strong>${rate > 0 ? fmt_money(qty * rate) : '—'}</strong></div>
-        <div class="pne-kv"><span>Balance Value (₹)</span><strong>${rate > 0 ? fmt_money(bal * rate) : '—'}</strong></div>
-      </div>
-    </div>
-
-    <div class="pne-card" style="margin-bottom:16px">
-      <div class="pne-card-head pne-head-green"><i class="fas fa-timeline"></i> Stock Ledger Flow (This Product)</div>
-      <div class="table-card" style="overflow-x:auto">
-        <table class="data-table" style="min-width:820px">
-          <thead><tr><th>#</th><th>Date</th><th>Transaction Type</th><th>Reference No.</th><th>In (Kg)</th><th>Out (Kg)</th><th>Balance (Kg)</th><th>Rate (₹/Kg)</th><th>Remarks</th></tr></thead>
-          <tbody id="stx-flow-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px"><i class="fas fa-spinner fa-spin"></i> Loading product history…</td></tr></tbody>
-        </table>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:12px;color:var(--muted)" id="stx-flow-info"></div>
-        <div style="display:flex;gap:6px;align-items:center" id="stx-flow-pager"></div>
-      </div>
-    </div>
-
-    <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 14px"><i class="fas fa-circle-info"></i> <b>Note:</b> In (Kg) increases stock. Out (Kg) decreases stock. To correct any figure, create a Stock Adjustment — history rows are never edited directly.</div>
-  `;
-
-  showPage('stock-txn-details');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
-
-  // Load the product's full ledger flow (all time), highlighting this row
-  try {
-    const params = new URLSearchParams({ date_from: '2000-01-01', date_to: fmt_date(new Date()), product_id: row.product_id });
-    const r = await api('api/stock_history.php?' + params.toString());
-    STX_FLOW = Array.isArray(r.data) ? r.data : [];
-    STX_LEDGER_ID = ledgerId;
-    // Open on the page that contains the clicked transaction
-    const idx = STX_FLOW.findIndex(f => String(f.id) === String(ledgerId));
-    STX_PAGE = idx >= 0 ? Math.floor(idx / STX_PAGESIZE) + 1 : 1;
-    renderSTXFlow();
-  } catch(e) {
-    const tbody = document.getElementById('stx-flow-tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Could not load product history</td></tr>`;
-  }
-}
-
-// ── Stock Ledger Flow pagination (Stock Transaction Details) ────
-let STX_FLOW = [];
-let STX_PAGE = 1;
-let STX_LEDGER_ID = null;
-const STX_PAGESIZE = 10;
-
-function renderSTXFlow() {
-  const tbody = document.getElementById('stx-flow-tbody');
-  if (!tbody) return; // user navigated away
-  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
-  const typeColor = { purchase: '#00897B', stock_in: '#00897B', sale: '#E53935', adjustment: '#E65100' };
-  const flow = STX_FLOW || [];
-  const info = document.getElementById('stx-flow-info');
-  const pager = document.getElementById('stx-flow-pager');
-
-  if (!flow.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No history for this product</td></tr>`;
-    if (info) info.textContent = '';
-    if (pager) pager.innerHTML = '';
-    return;
-  }
-
-  const totalPages = Math.max(1, Math.ceil(flow.length / STX_PAGESIZE));
-  if (STX_PAGE > totalPages) STX_PAGE = totalPages;
-  if (STX_PAGE < 1) STX_PAGE = 1;
-  const start = (STX_PAGE - 1) * STX_PAGESIZE;
-  const pageRows = flow.slice(start, start + STX_PAGESIZE);
-
-  if (info) info.textContent = `Showing ${start+1} to ${Math.min(start+STX_PAGESIZE, flow.length)} of ${flow.length} entries`;
-  if (pager) {
-    const opts = Array.from({length: totalPages}, (_, i) =>
-      `<option value="${i+1}" ${i+1===STX_PAGE?'selected':''}>Page ${i+1}</option>`).join('');
-    pager.innerHTML = `
-      <button class="pg-btn" onclick="stxPage(${STX_PAGE-1})" ${STX_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>
-      <select onchange="stxPage(parseInt(this.value))" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card)">${opts}</select>
-      <span style="font-size:12px;color:var(--muted)">of ${totalPages}</span>
-      <button class="pg-btn" onclick="stxPage(${STX_PAGE+1})" ${STX_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-  }
-
-  tbody.innerHTML = pageRows.map((f, i) => {
-    const isThis = String(f.id) === String(STX_LEDGER_ID);
-    const fType = f.ref_type || '';
-    return `<tr style="${isThis ? 'background:#E8F5E9' : ''}">
-      <td>${start + i + 1}</td>
-      <td>${fmt_date_disp(f.movement_date)}${isThis ? ' <span style="font-size:9px;font-weight:800;color:#00897B">◀ THIS</span>' : ''}</td>
-      <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[fType]||'#889'};background:${typeColor[fType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[fType]||'Unknown'}</span></td>
-      <td>${escHtml(f.reference_no||'—')}</td>
-      <td style="color:#00897B;font-weight:600">${f.direction==='in'?parseFloat(f.qty).toFixed(2):'—'}</td>
-      <td style="color:#E53935;font-weight:600">${f.direction==='out'?parseFloat(f.qty).toFixed(2):'—'}</td>
-      <td><strong>${parseFloat(f.running_balance).toFixed(2)}</strong></td>
-      <td>${(parseFloat(f.rate)||0) > 0 ? parseFloat(f.rate).toFixed(2) : '—'}</td>
-      <td style="color:var(--muted);font-size:11px">${escHtml(f.notes||'—')}</td>
-    </tr>`;
-  }).join('');
-}
-
-function stxPage(p) {
-  const totalPages = Math.max(1, Math.ceil((STX_FLOW||[]).length / STX_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  STX_PAGE = p;
-  renderSTXFlow();
-}
-
-function printStockTxnDetails() {
-  const body = document.getElementById('stx-body');
-  if (!body) return;
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>Stock Transaction Details</title><style>
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 24px; font-size: 12px; }
-    .pne-card { border: 1px solid #dde3ea; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
-    .pne-card-head { font-weight: 800; color: #0d3b2e; margin-bottom: 12px; font-size: 13px; }
-    .pne-kv { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; color: #667; }
-    .pne-kv strong { color: #223; }
-    .stx-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 7px 8px; font-size: 11px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #f4f6f8; font-size: 10px; text-transform: uppercase; }
-    .table-card { overflow: visible; }
-  </style></head><body>
-    <h2 style="margin:0 0 14px">Stock Transaction Details</h2>
-    ${body.innerHTML}
-    <script>window.print();<\\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-function exportStockHistoryCsv() {
-  if (!SH_LAST_ROWS.length) { toast('⚠️ Nothing to export', 'warning'); return; }
-  const headers = ['Date','Transaction Type','Reference Type','Reference No.','Batch/Lot No.','Warehouse','In (Kg)','Out (Kg)','Balance (Kg)','Remarks'];
-  const typeLabel = { purchase: 'Stock In', stock_in: 'Stock In', sale: 'Stock Out', adjustment: 'Stock Adjustment' };
-  const refLabel  = { purchase: 'Purchase Entry', stock_in: 'Stock In Entry', sale: 'Sales Invoice', adjustment: 'Stock Adjustment' };
-  const csvRows = SH_LAST_ROWS.map(r => [
-    r.movement_date, typeLabel[r.ref_type]||r.ref_type, refLabel[r.ref_type]||r.ref_type, r.reference_no||'',
-    r.batch_no||'', r.warehouse||'', r.direction==='in'?r.qty:'', r.direction==='out'?r.qty:'', r.running_balance, r.notes||'',
-  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','), ...csvRows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'stock-history-' + fmt_date(new Date()) + '.csv';
-  a.click();
-}
-
-// ══════════════════════════════════════════
-// SALES MODULE (full page) — new & separate from the original Invoices
-// system, gated behind business_type='product'. Writes stock OUT via
-// api/sales.php, closing the loop with Purchases' stock IN.
-// ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [] };
-let snDeductionSeq = 1;
-let snItemSeq = 1;
-
-function snEmptyItem() {
-  return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '', moisture_pct: null,
-    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
-}
-
-// ── Deductions (dynamic line items — Tractor Charge, Claim Charge, etc.) ──
-function addSNDeduction() {
-  SN.deductions.push({ id: snDeductionSeq++, type: '', description: '', amount: 0 });
-  renderSNDeductionsTable();
-}
-function removeSNDeduction(id) {
-  SN.deductions = SN.deductions.filter(d => d.id !== id);
-  renderSNDeductionsTable();
-}
-function updateSNDeduction(id, field, val) {
-  const d = SN.deductions.find(x => x.id === id); if (!d) return;
-  d[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
-  calcSaleNewTotals();
-  // keep the total footer fresh without a full re-render on every keystroke
-  document.getElementById('sn-deductions-total').textContent = fmt_money(SN.deductions.reduce((s,x)=>s+(parseFloat(x.amount)||0),0));
-}
-function renderSNDeductionsTable() {
-  const tbody = document.getElementById('sn-deductions-tbody');
-  if (!tbody) return;
-  if (!SN.deductions.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No deductions added</td></tr>`;
-  } else {
-    tbody.innerHTML = SN.deductions.map((d, i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td><input value="${escHtml(d.type)}" placeholder="e.g. Tractor Charge" oninput="updateSNDeduction(${d.id},'type',this.value)"></td>
-        <td><input value="${escHtml(d.description)}" placeholder="Optional" oninput="updateSNDeduction(${d.id},'description',this.value)"></td>
-        <td><input type="number" value="${d.amount}" min="0" step="0.01" oninput="updateSNDeduction(${d.id},'amount',this.value)"></td>
-        <td><button class="item-del" onclick="removeSNDeduction(${d.id})" title="Remove"><i class="fas fa-times"></i></button></td>
-      </tr>`).join('');
-  }
-  calcSaleNewTotals();
-}
-
-function goToNewSale() {
-  SN.editingId = null;
-  SN.items = [snEmptyItem()];
-  SN.attachments = [];
-  document.getElementById('psn-title').textContent = 'New Sale Entry';
-  document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
-  populateSaleCustomerDropdown();
-  populateSalesExecDropdown(SERVER.user?.name || '');
-  document.getElementById('sn-customer').value = '';
-  clearCustomerAutofill();
-  document.getElementById('sn-customertype').value = 'Domestic';
-  document.getElementById('sn-shipping').value = '';
-  document.getElementById('sn-salesexec').value = '';
-  document.getElementById('sn-invno').value = '';
-  document.getElementById('sn-invdate').value = fmt_date(new Date());
-  document.getElementById('sn-duedate').value = '';
-  document.getElementById('sn-paymentterms').value = 'Immediate';
-  document.getElementById('sn-salestype').value = 'Local Sales';
-  document.getElementById('sn-placeofsupply').value = '';
-  document.getElementById('sn-currency').value = 'INR';
-  document.getElementById('sn-weighingtype').value = 'Dharam Kanta';
-  document.getElementById('sn-kantaname').value = '';
-  document.getElementById('sn-slipno').value = '';
-  document.getElementById('sn-weightdatetime').value = '';
-  document.getElementById('sn-kantaoperator').value = '';
-  document.getElementById('sn-kanta-gross').value = '';
-  document.getElementById('sn-kanta-tare').value = '';
-  document.getElementById('sn-kanta-net').value = '';
-  document.getElementById('sn-kanta-moisture').value = '';
-  document.getElementById('sn-kanta-dhaltakg').value = '';
-  document.getElementById('sn-kanta-billable').value = '';
-  calcSNWeightSummary();
-  document.getElementById('sn-transportcharge').value = 0;
-  document.getElementById('sn-loadingcharge').value = 0;
-  document.getElementById('sn-packingcharge').value = 0;
-  document.getElementById('sn-insurance').value = 0;
-  document.getElementById('sn-othercharge').value = 0;
-  document.getElementById('sn-roundoff').value = 0;
-  document.getElementById('sn-discount').value = 0;
-  document.getElementById('sn-discount-remarks').value = '';
-  document.getElementById('sn-tradediscpct').value = 0;
-  document.getElementById('sn-cashdiscpct').value = 0;
-  document.getElementById('sn-cdwithin').value = 'Same Day';
-  document.getElementById('sn-paystatus').value = 'Pending';
-  document.getElementById('sn-paymethod').value = 'Cash';
-  document.getElementById('sn-split-panel').style.display = 'none';
-  document.getElementById('sn-split-rows').innerHTML = '';
-  document.getElementById('sn-amountreceived').value = 0;
-  document.getElementById('sn-transactionno').value = '';
-  document.getElementById('sn-paydate').value = fmt_date(new Date());
-  document.getElementById('sn-customernotes').value = '';
-  document.getElementById('sn-internalnotes').value = '';
-  document.getElementById('sn-deliveryinstructions').value = '';
-  document.getElementById('sn-preparedby').value = STATE.user?.name || '';
-  document.getElementById('sn-checkedby').value = '';
-  document.getElementById('sn-approvedby').value = '';
-  document.getElementById('sn-attachments-input').value = '';
-  document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
-  SN.deductions = [];
-  renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
-  showPage('sale-new');
-  document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
-  // Refresh stock levels in the background — don't block opening the page
-  // on it, but make sure Available Stock isn't showing numbers from
-  // whenever the app was first loaded.
-  api('api/stock.php').then(r => {
-    if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
-  }).catch(() => {});
-}
-
-function cancelSaleEntry() {
-  showPage('sales-list');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-  renderSales();
-}
-
-function clearCustomerAutofill() {
-  document.getElementById('sn-mobile').value = '';
-  document.getElementById('sn-gstin').value = '';
-  document.getElementById('sn-state').value = '';
-  document.getElementById('sn-district').value = '';
-  document.getElementById('sn-billing').value = '';
-}
-
-// Sales Executive / Sales Person is almost always the person doing the
-// work, so this defaults to the logged-in user and only needs a click
-// when entering something on another team member's behalf — no more
-// typing a name by hand. Shared by the Sale entry, quick-add Customer,
-// and full Customer entry forms. Team members load once and are cached.
-async function populateSalesExecDropdown(selected, selectId) {
-  selectId = selectId || 'sn-salesexec';
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  if (!STATE.team || !STATE.team.length) {
-    try {
-      const r = await api('api/team.php?action=list');
-      STATE.team = Array.isArray(r.data) ? r.data : [];
-    } catch(e) { STATE.team = STATE.team || []; }
-  }
-  const active = (STATE.team || []).filter(u => u.status === 'active');
-  let names = [...new Set(active.map(u => u.name).filter(Boolean))].sort();
-  // Older records may have a free-text name that isn't (or is no longer) a
-  // team member — keep it selectable rather than silently losing the data.
-  if (selected && !names.includes(selected)) names.unshift(selected);
-  const placeholder = selectId === 'cusn-salesperson' ? 'Select Sales Person' : '— Select —';
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    names.map(n => `<option value="${escHtml(n)}" ${n===selected?'selected':''}>${escHtml(n)}</option>`).join('');
-  if (!selected) sel.value = '';
-}
-
-function populateSaleCustomerDropdown() {
-  const sel = document.getElementById('sn-customer');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">Select or add customer…</option>' +
-    (STATE.customers||[]).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
-
-function onSalesTypeChange() {
-  calcSaleNewTotals();
-}
-
-async function onCustomerPicked() {
-  const id = document.getElementById('sn-customer').value;
-  if (!id) { clearCustomerAutofill(); document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>'; return; }
-  const c = STATE.customers.find(x => String(x.id) === String(id));
-  if (c) {
-    document.getElementById('sn-mobile').value = c.mobile || '';
-    document.getElementById('sn-gstin').value = c.gstin || '';
-    document.getElementById('sn-state').value = c.state || '';
-    document.getElementById('sn-district').value = c.district || '';
-    document.getElementById('sn-billing').value = c.billing_address || '';
-    document.getElementById('sn-shipping').value = c.shipping_address || c.billing_address || '';
-    document.getElementById('sn-placeofsupply').value = c.state || '';
-    if (c.customer_type) document.getElementById('sn-customertype').value = c.customer_type;
-    if (c.sales_executive) populateSalesExecDropdown(c.sales_executive);
-    if (c.payment_terms) document.getElementById('sn-paymentterms').value = c.payment_terms;
-  }
-  calcSaleNewTotals();
-  try {
-    const r = await api('api/customers.php?summary_for=' + id);
-    const sm = r.data || {};
-    const outColor = (sm.outstanding||0) > 0 ? '#E53935' : 'inherit';
-    document.getElementById('sn-customer-summary').innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <strong>${escHtml(c?.name||'—')}</strong>
-        <span class="badge-verified" style="background:#E8F5E9;color:#2E7D32">Active</span>
-      </div>
-      <div class="pne-kv"><span>Type</span><strong>${escHtml(c?.customer_type||'—')}</strong></div>
-      <div class="pne-kv"><span>Credit Limit</span><strong>${fmt_money(c?.credit_limit||0)}</strong></div>
-      <div class="pne-kv"><span>Outstanding Balance</span><strong style="color:${outColor}">${fmt_money(sm.outstanding||0)}</strong></div>
-      <div class="pne-kv"><span>Last Invoice</span><strong>${escHtml(sm.last_invoice_no||'—')}</strong></div>
-      <div class="pne-kv"><span>Total Sales (YTD)</span><strong>${fmt_money(sm.total_sales_ytd||0)}</strong></div>
-      <div class="pne-kv"><span>Avg. Payment Days</span><strong>${sm.avg_payment_days ?? '—'}</strong></div>`;
-  } catch(e) { /* non-fatal */ }
-}
-
-function openAddCustomerModal() {
-  ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('cus-type').value = 'Domestic';
-  document.getElementById('cus-creditlimit').value = 0;
-  populateSalesExecDropdown(SERVER.user?.name || '', 'cus-salesexec');
-  openModal('modal-addcustomer');
-}
-
-async function saveCustomer() {
-  const name = document.getElementById('cus-name').value.trim();
-  if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
-  const payload = {
-    name, customer_type: document.getElementById('cus-type').value,
-    mobile: document.getElementById('cus-mobile').value.trim(), email: document.getElementById('cus-email').value.trim(),
-    gstin: document.getElementById('cus-gstin').value.trim(), state: document.getElementById('cus-state').value.trim(),
-    district: document.getElementById('cus-district').value.trim(), billing_address: document.getElementById('cus-billing').value.trim(),
-    shipping_address: document.getElementById('cus-shipping').value.trim(),
-    credit_limit: parseFloat(document.getElementById('cus-creditlimit').value) || 0,
-    payment_terms: document.getElementById('cus-paymentterms').value.trim(), sales_executive: document.getElementById('cus-salesexec').value.trim(),
-  };
-  try {
-    const res = await api('api/customers.php', 'POST', payload);
-    const r = await api('api/customers.php');
-    STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
-    closeModal('modal-addcustomer');
-    populateSaleCustomerDropdown();
-    document.getElementById('sn-customer').value = res.id;
-    onCustomerPicked();
-    toast('✅ "' + name + '" added!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function addSaleNewItem() { SN.items.push(snEmptyItem()); renderSNItemsTable(); }
-function removeSNItem(id) {
-  if (SN.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
-  SN.items = SN.items.filter(i => i.id !== id);
-  renderSNItemsTable();
-}
-
-function snAvailableStock(productId) {
-  const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  // STATE.stock is populated by two different endpoints depending on which
-  // page was last visited (api/stock.php uses "current_stock", the newer
-  // api/product_stock.php uses "available_stock") — check both so this
-  // doesn't silently show 0 depending on navigation history.
-  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
-}
-
-function snCalcRow(it) {
-  const qty = parseFloat(it.qty) || 0;
-  const rate = parseFloat(it.rate) || 0;
-  const disc = parseFloat(it.discount_pct) || 0;
-  const gst = parseFloat(it.gst_pct) || 0;
-  const lineSubtotal = +(qty * rate * (1 - disc/100)).toFixed(2);
-  const taxAmount = +(lineSubtotal * gst / 100).toFixed(2);
-  const lineTotal = +(lineSubtotal + taxAmount).toFixed(2);
-  return { lineSubtotal, taxAmount, lineTotal };
-}
-
-function renderSNItemsTable() {
-  const tbody = document.getElementById('sn-items-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = SN.items.map((it, idx) => {
-    const c = snCalcRow(it);
-    const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
-    const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
-    return `<tr data-row="${it.id}">
-      <td>${idx+1}</td>
-      <td>
-        <select onchange="onSNProductChange(${it.id}, this.value)">
-          <option value="">Select product…</option>
-          ${STATE.products.map(p => `<option value="${p.id}" ${String(it.product_id)===String(p.id)?'selected':''}>${escHtml(p.name)}</option>`).join('')}
-        </select>
-      </td>
-      <td>${escHtml(prod?.category || '—')}</td>
-      <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
-      <td>${escHtml(prod?.grade || '—')}</td>
-      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
-      <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
-      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':(avail<(parseFloat(it.qty)||0)?'#E65100':'#00897B')}">${avail.toFixed(2)}</span></td>
-      <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
-      <td><input type="number" value="${it.qty}" min="0" step="0.01" oninput="updateSNItem(${it.id},'qty',this.value)"></td>
-      <td><input value="${escHtml(it.unit)}" oninput="updateSNItem(${it.id},'unit',this.value,true)"></td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updateSNItem(${it.id},'discount_pct',this.value)"></td>
-      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
-      <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
-      <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
-      <td><button class="item-del" onclick="removeSNItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
-    </tr>`;
-  }).join('');
-  calcSaleNewTotals();
-}
-
-function onSNProductChange(id, productId) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  it.product_id = productId || '';
-  if (productId) {
-    const p = STATE.products.find(x => String(x.id) === String(productId));
-    if (p) {
-      it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
-      it.variety_grade = p.variety || it.variety_grade;
-    }
-  }
-  renderSNItemsTable();
-}
-
-function updateSNItem(id, field, val, isText) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  it[field] = val;
-  const c = snCalcRow(it);
-  const taxEl = document.getElementById('sn-tax-' + id);     if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
-  const totEl = document.getElementById('sn-total-' + id);   if (totEl) totEl.textContent = fmt_money(c.lineTotal);
-  calcSaleNewTotals();
-}
-
-// The printed invoice's date should match when the sale actually happened —
-// for most sales that's the same day payment was collected, so Payment
-// Date driving Invoice Date is the sane default. Adjust Invoice Date
-// manually afterward if a sale is genuinely invoiced on a different day.
-function syncSNInvoiceDateToPayment() {
-  const payDate = document.getElementById('sn-paydate').value;
-  if (payDate) document.getElementById('sn-invdate').value = payDate;
-}
-
-function calcSNWeightSummary() {
-  const gross = parseFloat(document.getElementById('sn-kanta-gross').value) || 0;
-  const tare  = parseFloat(document.getElementById('sn-kanta-tare').value) || 0;
-  const net   = Math.max(0, gross - tare);
-  const dhaltaKg = Math.max(0, parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0);
-  const billable = Math.max(0, net - dhaltaKg);
-  document.getElementById('sn-kanta-net').value = net.toFixed(2);
-  document.getElementById('sn-kanta-billable').value = billable.toFixed(2);
-}
-
-function calcSaleNewTotals() {
-  let totalQty = 0, subtotal = 0, itemsTax = 0;
-  SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
-
-  document.getElementById('sn-total-items').textContent = SN.items.length;
-  document.getElementById('sn-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
-  document.getElementById('sn-sb-items').textContent = SN.items.length;
-  document.getElementById('sn-sb-qty').textContent = totalQty.toFixed(2) + ' Kg';
-
-  const addCharges = (parseFloat(document.getElementById('sn-transportcharge').value)||0)
-    + (parseFloat(document.getElementById('sn-loadingcharge').value)||0)
-    + (parseFloat(document.getElementById('sn-packingcharge').value)||0)
-    + (parseFloat(document.getElementById('sn-insurance').value)||0)
-    + (parseFloat(document.getElementById('sn-othercharge').value)||0);
-  document.getElementById('sn-addcharges-total').textContent = fmt_money(addCharges);
-  document.getElementById('sn-sum-addcharges2').textContent = fmt_money(addCharges);
-  document.getElementById('sn-sum-subtotal').textContent = fmt_money(subtotal);
-  document.getElementById('sn-sb-addcharges').textContent = fmt_money(addCharges);
-
-  const totalDeductions = SN.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
-  document.getElementById('sn-deductions-total').textContent = fmt_money(totalDeductions);
-  document.getElementById('sn-sum-deductions').textContent = fmt_money(totalDeductions);
-  document.getElementById('sn-sb-deductions').textContent = fmt_money(totalDeductions);
-
-  const tradeDiscPct = parseFloat(document.getElementById('sn-tradediscpct').value) || 0;
-  const cashDiscPct = parseFloat(document.getElementById('sn-cashdiscpct').value) || 0;
-  const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
-  const cashDiscAmt = +(subtotal * cashDiscPct / 100).toFixed(2);
-  document.getElementById('sn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
-  document.getElementById('sn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
-  document.getElementById('sn-sum-tradedisc').textContent = fmt_money(tradeDiscAmt);
-  document.getElementById('sn-sum-cashdisc').textContent = fmt_money(cashDiscAmt);
-
-  const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions - tradeDiscAmt - cashDiscAmt);
-  document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
-  document.getElementById('sn-sb-taxable').textContent = fmt_money(taxable);
-
-  const totalTax = subtotal > 0 ? +(itemsTax * (taxable / subtotal)).toFixed(2) : 0;
-  const isInterstate = document.getElementById('sn-salestype').value !== 'Local Sales';
-  document.getElementById('sn-cgst-row').style.display = isInterstate ? 'none' : 'flex';
-  document.getElementById('sn-sgst-row').style.display = isInterstate ? 'none' : 'flex';
-  document.getElementById('sn-igst-row').style.display = isInterstate ? 'flex' : 'none';
-  const cgst = isInterstate ? 0 : +(totalTax/2).toFixed(2);
-  const sgst = isInterstate ? 0 : +(totalTax/2).toFixed(2);
-  const igst = isInterstate ? totalTax : 0;
-  document.getElementById('sn-sum-cgst').textContent = fmt_money(cgst);
-  document.getElementById('sn-sum-sgst').textContent = fmt_money(sgst);
-  document.getElementById('sn-sum-igst').textContent = fmt_money(igst);
-  document.getElementById('sn-sum-totaltax').textContent = fmt_money(totalTax);
-
-  const roundOff = parseFloat(document.getElementById('sn-roundoff').value) || 0;
-  document.getElementById('sn-sum-roundoff').textContent = fmt_money(roundOff);
-
-  const grand = +(taxable + totalTax + roundOff).toFixed(2);
-  document.getElementById('sn-sum-grand').textContent = fmt_money(grand);
-
-  const payStatus = document.getElementById('sn-paystatus').value;
-  if (payStatus === 'Paid') document.getElementById('sn-amountreceived').value = grand.toFixed(2);
-  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-  const balance = Math.max(0, grand - received);
-  document.getElementById('sn-sum-received').textContent = fmt_money(received);
-  document.getElementById('sn-sum-balance').textContent = fmt_money(balance);
-  document.getElementById('sn-outstanding-amount').textContent = fmt_money(balance);
-
-  document.getElementById('sn-sb-tax').textContent = fmt_money(totalTax);
-  document.getElementById('sn-sb-invvalue').textContent = fmt_money(grand);
-  document.getElementById('sn-sb-paidamount').textContent = fmt_money(received);
-  document.getElementById('sn-sb-netpayable').textContent = fmt_money(balance);
-  updateSNPartialCard(grand, payStatus);
-  syncSNSplitAutoRow();
-}
-
-// ── Split Payment (Sale Entry Payment Information) ────────────────
-// Same design as Purchase Entry: every row is freely editable, Split
-// Total is a live sum, and a mismatch warning fires if it doesn't match
-// Amount Received.
-const SN_SPLIT_COLORS = { 'Cash': '#2E7D32', 'Bank Transfer': '#1565C0', 'UPI': '#6A4C93', 'Cheque': '#E65100' };
-function snSplitColor(method) { return SN_SPLIT_COLORS[method] || '#455A64'; }
-
-function toggleSNSplitPayment() {
-  const isSplit = document.getElementById('sn-paymethod').value === 'Split Payment';
-  const panel = document.getElementById('sn-split-panel');
-  panel.style.display = isSplit ? 'block' : 'none';
-  if (isSplit && document.getElementById('sn-split-rows').children.length === 0) {
-    addSNSplitRow(); addSNSplitRow();
-    syncSNSplitAutoRow();
-  }
-}
-
-function syncSNSplitAutoRow(changedEl) {
-  const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
-  if (rows.length > 1) {
-    const firstAmt = rows[0].querySelector('.pne-split-amt');
-    const editedFirstRow = changedEl && rows[0].contains(changedEl);
-    if (!editedFirstRow && firstAmt) {
-      const target = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-      let othersSum = 0;
-      for (let i = 1; i < rows.length; i++) othersSum += parseFloat(rows[i].querySelector('.pne-split-amt')?.value) || 0;
-      firstAmt.value = Math.max(0, target - othersSum).toFixed(2);
-    }
-  }
-  renderSNSplitFooter();
-  updateSNSplitMismatch();
-}
-
-function addSNSplitRow() {
-  const container = document.getElementById('sn-split-rows');
-  const row = document.createElement('div');
-  row.className = 'pne-split-row';
-  row.innerHTML = `<select class="pne-split-method" onchange="renderSNSplitFooter()">
-      <option>UPI (GPay/PhonePe/Paytm)</option><option>Cash</option><option>Bank Transfer (NEFT/RTGS)</option><option>Cheque</option>
-    </select>
-    <input type="number" class="pne-split-amt" placeholder="0.00" step="0.01" oninput="syncSNSplitAutoRow(this)">
-    <button type="button" onclick="removeSNSplitRow(this)"><i class="fas fa-times"></i></button>`;
-  container.appendChild(row);
-  renderSNSplitFooter();
-}
-
-function removeSNSplitRow(btn) {
-  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-  if (rows.length <= 1) { toast('⚠️ Keep at least 1 split method', 'warning'); return; }
-  btn.closest('.pne-split-row').remove();
-  syncSNSplitAutoRow();
-}
-
-function renderSNSplitFooter() {
-  const rows = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-row'));
-  let splitTotal = 0;
-  const parts = rows.map(r => {
-    const method = r.querySelector('.pne-split-method')?.value || '';
-    const amt = parseFloat(r.querySelector('.pne-split-amt')?.value) || 0;
-    splitTotal += amt;
-    const shortMethod = method.split(' (')[0];
-    const color = snSplitColor(shortMethod);
-    return `<span style="color:${color};font-weight:700">${escHtml(shortMethod)}: ${fmt_money(amt)}</span>`;
-  });
-  const totalEl = document.getElementById('sn-split-total-amt');
-  if (totalEl) totalEl.textContent = fmt_money(splitTotal);
-  const footer = document.getElementById('sn-split-footer');
-  if (footer) footer.innerHTML = parts.length
-    ? `<strong>Total: ${fmt_money(splitTotal)}</strong>` + parts.map(p => ' &nbsp;|&nbsp; ' + p).join('')
-    : '';
-}
-
-function updateSNSplitMismatch() {
-  const warnEl = document.getElementById('sn-split-mismatch');
-  if (!warnEl || document.getElementById('sn-paymethod')?.value !== 'Split Payment') { if(warnEl) warnEl.style.display='none'; return; }
-  const amts = Array.from(document.querySelectorAll('#sn-split-rows .pne-split-amt')).map(el => parseFloat(el.value)||0);
-  const splitSum = amts.reduce((s,v) => s+v, 0);
-  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-  if (received > 0 && Math.abs(splitSum - received) > 0.01) {
-    warnEl.style.display = 'block';
-    warnEl.textContent = splitSum > received
-      ? `⚠️ Split total (${fmt_money(splitSum)}) exceeds Amount Received`
-      : `⚠️ Split total (${fmt_money(splitSum)}) is less than Amount Received`;
-  } else {
-    warnEl.style.display = 'none';
-  }
-}
-
-function getSNSplitLabel() {
-  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-  const parts = Array.from(rows).map(r => {
-    const m = (r.querySelector('.pne-split-method')?.value || '').split(' (')[0];
-    const a = parseFloat(r.querySelector('.pne-split-amt')?.value || 0);
-    return a > 0 ? `${m}: ₹${a.toFixed(2)}` : null;
-  }).filter(Boolean);
-  return 'Split: ' + parts.join(' + ');
-}
-
-function restoreSNSplitFromLabel(label) {
-  const body = label.replace(/^Split:\s*/, '');
-  const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
-    const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
-    return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
-  }).filter(Boolean);
-
-  if (parts.length === 0) { addSNSplitRow(); addSNSplitRow(); syncSNSplitAutoRow(); return; }
-  parts.forEach((p, i) => {
-    addSNSplitRow();
-    setSNSplitRowMethod(i, p.method);
-    const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-    rows[i].querySelector('.pne-split-amt').value = p.amount.toFixed(2);
-  });
-  const firstSNRowAmt = document.querySelector('#sn-split-rows .pne-split-row .pne-split-amt');
-  syncSNSplitAutoRow(firstSNRowAmt);
-}
-function setSNSplitRowMethod(rowIndex, method) {
-  const rows = document.querySelectorAll('#sn-split-rows .pne-split-row');
-  const sel = rows[rowIndex]?.querySelector('.pne-split-method');
-  if (!sel) return;
-  const match = Array.from(sel.options).find(o => o.value.split(' (')[0] === method);
-  if (match) sel.value = match.value;
-}
-
-function updateSNPartialCard(grand, payStatus) {
-  const card = document.getElementById('sn-partial-card');
-  if (!card) return;
-  const show = payStatus === 'Partial';
-  card.style.display = show ? 'block' : 'none';
-  if (!show) return;
-  const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
-  const remaining = Math.max(0, grand - received);
-  const pct = grand > 0 ? Math.min(100, (received / grand) * 100) : 0;
-  document.getElementById('sn-partial-total').textContent = fmt_money(grand);
-  document.getElementById('sn-partial-received').textContent = fmt_money(received);
-  document.getElementById('sn-partial-remaining').textContent = fmt_money(remaining);
-  document.getElementById('sn-partial-bar').style.width = pct.toFixed(1) + '%';
-}
-
-
-function snFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-async function snAddAttachments(files) {
-  for (const f of Array.from(files)) { const url = await snFileToDataUrl(f); if (url) SN.attachments.push({ name: f.name, url }); }
-  document.getElementById('sn-attachments-input').value = '';
-  renderSNAttachments();
-}
-function snRemoveAttachment(idx) { SN.attachments.splice(idx, 1); renderSNAttachments(); }
-function renderSNAttachments() {
-  document.getElementById('sn-attachments-list').innerHTML = SN.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
-}
-
-async function saveSaleEntry(mode) {
-  const customerId = document.getElementById('sn-customer').value;
-  if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
-  if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
-  if (SN.items.some(it => !it.product_id)) { toast('⚠️ Every item needs a product selected', 'warning'); return; }
-
-  const payload = {
-    invoice_no: document.getElementById('sn-invno').value.trim(),
-    customer_id: parseInt(customerId),
-    sale_date: document.getElementById('sn-invdate').value,
-    due_date: document.getElementById('sn-duedate').value || null,
-    sales_executive: document.getElementById('sn-salesexec').value.trim(),
-    payment_terms: document.getElementById('sn-paymentterms').value,
-    sales_type: document.getElementById('sn-salestype').value,
-    weighing_type: document.getElementById('sn-weighingtype').value,
-    kanta_name: document.getElementById('sn-kantaname').value.trim(),
-    weighbridge_slip_no: document.getElementById('sn-slipno').value.trim(),
-    weight_datetime: document.getElementById('sn-weightdatetime').value || null,
-    kanta_operator_name: document.getElementById('sn-kantaoperator').value.trim(),
-    kanta_gross_weight: parseFloat(document.getElementById('sn-kanta-gross').value) || 0,
-    kanta_tare_weight: parseFloat(document.getElementById('sn-kanta-tare').value) || 0,
-    kanta_moisture_pct: document.getElementById('sn-kanta-moisture').value || null,
-    kanta_dhalta_kg: parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0,
-    place_of_supply: document.getElementById('sn-placeofsupply').value,
-    currency: document.getElementById('sn-currency').value,
-    is_interstate: document.getElementById('sn-salestype').value !== 'Local Sales',
-    transport_charge: parseFloat(document.getElementById('sn-transportcharge').value) || 0,
-    loading_charge: parseFloat(document.getElementById('sn-loadingcharge').value) || 0,
-    packing_charge: parseFloat(document.getElementById('sn-packingcharge').value) || 0,
-    insurance_charge: parseFloat(document.getElementById('sn-insurance').value) || 0,
-    other_charges: parseFloat(document.getElementById('sn-othercharge').value) || 0,
-    round_off: parseFloat(document.getElementById('sn-roundoff').value) || 0,
-    discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
-    discount_remarks: document.getElementById('sn-discount-remarks').value.trim(),
-    deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
-    trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
-    cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
-    cd_applicable_within: document.getElementById('sn-cdwithin').value,
-    payment_status: document.getElementById('sn-paystatus').value,
-    payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
-    amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
-    transaction_no: document.getElementById('sn-transactionno').value.trim(),
-    payment_date: document.getElementById('sn-paydate').value || null,
-    customer_notes: document.getElementById('sn-customernotes').value.trim(),
-    internal_notes: document.getElementById('sn-internalnotes').value.trim(),
-    delivery_instructions: document.getElementById('sn-deliveryinstructions').value.trim(),
-    prepared_by: document.getElementById('sn-preparedby').value.trim(),
-    checked_by: document.getElementById('sn-checkedby').value.trim(),
-    approved_by: document.getElementById('sn-approvedby').value.trim(),
-    status: mode === 'draft' ? 'Draft' : 'Confirmed',
-    attachments: SN.attachments.map(a => a.url),
-    items: SN.items.map(it => ({
-      product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
-      batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
-      warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
-      rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
-    })),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    let savedId = SN.editingId;
-    if (SN.editingId) {
-      await api('api/sales.php?id=' + SN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Sale updated!', 'success');
-    } else {
-      const res = await api('api/sales.php', 'POST', payload);
-      savedId = res.id;
-      consumeEditApproval(); toast('✅ Sale saved!', 'success');
-    }
-    const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
-    STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
-    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    // If the user can see the stock summary page right now, refresh it silently
-    // so Available Stock and Total Stock reflect the sale that just posted.
-    if (document.getElementById('page-stock')?.classList.contains('active')) {
-      renderProductStock();
-    }
-
-    if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
-    else { cancelSaleEntry(); }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-async function editSale(id) {
-  try {
-    const r = await api('api/sales.php?id=' + id);
-    const s = r.data;
-    SN.editingId = id;
-    SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
-    SN.items = (s.items||[]).map(it => ({
-      id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
-      batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
-      rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
-    }));
-    SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
-    document.getElementById('psn-title').textContent = 'Edit Sale Entry';
-    document.getElementById('psn-subtitle').textContent = s.invoice_no;
-    populateSaleCustomerDropdown();
-    document.getElementById('sn-customer').value = s.customer_id;
-    await onCustomerPicked();
-    document.getElementById('sn-shipping').value = s.shipping_address || document.getElementById('sn-shipping').value;
-    populateSalesExecDropdown(s.sales_executive || '');
-    document.getElementById('sn-invno').value = s.invoice_no;
-    document.getElementById('sn-invdate').value = s.sale_date;
-    document.getElementById('sn-duedate').value = s.due_date || '';
-    document.getElementById('sn-paymentterms').value = s.payment_terms || 'Immediate';
-    document.getElementById('sn-salestype').value = s.sales_type || 'Local Sales';
-    document.getElementById('sn-weighingtype').value = s.weighing_type || 'Dharam Kanta';
-    document.getElementById('sn-kantaname').value = s.kanta_name || '';
-    document.getElementById('sn-slipno').value = s.weighbridge_slip_no || '';
-    document.getElementById('sn-weightdatetime').value = s.weight_datetime ? s.weight_datetime.replace(' ', 'T').slice(0,16) : '';
-    document.getElementById('sn-kantaoperator').value = s.kanta_operator_name || '';
-    document.getElementById('sn-kanta-gross').value = s.kanta_gross_weight || '';
-    document.getElementById('sn-kanta-tare').value = s.kanta_tare_weight || '';
-    document.getElementById('sn-kanta-moisture').value = s.kanta_moisture_pct ?? '';
-    document.getElementById('sn-kanta-dhaltakg').value = s.kanta_dhalta_kg || '';
-    calcSNWeightSummary();
-    document.getElementById('sn-placeofsupply').value = s.place_of_supply || '';
-    document.getElementById('sn-currency').value = s.currency || 'INR';
-    document.getElementById('sn-transportcharge').value = s.transport_charge || 0;
-    document.getElementById('sn-loadingcharge').value = s.loading_charge || 0;
-    document.getElementById('sn-packingcharge').value = s.packing_charge || 0;
-    document.getElementById('sn-insurance').value = s.insurance_charge || 0;
-    document.getElementById('sn-othercharge').value = s.other_charges || 0;
-    document.getElementById('sn-roundoff').value = s.round_off || 0;
-    document.getElementById('sn-discount').value = s.discount_amount || 0;
-    document.getElementById('sn-discount-remarks').value = s.discount_remarks || '';
-    document.getElementById('sn-tradediscpct').value = s.trade_discount_pct || 0;
-    document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
-    document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
-    document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
-    const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
-    document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
-    document.getElementById('sn-split-panel').style.display = isSNSplitSaved ? 'block' : 'none';
-    document.getElementById('sn-split-rows').innerHTML = '';
-    if (isSNSplitSaved) restoreSNSplitFromLabel(s.payment_method);
-    document.getElementById('sn-amountreceived').value = s.amount_received || 0;
-    document.getElementById('sn-transactionno').value = s.transaction_no || '';
-    document.getElementById('sn-paydate').value = s.payment_date || '';
-    if (s.payment_date) syncSNInvoiceDateToPayment();
-    document.getElementById('sn-customernotes').value = s.customer_notes || '';
-    document.getElementById('sn-internalnotes').value = s.internal_notes || '';
-    document.getElementById('sn-deliveryinstructions').value = s.delivery_instructions || '';
-    document.getElementById('sn-preparedby').value = s.prepared_by || '';
-    document.getElementById('sn-checkedby').value = s.checked_by || '';
-    document.getElementById('sn-approvedby').value = s.approved_by || '';
-    renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
-    showPage('sale-new');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-    api('api/stock.php').then(r => {
-      if (Array.isArray(r.data)) { STATE.stock = r.data; renderSNItemsTable(); }
-    }).catch(() => {});
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function deleteSale(id) {
-  if (!assertCanDelete('this sale')) return;
-  const s = (STATE.sales||[]).find(x => String(x.id) === String(id)); if (!s) return;
-  const conf = await Swal.fire({
-    title: 'Delete this sale?', text: `"${s.invoice_no}" and its stock-out entries will be permanently removed. This cannot be undone.`,
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/sales.php?id=' + id, 'DELETE');
-    STATE.sales = STATE.sales.filter(x => String(x.id) !== String(id));
-    const stk = await api('api/stock.php');
-    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    renderSales();
-    toast('🗑️ Sale deleted', 'info');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function filterSales(q) { SALES_SEARCH = q || ''; renderSales(); }
-let SALES_SEARCH = '';
-// ── Sales List page ─────────────────────────────────────────────
-// Default "From" date for every date-range-filtered list (business start)
-const BIZ_FROM_DATE = '2026-05-01';
-let SL_PAGE = 1;
-const SL_PAGESIZE = 10;
-
-function populateSalesListFilters() {
-  // Customer dropdown
-  const custSel = document.getElementById('sl-f-customer');
-  if (custSel && custSel.options.length <= 1) {
-    custSel.innerHTML = '<option value="">All Customers</option>' +
-      (STATE.customers||[]).map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
-  }
-  // Product dropdown
-  const prodSel = document.getElementById('sl-f-product');
-  if (prodSel && prodSel.options.length <= 1) {
-    prodSel.innerHTML = '<option value="">All Products</option>' +
-      (STATE.products||[]).map(p => `<option value="${String(p.id).replace(/\D/g,'')}">${escHtml(p.name)}</option>`).join('');
-  }
-  // Sales Executive dropdown — distinct values from actual sales
-  const execSel = document.getElementById('sl-f-exec');
-  if (execSel) {
-    const cur = execSel.value;
-    const execs = [...new Set((STATE.sales||[]).map(s => (s.sales_executive||'').trim()).filter(Boolean))].sort();
-    execSel.innerHTML = '<option value="">All Sales Executive</option>' +
-      execs.map(e => `<option ${e===cur?'selected':''}>${escHtml(e)}</option>`).join('');
-  }
-  // Default date range: this month (only when both fields are empty)
-  const fromEl = document.getElementById('sl-f-from'), toEl = document.getElementById('sl-f-to');
-  if (fromEl && toEl && !fromEl.value && !toEl.value) {
-    fromEl.value = BIZ_FROM_DATE;
-    toEl.value = fmt_date(new Date());
-  }
-}
-
-function resetSalesFilter() {
-  document.getElementById('sl-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('sl-f-to').value = fmt_date(new Date());
-  ['sl-f-customer','sl-f-warehouse','sl-f-status','sl-f-paystatus','sl-f-product','sl-f-exec'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  document.getElementById('sl-f-invno').value = '';
-  SL_PAGE = 1;
-  renderSales();
-}
-
-function slFilteredSales() {
-  const from = document.getElementById('sl-f-from')?.value || '';
-  const to = document.getElementById('sl-f-to')?.value || '';
-  const cust = document.getElementById('sl-f-customer')?.value || '';
-  const wh = document.getElementById('sl-f-warehouse')?.value || '';
-  const status = document.getElementById('sl-f-status')?.value || '';
-  const pay = document.getElementById('sl-f-paystatus')?.value || '';
-  const invno = (document.getElementById('sl-f-invno')?.value || '').trim().toLowerCase();
-  const prod = document.getElementById('sl-f-product')?.value || '';
-  const exec = document.getElementById('sl-f-exec')?.value || '';
-
-  return (STATE.sales||[]).filter(s => {
-    const d = (s.sale_date||'').slice(0,10);
-    if (from && d < from) return false;
-    if (to && d > to) return false;
-    if (cust && String(s.customer_id) !== String(cust)) return false;
-    if (wh && (s.warehouse||'Main Warehouse') !== wh) return false;
-    if (status && (s.status||'Confirmed') !== status) return false;
-    if (pay && s.payment_status !== pay) return false;
-    if (invno && !(s.invoice_no||'').toLowerCase().includes(invno)) return false;
-    if (prod) {
-      const ids = String(s.product_ids||'').split(',').map(x => x.trim());
-      if (!ids.includes(prod)) return false;
-    }
-    if (exec && (s.sales_executive||'').trim() !== exec) return false;
-    return true;
-  });
-}
-
-function renderSales() {
-  const tbody = document.getElementById('salesTbody');
-  if (!tbody) return;
-  populateSalesListFilters();
-  const list = slFilteredSales();
-
-  // ── Stats over the filtered set ────────────────────────────
-  const totQty = list.reduce((a,s) => a + (parseFloat(s.total_qty)||0), 0);
-  const totAmt = list.reduce((a,s) => a + (parseFloat(s.total)||0), 0);
-  const totPaid = list.reduce((a,s) => a + (parseFloat(s.amount_received)||0), 0);
-  const totOut = Math.max(0, totAmt - totPaid);
-  document.getElementById('sl-stat-count').textContent = list.length;
-  document.getElementById('sl-stat-qty').textContent = totQty.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-  document.getElementById('sl-stat-amount').textContent = fmt_money(totAmt);
-  document.getElementById('sl-stat-paid').textContent = fmt_money(totPaid);
-  document.getElementById('sl-stat-out').textContent = fmt_money(totOut);
-  const fromV = document.getElementById('sl-f-from')?.value, toV = document.getElementById('sl-f-to')?.value;
-  document.getElementById('sl-stat-range1').textContent = (fromV && toV) ? fmt_date_disp(fromV) + ' – ' + fmt_date_disp(toV) : 'All time';
-
-  // ── Pagination ─────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(list.length / SL_PAGESIZE));
-  if (SL_PAGE > totalPages) SL_PAGE = totalPages;
-  const start = (SL_PAGE - 1) * SL_PAGESIZE;
-  const pageRows = list.slice(start, start + SL_PAGESIZE);
-  document.getElementById('saleInfo').textContent = list.length
-    ? `Showing ${start+1} to ${Math.min(start+SL_PAGESIZE, list.length)} of ${list.length} entries`
-    : 'No entries';
-  const pager = document.getElementById('sl-pagination');
-  if (pager) {
-    let h = `<button class="pg-btn" onclick="slPage(${SL_PAGE-1})" ${SL_PAGE<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;
-    for (let i = 1; i <= totalPages; i++) {
-      if (totalPages > 8 && i > 3 && i < totalPages - 1 && Math.abs(i - SL_PAGE) > 1) {
-        if (i === 4) h += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
-        continue;
-      }
-      h += `<button class="pg-btn ${i===SL_PAGE?'active':''}" onclick="slPage(${i})">${i}</button>`;
-    }
-    h += `<button class="pg-btn" onclick="slPage(${SL_PAGE+1})" ${SL_PAGE>=totalPages?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;
-    pager.innerHTML = h;
-  }
-
-  if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
-    return;
-  }
-
-  const payColor = {
-    Paid:    { color:'#1B5E20', bg:'#E8F5E9' },
-    Partial: { color:'#7B3F00', bg:'#FFF3E0' },
-    Pending: { color:'#7B1FA2', bg:'#F3E8FF' },
-  };
-  const statusMap = { Confirmed: { label:'Completed', color:'#00897B' }, Draft: { label:'Draft', color:'#1976D2' } };
-  tbody.innerHTML = pageRows.map((s, i) => {
-    const st = statusMap[s.status||'Confirmed'] || { label: s.status||'—', color:'#889' };
-    const pc = payColor[s.payment_status] || { color:'#555', bg:'#F5F5F5' };
-    return `
-    <tr>
-      <td>${start + i + 1}</td>
-      <td><strong>${escHtml(s.invoice_no)}</strong></td>
-      <td>${fmt_date_disp(s.sale_date)}</td>
-      <td>${escHtml(s.customer_name||'—')}</td>
-      <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
-      <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
-      <td>${escHtml(s.sales_executive||'—')}</td>
-      <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" title="View" onclick="viewSaleDetails(${s.id})"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" title="Print" onclick="printSaleEntry(${s.id})"><i class="fas fa-print"></i></button>
-          <button class="act-btn" title="Download PDF" onclick="printSaleEntry(${s.id})"><i class="fas fa-download"></i></button>
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="editWithApproval('sale',${s.id},'Invoice ${escHtml((s.invoice_no||'#'+s.id).replace(/'/g,"\\'"))}',()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${_delItem("deleteSale("+s.id+")")}
-            </div>
-          </span>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function slPage(p) {
-  const totalPages = Math.max(1, Math.ceil(slFilteredSales().length / SL_PAGESIZE));
-  if (p < 1 || p > totalPages) return;
-  SL_PAGE = p;
-  renderSales();
-}
-
-function exportSalesExcel() {
-  const list = slFilteredSales();
-  if (!list.length) { toast('⚠️ No sales to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Invoice No.','Invoice Date','Customer','Qty (Kg)','Net Amount','Amount Received','Outstanding','Payment Status','Status','Sales Executive','Warehouse']];
-  list.forEach((s, i) => {
-    const total = parseFloat(s.total)||0, recd = parseFloat(s.amount_received)||0;
-    rows.push([
-      i+1, s.invoice_no||'', s.sale_date||'', s.customer_name||'',
-      (parseFloat(s.total_qty)||0).toFixed(2), total.toFixed(2), recd.toFixed(2), Math.max(0, total-recd).toFixed(2),
-      s.payment_status||'', s.status||'Confirmed', s.sales_executive||'', s.warehouse||'Main Warehouse'
-    ]);
-  });
-  _downloadCSV(rows, 'sales_list.csv');
-  toast('✅ Exported ' + list.length + ' sales', 'success');
-}
-
-// Quick Actions "Print Invoice" — prints the real saved invoice if we're
-// editing an existing sale; for a not-yet-saved draft there's no server-
-// computed totals to print accurately, so it asks to save first instead
-// of guessing at unsaved/unvalidated numbers.
-function printCurrentSaleInvoice() {
-  if (SN.editingId) { printSaleEntry(SN.editingId); return; }
-  toast('⚠️ Save this sale first, then Print Invoice will open the actual invoice', 'warning');
-}
-
-async function printSaleEntry(id) {
-  try {
-    const r = await api('api/sales.php?id=' + id);
-    printSaleInvoice(r.data);
-  } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
-}
-
-function printSaleInvoice(s) {
-  const co = pneCompanyInfo();
-  const items = s.items || [];
-  const rows = items.map(it => `
-    <tr>
-      <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
-      <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
-      <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
-      <td class="r">${fmt_money(it.rate)}</td>
-      <td class="r">${parseFloat(it.discount_pct||0).toFixed(1)}%</td>
-      <td class="r">${fmt_money((it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100))}</td>
-      <td class="r">${parseFloat(it.gst_pct||0).toFixed(0)}%</td>
-      <td class="r">${fmt_money(it.tax_amount)}</td>
-      <td class="r"><strong>${fmt_money(it.line_total)}</strong></td>
-    </tr>`).join('');
-  const isInterstate = s.sales_type !== 'Local Sales';
-  const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
-  const deductions = Array.isArray(s.deductions) ? s.deductions : [];
-  const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
-
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
-    .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
-    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
-    .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
-    .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
-    .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
-    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
-    table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #f3f5f7; color: #445; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #dde3ea; }
-    table.items td { padding: 8px 7px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
-    table.items td.r, table.items th.r { text-align: right; }
-    .muted { color: #99a; font-size: 10px; }
-    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
-    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
-    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
-    .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
-    .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
-    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-  </style></head><body>
-    <div class="head">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
-        <div>
-          <div class="co-name">${escHtml(co.name)}</div>
-          <div class="co-meta">
-            ${co.address?escHtml(co.address)+'<br>':''}
-            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
-      </div>
-    </div>
-    ${pnePaymentStamp(s.payment_status)}
-
-    <div class="row2">
-      <div class="box">
-        <h3>BILL TO</h3>
-        <div class="kv"><b>${escHtml(s.customer_name||'')}</b></div>
-        <div class="kv">GSTIN<b>${escHtml(s.customer_gstin||'—')}</b></div>
-        <div class="kv">Place of Supply<b>${escHtml(s.place_of_supply||'—')}</b></div>
-      </div>
-      <div class="box">
-        <h3>PAYMENT</h3>
-        <div class="kv">Status<b>${escHtml(s.payment_status||'—')}</b></div>
-        <div class="kv">Method<b>${escHtml(s.payment_method||'—')}</b></div>
-        ${s.payment_date ? `<div class="kv">Payment Date<b>${fmt_date_disp(s.payment_date)}</b></div>` : ''}
-        <div class="kv">Balance Due<b style="color:${(s.total-s.amount_received)>0?'#c0392b':'#0d7a3f'}">${fmt_money((s.total||0)-(s.amount_received||0))}</b></div>
-      </div>
-    </div>
-
-    <table class="items">
-      <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-
-    <div class="row3">
-      <div class="box">
-        <h3>TAX SUMMARY</h3>
-        <div class="tax-row"><span>Taxable Value</span><span>${fmt_money(s.taxable_amount)}</span></div>
-        ${isInterstate
-          ? `<div class="tax-row"><span>IGST</span><span>${fmt_money(s.igst_amount)}</span></div>`
-          : `<div class="tax-row"><span>CGST</span><span>${fmt_money(s.cgst_amount)}</span></div>
-             <div class="tax-row"><span>SGST</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
-        ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges</span><span>${fmt_money(addCharges)}</span></div>` : ''}
-      </div>
-      <div class="box">
-        <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
-        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
-        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''}</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
-        <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
-        <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
-        <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
-      </div>
-    </div>
-    <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
-    ${deductions.length ? `
-    <div class="box" style="margin-top:12px">
-      <h3>DEDUCTION DETAILS</h3>
-      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
-    </div>` : ''}
-
-    <div class="sig-row">
-      <div class="sig">Customer Signature</div>
-      <div class="sig">${escHtml(s.prepared_by||'Prepared By')}</div>
-      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
-    </div>
-    <div class="footer">
-      <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
-    </div>
-    <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-// ── FEATURE 4: Sale Invoice — Clean Party (Customer) Copy ─────────────
-async function printSalePartyCopy(id) {
-  try {
-    const r = await api('api/sales.php?id=' + id);
-    _printSalePartyCopy(r.data);
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function _printSalePartyCopy(s) {
-  const co = pneCompanyInfo();
-  const items = s.items || [];
-  const grossWt  = parseFloat(s.kanta_gross_weight||0);
-  const tareWt   = parseFloat(s.kanta_tare_weight||0);
-  const netWt    = Math.max(0, grossWt - tareWt);
-  const dhaltaKg = parseFloat(s.kanta_dhalta_kg||0);
-  const billableWt = Math.max(0, netWt - dhaltaKg);
-  const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
-
-  const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>Sale Invoice — ${escHtml(s.invoice_no)}</title><meta charset="utf-8"><style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; color: #1a1a2e; padding: 28px 36px; font-size: 12px; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .co-name { font-size: 20px; font-weight: 900; color: #0d3b2e; }
-    .co-meta { font-size: 10px; color: #667; margin-top: 4px; line-height: 1.7; }
-    .inv-title { text-align: right; }
-    .inv-title .label { font-size: 22px; font-weight: 900; color: #0d3b2e; letter-spacing: 2px; }
-    .inv-title .no { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .inv-title .date { font-size: 11px; color: #667; }
-    .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .party-box { border: 1px solid #dde; border-radius: 8px; padding: 12px 14px; }
-    .party-box h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #889; margin-bottom: 8px; font-weight: 700; }
-    .party-box .name { font-size: 14px; font-weight: 800; color: #0d3b2e; }
-    .party-box .meta { font-size: 10.5px; color: #556; margin-top: 4px; line-height: 1.6; }
-    ${grossWt > 0 ? `.kanta { display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;padding:12px;background:#f5faf7;border:2px solid #0d3b2e;border-radius:8px; }
-    .kanta h3 { font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#0d3b2e;font-weight:800;grid-column:1/-1;margin-bottom:4px; }
-    .kc { text-align:center;background:#fff;border-radius:6px;border:1px solid #d0e8dc;padding:8px 4px; }
-    .kc.dh { border-color:#c0392b;background:#fff9f9; }
-    .kc.bl { border-color:#0d7a3f;background:#f0faf5; }
-    .kc .lbl { font-size:8px;text-transform:uppercase;color:#889;letter-spacing:.5px;margin-bottom:3px; }
-    .kc .val { font-size:16px;font-weight:800; } .kc.dh .val{color:#c0392b;} .kc.bl .val{color:#0d7a3f;}
-    .kc .unit { font-size:10px;font-weight:400; }` : ''}
-    table { width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px; }
-    th { background:#0d3b2e;color:#fff;padding:8px 7px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left; }
-    th.r, td.r { text-align:right; }
-    td { padding:7px;border-bottom:1px solid #eef; }
-    tfoot td { border-top:2px solid #0d3b2e;font-weight:700;background:#f5faf7; }
-    .summary { display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:16px; }
-    .pay-box { }
-    .pay-row { display:flex;justify-content:space-between;padding:6px 0;font-size:11.5px;border-bottom:1px solid #eef; }
-    .pay-grand { display:flex;justify-content:space-between;padding:10px 0;font-size:15px;font-weight:800;color:#0d3b2e;border-top:2px solid #0d3b2e;margin-top:4px; }
-    .outstanding { background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center; }
-    .outstanding .lbl { font-size:11px;font-weight:700;color:#c0392b; }
-    .outstanding .val { font-size:16px;font-weight:800;color:#c0392b; }
-    .words { font-size:10.5px;color:#556;font-style:italic;padding:8px 0;border-top:1px dashed #dde;border-bottom:1px dashed #dde;margin-bottom:14px; }
-    .sig-row { display:flex;justify-content:space-between;margin-top:40px; }
-    .sig { width:28%;border-top:1px solid #aab;text-align:center;padding-top:6px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#778; }
-    .footer { margin-top:20px;border-top:1px solid #eef;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#aab; }
-    .party-copy-stamp { position:fixed;top:120px;right:40px;border:3px solid #1976D2;color:#1976D2;font-weight:900;font-size:18px;padding:5px 18px;border-radius:8px;transform:rotate(-12deg);opacity:.6; }
-  </style></head><body>
-    <div class="party-copy-stamp">PARTY COPY</div>
-    <div class="head">
-      <div>
-        ${co.logo ? `<img src="${co.logo}" style="height:56px;margin-bottom:6px;display:block">` : ''}
-        <div class="co-name">${escHtml(co.name)}</div>
-        <div class="co-meta">${co.address ? escHtml(co.address)+'<br>' : ''}${co.phone ? 'Tel: '+escHtml(co.phone) : ''}${co.gst ? ' &nbsp;|&nbsp; GSTIN: '+escHtml(co.gst) : ''}</div>
-      </div>
-      <div class="inv-title">
-        <div class="label">INVOICE</div>
-        <div class="no">${escHtml(s.invoice_no)}</div>
-        <div class="date">Date: ${fmt_date_disp(s.sale_date)}</div>
-        ${s.due_date ? `<div class="date">Due: ${fmt_date_disp(s.due_date)}</div>` : ''}
-      </div>
-    </div>
-
-    <div class="parties">
-      <div class="party-box">
-        <h3>Bill To</h3>
-        <div class="name">${escHtml(s.customer_name||'')}</div>
-        <div class="meta">${s.customer_gstin ? 'GSTIN: '+escHtml(s.customer_gstin)+'<br>' : ''}${s.customer_phone ? 'Tel: '+escHtml(s.customer_phone) : ''}</div>
-      </div>
-      <div class="party-box">
-        <h3>Vehicle &amp; Delivery</h3>
-        <div class="meta">${s.vehicle_no ? 'Vehicle: <strong>'+escHtml(s.vehicle_no)+'</strong><br>' : ''}${s.place_of_supply ? 'Place of Supply: '+escHtml(s.place_of_supply)+'<br>' : ''}${s.warehouse ? 'Warehouse: '+escHtml(s.warehouse) : ''}</div>
-      </div>
-    </div>
-
-    ${grossWt > 0 ? `
-    <div class="kanta">
-      <h3>⚖ Kanta / Weight Details</h3>
-      <div class="kc"><div class="lbl">Gross Wt</div><div class="val">${grossWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc"><div class="lbl">Tare Wt</div><div class="val">${tareWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc"><div class="lbl">Net Wt</div><div class="val">${netWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc dh"><div class="lbl">Dhalta</div><div class="val">${dhaltaKg.toFixed(2)}<span class="unit"> Kg</span></div></div>
-      <div class="kc bl"><div class="lbl">Billable Wt</div><div class="val">${billableWt.toFixed(2)}<span class="unit"> Kg</span></div></div>
-    </div>` : ''}
-
-    <table>
-      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
-      <tbody>${items.map((it,i) => `<tr>
-        <td>${i+1}</td>
-        <td><strong>${escHtml(it.product_name||it.description||'')}</strong></td>
-        <td>${escHtml(it.variety_grade||'—')}</td>
-        <td class="r">${parseFloat(it.qty||0).toFixed(2)}</td>
-        <td class="r">${fmt_money(it.rate)}</td>
-        <td class="r"><strong>${fmt_money(it.line_total)}</strong></td>
-      </tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3"><strong>TOTAL</strong></td><td class="r"><strong>${items.reduce((s,i)=>s+parseFloat(i.qty||0),0).toFixed(2)}</strong></td><td></td><td class="r"><strong>${fmt_money(s.subtotal||s.total)}</strong></td></tr></tfoot>
-    </table>
-
-    <div class="summary">
-      <div></div>
-      <div class="pay-box">
-        ${(parseFloat(s.transport_charge)||0) > 0 ? `<div class="pay-row"><span>Transport</span><span>${fmt_money(s.transport_charge)}</span></div>` : ''}
-        ${(parseFloat(s.gst_amount)||0) > 0 ? `<div class="pay-row"><span>GST (${parseFloat(s.gst_pct||0).toFixed(0)}%)</span><span>${fmt_money(s.gst_amount)}</span></div>` : ''}
-        <div class="pay-grand"><span>GRAND TOTAL</span><span>${fmt_money(s.total)}</span></div>
-        ${outstanding > 0 ? `<div class="outstanding"><span class="lbl">Outstanding Balance</span><span class="val">${fmt_money(outstanding)}</span></div>` : ''}
-      </div>
-    </div>
-    <div class="words">Amount in Words: <em>${numToWordsINR(s.total)}</em></div>
-
-    <div class="sig-row">
-      <div class="sig">Receiver's Signature</div>
-      <div class="sig">Checked By</div>
-      <div class="sig">For ${escHtml(co.name)}</div>
-    </div>
-    <div class="footer">
-      <span>This is a computer generated invoice</span>
-      <span>Printed: ${fmt_date_disp(new Date())}</span>
-    </div>
-  <script>window.print();<\/script>
-  </body></html>`);
-  win.document.close();
-}
-
-// ══════════════════════════════════════════
-// STOCK ADJUSTMENT / MOISTURE ADJUSTMENT (full page)
-// ══════════════════════════════════════════
-const SA = { attachmentDataUrl: null };
-
-function populateSAProductDropdown() {
-  const sel = document.getElementById('sa-product');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select product…</option>' +
-    STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
-}
-function populateSASupplierDropdown() {
-  const sel = document.getElementById('sa-supplier');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select or —</option>' +
-    (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
-}
-async function populateSAApprovedByDropdown() {
-  const sel = document.getElementById('sa-approvedby');
-  if (!sel) return;
-  try {
-    if (!STATE.team || !STATE.team.length) {
-      const r = await api('api/team.php?action=list');
-      STATE.team = Array.isArray(r.data) ? r.data : [];
-    }
-    sel.innerHTML = '<option value="">Select…</option>' +
-      STATE.team.map(u => `<option value="${escHtml(u.name)}">${escHtml(u.name)}</option>`).join('');
-  } catch(e) { sel.innerHTML = '<option value="">Select…</option>'; }
-}
-
-function goToNewStockAdjustment() {
-  SA.attachmentDataUrl = null;
-  document.getElementById('sa-no').value = '';
-  document.getElementById('sa-date').value = fmt_date(new Date());
-  document.getElementById('sa-type').value = 'Moisture Loss';
-  document.getElementById('sa-direction').value = 'out';
-  onSADirectionChange();
-  document.getElementById('sa-warehouse').value = 'Main Warehouse';
-  document.getElementById('sa-refno').value = '';
-  document.getElementById('sa-refdate').value = '';
-  populateSAProductDropdown();
-  document.getElementById('sa-product').value = '';
-  document.getElementById('sa-variety').value = '';
-  document.getElementById('sa-grade').value = '';
-  document.getElementById('sa-unit').value = 'Kg';
-  document.getElementById('sa-batchno').value = '';
-  document.getElementById('sa-mfgdate').value = '';
-  document.getElementById('sa-expdate').value = '';
-  populateSASupplierDropdown();
-  document.getElementById('sa-supplier').value = '';
-  document.getElementById('sa-openingstock').value = '';
-  document.getElementById('sa-moistbefore').value = '';
-  document.getElementById('sa-moistafter').value = '';
-  document.getElementById('sa-moistloss').value = '';
-  document.getElementById('sa-weightloss').value = '';
-  document.getElementById('sa-finalstock').value = '';
-  document.getElementById('sa-reason').value = 'Drying / Moisture Loss';
-  document.getElementById('sa-remarks').value = '';
-  document.getElementById('sa-attachment-input').value = '';
-  document.getElementById('sa-attachment-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div>Drag &amp; drop files here<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
-  populateSAApprovedByDropdown();
-  document.getElementById('sa-approvaldate').value = fmt_date(new Date());
-  document.getElementById('sa-notes').value = '';
-  document.getElementById('sa-imp-warehouse').textContent = 'Main Warehouse';
-  document.getElementById('sa-imp-product').textContent = '—';
-  document.getElementById('sa-imp-batch').textContent = '—';
-  calcStockAdjustment();
-  renderSARecentAdjustments();
-  showPage('stock-adjust-new');
-  document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
-}
-
-function cancelStockAdjustment() {
-  showPage('stock');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
-}
-
-function onSAProductChange() {
-  const id = document.getElementById('sa-product').value;
-  const p = STATE.products.find(x => String(x.id) === String(id));
-  document.getElementById('sa-imp-product').textContent = p ? p.name : '—';
-  if (p) {
-    document.getElementById('sa-unit').value = (p.unit_family === 'volume') ? 'Ltr' : (p.unit_family === 'count' ? 'Pcs' : 'Kg');
-    if (p.variety) document.getElementById('sa-variety').value = p.variety;
-    if (p.grade) document.getElementById('sa-grade').value = p.grade;
-    // Pull current stock as the default Opening Stock
-    const s = (STATE.stock||[]).find(x => String(x.product_id) === String(id).replace(/\D/g,''));
-    document.getElementById('sa-openingstock').value = s ? (parseFloat(s.current_stock ?? s.available_stock) || 0).toFixed(2) : '0.00';
-  }
-  calcStockAdjustment();
-}
-
-// Direction switch: relabels the quantity field/summary and recalculates.
-// "Increase" is for recounts that find MORE stock than the system shows,
-// stock returned after processing, etc.
-function onSADirectionChange() {
-  const dir = document.getElementById('sa-direction').value;
-  const isIn     = dir === 'in';
-  const isAdjust = dir === 'adjust';
-  document.getElementById('sa-qty-label').textContent = isIn ? 'Weight Gain (Kg) *' : 'Weight Loss (Kg) *';
-  document.getElementById('sa-sum-loss-label').textContent = isIn ? 'Weight Gain (Kg)' : isAdjust ? 'Adjustment (Kg)' : 'Weight Loss (Kg)';
-  document.getElementById('sa-sum-op').textContent = isIn ? '+' : isAdjust ? '±' : '−';
-  // Show/hide weight loss vs adjust-to fields
-  const wlRow  = document.getElementById('sa-weightloss')?.parentElement;
-  const adjRow = document.getElementById('sa-adjustto-row');
-  if (wlRow)  wlRow.style.display  = isAdjust ? 'none' : '';
-  if (adjRow) adjRow.style.display = isAdjust ? '' : 'none';
-  // Auto-fill Opening Stock Correction type when adjust selected
-  if (isAdjust) {
-    const typeEl = document.getElementById('sa-type');
-    if (typeEl) typeEl.value = 'Opening Stock Correction';
-  }
-  calcStockAdjustment();
-}
-
-function calcStockAdjustment() {
-  const dir      = document.getElementById('sa-direction')?.value || 'out';
-  const isIn     = dir === 'in';
-  const isAdjust = dir === 'adjust';
-  const opening  = parseFloat(document.getElementById('sa-openingstock').value) || 0;
-  const before   = document.getElementById('sa-moistbefore').value;
-  const after    = document.getElementById('sa-moistafter').value;
-  const moistLoss = (before !== '' && after !== '') ? (parseFloat(before) - parseFloat(after)) : null;
-  document.getElementById('sa-moistloss').value = moistLoss !== null ? moistLoss.toFixed(2) : '';
-
-  let weightLoss, finalStock;
-  if (isAdjust) {
-    // User enters target stock — we compute the required delta
-    const target = parseFloat(document.getElementById('sa-adjustto').value);
-    if (!isNaN(target)) {
-      const diff = target - opening;
-      weightLoss = Math.abs(diff);
-      finalStock = target;
-      // Auto-set actual direction based on whether we need to add or remove
-      // (stored separately so the API knows which ledger direction to use)
-      document.getElementById('sa-weightloss').value = weightLoss.toFixed(2);
-    } else {
-      weightLoss = 0;
-      finalStock = opening;
-    }
-  } else {
-    weightLoss = parseFloat(document.getElementById('sa-weightloss').value) || 0;
-    finalStock = isIn ? opening + weightLoss : Math.max(0, opening - weightLoss);
-  }
-
-  document.getElementById('sa-finalstock').value = finalStock.toFixed(2);
-  document.getElementById('sa-sum-opening').textContent = opening.toFixed(2);
-  document.getElementById('sa-sum-loss').textContent = weightLoss.toFixed(2);
-  document.getElementById('sa-sum-final').textContent = finalStock.toFixed(2);
-  document.getElementById('sa-sum-mbefore').textContent = (parseFloat(before)||0).toFixed(2) + ' %';
-  document.getElementById('sa-sum-mafter').textContent = (parseFloat(after)||0).toFixed(2) + ' %';
-  document.getElementById('sa-sum-mloss').textContent = (moistLoss !== null ? moistLoss : 0).toFixed(2) + ' %';
-  document.getElementById('sa-imp-warehouse').textContent = document.getElementById('sa-warehouse').value;
-  document.getElementById('sa-imp-batch').textContent = document.getElementById('sa-batchno').value || '—';
-}
-
-function saAttachmentChange(file) {
-  if (!file) return;
-  if (file.size > 5*1024*1024) { toast('⚠️ Attachment must be under 5MB', 'warning'); return; }
-  document.getElementById('sa-attachment-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div>${escHtml(file.name)}<br><span style="font-size:10px">${(file.size/1024).toFixed(0)} KB</span></div>`;
-  const reader = new FileReader();
-  reader.onload = () => { SA.attachmentDataUrl = reader.result; };
-  reader.readAsDataURL(file);
-}
-
-async function saveStockAdjustmentEntry() {
-  const productId = document.getElementById('sa-product').value;
-  const dir = document.getElementById('sa-direction').value;
-  const isAdjust = dir === 'adjust';
-  if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
-  if (!document.getElementById('sa-date').value) { toast('⚠️ Adjustment date is required', 'warning'); return; }
-  if (!document.getElementById('sa-openingstock').value) { toast('⚠️ Opening Stock is required', 'warning'); return; }
-  if (isAdjust && document.getElementById('sa-adjustto').value === '') { toast('⚠️ Target stock value is required', 'warning'); return; }
-  if (!isAdjust && !document.getElementById('sa-weightloss').value) { toast('⚠️ Weight Loss/Gain is required', 'warning'); return; }
-  if (!document.getElementById('sa-reason').value) { toast('⚠️ Reason / Description is required', 'warning'); return; }
-
-  const opening    = parseFloat(document.getElementById('sa-openingstock').value) || 0;
-  const target     = isAdjust ? parseFloat(document.getElementById('sa-adjustto').value) : null;
-  const diff       = isAdjust ? (target - opening) : null;
-  // For adjust mode: determine actual in/out direction from the diff
-  const actualDir  = isAdjust ? (diff >= 0 ? 'in' : 'out') : dir;
-  const weightLoss = isAdjust ? Math.abs(diff) : (parseFloat(document.getElementById('sa-weightloss').value) || 0);
-
-  const payload = {
-    adjustment_no: document.getElementById('sa-no').value.trim(),
-    adjustment_date: document.getElementById('sa-date').value,
-    adjustment_type: document.getElementById('sa-type').value,
-    direction: actualDir,
-    is_exact_correction: isAdjust ? 1 : 0,
-    target_stock: target,
-    warehouse: document.getElementById('sa-warehouse').value,
-    reference_no: document.getElementById('sa-refno').value.trim(),
-    reference_date: document.getElementById('sa-refdate').value || null,
-    product_id: productId,
-    variety_grade: document.getElementById('sa-variety').value.trim(),
-    grade: document.getElementById('sa-grade').value.trim(),
-    unit: document.getElementById('sa-unit').value,
-    batch_no: document.getElementById('sa-batchno').value.trim(),
-    manufacture_date: document.getElementById('sa-mfgdate').value || null,
-    expiry_date: document.getElementById('sa-expdate').value || null,
-    supplier_id: document.getElementById('sa-supplier').value || null,
-    opening_stock: opening,
-    moisture_before_pct: document.getElementById('sa-moistbefore').value || '',
-    moisture_after_pct: document.getElementById('sa-moistafter').value || '',
-    weight_loss_kg: weightLoss,
-    reason: document.getElementById('sa-reason').value,
-    remarks: document.getElementById('sa-remarks').value.trim(),
-    attachment: SA.attachmentDataUrl || undefined,
-    approved_by: document.getElementById('sa-approvedby').value,
-    approval_date: document.getElementById('sa-approvaldate').value || null,
-    notes: document.getElementById('sa-notes').value.trim(),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    await api('api/stock_adjustments.php', 'POST', payload);
-    toast('✅ Stock adjustment saved!', 'success');
-    const stk = await api('api/stock.php');
-    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    cancelStockAdjustment();
-    renderStock();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-async function renderSARecentAdjustments() {
-  const box = document.getElementById('sa-recent-list');
-  if (!box) return;
-  box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Loading…</div>';
-  try {
-    const r = await api('api/stock_adjustments.php?limit=5');
-    const rows = Array.isArray(r.data) ? r.data : [];
-    if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No adjustments yet</div>'; return; }
-    const typeColor = { 'Moisture Loss':'#E65100', 'Damage Loss':'#C62828', 'Cleaning Loss':'#1976D2', 'Recount':'#6A4C93', 'Other':'#455A64' };
-    box.innerHTML = rows.map(r => `
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong style="font-size:12.5px">${escHtml(r.adjustment_no)}</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px">
-          <span style="font-size:11px;color:var(--muted)">${escHtml(r.adjustment_type)}</span>
-          <span style="font-size:10.5px;font-weight:700;color:${typeColor[r.adjustment_type]||'#455A64'};background:${typeColor[r.adjustment_type]||'#455A64'}18;padding:2px 8px;border-radius:10px">${parseFloat(r.weight_loss_kg).toFixed(2)} Kg</span>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.adjustment_date)}</div>
-      </div>`).join('');
-  } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
-}
-
-// ══════════════════════════════════════════
-// ADD SUPPLIER / FARMER (full page)
-// ══════════════════════════════════════════
-const SUPN = { editingId: null, docs: [] };
-const INDIA_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana',
-  'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
-  'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand',
-  'West Bengal','Delhi','Jammu and Kashmir','Ladakh','Chandigarh','Puducherry'];
-
-function populateSupStateDropdown() {
-  const sel = document.getElementById('sup-state');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select state</option>' + INDIA_STATES.map(s => `<option>${s}</option>`).join('');
-}
-
-function onSupplierTypeChangeRich() {
-  const isFarmer = document.getElementById('sup-type').value === 'Farmer';
-  document.getElementById('sup-gstin-wrap').style.display = isFarmer ? 'none' : 'grid';
-  document.getElementById('sup-farmer-note').style.display = isFarmer ? 'block' : 'none';
-  if (isFarmer) document.getElementById('sup-gstin').value = '';
-}
-
-function goToNewSupplierPage() {
-  SUPN.editingId = null;
-  SUPN.docs = [];
-  document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
-  document.getElementById('supn-crumb').textContent = 'Add New';
-  document.getElementById('sup-type').value = '';
-  ['sup-name','sup-contactperson','sup-mobile','sup-email','sup-website','sup-address','sup-city','sup-district','sup-pincode',
-   'sup-gstin','sup-pan','sup-aadhaar','sup-statecode','sup-tan','sup-msme','sup-fssai','sup-bankname','sup-bankacc',
-   'sup-ifsc','sup-accholder','sup-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('sup-regdate').value = '';
-  document.getElementById('sup-bizNature').value = '';
-  populateSupStateDropdown();
-  document.getElementById('sup-state').value = '';
-  document.getElementById('sup-country').value = 'India';
-  document.getElementById('sup-creditlimit').value = '';
-  document.getElementById('sup-openingbal').value = 0;
-  document.getElementById('sup-paymentterms').value = '';
-  document.getElementById('sup-pricelist').value = '';
-  document.getElementById('sup-status').classList.add('on');
-  document.getElementById('sup-docs-input').value = '';
-  onSupplierTypeChangeRich();
-  renderSupDocs();
-  showPage('supplier-new');
-  document.querySelector('.nav-item[data-page="suppliers"]')?.classList.add('active');
-}
-
-function cancelSupplierEntry() {
-  showPage('suppliers');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'suppliers'));
-}
-
-async function editSupplierRich(id) {
-  const s = STATE.suppliers.find(x => String(x.id) === String(id)); if (!s) return;
-  SUPN.editingId = id;
-  SUPN.docs = Array.isArray(s.documents) ? [...s.documents] : [];
-  document.getElementById('supn-title').textContent = 'Edit Supplier / Farmer';
-  document.getElementById('supn-crumb').textContent = s.name;
-  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
-  set('sup-type', s.supplier_type || ''); set('sup-name', s.name); set('sup-contactperson', s.contact_person);
-  set('sup-mobile', s.phone); set('sup-email', s.email); set('sup-regdate', s.date_of_registration);
-  set('sup-bizNature', s.business_nature); set('sup-website', s.website);
-  populateSupStateDropdown();
-  set('sup-address', s.address); set('sup-city', s.city); set('sup-district', s.district); set('sup-state', s.state); set('sup-pincode', s.pincode);
-  set('sup-country', s.country || 'India');
-  set('sup-gstin', s.gst_number); set('sup-pan', s.pan_no); set('sup-aadhaar', s.aadhaar_no);
-  set('sup-statecode', s.state_code); set('sup-tan', s.tan_no); set('sup-msme', s.msme_no); set('sup-fssai', s.fssai_no);
-  set('sup-bankname', s.bank_name); set('sup-bankacc', s.bank_account_no); set('sup-ifsc', s.ifsc_code);
-  set('sup-accholder', s.account_holder_name); set('sup-creditlimit', s.credit_limit);
-  set('sup-openingbal', s.opening_balance || 0); set('sup-paymentterms', s.payment_terms); set('sup-pricelist', s.default_price_list);
-  set('sup-notes', s.notes);
-  document.getElementById('sup-status').classList.toggle('on', (s.status||'active') === 'active');
-  onSupplierTypeChangeRich();
-  renderSupDocs();
-  showPage('supplier-new');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'suppliers'));
-}
-
-function supFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-async function supAddDocs(files) {
-  for (const f of Array.from(files)) { const url = await supFileToDataUrl(f); if (url) SUPN.docs.push({ name: f.name, url }); }
-  document.getElementById('sup-docs-input').value = '';
-  renderSupDocs();
-}
-function supRemoveDoc(idx) { SUPN.docs.splice(idx, 1); renderSupDocs(); }
-function renderSupDocs() {
-  document.getElementById('sup-docs-list').innerHTML = SUPN.docs.map((d, i) => {
-    const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    const url = d.url || (typeof d === 'string' ? d : null);
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="supRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
-  }).join('');
-}
-
-async function saveSupplierEntry() {
-  const name = document.getElementById('sup-name').value.trim();
-  if (!document.getElementById('sup-type').value) { toast('⚠️ Select a supplier type', 'warning'); return; }
-  if (!name) { toast('⚠️ Name / Company / Organization is required', 'warning'); return; }
-  if (!document.getElementById('sup-contactperson').value.trim()) { toast('⚠️ Contact person is required', 'warning'); return; }
-  if (!document.getElementById('sup-mobile').value.trim()) { toast('⚠️ Mobile number is required', 'warning'); return; }
-  if (!document.getElementById('sup-address').value.trim()) { toast('⚠️ Address is required', 'warning'); return; }
-  if (!document.getElementById('sup-city').value.trim()) { toast('⚠️ City is required', 'warning'); return; }
-  if (!document.getElementById('sup-state').value) { toast('⚠️ State is required', 'warning'); return; }
-  if (!document.getElementById('sup-pincode').value.trim()) { toast('⚠️ Pincode is required', 'warning'); return; }
-
-  const payload = {
-    name, supplier_type: document.getElementById('sup-type').value,
-    contact_person: document.getElementById('sup-contactperson').value.trim(),
-    phone: document.getElementById('sup-mobile').value.trim(), email: document.getElementById('sup-email').value.trim(),
-    date_of_registration: document.getElementById('sup-regdate').value || null,
-    business_nature: document.getElementById('sup-bizNature').value, website: document.getElementById('sup-website').value.trim(),
-    address: document.getElementById('sup-address').value.trim(), city: document.getElementById('sup-city').value.trim(), district: document.getElementById('sup-district').value.trim(),
-    state: document.getElementById('sup-state').value, pincode: document.getElementById('sup-pincode').value.trim(),
-    country: document.getElementById('sup-country').value,
-    gst_number: document.getElementById('sup-gstin').value.trim(), pan_no: document.getElementById('sup-pan').value.trim(),
-    aadhaar_no: document.getElementById('sup-aadhaar').value.trim(), state_code: document.getElementById('sup-statecode').value.trim(),
-    tan_no: document.getElementById('sup-tan').value.trim(), msme_no: document.getElementById('sup-msme').value.trim(),
-    fssai_no: document.getElementById('sup-fssai').value.trim(),
-    bank_name: document.getElementById('sup-bankname').value.trim(), bank_account_no: document.getElementById('sup-bankacc').value.trim(),
-    ifsc_code: document.getElementById('sup-ifsc').value.trim(), account_holder_name: document.getElementById('sup-accholder').value.trim(),
-    credit_limit: parseFloat(document.getElementById('sup-creditlimit').value) || 0,
-    opening_balance: parseFloat(document.getElementById('sup-openingbal').value) || 0,
-    payment_terms: document.getElementById('sup-paymentterms').value, default_price_list: document.getElementById('sup-pricelist').value,
-    notes: document.getElementById('sup-notes').value.trim(),
-    status: document.getElementById('sup-status').classList.contains('on') ? 'active' : 'archived',
-    documents: SUPN.docs.map(d => d.url || d),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    if (SUPN.editingId) {
-      await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Supplier updated!', 'success');
-    } else {
-      await api('api/suppliers.php', 'POST', payload);
-      toast('✅ "' + name + '" added!', 'success');
-    }
-    const r = await api('api/suppliers.php');
-    STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
-    cancelSupplierEntry();
-    renderSuppliers();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-// ══════════════════════════════════════════
-// ADD NEW CUSTOMER (full page)
-// ══════════════════════════════════════════
-const CUSN = { editingId: null, docs: [], returnToSale: false };
-
-// Opened from Sale Entry's "+" button next to the customer picker. Since this
-// is a single-page app, the in-progress sale form (SN.items etc.) stays intact
-// in the background — we're not reloading the page, just switching which
-// section is visible — so it's safe to navigate away and back.
-function goToNewCustomerFromSale() {
-  goToNewCustomerPage();
-  CUSN.returnToSale = true;
-}
-
-function populateCusnStateDropdowns() {
-  ['cusn-state','cusn-shipstate'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Select state</option>' + INDIA_STATES.map(s => `<option>${s}</option>`).join('');
-  });
-}
-
-async function populateCusnSalesPersonDropdown() {
-  const sel = document.getElementById('cusn-salesperson');
-  if (!sel) return;
-  try {
-    if (!STATE.team || !STATE.team.length) {
-      const r = await api('api/team.php?action=list');
-      STATE.team = Array.isArray(r.data) ? r.data : [];
-    }
-    sel.innerHTML = '<option value="">Select Sales Person</option>' + STATE.team.map(u => `<option value="${escHtml(u.name)}">${escHtml(u.name)}</option>`).join('');
-  } catch(e) { sel.innerHTML = '<option value="">Select Sales Person</option>'; }
-}
-
-function onCusnSameAddrToggle() {
-  const same = document.getElementById('cusn-sameaddr').checked;
-  document.getElementById('cusn-shipping').disabled = same;
-  document.getElementById('cusn-shipaddr-row').style.display = same ? 'none' : 'grid';
-  if (same) document.getElementById('cusn-shipping').value = document.getElementById('cusn-billing').value;
-}
-
-function goToNewCustomerPage() {
-  CUSN.editingId = null;
-  CUSN.docs = [];
-  CUSN.returnToSale = false;
-  document.getElementById('cusn-title').textContent = 'Add New Customer';
-  document.getElementById('cusn-crumb').textContent = 'Add New Customer';
-  document.getElementById('cusn-type').value = '';
-  document.getElementById('cusn-code').value = '';
-  document.getElementById('cusn-code').placeholder = 'Auto Generate';
-  ['cusn-name','cusn-bizname','cusn-displayname','cusn-phone','cusn-altphone','cusn-email','cusn-whatsapp',
-   'cusn-billing','cusn-shipping','cusn-city','cusn-district','cusn-pincode','cusn-shipcity','cusn-shippincode',
-   'cusn-gst','cusn-pan','cusn-tan','cusn-iec','cusn-tradelicense','cusn-notes-inline','cusn-notes-sidebar']
-   .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('cusn-group').value = '';
-  document.getElementById('cusn-status').value = 'Active';
-  document.getElementById('cusn-creditlimit').value = 0;
-  populateCusnStateDropdowns();
-  document.getElementById('cusn-state').value = '';
-  document.getElementById('cusn-shipstate').value = '';
-  document.getElementById('cusn-biztype').value = '';
-  document.getElementById('cusn-currency').value = 'INR';
-  document.getElementById('cusn-paymentterms').value = '';
-  populateSalesExecDropdown(SERVER.user?.name || '', 'cusn-salesperson');
-  document.getElementById('cusn-openingbal').value = 0;
-  document.getElementById('cusn-openingbaltype').value = 'Debit';
-  populateCusnSalesPersonDropdown();
-  document.getElementById('cusn-sameaddr').checked = true;
-  onCusnSameAddrToggle();
-  document.getElementById('cusn-docs-input').value = '';
-  document.getElementById('cusn-sum-code').textContent = 'Auto Generate';
-  document.getElementById('cusn-sum-status').textContent = 'Active';
-  document.getElementById('cusn-sum-creditlimit').textContent = '₹0.00';
-  document.getElementById('cusn-sum-openingbal').textContent = '₹0.00';
-  document.getElementById('cusn-sum-currentbal').textContent = '₹0.00';
-  document.getElementById('cusn-sum-paymentterms').textContent = 'Not Set';
-  renderCusnDocs();
-  showPage('customer-new');
-  document.querySelector('.nav-item[data-page="customers-list"]')?.classList.add('active');
-}
-
-function cancelCustomerEntry() {
-  if (CUSN.returnToSale) {
-    CUSN.returnToSale = false;
-    showPage('sale-new');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-    return;
-  }
-  showPage('customers-list');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'customers-list'));
-  renderCustomersList();
-}
-
-async function editCustomerRich(id) {
-  const c = STATE.customers.find(x => String(x.id) === String(id)); if (!c) return;
-  CUSN.editingId = id;
-  CUSN.docs = Array.isArray(c.documents) ? [...c.documents] : [];
-  document.getElementById('cusn-title').textContent = 'Edit Customer';
-  document.getElementById('cusn-crumb').textContent = c.name;
-  const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
-  set('cusn-type', c.customer_type); set('cusn-code', c.customer_code); set('cusn-name', c.name); set('cusn-bizname', c.business_name);
-  set('cusn-displayname', c.display_name || c.name); set('cusn-group', c.group_name); set('cusn-status', c.status === 'archived' ? 'Inactive' : 'Active');
-  set('cusn-creditlimit', c.credit_limit); set('cusn-phone', c.mobile); set('cusn-altphone', c.alternate_phone);
-  set('cusn-email', c.email); set('cusn-whatsapp', c.whatsapp_no); set('cusn-billing', c.billing_address);
-  set('cusn-shipping', c.shipping_address); set('cusn-city', c.billing_city); set('cusn-district', c.district); populateCusnStateDropdowns();
-  set('cusn-state', c.state); set('cusn-pincode', c.billing_pincode); set('cusn-shipcity', c.shipping_city);
-  set('cusn-shipstate', c.shipping_state); set('cusn-shippincode', c.shipping_pincode);
-  set('cusn-gst', c.gstin); set('cusn-pan', c.pan_no); set('cusn-biztype', c.business_type); set('cusn-tan', c.tan_no);
-  set('cusn-iec', c.iec_no); set('cusn-tradelicense', c.trade_license_no); set('cusn-currency', c.currency || 'INR');
-  set('cusn-paymentterms', c.payment_terms); set('cusn-openingbal', c.opening_balance || 0); set('cusn-openingbaltype', c.opening_balance_type || 'Debit');
-  await populateCusnSalesPersonDropdown();
-  populateSalesExecDropdown(c.sales_executive || '', 'cusn-salesperson'); set('cusn-notes-inline', c.notes); set('cusn-notes-sidebar', c.notes);
-  document.getElementById('cusn-sameaddr').checked = (c.billing_address === c.shipping_address);
-  onCusnSameAddrToggle();
-  document.getElementById('cusn-sum-code').textContent = c.customer_code || '—';
-  document.getElementById('cusn-sum-status').textContent = c.status === 'archived' ? 'Inactive' : 'Active';
-  document.getElementById('cusn-sum-creditlimit').textContent = fmt_money(c.credit_limit||0);
-  document.getElementById('cusn-sum-openingbal').textContent = fmt_money(c.opening_balance||0);
-  document.getElementById('cusn-sum-paymentterms').textContent = c.payment_terms || 'Not Set';
-  try {
-    const r = await api('api/customers.php?summary_for=' + id);
-    document.getElementById('cusn-sum-currentbal').textContent = fmt_money(r.data?.outstanding || 0);
-  } catch(e) { /* non-fatal */ }
-  renderCusnDocs();
-  showPage('customer-new');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'customers-list'));
-}
-
-function cusnFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-async function cusnAddDocs(files) {
-  for (const f of Array.from(files)) { const url = await cusnFileToDataUrl(f); if (url) CUSN.docs.push({ name: f.name, url }); }
-  document.getElementById('cusn-docs-input').value = '';
-  renderCusnDocs();
-}
-function cusnRemoveDoc(idx) { CUSN.docs.splice(idx, 1); renderCusnDocs(); }
-function renderCusnDocs() {
-  document.getElementById('cusn-docs-list').innerHTML = CUSN.docs.map((d, i) => {
-    const name = d.name || (typeof d === 'string' ? d.split('/').pop() : 'Document');
-    const url = d.url || (typeof d === 'string' ? d : null);
-    return `<div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(name)}</span><span class="pp-attach-actions">${url?`<button class="pp-attach-view" onclick="window.open('${url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="cusnRemoveDoc(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`;
-  }).join('');
-}
-
-async function saveCustomerEntry(mode) {
-  const name = document.getElementById('cusn-name').value.trim();
-  if (!document.getElementById('cusn-type').value) { toast('⚠️ Select a customer type', 'warning'); return; }
-  if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
-  if (!document.getElementById('cusn-displayname').value.trim()) { toast('⚠️ Display name is required', 'warning'); return; }
-  if (!document.getElementById('cusn-phone').value.trim()) { toast('⚠️ Phone number is required', 'warning'); return; }
-  if (!document.getElementById('cusn-billing').value.trim()) { toast('⚠️ Billing address is required', 'warning'); return; }
-  if (!document.getElementById('cusn-city').value.trim()) { toast('⚠️ City is required', 'warning'); return; }
-  if (!document.getElementById('cusn-state').value) { toast('⚠️ State is required', 'warning'); return; }
-  if (!document.getElementById('cusn-pincode').value.trim()) { toast('⚠️ Pincode is required', 'warning'); return; }
-
-  const sameAddr = document.getElementById('cusn-sameaddr').checked;
-  const payload = {
-    name, customer_type: document.getElementById('cusn-type').value, customer_code: document.getElementById('cusn-code').value.trim(),
-    business_name: document.getElementById('cusn-bizname').value.trim(), display_name: document.getElementById('cusn-displayname').value.trim(),
-    group_name: document.getElementById('cusn-group').value, status: document.getElementById('cusn-status').value === 'Active' ? 'active' : 'archived',
-    credit_limit: parseFloat(document.getElementById('cusn-creditlimit').value) || 0,
-    mobile: document.getElementById('cusn-phone').value.trim(), alternate_phone: document.getElementById('cusn-altphone').value.trim(),
-    email: document.getElementById('cusn-email').value.trim(), whatsapp_no: document.getElementById('cusn-whatsapp').value.trim(),
-    billing_address: document.getElementById('cusn-billing').value.trim(),
-    shipping_address: sameAddr ? document.getElementById('cusn-billing').value.trim() : document.getElementById('cusn-shipping').value.trim(),
-    billing_city: document.getElementById('cusn-city').value.trim(), district: document.getElementById('cusn-district').value.trim(), state: document.getElementById('cusn-state').value, billing_pincode: document.getElementById('cusn-pincode').value.trim(),
-    shipping_city: sameAddr ? document.getElementById('cusn-city').value.trim() : document.getElementById('cusn-shipcity').value.trim(),
-    shipping_state: sameAddr ? document.getElementById('cusn-state').value : document.getElementById('cusn-shipstate').value,
-    shipping_pincode: sameAddr ? document.getElementById('cusn-pincode').value.trim() : document.getElementById('cusn-shippincode').value.trim(),
-    gstin: document.getElementById('cusn-gst').value.trim(), pan_no: document.getElementById('cusn-pan').value.trim(),
-    business_type: document.getElementById('cusn-biztype').value, tan_no: document.getElementById('cusn-tan').value.trim(),
-    iec_no: document.getElementById('cusn-iec').value.trim(), trade_license_no: document.getElementById('cusn-tradelicense').value.trim(),
-    currency: document.getElementById('cusn-currency').value, payment_terms: document.getElementById('cusn-paymentterms').value,
-    opening_balance: parseFloat(document.getElementById('cusn-openingbal').value) || 0, opening_balance_type: document.getElementById('cusn-openingbaltype').value,
-    sales_executive: document.getElementById('cusn-salesperson').value, notes: document.getElementById('cusn-notes-inline').value.trim(),
-    documents: CUSN.docs.map(d => d.url || d),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    let newId = CUSN.editingId;
-    if (CUSN.editingId) {
-      await api('api/customers.php?id=' + CUSN.editingId, 'PUT', payload);
-      consumeEditApproval(); toast('✅ Customer updated!', 'success');
-    } else {
-      const res = await api('api/customers.php', 'POST', payload);
-      newId = res.id;
-      toast('✅ "' + name + '" added as ' + res.customer_code + '!', 'success');
-    }
-    const r = await api('api/customers.php');
-    STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
-
-    if (CUSN.returnToSale && mode !== 'new') {
-      CUSN.returnToSale = false;
-      showPage('sale-new');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
-      populateSaleCustomerDropdown();
-      document.getElementById('sn-customer').value = newId;
-      onCustomerPicked();
-      return;
-    }
-    if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-let CUST_LIST_SEARCH = '';
-let CUST_LIST_PAGE = 1;
-const CUST_LIST_PAGESIZE = 10;
-function filterCustomersList(q) { CUST_LIST_SEARCH = q || ''; CUST_LIST_PAGE = 1; renderCustomersList(); }
-function resetCustomersFilter() {
-  document.getElementById('custSearch').value = ''; CUST_LIST_SEARCH = '';
-  document.getElementById('custTypeFilter').value = '';
-  document.getElementById('custStatusFilterList').value = '';
-  document.getElementById('custStateFilter').value = '';
-  CUST_LIST_PAGE = 1;
-  renderCustomersList();
-}
-
-// Per-customer outstanding, computed from real Sales data (total minus
-// amount_received on non-cancelled sales) — not fabricated.
-function custOutstandingMap() {
-  const map = {};
-  (STATE.sales||[]).forEach(s => {
-    if (s.status === 'Cancelled') return;
-    const bal = (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0);
-    if (bal <= 0) return;
-    map[s.customer_id] = (map[s.customer_id] || 0) + bal;
-  });
-  return map;
-}
-function custOverdueTotal() {
-  const today = fmt_date(new Date());
-  return (STATE.sales||[]).reduce((sum, s) => {
-    if (s.status === 'Cancelled' || !s.due_date || s.due_date >= today) return sum;
-    const bal = (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0);
-    return bal > 0 ? sum + bal : sum;
-  }, 0);
-}
-
-function populateCustStateFilter() {
-  const sel = document.getElementById('custStateFilter');
-  if (!sel) return;
-  const cur = sel.value;
-  const states = [...new Set((STATE.customers||[]).map(c => c.state).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">All States</option>' + states.map(s => `<option>${escHtml(s)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
-
-async function renderCustomersList() {
-  try {
-    // Fetch both active and archived so the Status filter and Restore
-    // action have real data to work with (previously only active ones
-    // were ever loaded, silently breaking the "Inactive" filter option).
-    const [activeR, archivedR] = await Promise.all([
-      api('api/customers.php'),
-      api('api/customers.php?status=archived').catch(() => ({ data: [] })),
-    ]);
-    STATE.customers = [...(Array.isArray(activeR.data) ? activeR.data : []), ...(Array.isArray(archivedR.data) ? archivedR.data : [])];
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-
-  const outstandingMap = custOutstandingMap();
-  const totalCreditLimit = (STATE.customers||[]).reduce((s,c) => s + (parseFloat(c.credit_limit)||0), 0);
-  const totalOutstanding = Object.values(outstandingMap).reduce((s,v) => s+v, 0);
-  const monthStart = new Date(); monthStart.setDate(1);
-  const monthStartStr = fmt_date(monthStart);
-  const monthSales = (STATE.sales||[]).filter(s => s.status !== 'Cancelled' && s.sale_date >= monthStartStr);
-  const monthSalesTotal = monthSales.reduce((s,x) => s + (parseFloat(x.total)||0), 0);
-  const monthCollections = monthSales.reduce((s,x) => s + (parseFloat(x.amount_received)||0), 0);
-
-  document.getElementById('cust-stat-total').textContent = (STATE.customers||[]).length;
-  document.getElementById('cust-stat-active').textContent = (STATE.customers||[]).filter(c => c.status==='active').length;
-  document.getElementById('cust-stat-creditlimit').textContent = fmt_money(totalCreditLimit);
-  document.getElementById('cust-stat-available').textContent = fmt_money(Math.max(0, totalCreditLimit - totalOutstanding));
-  document.getElementById('cust-stat-outstanding').textContent = fmt_money(totalOutstanding);
-  document.getElementById('cust-stat-overdue').textContent = fmt_money(custOverdueTotal());
-  document.getElementById('cust-stat-monthsales').textContent = fmt_money(monthSalesTotal);
-  document.getElementById('cust-stat-monthcoll').textContent = fmt_money(monthCollections);
-
-  populateCustStateFilter();
-
-  const tbody = document.getElementById('custListTbody');
-  if (!tbody) return;
-  const typeF = document.getElementById('custTypeFilter')?.value || '';
-  const statusF = document.getElementById('custStatusFilterList')?.value || '';
-  const stateF = document.getElementById('custStateFilter')?.value || '';
-  let list = STATE.customers || [];
-  if (CUST_LIST_SEARCH) {
-    const q = CUST_LIST_SEARCH.toLowerCase();
-    list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.customer_code||'').toLowerCase().includes(q) || (c.mobile||'').toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q));
-  }
-  if (typeF) list = list.filter(c => c.customer_type === typeF);
-  if (statusF) list = list.filter(c => c.status === statusF);
-  if (stateF) list = list.filter(c => c.state === stateF);
-
-  const totalPages = Math.max(1, Math.ceil(list.length / CUST_LIST_PAGESIZE));
-  CUST_LIST_PAGE = Math.min(CUST_LIST_PAGE, totalPages);
-  const pageRows = list.slice((CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE, CUST_LIST_PAGE*CUST_LIST_PAGESIZE);
-  document.getElementById('custListInfo').textContent = `Showing ${list.length?((CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE+1):0} to ${Math.min(CUST_LIST_PAGE*CUST_LIST_PAGESIZE,list.length)} of ${list.length} entries`;
-
-  const typeColors = { Company:['#2E7D32','#E8F5E9'], Trader:['#1976D2','#E3F2FD'], Exporter:['#6A4C93','#F3E8FF'], Retailer:['#E65100','#FFF3E0'], Domestic:['#455A64','#ECEFF1'], Wholesaler:['#00897B','#E0F2F1'] };
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No customers yet — click "Add New Customer" to create one</td></tr>`;
-  } else {
-    tbody.innerHTML = pageRows.map((c, i) => {
-      const [tColor, tBg] = typeColors[c.customer_type] || ['#455A64','#ECEFF1'];
-      const outstanding = outstandingMap[c.id] || 0;
-      return `<tr>
-        <td>${(CUST_LIST_PAGE-1)*CUST_LIST_PAGESIZE+i+1}</td>
-        <td><code style="font-size:11px;color:var(--muted)">${escHtml(c.customer_code||'—')}</code></td>
-        <td style="text-align:left"><strong>${escHtml(c.name)}</strong>${c.billing_city?`<br><span style="font-size:10.5px;color:var(--muted)">${escHtml(c.billing_city)}${c.state?', '+escHtml(c.state):''}</span>`:''}</td>
-        <td><span style="font-size:10px;font-weight:700;color:${tColor};background:${tBg};padding:2px 7px;border-radius:9px">${escHtml(c.customer_type||'—')}</span></td>
-        <td>${escHtml(c.mobile||'—')}</td>
-        <td style="font-size:11px">${escHtml(c.email||'—')}</td>
-        <td>${escHtml(c.state||'—')}</td>
-        <td>${fmt_money(c.credit_limit||0)}</td>
-        <td style="color:${outstanding>0?'#E53935':'#00897B'};font-weight:600">${fmt_money(outstanding)}</td>
-        <td><span style="font-size:10px;font-weight:700;color:${c.status==='active'?'#00897B':'#889'};background:${c.status==='active'?'#E8F5E9':'#eee'};padding:2px 7px;border-radius:9px">${c.status==='active'?'Active':'Inactive'}</span></td>
-        <td>
-          <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-            <button class="act-btn" title="View profile" onclick="viewCustomerProfile(${c.id})"><i class="fas fa-eye"></i></button>
-            ${c.status==='active' ? `<button class="act-btn" title="Edit" onclick="editWithApproval('customer',${c.id},'${escHtml((c.name||'Customer #'+c.id).replace(/'/g,"\\'"))}',()=>editCustomerRich(${c.id}))"><i class="fas fa-pen"></i></button>` : ''}
-            <span class="act-menu-wrap">
-              <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-              <div class="act-menu">
-                ${c.status==='active'
-                  ? _archiveItem("deleteCustomerRich("+c.id+")")
-                  : `<button onclick="restoreCustomer(${c.id})"><i class="fas fa-rotate-left" style="color:#1976D2"></i> Restore</button>`}
-              </div>
-            </span>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
-  }
-  document.getElementById('custListPagination').innerHTML = Array.from({length: totalPages}, (_, i) => i+1).map(p => `
-    <button class="pg-btn ${p===CUST_LIST_PAGE?'active':''}" onclick="CUST_LIST_PAGE=${p};renderCustomersList()">${p}</button>`).join('');
-}
-
-function exportCustomersCsv() {
-  const list = STATE.customers || [];
-  if (!list.length) { toast('⚠️ Nothing to export', 'warning'); return; }
-  const outstandingMap = custOutstandingMap();
-  const headers = ['Customer Code','Name','Type','Phone','Email','State','Credit Limit','Outstanding','Status'];
-  const rows = list.map(c => [c.customer_code, c.name, c.customer_type, c.mobile, c.email, c.state, c.credit_limit, outstandingMap[c.id]||0, c.status].map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'customers-' + fmt_date(new Date()) + '.csv';
-  a.click();
-}
-
-async function restoreCustomer(id) {
-  const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
-  try {
-    await api('api/customers.php?action=restore&id=' + id, 'POST');
-    toast(`✅ "${c.name}" restored`, 'success');
-    renderCustomersList();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function deleteCustomerRich(id) {
-  if (!assertCanDelete('this customer')) return;
-  const c = (STATE.customers||[]).find(x => String(x.id) === String(id)); if (!c) return;
-  const conf = await Swal.fire({
-    title: 'Archive this customer?', text: `"${c.name}" will be moved out of your active customer list.`,
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Archive', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/customers.php?id=' + id, 'DELETE');
-    toast('📦 Customer archived', 'info');
-    renderCustomersList();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-
-// ADD PRODUCT TO STOCK (STOCK IN) — manual multi-product stock inward
-// ══════════════════════════════════════════
-const STI = { editingId: null, items: [], attachments: [], slipDataUrl: null };
-let stiItemSeq = 1;
-
-function populateSTIProductDropdown() {
-  const sel = document.getElementById('sti-p-product');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select product…</option>' +
-    STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
-}
-function populateSTISupplierDropdown() {
-  const sel = document.getElementById('sti-supplier');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select or —</option>' +
-    (STATE.suppliers||[]).map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
-}
-
-function goToNewStockIn() {
-  STI.editingId = null;
-  document.getElementById('sti-page-title').textContent = 'Add Product to Stock (Stock In)';
-  STI.items = []; STI.attachments = []; STI.slipDataUrl = null;
-  document.getElementById('sti-refno').value = '';
-  document.getElementById('sti-refdate').value = fmt_date(new Date());
-  document.getElementById('sti-warehouse').value = 'Main Warehouse';
-  document.getElementById('sti-type').value = 'Purchase';
-  document.getElementById('sti-remarks').value = '';
-  populateSTIProductDropdown();
-  document.getElementById('sti-p-product').value = '';
-  document.getElementById('sti-p-variety').value = '';
-  document.getElementById('sti-p-grade').value = '';
-  document.getElementById('sti-p-category').value = '';
-  document.getElementById('sti-p-unit').value = '';
-  document.getElementById('sti-p-batchno').value = '';
-  document.getElementById('sti-p-mfgdate').value = '';
-  document.getElementById('sti-p-expdate').value = '';
-  document.getElementById('sti-p-qty').value = '';
-  document.getElementById('sti-p-rate').value = '';
-  document.getElementById('sti-weighingtype').value = 'Own Weighbridge';
-  document.getElementById('sti-weighbridgename').value = '';
-  document.getElementById('sti-slipno').value = '';
-  document.getElementById('sti-weightdatetime').value = '';
-  document.getElementById('sti-gross').value = '';
-  document.getElementById('sti-tare').value = '';
-  document.getElementById('sti-net').value = '';
-  document.getElementById('sti-operator').value = '';
-  document.getElementById('sti-slip-input').value = '';
-  { const b = document.getElementById('sti-reconcile-banner'); if (b) b.style.display = 'none'; }
-  document.getElementById('sti-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: JPG, PNG, PDF (Max 5MB)</span></div>';
-  populateSTISupplierDropdown();
-  document.getElementById('sti-supplier').value = '';
-  document.getElementById('sti-challanno').value = '';
-  document.getElementById('sti-challandate').value = '';
-  document.getElementById('sti-vehicleno').value = '';
-  document.getElementById('sti-drivername').value = '';
-  document.getElementById('sti-attachments-input').value = '';
-  document.getElementById('sti-sum-product').textContent = '—';
-  document.getElementById('sti-sum-batch').textContent = '—';
-  document.getElementById('sti-sum-warehouse').textContent = 'Main Warehouse';
-  document.getElementById('sti-sum-before').textContent = '0.00 Kg';
-  document.getElementById('sti-sum-inward').textContent = '0.00 Kg';
-  document.getElementById('sti-sum-after').textContent = '0.00 Kg';
-  renderSTIItemsTable(); renderSTIAttachments(); renderSTIRecentHistory();
-  showPage('stock-in-new');
-  document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
-}
-
-function cancelStockIn() {
-  showPage('stock');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock'));
-}
-
-function onSTIProductSelected() {
-  const id = document.getElementById('sti-p-product').value;
-  const p = STATE.products.find(x => String(x.id) === String(id));
-  if (p) {
-    document.getElementById('sti-p-category').value = p.category || '';
-    document.getElementById('sti-p-unit').value = (p.unit_family === 'volume') ? 'Ltr' : (p.unit_family === 'count' ? 'Pcs' : 'Kg');
-    if (p.variety) { document.getElementById('sti-p-variety').value = p.variety; onSTIVarietyChange(); }
-    if (p.grade) { document.getElementById('sti-p-grade').value = p.grade; onSTIGradeChange(); }
-    if (!document.getElementById('sti-p-rate').value) document.getElementById('sti-p-rate').value = p.purchase_rate || p.rate || '';
-  }
-}
-document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('sti-p-product');
-  if (sel) sel.addEventListener('change', onSTIProductSelected);
-});
-
-// Same Grade<->Variety linking as the Add Product page
-function onSTIGradeChange() {
-  const grade = document.getElementById('sti-p-grade').value;
-  const variety = PP_GRADE_VARIETY_MAP[grade];
-  if (variety) document.getElementById('sti-p-variety').value = variety;
-}
-function onSTIVarietyChange() {
-  const variety = document.getElementById('sti-p-variety').value;
-  const grade = PP_VARIETY_GRADE_MAP[variety];
-  if (grade) document.getElementById('sti-p-grade').value = grade;
-}
-
-function addSTIProduct() {
-  const productId = document.getElementById('sti-p-product').value;
-  const qty = parseFloat(document.getElementById('sti-p-qty').value) || 0;
-  if (!productId) { toast('⚠️ Select a product', 'warning'); return; }
-  if (qty <= 0) { toast('⚠️ Enter a quantity greater than 0', 'warning'); return; }
-  const p = STATE.products.find(x => String(x.id) === String(productId));
-  const rate = parseFloat(document.getElementById('sti-p-rate').value) || 0;
-  const item = {
-    id: stiItemSeq++, product_id: productId, product_name: p ? p.name : '',
-    variety: document.getElementById('sti-p-variety').value,
-    grade: document.getElementById('sti-p-grade').value,
-    batch_no: document.getElementById('sti-p-batchno').value.trim(),
-    mfg_date: document.getElementById('sti-p-mfgdate').value,
-    expiry_date: document.getElementById('sti-p-expdate').value,
-    qty, rate, amount: +(qty*rate).toFixed(2),
-  };
-  STI.items.push(item);
-
-  // Update Stock Summary sidebar for this most-recently-added product
-  const before = snAvailableStockSafe(productId);
-  document.getElementById('sti-sum-product').textContent = item.product_name;
-  document.getElementById('sti-sum-batch').textContent = item.batch_no || '—';
-  document.getElementById('sti-sum-warehouse').textContent = document.getElementById('sti-warehouse').value;
-  document.getElementById('sti-sum-before').textContent = before.toFixed(2) + ' Kg';
-  document.getElementById('sti-sum-inward').textContent = qty.toFixed(2) + ' Kg';
-  document.getElementById('sti-sum-after').textContent = (before + qty).toFixed(2) + ' Kg';
-
-  // Clear the entry row for the next product
-  document.getElementById('sti-p-product').value = '';
-  document.getElementById('sti-p-variety').value = '';
-  document.getElementById('sti-p-grade').value = '';
-  document.getElementById('sti-p-category').value = '';
-  document.getElementById('sti-p-unit').value = '';
-  document.getElementById('sti-p-batchno').value = '';
-  document.getElementById('sti-p-mfgdate').value = '';
-  document.getElementById('sti-p-expdate').value = '';
-  document.getElementById('sti-p-qty').value = '';
-  document.getElementById('sti-p-rate').value = '';
-  renderSTIItemsTable();
-}
-function snAvailableStockSafe(productId) {
-  const s = (STATE.stock||[]).find(x => String(x.product_id) === String(productId).replace(/\D/g,''));
-  return s ? parseFloat(s.current_stock ?? s.available_stock) || 0 : 0;
-}
-
-function removeSTIItem(id) { STI.items = STI.items.filter(i => i.id !== id); renderSTIItemsTable(); }
-
-function renderSTIItemsTable() {
-  const tbody = document.getElementById('sti-items-tbody');
-  if (!tbody) return;
-  if (!STI.items.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">No products added yet</td></tr>`;
-  } else {
-    tbody.innerHTML = STI.items.map((it, idx) => `
-      <tr>
-        <td>${idx+1}</td><td style="text-align:left">${escHtml(it.product_name)}</td><td>${escHtml(it.variety||'—')}</td><td>${escHtml(it.grade||'—')}</td>
-        <td>${escHtml(it.batch_no||'—')}</td><td>${it.mfg_date?fmt_date_disp(it.mfg_date):'—'}</td><td>${it.expiry_date?fmt_date_disp(it.expiry_date):'—'}</td>
-        <td><input type="number" min="0" step="0.01" value="${it.qty.toFixed(2)}" style="width:85px;text-align:right" oninput="updateSTIItem(${it.id},'qty',this.value)"></td>
-        <td><input type="number" min="0" step="0.01" value="${it.rate.toFixed(2)}" style="width:80px;text-align:right" oninput="updateSTIItem(${it.id},'rate',this.value)"></td>
-        <td class="pne-amount-cell" id="sti-item-amt-${it.id}">${fmt_money(it.amount)}</td>
-        <td><button class="item-del" onclick="removeSTIItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
-      </tr>`).join('');
-  }
-  updateSTIItemsTotals();
-}
-
-// Inline edit of an item's qty/rate — recalculates its amount and the totals
-// in place, without re-rendering the whole table (which would steal focus
-// from the input mid-typing).
-function updateSTIItem(id, field, val) {
-  const it = STI.items.find(x => x.id === id); if (!it) return;
-  it[field] = parseFloat(val) || 0;
-  it.amount = +(it.qty * it.rate).toFixed(2);
-  const amtCell = document.getElementById('sti-item-amt-' + id);
-  if (amtCell) amtCell.textContent = fmt_money(it.amount);
-  updateSTIItemsTotals();
-}
-
-function updateSTIItemsTotals() {
-  const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
-  const totalAmt = STI.items.reduce((s,i) => s+i.amount, 0);
-  document.getElementById('sti-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
-  document.getElementById('sti-total-amount').textContent = fmt_money(totalAmt);
-  checkSTIReconciliation();
-}
-
-// Total Quantity (sum of product rows, what gets credited to stock) and
-// Net Weight (the physical weighbridge reading for the whole vehicle)
-// should normally be close for a single-truckload delivery. A meaningful
-// gap can mean a weighing error, moisture loss in transit, or a short/
-// excess delivery — worth a heads-up, not a hard block, since some gap
-// (e.g. genuine moisture loss) can be entirely legitimate.
-const STI_RECONCILE_TOLERANCE_PCT = 2; // flag when the gap exceeds this % of net weight
-
-function checkSTIReconciliation() {
-  const banner = document.getElementById('sti-reconcile-banner');
-  if (!banner) return;
-  const totalQty = STI.items.reduce((s,i) => s+i.qty, 0);
-  const net = parseFloat(document.getElementById('sti-net')?.value) || 0;
-  if (totalQty <= 0 || net <= 0) { banner.style.display = 'none'; return; }
-
-  const diff = totalQty - net;
-  const pctDiff = (Math.abs(diff) / net) * 100;
-
-  if (pctDiff <= STI_RECONCILE_TOLERANCE_PCT) {
-    banner.style.display = 'block';
-    banner.style.background = 'var(--green-bg)'; banner.style.color = 'var(--green)';
-    banner.innerHTML = `<i class="fas fa-circle-check"></i> Total Quantity (${totalQty.toFixed(2)} Kg) matches Net Weight (${net.toFixed(2)} Kg)`;
-  } else {
-    const short = diff < 0; // total qty entered is LESS than what the truck weighed
-    banner.style.display = 'block';
-    banner.style.background = 'var(--amber-bg)'; banner.style.color = '#8A6D00';
-    banner.innerHTML = `<i class="fas fa-triangle-exclamation"></i> Total Quantity (${totalQty.toFixed(2)} Kg) is ${short?'less':'more'} than Net Weight (${net.toFixed(2)} Kg) by ${Math.abs(diff).toFixed(2)} Kg (${pctDiff.toFixed(1)}%) — double-check before saving, or this may be expected (e.g. moisture loss).`;
-  }
-}
-
-function calcSTIWeight() {
-  const gross = parseFloat(document.getElementById('sti-gross').value) || 0;
-  const tare = parseFloat(document.getElementById('sti-tare').value) || 0;
-  document.getElementById('sti-net').value = Math.max(0, gross-tare).toFixed(2);
-  checkSTIReconciliation();
-}
-
-function stiSlipChange(file) {
-  if (!file) return;
-  if (file.size > 5*1024*1024) { toast('⚠️ File must be under 5MB', 'warning'); return; }
-  document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">${escHtml(file.name)}<br><span style="font-size:10px">${(file.size/1024).toFixed(0)} KB</span></div>`;
-  const reader = new FileReader();
-  reader.onload = () => { STI.slipDataUrl = reader.result; };
-  reader.readAsDataURL(file);
-}
-
-function stiFileToDataUrl(file) {
-  return new Promise(resolve => {
-    if (file.size > 5*1024*1024) { toast(`⚠️ "${file.name}" is over 5MB — skipped`, 'warning'); return resolve(null); }
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-async function stiAddAttachments(files) {
-  for (const f of Array.from(files)) { const url = await stiFileToDataUrl(f); if (url) STI.attachments.push({ name: f.name, url }); }
-  document.getElementById('sti-attachments-input').value = '';
-  renderSTIAttachments();
-}
-function stiRemoveAttachment(idx) { STI.attachments.splice(idx, 1); renderSTIAttachments(); }
-function renderSTIAttachments() {
-  document.getElementById('sti-attachments-list').innerHTML = STI.attachments.map((a, i) => `
-    <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="stiRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
-}
-
-async function saveStockInEntry(mode) {
-  if (!document.getElementById('sti-refdate').value) { toast('⚠️ Reference date is required', 'warning'); return; }
-  if (!STI.items.length) { toast('⚠️ Add at least one product', 'warning'); return; }
-
-  const payload = {
-    reference_no: document.getElementById('sti-refno').value.trim(),
-    reference_date: document.getElementById('sti-refdate').value,
-    warehouse: document.getElementById('sti-warehouse').value,
-    stock_in_type: document.getElementById('sti-type').value,
-    remarks: document.getElementById('sti-remarks').value.trim(),
-    weighing_type: document.getElementById('sti-weighingtype').value,
-    weighbridge_name: document.getElementById('sti-weighbridgename').value.trim(),
-    weighbridge_slip_no: document.getElementById('sti-slipno').value.trim(),
-    weight_datetime: document.getElementById('sti-weightdatetime').value || null,
-    gross_weight: parseFloat(document.getElementById('sti-gross').value) || 0,
-    tare_weight: parseFloat(document.getElementById('sti-tare').value) || 0,
-    operator_name: document.getElementById('sti-operator').value.trim(),
-    slip: STI.slipDataUrl || undefined,
-    supplier_id: document.getElementById('sti-supplier').value || null,
-    challan_no: document.getElementById('sti-challanno').value.trim(),
-    challan_date: document.getElementById('sti-challandate').value || null,
-    vehicle_no: document.getElementById('sti-vehicleno').value.trim(),
-    driver_name: document.getElementById('sti-drivername').value.trim(),
-    attachments: STI.attachments.map(a => a.url),
-    items: STI.items.map(it => ({
-      product_id: it.product_id, variety: it.variety, grade: it.grade, batch_no: it.batch_no,
-      mfg_date: it.mfg_date || null, expiry_date: it.expiry_date || null, qty: it.qty, rate: it.rate,
-    })),
-  };
-
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
-  try {
-    if (STI.editingId) {
-      await api('api/stock_in.php?id=' + STI.editingId, 'PUT', payload);
-      toast('✅ Stock-in entry updated!', 'success');
-    } else {
-      await api('api/stock_in.php', 'POST', payload);
-      toast('✅ Stock added!', 'success');
-    }
-    const stk = await api('api/stock.php');
-    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    if (mode === 'new') { goToNewStockIn(); } else { cancelStockIn(); renderStock(); }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-let STI_HISTORY_LIMIT = 5;
-async function renderSTIRecentHistory() {
-  const box = document.getElementById('sti-recent-list');
-  if (!box) return;
-  box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Loading…</div>';
-  try {
-    const r = await api('api/stock_in.php?limit=' + STI_HISTORY_LIMIT);
-    const rows = Array.isArray(r.data) ? r.data : [];
-    if (!rows.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">No stock-in entries yet</div>'; return; }
-    box.innerHTML = rows.map(r => `
-      <div style="border-bottom:1px solid var(--border);padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div style="min-width:0">
-          <strong style="font-size:12.5px;display:block">${escHtml(r.reference_no)}</strong>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.stock_in_type)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${fmt_date_disp(r.reference_date)}</div>
-        </div>
-        <span style="font-size:11px;font-weight:700;color:#00897B;background:#E8F5E9;padding:4px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0">${parseFloat(r.total_quantity).toFixed(2)} Kg</span>
-      </div>`).join('');
-  } catch(e) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">Could not load</div>'; }
-}
-function expandSTIHistory() {
-  STI_HISTORY_LIMIT = STI_HISTORY_LIMIT > 5 ? 5 : 20;
-  const link = document.getElementById('sti-viewall-link');
-  if (link) link.textContent = STI_HISTORY_LIMIT > 5 ? 'Show Less' : 'View All';
-  renderSTIRecentHistory();
-}
-
-async function editStockIn(id) {
-  try {
-    const r = await api('api/stock_in.php?id=' + id);
-    const d = r.data;
-    STI.editingId = id;
-    STI.attachments = (d.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
-    STI.slipDataUrl = null;
-    STI.items = (d.items||[]).map(it => ({
-      id: stiItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', product_name: it.product_name || '',
-      variety: it.variety || '', grade: it.grade || '', batch_no: it.batch_no || '',
-      mfg_date: it.mfg_date || '', expiry_date: it.expiry_date || '', qty: parseFloat(it.qty)||0, rate: parseFloat(it.rate)||0,
-      amount: parseFloat(it.amount)||0,
-    }));
-
-    populateSTIProductDropdown();
-    document.getElementById('sti-page-title').textContent = 'Edit Stock In — ' + d.reference_no;
-    document.getElementById('sti-refno').value = d.reference_no;
-    document.getElementById('sti-refdate').value = d.reference_date;
-    document.getElementById('sti-warehouse').value = d.warehouse || 'Main Warehouse';
-    document.getElementById('sti-type').value = d.stock_in_type || 'Purchase';
-    document.getElementById('sti-remarks').value = d.remarks || '';
-    document.getElementById('sti-weighingtype').value = d.weighing_type || 'Own Weighbridge';
-    document.getElementById('sti-weighbridgename').value = d.weighbridge_name || '';
-    document.getElementById('sti-slipno').value = d.weighbridge_slip_no || '';
-    document.getElementById('sti-weightdatetime').value = d.weight_datetime ? d.weight_datetime.replace(' ', 'T').slice(0,16) : '';
-    document.getElementById('sti-gross').value = d.gross_weight || '';
-    document.getElementById('sti-tare').value = d.tare_weight || '';
-    document.getElementById('sti-operator').value = d.operator_name || '';
-    calcSTIWeight();
-    if (d.slip_path) {
-      document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-file-alt" style="color:var(--teal)"></i><div style="text-align:left">Weight slip on file<br><span style="font-size:10px">Uploaded previously</span></div>`;
-    } else {
-      document.getElementById('sti-slip-label').innerHTML = `<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Upload weight slip<br><span style="font-size:10px">PDF, JPG, PNG (Max 5MB)</span></div>`;
-    }
-    // Clear the product entry row + summary sidebar so nothing stale from a
-    // previous session shows alongside this entry's loaded items.
-    ['sti-p-product','sti-p-variety','sti-p-grade','sti-p-category','sti-p-unit','sti-p-batchno','sti-p-mfgdate','sti-p-expdate','sti-p-qty','sti-p-rate'].forEach(fid => {
-      const el = document.getElementById(fid); if (el) el.value = '';
-    });
-    ['sti-sum-product','sti-sum-batch','sti-sum-warehouse'].forEach(fid => {
-      const el = document.getElementById(fid); if (el) el.textContent = '—';
-    });
-    ['sti-sum-before','sti-sum-inward','sti-sum-after'].forEach(fid => {
-      const el = document.getElementById(fid); if (el) el.textContent = '0.00 Kg';
-    });
-    populateSTISupplierDropdown();
-    document.getElementById('sti-supplier').value = d.supplier_id || '';
-    document.getElementById('sti-challanno').value = d.challan_no || '';
-    document.getElementById('sti-challandate').value = d.challan_date || '';
-    document.getElementById('sti-vehicleno').value = d.vehicle_no || '';
-    document.getElementById('sti-drivername').value = d.driver_name || '';
-
-    renderSTIItemsTable(); renderSTIAttachments();
-    showPage('stock-in-new');
-    document.querySelector('.nav-item[data-page="stock"]')?.classList.add('active');
-    toast('✏️ Editing ' + d.reference_no, 'info');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function deleteStockInEntry(id) {
-  const conf = await Swal.fire({
-    title: 'Delete this stock-in entry?', text: 'This will remove the entry and reverse its stock-ledger effect.',
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/stock_in.php?id=' + id, 'DELETE');
-    toast('🗑️ Stock-in entry deleted', 'info');
-    const stk = await api('api/stock.php');
-    STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
-    renderSTIRecentHistory();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 
 async function deletePurchase(id) {
-  if (!assertCanDelete('this purchase')) return;
   const p = (STATE.purchases||[]).find(x => String(x.id) === String(id)); if (!p) return;
   const conf = await Swal.fire({
     title: 'Delete this purchase?',
@@ -20812,155 +11818,44 @@ async function deletePurchase(id) {
 // ══════════════════════════════════════════
 // STOCK LEDGER  (read-only stock-on-hand view + manual adjustments)
 // ══════════════════════════════════════════
-// ══════════════════════════════════════════
-// PRODUCT STOCK (dashboard) — batch/warehouse-level stock report
-// ══════════════════════════════════════════
-const PS = { tab: 'summary', page: 1, pageSize: 10, rows: [] };
-let psTrendChart = null;
+let stockSearchTerm = '';
 
-// Kept for backward compatibility — every Purchase/Sale/Stock In/Adjustment
-// save calls renderStock() to refresh; it now just drives the new dashboard.
-async function renderStock() { await renderProductStock(); }
+function filterStock(q) { stockSearchTerm = (q||'').toLowerCase(); renderStockTable(); }
 
-function populatePSProductFilter() {
-  const sel = document.getElementById('ps-f-product');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All Products</option>' + STATE.products.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
-
-function switchProductStockTab(tab) {
-  PS.tab = tab; PS.page = 1;
-  document.getElementById('ps-tab-summary').classList.toggle('active', tab === 'summary');
-  document.getElementById('ps-tab-batch').classList.toggle('active', tab === 'batch');
-  renderPSTable();
-}
-
-async function renderProductStock() {
-  populatePSProductFilter();
-  document.getElementById('ps-asof').textContent = new Date().toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+async function renderStock() {
   try {
-    const params = new URLSearchParams();
-    const pid = document.getElementById('ps-f-product')?.value; if (pid) params.set('product_id', pid);
-    const wh  = document.getElementById('ps-f-warehouse')?.value; if (wh) params.set('warehouse', wh);
-    const batch = document.getElementById('ps-f-batch')?.value; if (batch) params.set('batch_no', batch);
-    const r = await api('api/product_stock.php?' + params.toString());
-    PS.rows = Array.isArray(r.data) ? r.data : [];
-    STATE.stock = PS.rows; // keep legacy consumers (Sale Entry's Available Stock lookup) working
-    const s = r.stats || {};
-    document.getElementById('ps-stat-products').textContent = s.total_products || 0;
-    document.getElementById('ps-stat-stock').textContent = (s.total_stock||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
-    document.getElementById('ps-stat-value').textContent = fmt_money(s.total_value||0);
-    document.getElementById('ps-stat-instock').textContent = s.in_stock || 0;
-    document.getElementById('ps-stat-lowstock').textContent = s.low_stock || 0;
-    PS.page = 1;
-    renderPSTable();
+    const r = await api('api/stock.php');
+    STATE.stock = Array.isArray(r.data) ? r.data : [];
+    renderStockTable();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  renderPSMovementAndTrend();
 }
 
-function psGroupedForSummaryTab() {
-  // Stock Summary tab: same data, collapsed across batches (summed per product+warehouse)
-  const map = {};
-  PS.rows.forEach(r => {
-    const key = r.product_id + '|' + r.warehouse;
-    if (!map[key]) map[key] = { ...r, batch_no: '—', available_stock: 0, reserved_stock: 0, in_transit: 0, total_stock: 0, stock_value: 0, _costSum: 0, _qtySum: 0 };
-    const g = map[key];
-    g.available_stock += parseFloat(r.available_stock)||0;
-    g.reserved_stock  += parseFloat(r.reserved_stock)||0;
-    g.in_transit      += parseFloat(r.in_transit)||0;
-    g.total_stock     += parseFloat(r.total_stock)||0;
-    g.stock_value     += parseFloat(r.stock_value)||0;
-    if (r.last_inward_date && (!g.last_inward_date || r.last_inward_date > g.last_inward_date)) g.last_inward_date = r.last_inward_date;
-  });
-  return Object.values(map).map(g => ({ ...g, avg_cost: g.available_stock > 0 ? g.stock_value / g.available_stock : 0 }));
-}
-
-function renderPSTable() {
-  const tbody = document.getElementById('ps-tbody');
+function renderStockTable() {
+  const tbody = document.getElementById('stockTbody');
   if (!tbody) return;
-  const list = PS.tab === 'summary' ? psGroupedForSummaryTab() : PS.rows;
-  const totalPages = Math.max(1, Math.ceil(list.length / PS.pageSize));
-  PS.page = Math.min(PS.page, totalPages);
-  const pageRows = list.slice((PS.page-1)*PS.pageSize, PS.page*PS.pageSize);
-
-  document.getElementById('ps-info').textContent = `Showing ${list.length?((PS.page-1)*PS.pageSize+1):0} to ${Math.min(PS.page*PS.pageSize,list.length)} of ${list.length} entries`;
-
+  let list = STATE.stock || [];
+  if (stockSearchTerm) list = list.filter(s => (s.name||'').toLowerCase().includes(stockSearchTerm) || (s.category||'').toLowerCase().includes(stockSearchTerm));
+  document.getElementById('stockInfo').textContent = list.length + ' product' + (list.length===1?'':'s') + ' with stock movement';
+  document.getElementById('stockCountInfo').textContent = (STATE.stock||[]).length + ' tracked';
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase, Stock In, or manual adjustment</td></tr>`;
-  } else {
-    tbody.innerHTML = pageRows.map((r, i) => {
-      const avail = parseFloat(r.available_stock)||0;
-      const color = avail <= 0 ? '#E53935' : ((r.reorder_level && avail < parseFloat(r.reorder_level)) ? '#E65100' : '#00897B');
-      return `<tr>
-        <td>${(PS.page-1)*PS.pageSize+i+1}</td>
-        <td style="text-align:left"><strong>${escHtml(r.name)}</strong></td>
-        <td>${escHtml(r.variety||'—')}</td>
-        <td>${escHtml(r.warehouse||'Main Warehouse')}</td>
-        <td>${escHtml(r.batch_no||'—')}</td>
-        <td><strong style="color:${color}">${avail.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></td>
-        <td>${(parseFloat(r.reserved_stock)||0).toFixed(2)}</td>
-        <td>${(parseFloat(r.in_transit)||0).toFixed(2)}</td>
-        <td>${(parseFloat(r.total_stock)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-        <td>${fmt_money(r.avg_cost||0)}</td>
-        <td>${fmt_money(r.stock_value||0)}</td>
-        <td>${r.last_inward_date ? fmt_date_disp(r.last_inward_date) : '—'}</td>
-        <td><button class="act-btn" title="View History" onclick="viewStockHistory(${r.product_id}, '${escHtml(r.name).replace(/'/g,"\\'")}')"><i class="fas fa-eye"></i></button></td>
-      </tr>`;
-    }).join('');
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No stock movement yet — record a Purchase or add a manual adjustment</td></tr>`;
+    return;
   }
-
-  document.getElementById('ps-pagination').innerHTML = Array.from({length: totalPages}, (_, i) => i+1).map(p => `
-    <button class="pg-btn ${p===PS.page?'active':''}" onclick="PS.page=${p};renderPSTable()">${p}</button>`).join('');
-}
-
-async function renderPSMovementAndTrend() {
-  try {
-    const r = await api('api/product_stock.php?movement_summary=1');
-    const rows = Array.isArray(r.data) ? r.data : [];
-    document.getElementById('ps-movement-tbody').innerHTML = rows.map(m => `
-      <tr>
-        <td>${fmt_date_disp(m.date)}</td>
-        <td>${m.opening_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-        <td style="color:#00897B">${m.stock_in.toFixed(2)}</td>
-        <td style="color:#E53935">${m.stock_out.toFixed(2)}</td>
-        <td>${m.adjustment > 0 ? '-'+m.adjustment.toFixed(2) : '-'}</td>
-        <td><strong>${m.closing_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></td>
-      </tr>`).join('');
-
-    const ctx = document.getElementById('ps-trend-chart');
-    if (ctx && window.Chart) {
-      if (psTrendChart) psTrendChart.destroy();
-      psTrendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: rows.map(m => fmt_date_disp(m.date).slice(0,5)),
-          datasets: [{
-            label: 'Closing Stock (Kg)', data: rows.map(m => m.closing_stock),
-            borderColor: '#00897B', backgroundColor: 'rgba(0,137,123,.12)', fill: true, tension: .35, pointBackgroundColor: '#00897B',
-          }],
-        },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: { y: { ticks: { callback: v => v.toLocaleString('en-IN') } } },
-        },
-      });
-    }
-  } catch(e) { /* non-fatal */ }
-}
-
-function exportProductStockCsv() {
-  const list = PS.tab === 'summary' ? psGroupedForSummaryTab() : PS.rows;
-  if (!list.length) { toast('⚠️ Nothing to export', 'warning'); return; }
-  const headers = ['Product','Variety/Grade','Warehouse','Batch/Lot No.','Available Stock (Kg)','Reserved (Kg)','In Transit (Kg)','Total Stock (Kg)','Avg Cost (₹/Kg)','Stock Value (₹)','Last Inward Date'];
-  const csvRows = list.map(r => [r.name, r.variety||'', r.warehouse||'', r.batch_no||'', r.available_stock, r.reserved_stock, r.in_transit, r.total_stock, r.avg_cost, r.stock_value, r.last_inward_date||''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','), ...csvRows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'product-stock-' + fmt_date(new Date()) + '.csv';
-  a.click();
+  tbody.innerHTML = list.map(s => {
+    const stockNum = parseFloat(s.current_stock)||0;
+    const color = stockNum <= 0 ? '#E53935' : (stockNum < 10 ? '#E65100' : '#00897B');
+    return `<tr>
+      <td><strong>${escHtml(s.name)}</strong></td>
+      <td>${escHtml(s.category||'—')}</td>
+      <td><strong style="color:${color}">${stockNum.toLocaleString('en-IN')}</strong></td>
+      <td>${fmt_date_disp(s.last_movement)}</td>
+      <td>
+        <div class="action-cell">
+          <button class="act-btn" title="View History" onclick="viewStockHistory(${s.product_id}, '${escHtml(s.name).replace(/'/g,"\\'")}')"><i class="fas fa-history"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function populateStockProductDropdown() {
@@ -20988,7 +11883,7 @@ async function saveStockAdjustment() {
   const btn = document.getElementById('adj-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
-    product_id: productId, // keep as "p12"-style string — the API strips the prefix itself
+    product_id: parseInt(productId),
     direction: document.getElementById('adj-direction').value,
     qty,
     rate: parseFloat(document.getElementById('adj-rate').value) || 0,
@@ -21004,8 +11899,31 @@ async function saveStockAdjustment() {
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Adjustment'; } }
 }
 
-function viewStockHistory(productId, productName) {
-  goToStockHistory(productId, productName);
+async function viewStockHistory(productId, productName) {
+  document.getElementById('sh-product-name').textContent = 'Stock History — ' + productName;
+  const tbody = document.getElementById('sh-tbody');
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>`;
+  openModal('modal-stockhistory');
+  try {
+    const r = await api('api/stock.php?product_id=' + productId);
+    const rows = Array.isArray(r.data) ? r.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No movement recorded</td></tr>`;
+      return;
+    }
+    const sourceLabel = { purchase: '🛒 Purchase', sale: '📤 Sale', adjustment: '⚖️ Adjustment' };
+    tbody.innerHTML = rows.map(row => `
+      <tr>
+        <td>${fmt_date_disp(row.movement_date)}</td>
+        <td>${sourceLabel[row.ref_type]||row.ref_type}</td>
+        <td style="color:${row.direction==='in'?'#00897B':'#E53935'};font-weight:700">${row.direction==='in'?'IN':'OUT'}</td>
+        <td>${parseFloat(row.qty).toLocaleString('en-IN')}</td>
+        <td>${row.rate ? fmt_money(row.rate) : '—'}</td>
+        <td><strong>${parseFloat(row.running_balance).toLocaleString('en-IN')}</strong></td>
+        <td style="color:var(--muted)">${escHtml(row.notes||'')}</td>
+        <td>${row.ref_type==='adjustment' ? `<button class="act-btn" title="Delete adjustment" onclick="deleteStockAdjustment(${row.id}, ${productId}, '${escHtml(productName).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>` : ''}</td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red)">Failed to load: ${e.message}</td></tr>`; }
 }
 
 async function deleteStockAdjustment(id, productId, productName) {
@@ -21018,7 +11936,7 @@ async function deleteStockAdjustment(id, productId, productName) {
   try {
     await api('api/stock.php?id=' + id, 'DELETE');
     toast('🗑️ Adjustment deleted', 'info');
-    if (document.getElementById('page-stock-history')?.classList.contains('active')) renderStockHistory();
+    viewStockHistory(productId, productName);
     renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -21067,66 +11985,9 @@ function pickProduct(id) {
 // PAYMENTS
 // ══════════════════════════════════════════
 const PMT = { page:1, per:10, list:[] };
-function buildMergedPaymentsList() {
-  const invoicePmts = STATE.payments.map(p => ({
-    ...p, source: 'invoice', party_type: 'Customer', payment_for: 'Invoice ' + (p.inv||''), direction: 'in',
-  }));
-  const purchasePmts = (STATE.purchases||[]).filter(p => (parseFloat(p.amount_paid)||0) > 0).map(p => ({
-    id: 'pur-' + p.id, date: p.purchase_date, inv: p.purchase_no, client: p.supplier_name || '—',
-    method: p.payment_mode || '—', txn: p.transaction_no || '',  amount: p.amount_paid,
-    // Purchases keep their payment state in `status` (there is no payment_status
-    // column on purchases) — 'Received' is a legacy value meaning nothing paid yet.
-    status: (p.status === 'Received' ? 'Pending' : p.status) || 'Pending',
-    source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
-  }));
-  const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
-    id: 'sale-' + s.id, date: s.sale_date, inv: s.invoice_no, client: s.customer_name || '—',
-    method: s.payment_method || '—', txn: s.transaction_no || '', amount: s.amount_received, status: s.payment_status || 'Pending',
-    source: 'sale', party_type: 'Customer', payment_for: 'Invoice ' + (s.invoice_no||''), direction: 'in',
-  }));
-  const voucherPmts = (STATE.paymentVouchers||[]).map(v => ({
-    id: 'pv-' + v.id, date: v.payment_date, inv: v.reference_no, client: v.party_name,
-    method: v.payment_mode || '—', txn: '', amount: v.amount, status: v.status || 'Paid',
-    source: 'voucher', party_type: v.party_type || 'Vendor', payment_for: v.payment_for || '', direction: v.direction || 'out',
-  }));
-  return [...invoicePmts, ...purchasePmts, ...salePmts, ...voucherPmts].sort((a,b) => new Date(b.date) - new Date(a.date));
-}
-
-async function renderPayments() {
-  try {
-    const r = await api('api/payment_vouchers.php');
-    STATE.paymentVouchers = Array.isArray(r.data) ? r.data : [];
-  } catch(e) { STATE.paymentVouchers = STATE.paymentVouchers || []; }
-  PMT.list = applyPmtFilters(buildMergedPaymentsList());
-  PMT.page = 1;
-  _renderPmtPage(); _renderPmtSummary();
-}
-
-function applyPmtFilters(all) {
-  const q = (document.getElementById('pmtSearch')?.value || '').toLowerCase();
-  const typeF = document.getElementById('pmtTypeFilter')?.value || '';
-  const methodF = document.getElementById('pmtMethodFilter')?.value || '';
-  const partyTypeF = document.getElementById('pmtPartyTypeFilter')?.value || '';
-  const statusF = document.getElementById('pmtStatusFilter')?.value || '';
-  return all.filter(p => {
-    if (q && !((p.inv&&p.inv.toLowerCase().includes(q)) || (p.client&&p.client.toLowerCase().includes(q)) || (p.method&&p.method.toLowerCase().includes(q)))) return false;
-    if (typeF && p.direction !== typeF) return false;
-    if (methodF && !(p.method===methodF || (p.method&&p.method.startsWith('Split:')&&p.method.includes(methodF)))) return false;
-    if (partyTypeF && p.party_type !== partyTypeF) return false;
-    if (statusF && p.status !== statusF) return false;
-    return true;
-  });
-}
-function resetPmtFilters() {
-  document.getElementById('pmtSearch').value = '';
-  document.getElementById('pmtTypeFilter').value = '';
-  document.getElementById('pmtMethodFilter').value = '';
-  document.getElementById('pmtPartyTypeFilter').value = '';
-  document.getElementById('pmtStatusFilter').value = '';
-  renderPayments();
-}
-function filterPayments(){ PMT.list = applyPmtFilters(buildMergedPaymentsList()); PMT.page=1; _renderPmtPage(); }
-function filterPaymentsByMethod(){ filterPayments(); }
+function renderPayments() { PMT.list=[...STATE.payments]; PMT.page=1; _renderPmtPage(); _renderPmtSummary(); }
+function filterPayments(v){ const s=v.toLowerCase(); PMT.list=STATE.payments.filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMT.page=1; _renderPmtPage(); }
+function filterPaymentsByMethod(v){ PMT.list=v?STATE.payments.filter(p=>p.method===v):[...STATE.payments]; PMT.page=1; _renderPmtPage(); }
 function setPmtRange(r){
   const t=new Date(); let f=new Date(),to=new Date();
   if(r==='today'){f=new Date(t);to=new Date(t);}
@@ -21141,116 +12002,17 @@ function setPmtRange(r){
 }
 function filterPmtByDate(){
   const f=document.getElementById('pmtFrom')?.value||'', t=document.getElementById('pmtTo')?.value||'';
-  PMT.list=buildMergedPaymentsList().filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
+  PMT.list=STATE.payments.filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
   PMT.page=1; _renderPmtPage();
 }
 function exportPmtCSV(){
-  const h=['Payment Date','Reference No.','Party Name','Party Type','Payment For','Payment Mode','Amount','Status'];
-  const list = PMT.list && PMT.list.length ? PMT.list : buildMergedPaymentsList();
-  const r=list.map(p=>[p.date,p.inv,p.client,p.party_type,p.payment_for,p.method,p.amount,p.status].map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(','));
-  downloadFile('payments.csv',[h.join(','),...r].join('\n'),'text/csv');
-  toast('✅ Exported!','success');
-}
-
-function openMakePaymentModal() {
-  document.getElementById('mp-date').value = fmt_date(new Date());
-  document.getElementById('mp-direction').value = 'out';
-  document.getElementById('mp-partytype').value = 'Vendor';
-  document.getElementById('mp-partyname').value = '';
-  document.getElementById('mp-paymentfor').value = '';
-  document.getElementById('mp-mode').value = 'Cash';
-  document.getElementById('mp-amount').value = '';
-  document.getElementById('mp-status').value = 'Paid';
-  document.getElementById('mp-refno').value = '';
-  document.getElementById('mp-notes').value = '';
-  openModal('modal-makepayment');
-}
-
-async function saveMakePayment() {
-  const partyName = document.getElementById('mp-partyname').value.trim();
-  const paymentFor = document.getElementById('mp-paymentfor').value.trim();
-  const amount = parseFloat(document.getElementById('mp-amount').value) || 0;
-  if (!partyName) { toast('⚠️ Party name is required', 'warning'); return; }
-  if (!paymentFor) { toast('⚠️ Payment For is required', 'warning'); return; }
-  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
-  if (!document.getElementById('mp-date').value) { toast('⚠️ Payment date is required', 'warning'); return; }
-
-  const payload = {
-    payment_date: document.getElementById('mp-date').value,
-    direction: document.getElementById('mp-direction').value,
-    party_type: document.getElementById('mp-partytype').value,
-    party_name: partyName,
-    payment_for: paymentFor,
-    payment_mode: document.getElementById('mp-mode').value,
-    amount,
-    status: document.getElementById('mp-status').value,
-    reference_no: document.getElementById('mp-refno').value.trim(),
-    notes: document.getElementById('mp-notes').value.trim(),
-  };
-
-  const btn = document.getElementById('mp-save-btn');
-  if (btn) { if (btn.disabled) return; btn.disabled = true; }
-  try {
-    const res = await api('api/payment_vouchers.php', 'POST', payload);
-    toast('✅ Payment recorded as ' + res.reference_no + '!', 'success');
-    closeModal('modal-makepayment');
-    renderPayments();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-async function deletePaymentVoucher(id) {
-  const conf = await Swal.fire({
-    title: 'Delete this payment?', text: 'This payment record will be permanently removed.',
-    icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete', confirmButtonColor: '#E53935',
-    customClass: { popup: 'swal-compact' }
-  });
-  if (!conf.isConfirmed) return;
-  try {
-    await api('api/payment_vouchers.php?id=' + id, 'DELETE');
-    toast('🗑️ Payment deleted', 'info');
-    renderPayments();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// ══════════════════════════════════════════
-// PAYMENTS — Service business version (simple Invoice-payments list;
-// no Purchases/Sales/Vendors to speak of for a service-only business).
-// ══════════════════════════════════════════
-const PMTS = { list: [], page: 1, per: 15 };
-
-function renderPaymentsService() {
-  PMTS.list = [...STATE.payments];
-  PMTS.page = 1;
-  _renderPmtsSvcPage(); _renderPmtsSvcSummary();
-}
-function filterPaymentsSvc(v){ const s=v.toLowerCase(); PMTS.list=STATE.payments.filter(p=>(!s||(p.inv&&p.inv.toLowerCase().includes(s))||(p.client&&p.client.toLowerCase().includes(s))||(p.txn&&p.txn.toLowerCase().includes(s)))); PMTS.page=1; _renderPmtsSvcPage(); }
-function filterPaymentsSvcByMethod(v){ PMTS.list=v?STATE.payments.filter(p=>p.method===v):[...STATE.payments]; PMTS.page=1; _renderPmtsSvcPage(); }
-function setPmtsSvcRange(r){
-  const t=new Date(); let f=new Date(t), to=new Date(t);
-  if(r==='today'){ /* f=to=today */ }
-  else if(r==='week'){f=new Date(t);f.setDate(t.getDate()-t.getDay());to=new Date(f);to.setDate(f.getDate()+6);}
-  else if(r==='month'){f=new Date(t.getFullYear(),t.getMonth(),1);to=new Date(t.getFullYear(),t.getMonth()+1,0);}
-  const fs=fmt_date(f),ts=fmt_date(to);
-  const pf=document.getElementById('pmtsFrom'),pt=document.getElementById('pmtsTo');
-  if(pf)pf.value=fs; if(pt)pt.value=ts;
-  ['pmtsToday','pmtsWeek','pmtsMonth'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active');});
-  const bn=document.getElementById('pmts'+r.charAt(0).toUpperCase()+r.slice(1)); if(bn)bn.classList.add('active');
-  filterPmtsSvcByDate();
-}
-function filterPmtsSvcByDate(){
-  const f=document.getElementById('pmtsFrom')?.value||'', t=document.getElementById('pmtsTo')?.value||'';
-  PMTS.list=STATE.payments.filter(p=>(!f||p.date>=f)&&(!t||p.date<=t));
-  PMTS.page=1; _renderPmtsSvcPage();
-}
-function exportPmtsSvcCSV(){
   const h=['Date','Invoice','Client','Method','Txn ID','Amount','Status'];
   const r=STATE.payments.map(p=>[p.date,p.inv,p.client,p.method,p.txn||'',p.amount,p.status].map(v=>`"${v}"`).join(','));
   downloadFile('payments.csv',[h.join(','),...r].join('\n'),'text/csv');
   toast('✅ Exported!','success');
 }
-function _renderPmtsSvcSummary(){
-  const el=document.getElementById('pmtsSummary'); if(!el) return;
+function _renderPmtSummary(){
+  const el=document.getElementById('pmtSummary'); if(!el) return;
   const tot=STATE.payments.reduce((s,p)=>s+p.amount,0);
   const upi=STATE.payments.filter(p=>p.method&&p.method.toLowerCase().includes('upi')).reduce((s,p)=>s+p.amount,0);
   const neft=STATE.payments.filter(p=>p.method&&(p.method.toLowerCase().includes('neft')||p.method.toLowerCase().includes('bank'))).reduce((s,p)=>s+p.amount,0);
@@ -21261,10 +12023,11 @@ function _renderPmtsSvcSummary(){
     <div class="stat-card"><div class="stat-icon" style="background:#fff8e1;color:#F9A825"><i class="fas fa-university"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(neft)}</div><div class="stat-lbl">Via Bank</div></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-calendar-day"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(todAmt)}</div><div class="stat-lbl">Today</div></div></div>`;
 }
-function _renderPmtsSvcPage(){
-  const tbody=document.getElementById('paymentsSvcTbody'); if(!tbody) return;
-  const s=(PMTS.page-1)*PMTS.per, e=s+PMTS.per, pg=PMTS.list.slice(s,e);
+function _renderPmtPage(){
+  const tbody=document.getElementById('paymentsTbody'); if(!tbody) return;
+  const s=(PMT.page-1)*PMT.per, e=s+PMT.per, pg=PMT.list.slice(s,e);
 
+  // Assign matte color per unique invoice number for visual grouping
   const invColors=['#455A64','#00695C','#1565C0','#6A1B9A','#4E342E','#37474F','#2E7D32','#283593','#B71C1C','#E65100'];
   const invNums=[...new Set(pg.map(p=>p.inv))];
   const invColorMap={};
@@ -21280,217 +12043,29 @@ function _renderPmtsSvcPage(){
     const layerIcon=isMulti?`<i class="fas fa-layer-group" style="font-size:9px;opacity:.75;margin-right:3px"></i>`:'';
     const invChip=`<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;background:${chipColor};color:#fff;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.3px;box-shadow:0 1px 4px ${chipColor}55">${layerIcon}${p.inv}</span>`;
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
-    const methodCell = renderPaymentMethodCell(p.method, mi);
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : isMulti ? 'border-left:3px solid '+chipColor+';background:'+chipColor+'08' : ''}">
       <td style="font-size:12px">${df}</td>
       <td>${invChip}</td>
       <td><strong>${p.client}</strong></td>
-      <td>${methodCell}</td>
+      <td><span style="display:flex;align-items:center;gap:5px"><i class="fas ${mi}" style="color:var(--muted2);font-size:11px"></i>${p.method}</span></td>
       <td><code style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.txn||'—'}</code></td>
       <td><strong style="font-family:var(--mono);color:${isDeleted?'var(--muted)':'var(--green)'}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
       <td><span class="badge ${isDeleted ? 'badge-cancelled' : 'badge-paid'}" style="${isDeleted ? 'background:#FFCDD2;color:#B71C1C' : ''}">${isDeleted ? '🗑️ Invoice Deleted' : p.status}</span></td>
       <td style="display:flex;gap:6px;align-items:center">
-        <button class="act-btn" title="View Receipt" onclick="viewReceiptSvc(${s+i})"><i class="fas fa-receipt"></i></button>
-        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i}, PMTS.list)" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
+        <button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-receipt"></i></button>
+        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)" ><i class="fas fa-undo"></i></button>` : ''}
       </td>
     </tr>`;
   }).join('')||'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
-  const tot=Math.ceil(PMTS.list.length/PMTS.per);
-  const pg2=document.getElementById('pmtsPagination');
-  if(pg2){let h=`<button class="pg-btn" onclick="pmtsSvcPage(${PMTS.page-1})" ${PMTS.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMTS.page?'active':''}" onclick="pmtsSvcPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtsSvcPage(${PMTS.page+1})" ${PMTS.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
-  const inf=document.getElementById('pmtsInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PMTS.list.length)} of ${PMTS.list.length}`;
-}
-function pmtsSvcPage(p){const t=Math.ceil(PMTS.list.length/PMTS.per);if(p<1||p>t)return;PMTS.page=p;_renderPmtsSvcPage();}
-function viewReceiptSvc(i){ viewReceipt(i, PMTS.list); }
-
-function _renderPmtSummary(){
-  const all = buildMergedPaymentsList();
-  const now = new Date();
-  const thisMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
-  const lastMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const lastMonthEnd   = fmt_date(new Date(now.getFullYear(), now.getMonth(), 0));
-
-  const thisMonth = all.filter(p => p.date >= thisMonthStart);
-  const lastMonth = all.filter(p => p.date >= lastMonthStart && p.date <= lastMonthEnd);
-
-  const sum = (list, pred) => list.filter(pred).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-
-  const isIn  = p => p.direction === 'in';
-  const isOut = p => p.direction === 'out';
-  const isPending = p => p.status === 'Pending' || p.status === 'Partial';
-
-  // Outstanding = total invoiced to customers − what's been received
-  const totalInvoiced = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
-  const totalCollected = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.amount_received)||0), 0);
-  const outstanding = Math.max(0, totalInvoiced - totalCollected);
-
-  // Payable = total purchased − what's been paid
-  const totalPurchased = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
-  const totalPaidOut   = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.amount_paid)||0), 0);
-  const payable = Math.max(0, totalPurchased - totalPaidOut);
-
-  const pctChange = (cur, prev) => prev===0 ? (cur>0?100:0) : Math.round(((cur-prev)/prev)*1000)/10;
-  const setCard = (id, chgId, val, curM, prevM) => {
-    const el = document.getElementById(id); if (el) el.textContent = fmt_money(val);
-    const chgEl = document.getElementById(chgId);
-    if (chgEl) {
-      const pct = pctChange(curM, prevM);
-      chgEl.innerHTML = `<i class="fas fa-arrow-${pct>=0?'up':'down'}"></i> ${Math.abs(pct)}% vs last month`;
-      chgEl.style.color = pct >= 0 ? '#2E7D32' : '#E53935';
-    }
-  };
-
-  setCard('pmt-stat-collected',  'pmt-chg-collected',  sum(all,isIn),  sum(thisMonth,isIn),  sum(lastMonth,isIn));
-  setCard('pmt-stat-paidout',    'pmt-chg-paidout',    sum(all,isOut), sum(thisMonth,isOut), sum(lastMonth,isOut));
-  setCard('pmt-stat-outstanding','pmt-chg-outstanding', outstanding, 0, 0);
-  setCard('pmt-stat-payable',    'pmt-chg-payable',    payable, 0, 0);
-
-  const cashPred   = p => (p.method||'').toLowerCase().includes('cash');
-  const digitalPred = p => /upi|bank|neft|rtgs|imps/i.test(p.method||'');
-  setCard('pmt-stat-cash',    'pmt-chg-cash',    sum(all,cashPred),    sum(thisMonth,cashPred),    sum(lastMonth,cashPred));
-  setCard('pmt-stat-digital', 'pmt-chg-digital', sum(all,digitalPred), sum(thisMonth,digitalPred), sum(lastMonth,digitalPred));
-
-  _renderPmtCharts(all);
-}
-
-function _renderPmtCharts(all) {
-  // ── Chart 1: Daily trend (last 30 days) — Collections vs Paid Out ──
-  const days = 30;
-  const dayMap = {};
-  for (let i = days-1; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate()-i);
-    dayMap[fmt_date(d)] = { in: 0, out: 0 };
-  }
-  all.forEach(p => { if (dayMap[p.date]) { const amt = parseFloat(p.amount)||0; if (p.direction==='in') dayMap[p.date].in += amt; else dayMap[p.date].out += amt; } });
-  const labels  = Object.keys(dayMap).map(d => { const dt=new Date(d); return (dt.getMonth()+1)+'/'+dt.getDate(); });
-  const inVals  = Object.values(dayMap).map(v => v.in);
-  const outVals = Object.values(dayMap).map(v => v.out);
-
-  const trendCtx = document.getElementById('pmt-trend-chart');
-  if (trendCtx) {
-    if (window._pmtTrendChart) window._pmtTrendChart.destroy();
-    window._pmtTrendChart = new Chart(trendCtx, {
-      type: 'bar',
-      data: { labels, datasets: [
-        { label: 'Collected', data: inVals, backgroundColor: '#00897B55', borderColor: '#00897B', borderWidth: 1.5 },
-        { label: 'Paid Out', data: outVals, backgroundColor: '#E5393555', borderColor: '#E53935', borderWidth: 1.5 },
-      ]},
-      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top', labels:{ font:{size:10}, boxWidth:10 } } },
-        scales:{ x:{ grid:{display:false}, ticks:{font:{size:9}, maxTicksLimit:10} }, y:{ grid:{color:'#f0f0f0'}, ticks:{font:{size:9}, callback:v=>'₹'+v.toLocaleString('en-IN')} } } }
-    });
-  }
-
-  // ── Chart 2: Payment mode donut ──
-  const modeMap = {};
-  all.forEach(p => {
-    let m = p.method || 'Unknown';
-    if (m.startsWith('Split:')) m = 'Split';
-    modeMap[m] = (modeMap[m]||0) + (parseFloat(p.amount)||0);
-  });
-  const modeEntries = Object.entries(modeMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const modeColors = ['#00897B','#1976D2','#7B1FA2','#E65100','#E53935','#888'];
-  const modeCtx = document.getElementById('pmt-mode-chart');
-  if (modeCtx && modeEntries.length) {
-    if (window._pmtModeChart) window._pmtModeChart.destroy();
-    window._pmtModeChart = new Chart(modeCtx, {
-      type: 'doughnut',
-      data: { labels: modeEntries.map(([m])=>m), datasets:[{ data: modeEntries.map(([,v])=>v), backgroundColor: modeColors, borderWidth:2, borderColor:'#fff' }] },
-      options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt_money(ctx.raw)}`}} } }
-    });
-    const total = modeEntries.reduce((s,[,v])=>s+v,0);
-    const lgEl = document.getElementById('pmt-mode-legend');
-    if (lgEl) lgEl.innerHTML = modeEntries.map(([m,v],i)=>
-      `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="width:8px;height:8px;border-radius:2px;background:${modeColors[i]};flex-shrink:0"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m)}</span><span style="font-weight:600">${total>0?((v/total)*100).toFixed(1)+'%':''}</span></div>`
-    ).join('');
-  }
-
-  // ── Chart 3: Status breakdown bars ──
-  const sdEl = document.getElementById('pmt-status-breakdown');
-  if (sdEl) {
-    const inTotal  = all.filter(p=>p.direction==='in').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const outTotal = all.filter(p=>p.direction==='out').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const pendingIn  = all.filter(p=>p.direction==='in'  && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const pendingOut = all.filter(p=>p.direction==='out' && (p.status==='Pending'||p.status==='Partial')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-    const paidIn  = inTotal - pendingIn;
-    const paidOut = outTotal - pendingOut;
-    const bar = (label, paid, pending, color) => {
-      const total = paid + pending;
-      const paidPct = total>0 ? (paid/total*100).toFixed(0) : 0;
-      const pendPct = total>0 ? (pending/total*100).toFixed(0) : 0;
-      return `<div>
-        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:4px">
-          <span>${escHtml(label)}</span><span style="color:var(--muted);font-weight:400">${fmt_money(total)}</span>
-        </div>
-        <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden;display:flex">
-          <div style="width:${paidPct}%;background:${color};border-radius:4px 0 0 4px;transition:.4s"></div>
-          <div style="width:${pendPct}%;background:${color}55;border-radius:0 4px 4px 0;transition:.4s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
-          <span><span style="color:${color}">■</span> Received/Paid ${fmt_money(paid)}</span>
-          <span><span style="color:${color}55">■</span> Pending ${fmt_money(pending)}</span>
-        </div>
-      </div>`;
-    };
-    sdEl.innerHTML = bar('Collections (IN)', paidIn, pendingIn, '#00897B') + bar('Payments (OUT)', paidOut, pendingOut, '#E53935');
-  }
-}
-function renderPaymentMethodCell(method, iconClass) {
-  if (method && method.startsWith('Split:')) {
-    const body = method.replace(/^Split:\s*/, '');
-    const parts = body.split('+').map(s => s.trim()).filter(Boolean).map(s => {
-      const m = s.match(/^(.+?):\s*₹\s*([\d,]+(?:\.\d+)?)$/);
-      return m ? { method: m[1].trim(), amount: parseFloat(m[2].replace(/,/g, '')) } : null;
-    }).filter(Boolean);
-    if (parts.length) {
-      const colors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100' };
-      return `<div style="display:flex;flex-wrap:wrap;gap:4px">` + parts.map(p => {
-        const c = colors[p.method] || '#455A64';
-        return `<span style="font-size:10px;font-weight:700;color:${c};background:${c}18;padding:2px 7px;border-radius:9px">${escHtml(p.method)}: ${fmt_money(p.amount)}</span>`;
-      }).join('') + `</div>`;
-    }
-  }
-  return `<span style="display:flex;align-items:center;gap:5px"><i class="fas ${iconClass}" style="color:var(--muted2);font-size:11px"></i>${escHtml(method||'—')}</span>`;
-}
-
-function _renderPmtPage(){
-  const tbody=document.getElementById('paymentsTbody'); if(!tbody) return;
-  const s=(PMT.page-1)*PMT.per, e=s+PMT.per, pg=PMT.list.slice(s,e);
-
-  const partyTypeColors = { Customer:['#2E7D32','#E8F5E9'], Supplier:['#E65100','#FFF3E0'], Transporter:['#1976D2','#E3F2FD'], Vendor:['#6A4C93','#F3E8FF'], Other:['#455A64','#ECEFF1'] };
-  const modeColors = { Cash:['#2E7D32','#E8F5E9'], UPI:['#6A4C93','#F3E8FF'], NEFT:['#1976D2','#E3F2FD'], RTGS:['#E65100','#FFF3E0'], Cheque:['#455A64','#ECEFF1'] };
-
-  tbody.innerHTML=pg.map((p,i)=>{
-    const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}):p.date;
-    const isDeleted = p._invoiceDeleted || p.invoice_deleted;
-    const [ptColor, ptBg] = partyTypeColors[p.party_type] || partyTypeColors.Other;
-    const modeShort = (p.method||'').startsWith('Split:') ? 'Split' : (p.method||'—').split(' (')[0];
-    const [mColor, mBg] = modeColors[modeShort] || ['#455A64','#ECEFF1'];
-    const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
-    return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
-      <td>${s+i+1}</td>
-      <td style="font-size:12px">${df}</td>
-      <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
-      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:2px 7px;border-radius:9px">${escHtml(p.party_type||'—')}</span></td>
-      <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
-      <td><span style="font-size:10px;font-weight:700;color:${mColor};background:${mBg};padding:2px 7px;border-radius:9px">${escHtml(modeShort)}</span></td>
-      <td><strong style="color:${isDeleted?'var(--muted)':(p.direction==='in'?'#2E7D32':'#223')}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${isDeleted?'#B71C1C':statusColor[0]};background:${isDeleted?'#FFCDD2':statusColor[1]};padding:2px 7px;border-radius:9px">${isDeleted ? 'Deleted' : escHtml(p.status)}</span></td>
-      <td style="display:flex;gap:5px;align-items:center">
-        <button class="act-btn" title="View Receipt" onclick="viewReceipt(${s+i})"><i class="fas fa-eye"></i></button>
-        ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)"><i class="fas fa-undo"></i></button>` : (p.source==='voucher' ? `<button class="act-btn" title="Delete" onclick="deletePaymentVoucher(${String(p.id).replace('pv-','')})"><i class="fas fa-trash"></i></button>` : '')}
-      </td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
   const pg2=document.getElementById('pmtPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="pmtPage(${PMT.page-1})" ${PMT.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMT.page?'active':''}" onclick="pmtPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtPage(${PMT.page+1})" ${PMT.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
-  const inf=document.getElementById('pmtInfo'); if(inf)inf.textContent=`Showing ${PMT.list.length?s+1:0}–${Math.min(e,PMT.list.length)} of ${PMT.list.length} entries`;
+  const inf=document.getElementById('pmtInfo'); if(inf)inf.textContent=`${s+1}–${Math.min(e,PMT.list.length)} of ${PMT.list.length}`;
 }
 function pmtPage(p){const t=Math.ceil(PMT.list.length/PMT.per);if(p<1||p>t)return;PMT.page=p;_renderPmtPage();}
 
-async function revertPaymentDelete(idx, list) {
-  const p = (list||PMT.list)[idx];
+async function revertPaymentDelete(idx) {
+  const p = PMT.list[idx];
   if (!p || !p.id) return;
   const _revertResult = await Swal.fire({ title: 'Revert Payment Flag?', html: 'This will mark the payment as <b>active</b> again.', icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, Revert', cancelButtonText: 'Cancel', confirmButtonColor: '#00897B', customClass: { popup: 'swal-compact' } });
   if (!_revertResult.isConfirmed) return;
@@ -21500,13 +12075,13 @@ async function revertPaymentDelete(idx, list) {
     const sp = STATE.payments.find(x => String(x.id) === String(p.id));
     if (sp) { sp._invoiceDeleted = false; sp.invoice_deleted = false; }
     toast('↩ Payment flag reverted — now showing as active', 'success');
-    if (STATE.settings.businessType === 'product') renderPayments(); else renderPaymentsService();
+    renderPayments();
   } catch(e) {
     toast('❌ Revert failed: ' + e.message, 'error');
   }
 }
-function viewReceipt(i, list){
-  const p=(list||PMT.list)[i]; if(!p) return;
+function viewReceipt(i){
+  const p=PMT.list[i]; if(!p) return;
   const sc=STATE.settings;
   const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'long',year:'numeric'}):p.date;
   document.getElementById('receiptBody').innerHTML=`
@@ -21727,12 +12302,6 @@ async function saveCompanySettings() {
   const payload = {
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
-    company_pan:     document.getElementById('sc-pan')?.value     || '',
-    company_iec:     document.getElementById('sc-iec')?.value     || '',
-    company_fssai:   document.getElementById('sc-fssai')?.value   || '',
-    company_apeda:   document.getElementById('sc-apeda')?.value   || '',
-    company_cin:     document.getElementById('sc-cin')?.value     || '',
-    company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -21744,13 +12313,9 @@ async function saveCompanySettings() {
     company_sign:    document.getElementById('sc-sign')?.value    || STATE.settings.signature || '',
     company_bank:    document.getElementById('sc-bank')?.value    || STATE.settings.defaultBank  || '',
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
-    business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
-    show_dhalta_pct: document.getElementById('sc-show-dhaltapct')?.value || STATE.settings.showDhaltaPct || '1',
   };
   Object.assign(STATE.settings, {
     company: payload.company_name, gst: payload.company_gst, phone: payload.company_phone,
-    pan: payload.company_pan, iec: payload.company_iec, fssai: payload.company_fssai,
-    apeda: payload.company_apeda, cin: payload.company_cin, msme: payload.company_msme,
     email: payload.company_email, website: payload.company_website, prefix: payload.invoice_prefix,
     estPrefix: payload.estimate_prefix,
     upi: payload.company_upi, address: payload.company_address,
@@ -21758,8 +12323,6 @@ async function saveCompanySettings() {
     signature: payload.company_sign || STATE.settings.signature,
     defaultBank: payload.company_bank || STATE.settings.defaultBank,
     currency: payload.default_currency || STATE.settings.currency,
-    businessType: payload.business_type,
-    showDhaltaPct: payload.show_dhalta_pct,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -21767,7 +12330,6 @@ async function saveCompanySettings() {
   try {
     await api('api/settings.php', 'POST', payload);
     livePreview();
-    applyDhaltaPctVisibility();
     toast('✅ Settings saved!', 'success');
     // Show logo/sign preview if uploaded
     if (payload.company_logo) {
@@ -22970,13 +13532,13 @@ function clearNotifs() {
 // ══════════════════════════════════════════
 // TOAST
 // ══════════════════════════════════════════
-function toast(msg, type='success', duration=3200) {
+function toast(msg, type='success') {
   const icons = { success:'fa-check-circle', error:'fa-times-circle', info:'fa-info-circle', warning:'fa-exclamation-triangle' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<i class="fas ${icons[type]||'fa-check-circle'}"></i><span>${msg}</span>`;
   document.getElementById('toastContainer').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, duration);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, 3200);
 }
 
 // ══════════════════════════════════════════
@@ -23370,13 +13932,6 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   const s = SERVER.settings || {};
   STATE.settings.company   = s.company_name    || STATE.settings.company;
   STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
-  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
-  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
-  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
-  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
-  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
-  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
-  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
   STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
   STATE.settings.email     = s.company_email   || STATE.settings.email;
   STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -23461,7 +14016,7 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal, stk] = await Promise.all([
+    const [inv, cls, prd, pmt, cfg, cn, sup, pur] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
       api('api/products.php'),
@@ -23470,9 +14025,6 @@ async function loadAllData() {
       api('api/credit_notes.php').catch(() => ({ data: [] })),
       api('api/suppliers.php').catch(() => ({ data: [] })),
       api('api/purchases.php').catch(() => ({ data: [] })),
-      api('api/customers.php').catch(() => ({ data: [] })),
-      api('api/sales.php').catch(() => ({ data: [] })),
-      api('api/stock.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
     STATE.clients     = Array.isArray(cls.data)  ? cls.data  : [];
@@ -23481,12 +14033,6 @@ async function loadAllData() {
     STATE.creditNotes = Array.isArray(cn.data)   ? cn.data   : [];
     STATE.suppliers   = Array.isArray(sup.data)  ? sup.data  : [];
     STATE.purchases   = Array.isArray(pur.data)  ? pur.data  : [];
-    STATE.customers   = Array.isArray(cus.data)  ? cus.data  : [];
-    STATE.sales       = Array.isArray(sal.data)  ? sal.data  : [];
-    // Populated at bootstrap so Available Stock lookups (Sale Entry, Stock
-    // In, Stock Adjustment) work immediately, without depending on the user
-    // having visited a stock page first as an accidental side effect.
-    STATE.stock       = Array.isArray(stk.data)  ? stk.data  : [];
     STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
@@ -23553,20 +14099,6 @@ async function loadAllData() {
       }
       STATE.settings.company   = s.company_name    || STATE.settings.company;
       STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
-      STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
-  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
-      STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
-      STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
-      STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
-      STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
-      STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
-  STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
-  STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
-  STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
-  STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
-  STATE.settings.apeda     = s.company_apeda   ?? STATE.settings.apeda;
-  STATE.settings.cin       = s.company_cin     ?? STATE.settings.cin;
-  STATE.settings.msme      = s.company_msme    ?? STATE.settings.msme;
       STATE.settings.phone     = s.company_phone   || STATE.settings.phone;
       STATE.settings.email     = s.company_email   || STATE.settings.email;
       STATE.settings.website   = s.company_website || STATE.settings.website;
@@ -23691,7 +14223,6 @@ document.addEventListener('DOMContentLoaded', function() {
       renderInvoicesTable();
       renderClients();
       renderProducts();
-      applyBusinessTypeLabels();
       renderSuppliers();
       renderPurchases();
       renderPayments();
@@ -23704,7 +14235,7 @@ document.addEventListener('DOMContentLoaded', function() {
       renderFestivalCampaigns();
       resetCreateForm();
       STATE.filteredInvoices = [...STATE.invoices];
-      const _badgeInvBoot = document.getElementById('badge-invoices'); if (_badgeInvBoot) _badgeInvBoot.textContent = STATE.invoices.length;
+      document.getElementById('badge-invoices').textContent = STATE.invoices.length;
       // Mark payments whose invoice no longer exists as deleted
       const invoiceIds = new Set(STATE.invoices.map(i => String(i.id)));
       STATE.payments.forEach(p => {
@@ -23717,37 +14248,12 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
-  }).catch(function(loadErr) {
-    // loadAllData failed — most common cause: super admin with no database
-    // connected yet (getDB() throws). Still render the dashboard so the
-    // Connect Database button is visible and usable.
-    console.warn('loadAllData failed:', loadErr?.message || loadErr);
-    try {
-      const _pd = document.getElementById('dash-product');
-      if (_pd) _pd.style.display = '';
-      renderDashboard();
-    } catch(e) { /* ignore secondary errors */ }
-    document.addEventListener('click', closeAllDropdowns);
   });
 });
 // ── Populate notification bell from live data ──────────────────
 function renderNotifications() {
   const today  = new Date();
   const items  = [];
-
-  // ── Pending edit approval requests (admin/owner only) ─────────
-  // Shown at the top of the bell panel so they're impossible to miss
-  // regardless of which page the admin is currently on.
-  if (SERVER.canApproveEdits && EAR_ADMIN_PENDING.length) {
-    EAR_ADMIN_PENDING.forEach(req => {
-      items.push({
-        type: 'approval',
-        id: req.id,
-        text: `<b>${escHtml(req.requester_name)}</b> wants to edit <b>${escHtml(req.entity_label || req.entity_type + ' #' + req.entity_id)}</b>`,
-        reason: req.reason,
-      });
-    });
-  }
 
   // Overdue invoices
   STATE.invoices.filter(i => i.status === 'Overdue').slice(0,3).forEach(inv => {
@@ -23776,31 +14282,16 @@ function renderNotifications() {
     if (!items.length) {
       el.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;text-align:center">No new notifications</div>';
     } else {
-      el.innerHTML = items.map(n => {
-        if (n.type === 'approval') {
-          return `<div class="np-item" style="background:var(--amber-bg);border-left:3px solid var(--amber);flex-direction:column;align-items:flex-start;gap:6px">
-            <div style="display:flex;gap:8px;align-items:flex-start">
-              <i class="fas fa-shield-halved" style="color:var(--amber);margin-top:2px;flex-shrink:0"></i>
-              <div>
-                <div style="font-size:12.5px">${n.text}</div>
-                ${n.reason ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">"${escHtml(n.reason)}"</div>` : ''}
-              </div>
-            </div>
-            <div style="display:flex;gap:6px;padding-left:20px;width:100%">
-              <button class="btn btn-primary" style="flex:1;font-size:11px;padding:4px 0" onclick="approveEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-check"></i> Approve</button>
-              <button class="btn btn-outline" style="flex:1;font-size:11px;padding:4px 0;color:var(--red);border-color:var(--red)" onclick="rejectEditRequest(${n.id});toggleNotifPanel(event)"><i class="fas fa-times"></i> Reject</button>
-            </div>
-          </div>`;
-        }
-        return `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
+      el.innerHTML = items.map(n =>
+        `<div class="np-item ${n.type==='warn'?'np-warn':'np-info'}">
           <i class="fas ${n.type==='warn'?'fa-exclamation-circle':'fa-info-circle'}"></i>
           <div>${n.text}</div>
-        </div>`;
-      }).join('');
+        </div>`
+      ).join('');
     }
   }
 
-  // Update bell count — includes approvals
+  // Update bell count
   const bell = document.getElementById('bellCount');
   if (bell) {
     const count = items.length;
@@ -23885,7 +14376,19 @@ async function deleteCategory(idx) {
 async function saveCategories() {
   try { await api('api/settings.php','POST',{ product_categories: JSON.stringify(STATE.categories) }); } catch(e) { console.warn('Cat save err',e); }
 }
+function updateProductCatDropdowns() {
+  // Update all category dropdowns in the products page / filter
+  const opts = STATE.categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  document.querySelectorAll('.cat-select').forEach(el => {
+    const cur = el.value;
+    el.innerHTML = opts;
+    el.value = cur;
+  });
+  const filter = document.getElementById('productCatFilter');
+  if (filter) filter.innerHTML = `<option value="">All Categories</option>${opts}`;
+}
 
+// ── Expense Category Management (pastel badges) ─────────────────
 function pastelBg(hex) {
   hex = (hex||'#757575').replace('#','');
   if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
@@ -23991,13 +14494,6 @@ function populateSettingsForm() {
   const set = (id, val) => { const e=document.getElementById(id); if(e && val !== undefined && val !== null) e.value=val; };
   set('sc-name',    s.company);
   set('sc-gst',     s.gst);
-  set('sc-pan',     s.pan);
-  set('sc-iec',     s.iec);
-  set('sc-fssai',   s.fssai);
-  set('sc-apeda',   s.apeda);
-  set('sc-cin',     s.cin);
-  set('sc-msme',    s.msme);
-  const dhSel = document.getElementById('sc-show-dhaltapct'); if (dhSel) dhSel.value = (s.showDhaltaPct === '0') ? '0' : '1';
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   set('sc-web',     s.website);
@@ -24014,9 +14510,6 @@ function populateSettingsForm() {
   // Restore currency dropdown
   const _scCur = document.getElementById('sc-cur');
   if (_scCur && s.currency) _scCur.value = s.currency;
-  // Restore business type dropdown
-  const _scBiz = document.getElementById('sc-business-type');
-  if (_scBiz && s.businessType) _scBiz.value = s.businessType;
   // ── Populate Email / SMTP fields ──
   const ec = s.email_cfg || {};
   set('em-host', ec.smtp_host || '');
@@ -24190,59 +14683,6 @@ window.settingsTab = function(name, btn) {
 };
 
 // ── Admin Profile ──────────────────────────────────────────────
-// ── Super admin: ad-hoc database connect/disconnect ────────────────
-// Points THIS session at any database so the normal app UI (Sales,
-// Invoices, Stock, etc.) reads from it — no tenant record is created,
-// no users are migrated. Purely for the super admin to look around.
-async function connectDbPrompt() {
-  let recentHtml = '';
-  try {
-    const r = await api('api/tenant.php?action=recent_connections', 'GET');
-    if (r.data?.length) {
-      recentHtml = `<div style="text-align:left;margin-top:10px">
-        <div style="font-size:11px;color:#888;margin-bottom:6px">Recent:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${r.data.map(d => `<button type="button" class="recent-db-chip" data-db="${d.db_name.replace(/"/g,'&quot;')}"
-            style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer">${d.label}</button>`).join('')}
-        </div>
-      </div>`;
-    }
-  } catch(e) { /* recent list is a convenience, ignore failures */ }
-
-  const { value: dbName } = await Swal.fire({
-    title: 'Connect to a database',
-    html: `<input id="swal-dbname" class="swal2-input" placeholder="e.g. edrppymy_optms_invoice" style="margin-bottom:4px">
-           <div style="font-size:11px;color:#888;text-align:left;margin:0 6px">Exact database name from cPanel → MySQL Databases</div>
-           ${recentHtml}`,
-    showCancelButton: true,
-    confirmButtonText: 'Connect',
-    customClass: { popup: 'swal-compact' },
-    didOpen: () => {
-      const input = document.getElementById('swal-dbname');
-      document.querySelectorAll('.recent-db-chip').forEach(chip => {
-        chip.addEventListener('click', () => { input.value = chip.dataset.db; input.focus(); });
-      });
-    },
-    preConfirm: () => document.getElementById('swal-dbname').value.trim(),
-  });
-  if (!dbName) return;
-  try {
-    const r = await api('api/tenant.php?action=connect_db', 'POST', { db_name: dbName.trim() });
-    if (r.success) {
-      toast(`✅ Connected to ${r.label}`, 'success');
-      setTimeout(() => window.location.reload(), 600);
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function disconnectDb() {
-  try {
-    await api('api/tenant.php?action=disconnect_db', 'POST', {});
-    toast('🔌 Disconnected — back to admin view', 'info');
-    setTimeout(() => window.location.reload(), 500);
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2*1024*1024) { toast('⚠️ Max 2MB', 'warning'); return; }
@@ -25322,7 +15762,7 @@ function getSplitMethodLabel() {
   const parts = Array.from(rows).map(r => {
     const m = r.querySelector('.split-method')?.value || '';
     const a = parseFloat(r.querySelector('.split-amt')?.value || 0);
-    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(2)}` : null;
+    return a > 0 ? `${m.split(' ')[0]}: ₹${a.toFixed(0)}` : null;
   }).filter(Boolean);
   return 'Split: ' + parts.join(' + ');
 }
@@ -25598,79 +16038,6 @@ function _renderExpSummary() {
     <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
     <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
   </div>`).join('');
-
-  // ── Expense mixed chart: stacked bars per category + total line ──
-  const chartsRow = document.getElementById('exp-charts-row');
-  if (chartsRow) {
-    chartsRow.style.display = STATE.expenses.length > 0 ? '' : 'none';
-    if (STATE.expenses.length > 0) {
-      // Build month × category matrix
-      const monthSet = new Set();
-      const catSet   = new Set();
-      const matrix   = {}; // matrix[month][category] = amount
-      STATE.expenses.forEach(e => {
-        const m = e.date?.slice(0,7); if (!m) return;
-        monthSet.add(m); catSet.add(e.category||'Other');
-        if (!matrix[m]) matrix[m] = {};
-        matrix[m][e.category||'Other'] = (matrix[m][e.category||'Other']||0) + parseFloat(e.amount||0);
-      });
-      const months = [...monthSet].sort().slice(-12);
-      const cats   = [...catSet];
-      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + '\'' + y.slice(2); });
-      const colors  = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#F57C00','#6A4C93','#00838F','#C62828'];
-
-      // Stacked bar datasets (one per category)
-      const barDatasets = cats.map((cat, i) => ({
-        type: 'bar',
-        label: cat,
-        data: months.map(m => matrix[m]?.[cat] || 0),
-        backgroundColor: (colors[i % colors.length]) + 'BB',
-        borderColor: colors[i % colors.length],
-        borderWidth: 1,
-        borderRadius: 3,
-        stack: 'expenses',
-      }));
-
-      // Total line dataset
-      const totalLine = {
-        type: 'line',
-        label: 'Total',
-        data: months.map(m => Object.values(matrix[m]||{}).reduce((s,v)=>s+v,0)),
-        borderColor: '#212121',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#212121',
-        tension: 0.3,
-        order: 0,
-      };
-
-      const mixCtx = document.getElementById('exp-mix-chart');
-      if (mixCtx) {
-        if (window._expMixChart) window._expMixChart.destroy();
-        window._expMixChart = new Chart(mixCtx, {
-          data: { labels: mLabels, datasets: [...barDatasets, totalLine] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt_money(ctx.raw)}` } }
-            },
-            scales: {
-              x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-              y: { stacked: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } }
-            }
-          }
-        });
-      }
-
-      // Legend
-      const lgEl = document.getElementById('exp-mix-legend');
-      if (lgEl) lgEl.innerHTML =
-        cats.map((cat,i) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></span><span>${escHtml(cat)}</span></span>`).join('')
-        + `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#212121;flex-shrink:0"></span><span>Total</span></span>`;
-    }
-  }
 }
 
 function _renderExpTable() {
@@ -29874,18 +20241,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (document.visibilityState === 'visible') renderWALog();
   }, 60000);
-
-  // Poll for pending edit approvals every 30s (admin/owner only — returns
-  // immediately for other roles). Also refresh on tab focus so admins
-  // see new requests the moment they switch back to this tab.
-  if (SERVER.canApproveEdits) {
-    setInterval(() => {
-      if (document.visibilityState === 'visible') loadPendingApprovals();
-    }, 30000);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') loadPendingApprovals();
-    });
-  }
 });
 
 // Export function for CSV
