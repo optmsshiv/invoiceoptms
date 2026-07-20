@@ -1,4 +1,0 @@
-.env
-/vendor/
-/assets/uploads/*
-!/assets/uploads/.gitkeep
