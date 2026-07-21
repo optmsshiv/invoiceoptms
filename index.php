@@ -19328,6 +19328,8 @@ function calcSNWeightSummary() {
     remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
   }
   calcSaleNewTotals();
+  // Re-render table so qty cell shows readonly+green once kanta.billable > 0
+  if (billable > 0) renderSNItemsTable();
 }
 
 function calcSaleNewTotals() {
