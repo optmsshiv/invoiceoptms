@@ -179,11 +179,6 @@ switch ($method) {
     }
 
     logActivity((int)$_SESSION['user_id'], 'create', 'sale', $saleId, 'Sale created: ' . $invoiceNo);
-    // Rebalance running balances in stock_ledger
-    $affectedProds = array_values(array_filter(array_map(
-      fn($it) => cleanProductId($it['product_id'] ?? null), $items
-    )));
-    if (!empty($affectedProds)) rebalanceStockLedger($db, $affectedProds);
     jsonResponse(['success' => true, 'id' => $saleId, 'invoice_no' => $invoiceNo]);
     break;
 

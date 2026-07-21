@@ -17827,11 +17827,6 @@ async function savePurchaseEntry(mode) {
   if (badItem) {
     toast('⚠️ Every item needs a product (or a description for free-text lines)', 'warning'); return;
   }
-  // Qty and rate validation
-  const purZeroQty = PNE.items.find(it => !(parseFloat(it.billable_wt || it.gross_weight || 0) > 0) && !(parseFloat(it.qty||0) > 0));
-  if (purZeroQty) { toast('⚠️ Enter weight or quantity for all items', 'warning'); return; }
-  const purZeroRate = PNE.items.find(it => !(parseFloat(it.rate) > 0));
-  if (purZeroRate) { toast('⚠️ Rate must be greater than 0 for all items', 'warning'); return; }
 
   const attachment = await pneReadAttachment();
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
@@ -19588,22 +19583,6 @@ async function saveSaleEntry(mode) {
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
   if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
   if (SN.items.some(it => !it.product_id)) { toast('⚠️ Every item needs a product selected', 'warning'); return; }
-  // Qty and rate checks
-  const zeroQty = SN.items.find(it => !(parseFloat(it.qty) > 0));
-  if (zeroQty) { toast('⚠️ Quantity must be greater than 0 for all items', 'warning'); return; }
-  const zeroRate = SN.items.find(it => !(parseFloat(it.rate) > 0));
-  if (zeroRate) { toast('⚠️ Rate must be greater than 0 for all items', 'warning'); return; }
-  // Oversell check — warn if qty exceeds available stock
-  const oversell = SN.items.filter(it => {
-    if (!it.product_id) return false;
-    const avail = snAvailableStock(it.product_id);
-    return avail > 0 && parseFloat(it.qty) > avail;
-  });
-  if (oversell.length) {
-    const names = oversell.map(it => STATE.products.find(p => String(p.id)===String(it.product_id))?.name || 'Item').join(', ');
-    const ok = await Swal.fire({ title: 'Oversell Warning', text: `Quantity exceeds available stock for: ${names}. Save anyway?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, save', cancelButtonText: 'Cancel' });
-    if (!ok.isConfirmed) return;
-  }
 
   const payload = {
     invoice_no: document.getElementById('sn-invno').value.trim(),
