@@ -6786,24 +6786,77 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-        <!-- ══ TAB: PROFORMA PRINT ══ -->
+                <!-- ══ TAB: PROFORMA PRINT ══ -->
         <div id="stab-proformaprint" class="stab-pane">
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-file-contract" style="color:var(--teal)"></i> Proforma Invoice Print Settings</div>
             <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Control what appears on the printed Proforma / Offer Price document.</p>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="ofr-print-settings">
-              ${['show_logo','show_apeda','show_fssai','show_iec','show_gstin','show_pan','show_destination','show_incoterms','show_payment_terms','show_usd_rate','show_per_kg','show_validity','show_certifications','show_signature','show_footer_disclaimer'].map(k => {
-                const labels = {show_logo:'Company Logo',show_apeda:'APEDA Registration',show_fssai:'FSSAI License',show_iec:'IEC Code',show_gstin:'GSTIN',show_pan:'PAN Number',show_destination:'Destination Port',show_incoterms:'Incoterms',show_payment_terms:'Payment Terms',show_usd_rate:'Exchange Rate in footer',show_per_kg:'Final Cost per Kg',show_validity:'Valid Until date',show_certifications:'Certification badges (footer)',show_signature:'Signature section',show_footer_disclaimer:'Footer disclaimer text'};
-                return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
-                  <label class="tog on" id="ofr-ps-${k}" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
-                  <span style="font-size:12.5px">${labels[k]||k}</span>
-                </div>`;
-              }).join('')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_logo" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Company Logo</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_apeda" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">APEDA Registration</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_fssai" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">FSSAI License</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_iec" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">IEC Code</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_gstin" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">GSTIN</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog " id="ofr-ps-show_pan" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">PAN Number</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_destination" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Destination Port</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_incoterms" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Incoterms</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_payment_terms" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Payment Terms</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_usd_rate" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Exchange Rate in footer</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_per_kg" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Final Cost per Kg</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_validity" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Valid Until date</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_certifications" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Certification badges (footer)</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_signature" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Signature section</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border)">
+                <label class="tog on" id="ofr-ps-show_footer_disclaimer" onclick="this.classList.toggle('on');saveOfrPrintSettings()" style="flex-shrink:0"></label>
+                <span style="font-size:12.5px">Footer disclaimer text</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- ══ TAB: BACKUP ══ -->
+                <!-- ══ TAB: BACKUP ══ -->
         <div id="stab-backup" class="stab-pane">
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-database" style="color:var(--teal)"></i> Backup &amp; Export</div>
