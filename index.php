@@ -18927,6 +18927,7 @@ function renderSNDeductionsTable() {
 function goToNewSale() {
   SN.editingId = null;
   SN.items = [snEmptyItem()];
+  SN.activeRowId = SN.items[0].id; // auto-link kanta to row 1 immediately
   SN.attachments = [];
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
@@ -18984,6 +18985,8 @@ function goToNewSale() {
   document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
   SN.deductions = [];
   renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+  // Auto-link kanta indicator to row 1
+  snPopulateKanta(SN.items[0]);
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
   // Refresh stock levels in the background — don't block opening the page
@@ -19156,70 +19159,18 @@ function addSaleNewItem() {
 }
 
 function openSNItemEditor(id) {
+  // No modal — just link kanta section to this row
   const it = SN.items.find(i => i.id === id); if (!it) return;
-  const prod  = STATE.products.find(p => String(p.id) === String(it.product_id));
-  const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
-  const rowNo = SN.items.indexOf(it) + 1;
-
-  // Populate kanta section with this row's saved kanta data
-  snPopulateKanta(it);
-
-  // Close any existing popover
-  document.getElementById('sn-item-editor')?.remove();
-
-  const pop = document.createElement('div');
-  pop.id = 'sn-item-editor';
-  pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1200;display:flex;align-items:center;justify-content:center';
-  pop.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:22px 24px;width:500px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div style="font-size:14px;font-weight:700">Row ${rowNo} — ${escHtml(prod?.name || 'Item')}</div>
-        <button onclick="snCloseItemEditor()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-      </div>
-      <div style="font-size:11px;color:var(--teal);margin-bottom:14px;font-weight:600">
-        <i class="fas fa-circle-info"></i> Kanta section above is now linked to this row — adjust weights there to update qty.
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="field">
-          <label>Quantity (Kg) <span style="color:#00897B;font-size:10px">← from billable wt</span></label>
-          <input type="number" id="snpe-qty" value="${it.qty}" min="0" step="0.01"
-            readonly style="background:#E8F5E9;color:#00897B;font-weight:700" title="Adjust via Kanta section above">
-          ${it.product_id ? `<span style="font-size:11px;color:var(--muted)">Available: <strong style="color:#00897B">${avail.toFixed(2)} Kg</strong></span>` : ''}
-        </div>
-        <div class="field"><label>Rate (₹/Kg)</label><input type="number" id="snpe-rate" value="${it.rate}" min="0" step="0.01"></div>
-        <div class="field"><label>GST %</label><input type="number" id="snpe-gst" value="${it.gst_pct}" min="0" max="28" step="0.01"></div>
-        <div class="field"><label>Moisture %</label><input type="number" id="snpe-moisture" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—"></div>
-        <div class="field"><label>Batch No.</label><input id="snpe-batch" value="${escHtml(it.batch_no)}" placeholder="Optional"></div>
-        <div class="field"><label>Warehouse</label><input id="snpe-warehouse" value="${escHtml(it.warehouse)}"></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
-        <button class="btn btn-outline" onclick="snCloseItemEditor()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveSNItemEditor(${id})"><i class="fas fa-check"></i> Apply</button>
-      </div>
-    </div>`;
-  pop.addEventListener('click', e => { if (e.target === pop) snCloseItemEditor(); });
-  document.body.appendChild(pop);
-  setTimeout(() => { const f = pop.querySelector('input:not([readonly])'); if(f) f.focus(); }, 50);
-  renderSNItemsTable(); // re-render to highlight active row
+  snPopulateKanta(it);   // fills kanta fields + sets SN.activeRowId + shows indicator
+  renderSNItemsTable();  // highlight active row
+  // Scroll kanta section into view so operator sees it
+  document.getElementById('sn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(`⚖ Kanta linked to Row ${SN.items.indexOf(it)+1} — adjust weights above to update qty`, 'info');
 }
 
 function snCloseItemEditor() {
-  document.getElementById('sn-item-editor')?.remove();
-  snClearKanta();
-  renderSNItemsTable(); // remove active row highlight
-}
-
-function saveSNItemEditor(id) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  const isRow1 = SN.items[0].id === id;
-  if (!isRow1) it.qty         = document.getElementById('snpe-qty').value;
-  it.rate         = document.getElementById('snpe-rate').value;
-  it.gst_pct      = document.getElementById('snpe-gst').value;
-  it.moisture_pct = document.getElementById('snpe-moisture').value;
-  it.batch_no     = document.getElementById('snpe-batch').value;
-  it.warehouse    = document.getElementById('snpe-warehouse').value;
-  document.getElementById('sn-item-editor').remove();
-  renderSNItemsTable();
+  snClearKanta();        // clears kanta fields + SN.activeRowId + hides indicator
+  renderSNItemsTable();  // remove active row highlight
 }
 function removeSNItem(id) {
   if (SN.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
@@ -19256,9 +19207,10 @@ function renderSNItemsTable() {
     const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
     const qty     = parseFloat(it.qty) || 0;
     const remaining = +(avail - qty).toFixed(2);
-    const remColor  = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
-    const isRow1    = idx === 0;
-    return `<tr data-row="${it.id}">
+    const remColor   = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
+    const isActive   = SN.activeRowId === it.id;
+    const kantaLinked = it.kanta && parseFloat(it.kanta.billable) > 0;
+    return `<tr data-row="${it.id}" style="${isActive ? 'outline:2px solid var(--teal);outline-offset:-2px;background:rgba(0,137,123,.06)' : ''}">
       <td>${idx+1}</td>
       <td>
         <select onchange="onSNProductChange(${it.id}, this.value)">
@@ -19271,22 +19223,25 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.grade || '—')}</td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
-      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':('#00897B')}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
+      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':'#00897B'}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
       <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
       <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
       <td style="position:relative">
         <input type="number" value="${it.qty}" min="0" step="0.01"
           id="sn-qty-${it.id}"
-          ${isRow1 ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700;cursor:default" title="Auto-filled from Billable Weight"' : ''}
+          ${kantaLinked ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700;cursor:default" title="Set by Kanta — click ⚖ to change"' : 'style="min-width:80px"'}
           oninput="updateSNItem(${it.id},'qty',this.value)">
-        ${isRow1 ? '<span style="position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none">← billable</span>' : ''}
+        ${kantaLinked ? '<span style="position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none">← kanta</span>' : ''}
       </td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
+      <td><input type="number" value="${it.rate}" min="0" step="0.01" style="min-width:80px" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" style="min-width:55px" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
       <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
       <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
       <td style="text-align:center;white-space:nowrap">
-        <button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Edit row"><i class="fas fa-pen" style="color:var(--teal)"></i></button>
+        ${isActive
+          ? `<button class="act-btn" onclick="snCloseItemEditor()" title="Done — unlink kanta" style="color:var(--teal);font-weight:900;font-size:15px">✓</button>`
+          : `<button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Link kanta to this row"><i class="fas fa-scale-balanced" style="color:var(--teal)"></i></button>`
+        }
         <button class="act-btn" onclick="removeSNItem(${it.id})" title="Remove row"><i class="fas fa-times" style="color:#E53935"></i></button>
       </td>
     </tr>`;
@@ -19758,6 +19713,7 @@ async function editSale(id) {
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
     renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+    snClearKanta(); // neutral — operator clicks ⚖ on a row to link kanta
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
     api('api/stock.php').then(r => {
