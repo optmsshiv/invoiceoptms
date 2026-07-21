@@ -1392,6 +1392,20 @@ select { cursor: pointer; }
 .pdf-opt:hover { border-color: var(--teal); background: var(--teal-bg); }
 .pdf-opt input { accent-color: var(--teal); cursor: pointer; }
 
+/* Proforma — Certifications chips (sidebar) */
+.ofr-cert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ofr-cert-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--bg); cursor: pointer; font-size: 12.5px; font-weight: 600;
+  color: var(--text2); transition: .15s;
+}
+.ofr-cert-chip:hover { border-color: var(--teal); background: var(--teal-bg); }
+.ofr-cert-chip i { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.ofr-cert-chip input { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.ofr-cert-chip:has(input:checked) { border-color: var(--teal); background: var(--teal-bg); color: var(--teal); }
+.ofr-cert-chip:has(input:checked) i { color: var(--teal); }
+
 /* Notification bell button */
 .notif-bell-btn {
   position: relative; width: 36px; height: 36px;
@@ -4029,15 +4043,16 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-box-open"></i></span> Products</div>
             <div style="overflow-x:auto">
-              <table class="data-table pne-items-table" id="ofr-products-table" style="min-width:900px">
+              <table class="data-table pne-items-table" id="ofr-products-table" style="min-width:1250px">
                 <colgroup>
-                  <col style="width:200px"><col style="width:160px"><col style="width:80px"><col style="width:80px">
-                  <col style="width:100px"><col style="width:120px"><col style="width:110px"><col style="width:40px">
+                  <col style="width:180px"><col style="width:110px"><col style="width:90px"><col style="width:120px">
+                  <col style="width:65px"><col style="width:65px"><col style="width:85px"><col style="width:60px">
+                  <col style="width:110px"><col style="width:100px"><col style="width:40px">
                 </colgroup>
                 <thead><tr>
-                  <th>Product / Item Description</th><th>Specification / Quality</th>
+                  <th>Product / Item Description</th><th>Quality</th><th>Grade</th><th>Packaging</th>
                   <th>Qty (MT)</th><th>Qty (Kg)</th>
-                  <th>Rate (₹/Kg)</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th>
+                  <th>Rate (₹/Kg)</th><th>GST %</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th>
                   <th></th>
                 </tr></thead>
                 <tbody id="ofr-products-tbody"></tbody>
@@ -4046,33 +4061,19 @@ const SERVER = {
             <button class="btn btn-outline" style="margin-top:10px;font-size:12px" onclick="addOfrProduct()"><i class="fas fa-plus"></i> Add Product Row</button>
           </div>
 
-          <!-- 3. Charges -->
+          <!-- 3. Charges — single unified table, rows tagged Local / Export -->
           <div class="pne-card">
             <div class="pne-card-head pne-head-amber"><span class="pne-num"><i class="fas fa-list-ul"></i></span> Charges &amp; Deductions</div>
-
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Local Charges</div>
             <div style="overflow-x:auto">
-              <table class="data-table pne-items-table" style="min-width:700px">
-                <colgroup><col style="width:200px"><col style="width:200px"><col style="width:120px"><col style="width:110px"><col style="width:40px"></colgroup>
-                <thead><tr><th>Charge Name</th><th>Description / Note</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th><th></th></tr></thead>
-                <tbody id="ofr-local-tbody"></tbody>
+              <table class="data-table pne-items-table" style="min-width:760px">
+                <colgroup><col style="width:190px"><col style="width:90px"><col style="width:190px"><col style="width:120px"><col style="width:110px"><col style="width:40px"></colgroup>
+                <thead><tr><th>Charge Name</th><th>Type</th><th>Description / Note</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th><th></th></tr></thead>
+                <tbody id="ofr-charges-tbody"></tbody>
               </table>
             </div>
-            <button class="btn btn-outline" style="margin-top:8px;font-size:12px" onclick="addOfrCharge('local')"><i class="fas fa-plus"></i> Add Local Charge</button>
-
-            <!-- International section -->
-            <div id="ofr-intl-section" style="margin-top:18px">
-              <div style="font-size:11px;font-weight:700;color:#7B1FA2;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-                International Charges <span style="background:#F3E8FF;color:#7B1FA2;font-size:10px;padding:1px 8px;border-radius:10px">Export</span>
-              </div>
-              <div style="border-left:3px solid #E9D5FF;padding-left:14px;overflow-x:auto">
-                <table class="data-table pne-items-table" style="min-width:700px">
-                  <colgroup><col style="width:200px"><col style="width:200px"><col style="width:120px"><col style="width:110px"><col style="width:40px"></colgroup>
-                  <thead><tr><th>Charge Name</th><th>Description</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th><th></th></tr></thead>
-                  <tbody id="ofr-intl-tbody"></tbody>
-                </table>
-              </div>
-              <button class="btn btn-outline" style="margin-top:8px;font-size:12px" onclick="addOfrCharge('intl')"><i class="fas fa-plus"></i> Add International Charge</button>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button class="btn btn-outline" style="font-size:12px" onclick="addOfrCharge('local')"><i class="fas fa-plus"></i> Add Local Charge</button>
+              <button class="btn btn-outline ofr-usd-col" id="ofr-intl-section" style="font-size:12px" onclick="addOfrCharge('intl')"><i class="fas fa-plus"></i> Add International Charge</button>
             </div>
           </div>
 
@@ -4086,6 +4087,7 @@ const SERVER = {
                   <div style="display:flex;justify-content:space-between;padding:9px 14px;font-size:12.5px;border-bottom:0.5px solid var(--border)"><span style="color:var(--muted)">Product value</span><span id="ofr-sum-product">₹0</span></div>
                   <div style="display:flex;justify-content:space-between;padding:9px 14px;font-size:12.5px;border-bottom:0.5px solid var(--border)"><span style="color:var(--muted)">Local charges</span><span id="ofr-sum-local">₹0</span></div>
                   <div id="ofr-sum-intl-row" style="display:flex;justify-content:space-between;padding:9px 14px;font-size:12.5px;border-bottom:0.5px solid var(--border)"><span style="color:var(--muted)">International charges</span><span id="ofr-sum-intl">₹0</span></div>
+                  <div id="ofr-sum-gst-row" style="display:none;justify-content:space-between;padding:9px 14px;font-size:12.5px;border-bottom:0.5px solid var(--border)"><span style="color:var(--muted)" id="ofr-sum-gst-label">GST</span><span id="ofr-sum-gst">₹0</span></div>
                   <div style="display:flex;justify-content:space-between;padding:11px 14px;font-size:14px;font-weight:700;background:var(--bg)"><span>Grand Total</span><span id="ofr-sum-grand">₹0</span></div>
                 </div>
                 <div id="ofr-per-kg-box" style="margin-top:10px;background:#E8F5E9;border:0.5px solid #A5D6A7;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
@@ -4114,11 +4116,11 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-certificate"></i> Certifications</div>
             <p style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Shown on printed document footer</p>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" id="ofr-cert-apeda" checked> APEDA</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" id="ofr-cert-fssai" checked> FSSAI</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" id="ofr-cert-iec" checked> IEC</label>
-              <label style="display:flex;align-items:center;gap:8px;font-size:12.5px"><input type="checkbox" id="ofr-cert-iso"> ISO 22000</label>
+            <div class="ofr-cert-grid">
+              <label class="ofr-cert-chip"><input type="checkbox" id="ofr-cert-apeda" checked><i class="fas fa-certificate"></i><span>APEDA</span></label>
+              <label class="ofr-cert-chip"><input type="checkbox" id="ofr-cert-fssai" checked><i class="fas fa-shield-halved"></i><span>FSSAI</span></label>
+              <label class="ofr-cert-chip"><input type="checkbox" id="ofr-cert-iec" checked><i class="fas fa-globe"></i><span>IEC</span></label>
+              <label class="ofr-cert-chip"><input type="checkbox" id="ofr-cert-iso"><i class="fas fa-award"></i><span>ISO 22000</span></label>
             </div>
           </div>
           <div class="pne-card">
@@ -9220,9 +9222,8 @@ function applyProductFormToPage() {
 
 const OFR = {
   editingId: null,
-  products: [],  // [{ id, product_id, name, spec, qty_mt, qty_kg, rate, amt_inr, amt_usd }]
-  localCharges: [],  // [{ id, name, desc, amt_inr, amt_usd }]
-  intlCharges: [],
+  products: [],  // [{ id, product_id, name, quality, grade, packaging, qty_mt, qty_kg, rate, gst_pct }]
+  charges: [],   // [{ id, type:'local'|'intl', name, desc, amt_inr }]
 };
 let ofrSeq = 1;
 function ofrProdId() { return ofrSeq++; }
@@ -9260,8 +9261,7 @@ async function saveOfrPrintSettings() {
 function goToNewProforma() {
   OFR.editingId = null;
   OFR.products = [];
-  OFR.localCharges = [];
-  OFR.intlCharges = [];
+  OFR.charges = [];
   document.getElementById('ofr-page-title').textContent = 'New Offer Price';
   document.getElementById('ofr-page-subtitle').textContent = 'Proforma Invoice';
   document.getElementById('ofr-no').value = '';
@@ -9324,15 +9324,14 @@ function onOfrTypeChange() {
 function applyOfrType(type) {
   const isIntl = type !== 'INR';
   document.getElementById('page-proforma-new').classList.toggle('ofr-local-mode', !isIntl);
-  document.getElementById('ofr-intl-section').style.display = isIntl ? '' : 'none';
-  document.getElementById('ofr-sum-intl-row').style.display = isIntl ? '' : 'none';
+  document.getElementById('ofr-sum-intl-row').style.display = isIntl ? 'flex' : 'none';
   const rateField = document.getElementById('ofr-usdrate-field');
   if (rateField) rateField.style.display = isIntl ? '' : 'none';
 }
 
 // ── PRODUCT ROWS ──
 function addOfrProduct() {
-  OFR.products.push({ id: ofrProdId(), product_id:'', name:'', spec:'', qty_mt:0, qty_kg:0, rate:0 });
+  OFR.products.push({ id: ofrProdId(), product_id:'', name:'', quality:'', grade:'', packaging:'', qty_mt:0, qty_kg:0, rate:0, gst_pct:0 });
   renderOfrTables();
 }
 function removeOfrProduct(id) { OFR.products = OFR.products.filter(p=>p.id!==id); renderOfrTables(); recalcOfr(); }
@@ -9348,20 +9347,17 @@ function updateOfrProduct(id, field, val) {
   renderOfrTables(); recalcOfr();
 }
 
-// ── CHARGE ROWS ──
+// ── CHARGE ROWS (single unified list, tagged 'local' or 'intl') ──
 function addOfrCharge(type) {
-  const arr = type==='local' ? OFR.localCharges : OFR.intlCharges;
-  arr.push({ id: ofrProdId(), name:'', desc:'', amt_inr:0 });
+  OFR.charges.push({ id: ofrProdId(), type, name:'', desc:'', amt_inr:0 });
   renderOfrTables();
 }
 function removeOfrCharge(type, id) {
-  if (type==='local') OFR.localCharges = OFR.localCharges.filter(c=>c.id!==id);
-  else OFR.intlCharges = OFR.intlCharges.filter(c=>c.id!==id);
+  OFR.charges = OFR.charges.filter(c=>c.id!==id);
   renderOfrTables(); recalcOfr();
 }
 function updateOfrCharge(type, id, field, val) {
-  const arr = type==='local' ? OFR.localCharges : OFR.intlCharges;
-  const c = arr.find(c=>c.id===id); if (!c) return;
+  const c = OFR.charges.find(c=>c.id===id); if (!c) return;
   c[field] = field==='amt_inr' ? parseFloat(val)||0 : val;
   recalcOfr();
 }
@@ -9375,7 +9371,8 @@ function renderOfrTables() {
   if (ptbody) ptbody.innerHTML = OFR.products.map(p => {
     const qkg = parseFloat(p.qty_kg)||0;
     const amt = +(qkg * (parseFloat(p.rate)||0)).toFixed(2);
-    const usd = +(amt / rate).toFixed(2);
+    const gstPct = parseFloat(p.gst_pct)||0;
+    const gstAmt = +(amt * gstPct/100).toFixed(2);
     return `<tr>
       <td>
         <select onchange="updateOfrProduct(${p.id},'product_id',this.value)" style="width:100%">
@@ -9385,31 +9382,33 @@ function renderOfrTables() {
         <input value="${escHtml(p.name)}" placeholder="Or type name" style="margin-top:4px;font-size:11.5px"
           oninput="updateOfrProduct(${p.id},'name',this.value)">
       </td>
-      <td><input value="${escHtml(p.spec)}" placeholder="Quality, packing…" oninput="updateOfrProduct(${p.id},'spec',this.value)"></td>
+      <td><input value="${escHtml(p.quality||'')}" placeholder="e.g. Premium" oninput="updateOfrProduct(${p.id},'quality',this.value)"></td>
+      <td><input value="${escHtml(p.grade||'')}" placeholder="e.g. Grade A" oninput="updateOfrProduct(${p.id},'grade',this.value)"></td>
+      <td><input value="${escHtml(p.packaging||'')}" placeholder="e.g. 50kg PP bags" oninput="updateOfrProduct(${p.id},'packaging',this.value)"></td>
       <td><input type="number" value="${p.qty_mt||''}" min="0" step="0.001" placeholder="MT" oninput="updateOfrProduct(${p.id},'qty_mt',this.value)" style="width:70px"></td>
       <td><input type="number" value="${p.qty_kg||''}" min="0" step="1" placeholder="Kg" oninput="updateOfrProduct(${p.id},'qty_kg',this.value)" style="width:70px"></td>
       <td><input type="number" value="${p.rate||''}" min="0" step="0.01" placeholder="₹" oninput="updateOfrProduct(${p.id},'rate',this.value)"></td>
-      <td style="text-align:right;font-weight:600">${fmt_money(amt)}</td>
+      <td><input type="number" value="${p.gst_pct||''}" min="0" step="0.1" placeholder="%" oninput="updateOfrProduct(${p.id},'gst_pct',this.value)" style="width:60px"></td>
+      <td style="text-align:right;font-weight:600">${fmt_money(amt)}${gstAmt>0?`<div style="font-size:10px;color:var(--muted);font-weight:400">+GST ${fmt_money(gstAmt)}</div>`:''}</td>
       <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">$${amt>0?(amt/rate).toLocaleString('en-IN',{maximumFractionDigits:2}):0}</td>
       <td><button class="item-del" onclick="removeOfrProduct(${p.id})"><i class="fas fa-times"></i></button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">No products yet</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:16px">No products yet</td></tr>';
 
-  // Charge rows
-  function chargeRows(arr, type) {
-    return arr.map(c => {
-      const usd = c.amt_inr > 0 ? +(c.amt_inr/rate).toFixed(2) : 0;
-      return `<tr>
-        <td><input value="${escHtml(c.name)}" placeholder="Charge name" oninput="updateOfrCharge('${type}',${c.id},'name',this.value)"></td>
-        <td><input value="${escHtml(c.desc)}" placeholder="Details" oninput="updateOfrCharge('${type}',${c.id},'desc',this.value)"></td>
-        <td><input type="number" value="${c.amt_inr||''}" min="0" step="1" style="text-align:right" oninput="updateOfrCharge('${type}',${c.id},'amt_inr',this.value)"></td>
-        <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">${usd>0?'$'+usd.toLocaleString('en-IN',{maximumFractionDigits:2}):''}</td>
-        <td><button class="item-del" onclick="removeOfrCharge('${type}',${c.id})"><i class="fas fa-times"></i></button></td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:10px;font-size:12px">No charges — click Add below</td></tr>';
-  }
-  const ltbody = document.getElementById('ofr-local-tbody'); if (ltbody) ltbody.innerHTML = chargeRows(OFR.localCharges,'local');
-  const itbody = document.getElementById('ofr-intl-tbody');  if (itbody) itbody.innerHTML = chargeRows(OFR.intlCharges,'intl');
+  // Charges — single table, rows tagged Local / Export
+  const ctbody = document.getElementById('ofr-charges-tbody');
+  if (ctbody) ctbody.innerHTML = OFR.charges.map(c => {
+    const usd = c.amt_inr > 0 ? +(c.amt_inr/rate).toFixed(2) : 0;
+    const isIntl = c.type === 'intl';
+    return `<tr>
+      <td><input value="${escHtml(c.name)}" placeholder="Charge name" oninput="updateOfrCharge('${c.type}',${c.id},'name',this.value)"></td>
+      <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;${isIntl?'background:#F3E8FF;color:#7B1FA2':'background:#E8F5E9;color:#00897B'}">${isIntl?'Export':'Local'}</span></td>
+      <td><input value="${escHtml(c.desc)}" placeholder="Details" oninput="updateOfrCharge('${c.type}',${c.id},'desc',this.value)"></td>
+      <td><input type="number" value="${c.amt_inr||''}" min="0" step="1" style="text-align:right" oninput="updateOfrCharge('${c.type}',${c.id},'amt_inr',this.value)"></td>
+      <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">${usd>0?'$'+usd.toLocaleString('en-IN',{maximumFractionDigits:2}):''}</td>
+      <td><button class="item-del" onclick="removeOfrCharge('${c.type}',${c.id})"><i class="fas fa-times"></i></button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:10px;font-size:12px">No charges — click Add below</td></tr>';
   recalcOfr();
 }
 
@@ -9418,9 +9417,19 @@ function recalcOfr() {
   const intlOn = document.getElementById('ofr-currency')?.value !== 'INR';
 
   const prodTotal = OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0),0);
-  const localTotal = OFR.localCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
-  const intlTotal  = intlOn ? OFR.intlCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0) : 0;
-  const grand = prodTotal + localTotal + intlTotal;
+  const localTotal = OFR.charges.filter(c=>c.type==='local').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
+  const intlTotal  = intlOn ? OFR.charges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0) : 0;
+
+  // GST — computed per product line, rolled into one total
+  const gstLines = OFR.products.filter(p=>(parseFloat(p.gst_pct)||0) > 0);
+  const gstTotal = gstLines.reduce((s,p)=>{
+    const amt = (parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0);
+    return s + amt*(parseFloat(p.gst_pct)||0)/100;
+  }, 0);
+  const gstRates = [...new Set(gstLines.map(p=>parseFloat(p.gst_pct)))];
+  const gstLabel = gstRates.length===1 ? `GST (${gstRates[0]}%)` : 'GST';
+
+  const grand = prodTotal + localTotal + intlTotal + gstTotal;
   const totalKg = OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0),0);
   const perKg = totalKg > 0 ? (grand/totalKg) : 0;
 
@@ -9428,13 +9437,17 @@ function recalcOfr() {
   set('ofr-sum-product', fmt_money(prodTotal));
   set('ofr-sum-local',   fmt_money(localTotal));
   set('ofr-sum-intl',    fmt_money(intlTotal));
+  const gstRow = document.getElementById('ofr-sum-gst-row');
+  if (gstRow) gstRow.style.display = gstTotal>0 ? 'flex' : 'none';
+  const gstLbl = document.getElementById('ofr-sum-gst-label'); if (gstLbl) gstLbl.textContent = gstLabel;
+  set('ofr-sum-gst', fmt_money(gstTotal));
   set('ofr-sum-grand',   fmt_money(grand) + (grand>0 && intlOn ? ` / $${(grand/rate).toLocaleString('en-IN',{maximumFractionDigits:0})}` : ''));
   set('ofr-per-kg',      perKg>0 ? (intlOn ? `₹${perKg.toFixed(2)} / $${(perKg/rate).toFixed(3)} per Kg` : `₹${perKg.toFixed(2)} per Kg`) : '₹0 / Kg');
 
   // Update USD amounts in charge cells live
-  document.querySelectorAll('#ofr-local-tbody tr, #ofr-intl-tbody tr').forEach((tr,i)=>{
+  document.querySelectorAll('#ofr-charges-tbody tr').forEach((tr)=>{
     const amtInp = tr.querySelector('input[type="number"]');
-    const usdCell = tr.querySelector('td:nth-child(4)');
+    const usdCell = tr.querySelector('td:nth-child(5)');
     if (amtInp && usdCell) {
       const v = parseFloat(amtInp.value)||0;
       usdCell.textContent = v>0 ? '$'+(v/rate).toLocaleString('en-IN',{maximumFractionDigits:2}) : '';
@@ -9502,9 +9515,13 @@ async function saveProforma(status) {
   const intlOn   = document.getElementById('ofr-currency').value !== 'INR';
   const cust     = (STATE.customers||[]).find(c=>String(c.id)===String(customerId));
   const prodTotal= OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0),0);
-  const localTot = OFR.localCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
-  const intlTot  = intlOn ? OFR.intlCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0):0;
-  const grand    = prodTotal + localTot + intlTot;
+  const localTot = OFR.charges.filter(c=>c.type==='local').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
+  const intlTot  = intlOn ? OFR.charges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0):0;
+  const gstTot   = OFR.products.reduce((s,p)=>{
+    const amt = (parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0);
+    return s + amt*(parseFloat(p.gst_pct)||0)/100;
+  }, 0);
+  const grand    = prodTotal + localTot + intlTot + gstTot;
   const totalKg  = OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0),0);
   const payload = {
     ofr_no: document.getElementById('ofr-no').value.trim(),
@@ -9517,8 +9534,9 @@ async function saveProforma(status) {
     currency: document.getElementById('ofr-currency').value,
     usd_rate: rate, is_international: intlOn ? 1 : 0,
     products: OFR.products.map(p=>({...p})),
-    charges: [...OFR.localCharges.map(c=>({...c,type:'local'})), ...OFR.intlCharges.map(c=>({...c,type:'intl'}))],
+    charges: OFR.charges.map(c=>({...c})),
     subtotal_inr: prodTotal, total_inr: grand, total_usd: +(grand/rate).toFixed(2),
+    gst_total_inr: +gstTot.toFixed(2),
     per_kg_inr: totalKg>0?+(grand/totalKg).toFixed(2):0,
     per_kg_usd: totalKg>0?+(grand/rate/totalKg).toFixed(4):0,
     notes: document.getElementById('ofr-notes').value.trim(),
@@ -9544,10 +9562,9 @@ async function editProforma(id) {
     const r = await api('api/proforma.php?id='+id);
     const d = r.data;
     OFR.editingId = id;
-    OFR.products = (d.products||[]).map(p=>({...p,id:ofrProdId()}));
+    OFR.products = (d.products||[]).map(p=>({...p, id:ofrProdId(), quality: p.quality ?? p.spec ?? '', grade: p.grade ?? '', packaging: p.packaging ?? '', gst_pct: p.gst_pct ?? 0}));
     const charges = d.charges||[];
-    OFR.localCharges = charges.filter(c=>c.type==='local'||!c.type).map(c=>({...c,id:ofrProdId()}));
-    OFR.intlCharges  = charges.filter(c=>c.type==='intl').map(c=>({...c,id:ofrProdId()}));
+    OFR.charges = charges.map(c=>({...c, type: c.type==='intl'?'intl':'local', id:ofrProdId()}));
     document.getElementById('ofr-page-title').textContent = 'Edit Offer Price';
     document.getElementById('ofr-page-subtitle').textContent = d.ofr_no;
     document.getElementById('ofr-no').value = d.ofr_no;
@@ -9632,9 +9649,13 @@ function _printProforma(d, curr, autoPrint = true) {
 
   const products = d.products||[];
   const charges  = d.charges||[];
-  const local    = charges.filter(c=>c.type==='local'||!c.type);
-  const intl     = d.is_international ? charges.filter(c=>c.type==='intl') : [];
+  const allCharges = d.is_international ? charges : charges.filter(c=>c.type!=='intl');
   const totalQty = products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0),0);
+
+  const gstLines = products.filter(p=>(parseFloat(p.gst_pct)||0) > 0);
+  const gstTotalInr = gstLines.reduce((s,p)=>s+((parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0))*(parseFloat(p.gst_pct)||0)/100, 0);
+  const gstRatesUsed = [...new Set(gstLines.map(p=>parseFloat(p.gst_pct)))];
+  const gstTermLabel = gstRatesUsed.length===1 ? `GST @ ${gstRatesUsed[0]}%` : 'GST';
 
   const certsBadges = [
     ps.show_apeda && co.apeda ? `<div style="text-align:center"><div style="width:44px;height:44px;border-radius:50%;border:2px solid #0d3b2e;display:flex;align-items:center;justify-content:center;margin:0 auto 4px"><i class="fas fa-certificate" style="color:#0d3b2e;font-size:16px"></i></div><div style="font-size:9px;font-weight:700;color:#0d3b2e">APEDA</div></div>` : '',
@@ -9651,10 +9672,10 @@ function _printProforma(d, curr, autoPrint = true) {
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; }
     .head { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:flex-start; padding-bottom:18px; border-bottom:2px solid #0d3b2e; margin-bottom:20px; }
-    .logo-wrap { display:flex; gap:14px; align-items:flex-start; }
-    .logo-box { width:52px;height:52px;background:#0d3b2e;border-radius:8px;display:flex;align-items:center;justify-content:center; flex-shrink:0; }
-    .logo-box i { color:#fff; font-size:22px; }
-    .logo-box img { width:52px;height:52px;object-fit:contain;border-radius:8px; }
+    .logo-wrap { display:flex; gap:16px; align-items:flex-start; }
+    .logo-box { width:102px;height:102px;background:#0d3b2e;border-radius:10px;display:flex;align-items:center;justify-content:center; flex-shrink:0; }
+    .logo-box i { color:#fff; font-size:38px; }
+    .logo-box img { width:102px;height:102px;object-fit:contain;border-radius:10px; }
     .co-name { font-size:18px; font-weight:900; color:#0d3b2e; letter-spacing:.3px; }
     .co-sub  { font-size:10px; font-weight:700; color:#557755; letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
     .co-meta { font-size:10.5px; color:#556; margin-top:6px; line-height:1.7; }
@@ -9751,10 +9772,13 @@ function _printProforma(d, curr, autoPrint = true) {
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th style="width:28%">Item Description</th>
-        <th style="width:22%">Specification</th>
-        <th style="width:10%">Quantity</th>
-        <th class="r" style="width:14%">Unit Price</th>
+        <th style="width:22%">Item Description</th>
+        <th style="width:12%">Quality</th>
+        <th style="width:10%">Grade</th>
+        <th style="width:14%">Packaging</th>
+        <th style="width:9%">Quantity</th>
+        <th class="r" style="width:11%">Unit Price</th>
+        <th class="r" style="width:8%">GST</th>
         <th class="r" style="width:14%">Total (${isUSD?'USD':'INR'})</th>
       </tr></thead>
       <tbody>
@@ -9762,11 +9786,15 @@ function _printProforma(d, curr, autoPrint = true) {
           const qkg = parseFloat(p.qty_kg)||0;
           const amt = qkg*(parseFloat(p.rate)||0);
           const qty = (parseFloat(p.qty_mt)||0)>0 ? `${parseFloat(p.qty_mt)} MT` : `${qkg.toLocaleString('en-IN')} Kg`;
+          const gstPct = parseFloat(p.gst_pct)||0;
           return `<tr>
-            <td><strong>${escHtml(p.name||'')}</strong><div class="sub">${escHtml(p.spec||'')}</div></td>
-            <td>${escHtml(p.spec||'')}</td>
+            <td><strong>${escHtml(p.name||'')}</strong></td>
+            <td>${escHtml(p.quality||p.spec||'')}</td>
+            <td>${escHtml(p.grade||'')}</td>
+            <td>${escHtml(p.packaging||'')}</td>
             <td>${qty}</td>
             <td class="r">${isUSD?'$'+((parseFloat(p.rate)||0)/rate).toFixed(3):'₹'+(parseFloat(p.rate)||0).toLocaleString('en-IN')}/Kg</td>
+            <td class="r">${gstPct>0?gstPct+'%':'—'}</td>
             <td class="r"><strong>${fmt(amt)}</strong></td>
           </tr>`;
         }).join('')}
@@ -9774,30 +9802,22 @@ function _printProforma(d, curr, autoPrint = true) {
     </table>
   </div>
 
-  ${local.length ? `
-  <div class="section-label">Local Charges</div>
+  ${allCharges.length ? `
+  <div class="section-label">Charges &amp; Deductions</div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th style="width:40%">Charge</th><th style="width:35%">Description</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
-      <tbody>${local.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td>${escHtml(c.desc||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
-    </table>
-  </div>` : ''}
-
-  ${intl.length ? `
-  <div class="section-label">International Charges &nbsp;<span style="font-size:9px;background:#F3E8FF;color:#7B1FA2;padding:1px 7px;border-radius:8px">Export</span></div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr><th style="width:40%">Charge</th><th style="width:35%">Description</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
-      <tbody>${intl.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td>${escHtml(c.desc||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
+      <thead><tr><th style="width:32%">Charge</th><th style="width:14%">Type</th><th style="width:30%">Description</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
+      <tbody>${allCharges.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td>${c.type==='intl'?'<span style="font-size:9px;font-weight:700;background:#F3E8FF;color:#7B1FA2;padding:2px 7px;border-radius:8px">Export</span>':'<span style="font-size:9px;font-weight:700;background:#E8F5E9;color:#00897B;padding:2px 7px;border-radius:8px">Local</span>'}</td><td>${escHtml(c.desc||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
     </table>
   </div>` : ''}
 
   <!-- TOTALS -->
   <div class="totals">
     <div class="tot-row"><span class="lbl">Product value</span><span>${fmt(d.subtotal_inr||0)}</span></div>
-    <div class="tot-row"><span class="lbl">Local charges</span><span>${fmt(local.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>
-    ${intl.length ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(intl.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
-    <div class="tot-row grand"><span>Grand Total</span><span>${fmt(d.total_inr||0)}</span></div>
+    <div class="tot-row"><span class="lbl">Local charges</span><span>${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>
+    ${d.is_international ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(allCharges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
+    ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
+    <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
   </div>
 
   ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
