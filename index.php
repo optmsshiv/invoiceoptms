@@ -3730,8 +3730,8 @@ const SERVER = {
                 </colgroup>
                 <thead><tr>
                   <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
-                  <th>Available Stock (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th><th>Unit</th>
-                  <th>Rate (₹/Kg)</th><th>Discount (%)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
+                  <th>Available (Kg)</th><th>Remaining (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th>
+                  <th>Rate (₹/Kg)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
                 </tr></thead>
                 <tbody id="sn-items-tbody"></tbody>
               </table>
@@ -19117,13 +19117,13 @@ function snAvailableStock(productId) {
 }
 
 function snCalcRow(it) {
-  const qty = parseFloat(it.qty) || 0;
+  const qty  = parseFloat(it.qty)  || 0;
   const rate = parseFloat(it.rate) || 0;
-  const disc = parseFloat(it.discount_pct) || 0;
-  const gst = parseFloat(it.gst_pct) || 0;
-  const lineSubtotal = +(qty * rate * (1 - disc/100)).toFixed(2);
-  const taxAmount = +(lineSubtotal * gst / 100).toFixed(2);
-  const lineTotal = +(lineSubtotal + taxAmount).toFixed(2);
+  const gst  = parseFloat(it.gst_pct) || 0;
+  // Discount is header-level (Trade/Cash Discount) not per-row
+  const lineSubtotal = +(qty * rate).toFixed(2);
+  const taxAmount    = +(lineSubtotal * gst / 100).toFixed(2);
+  const lineTotal    = +(lineSubtotal + taxAmount).toFixed(2);
   return { lineSubtotal, taxAmount, lineTotal };
 }
 
@@ -19134,6 +19134,10 @@ function renderSNItemsTable() {
     const c = snCalcRow(it);
     const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
     const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
+    const qty     = parseFloat(it.qty) || 0;
+    const remaining = +(avail - qty).toFixed(2);
+    const remColor  = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
+    const isRow1    = idx === 0;
     return `<tr data-row="${it.id}">
       <td>${idx+1}</td>
       <td>
@@ -19147,12 +19151,17 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.grade || '—')}</td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
-      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':(avail<(parseFloat(it.qty)||0)?'#E65100':'#00897B')}">${avail.toFixed(2)}</span></td>
+      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':('#00897B')}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
+      <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
       <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
-      <td><input type="number" value="${it.qty}" min="0" step="0.01" oninput="updateSNItem(${it.id},'qty',this.value)"></td>
-      <td><input value="${escHtml(it.unit)}" oninput="updateSNItem(${it.id},'unit',this.value,true)"></td>
+      <td style="position:relative">
+        <input type="number" value="${it.qty}" min="0" step="0.01"
+          id="sn-qty-${it.id}"
+          ${isRow1 ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700;cursor:default" title="Auto-filled from Billable Weight"' : ''}
+          oninput="updateSNItem(${it.id},'qty',this.value)">
+        ${isRow1 ? '<span style="position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none">← billable</span>' : ''}
+      </td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updateSNItem(${it.id},'discount_pct',this.value)"></td>
       <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
       <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
       <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
@@ -19178,9 +19187,19 @@ function onSNProductChange(id, productId) {
 function updateSNItem(id, field, val, isText) {
   const it = SN.items.find(i => i.id === id); if (!it) return;
   it[field] = val;
-  const c = snCalcRow(it);
-  const taxEl = document.getElementById('sn-tax-' + id);     if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
-  const totEl = document.getElementById('sn-total-' + id);   if (totEl) totEl.textContent = fmt_money(c.lineTotal);
+  const c    = snCalcRow(it);
+  const taxEl = document.getElementById('sn-tax-'  + id); if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
+  const totEl = document.getElementById('sn-total-' + id); if (totEl) totEl.textContent = fmt_money(c.lineTotal);
+  // Update remaining stock live
+  if (field === 'qty' || field === 'product_id') {
+    const remEl = document.getElementById('sn-rem-' + id);
+    if (remEl) {
+      const avail     = it.product_id ? snAvailableStock(it.product_id) : 0;
+      const remaining = +(avail - (parseFloat(val)||0)).toFixed(2);
+      remEl.textContent = remaining.toFixed(2);
+      remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
+    }
+  }
   calcSaleNewTotals();
 }
 
@@ -19194,13 +19213,35 @@ function syncSNInvoiceDateToPayment() {
 }
 
 function calcSNWeightSummary() {
-  const gross = parseFloat(document.getElementById('sn-kanta-gross').value) || 0;
-  const tare  = parseFloat(document.getElementById('sn-kanta-tare').value) || 0;
-  const net   = Math.max(0, gross - tare);
+  const gross    = parseFloat(document.getElementById('sn-kanta-gross').value) || 0;
+  const tare     = parseFloat(document.getElementById('sn-kanta-tare').value) || 0;
+  const net      = Math.max(0, gross - tare);
   const dhaltaKg = Math.max(0, parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0);
   const billable = Math.max(0, net - dhaltaKg);
-  document.getElementById('sn-kanta-net').value = net.toFixed(2);
+  document.getElementById('sn-kanta-net').value      = net.toFixed(2);
   document.getElementById('sn-kanta-billable').value = billable.toFixed(2);
+
+  // Auto-fill row 1 qty from billable weight
+  if (SN.items.length > 0) {
+    const row1 = SN.items[0];
+    row1.qty = billable.toFixed(2);
+    // Update readonly qty input
+    const qtyEl = document.getElementById('sn-qty-' + row1.id);
+    if (qtyEl) qtyEl.value = row1.qty;
+    // Recalc row 1 totals
+    const c = snCalcRow(row1);
+    const taxEl = document.getElementById('sn-tax-'   + row1.id); if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
+    const totEl = document.getElementById('sn-total-' + row1.id); if (totEl) totEl.textContent = fmt_money(c.lineTotal);
+    // Update remaining stock for row 1
+    const remEl = document.getElementById('sn-rem-'   + row1.id);
+    if (remEl) {
+      const avail     = row1.product_id ? snAvailableStock(row1.product_id) : 0;
+      const remaining = +(avail - billable).toFixed(2);
+      remEl.textContent = remaining.toFixed(2);
+      remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
+    }
+    calcSaleNewTotals();
+  }
 }
 
 function calcSaleNewTotals() {
