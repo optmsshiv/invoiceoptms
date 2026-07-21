@@ -19151,9 +19151,8 @@ function snPopulateKanta(it) {
 function addSaleNewItem() {
   const newItem = snEmptyItem();
   SN.items.push(newItem);
-  // Auto-link kanta to the new row — operator can type weights immediately
-  snClearKanta();          // clear fields first
-  snPopulateKanta(newItem); // then link new row (sets activeRowId + indicator)
+  // Clear kanta section — ready for next weighment
+  snClearKanta();
   renderSNItemsTable();
   const tbody = document.getElementById('sn-items-tbody');
   if (tbody) tbody.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -19302,8 +19301,10 @@ function calcSNWeightSummary() {
 
   // Fill the active row's qty and save kanta data into item state
   const activeId = SN.activeRowId;
-  if (!activeId) return; // kanta not linked to any row yet
+  console.log('[kanta] calcSNWeightSummary: activeId=', activeId, 'billable=', billable, 'items=', SN.items.map(i=>i.id));
+  if (!activeId) { console.log('[kanta] EXIT: no activeRowId'); return; }
   const it = SN.items.find(i => i.id === activeId);
+  console.log('[kanta] found item:', it ? it.id : 'NOT FOUND');
   if (!it) return;
 
   // Save weight data into item
