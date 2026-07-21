@@ -9826,23 +9826,19 @@ function _printProforma(d, curr, autoPrint = true) {
 
   <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:14px">
     ${allCharges.length ? `
-    <div style="flex:1; min-width:0">
-      <div class="section-label">Charges &amp; Deductions</div>
+    <div style="flex:1 1 50%; min-width:0">
       <div class="tbl-wrap" style="margin-bottom:0">
         <table>
-          <thead><tr><th>Charge</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
+          <thead><tr><th>Additional Charges</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
           <tbody>${allCharges.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
         </table>
       </div>
-    </div>` : '<div style="flex:1"></div>'}
+    </div>` : '<div style="flex:1 1 50%"></div>'}
 
     <!-- TOTALS -->
-    <div class="totals" style="margin-bottom:0">
-      <div class="tot-row" style="align-items:flex-start">
-        <span class="lbl">Product value${(!isUSD && allCharges.filter(c=>c.type!=='intl').length) ? `<div style="font-size:9.5px;color:#99a;font-weight:400;margin-top:2px">+ Charges &amp; Deductions: ${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</div>` : ''}</span>
-        <span>${fmt(d.subtotal_inr||0)}</span>
-      </div>
-      ${d.is_international ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(allCharges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
+    <div class="totals" style="flex:1 1 50%; max-width:none; margin-left:0; margin-bottom:0">
+      <div class="tot-row"><span class="lbl">Product value</span><span>${fmt(d.subtotal_inr||0)}</span></div>
+      ${allCharges.length ? `<div class="tot-row"><span class="lbl">Additional Charges</span><span>${fmt(allCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
       ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
       <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
       ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
