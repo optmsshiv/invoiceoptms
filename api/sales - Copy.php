@@ -162,16 +162,15 @@ switch ($method) {
     $saleId = (int)$db->lastInsertId();
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
-      $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
       $itemStmt->execute([
         $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
-        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
+        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);
       if ($productId) {
         writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo, $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
@@ -251,16 +250,15 @@ switch ($method) {
     $db->prepare('DELETE FROM sale_items WHERE sale_id = ?')->execute([$id]);
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
-      $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
-        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
+        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'],
       ]);
       if ($productId) {
         writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)', $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
