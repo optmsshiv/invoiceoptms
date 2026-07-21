@@ -542,6 +542,8 @@ canvas { max-width: 100% !important; }
 .pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
+/* Local customer type: hide every USD-only column/field/button on the offer page */
+#page-proforma-new.ofr-local-mode .ofr-usd-col { display: none !important; }
 
 .pne-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
 .pne-card-head {
@@ -758,11 +760,11 @@ canvas { max-width: 100% !important; }
 
 /* Actions cell */
 .action-cell { display: flex; align-items: center; gap: 6px; }
-/* 3-dot action dropdown menu */
+/* 3-dot action dropdown menu — fixed positioning (JS-placed) so it can never
+   be clipped by a .table-card's overflow:hidden rounded corners */
 .act-menu-wrap { position: relative; display: inline-block; }
-.act-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 300; padding: 5px; }
+.act-menu { display: none; position: fixed; background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 6px 24px rgba(20,30,50,.14); min-width: 150px; z-index: 500; padding: 5px; }
 .act-menu.open { display: block; }
-.act-menu.act-menu-up { top: auto; bottom: calc(100% + 4px); }
 
 @keyframes earPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -4008,19 +4010,18 @@ const SERVER = {
                 <select id="ofr-incoterms"><option>FOB</option><option>CIF</option><option>CFR</option><option>EXW</option><option>DDP</option><option>FCA</option></select>
               </div>
               <div class="field"><label>Payment Terms</label><input id="ofr-payterms" placeholder="e.g. 100% advance T/T"></div>
-              <div class="field"><label>Currency</label>
-                <select id="ofr-currency"><option value="BOTH">Both ₹ and $</option><option value="INR">INR only</option><option value="USD">USD only</option></select>
+              <div class="field"><label>Customer Type</label>
+                <select id="ofr-currency" onchange="onOfrTypeChange()">
+                  <option value="BOTH">International (₹ + $)</option>
+                  <option value="INR">Local (₹ only)</option>
+                </select>
               </div>
             </div>
             <div class="pne-grid4" style="align-items:flex-end">
-              <div class="field"><label>USD Exchange Rate (₹ per $1)</label>
+              <div class="field" id="ofr-usdrate-field"><label>USD Exchange Rate (₹ per $1)</label>
                 <input type="number" id="ofr-usdrate" value="93.50" step="0.01" oninput="recalcOfr()">
               </div>
-              <div class="field" style="flex-direction:row;align-items:center;gap:10px;padding-bottom:4px">
-                <label class="tog on" id="ofr-intl-tog" onclick="toggleOfrIntl(this)" style="flex-shrink:0"></label>
-                <span style="font-size:13px;font-weight:600">International Shipment</span>
-              </div>
-              <div></div><div></div>
+              <div></div><div></div><div></div>
             </div>
           </div>
 
@@ -4036,7 +4037,7 @@ const SERVER = {
                 <thead><tr>
                   <th>Product / Item Description</th><th>Specification / Quality</th>
                   <th>Qty (MT)</th><th>Qty (Kg)</th>
-                  <th>Rate (₹/Kg)</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right">Amount ($)</th>
+                  <th>Rate (₹/Kg)</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th>
                   <th></th>
                 </tr></thead>
                 <tbody id="ofr-products-tbody"></tbody>
@@ -4053,7 +4054,7 @@ const SERVER = {
             <div style="overflow-x:auto">
               <table class="data-table pne-items-table" style="min-width:700px">
                 <colgroup><col style="width:200px"><col style="width:200px"><col style="width:120px"><col style="width:110px"><col style="width:40px"></colgroup>
-                <thead><tr><th>Charge Name</th><th>Description / Note</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right">Amount ($)</th><th></th></tr></thead>
+                <thead><tr><th>Charge Name</th><th>Description / Note</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th><th></th></tr></thead>
                 <tbody id="ofr-local-tbody"></tbody>
               </table>
             </div>
@@ -4067,7 +4068,7 @@ const SERVER = {
               <div style="border-left:3px solid #E9D5FF;padding-left:14px;overflow-x:auto">
                 <table class="data-table pne-items-table" style="min-width:700px">
                   <colgroup><col style="width:200px"><col style="width:200px"><col style="width:120px"><col style="width:110px"><col style="width:40px"></colgroup>
-                  <thead><tr><th>Charge Name</th><th>Description</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right">Amount ($)</th><th></th></tr></thead>
+                  <thead><tr><th>Charge Name</th><th>Description</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right" class="ofr-usd-col">Amount ($)</th><th></th></tr></thead>
                   <tbody id="ofr-intl-tbody"></tbody>
                 </table>
               </div>
@@ -4093,7 +4094,7 @@ const SERVER = {
                 </div>
                 <div style="margin-top:10px;display:flex;gap:8px">
                   <button class="btn btn-outline" style="flex:1;font-size:12px" onclick="printProformaINR(OFR.editingId)"><i class="fas fa-print"></i> Print ₹</button>
-                  <button class="btn btn-outline" style="flex:1;font-size:12px" onclick="printProformaUSD(OFR.editingId)"><i class="fas fa-print"></i> Print $</button>
+                  <button class="btn btn-outline ofr-usd-col" style="flex:1;font-size:12px" onclick="printProformaUSD(OFR.editingId)"><i class="fas fa-print"></i> Print $</button>
                 </div>
               </div>
             </div>
@@ -9273,8 +9274,7 @@ function goToNewProforma() {
   document.getElementById('ofr-payterms').value = '100% advance T/T';
   document.getElementById('ofr-currency').value = 'BOTH';
   document.getElementById('ofr-usdrate').value = '93.50';
-  document.getElementById('ofr-intl-tog').classList.add('on');
-  document.getElementById('ofr-intl-section').style.display = '';
+  applyOfrType('BOTH');
   document.getElementById('ofr-status').value = 'Pending';
   document.getElementById('ofr-notes').value = '';
   document.getElementById('ofr-internal-notes').value = '';
@@ -9316,12 +9316,18 @@ function onOfrCustomerChange() {
     </div>`;
 }
 
-function toggleOfrIntl(togEl) {
-  togEl.classList.toggle('on');
-  const show = togEl.classList.contains('on');
-  document.getElementById('ofr-intl-section').style.display = show ? '' : 'none';
-  document.getElementById('ofr-sum-intl-row').style.display = show ? '' : 'none';
+// Customer Type: 'BOTH' = International (₹+$), 'INR' = Local (₹ only)
+function onOfrTypeChange() {
+  applyOfrType(document.getElementById('ofr-currency').value);
   recalcOfr();
+}
+function applyOfrType(type) {
+  const isIntl = type !== 'INR';
+  document.getElementById('page-proforma-new').classList.toggle('ofr-local-mode', !isIntl);
+  document.getElementById('ofr-intl-section').style.display = isIntl ? '' : 'none';
+  document.getElementById('ofr-sum-intl-row').style.display = isIntl ? '' : 'none';
+  const rateField = document.getElementById('ofr-usdrate-field');
+  if (rateField) rateField.style.display = isIntl ? '' : 'none';
 }
 
 // ── PRODUCT ROWS ──
@@ -9384,7 +9390,7 @@ function renderOfrTables() {
       <td><input type="number" value="${p.qty_kg||''}" min="0" step="1" placeholder="Kg" oninput="updateOfrProduct(${p.id},'qty_kg',this.value)" style="width:70px"></td>
       <td><input type="number" value="${p.rate||''}" min="0" step="0.01" placeholder="₹" oninput="updateOfrProduct(${p.id},'rate',this.value)"></td>
       <td style="text-align:right;font-weight:600">${fmt_money(amt)}</td>
-      <td style="text-align:right;color:var(--muted)">$${amt>0?(amt/rate).toLocaleString('en-IN',{maximumFractionDigits:2}):0}</td>
+      <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">$${amt>0?(amt/rate).toLocaleString('en-IN',{maximumFractionDigits:2}):0}</td>
       <td><button class="item-del" onclick="removeOfrProduct(${p.id})"><i class="fas fa-times"></i></button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">No products yet</td></tr>';
@@ -9397,7 +9403,7 @@ function renderOfrTables() {
         <td><input value="${escHtml(c.name)}" placeholder="Charge name" oninput="updateOfrCharge('${type}',${c.id},'name',this.value)"></td>
         <td><input value="${escHtml(c.desc)}" placeholder="Details" oninput="updateOfrCharge('${type}',${c.id},'desc',this.value)"></td>
         <td><input type="number" value="${c.amt_inr||''}" min="0" step="1" style="text-align:right" oninput="updateOfrCharge('${type}',${c.id},'amt_inr',this.value)"></td>
-        <td style="text-align:right;color:var(--muted)">${usd>0?'$'+usd.toLocaleString('en-IN',{maximumFractionDigits:2}):''}</td>
+        <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">${usd>0?'$'+usd.toLocaleString('en-IN',{maximumFractionDigits:2}):''}</td>
         <td><button class="item-del" onclick="removeOfrCharge('${type}',${c.id})"><i class="fas fa-times"></i></button></td>
       </tr>`;
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:10px;font-size:12px">No charges — click Add below</td></tr>';
@@ -9409,7 +9415,7 @@ function renderOfrTables() {
 
 function recalcOfr() {
   const rate = parseFloat(document.getElementById('ofr-usdrate')?.value)||93.5;
-  const intlOn = document.getElementById('ofr-intl-tog')?.classList.contains('on');
+  const intlOn = document.getElementById('ofr-currency')?.value !== 'INR';
 
   const prodTotal = OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0),0);
   const localTotal = OFR.localCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
@@ -9422,8 +9428,8 @@ function recalcOfr() {
   set('ofr-sum-product', fmt_money(prodTotal));
   set('ofr-sum-local',   fmt_money(localTotal));
   set('ofr-sum-intl',    fmt_money(intlTotal));
-  set('ofr-sum-grand',   fmt_money(grand) + (grand>0 ? ` / $${(grand/rate).toLocaleString('en-IN',{maximumFractionDigits:0})}` : ''));
-  set('ofr-per-kg',      perKg>0 ? `₹${perKg.toFixed(2)} / $${(perKg/rate).toFixed(3)} per Kg` : '₹0 / Kg');
+  set('ofr-sum-grand',   fmt_money(grand) + (grand>0 && intlOn ? ` / $${(grand/rate).toLocaleString('en-IN',{maximumFractionDigits:0})}` : ''));
+  set('ofr-per-kg',      perKg>0 ? (intlOn ? `₹${perKg.toFixed(2)} / $${(perKg/rate).toFixed(3)} per Kg` : `₹${perKg.toFixed(2)} per Kg`) : '₹0 / Kg');
 
   // Update USD amounts in charge cells live
   document.querySelectorAll('#ofr-local-tbody tr, #ofr-intl-tbody tr').forEach((tr,i)=>{
@@ -9455,28 +9461,32 @@ async function renderProformaList() {
     );
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">No proforma invoices found</td></tr>'; return; }
     const statusColor = {Pending:'#E65100',Accepted:'#00897B',Expired:'#757575',Cancelled:'#E53935',Draft:'#1976D2'};
-    tbody.innerHTML = filtered.map(o=>`<tr>
+    tbody.innerHTML = filtered.map(o=>{
+      const isLocal = o.currency === 'INR';
+      return `<tr>
       <td><strong>${escHtml(o.ofr_no)}</strong></td>
       <td>${escHtml(o.customer_name||'—')}</td>
       <td>${fmt_date_disp(o.ofr_date)}</td>
       <td>${o.valid_until ? fmt_date_disp(o.valid_until) : '—'}</td>
       <td style="text-align:right">${fmt_money(o.total_inr)}</td>
-      <td style="text-align:right;color:var(--muted)">$${parseFloat(o.total_usd||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+      <td style="text-align:right;color:var(--muted)">${isLocal ? '—' : '$'+parseFloat(o.total_usd||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
       <td><span style="font-size:11px;padding:2px 9px;border-radius:10px;font-weight:600;background:${statusColor[o.status]||'#888'}22;color:${statusColor[o.status]||'#888'}">${o.status}</span></td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
+          <button class="act-btn" onclick="viewProforma(${o.id})" title="View"><i class="fas fa-eye"></i></button>
           <button class="act-btn" onclick="editProforma(${o.id})" title="Edit"><i class="fas fa-pen"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="printProformaINR(${o.id})"><i class="fas fa-print" style="color:#1976D2"></i> Print ₹</button>
-              <button onclick="printProformaUSD(${o.id})"><i class="fas fa-dollar-sign" style="color:#1976D2"></i> Print $</button>
+              ${isLocal ? '' : `<button onclick="printProformaUSD(${o.id})"><i class="fas fa-dollar-sign" style="color:#1976D2"></i> Print $</button>`}
               <button class="danger" onclick="deleteProforma(${o.id})"><i class="fas fa-trash"></i> Delete</button>
             </div>
           </span>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
   } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#E53935;padding:20px">❌ ${e.message}</td></tr>`; }
 }
 
@@ -9489,7 +9499,7 @@ async function saveProforma(status) {
     toast('⚠️ Add at least one product with quantity', 'warning'); return;
   }
   const rate     = parseFloat(document.getElementById('ofr-usdrate').value)||93.5;
-  const intlOn   = document.getElementById('ofr-intl-tog').classList.contains('on');
+  const intlOn   = document.getElementById('ofr-currency').value !== 'INR';
   const cust     = (STATE.customers||[]).find(c=>String(c.id)===String(customerId));
   const prodTotal= OFR.products.reduce((s,p)=>s+(parseFloat(p.qty_kg)||0)*(parseFloat(p.rate)||0),0);
   const localTot = OFR.localCharges.reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0);
@@ -9546,15 +9556,13 @@ async function editProforma(id) {
     document.getElementById('ofr-destination').value = d.destination||'';
     document.getElementById('ofr-incoterms').value = d.incoterms||'FOB';
     document.getElementById('ofr-payterms').value = d.payment_terms||'';
-    document.getElementById('ofr-currency').value = d.currency||'BOTH';
+    document.getElementById('ofr-currency').value = d.currency==='INR' ? 'INR' : 'BOTH';
     document.getElementById('ofr-usdrate').value = d.usd_rate||93.5;
     document.getElementById('ofr-status').value = d.status||'Pending';
     document.getElementById('ofr-notes').value = d.notes||'';
     document.getElementById('ofr-internal-notes').value = d.internal_notes||'';
     document.getElementById('ofr-convert-btn').style.display = '';
-    const intlOn = !!d.is_international;
-    document.getElementById('ofr-intl-tog').classList.toggle('on', intlOn);
-    document.getElementById('ofr-intl-section').style.display = intlOn?'':'none';
+    applyOfrType(document.getElementById('ofr-currency').value);
     populateOfrCustomerDropdown();
     document.getElementById('ofr-customer').value = d.customer_id||'';
     onOfrCustomerChange();
@@ -9590,7 +9598,14 @@ function convertProformaToSale() {
   snPopulateKanta(SN.items[0]);
 }
 
-// ── PRINT FUNCTIONS ──
+// ── PRINT / VIEW FUNCTIONS ──
+async function viewProforma(id) {
+  if (!id) { toast('⚠️ Save the proforma first','warning'); return; }
+  try {
+    const r = await api('api/proforma.php?id='+id);
+    _printProforma(r.data, 'INR', false);
+  } catch(e) { toast('❌ '+e.message,'error'); }
+}
 async function printProformaINR(id) {
   if (!id) { toast('⚠️ Save the proforma first','warning'); return; }
   try {
@@ -9606,7 +9621,7 @@ async function printProformaUSD(id) {
   } catch(e) { toast('❌ '+e.message,'error'); }
 }
 
-function _printProforma(d, curr) {
+function _printProforma(d, curr, autoPrint = true) {
   const co    = pneCompanyInfo();
   const ps    = OFR_PRINT_SETTINGS;
   const rate  = parseFloat(d.usd_rate)||93.5;
@@ -9680,8 +9695,15 @@ function _printProforma(d, curr) {
     .sig-line { border-top:1px solid #ccc; margin:24px 0 6px; }
     .certs { display:flex; gap:20px; margin-bottom:14px; padding:12px 0; border-top:1px solid #eef2ee; border-bottom:1px solid #eef2ee; }
     .footer { display:flex; justify-content:space-between; align-items:flex-start; padding-top:10px; border-top:1px solid #dde; font-size:9.5px; color:#999; }
-    @media print { body { padding:20px 28px; } }
+    .no-print { display:flex; gap:8px; margin-bottom:16px; }
+    .no-print button { padding:8px 18px; border:none; border-radius:7px; cursor:pointer; font-weight:700; font-family:inherit; font-size:12.5px; }
+    @media print { body { padding:20px 28px; } .no-print { display:none!important; } }
   </style></head><body>
+
+  <div class="no-print">
+    <button onclick="window.print()" style="background:#00897B;color:#fff">🖨️ Print / Save PDF</button>
+    <button onclick="window.close()" style="background:#eee;color:#333">Close</button>
+  </div>
 
   <!-- HEADER -->
   <div class="head">
@@ -9778,10 +9800,10 @@ function _printProforma(d, curr) {
     <div class="tot-row grand"><span>Grand Total</span><span>${fmt(d.total_inr||0)}</span></div>
   </div>
 
-  ${ps.show_per_kg && d.per_kg_inr > 0 ? `
+  ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
   <div class="per-kg">
     <span class="lbl">Final cost per Kg (${escHtml(products[0]?.name||'')})</span>
-    <span class="val">${isUSD?'$'+(d.per_kg_usd||0).toFixed(3):'₹'+(d.per_kg_inr||0).toFixed(2)} / Kg</span>
+    <span class="val">${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg</span>
   </div>` : ''}
 
   <!-- NOTES -->
@@ -9819,7 +9841,7 @@ function _printProforma(d, curr) {
     </div>
   </div>
 
-  <" + "script>window.print();<\/script>
+  ${autoPrint ? '<" + "script>window.print();<\\/script>' : ''}
   </body></html>`);
   win.document.close();
 }
@@ -16921,24 +16943,21 @@ function toggleActMenu(ev, btn) {
   ev.stopPropagation();
   const menu = btn.parentElement.querySelector('.act-menu');
   const wasOpen = menu.classList.contains('open');
-  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
-  if (!wasOpen) {
-    menu.classList.add('open');
-    // Two things can clip this menu: the browser viewport, and the
-    // .table-card ancestor itself (overflow:hidden, for its rounded
-    // corners) — the table card's own bottom edge is usually what's
-    // actually cutting it off, not the viewport. Check both and flip
-    // upward if either would clip it.
-    const rect = btn.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 160;
-    const clipAncestor = btn.closest('.table-card, .pne-card') || document.body;
-    const clipRect = clipAncestor.getBoundingClientRect();
-    const spaceBelowViewport = window.innerHeight - rect.bottom;
-    const spaceBelowCard = clipRect.bottom - rect.bottom;
-    if (Math.min(spaceBelowViewport, spaceBelowCard) < menuHeight + 12) {
-      menu.classList.add('act-menu-up');
-    }
-  }
+  document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.style.top = ''; m.style.left = ''; });
+  if (wasOpen) return;
+  menu.classList.add('open');
+  // Measure off-screen first so we know the real menu size before placing it.
+  const btnRect = btn.getBoundingClientRect();
+  const menuW = menu.offsetWidth  || 160;
+  const menuH = menu.offsetHeight || 160;
+  // Right-align the menu to the button's right edge (matches column's right-end actions).
+  let left = btnRect.right - menuW;
+  let top  = btnRect.bottom + 4;
+  if (top + menuH > window.innerHeight - 8) top = btnRect.top - menuH - 4;   // flip up if no room below
+  left = Math.max(4, Math.min(left, window.innerWidth - menuW - 4));         // keep on-screen horizontally
+  top  = Math.max(4, top);
+  menu.style.left = left + 'px';
+  menu.style.top  = top + 'px';
 }
 document.addEventListener('click', () => {
   document.querySelectorAll('.act-menu.open').forEach(m => { m.classList.remove('open'); m.classList.remove('act-menu-up'); });
