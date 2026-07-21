@@ -3687,7 +3687,9 @@ const SERVER = {
 
           <!-- Weight / Measurement Details -->
           <div class="pne-card">
-            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details</div>
+            <div class="pne-card-head pne-head-blue"><span class="pne-num"><i class="fas fa-weight-hanging"></i></span> Weight / Measurement Details
+              <span id="sn-kanta-indicator" style="display:none;margin-left:10px;font-size:11px;font-weight:700;color:var(--teal);background:rgba(0,137,123,.1);padding:2px 10px;border-radius:20px"></span>
+            </div>
             <div class="pne-grid4">
               <div class="field"><label>Weighing Type *</label>
                 <select id="sn-weighingtype"><option>Dharam Kanta</option><option>Digital Kanta</option><option>Platform Scale</option><option>Electronic Scale</option><option>Self Declared</option></select>
@@ -17199,7 +17201,8 @@ function renderPNEItemsTable() {
     if (!it.editing) {
       // ── View mode: plain values, pencil to edit, trash to remove ──
       const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
-      return `<tr data-row="${it.id}">
+      const isActive = SN.activeRowId === it.id;
+    return `<tr data-row="${it.id}" style="${isActive ? 'outline:2px solid var(--teal);outline-offset:-2px;background:rgba(0,137,123,.06)' : ''}">
         <td class="pne-view-cell">${idx+1}</td>
         <td class="pne-view-cell" style="text-align:left"><strong>${escHtml(prod?.name || it.description || '—')}</strong></td>
         <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
@@ -17824,6 +17827,11 @@ async function savePurchaseEntry(mode) {
   if (badItem) {
     toast('⚠️ Every item needs a product (or a description for free-text lines)', 'warning'); return;
   }
+  // Qty and rate validation
+  const purZeroQty = PNE.items.find(it => !(parseFloat(it.billable_wt || it.gross_weight || 0) > 0) && !(parseFloat(it.qty||0) > 0));
+  if (purZeroQty) { toast('⚠️ Enter weight or quantity for all items', 'warning'); return; }
+  const purZeroRate = PNE.items.find(it => !(parseFloat(it.rate) > 0));
+  if (purZeroRate) { toast('⚠️ Rate must be greater than 0 for all items', 'warning'); return; }
 
   const attachment = await pneReadAttachment();
   const gstApplicable = document.getElementById('pn-gst-yes').classList.contains('active');
@@ -18877,13 +18885,14 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [] };
+const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null };
 let snDeductionSeq = 1;
 let snItemSeq = 1;
 
 function snEmptyItem() {
   return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '', moisture_pct: null,
-    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18 };
+    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18,
+    kanta: { gross: 0, tare: 0, net: 0, dhalta: 0, billable: 0, slip: '' } };
 }
 
 // ── Deductions (dynamic line items — Tractor Charge, Claim Charge, etc.) ──
@@ -18923,6 +18932,7 @@ function renderSNDeductionsTable() {
 function goToNewSale() {
   SN.editingId = null;
   SN.items = [snEmptyItem()];
+  SN.activeRowId = SN.items[0].id; // auto-link kanta to row 1 immediately
   SN.attachments = [];
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
@@ -18980,6 +18990,8 @@ function goToNewSale() {
   document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
   SN.deductions = [];
   renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+  // Auto-link kanta indicator to row 1
+  snPopulateKanta(SN.items[0]);
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
   // Refresh stock levels in the background — don't block opening the page
@@ -19111,67 +19123,60 @@ async function saveCustomer() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+
+// ── Kanta section helpers ──────────────────────────────────────
+function snClearKanta() {
+  ['sn-kanta-gross','sn-kanta-tare','sn-kanta-moisture','sn-kanta-dhaltakg','sn-kanta-net','sn-kanta-billable']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const ind = document.getElementById('sn-kanta-indicator');
+  if (ind) { ind.textContent = ''; ind.style.display = 'none'; }
+  SN.activeRowId = null;
+}
+
+function snPopulateKanta(it) {
+  // Fill kanta section from an item's saved kanta data
+  const k = it.kanta || {};
+  document.getElementById('sn-kanta-gross').value    = k.gross    || '';
+  document.getElementById('sn-kanta-tare').value     = k.tare     || '';
+  document.getElementById('sn-kanta-moisture').value = it.moisture_pct || '';
+  document.getElementById('sn-kanta-dhaltakg').value = k.dhalta   || '';
+  document.getElementById('sn-kanta-net').value      = k.net      || '';
+  document.getElementById('sn-kanta-billable').value = k.billable || '';
+  SN.activeRowId = it.id;
+  // Show indicator
+  const prod = STATE.products.find(p => String(p.id) === String(it.product_id));
+  const rowNo = SN.items.findIndex(i => i.id === it.id) + 1;
+  const ind = document.getElementById('sn-kanta-indicator');
+  if (ind) {
+    ind.textContent = `⚖ Weighing for Row ${rowNo} — ${prod?.name || 'Item'}`;
+    ind.style.display = '';
+  }
+}
+
 function addSaleNewItem() {
-  SN.items.push(snEmptyItem());
+  const newItem = snEmptyItem();
+  SN.items.push(newItem);
+  // Auto-link kanta to the new row — operator can type weights immediately
+  snClearKanta();          // clear fields first
+  snPopulateKanta(newItem); // then link new row (sets activeRowId + indicator)
   renderSNItemsTable();
-  // Scroll table to show new row
   const tbody = document.getElementById('sn-items-tbody');
   if (tbody) tbody.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function openSNItemEditor(id) {
-  const it = SN.items.find(i => i.id === id);
-  if (!it) return;
-  const isRow1 = SN.items[0].id === id;
-  const prod   = STATE.products.find(p => String(p.id) === String(it.product_id));
-  const avail  = it.product_id ? snAvailableStock(it.product_id) : 0;
-
-  // Remove existing popover
-  document.getElementById('sn-item-editor')?.remove();
-
-  const pop = document.createElement('div');
-  pop.id = 'sn-item-editor';
-  pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center';
-  pop.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:22px 24px;width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div style="font-size:14px;font-weight:700">Edit Row ${SN.items.indexOf(it)+1} — ${escHtml(prod?.name || 'Item')}</div>
-        <button onclick="document.getElementById('sn-item-editor').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="field">
-          <label>Quantity (Kg) ${isRow1 ? '<span style="color:#00897B;font-size:10px">← from billable</span>' : ''}</label>
-          <input type="number" id="snpe-qty" value="${it.qty}" min="0" step="0.01" ${isRow1 ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700"' : ''}>
-          ${it.product_id ? `<span style="font-size:11px;color:var(--muted)">Available: <strong style="color:#00897B">${avail.toFixed(2)} Kg</strong></span>` : ''}
-        </div>
-        <div class="field"><label>Rate (₹/Kg)</label><input type="number" id="snpe-rate" value="${it.rate}" min="0" step="0.01"></div>
-        <div class="field"><label>GST %</label><input type="number" id="snpe-gst" value="${it.gst_pct}" min="0" max="28" step="0.01"></div>
-        <div class="field"><label>Moisture %</label><input type="number" id="snpe-moisture" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—"></div>
-        <div class="field"><label>Batch No.</label><input id="snpe-batch" value="${escHtml(it.batch_no)}" placeholder="Optional"></div>
-        <div class="field"><label>Warehouse</label><input id="snpe-warehouse" value="${escHtml(it.warehouse)}"></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
-        <button class="btn btn-outline" onclick="document.getElementById('sn-item-editor').remove()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveSNItemEditor(${id})"><i class="fas fa-check"></i> Apply</button>
-      </div>
-    </div>`;
-  pop.addEventListener('click', e => { if (e.target === pop) pop.remove(); });
-  document.body.appendChild(pop);
-  // Focus first editable field
-  setTimeout(() => { const f = pop.querySelector('input:not([readonly])'); if(f) f.focus(); }, 50);
+  // No modal — just link kanta section to this row
+  const it = SN.items.find(i => i.id === id); if (!it) return;
+  snPopulateKanta(it);   // fills kanta fields + sets SN.activeRowId + shows indicator
+  renderSNItemsTable();  // highlight active row
+  // Scroll kanta section into view so operator sees it
+  document.getElementById('sn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(`⚖ Kanta linked to Row ${SN.items.indexOf(it)+1} — adjust weights above to update qty`, 'info');
 }
 
-function saveSNItemEditor(id) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  const isRow1 = SN.items[0].id === id;
-  if (!isRow1) it.qty         = document.getElementById('snpe-qty').value;
-  it.rate         = document.getElementById('snpe-rate').value;
-  it.gst_pct      = document.getElementById('snpe-gst').value;
-  it.moisture_pct = document.getElementById('snpe-moisture').value;
-  it.batch_no     = document.getElementById('snpe-batch').value;
-  it.warehouse    = document.getElementById('snpe-warehouse').value;
-  document.getElementById('sn-item-editor').remove();
-  renderSNItemsTable();
+function snCloseItemEditor() {
+  snClearKanta();        // clears kanta fields + SN.activeRowId + hides indicator
+  renderSNItemsTable();  // remove active row highlight
 }
 function removeSNItem(id) {
   if (SN.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
@@ -19208,9 +19213,10 @@ function renderSNItemsTable() {
     const avail = it.product_id ? snAvailableStock(it.product_id) : 0;
     const qty     = parseFloat(it.qty) || 0;
     const remaining = +(avail - qty).toFixed(2);
-    const remColor  = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
-    const isRow1    = idx === 0;
-    return `<tr data-row="${it.id}">
+    const remColor   = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
+    const isActive   = SN.activeRowId === it.id;
+    const kantaLinked = it.kanta && parseFloat(it.kanta.billable) > 0;
+    return `<tr data-row="${it.id}" style="${isActive ? 'outline:2px solid var(--teal);outline-offset:-2px;background:rgba(0,137,123,.06)' : ''}">
       <td>${idx+1}</td>
       <td>
         <select onchange="onSNProductChange(${it.id}, this.value)">
@@ -19223,22 +19229,25 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.grade || '—')}</td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
-      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':('#00897B')}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
+      <td><span class="pne-computed" style="color:${avail<=0?'#E53935':'#00897B'}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
       <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
       <td><input value="${escHtml(it.warehouse)}" oninput="updateSNItem(${it.id},'warehouse',this.value,true)"></td>
       <td style="position:relative">
         <input type="number" value="${it.qty}" min="0" step="0.01"
           id="sn-qty-${it.id}"
-          ${isRow1 ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700;cursor:default" title="Auto-filled from Billable Weight"' : ''}
+          ${kantaLinked ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700;cursor:default" title="Set by Kanta — click ⚖ to change"' : 'style="min-width:80px"'}
           oninput="updateSNItem(${it.id},'qty',this.value)">
-        ${isRow1 ? '<span style="position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none">← billable</span>' : ''}
+        ${kantaLinked ? '<span style="position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none">← kanta</span>' : ''}
       </td>
-      <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
-      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
+      <td><input type="number" value="${it.rate}" min="0" step="0.01" style="min-width:80px" oninput="updateSNItem(${it.id},'rate',this.value)"></td>
+      <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" style="min-width:55px" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
       <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
       <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
       <td style="text-align:center;white-space:nowrap">
-        <button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Edit row"><i class="fas fa-pen" style="color:var(--teal)"></i></button>
+        ${isActive
+          ? `<button class="act-btn" onclick="snCloseItemEditor()" title="Done — unlink kanta" style="color:var(--teal);font-weight:900;font-size:15px">✓</button>`
+          : `<button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Link kanta to this row"><i class="fas fa-scale-balanced" style="color:var(--teal)"></i></button>`
+        }
         <button class="act-btn" onclick="removeSNItem(${it.id})" title="Remove row"><i class="fas fa-times" style="color:#E53935"></i></button>
       </td>
     </tr>`;
@@ -19296,27 +19305,50 @@ function calcSNWeightSummary() {
   document.getElementById('sn-kanta-net').value      = net.toFixed(2);
   document.getElementById('sn-kanta-billable').value = billable.toFixed(2);
 
-  // Auto-fill row 1 qty from billable weight
-  if (SN.items.length > 0) {
-    const row1 = SN.items[0];
-    row1.qty = billable.toFixed(2);
-    // Update readonly qty input
-    const qtyEl = document.getElementById('sn-qty-' + row1.id);
-    if (qtyEl) qtyEl.value = row1.qty;
-    // Recalc row 1 totals
-    const c = snCalcRow(row1);
-    const taxEl = document.getElementById('sn-tax-'   + row1.id); if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
-    const totEl = document.getElementById('sn-total-' + row1.id); if (totEl) totEl.textContent = fmt_money(c.lineTotal);
-    // Update remaining stock for row 1
-    const remEl = document.getElementById('sn-rem-'   + row1.id);
-    if (remEl) {
-      const avail     = row1.product_id ? snAvailableStock(row1.product_id) : 0;
-      const remaining = +(avail - billable).toFixed(2);
-      remEl.textContent = remaining.toFixed(2);
-      remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
-    }
-    calcSaleNewTotals();
+  // Fill the active row's qty and save kanta data into item state
+  const activeId = SN.activeRowId;
+  if (!activeId) return; // kanta not linked to any row yet
+  const it = SN.items.find(i => i.id === activeId);
+  if (!it) return;
+
+  // Save weight data into item
+  it.kanta = { gross, tare, net, dhalta: dhaltaKg, billable, slip: it.kanta?.slip || '' };
+  it.qty   = billable.toFixed(2);
+  it.moisture_pct = parseFloat(document.getElementById('sn-kanta-moisture').value) || null;
+
+  // Update qty cell in table
+  const qtyEl = document.getElementById('sn-qty-' + it.id);
+  if (qtyEl) qtyEl.value = it.qty;
+
+  // Recalc totals for this row
+  const c = snCalcRow(it);
+  const taxEl = document.getElementById('sn-tax-'   + it.id); if (taxEl) taxEl.textContent = fmt_money(c.taxAmount);
+  const totEl = document.getElementById('sn-total-' + it.id); if (totEl) totEl.textContent = fmt_money(c.lineTotal);
+
+  // Update remaining stock
+  const remEl = document.getElementById('sn-rem-' + it.id);
+  if (remEl) {
+    const avail     = it.product_id ? snAvailableStock(it.product_id) : 0;
+    const remaining = +(avail - billable).toFixed(2);
+    remEl.textContent = remaining.toFixed(2);
+    remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
   }
+  // Style qty cell green+readonly to show it's kanta-driven (no full re-render)
+  const qtyTd = qtyEl?.parentElement;
+  if (qtyEl && billable > 0) {
+    qtyEl.readOnly = true;
+    qtyEl.style.cssText = 'background:#E8F5E9;color:#00897B;font-weight:700;cursor:default';
+    qtyEl.title = 'Set by Kanta — click ⚖ to change';
+    if (qtyTd && !qtyTd.querySelector('.kanta-label')) {
+      const lbl = document.createElement('span');
+      lbl.className = 'kanta-label';
+      lbl.style.cssText = 'position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none';
+      lbl.textContent = '← kanta';
+      qtyTd.style.position = 'relative';
+      qtyTd.appendChild(lbl);
+    }
+  }
+  calcSaleNewTotals();
 }
 
 function calcSaleNewTotals() {
@@ -19556,6 +19588,22 @@ async function saveSaleEntry(mode) {
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
   if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
   if (SN.items.some(it => !it.product_id)) { toast('⚠️ Every item needs a product selected', 'warning'); return; }
+  // Qty and rate checks
+  const zeroQty = SN.items.find(it => !(parseFloat(it.qty) > 0));
+  if (zeroQty) { toast('⚠️ Quantity must be greater than 0 for all items', 'warning'); return; }
+  const zeroRate = SN.items.find(it => !(parseFloat(it.rate) > 0));
+  if (zeroRate) { toast('⚠️ Rate must be greater than 0 for all items', 'warning'); return; }
+  // Oversell check — warn if qty exceeds available stock
+  const oversell = SN.items.filter(it => {
+    if (!it.product_id) return false;
+    const avail = snAvailableStock(it.product_id);
+    return avail > 0 && parseFloat(it.qty) > avail;
+  });
+  if (oversell.length) {
+    const names = oversell.map(it => STATE.products.find(p => String(p.id)===String(it.product_id))?.name || 'Item').join(', ');
+    const ok = await Swal.fire({ title: 'Oversell Warning', text: `Quantity exceeds available stock for: ${names}. Save anyway?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, save', cancelButtonText: 'Cancel' });
+    if (!ok.isConfirmed) return;
+  }
 
   const payload = {
     invoice_no: document.getElementById('sn-invno').value.trim(),
@@ -19607,6 +19655,7 @@ async function saveSaleEntry(mode) {
       batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
       warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
       rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
+      kanta_data: (it.kanta && it.kanta.billable > 0) ? JSON.stringify(it.kanta) : null,
     })),
   };
 
@@ -19701,6 +19750,7 @@ async function editSale(id) {
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
     renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+    snClearKanta(); // neutral — operator clicks ⚖ on a row to link kanta
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
     api('api/stock.php').then(r => {

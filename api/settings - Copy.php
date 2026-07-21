@@ -32,6 +32,10 @@ switch ($method) {
       'wa_followup_days'  => '7',
       'wa_allow_web_fallback' => '0',
       'business_type'     => 'both', // 'service' | 'product' | 'both' — controls Products page wording
+      'product_form_config' => '', // JSON: field visibility + label overrides
+      'product_dropdowns'   => '', // JSON: custom dropdown options per field
+      'product_var_grade_map' => '', // JSON: { variety: grade } linked pair map
+      'product_active_preset' => '', // last applied preset name
       'show_dhalta_pct'   => '1', // '1' show / '0' hide Dhalta % in purchase items table & local voucher
       'tpl_logo_position'  => 'left',
       'tpl_watermark_text' => 'PAID',

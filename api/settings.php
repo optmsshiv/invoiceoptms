@@ -36,6 +36,7 @@ switch ($method) {
       'product_dropdowns'   => '', // JSON: custom dropdown options per field
       'product_var_grade_map' => '', // JSON: { variety: grade } linked pair map
       'product_active_preset' => '', // last applied preset name
+      'ofr_print_settings'    => '', // JSON: proforma print toggle settings
       'show_dhalta_pct'   => '1', // '1' show / '0' hide Dhalta % in purchase items table & local voucher
       'tpl_logo_position'  => 'left',
       'tpl_watermark_text' => 'PAID',
