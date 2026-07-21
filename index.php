@@ -9335,16 +9335,38 @@ function addOfrProduct() {
   renderOfrTables();
 }
 function removeOfrProduct(id) { OFR.products = OFR.products.filter(p=>p.id!==id); renderOfrTables(); recalcOfr(); }
-function updateOfrProduct(id, field, val) {
+function updateOfrProduct(id, field, val, el) {
   const p = OFR.products.find(p=>p.id===id); if (!p) return;
   p[field] = val;
   if (field==='product_id') {
     const prod = STATE.products.find(pr=>String(pr.id)===String(val));
     if (prod) { p.name = prod.name; p.rate = parseFloat(prod.sale_rate||prod.rate||0); }
+    renderOfrTables(); // dropdown change — a full re-render is fine, no focus to preserve
+    return;
   }
   if (field==='qty_mt') p.qty_kg = +(parseFloat(val)||0) * 1000;
   if (field==='qty_kg') p.qty_mt = +((parseFloat(val)||0) / 1000).toFixed(3);
-  renderOfrTables(); recalcOfr();
+
+  // Text/number typing — update just this row's computed cells in place so the
+  // input element itself is never destroyed/recreated (which was breaking focus
+  // after every keystroke).
+  const tr = el ? el.closest('tr') : null;
+  if (tr) {
+    const rate = parseFloat(document.getElementById('ofr-usdrate')?.value)||93.5;
+    const qkg = parseFloat(p.qty_kg)||0;
+    const amt = +(qkg * (parseFloat(p.rate)||0)).toFixed(2);
+    const gstPct = parseFloat(p.gst_pct)||0;
+    const gstAmt = +(amt * gstPct/100).toFixed(2);
+    const mtInput = tr.querySelector('[data-f="qty_mt"]');
+    const kgInput = tr.querySelector('[data-f="qty_kg"]');
+    if (field==='qty_mt' && kgInput && document.activeElement!==kgInput) kgInput.value = p.qty_kg||'';
+    if (field==='qty_kg' && mtInput && document.activeElement!==mtInput) mtInput.value = p.qty_mt||'';
+    const amtCell = tr.querySelector('.ofr-amt-cell');
+    const usdCell = tr.querySelector('.ofr-usd-col');
+    if (amtCell) amtCell.innerHTML = fmt_money(amt) + (gstAmt>0?`<div style="font-size:10px;color:var(--muted);font-weight:400">+GST ${fmt_money(gstAmt)}</div>`:'');
+    if (usdCell) usdCell.textContent = '$'+(amt>0?(amt/rate).toLocaleString('en-IN',{maximumFractionDigits:2}):0);
+  }
+  recalcOfr(); // safe — only touches summary spans + charges rows, not the products tbody
 }
 
 // ── CHARGE ROWS (single unified list, tagged 'local' or 'intl') ──
@@ -9380,16 +9402,16 @@ function renderOfrTables() {
           ${(STATE.products||[]).map(pr=>`<option value="${pr.id}" ${String(p.product_id)===String(pr.id)?'selected':''}>${escHtml(pr.name)}</option>`).join('')}
         </select>
         <input value="${escHtml(p.name)}" placeholder="Or type name" style="margin-top:4px;font-size:11.5px"
-          oninput="updateOfrProduct(${p.id},'name',this.value)">
+          oninput="updateOfrProduct(${p.id},'name',this.value,this)">
       </td>
-      <td><input value="${escHtml(p.quality||'')}" placeholder="e.g. Premium" oninput="updateOfrProduct(${p.id},'quality',this.value)"></td>
-      <td><input value="${escHtml(p.grade||'')}" placeholder="e.g. Grade A" oninput="updateOfrProduct(${p.id},'grade',this.value)"></td>
-      <td><input value="${escHtml(p.packaging||'')}" placeholder="e.g. 50kg PP bags" oninput="updateOfrProduct(${p.id},'packaging',this.value)"></td>
-      <td><input type="number" value="${p.qty_mt||''}" min="0" step="0.001" placeholder="MT" oninput="updateOfrProduct(${p.id},'qty_mt',this.value)" style="width:70px"></td>
-      <td><input type="number" value="${p.qty_kg||''}" min="0" step="1" placeholder="Kg" oninput="updateOfrProduct(${p.id},'qty_kg',this.value)" style="width:70px"></td>
-      <td><input type="number" value="${p.rate||''}" min="0" step="0.01" placeholder="₹" oninput="updateOfrProduct(${p.id},'rate',this.value)"></td>
-      <td><input type="number" value="${p.gst_pct||''}" min="0" step="0.1" placeholder="%" oninput="updateOfrProduct(${p.id},'gst_pct',this.value)" style="width:60px"></td>
-      <td style="text-align:right;font-weight:600">${fmt_money(amt)}${gstAmt>0?`<div style="font-size:10px;color:var(--muted);font-weight:400">+GST ${fmt_money(gstAmt)}</div>`:''}</td>
+      <td><input value="${escHtml(p.quality||'')}" placeholder="e.g. Premium" oninput="updateOfrProduct(${p.id},'quality',this.value,this)"></td>
+      <td><input value="${escHtml(p.grade||'')}" placeholder="e.g. Grade A" oninput="updateOfrProduct(${p.id},'grade',this.value,this)"></td>
+      <td><input value="${escHtml(p.packaging||'')}" placeholder="e.g. 50kg PP bags" oninput="updateOfrProduct(${p.id},'packaging',this.value,this)"></td>
+      <td><input type="number" value="${p.qty_mt||''}" min="0" step="0.001" placeholder="MT" data-f="qty_mt" oninput="updateOfrProduct(${p.id},'qty_mt',this.value,this)" style="width:70px"></td>
+      <td><input type="number" value="${p.qty_kg||''}" min="0" step="1" placeholder="Kg" data-f="qty_kg" oninput="updateOfrProduct(${p.id},'qty_kg',this.value,this)" style="width:70px"></td>
+      <td><input type="number" value="${p.rate||''}" min="0" step="0.01" placeholder="₹" oninput="updateOfrProduct(${p.id},'rate',this.value,this)"></td>
+      <td><input type="number" value="${p.gst_pct||''}" min="0" step="0.1" placeholder="%" oninput="updateOfrProduct(${p.id},'gst_pct',this.value,this)" style="width:60px"></td>
+      <td class="ofr-amt-cell" style="text-align:right;font-weight:600">${fmt_money(amt)}${gstAmt>0?`<div style="font-size:10px;color:var(--muted);font-weight:400">+GST ${fmt_money(gstAmt)}</div>`:''}</td>
       <td class="ofr-usd-col" style="text-align:right;color:var(--muted)">$${amt>0?(amt/rate).toLocaleString('en-IN',{maximumFractionDigits:2}):0}</td>
       <td><button class="item-del" onclick="removeOfrProduct(${p.id})"><i class="fas fa-times"></i></button></td>
     </tr>`;
@@ -9813,21 +9835,24 @@ function _printProforma(d, curr, autoPrint = true) {
 
   <!-- TOTALS -->
   <div class="totals">
-    <div class="tot-row"><span class="lbl">Product value</span><span>${fmt(d.subtotal_inr||0)}</span></div>
-    <div class="tot-row"><span class="lbl">Local charges</span><span>${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>
+    <div class="tot-row" style="align-items:flex-start">
+      <span class="lbl">Product value${(!isUSD && allCharges.filter(c=>c.type!=='intl').length) ? `<div style="font-size:9.5px;color:#99a;font-weight:400;margin-top:2px">+ Charges &amp; Deductions: ${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</div>` : ''}</span>
+      <span>${fmt(d.subtotal_inr||0)}</span>
+    </div>
     ${d.is_international ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(allCharges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
     ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
     <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
+    ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
+    <div style="padding:6px 12px 8px;text-align:right;font-size:10px;color:#99a">
+      Final cost: ${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg
+    </div>` : ''}
   </div>
 
-  ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
-  <div class="per-kg">
-    <span class="lbl">Final cost per Kg (${escHtml(products[0]?.name||'')})</span>
-    <span class="val">${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg</span>
-  </div>` : ''}
-
   <!-- NOTES -->
-  ${d.notes ? `<div class="notes-box"><div class="notes-lbl">Terms &amp; Conditions</div><div class="notes-txt">${escHtml(d.notes)}</div></div>` : ''}
+  ${d.notes ? `<div class="notes-box" style="width:50%">
+    <div class="notes-lbl">Terms &amp; Conditions</div>
+    <div class="notes-txt">${escHtml(d.notes)}</div>
+  </div>` : ''}
 
   <!-- SIGNATURES -->
   ${ps.show_signature ? `
