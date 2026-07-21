@@ -4133,9 +4133,9 @@ const SERVER = {
           </div>
         </div>
       </div>
-    </div>
+    </div><!-- /#page-proforma-new -->
 
-    <!-- ═══════════ PROFORMA LIST (business type gated) ═══════════ -->
+    <div id="page-sales-list" class="page">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <div style="font-size:20px;font-weight:800;color:var(--text)">Sales List</div>
@@ -4221,7 +4221,7 @@ const SERVER = {
         <div style="font-size:12px;color:#1B5E20"><i class="fas fa-circle-info"></i> <b>Note:</b> You can view, print, download or share invoices using the action buttons.</div>
         <button style="background:none;border:none;color:#1B5E20;cursor:pointer;font-size:14px" onclick="document.getElementById('sl-note-banner').style.display='none'"><i class="fas fa-times"></i></button>
       </div>
-    </div>
+    </div><!-- /#page-sales-list -->
 
     <!-- ─────────── CUSTOMERS LIST ─────────── -->
     <div id="page-customers-list" class="page">
@@ -8456,7 +8456,12 @@ const breadcrumbs = {
   'email-setup':'Email Setup', settings:'Settings',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
-  activity:'Activity Log', profile:'My Profile', team:'Team'
+  activity:'Activity Log', profile:'My Profile', team:'Team',
+  'proforma-list':'Proforma Invoices', 'proforma-new':'New Offer Price',
+  'sales-list':'Sales', 'sale-new':'New Sale',
+  'purchase-new':'New Purchase', purchases:'Purchases',
+  'stock':'Stock', 'stock-history':'Stock History', 'stock-in-new':'Stock In',
+  suppliers:'Suppliers', customers:'Customers', 'customers-list':'Customers',
 };
 
 // Payments has two distinct experiences: a simple Invoice-payments list for
