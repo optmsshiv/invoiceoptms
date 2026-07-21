@@ -776,8 +776,7 @@ canvas { max-width: 100% !important; }
 .act-btn {
   width: 30px; height: 30px; border-radius: 7px; border: none;
   background: var(--bg); cursor: pointer; font-size: 12px; color: var(--muted);
-  display: inline-flex; align-items: center; justify-content: center; transition: .2s;
-  vertical-align: middle;
+  display: flex; align-items: center; justify-content: center; transition: .2s;
 }
 .act-btn:hover { background: var(--teal-bg); color: var(--teal); }
 .act-btn.del:hover { background: var(--red-bg); color: var(--red); }
@@ -9463,18 +9462,11 @@ async function renderProformaList() {
       <td style="text-align:right">${fmt_money(o.total_inr)}</td>
       <td style="text-align:right;color:var(--muted)">$${parseFloat(o.total_usd||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
       <td><span style="font-size:11px;padding:2px 9px;border-radius:10px;font-weight:600;background:${statusColor[o.status]||'#888'}22;color:${statusColor[o.status]||'#888'}">${o.status}</span></td>
-      <td>
-        <div class="action-cell" style="display:flex;gap:2px;align-items:center">
-          <button class="act-btn" onclick="editProforma(${o.id})" title="Edit"><i class="fas fa-pen"></i></button>
-          <span class="act-menu-wrap">
-            <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
-            <div class="act-menu">
-              <button onclick="printProformaINR(${o.id})"><i class="fas fa-print" style="color:#1976D2"></i> Print ₹</button>
-              <button onclick="printProformaUSD(${o.id})"><i class="fas fa-dollar-sign" style="color:#1976D2"></i> Print $</button>
-              <button class="danger" onclick="deleteProforma(${o.id})"><i class="fas fa-trash"></i> Delete</button>
-            </div>
-          </span>
-        </div>
+      <td style="white-space:nowrap">
+        <button class="act-btn" onclick="editProforma(${o.id})" title="Edit"><i class="fas fa-pen"></i></button>
+        <button class="act-btn" onclick="printProformaINR(${o.id})" title="Print ₹"><i class="fas fa-print"></i></button>
+        <button class="act-btn" onclick="printProformaUSD(${o.id})" title="Print $"><i class="fas fa-dollar-sign"></i></button>
+        <button class="act-btn" onclick="deleteProforma(${o.id})" title="Delete" style="color:#E53935"><i class="fas fa-times"></i></button>
       </td>
     </tr>`).join('');
   } catch(e) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#E53935;padding:20px">❌ ${e.message}</td></tr>`; }
