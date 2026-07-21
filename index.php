@@ -9824,28 +9824,32 @@ function _printProforma(d, curr, autoPrint = true) {
     </table>
   </div>
 
-  ${allCharges.length ? `
-  <div class="section-label">Charges &amp; Deductions</div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr><th style="width:32%">Charge</th><th style="width:14%">Type</th><th style="width:30%">Description</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
-      <tbody>${allCharges.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td>${c.type==='intl'?'<span style="font-size:9px;font-weight:700;background:#F3E8FF;color:#7B1FA2;padding:2px 7px;border-radius:8px">Export</span>':'<span style="font-size:9px;font-weight:700;background:#E8F5E9;color:#00897B;padding:2px 7px;border-radius:8px">Local</span>'}</td><td>${escHtml(c.desc||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
-    </table>
-  </div>` : ''}
+  <div style="display:flex; gap:16px; align-items:flex-start; margin-bottom:14px">
+    ${allCharges.length ? `
+    <div style="flex:1; min-width:0">
+      <div class="section-label">Charges &amp; Deductions</div>
+      <div class="tbl-wrap" style="margin-bottom:0">
+        <table>
+          <thead><tr><th>Charge</th><th class="r">Amount (${isUSD?'USD':'INR'})</th></tr></thead>
+          <tbody>${allCharges.map(c=>`<tr><td>${escHtml(c.name||'')}</td><td class="r">${fmt(c.amt_inr||0)}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>` : '<div style="flex:1"></div>'}
 
-  <!-- TOTALS -->
-  <div class="totals">
-    <div class="tot-row" style="align-items:flex-start">
-      <span class="lbl">Product value${(!isUSD && allCharges.filter(c=>c.type!=='intl').length) ? `<div style="font-size:9.5px;color:#99a;font-weight:400;margin-top:2px">+ Charges &amp; Deductions: ${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</div>` : ''}</span>
-      <span>${fmt(d.subtotal_inr||0)}</span>
+    <!-- TOTALS -->
+    <div class="totals" style="margin-bottom:0">
+      <div class="tot-row" style="align-items:flex-start">
+        <span class="lbl">Product value${(!isUSD && allCharges.filter(c=>c.type!=='intl').length) ? `<div style="font-size:9.5px;color:#99a;font-weight:400;margin-top:2px">+ Charges &amp; Deductions: ${fmt(allCharges.filter(c=>c.type!=='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</div>` : ''}</span>
+        <span>${fmt(d.subtotal_inr||0)}</span>
+      </div>
+      ${d.is_international ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(allCharges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
+      ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
+      <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
+      ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
+      <div style="padding:6px 12px 8px;text-align:right;font-size:10px;color:#99a">
+        Final cost: ${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg
+      </div>` : ''}
     </div>
-    ${d.is_international ? `<div class="tot-row"><span class="lbl">International charges</span><span>${fmt(allCharges.filter(c=>c.type==='intl').reduce((s,c)=>s+(parseFloat(c.amt_inr)||0),0))}</span></div>` : ''}
-    ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
-    <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
-    ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
-    <div style="padding:6px 12px 8px;text-align:right;font-size:10px;color:#99a">
-      Final cost: ${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg
-    </div>` : ''}
   </div>
 
   <!-- NOTES -->
