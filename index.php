@@ -19327,9 +19327,22 @@ function calcSNWeightSummary() {
     remEl.textContent = remaining.toFixed(2);
     remEl.style.color = remaining < 0 ? '#E53935' : remaining === 0 ? '#E65100' : '#00897B';
   }
+  // Style qty cell green+readonly to show it's kanta-driven (no full re-render)
+  const qtyTd = qtyEl?.parentElement;
+  if (qtyEl && billable > 0) {
+    qtyEl.readOnly = true;
+    qtyEl.style.cssText = 'background:#E8F5E9;color:#00897B;font-weight:700;cursor:default';
+    qtyEl.title = 'Set by Kanta — click ⚖ to change';
+    if (qtyTd && !qtyTd.querySelector('.kanta-label')) {
+      const lbl = document.createElement('span');
+      lbl.className = 'kanta-label';
+      lbl.style.cssText = 'position:absolute;bottom:2px;right:4px;font-size:9px;color:#00897B;pointer-events:none';
+      lbl.textContent = '← kanta';
+      qtyTd.style.position = 'relative';
+      qtyTd.appendChild(lbl);
+    }
+  }
   calcSaleNewTotals();
-  // Re-render table so qty cell shows readonly+green once kanta.billable > 0
-  if (billable > 0) renderSNItemsTable();
 }
 
 function calcSaleNewTotals() {
