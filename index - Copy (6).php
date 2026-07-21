@@ -576,7 +576,7 @@ canvas { max-width: 100% !important; }
 }
 .pne-pill.active { background: var(--teal); color: #fff; }
 
-.pne-items-table { font-size: 12px; min-width: 1400px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
+.pne-items-table { font-size: 12px; min-width: 1060px; border: 1px solid var(--border); table-layout: fixed; border-collapse: collapse; }
 .pne-items-table thead { background: #EEF1FA; }
 .pne-items-table th, .pne-items-table td { border: 1px solid var(--border); }
 .pne-items-table th {
@@ -3722,27 +3722,16 @@ const SERVER = {
             <div class="table-card pit-card" style="overflow-x:auto">
               <table class="data-table pne-items-table" id="sn-items-table">
                 <colgroup>
-                  <col style="width:32px"><!-- # -->
-                  <col style="width:160px"><!-- Product -->
-                  <col style="width:90px"><!-- Category -->
-                  <col style="width:90px"><!-- Variety -->
-                  <col style="width:75px"><!-- Grade -->
-                  <col style="width:90px"><!-- Batch -->
-                  <col style="width:75px"><!-- Moisture -->
-                  <col style="width:95px"><!-- Available -->
-                  <col style="width:95px"><!-- Remaining -->
-                  <col style="width:130px"><!-- Warehouse -->
-                  <col style="width:115px"><!-- Quantity -->
-                  <col style="width:110px"><!-- Rate -->
-                  <col style="width:70px"><!-- GST% -->
-                  <col style="width:100px"><!-- Tax Amt -->
-                  <col style="width:110px"><!-- Line Total -->
-                  <col style="width:70px"><!-- Action -->
+                  <col style="width:30px"><col style="width:130px"><col style="width:90px">
+                  <col style="width:85px"><col style="width:65px"><col style="width:80px"><col style="width:65px">
+                  <col style="width:90px"><col style="width:100px"><col style="width:75px">
+                  <col style="width:55px"><col style="width:80px"><col style="width:70px">
+                  <col style="width:55px"><col style="width:85px"><col style="width:90px"><col style="width:56px">
                 </colgroup>
                 <thead><tr>
                   <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
                   <th>Available (Kg)</th><th>Remaining (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th>
-                  <th>Rate (₹/Kg)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th style="text-align:center">Action</th>
+                  <th>Rate (₹/Kg)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th>Action</th>
                 </tr></thead>
                 <tbody id="sn-items-tbody"></tbody>
               </table>
@@ -19111,68 +19100,7 @@ async function saveCustomer() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-function addSaleNewItem() {
-  SN.items.push(snEmptyItem());
-  renderSNItemsTable();
-  // Scroll table to show new row
-  const tbody = document.getElementById('sn-items-tbody');
-  if (tbody) tbody.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function openSNItemEditor(id) {
-  const it = SN.items.find(i => i.id === id);
-  if (!it) return;
-  const isRow1 = SN.items[0].id === id;
-  const prod   = STATE.products.find(p => String(p.id) === String(it.product_id));
-  const avail  = it.product_id ? snAvailableStock(it.product_id) : 0;
-
-  // Remove existing popover
-  document.getElementById('sn-item-editor')?.remove();
-
-  const pop = document.createElement('div');
-  pop.id = 'sn-item-editor';
-  pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;display:flex;align-items:center;justify-content:center';
-  pop.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:22px 24px;width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div style="font-size:14px;font-weight:700">Edit Row ${SN.items.indexOf(it)+1} — ${escHtml(prod?.name || 'Item')}</div>
-        <button onclick="document.getElementById('sn-item-editor').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="field">
-          <label>Quantity (Kg) ${isRow1 ? '<span style="color:#00897B;font-size:10px">← from billable</span>' : ''}</label>
-          <input type="number" id="snpe-qty" value="${it.qty}" min="0" step="0.01" ${isRow1 ? 'readonly style="background:#E8F5E9;color:#00897B;font-weight:700"' : ''}>
-          ${it.product_id ? `<span style="font-size:11px;color:var(--muted)">Available: <strong style="color:#00897B">${avail.toFixed(2)} Kg</strong></span>` : ''}
-        </div>
-        <div class="field"><label>Rate (₹/Kg)</label><input type="number" id="snpe-rate" value="${it.rate}" min="0" step="0.01"></div>
-        <div class="field"><label>GST %</label><input type="number" id="snpe-gst" value="${it.gst_pct}" min="0" max="28" step="0.01"></div>
-        <div class="field"><label>Moisture %</label><input type="number" id="snpe-moisture" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—"></div>
-        <div class="field"><label>Batch No.</label><input id="snpe-batch" value="${escHtml(it.batch_no)}" placeholder="Optional"></div>
-        <div class="field"><label>Warehouse</label><input id="snpe-warehouse" value="${escHtml(it.warehouse)}"></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
-        <button class="btn btn-outline" onclick="document.getElementById('sn-item-editor').remove()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveSNItemEditor(${id})"><i class="fas fa-check"></i> Apply</button>
-      </div>
-    </div>`;
-  pop.addEventListener('click', e => { if (e.target === pop) pop.remove(); });
-  document.body.appendChild(pop);
-  // Focus first editable field
-  setTimeout(() => { const f = pop.querySelector('input:not([readonly])'); if(f) f.focus(); }, 50);
-}
-
-function saveSNItemEditor(id) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  const isRow1 = SN.items[0].id === id;
-  if (!isRow1) it.qty         = document.getElementById('snpe-qty').value;
-  it.rate         = document.getElementById('snpe-rate').value;
-  it.gst_pct      = document.getElementById('snpe-gst').value;
-  it.moisture_pct = document.getElementById('snpe-moisture').value;
-  it.batch_no     = document.getElementById('snpe-batch').value;
-  it.warehouse    = document.getElementById('snpe-warehouse').value;
-  document.getElementById('sn-item-editor').remove();
-  renderSNItemsTable();
-}
+function addSaleNewItem() { SN.items.push(snEmptyItem()); renderSNItemsTable(); }
 function removeSNItem(id) {
   if (SN.items.length <= 1) { toast('⚠️ At least one item is required', 'warning'); return; }
   SN.items = SN.items.filter(i => i.id !== id);
@@ -19237,10 +19165,7 @@ function renderSNItemsTable() {
       <td><input type="number" value="${it.gst_pct}" min="0" max="28" step="0.01" oninput="updateSNItem(${it.id},'gst_pct',this.value)"></td>
       <td class="pne-computed" id="sn-tax-${it.id}">${fmt_money(c.taxAmount)}</td>
       <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
-      <td style="text-align:center;white-space:nowrap">
-        <button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Edit row"><i class="fas fa-pen" style="color:var(--teal)"></i></button>
-        <button class="act-btn" onclick="removeSNItem(${it.id})" title="Remove row"><i class="fas fa-times" style="color:#E53935"></i></button>
-      </td>
+      <td><button class="item-del" onclick="removeSNItem(${it.id})" title="Remove"><i class="fas fa-times"></i></button></td>
     </tr>`;
   }).join('');
   calcSaleNewTotals();
