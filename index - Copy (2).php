@@ -19301,10 +19301,8 @@ function calcSNWeightSummary() {
 
   // Fill the active row's qty and save kanta data into item state
   const activeId = SN.activeRowId;
-  console.log('[kanta] calcSNWeightSummary: activeId=', activeId, 'billable=', billable, 'items=', SN.items.map(i=>i.id));
-  if (!activeId) { console.log('[kanta] EXIT: no activeRowId'); return; }
+  if (!activeId) return; // kanta not linked to any row yet
   const it = SN.items.find(i => i.id === activeId);
-  console.log('[kanta] found item:', it ? it.id : 'NOT FOUND');
   if (!it) return;
 
   // Save weight data into item
