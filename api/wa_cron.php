@@ -1,12 +1,19 @@
 <?php
 // ================================================================
-//  api/wa_cron.php — Daily WhatsApp Automation Cron Job
+//  api/wa_cron.php — Daily WhatsApp Automation Cron Job (multi-tenant)
 //
 //  Set up in cPanel → Cron Jobs:
 //  Command: php /home/youraccount/public_html/api/wa_cron.php
-//  Schedule: Daily at 9:00 AM (0 9 * * *)
+//  Schedule: Daily at 9:00 AM (0 9 * * *) — or more often; each tenant
+//  still has its own send-time window guard (reminder_settings.send_hour).
 //
-//  Handles:
+//  Loops over every ACTIVE tenant in the master DB and runs the full
+//  reminder routine against that tenant's own database, using that
+//  tenant's own WhatsApp Business API credentials (settings.wa_token /
+//  settings.wa_pid). A tenant with WhatsApp not configured, or with all
+//  automation off, is skipped without affecting other tenants.
+//
+//  Handles per tenant:
 //  - Due date reminders (N days before due)        → payment_reminder template
 //  - On due date reminder                          → payment_reminder template
 //  - Overdue alert (first send)                    → payment_overdue template
@@ -19,105 +26,14 @@ define('CRON_MODE', true);
 ob_start();
 error_reporting(E_ALL);
 ini_set('log_errors', 1);
+date_default_timezone_set('Asia/Kolkata');
 
 require_once __DIR__ . '/../config/db.php';
 
-$db    = getDB();
 $today = date('Y-m-d');
-$log   = [];
-
-// ── Load all settings ────────────────────────────────────────────
-$cfgRows = $db->query("SELECT `key`, `value` FROM settings")->fetchAll(PDO::FETCH_ASSOC);
-$cfg = [];
-foreach ($cfgRows as $r) $cfg[$r['key']] = $r['value'];
-
-// ── Meta API credentials ─────────────────────────────────────────
-$waToken = $cfg['wa_token'] ?? '';
-$waPid   = $cfg['wa_pid']   ?? '';
-
-if (empty($waToken) || empty($waPid)) {
-    echo "[" . date('Y-m-d H:i:s') . "] WhatsApp API not configured (wa_token / wa_pid missing). Exiting.\n";
-    exit;
-}
-
-// ── Automation flags ─────────────────────────────────────────────
-$autoRemind   = ($cfg['wa_auto_remind']   ?? '1') === '1';
-$autoOverdue  = ($cfg['wa_auto_overdue']  ?? '1') === '1';
-$autoFollowup = ($cfg['wa_auto_followup'] ?? '1') === '1';
-
-if (!$autoRemind && !$autoOverdue && !$autoFollowup) {
-    echo "[" . date('Y-m-d H:i:s') . "] All WhatsApp automation is OFF. Nothing to do.\n";
-    exit;
-}
-
-// ── Timing rules from reminder_settings (single source of truth) ─
-$remSettings = [];
-try {
-    $remRow = $db->query("SELECT * FROM reminder_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC);
-    if ($remRow) $remSettings = $remRow;
-} catch (Exception $e) {}
-
-$remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? 3));
-$followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? 7));
-$maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? 3));
-$onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
-$remChannel   = $remSettings['channel'] ?? 'whatsapp'; // 'whatsapp','email','both'
-// If reminder_settings.channel is 'email', WA cron should do nothing
-if ($remChannel === 'email') {
-    echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to email-only. WA cron skipping.\n";
-    exit;
-}
-
-// ── Send-time guard ───────────────────────────────────────────────
-// Only applies if send_hour column exists in reminder_settings.
-// If column missing (migration not run yet), skip guard and always run.
-date_default_timezone_set('Asia/Kolkata');
-$sendHour     = isset($remSettings['send_hour']) ? (int)$remSettings['send_hour']   : null;
-$sendMinute   = isset($remSettings['send_hour']) ? (int)($remSettings['send_minute'] ?? 0) : null;
-
-if ($sendHour !== null) {
-    $nowTotalMin  = (int)date('G') * 60 + (int)date('i');
-    $sendTotalMin = $sendHour * 60 + $sendMinute;
-    $diffMin      = abs($nowTotalMin - $sendTotalMin);
-    if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
-        echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
-             sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, now: " . date('H:i') .
-             ", diff: {$diffMin} min, tolerance ±20 min). Exiting.\n";
-        exit;
-    }
-    echo "[" . date('Y-m-d H:i:s') . "] Send window OK (configured: " .
-         sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, diff: {$diffMin} min).\n";
-} else {
-    echo "[" . date('Y-m-d H:i:s') . "] send_hour not configured — skipping time guard, running now.\n";
-}
-
-// ── Template names/langs from settings ───────────────────────────
-$tplReminder = $cfg['wa_tpl_name_reminder'] ?? 'payment_reminder';
-$tplLangRem  = $cfg['wa_tpl_lang_reminder'] ?? 'en_US';
-$tplOverdue  = $cfg['wa_tpl_name_overdue']  ?? 'payment_overdue';
-$tplLangOv   = $cfg['wa_tpl_lang_overdue']  ?? 'en_US';
-$tplFollowup = $cfg['wa_tpl_name_followup'] ?? 'invoice_followup';
-$tplLangFu   = $cfg['wa_tpl_lang_followup'] ?? 'en_US';
-
-// ── Company info ─────────────────────────────────────────────────
-$company = [
-    'company_name'  => $cfg['company_name']  ?? '',
-    'company_phone' => $cfg['company_phone'] ?? '',
-    'upi'           => $cfg['company_upi']   ?? '',
-];
-
-// Portal base URL
-$portalBase = rtrim($cfg['portal_base_url'] ?? '', '/');
-if (!$portalBase) {
-    try {
-        $domainRow = $db->query("SELECT value FROM settings WHERE `key`='app_url' LIMIT 1")->fetch();
-        if ($domainRow) $portalBase = rtrim($domainRow['value'], '/');
-    } catch (Exception $e) {}
-}
-if (!$portalBase) {
-    $portalBase = 'https://invcs.optms.co.in'; // hard fallback for CLI cron
-}
-$portalBase = rtrim($portalBase, '/') . '/portal/';
+$grandLog        = [];   // messages across ALL tenants, for the final summary
+$tenantsRun      = 0;
+$tenantsSkipped  = 0;
 
 // ================================================================
 //  HELPERS
@@ -449,211 +365,350 @@ function waPickAnchor(array $invs, array $amtInfo): array {
 }
 
 // ================================================================
-//  1. PRE-DUE REMINDER (CONSOLIDATED)
-//     One WA message per client even if they have multiple invoices
-//     due on the same reminder date.
+//  Resolve active tenants, then run the routine above once per tenant
+//  against that tenant's own database + own WhatsApp credentials.
 // ================================================================
-if ($autoRemind) {
-    $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
-    $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name
-        FROM invoices i
-        LEFT JOIN clients c ON c.id = i.client_id
-        WHERE i.due_date = ?
-          AND i.status IN ('Pending','Partial','Overdue')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
-        ORDER BY i.due_date ASC
-    ");
-    $stmt->execute([$reminderDate]);
-    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $groups = waGroupByClient($invs);
-    $sent   = 0;
-
-    foreach ($groups as $group) {
-        // Filter out invoices already reminded today
-        $eligible = array_filter($group['invs'],
-            fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
-        if (empty($eligible)) continue;
-
-        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
-        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
-        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
-        $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
-        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
-
-        // Log once per invoice in the group so per-invoice state is tracked
-        $invNums = [];
-        foreach ($eligible as $inv) {
-            waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
-            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
-        }
-        $label  = $ok ? '✅' : '❌';
-        $count  = count($eligible);
-        $log[]  = "{$label} WA Reminder → {$group['name']} ({$group['phone']}) — " .
-                  ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
-                  " — Total: {$amtInfo['fmt']}";
-        $sent++;
-    }
-    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
-    echo "[WA Reminder] {$sent} client(s) notified covering {$total} invoice(s) (due in {$remindDays} days)\n";
+try {
+    $master = getMasterDB();
+} catch (Throwable $e) {
+    echo "[" . date('Y-m-d H:i:s') . "] FATAL: could not connect to master DB: " . $e->getMessage() . "\n";
+    ob_end_flush();
+    exit(1);
 }
 
-// ================================================================
-//  1b. ON DUE DATE REMINDER (CONSOLIDATED)
-// ================================================================
-if ($autoRemind && $onDue) {
-    $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name
-        FROM invoices i
-        LEFT JOIN clients c ON c.id = i.client_id
-        WHERE i.due_date = CURDATE()
-          AND i.status IN ('Pending','Partial','Overdue')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
-        ORDER BY i.due_date ASC
-    ");
-    $stmt->execute();
-    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $groups = waGroupByClient($invs);
-    $sent   = 0;
-
-    foreach ($groups as $group) {
-        $eligible = array_filter($group['invs'],
-            fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
-        if (empty($eligible)) continue;
-
-        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
-        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
-        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
-        $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
-        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
-
-        $invNums = [];
-        foreach ($eligible as $inv) {
-            waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
-            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
-        }
-        $label = $ok ? '✅' : '❌';
-        $count = count($eligible);
-        $log[] = "{$label} WA Due Today → {$group['name']} ({$group['phone']}) — " .
-                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
-                 " — Total: {$amtInfo['fmt']}";
-        $sent++;
-    }
-    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
-    echo "[WA On Due] {$sent} client(s) notified covering {$total} invoice(s)\n";
+$tenants = $master->query("SELECT id, slug, company_name, db_name FROM tenants WHERE status='active'")->fetchAll(PDO::FETCH_ASSOC);
+if (!$tenants) {
+    echo "[" . date('Y-m-d H:i:s') . "] No active tenants found. Nothing to do.\n";
+    ob_end_flush();
+    exit;
 }
+echo "[" . date('Y-m-d H:i:s') . "] Found " . count($tenants) . " active tenant(s). Starting WA cron run...\n\n";
 
-// ================================================================
-//  2. OVERDUE ALERT — CONSOLIDATED (first alert per invoice,
-//     but only ONE WA message per client per day)
-// ================================================================
-if ($autoOverdue) {
-    $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name,
-               DATEDIFF(CURDATE(), i.due_date) AS days_overdue
-        FROM invoices i
-        LEFT JOIN clients c ON c.id = i.client_id
-        WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending','Partial','Overdue')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
-        ORDER BY i.due_date ASC
-    ");
-    $stmt->execute();
-    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $groups = waGroupByClient($invs);
-    $sent   = 0;
+foreach ($tenants as $tenant) {
+    $tenantLabel = $tenant['company_name'] ?: $tenant['slug'];
+    echo "── Tenant: {$tenantLabel} ({$tenant['db_name']}) ───────────────────\n";
+    $log = [];   // this tenant's messages, merged into $grandLog at the end
 
-    foreach ($groups as $group) {
-        // Eligible = never had overdue alert, not already sent today, no active promise
-        $eligible = array_filter($group['invs'], function($inv) use ($db) {
-            if (waCountSent($db, (int)$inv['id'], 'payment_overdue') > 0) return false;
-            if (waAlreadySentToday($db, (int)$inv['id'], 'payment_overdue'))  return false;
-            if (waHasActivePromise($db, (int)$inv['id']))                     return false;
-            return true;
-        });
-        if (empty($eligible)) continue;
-
-        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
-        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
-        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
-        $params     = waBuildParams('overdue', $anchor, $company, $portalLink);
-        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplOverdue, $tplLangOv, $params);
-
-        $invNums = [];
-        foreach ($eligible as $inv) {
-            waCronLog($db, (int)$inv['id'], 'payment_overdue', $inv, $tplOverdue, $ok);
-            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
-        }
-        $label = $ok ? '✅' : '❌';
-        $count = count($eligible);
-        $log[] = "{$label} WA Overdue → {$group['name']} — " .
-                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
-                 " — Total: {$amtInfo['fmt']}";
-        $sent++;
+    try {
+        $db = getDBByName($tenant['db_name']);
+    } catch (Throwable $e) {
+        echo "  ⚠️  Could not connect to this tenant's database — skipping. (" . $e->getMessage() . ")\n\n";
+        $tenantsSkipped++;
+        continue;
     }
-    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
-    echo "[WA Overdue] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
-}
 
-// ================================================================
-//  3. OVERDUE FOLLOW-UP SEQUENCE — CONSOLIDATED
-//     Per-invoice cap/timing still respected, but one WA per client.
-// ================================================================
-if ($autoFollowup) {
-    $stmt = $db->prepare("
-        SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name,
-               DATEDIFF(CURDATE(), i.due_date) AS days_overdue
-        FROM invoices i
-        LEFT JOIN clients c ON c.id = i.client_id
-        WHERE i.due_date < CURDATE()
-          AND i.status IN ('Pending','Partial','Overdue')
-          AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
-        ORDER BY i.due_date ASC
-    ");
-    $stmt->execute();
-    $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $groups = waGroupByClient($invs);
-    $sent   = 0;
+    try {
+        $today = date('Y-m-d');
+        $log   = [];
 
-    foreach ($groups as $group) {
-        $eligible = array_filter($group['invs'], function($inv) use ($db, $maxFollowup, $followupDays) {
-            $invId = (int)$inv['id'];
-            if (waCountSent($db, $invId, 'payment_overdue') === 0) return false; // first alert not sent yet
-            $fuCount  = waCountSent($db, $invId, 'invoice_followup');
-            if ($fuCount >= $maxFollowup) return false; // cap reached
-            $lastSent = waLastSent($db, $invId, ['payment_overdue', 'invoice_followup']);
-            if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) return false; // too soon
-            if (waAlreadySentToday($db, $invId, 'invoice_followup')) return false;
-            if (waHasActivePromise($db, $invId)) return false;
-            return true;
-        });
-        if (empty($eligible)) continue;
+        // ── Load all settings ────────────────────────────────────────────
+        $cfgRows = $db->query("SELECT `key`, `value` FROM settings")->fetchAll(PDO::FETCH_ASSOC);
+        $cfg = [];
+        foreach ($cfgRows as $r) $cfg[$r['key']] = $r['value'];
 
-        $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
-        $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
-        $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
-        $params     = waBuildParams('followup', $anchor, $company, $portalLink);
-        $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplFollowup, $tplLangFu, $params);
+        // ── Meta API credentials ─────────────────────────────────────────
+        $waToken = $cfg['wa_token'] ?? '';
+        $waPid   = $cfg['wa_pid']   ?? '';
 
-        $invNums = [];
-        foreach ($eligible as $inv) {
-            $fuCount = waCountSent($db, (int)$inv['id'], 'invoice_followup');
-            waCronLog($db, (int)$inv['id'], 'invoice_followup', $inv, $tplFollowup, $ok);
-            $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+        if (empty($waToken) || empty($waPid)) {
+            echo "[" . date('Y-m-d H:i:s') . "] WhatsApp API not configured (wa_token / wa_pid missing). Exiting.\n";
+            continue;
         }
-        $label = $ok ? '✅' : '❌';
-        $count = count($eligible);
-        $log[] = "{$label} WA Follow-up → {$group['name']} — " .
-                 ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
-                 " — Total: {$amtInfo['fmt']}";
-        $sent++;
+
+        // ── Automation flags ─────────────────────────────────────────────
+        $autoRemind   = ($cfg['wa_auto_remind']   ?? '1') === '1';
+        $autoOverdue  = ($cfg['wa_auto_overdue']  ?? '1') === '1';
+        $autoFollowup = ($cfg['wa_auto_followup'] ?? '1') === '1';
+
+        if (!$autoRemind && !$autoOverdue && !$autoFollowup) {
+            echo "[" . date('Y-m-d H:i:s') . "] All WhatsApp automation is OFF. Nothing to do.\n";
+            continue;
+        }
+
+        // ── Timing rules from reminder_settings (single source of truth) ─
+        $remSettings = [];
+        try {
+            $remRow = $db->query("SELECT * FROM reminder_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC);
+            if ($remRow) $remSettings = $remRow;
+        } catch (Exception $e) {}
+
+        $remindDays   = max(1, (int)($remSettings['before_days']  ?? $cfg['before_days']  ?? 3));
+        $followupDays = max(1, (int)($remSettings['overdue_freq'] ?? $cfg['overdue_freq']  ?? 7));
+        $maxFollowup  = max(1, (int)($remSettings['max_overdue']  ?? $cfg['max_overdue']   ?? 3));
+        $onDue        = ($remSettings['on_due'] ?? $cfg['on_due'] ?? '1') == '1'; // == not === (DB returns int)
+        $remChannel   = $remSettings['channel'] ?? 'whatsapp'; // 'whatsapp','email','both'
+        // If reminder_settings.channel is 'email', WA cron should do nothing
+        if ($remChannel === 'email') {
+            echo "[" . date('Y-m-d H:i:s') . "] Reminder channel set to email-only. WA cron skipping.\n";
+            continue;
+        }
+
+        // ── Send-time guard ───────────────────────────────────────────────
+        // Only applies if send_hour column exists in reminder_settings.
+        // If column missing (migration not run yet), skip guard and always run.
+        date_default_timezone_set('Asia/Kolkata');
+        $sendHour     = isset($remSettings['send_hour']) ? (int)$remSettings['send_hour']   : null;
+        $sendMinute   = isset($remSettings['send_hour']) ? (int)($remSettings['send_minute'] ?? 0) : null;
+
+        if ($sendHour !== null) {
+            $nowTotalMin  = (int)date('G') * 60 + (int)date('i');
+            $sendTotalMin = $sendHour * 60 + $sendMinute;
+            $diffMin      = abs($nowTotalMin - $sendTotalMin);
+            if ($diffMin > 20 && !isset($_GET['force']) && !defined('CRON_FORCE')) {
+                echo "[" . date('Y-m-d H:i:s') . "] Not in send window (configured: " .
+                     sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, now: " . date('H:i') .
+                     ", diff: {$diffMin} min, tolerance ±20 min). Exiting.\n";
+                continue;
+            }
+            echo "[" . date('Y-m-d H:i:s') . "] Send window OK (configured: " .
+                 sprintf('%02d:%02d', $sendHour, $sendMinute) . " IST, diff: {$diffMin} min).\n";
+        } else {
+            echo "[" . date('Y-m-d H:i:s') . "] send_hour not configured — skipping time guard, running now.\n";
+        }
+
+        // ── Template names/langs from settings ───────────────────────────
+        $tplReminder = $cfg['wa_tpl_name_reminder'] ?? 'payment_reminder';
+        $tplLangRem  = $cfg['wa_tpl_lang_reminder'] ?? 'en_US';
+        $tplOverdue  = $cfg['wa_tpl_name_overdue']  ?? 'payment_overdue';
+        $tplLangOv   = $cfg['wa_tpl_lang_overdue']  ?? 'en_US';
+        $tplFollowup = $cfg['wa_tpl_name_followup'] ?? 'invoice_followup';
+        $tplLangFu   = $cfg['wa_tpl_lang_followup'] ?? 'en_US';
+
+        // ── Company info ─────────────────────────────────────────────────
+        $company = [
+            'company_name'  => $cfg['company_name']  ?? '',
+            'company_phone' => $cfg['company_phone'] ?? '',
+            'upi'           => $cfg['company_upi']   ?? '',
+        ];
+
+        // Portal base URL
+        $portalBase = rtrim($cfg['portal_base_url'] ?? '', '/');
+        if (!$portalBase) {
+            try {
+                $domainRow = $db->query("SELECT value FROM settings WHERE `key`='app_url' LIMIT 1")->fetch();
+                if ($domainRow) $portalBase = rtrim($domainRow['value'], '/');
+            } catch (Exception $e) {}
+        }
+        if (!$portalBase) {
+            $portalBase = 'https://invcs.optms.co.in'; // hard fallback for CLI cron
+        }
+        $portalBase = rtrim($portalBase, '/') . '/portal/';
+        // ================================================================
+        //  1. PRE-DUE REMINDER (CONSOLIDATED)
+        //     One WA message per client even if they have multiple invoices
+        //     due on the same reminder date.
+        // ================================================================
+        if ($autoRemind) {
+            $reminderDate = date('Y-m-d', strtotime("+{$remindDays} days"));
+            $stmt = $db->prepare("
+                SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name
+                FROM invoices i
+                LEFT JOIN clients c ON c.id = i.client_id
+                WHERE i.due_date = ?
+                  AND i.status IN ('Pending','Partial','Overdue')
+                  AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+                ORDER BY i.due_date ASC
+            ");
+            $stmt->execute([$reminderDate]);
+            $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groups = waGroupByClient($invs);
+            $sent   = 0;
+
+            foreach ($groups as $group) {
+                // Filter out invoices already reminded today
+                $eligible = array_filter($group['invs'],
+                    fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
+                if (empty($eligible)) continue;
+
+                $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+                $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+                $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+                $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
+                $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
+
+                // Log once per invoice in the group so per-invoice state is tracked
+                $invNums = [];
+                foreach ($eligible as $inv) {
+                    waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
+                    $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+                }
+                $label  = $ok ? '✅' : '❌';
+                $count  = count($eligible);
+                $log[]  = "{$label} WA Reminder → {$group['name']} ({$group['phone']}) — " .
+                          ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                          " — Total: {$amtInfo['fmt']}";
+                $sent++;
+            }
+            $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+            echo "[WA Reminder] {$sent} client(s) notified covering {$total} invoice(s) (due in {$remindDays} days)\n";
+        }
+
+        // ================================================================
+        //  1b. ON DUE DATE REMINDER (CONSOLIDATED)
+        // ================================================================
+        if ($autoRemind && $onDue) {
+            $stmt = $db->prepare("
+                SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name
+                FROM invoices i
+                LEFT JOIN clients c ON c.id = i.client_id
+                WHERE i.due_date = CURDATE()
+                  AND i.status IN ('Pending','Partial','Overdue')
+                  AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+                ORDER BY i.due_date ASC
+            ");
+            $stmt->execute();
+            $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groups = waGroupByClient($invs);
+            $sent   = 0;
+
+            foreach ($groups as $group) {
+                $eligible = array_filter($group['invs'],
+                    fn($inv) => !waAlreadySentToday($db, (int)$inv['id'], 'payment_reminder'));
+                if (empty($eligible)) continue;
+
+                $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+                $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+                $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+                $params     = waBuildParams('reminder', $anchor, $company, $portalLink);
+                $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplReminder, $tplLangRem, $params);
+
+                $invNums = [];
+                foreach ($eligible as $inv) {
+                    waCronLog($db, (int)$inv['id'], 'payment_reminder', $inv, $tplReminder, $ok);
+                    $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+                }
+                $label = $ok ? '✅' : '❌';
+                $count = count($eligible);
+                $log[] = "{$label} WA Due Today → {$group['name']} ({$group['phone']}) — " .
+                         ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                         " — Total: {$amtInfo['fmt']}";
+                $sent++;
+            }
+            $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+            echo "[WA On Due] {$sent} client(s) notified covering {$total} invoice(s)\n";
+        }
+
+        // ================================================================
+        //  2. OVERDUE ALERT — CONSOLIDATED (first alert per invoice,
+        //     but only ONE WA message per client per day)
+        // ================================================================
+        if ($autoOverdue) {
+            $stmt = $db->prepare("
+                SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name,
+                       DATEDIFF(CURDATE(), i.due_date) AS days_overdue
+                FROM invoices i
+                LEFT JOIN clients c ON c.id = i.client_id
+                WHERE i.due_date < CURDATE()
+                  AND i.status IN ('Pending','Partial','Overdue')
+                  AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+                ORDER BY i.due_date ASC
+            ");
+            $stmt->execute();
+            $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groups = waGroupByClient($invs);
+            $sent   = 0;
+
+            foreach ($groups as $group) {
+                // Eligible = never had overdue alert, not already sent today, no active promise
+                $eligible = array_filter($group['invs'], function($inv) use ($db) {
+                    if (waCountSent($db, (int)$inv['id'], 'payment_overdue') > 0) return false;
+                    if (waAlreadySentToday($db, (int)$inv['id'], 'payment_overdue'))  return false;
+                    if (waHasActivePromise($db, (int)$inv['id']))                     return false;
+                    return true;
+                });
+                if (empty($eligible)) continue;
+
+                $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+                $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+                $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+                $params     = waBuildParams('overdue', $anchor, $company, $portalLink);
+                $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplOverdue, $tplLangOv, $params);
+
+                $invNums = [];
+                foreach ($eligible as $inv) {
+                    waCronLog($db, (int)$inv['id'], 'payment_overdue', $inv, $tplOverdue, $ok);
+                    $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+                }
+                $label = $ok ? '✅' : '❌';
+                $count = count($eligible);
+                $log[] = "{$label} WA Overdue → {$group['name']} — " .
+                         ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                         " — Total: {$amtInfo['fmt']}";
+                $sent++;
+            }
+            $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+            echo "[WA Overdue] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
+        }
+
+        // ================================================================
+        //  3. OVERDUE FOLLOW-UP SEQUENCE — CONSOLIDATED
+        //     Per-invoice cap/timing still respected, but one WA per client.
+        // ================================================================
+        if ($autoFollowup) {
+            $stmt = $db->prepare("
+                SELECT i.*, COALESCE(NULLIF(c.whatsapp,''), NULLIF(c.phone,''), NULLIF(i.client_wa,'')) AS c_phone, COALESCE(c.name, i.client_name) AS client_name,
+                       DATEDIFF(CURDATE(), i.due_date) AS days_overdue
+                FROM invoices i
+                LEFT JOIN clients c ON c.id = i.client_id
+                WHERE i.due_date < CURDATE()
+                  AND i.status IN ('Pending','Partial','Overdue')
+                  AND (NULLIF(c.whatsapp,'') IS NOT NULL OR NULLIF(c.phone,'') IS NOT NULL OR NULLIF(i.client_wa,'') IS NOT NULL)
+                ORDER BY i.due_date ASC
+            ");
+            $stmt->execute();
+            $invs   = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groups = waGroupByClient($invs);
+            $sent   = 0;
+
+            foreach ($groups as $group) {
+                $eligible = array_filter($group['invs'], function($inv) use ($db, $maxFollowup, $followupDays) {
+                    $invId = (int)$inv['id'];
+                    if (waCountSent($db, $invId, 'payment_overdue') === 0) return false; // first alert not sent yet
+                    $fuCount  = waCountSent($db, $invId, 'invoice_followup');
+                    if ($fuCount >= $maxFollowup) return false; // cap reached
+                    $lastSent = waLastSent($db, $invId, ['payment_overdue', 'invoice_followup']);
+                    if ($lastSent && strtotime($lastSent) > strtotime("-{$followupDays} days")) return false; // too soon
+                    if (waAlreadySentToday($db, $invId, 'invoice_followup')) return false;
+                    if (waHasActivePromise($db, $invId)) return false;
+                    return true;
+                });
+                if (empty($eligible)) continue;
+
+                $amtInfo    = waGroupTotalAmt($db, array_values($eligible));
+                $anchor     = waPickAnchor(array_values($eligible), $amtInfo);
+                $portalLink = waGetPortalLink($db, (int)$anchor['id'], $portalBase);
+                $params     = waBuildParams('followup', $anchor, $company, $portalLink);
+                $ok         = waCronSend($waToken, $waPid, $group['phone'], $tplFollowup, $tplLangFu, $params);
+
+                $invNums = [];
+                foreach ($eligible as $inv) {
+                    $fuCount = waCountSent($db, (int)$inv['id'], 'invoice_followup');
+                    waCronLog($db, (int)$inv['id'], 'invoice_followup', $inv, $tplFollowup, $ok);
+                    $invNums[] = '#' . ($inv['invoice_number'] ?? '');
+                }
+                $label = $ok ? '✅' : '❌';
+                $count = count($eligible);
+                $log[] = "{$label} WA Follow-up → {$group['name']} — " .
+                         ($count > 1 ? "{$count} invoices: " . implode(', ', $invNums) : $invNums[0]) .
+                         " — Total: {$amtInfo['fmt']}";
+                $sent++;
+            }
+            $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
+            echo "[WA Follow-up] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
+        }
+    } catch (Throwable $eTenant) {
+        echo "  ⚠️  Error processing this tenant: " . $eTenant->getMessage() . "\n";
+        error_log("wa_cron tenant {$tenant['slug']} error: " . $eTenant->getMessage());
     }
-    $total = array_sum(array_map(fn($g) => count($g['invs']), $groups));
-    echo "[WA Follow-up] {$sent} client(s) notified covering {$total} eligible invoice(s)\n";
+
+    $grandLog = array_merge($grandLog, $log);
+    $tenantsRun++;
+    echo "\n";
 }
 
 // ================================================================
 echo "\n=== WA Cron complete [" . date('Y-m-d H:i:s') . "] ===\n";
-echo implode("\n", $log) . "\n";
-echo "Total WA messages processed: " . count($log) . "\n";
+echo "Tenants processed: {$tenantsRun}, skipped (connection error): {$tenantsSkipped}\n";
+echo implode("\n", $grandLog) . "\n";
+echo "Total WA messages processed: " . count($grandLog) . "\n";
 ob_end_flush();
