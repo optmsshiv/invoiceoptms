@@ -32,7 +32,7 @@ $FIELDS = [
   'customer_code','business_name','display_name','group_name','alternate_phone','whatsapp_no',
   'billing_city','billing_pincode','shipping_city','shipping_state','shipping_pincode',
   'pan_no','business_type','tan_no','iec_no','trade_license_no','currency',
-  'opening_balance','opening_balance_type','status','country',
+  'opening_balance','opening_balance_type',
 ];
 
 try {

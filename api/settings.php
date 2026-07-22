@@ -38,6 +38,25 @@ switch ($method) {
       'product_active_preset' => '', // last applied preset name
       'ofr_print_settings'    => '', // JSON: proforma print toggle settings
       'show_dhalta_pct'   => '1', // '1' show / '0' hide Dhalta % in purchase items table & local voucher
+      'company_tagline'   => '', // shown under company name on printed documents (blank = hidden)
+      'company_iso'       => '', // ISO 22000 certificate number
+      // ── Document signatures: up to 3 roles, each with its own image +
+      // name, and its own on/off default per document type. Authorized
+      // Signatory reuses company_sign as its image (already existed).
+      'sig_authorized_name' => '',
+      'sig_prepared_img'    => '',
+      'sig_prepared_name'   => '',
+      'sig_verified_img'    => '',
+      'sig_verified_name'   => '',
+      'sig_show_authorized_proforma' => '1',
+      'sig_show_authorized_sales'    => '1',
+      'sig_show_authorized_purchase' => '1',
+      'sig_show_prepared_proforma'   => '0',
+      'sig_show_prepared_sales'      => '0',
+      'sig_show_prepared_purchase'   => '0',
+      'sig_show_verified_proforma'   => '0',
+      'sig_show_verified_sales'      => '0',
+      'sig_show_verified_purchase'   => '0',
       'tpl_logo_position'  => 'left',
       'tpl_watermark_text' => 'PAID',
       'tpl_color_theme'    => '1',

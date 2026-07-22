@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS `customers` (
   `email` varchar(150) DEFAULT '',
   `gstin` varchar(20) DEFAULT '',
   `state` varchar(50) DEFAULT '',
+  `country` varchar(100) DEFAULT 'India',
   `district` varchar(50) DEFAULT '',
   `billing_address` text,
   `shipping_address` text,
