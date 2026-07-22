@@ -1,1016 +1,1723 @@
-< ? php ob_start ();
-
-error_reporting (E_ALL);
-/
-/
-================================================================
-//  api/tenant.php — Tenant Management (Super Admin only)
-//
-//  POST   ?action=create           → provision new tenant + DB
-//  POST   ?action=finish_provision → complete setup after a manual
-//                                     cPanel privilege grant (see create)
-//  GET    ?action=list      → list all tenants
-//  GET    ?action=get&id=N  → get single tenant
-//  PATCH  ?action=suspend   → suspend tenant
-//  PATCH  ?action=activate  → reactivate tenant
-//  DELETE ?action=delete    → hard delete (careful!)
-//  POST   ?action=add_user  → add user to tenant
-//  GET    ?action=users&tenant_id=N → list tenant users
-//  PATCH  ?action=update_user       → update user role/status
-//  DELETE ?action=remove_user&id=N  → remove user from tenant
-//  POST   ?action=connect_db    → super admin: point session at any DB
-//  POST   ?action=disconnect_db → super admin: return session to master DB
-// ================================================================
-
-require_once __DIR__ . '/../config/db.php';
-
-require_once __DIR__ . '/../includes/auth.php';
-
-requireSuperAdmin ();
-
-header ( 'Content-Type: application/json' );
-
-$method = $_SERVER['REQUEST_METHOD'];
-
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
-
-/
-/
-Read body for POST/PATCH $body = [];
-
-if (in_array($method, ['POST','PATCH','PUT'])) {
-    $raw  = file_get_contents('php://input');
-
-$body = json_decode($raw, true) ?: [];
-
-if(empty ($body)) $body = $_POST;
-
-} try { $master = getMasterDB();
-
-/
-/
-── LIST tenants ───────────────────────────────────────────────
-    if ($method === 'GET' && $action === 'list') {
-        $stmt = $master->query(
-            'SELECT t.*, COUNT(u.id) AS user_count
-             FROM tenants t
-             LEFT JOIN users u ON u.tenant_id = t.id AND u.status != "inactive"
-             GROUP BY t.id
-             ORDER BY t.created_at DESC'
-        );
-
-jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
-
-}
-
-/
-/
-── GET single tenant ──────────────────────────────────────────
-    if ($method === 'GET' && $action === 'get') {
-        $id   = (int)($_GET['id'] ?? 0);
-
-$stmt = $master -> prepare ( 'SELECT * FROM tenants WHERE id=?' );
-
-$stmt->execute([$id]);
-
-$tenant = $stmt -> fetch ();
-
-if (!$tenant) jsonResponse(['error' => 'Tenant not found'], 404);
-
-jsonResponse(['success' => true, 'data' => $tenant]);
-
-}
-
-/
-/
-── LIST tenant users ──────────────────────────────────────────
-    if ($method === 'GET' && $action === 'users') {
-        $tid  = (int)($_GET['tenant_id'] ?? 0);
-
-$stmt = $master ->
-prepare (
-    'SELECT id, name, email, role, status, last_login, created_at,
-                    is_verified, license_no, license_expiry
-             FROM users WHERE tenant_id = ? ORDER BY role, name'
-);
-
-$stmt->execute([$tid]);
-
-jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
-
-}
-
-/
-/
-── CREATE tenant ──────────────────────────────────────────────
-    if ($method === 'POST' && $action === 'create') {
-        $name       = trim($body['company_name'] ?? '');
-
-$slug = _makeSlug($body['slug'] ?? $name);
-
-$ownerEmail = trim($body['owner_email'] ?? '');
-
-$ownerName = trim($body['owner_name'] ?? '');
-
-$ownerPass = $body['password'] ?? _randomPassword();
-
-$plan = $body['plan'] ?? 'trial';
-
-$phone = trim($body['phone'] ?? '');
-
-$businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'both';
-
-if (!$name || !$ownerEmail) {
-            jsonResponse(['error' => 'company_name and owner_email are required'], 400);
-
-}
-
-/
-/
-Validate slug uniqueness $slugCheck = $master ->
-prepare (
-    'SELECT id FROM tenants WHERE slug=?'
-);
-
-$slugCheck->execute([$slug]);
-
-if ($slugCheck->fetch()) {
-            $slug = $slug . '_' . substr(uniqid(), -4);
-
-}
-
-/
-/
-Build DB name $dbName = 'edrppymy_'.preg_replace (
-    '/[^a-z0-9]/',
-    '_',
-    strtolower ($slug)
-);
-/
-/
-Ensure DB name is unique $dbCheck = $master ->
-prepare (
-    'SELECT id FROM tenants WHERE db_name=?'
-);
-
-$dbCheck->execute([$dbName]);
-
-if ($dbCheck->fetch()) {
-            $dbName .= '_' . substr(uniqid(), -4);
-
-}
-
-/
-/
-── Provision tenant DB ──────────────────────────────────
-        try {
-            _createTenantDatabase($dbName);
-
-_runTenantSchema ($dbName);
-
-_seedRolePermissions ($master, $dbName);
-
-} catch (RuntimeException $e) {
-            if (str_contains($e->getMessage(), 'set_privileges_on_database')) {
-                // DB was created but the privilege grant failed (known
-                // shared-hosting restriction on this specific UAPI call).
-                // Don't lose the work — tell the admin how to finish manually.
-                jsonResponse([
-                    'success'            => false,
-                    'needs_manual_grant' => true,
-                    'db_name'            => $dbName,
-                    'message'            => "Database '{$dbName}' was created, but the automatic privilege grant "
-                                           . "was blocked by your hosting provider. In cPanel → MySQL Databases → "
-                                           . "'Add User To Database', grant ALL PRIVILEGES for user '" . MASTER_DB_USER
-                                           . "' on database '{$dbName}', then submit this same form again with "
-                                           . "action=finish_provision and db_name='{$dbName}' to complete setup.",
-                    'resume_payload'     => [
-                        'db_name'      => $dbName,
-                        'slug'         => $slug,
-                        'company_name' => $name,
-                        'owner_email'  => $ownerEmail,
-                        'owner_name'   => $ownerName,
-                        'password'     => $ownerPass,
-                        'plan'         => $plan,
-                        'phone'        => $phone,
-                        'business_type'=> $businessType,
-                    ],
-                ], 202);
-            }
-            throw $e; // some other failure (e.g. create_database itself failed) — real error
-        }
-
-        jsonResponse(_finalizeTenantCreation(
-            $master, $dbName, $slug, $name, $ownerEmail, $ownerName,
-            $ownerPass, $plan, $phone, $_SESSION['user_id'], $businessType
-        ));
-    }
-
-    // ── FINISH provisioning after a manual privilege grant ──────────
-    // Call this after action=create returns needs_manual_grant=true and
-    // you've granted privileges to MASTER_DB_USER on db_name in cPanel.
-    if ($method === 'POST' && $action === 'finish_provision') {
-        $dbName     = trim($body['db_name'] ?? '');
-
-$slug = trim($body['slug'] ?? '');
-
-$name = trim($body['company_name'] ?? '');
-
-$ownerEmail = trim($body['owner_email'] ?? '');
-
-$ownerName = trim($body['owner_name'] ?? '');
-
-$ownerPass = $body['password'] ?? _randomPassword();
-
-$plan = $body['plan'] ?? 'trial';
-
-$phone = trim($body['phone'] ?? '');
-
-$businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'both';
-
-if (!$dbName || !$slug || !$name || !$ownerEmail) {
-            jsonResponse(['error' => 'db_name, slug, company_name and owner_email are required'], 400);
-
-}
-
-/
-/
-Guard against double - finishing the same tenant $dbCheck = $master ->
-prepare (
-    'SELECT id FROM tenants WHERE db_name=?'
-);
-
-$dbCheck->execute([$dbName]);
-
-if ($dbCheck->fetch()) {
-            jsonResponse(['error' => "Tenant for database '{$dbName}' already exists"], 409);
-
-}
-
-/
-/
-Will throw if privileges still haven't been granted in cPanel
-        _runTenantSchema($dbName);
-        _seedRolePermissions($master, $dbName);
-
-        jsonResponse(_finalizeTenantCreation(
-            $master, $dbName, $slug, $name, $ownerEmail, $ownerName,
-            $ownerPass, $plan, $phone, $_SESSION['user_id'], $businessType
-        ));
-    }
-
-    // ── ATTACH an already-existing database as a tenant ─────────────
-    // For databases created outside this system (e.g. an older
-    // single-tenant deployment) that already contain real data.
-    // Unlike action=create, this NEVER touches the target database's
-    // schema or existing rows — it only reads from it, then adds the
-    // matching login records to the MASTER database so the app can
-    // route logins to it. This keeps the operation non-destructive:
-    // if anything goes wrong, the tenant DB itself is untouched.
-    if ($method === 'POST' && $action === 'attach_existing') {
-        $dbName      = trim($body['db_name'] ?? '');
-
-$name = trim($body['company_name'] ?? '');
-
-$slug = _makeSlug($body['slug'] ?? $name);
-
-$ownerEmail = trim(strtolower($body['owner_email'] ?? ''));
-
-$plan = $body['plan'] ?? 'pro';
-
-$phone = trim($body['phone'] ?? '');
-
-$businessType = in_array($body['business_type'] ?? '', ['service','product','both'], true)
-            ? $body['business_type'] : 'service';
-/
-/
-this feature exists precisely for legacy invoicing DBs
-
-        if (!$dbName || !$name || !$ownerEmail) {
-            jsonResponse(['error' => 'db_name, company_name and owner_email are required'], 400);
-
-}
-
-/
-/
-This database must not already be registered as a tenant.$dbCheck = $master ->
-prepare (
-    'SELECT id, company_name FROM tenants WHERE db_name=?'
-);
-
-$dbCheck->execute([$dbName]);
-
-if ($existing = $dbCheck->fetch()) {
-            jsonResponse(['error' => "Database '{$dbName}' is already attached as tenant \"{$existing['company_name']}\""], 409);
-
-}
-
-/
-/
-Slug uniqueness (
-    same rule as normal tenant creation
-) $slugCheck = $master ->
-prepare (
-    'SELECT id FROM tenants WHERE slug=?'
-);
-
-$slugCheck->execute([$slug]);
-
-if ($slugCheck->fetch()) $slug .= '_' . substr(uniqid(), -4);
-
-/
-/
-Connect to the target database — this is the only place we
-        // touch it, and only to READ. Any failure here means nothing
-        // was written anywhere.
-        try {
-            $tenantDb = getDBByName($dbName);
-
-} catch (RuntimeException $e) {
-            jsonResponse(['error' => "Could not connect to database '{$dbName}': " . $e->getMessage()], 400);
-
-}
-
-/
-/
-Sanity check: does this look like a real tenant database of
-        // this app (has a users table), not some unrelated database?
-        $tblCheck = $tenantDb->query("SHOW TABLES LIKE 'users'")->fetchAll();
-
-if (!$tblCheck) {
-            jsonResponse(['error' => "Database '{$dbName}' has no 'users' table — it doesn't look like a database from this app."], 400);
-
-}
-
-        $oldUsers = $tenantDb->query('SELECT id, name, email, password, role, is_active FROM users')->fetchAll();
-
-if (!$oldUsers) {
-            jsonResponse(['error' => "Database '{$dbName}' has no users — nothing to attach a login to."], 400);
-
-}
-
-/
-/
-Set the business type in the TENANT's own settings table (that's
-        // where the app actually reads it from — controls which menu the
-        // owner sees on login: Invoices/Clients for 'service', Sales/
-        // Purchases/Stock for 'product'). Only written if not already set,
-        // so we never overwrite a value this database already has.
-        $stChk = $tenantDb->prepare('SELECT id FROM settings WHERE `key`="business_type"');
-
-$stChk -> execute ();
-
-if (!$stChk->fetch()) {
-            $tenantDb->prepare('INSERT INTO settings (`key`, value) VALUES ("business_type", ?)')->execute([$businessType]);
-
-} $matchOwner = null;
-
-foreach ($oldUsers as $u) {
-            if (strtolower(trim($u['email'])) === $ownerEmail) { $matchOwner = $u;
-
-break;
-
-}
-        }
-        if (!$matchOwner) {
-            jsonResponse(['error' => "No user with email '{$ownerEmail}' was found in that database. Found: "
-                . implode(', ', array_column($oldUsers, 'email'))], 400);
-
-}
-
-        $allowedRoles = ['owner','admin','manager','accountant','sales','viewer'];
-
-try { $master->beginTransaction();
-
-/
-/
-1) Register the tenant — pointing at the EXISTING database.
-            //    No schema file is run, no cPanel calls are made.
-            $master->prepare(
-                'INSERT INTO tenants (slug, company_name, db_name, plan, owner_email, owner_name, phone, status, created_by)
-                 VALUES (?,?,?,?,?,?,?,"active",?)'
-            )->execute([$slug, $name, $dbName, $plan, $matchOwner['email'], $matchOwner['name'], $phone, $_SESSION['user_id']]);
-
-$tenantId = (int) $master -> lastInsertId ();
-
-$migrated = [];
-
-$skipped = [];
-
-foreach ($oldUsers as $u) {
-                $email = trim($u['email']);
-
-if (!$email) { $skipped[] = ['old_id' => $u['id'], 'reason' => 'No email on record'];
-
-continue;
-
-}
-
-/
-/
-An email can only belong to one tenant under this system.
-                // If it's already used elsewhere in master, we do NOT touch
-                // it — flag it for the super admin to resolve by hand.
-                $chk = $master->prepare('SELECT id FROM users WHERE email=?');
-                $chk->execute([$email]);
-                if ($chk->fetch()) {
-                    $skipped[] = ['old_id' => $u['id'], 'email' => $email, 'reason' => 'Email already used by a user in another tenant'];
-                    continue;
-                }
-
-                $role = in_array($u['role'], $allowedRoles) ? $u['role'] : 'viewer';
-                $status = !empty($u['is_active']) ? 'active' : 'inactive';
-                if ($email === $matchOwner['email']) $role = 'owner'; // the person we matched on becomes tenant owner
-
-                // Re-use the EXISTING password hash as-is (same bcrypt scheme
-                // as this app) so the person's current password keeps working.
-                $master->prepare(
-                    'INSERT INTO users (tenant_id, name, email, password, role, status, created_by)
-                     VALUES (?,?,?,?,?,?,?)'
-                )->execute([$tenantId, $u['name'], $email, $u['password'], $role, $status, $_SESSION['user_id']]);
-
-$newMasterId = (int) $master -> lastInsertId ();
-
-/
-/
-2) Mirror this user into the tenant DB under their NEW
-                //    master id. This does not remove or alter their old
-                //    local row — historical activity_log / created_by
-                //    entries that reference their OLD local id keep
-                //    resolving correctly. Going forward, new activity is
-                //    logged under the new master id, which this mirror
-                //    row makes resolvable too.
-                if ((int)$u['id'] !== $newMasterId) {
-                    $collision = $tenantDb->prepare('SELECT email FROM users WHERE id=?');
-
-$collision->execute([$newMasterId]);
-
-$existingRow = $collision -> fetch ();
-
-if ($existingRow && strtolower($existingRow['email']) !== strtolower($email)) {
-                        // Extremely unlikely (would need the old DB to already
-                        // have another unrelated user sitting at exactly this
-                        // id), but never silently misattribute — flag it.
-                        $skipped[] = ['old_id' => $u['id'], 'email' => $email,
-                            'reason' => "New id {$newMasterId} collides with a different existing local user — resolve manually"];
-
-continue;
-
-}
-                }
-                $tenantDb->prepare(
-                    'INSERT IGNORE INTO users (id, name, email, password, role, is_active) VALUES (?,?,?,?,?,?)'
-                )->execute([$newMasterId, $u['name'], $email, $u['password'], $role, !empty($u['is_active']) ? 1 : 0]);
-
-$migrated[] = ['old_local_id' => $u['id'], 'new_master_id' => $newMasterId, 'email' => $email, 'role' => $role];
-
-} $master->commit();
-
-} catch (Exception $e) { $master->rollBack();
-
-jsonResponse(['error' => 'Attach failed, nothing was changed: ' . $e->getMessage()], 500);
-
-}
-
-        masterAuditLog($_SESSION['user_id'], $tenantId, 'tenant_attached',
-            "Attached existing database '{$dbName}' as tenant: {$name} (" . count($migrated) . " users migrated, " . count($skipped) . " skipped)");
-
-jsonResponse([
-            'success'        => true,
-            'tenant_id'      => $tenantId,
-            'db_name'        => $dbName,
-            'slug'           => $slug,
-            'owner_email'    => $matchOwner['email'],
-            'migrated_users' => $migrated,
-            'skipped_users'  => $skipped,
-            'message'        => "Tenant '{$name}' attached. Existing passwords keep working — no new password was set."
-                . (count($skipped) ? ' ' . count($skipped) . ' user(s) need manual review (see skipped_users).' : ''),
-        ]);
-
-}
-
-/
-/
-── RECENT: databases this super admin has connected to before ─────
-    // Sourced from the audit log — no separate table needed. Purely a
-    // convenience list;
-
-connecting still requires a deliberate click.
-    if ($method === 'GET' && $action === 'recent_connections') {
-        $stmt = $master->prepare(
-            "SELECT details, MAX(created_at) AS last_used FROM master_audit_log
-             WHERE user_id = ? AND action = 'super_admin_connect_db'
-             GROUP BY details ORDER BY last_used DESC LIMIT 8"
-        );
-
-$stmt->execute([$_SESSION['user_id']]);
-
-$recent = [];
-
-foreach ($stmt->fetchAll() as $row) {
-            // details is "Connected session to database: <name>"
-            if (preg_match('/database:\s*(.+)$/', $row['details'], $m)) {
-                $dbName = trim($m[1]);
-
-$label = $dbName;
-
-$tChk = $master ->
-prepare (
-    'SELECT company_name FROM tenants WHERE db_name=?'
-);
-
-$tChk->execute([$dbName]);
-
-if ($t = $tChk->fetch()) $label = $t['company_name'];
-
-$recent[] = ['db_name' => $dbName, 'label' => $label, 'last_used' => $row['last_used']];
-
-} } jsonResponse(['data' => $recent]);
-
-}
-
-/
-/
-── CONNECT: super admin points their OWN session at any database ──
-    // Lightweight and temporary — unlike attach_existing, this creates NO
-    // tenant record and migrates NO users. It just changes which database
-    // getDB() resolves to for this session, so the super admin can browse
-    // any database (registered tenant or not) through the normal app UI.
-    if ($method === 'POST' && $action === 'connect_db') {
-        $dbName = trim($body['db_name'] ?? '');
-
-if (!$dbName) jsonResponse(['error' => 'db_name is required'], 400);
-
-/
-/
-Fail fast with a clear error rather than leaving the session
-        // pointed at an unreachable database.
-        try {
-            $test = getDBByName($dbName);
-
-$test -> query ("SHOW TABLES LIKE 'users'");
-/
-/
-sanity check, not required to exist
-        } catch (RuntimeException $e) {
-            jsonResponse(['error' => "Could not connect to '{$dbName}': " . $e->getMessage()], 400);
-
-} $_SESSION['tenant_db'] = $dbName;
-
-$_SESSION['tenant_db_label'] = $dbName;
-/
-/
-no company name if this isn't a registered tenant
-        // If it IS a registered tenant, use its real company name for the banner
-        $tChk = $master->prepare('SELECT company_name FROM tenants WHERE db_name=?');
-        $tChk->execute([$dbName]);
-        if ($t = $tChk->fetch()) $_SESSION['tenant_db_label'] = $t['company_name'];
-
-        masterAuditLog($_SESSION['user_id'], null, 'super_admin_connect_db', "Connected session to database: {$dbName}");
-        jsonResponse(['success' => true, 'db_name' => $dbName, 'label' => $_SESSION['tenant_db_label']]);
-    }
-
-    // ── DISCONNECT: return super admin's session to the master DB ──────
-    if ($method === 'POST' && $action === 'disconnect_db') {
-        $prev = $_SESSION['tenant_db'] ?? null;
-
-unset($_SESSION['tenant_db'], $_SESSION['tenant_db_label']);
-
-if ($prev) masterAuditLog($_SESSION['user_id'], null, 'super_admin_disconnect_db', "Disconnected from database: {$prev}");
-
-jsonResponse(['success' => true]);
-
-}
-
-/
-/
-── SUSPEND tenant ─────────────────────────────────────────────
-    if ($method === 'PATCH' && $action === 'suspend') {
-        $id = (int)($body['id'] ?? 0);
-
-$master->prepare('UPDATE tenants SET status="suspended" WHERE id=?')->execute([$id]);
-
-masterAuditLog($_SESSION['user_id'], $id, 'tenant_suspended', '');
-
-jsonResponse(['success' => true]);
-
-}
-
-/
-/
-── ACTIVATE tenant ────────────────────────────────────────────
-    if ($method === 'PATCH' && $action === 'activate') {
-        $id = (int)($body['id'] ?? 0);
-
-$master->prepare('UPDATE tenants SET status="active" WHERE id=?')->execute([$id]);
-
-masterAuditLog($_SESSION['user_id'], $id, 'tenant_activated', '');
-
-jsonResponse(['success' => true]);
-
-}
-
-/
-/
-── ADD user to tenant ─────────────────────────────────────────
-    if ($method === 'POST' && $action === 'add_user') {
-        $tenantId  = (int)($body['tenant_id'] ?? 0);
-
-$email = trim($body['email'] ?? '');
-
-$name = trim($body['name'] ?? '');
-
-$role = $body['role'] ?? 'sales';
-
-$password = $body['password'] ?? _randomPassword();
-
-$allowedRoles = ['owner','admin','manager','accountant','sales','viewer'];
-
-if (!in_array($role, $allowedRoles)) {
-            jsonResponse(['error' => 'Invalid role'], 400);
-
-}
-        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            jsonResponse(['error' => 'Valid email required'], 400);
-
-}
-
-/
-/
-Check tenant exists $tStmt = $master ->
-prepare (
-    'SELECT db_name FROM tenants WHERE id=? AND status="active"'
-);
-
-$tStmt->execute([$tenantId]);
-
-$tenant = $tStmt -> fetch ();
-
-if (!$tenant) jsonResponse(['error' => 'Tenant not found or suspended'], 404);
-
-$hashedPass = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-
-/
-/
-Check email not already taken $emailCheck = $master ->
-prepare (
-    'SELECT id FROM users WHERE email=?'
-);
-
-$emailCheck->execute([$email]);
-
-if ($emailCheck->fetch()) jsonResponse(['error' => 'Email already in use'], 409);
-
-/
-/
-Insert into master users
-        $master->prepare(
-            'INSERT INTO users (tenant_id, name, email, password, role, status, created_by)
-             VALUES (?,?,?,?,?,?,?)'
-        )->execute([$tenantId, $name, $email, $hashedPass, $role, 'active',
-                    $_SESSION['user_id']]);
-
-$userId = (int) $master -> lastInsertId ();
-
-/
-/
-Mirror into tenant DB users table
-        $tenantDb = getDBByName($tenant['db_name']);
-
-$tenantDb->prepare(
-            'INSERT IGNORE INTO users (id, name, email, password, role, is_active)
-             VALUES (?,?,?,?,?,1)'
-        )->execute([$userId, $name, $email, $hashedPass, $role]);
-
-masterAuditLog($_SESSION['user_id'], $tenantId, 'user_added',
-            "Added user: {$email} ({$role})");
-
-jsonResponse([
-            'success'   => true,
-            'user_id'   => $userId,
-            'email'     => $email,
-            'role'      => $role,
-            'temp_pass' => $password,
-        ]);
-
-}
-
-/
-/
-── UPDATE user role/status ────────────────────────────────────
-    if ($method === 'PATCH' && $action === 'update_user') {
-        $userId = (int)($body['user_id'] ?? 0);
-
-$field = $body['field'] ?? '';
-
-$value = $body['value'] ?? '';
-
-if (!in_array($field, ['role','status'])) {
-            jsonResponse(['error' => 'Only role and status can be updated'], 400);
-
-}
-        $master->prepare("UPDATE users SET {$field}=? WHERE id=?")->execute([$value, $userId]);
-
-jsonResponse(['success' => true]);
-
-}
-
-/
-/
-── UPDATE user verification / license info (Super Admin only) ──
-    if ($method === 'PATCH' && $action === 'update_verification') {
-        $userId      = (int)($body['user_id'] ?? 0);
-
-$isVerified = !empty($body['is_verified']) ? 1 : 0;
-
-$licenseNo = trim($body['license_no'] ?? '');
-
-$licenseExp = trim($body['license_expiry'] ?? '');
-
-if (!$userId) jsonResponse(['error' => 'user_id required'], 400);
-
-if ($licenseExp && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $licenseExp)) {
-            jsonResponse(['error' => 'license_expiry must be YYYY-MM-DD'], 400);
-
-}
-
-        $master->prepare(
-            'UPDATE users SET is_verified=?, license_no=?, license_expiry=? WHERE id=?'
-        )->execute([$isVerified, $licenseNo ?: null, $licenseExp ?: null, $userId]);
-
-masterAuditLog($_SESSION['user_id'], null, 'user_verification_updated',
-            "Updated verification/license for user #{$userId}");
-
-jsonResponse(['success' => true]);
-
-}
-
-/
-/
-── REMOVE user ────────────────────────────────────────────────
-    if (($method === 'DELETE' || $method === 'PATCH') && $action === 'remove_user') {
-        $userId = (int)($body['user_id'] ?? $_GET['id'] ?? 0);
-
-$master->prepare('UPDATE users SET status="inactive" WHERE id=?')->execute([$userId]);
-
-jsonResponse(['success' => true]);
-
-} jsonResponse(['error' => 'Unknown action: ' . $action], 400);
-
-} catch (Exception $e) {
-    error_log('tenant.php error: ' . $e->getMessage());
-
-jsonResponse(['error' => 'Server error: ' . $e->getMessage()], 500);
-
-}
-
-/
-/
-── Helpers ────────────────────────────────────────────────────────
-
-function _makeSlug(string $text): string {
-    $slug = strtolower(trim($text));
-
-$slug = preg_replace ('/[^a-z0-9]+/', '_', $slug);
-
-$slug = trim($slug, '_');
-
-return $slug ?: 'tenant_' . substr(uniqid(), -6);
-
-
-}
-
-function _randomPassword(int $len = 12): string {
-    $chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#!';
-
-$pass = '';
-
-for ($i = 0;
-
-$i < $len;
-
-$i++) { $pass .= $chars[random_int(0, strlen($chars) - 1)];
-
-} return $pass;
-
-}
-
-/
-/
-── cPanel UAPI helper ────────────────────────────────────────────
-function _cpanelApi(string $module, string $function, array $params = []): array {
-    $url = rtrim(CPANEL_HOST, '/') . "/execute/{$module}/{$function}";
-
-if ($params) $url .= '?' . http_build_query($params);
-
-$ch = curl_init ($url);
-
-curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => ['Authorization: cpanel ' . CPANEL_USERNAME . ':' . CPANEL_API_TOKEN],
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_TIMEOUT        => 30,
-    ]);
-
-$response = curl_exec ($ch);
-
-if ($response === false) { $err = curl_error($ch);
-
-curl_close ($ch);
-
-throw new RuntimeException (
-    "cPanel API request failed ({$module}::{$function}): {$err}"
-);
-
-} curl_close($ch);
-
-$data = json_decode ($response, true);
-
-if (!isset($data['status']) || $data['status'] != 1) {
-        $msg = $data['errors'][0] ?? ($data['error'] ?? 'Unknown cPanel API error');
-
-throw new RuntimeException (
-    "cPanel API error ({$module}::{$function}): {$msg}"
-);
-
-} return $data;
-
-
-}
-
-function _createTenantDatabase(string $dbName): void {
-    // NOTE: on this cPanel version, create_database expects the FULL
-    // prefixed database name (e.g. "edrppymy_acme"), not just the
-    // suffix — passing just the suffix throws "does not begin with
-    // the required prefix" errors.
-    _cpanelApi('Mysql', 'create_database', ['name' => $dbName]);
-
-/
-/
-2) Grant the master DB user full privileges on the new database.
-    //    NOTE: on some shared-hosting accounts this specific UAPI call is
-    //    blocked server-side (opaque "request failed" with no detail),
-    //    even though create_database and the equivalent manual "Add User
-    //    to Database" action in cPanel's UI both work fine. If this call
-    //    throws, the DB has still been created — the caller can catch
-    //    this specific failure, ask the admin to grant privileges
-    //    manually in cPanel, then resume via _runTenantSchema().
-    _cpanelApi('Mysql', 'set_privileges_on_database', [
-        'user'       => MASTER_DB_USER,
-        'database'   => $dbName,
-        'privileges' => 'ALL',
-    ]);
-}
-
-// ── Seed default role_permissions for a freshly-provisioned tenant ──
-// Mirrors the legacy hardcoded hierarchy (see permissions.default_min_role
-// in the master DB) so a brand-new tenant behaves exactly like before,
-// until the owner customizes it via the Team > Role Permissions screen.
-function _seedRolePermissions(PDO $master, string $dbName): void {
-    $catalog = $master->query('SELECT `key`, default_min_role FROM permissions')->fetchAll();
-    if (!$catalog) return; // permissions migration not run yet — nothing to seed
-
-    $roles = ['admin','manager','accountant','sales','viewer'];
-    $tenantDb = getDBByName($dbName);
-    $stmt = $tenantDb->prepare(
-        'INSERT IGNORE INTO role_permissions (role, permission_key, enabled) VALUES (?,?,?)'
-    );
-
-    foreach ($catalog as $perm) {
-        $minWeight = ROLE_WEIGHTS[$perm['default_min_role']] ?? 0;
-        foreach ($roles as $role) {
-            $enabled = (ROLE_WEIGHTS[$role] ?? 0) >= $minWeight ? 1 : 0;
-            $stmt->execute([$role, $perm['key'], $enabled]);
-        }
-    }
-}
-
-function _runTenantSchema(string $dbName): void {
-    // Assumes the DB exists and MASTER_DB_USER already has privileges on it
-    // (either granted automatically above, or manually in cPanel).
-    $pdo = new PDO(
-        'mysql:host=' . MASTER_DB_HOST . ';
-
-dbname = ' . $dbName . ';
-
-charset=utf8mb4',
-        MASTER_DB_USER, MASTER_DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-
-    $schemaFile = __DIR__ . '/../config/tenant_schema.sql';
-    if (!file_exists($schemaFile)) {
-        throw new RuntimeException("tenant_schema.sql not found at: {$schemaFile}");
-    }
-
-    // Strip SQL line comments (-- ...) and block comments (/* ... */) BEFORE
-    // splitting on ';
-
-'. phpMyAdmin dumps prefix nearly every real statement
-    // with a comment block, so checking only the start of each ;-delimited
-    // chunk was discarding almost all CREATE TABLE / ALTER TABLE statements.
-    $sql = file_get_contents($schemaFile);
-    $sql = preg_replace(' / ^ --.*$/m', '', $sql);
-$sql = preg_replace ('/\/\*.*?\*\//s', '', $sql);
-
-/
-/
-Naive explode(';', $sql) breaks any CREATE TRIGGER/PROCEDURE/FUNCTION
-    // body that contains its own internal ';' inside a BEGIN...END block
-    // (e.g. trg_backup_payment_before_delete) — it gets cut into two
-    // invalid fragments. _splitSqlStatements() only splits on ';' that are
-    // NOT inside a BEGIN...END block, so such statements stay intact.
-    $statements = _splitSqlStatements($sql);
-
-foreach ($statements as $stmt) {
-        try {
-            $pdo->exec($stmt);
-
-} catch (PDOException $e) {
-            // Skip "already exists" errors during provisioning
-            if ($e->getCode() !== '42S01') throw $e;
-
-} } }
-
-/
-/
-── Split a SQL script into individual statements, respecting
-//    BEGIN...END blocks (triggers/procedures/functions) so a ';'
-//    inside a trigger body doesn't get treated as a statement end. ──
-function _splitSqlStatements(string $sql): array {
-    $statements = [];
-    $buffer     = '';
-    $depth      = 0;
-    foreach (preg_split('/\r\n|\r|\n/', $sql) as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '') continue;
-        $buffer .= $line . "\n";
-        if (preg_match('/\bBEGIN\b/i', $line)) $depth++;
-        if (preg_match('/\bEND\b/i', $line))   $depth--;
-        if ($depth <= 0 && str_ends_with(rtrim($trimmed), ';
-
-')) {
-            $clean = trim($buffer);
-            if ($clean !== '' && $clean !== ';
-
-') $statements[] = $clean;
-            $buffer = '';
-            $depth  = 0;
-        }
-    }
-    $clean = trim($buffer);
-    if ($clean !== '') $statements[] = $clean;
-    return $statements;
-}
-
-// ── Insert tenant + owner user rows once the DB + schema are ready ─
-function _finalizeTenantCreation(
-    PDO $master, string $dbName, string $slug, string $name,
-    string $ownerEmail, string $ownerName, string $ownerPass,
-    string $plan, string $phone, int $actingUserId, string $businessType = 'both'
-): array {
-    $master->prepare(
-        'INSERT INTO tenants (slug, company_name, db_name, plan, business_type, owner_email, owner_name, phone, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?)'
-    )->execute([$slug, $name, $dbName, $plan, $businessType, $ownerEmail, $ownerName, $phone, $actingUserId]);
-    $tenantId = (int)$master->lastInsertId();
-
-    $hashedPass = password_hash($ownerPass, PASSWORD_BCRYPT, ['cost' => 12]);
-    $master->prepare(
-        'INSERT INTO users (tenant_id, name, email, password, role, status, created_by)
-         VALUES (?,?,?,?,?,?,?)'
-    )->execute([$tenantId, $ownerName ?: $name, $ownerEmail, $hashedPass, 'owner', 'active', $actingUserId]);
-    $userId = (int)$master->lastInsertId();
-
-    $tenantDb = getDBByName($dbName);
-    $tenantDb->prepare(
-        'INSERT IGNORE INTO users (id, name, email, password, role, is_active)
-         VALUES (?,?,?,?,?,1)'
-    )->execute([$userId, $ownerName ?: $name, $ownerEmail, $hashedPass, 'owner']);
-
-    // Seed the tenant's own settings table too — this is what the tenant's
-    // app UI (Products page wording) actually reads at runtime. The master
-    // tenants.business_type column above is for your own admin-side visibility.
-    $tenantDb->prepare(
-        'INSERT INTO settings (`key`, value) VALUES ("company_name", ?)
-         ON DUPLICATE KEY UPDATE value=?'
-    )->execute([$name, $name]);
-    $tenantDb->prepare(
-        'INSERT INTO settings (`key`, value) VALUES ("business_type", ?)
-         ON DUPLICATE KEY UPDATE value=?'
-    )->execute([$businessType, $businessType]);
-
-    masterAuditLog($actingUserId, $tenantId, 'tenant_created', "Created tenant: {$name} (DB: {$dbName})");
-
-    return [
-        'success'     => true,
-        'tenant_id'   => $tenantId,
-        'db_name'     => $dbName,
-        'slug'        => $slug,
-        'owner_email' => $ownerEmail,
-        'temp_pass'   => $ownerPass,
-        'message'     => "Tenant '{$name}' created. Share credentials with the client.",
-    ];
-}
+-- ================================================================
+--  OPTMS Tenant Database Schema (structure only)
+--  Rebuilt from a working tenant export (edrppymy_sneha_enterprises)
+--  after config/tenant_schema.sql on the server was found to contain
+--  tenant.php's PHP source instead of SQL — see chat explanation.
+-- ================================================================
+
+-- phpMyAdmin SQL Dump
+-- version 5.2.2
+-- https://www.phpmyadmin.net/
+--
+-- Host: localhost:3306
+-- Generation Time: Jul 21, 2026 at 03:11 PM
+-- Server version: 5.7.44-48
+-- PHP Version: 8.3.31
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Tenant database schema template (applied to a freshly created,
+-- empty per-tenant database by _runTenantSchema() in api/tenant.php)
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `activitys_log`
+--
+
+CREATE TABLE IF NOT EXISTS `activitys_log` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `type` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `label` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `detail` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `invoice_id` int(10) UNSIGNED DEFAULT NULL,
+  `user_id` int(10) UNSIGNED DEFAULT NULL,
+  `ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `activity_log`
+--
+
+CREATE TABLE IF NOT EXISTS `activity_log` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `action` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `entity_type` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `entity_id` int(11) DEFAULT NULL,
+  `details` text COLLATE utf8_unicode_ci,
+  `ip_address` varchar(45) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `clients`
+--
+
+CREATE TABLE IF NOT EXISTS `clients` (
+  `id` int(11) NOT NULL,
+  `name` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
+  `person` varchar(150) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `email` varchar(150) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `phone` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `whatsapp` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `gst_number` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `address` text COLLATE utf8_unicode_ci,
+  `landmark` varchar(255) COLLATE utf8_unicode_ci DEFAULT '',
+  `color` varchar(10) COLLATE utf8_unicode_ci DEFAULT '#00897B',
+  `logo` text COLLATE utf8_unicode_ci,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `tags` text COLLATE utf8_unicode_ci,
+  `extra_contacts` text COLLATE utf8_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `credit_notes`
+--
+
+CREATE TABLE IF NOT EXISTS `credit_notes` (
+  `id` int(11) NOT NULL,
+  `cn_number` varchar(50) NOT NULL,
+  `invoice_id` int(11) DEFAULT NULL,
+  `invoice_number` varchar(50) NOT NULL DEFAULT '',
+  `client_name` varchar(200) NOT NULL DEFAULT '',
+  `amount` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `issued_date` date DEFAULT NULL,
+  `reason` text NOT NULL,
+  `notes` text,
+  `status` enum('Draft','Issued','Applied','Void') NOT NULL DEFAULT 'Draft',
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `customers`
+--
+
+CREATE TABLE IF NOT EXISTS `customers` (
+  `id` int(11) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `customer_type` varchar(30) DEFAULT 'Domestic',
+  `mobile` varchar(30) DEFAULT '',
+  `email` varchar(150) DEFAULT '',
+  `gstin` varchar(20) DEFAULT '',
+  `state` varchar(50) DEFAULT '',
+  `district` varchar(50) DEFAULT '',
+  `billing_address` text,
+  `shipping_address` text,
+  `credit_limit` decimal(14,2) DEFAULT '0.00',
+  `payment_terms` varchar(50) DEFAULT '',
+  `sales_executive` varchar(100) DEFAULT '',
+  `notes` text,
+  `status` enum('active','archived') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `customer_code` varchar(30) DEFAULT '',
+  `business_name` varchar(150) DEFAULT '',
+  `display_name` varchar(150) DEFAULT '',
+  `group_name` varchar(50) DEFAULT '',
+  `alternate_phone` varchar(20) DEFAULT '',
+  `whatsapp_no` varchar(20) DEFAULT '',
+  `billing_city` varchar(80) DEFAULT '',
+  `billing_pincode` varchar(12) DEFAULT '',
+  `shipping_city` varchar(80) DEFAULT '',
+  `shipping_state` varchar(50) DEFAULT '',
+  `shipping_pincode` varchar(12) DEFAULT '',
+  `pan_no` varchar(20) DEFAULT '',
+  `business_type` varchar(50) DEFAULT '',
+  `tan_no` varchar(20) DEFAULT '',
+  `iec_no` varchar(20) DEFAULT '',
+  `trade_license_no` varchar(30) DEFAULT '',
+  `currency` varchar(10) DEFAULT 'INR',
+  `opening_balance` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `opening_balance_type` varchar(10) DEFAULT 'Debit',
+  `documents` text
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `edit_approval_requests`
+--
+
+CREATE TABLE IF NOT EXISTS `edit_approval_requests` (
+  `id` int(11) NOT NULL,
+  `requested_by` int(11) NOT NULL,
+  `requester_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `entity_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `entity_id` int(11) NOT NULL,
+  `entity_label` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `reason` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `status` enum('pending','approved','rejected','expired') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `reviewed_by` int(11) DEFAULT NULL,
+  `reviewer_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `review_note` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `email_logs`
+--
+
+CREATE TABLE IF NOT EXISTS `email_logs` (
+  `id` int(11) NOT NULL,
+  `invoice_id` int(11) DEFAULT NULL,
+  `invoice_number` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `to_email` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `body_html` mediumtext COLLATE utf8mb4_unicode_ci,
+  `status` enum('sent','failed','pending') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `error_msg` text COLLATE utf8mb4_unicode_ci,
+  `smtp_profile` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT 'default',
+  `type` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'invoice' COMMENT 'invoice|estimate|receipt|reminder|overdue|followup|test',
+  `track_token` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `opened_at` datetime DEFAULT NULL,
+  `open_count` int(10) UNSIGNED NOT NULL DEFAULT '0',
+  `sent_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `email_templates`
+--
+
+CREATE TABLE IF NOT EXISTS `email_templates` (
+  `id` int(11) NOT NULL,
+  `type` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'invoice|estimate|receipt|reminder|overdue|followup',
+  `name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `body` mediumtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `expenses`
+--
+
+CREATE TABLE IF NOT EXISTS `expenses` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `date` date NOT NULL,
+  `category` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Other',
+  `vendor` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `method` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'UPI',
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `created_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoices`
+--
+
+CREATE TABLE IF NOT EXISTS `invoices` (
+  `id` int(11) NOT NULL,
+  `invoice_number` varchar(50) COLLATE utf8_unicode_ci NOT NULL,
+  `client_id` int(11) DEFAULT NULL,
+  `client_name` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `service_type` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `issued_date` date DEFAULT NULL,
+  `due_date` date DEFAULT NULL,
+  `status` enum('Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Draft',
+  `cancel_reason` varchar(500) COLLATE utf8_unicode_ci DEFAULT NULL COMMENT 'Reason for cancellation, recorded at the time of status change',
+  `currency` varchar(5) COLLATE utf8_unicode_ci DEFAULT '₹',
+  `subtotal` decimal(14,2) DEFAULT '0.00',
+  `discount_pct` decimal(5,2) DEFAULT '0.00',
+  `discount_type` enum('percent','flat') COLLATE utf8_unicode_ci DEFAULT 'percent',
+  `discount_amt` decimal(12,2) DEFAULT '0.00',
+  `gst_amount` decimal(12,2) DEFAULT '0.00',
+  `grand_total` decimal(14,2) DEFAULT '0.00',
+  `notes` text COLLATE utf8_unicode_ci,
+  `bank_details` text COLLATE utf8_unicode_ci,
+  `terms` text COLLATE utf8_unicode_ci,
+  `company_logo` text COLLATE utf8_unicode_ci,
+  `client_logo` text COLLATE utf8_unicode_ci,
+  `signature` text COLLATE utf8_unicode_ci,
+  `qr_code` text COLLATE utf8_unicode_ci,
+  `template_id` tinyint(4) DEFAULT '1',
+  `generated_by` varchar(200) COLLATE utf8_unicode_ci DEFAULT 'OPTMS Tech Invoice Manager',
+  `show_generated` tinyint(1) DEFAULT '1',
+  `pdf_options` json DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_estimate` tinyint(1) DEFAULT '0',
+  `client_person` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `client_wa` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `client_email` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `client_gst` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `client_addr` text COLLATE utf8_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoice_items`
+--
+
+CREATE TABLE IF NOT EXISTS `invoice_items` (
+  `id` int(11) NOT NULL,
+  `invoice_id` int(11) NOT NULL,
+  `description` varchar(500) COLLATE utf8_unicode_ci NOT NULL,
+  `item_type` varchar(50) COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Service',
+  `quantity` decimal(10,2) DEFAULT '1.00',
+  `rate` decimal(12,2) DEFAULT '0.00',
+  `gst_rate` decimal(5,2) DEFAULT '18.00',
+  `line_total` decimal(14,2) DEFAULT '0.00',
+  `sort_order` int(11) DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoice_portal_tokens`
+--
+
+CREATE TABLE IF NOT EXISTS `invoice_portal_tokens` (
+  `id` int(11) NOT NULL,
+  `invoice_id` int(11) NOT NULL,
+  `token` varchar(64) NOT NULL,
+  `created_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payments`
+--
+
+CREATE TABLE IF NOT EXISTS `payments` (
+  `id` int(11) NOT NULL,
+  `invoice_id` int(11) DEFAULT NULL,
+  `invoice_number` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `client_name` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `amount` decimal(14,2) NOT NULL,
+  `payment_date` datetime DEFAULT NULL,
+  `method` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `transaction_id` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `status` enum('Success','Pending','Failed') COLLATE utf8_unicode_ci DEFAULT 'Success',
+  `notes` text COLLATE utf8_unicode_ci,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `settlement_discount` decimal(10,2) DEFAULT '0.00',
+  `remaining_amt` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `invoice_deleted` tinyint(1) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_vouchers`
+--
+
+CREATE TABLE IF NOT EXISTS `payment_vouchers` (
+  `id` int(11) NOT NULL,
+  `reference_no` varchar(50) NOT NULL,
+  `payment_date` date NOT NULL,
+  `direction` enum('in','out') DEFAULT 'out',
+  `party_type` varchar(30) DEFAULT 'Vendor',
+  `party_name` varchar(150) NOT NULL,
+  `payment_for` varchar(255) DEFAULT '',
+  `payment_mode` varchar(30) DEFAULT 'Cash',
+  `amount` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `status` enum('Paid','Pending') DEFAULT 'Paid',
+  `notes` text,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `portal_tokens`
+--
+
+CREATE TABLE IF NOT EXISTS `portal_tokens` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `invoice_id` int(10) UNSIGNED NOT NULL,
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `token` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `views` int(10) UNSIGNED NOT NULL DEFAULT '0',
+  `last_viewed` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL COMMENT 'NULL = never expires',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `first_viewed` datetime DEFAULT NULL,
+  `view_count` int(10) UNSIGNED NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `portal_views`
+--
+
+CREATE TABLE IF NOT EXISTS `portal_views` (
+  `invoice_id` int(10) UNSIGNED NOT NULL,
+  `first_viewed` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `view_count` int(10) UNSIGNED NOT NULL DEFAULT '1'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `products`
+--
+
+CREATE TABLE IF NOT EXISTS `products` (
+  `id` int(11) NOT NULL,
+  `name` varchar(200) COLLATE utf8_unicode_ci NOT NULL,
+  `category` varchar(100) COLLATE utf8_unicode_ci DEFAULT 'Other',
+  `unit_family` enum('count','weight','volume') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'count',
+  `rate` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `hsn_code` varchar(20) COLLATE utf8_unicode_ci DEFAULT '998314',
+  `gst_rate` decimal(5,2) DEFAULT '18.00',
+  `description` text COLLATE utf8_unicode_ci,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `hsn` varchar(20) COLLATE utf8_unicode_ci DEFAULT '',
+  `status` enum('active','archived') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'active',
+  `sku` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `unit` varchar(20) COLLATE utf8_unicode_ci DEFAULT 'Kg',
+  `brand` varchar(100) COLLATE utf8_unicode_ci DEFAULT '',
+  `variety` varchar(100) COLLATE utf8_unicode_ci DEFAULT '',
+  `grade` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `barcode` varchar(100) COLLATE utf8_unicode_ci DEFAULT '',
+  `shelf_life_months` int(11) DEFAULT NULL,
+  `storage_type` varchar(30) COLLATE utf8_unicode_ci DEFAULT '',
+  `base_unit_label` varchar(20) COLLATE utf8_unicode_ci DEFAULT 'Kg',
+  `sale_unit` varchar(20) COLLATE utf8_unicode_ci DEFAULT 'Kg',
+  `purchase_unit` varchar(20) COLLATE utf8_unicode_ci DEFAULT 'Kg',
+  `min_order_qty` decimal(12,2) DEFAULT '0.00',
+  `moisture_limit` decimal(5,2) DEFAULT NULL,
+  `foreign_matter_limit` decimal(5,2) DEFAULT NULL,
+  `broken_damage_limit` decimal(5,2) DEFAULT NULL,
+  `oil_content` decimal(5,2) DEFAULT NULL,
+  `admixture_limit` decimal(5,2) DEFAULT NULL,
+  `color` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `aroma` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `shape_size` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `packing_type` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `packing_size` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `purchase_rate` decimal(12,2) DEFAULT '0.00',
+  `sale_rate` decimal(12,2) DEFAULT '0.00',
+  `mrp` decimal(12,2) DEFAULT '0.00',
+  `gst` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `tax_type` varchar(40) COLLATE utf8_unicode_ci DEFAULT 'Intra-State (CGST+SGST)',
+  `opening_stock` decimal(12,3) DEFAULT '0.000',
+  `reorder_level` decimal(12,3) DEFAULT '0.000',
+  `max_stock` decimal(12,3) DEFAULT '0.000',
+  `default_warehouse` varchar(100) COLLATE utf8_unicode_ci DEFAULT 'Main Warehouse',
+  `track_batch` tinyint(1) DEFAULT '0',
+  `track_serial` tinyint(1) DEFAULT '0',
+  `short_description` varchar(200) COLLATE utf8_unicode_ci DEFAULT '',
+  `detailed_description` varchar(500) COLLATE utf8_unicode_ci DEFAULT '',
+  `country_of_origin` varchar(80) COLLATE utf8_unicode_ci DEFAULT 'India',
+  `manufacturer` varchar(150) COLLATE utf8_unicode_ci DEFAULT '',
+  `fssai_license` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `iec_code` varchar(50) COLLATE utf8_unicode_ci DEFAULT '',
+  `tags` text COLLATE utf8_unicode_ci,
+  `images` text COLLATE utf8_unicode_ci,
+  `attachments` text COLLATE utf8_unicode_ci
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `product_categories`
+--
+
+CREATE TABLE IF NOT EXISTS `product_categories` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `color` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '#00897B',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `proforma_invoices`
+--
+
+CREATE TABLE IF NOT EXISTS `proforma_invoices` (
+  `id` int(11) NOT NULL,
+  `ofr_no` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `customer_id` int(11) DEFAULT NULL,
+  `customer_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `ofr_date` date NOT NULL,
+  `valid_until` date DEFAULT NULL,
+  `destination` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `incoterms` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'FOB',
+  `payment_terms` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `currency` enum('INR','USD','BOTH') COLLATE utf8mb4_unicode_ci DEFAULT 'BOTH',
+  `usd_rate` decimal(10,4) DEFAULT '93.5000',
+  `is_international` tinyint(1) DEFAULT '1',
+  `products` longtext COLLATE utf8mb4_unicode_ci COMMENT 'JSON array of product rows',
+  `charges` longtext COLLATE utf8mb4_unicode_ci COMMENT 'JSON array of charge rows',
+  `subtotal_inr` decimal(14,2) DEFAULT '0.00',
+  `total_inr` decimal(14,2) DEFAULT '0.00',
+  `total_usd` decimal(14,2) DEFAULT '0.00',
+  `per_kg_inr` decimal(10,2) DEFAULT '0.00',
+  `per_kg_usd` decimal(10,4) DEFAULT '0.0000',
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  `internal_notes` text COLLATE utf8mb4_unicode_ci,
+  `status` enum('Draft','Pending','Accepted','Cancelled','Expired') COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
+  `sale_id` int(11) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `promise_to_pay`
+--
+
+CREATE TABLE IF NOT EXISTS `promise_to_pay` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `invoice_id` int(10) UNSIGNED NOT NULL,
+  `invoice_num` varchar(40) NOT NULL DEFAULT '',
+  `client_name` varchar(200) NOT NULL DEFAULT '',
+  `promise_date` date NOT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `note` text,
+  `channel` varchar(20) NOT NULL DEFAULT 'whatsapp',
+  `status` varchar(20) NOT NULL DEFAULT 'pending',
+  `reminded_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `purchases`
+--
+
+CREATE TABLE IF NOT EXISTS `purchases` (
+  `id` int(11) NOT NULL,
+  `purchase_no` varchar(50) NOT NULL,
+  `supplier_id` int(11) NOT NULL,
+  `supplier_invoice_ref` varchar(100) DEFAULT '',
+  `purchase_date` date NOT NULL,
+  `currency` varchar(10) DEFAULT 'INR',
+  `exchange_rate` decimal(12,4) DEFAULT '1.0000',
+  `subtotal` decimal(14,2) DEFAULT '0.00',
+  `gst_amount` decimal(14,2) DEFAULT '0.00',
+  `total` decimal(14,2) DEFAULT '0.00',
+  `amount_paid` decimal(14,2) DEFAULT '0.00',
+  `status` enum('Pending','Received','Partial','Paid') DEFAULT 'Pending',
+  `notes` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `gst_pct` decimal(5,2) DEFAULT '0.00',
+  `reference_po_no` varchar(50) DEFAULT '',
+  `supplier_type` varchar(30) DEFAULT '',
+  `gst_applicable` tinyint(1) NOT NULL DEFAULT '1',
+  `supply_type` varchar(20) DEFAULT 'Intra-State',
+  `transport_mode` varchar(30) DEFAULT '',
+  `vehicle_no` varchar(30) DEFAULT '',
+  `driver_name` varchar(100) DEFAULT '',
+  `warehouse` varchar(100) DEFAULT 'Main Warehouse',
+  `payment_terms` varchar(50) DEFAULT '',
+  `payment_type` varchar(30) DEFAULT '',
+  `remarks` varchar(255) DEFAULT '',
+  `transport_charge` decimal(12,2) DEFAULT '0.00',
+  `loading_charge` decimal(12,2) DEFAULT '0.00',
+  `packing_charge` decimal(12,2) DEFAULT '0.00',
+  `other_charges` decimal(12,2) DEFAULT '0.00',
+  `discount_amount` decimal(12,2) DEFAULT '0.00',
+  `discount_remarks` varchar(255) NOT NULL DEFAULT '',
+  `attachment_path` varchar(255) DEFAULT '',
+  `payment_mode` varchar(255) DEFAULT '',
+  `transaction_no` varchar(100) DEFAULT '',
+  `payment_date` date DEFAULT NULL,
+  `weighing_type` varchar(30) DEFAULT 'Dharam Kanta',
+  `kanta_name` varchar(150) DEFAULT '',
+  `weighbridge_slip_no` varchar(50) DEFAULT '',
+  `weight_datetime` datetime DEFAULT NULL,
+  `kanta_gross_weight` decimal(12,2) DEFAULT '0.00',
+  `kanta_tare_weight` decimal(12,2) DEFAULT '0.00',
+  `kanta_operator_name` varchar(100) DEFAULT '',
+  `kanta_slip_path` varchar(255) DEFAULT '',
+  `header_moisture_pct` decimal(5,2) DEFAULT NULL,
+  `header_impurity_pct` decimal(5,2) DEFAULT NULL,
+  `header_dhalta_pct` decimal(5,2) DEFAULT NULL,
+  `header_dhalta_kg` decimal(12,2) DEFAULT NULL,
+  `header_billable_weight` decimal(12,2) DEFAULT NULL,
+  `deductions` text,
+  `deduction_amount` decimal(12,2) DEFAULT '0.00',
+  `trade_discount_pct` decimal(5,2) DEFAULT '0.00',
+  `cash_discount_pct` decimal(5,2) DEFAULT '0.00',
+  `cd_applicable_within` varchar(20) DEFAULT 'Same Day',
+  `trade_discount_amount` decimal(12,2) DEFAULT '0.00',
+  `cash_discount_amount` decimal(12,2) DEFAULT '0.00'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `purchase_items`
+--
+
+CREATE TABLE IF NOT EXISTS `purchase_items` (
+  `id` int(11) NOT NULL,
+  `purchase_id` int(11) NOT NULL,
+  `product_id` int(11) DEFAULT NULL,
+  `description` varchar(255) NOT NULL,
+  `hsn` varchar(20) DEFAULT '',
+  `qty` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `entered_qty` decimal(12,3) DEFAULT NULL,
+  `entered_unit` varchar(10) DEFAULT NULL,
+  `unit` varchar(20) DEFAULT 'pcs',
+  `rate` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `gst_pct` decimal(5,2) DEFAULT '0.00',
+  `amount` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `variety_grade` varchar(100) DEFAULT '',
+  `moisture_pct` decimal(5,2) DEFAULT '0.00',
+  `quality_grade` varchar(50) DEFAULT '',
+  `gross_weight` decimal(12,3) DEFAULT '0.000',
+  `tare_weight` decimal(12,3) DEFAULT '0.000',
+  `dhalta_pct` decimal(5,2) DEFAULT '0.00',
+  `dhalta_kg` decimal(12,3) DEFAULT '0.000',
+  `billable_weight` decimal(12,3) DEFAULT '0.000',
+  `discount_pct` decimal(5,2) DEFAULT '0.00'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `recurring_schedules`
+--
+
+CREATE TABLE IF NOT EXISTS `recurring_schedules` (
+  `id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  `client_name` varchar(200) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `service` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT NULL,
+  `discount_pct` decimal(5,2) DEFAULT '0.00',
+  `disc_type` varchar(10) COLLATE utf8_unicode_ci DEFAULT 'pct',
+  `disc_val` decimal(10,2) DEFAULT '0.00',
+  `discount_amt` decimal(10,2) DEFAULT '0.00',
+  `gst` decimal(5,2) DEFAULT '0.00',
+  `gst_amt` decimal(10,2) DEFAULT '0.00',
+  `grand_total` decimal(10,2) DEFAULT NULL,
+  `items` json DEFAULT NULL,
+  `freq` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `next_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `due_days` int(11) DEFAULT '15',
+  `template_id` int(11) DEFAULT '1',
+  `notes` text COLLATE utf8_unicode_ci,
+  `status` varchar(20) COLLATE utf8_unicode_ci DEFAULT 'active',
+  `generated_count` int(11) DEFAULT '0',
+  `last_generated` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `recurring_schedule_items`
+--
+
+CREATE TABLE IF NOT EXISTS `recurring_schedule_items` (
+  `id` int(11) NOT NULL,
+  `schedule_id` int(11) NOT NULL,
+  `description` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `item_type` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `qty` decimal(10,2) DEFAULT NULL,
+  `rate` decimal(10,2) DEFAULT NULL,
+  `gst_pct` decimal(5,2) DEFAULT '0.00'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `reminder_log`
+--
+
+CREATE TABLE IF NOT EXISTS `reminder_log` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `invoice_id` int(10) UNSIGNED DEFAULT NULL,
+  `invoice_num` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_name` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `type` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'due_reminder' COMMENT 'due_soon | due_today | overdue | manual',
+  `channel` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'whatsapp',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'sent' COMMENT 'sent | skipped | failed',
+  `message` text COLLATE utf8mb4_unicode_ci,
+  `sent_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `reminder_settings`
+--
+
+CREATE TABLE IF NOT EXISTS `reminder_settings` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `before_days` tinyint(4) NOT NULL DEFAULT '3' COMMENT 'Days before due to send reminder',
+  `on_due` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = send reminder on due date',
+  `overdue_freq` tinyint(4) NOT NULL DEFAULT '7' COMMENT 'Re-send overdue reminder every N days',
+  `max_overdue` tinyint(4) NOT NULL DEFAULT '3' COMMENT 'Max overdue reminder attempts',
+  `channel` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'whatsapp' COMMENT 'whatsapp | email | both',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `send_hour` tinyint(4) NOT NULL DEFAULT '9',
+  `send_minute` tinyint(4) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `role_permissions`
+--
+
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `role` enum('admin','manager','accountant','sales','viewer') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `permission_key` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `sales`
+--
+
+CREATE TABLE IF NOT EXISTS `sales` (
+  `id` int(11) NOT NULL,
+  `invoice_no` varchar(50) NOT NULL,
+  `customer_id` int(11) NOT NULL,
+  `sale_date` date NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `sales_executive` varchar(100) DEFAULT '',
+  `payment_terms` varchar(50) DEFAULT '',
+  `sales_type` varchar(30) DEFAULT 'Local Sales',
+  `place_of_supply` varchar(50) DEFAULT '',
+  `currency` varchar(10) DEFAULT 'INR',
+  `subtotal` decimal(14,2) DEFAULT '0.00',
+  `transport_charge` decimal(12,2) DEFAULT '0.00',
+  `loading_charge` decimal(12,2) DEFAULT '0.00',
+  `packing_charge` decimal(12,2) DEFAULT '0.00',
+  `insurance_charge` decimal(12,2) DEFAULT '0.00',
+  `other_charges` decimal(12,2) DEFAULT '0.00',
+  `round_off` decimal(8,2) DEFAULT '0.00',
+  `discount_amount` decimal(12,2) DEFAULT '0.00',
+  `discount_remarks` varchar(255) NOT NULL DEFAULT '',
+  `taxable_amount` decimal(14,2) DEFAULT '0.00',
+  `cgst_amount` decimal(12,2) DEFAULT '0.00',
+  `sgst_amount` decimal(12,2) DEFAULT '0.00',
+  `igst_amount` decimal(12,2) DEFAULT '0.00',
+  `total_tax` decimal(12,2) DEFAULT '0.00',
+  `total` decimal(14,2) DEFAULT '0.00',
+  `payment_status` enum('Pending','Partial','Paid') DEFAULT 'Pending',
+  `payment_method` varchar(30) DEFAULT '',
+  `amount_received` decimal(14,2) DEFAULT '0.00',
+  `transaction_no` varchar(100) DEFAULT '',
+  `payment_date` date DEFAULT NULL,
+  `customer_notes` text,
+  `internal_notes` text,
+  `delivery_instructions` text,
+  `attachments` text,
+  `prepared_by` varchar(100) DEFAULT '',
+  `checked_by` varchar(100) DEFAULT '',
+  `approved_by` varchar(100) DEFAULT '',
+  `status` enum('Draft','Confirmed','Cancelled') DEFAULT 'Confirmed',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `weighing_type` varchar(30) DEFAULT 'Dharam Kanta',
+  `kanta_name` varchar(150) DEFAULT '',
+  `weighbridge_slip_no` varchar(50) DEFAULT '',
+  `weight_datetime` datetime DEFAULT NULL,
+  `kanta_operator_name` varchar(100) DEFAULT '',
+  `kanta_gross_weight` decimal(12,2) DEFAULT '0.00',
+  `kanta_tare_weight` decimal(12,2) DEFAULT '0.00',
+  `kanta_moisture_pct` decimal(5,2) DEFAULT NULL,
+  `kanta_dhalta_kg` decimal(12,2) DEFAULT '0.00',
+  `deductions` text,
+  `deduction_amount` decimal(12,2) DEFAULT '0.00',
+  `trade_discount_pct` decimal(5,2) DEFAULT '0.00',
+  `cash_discount_pct` decimal(5,2) DEFAULT '0.00',
+  `cd_applicable_within` varchar(20) DEFAULT 'Same Day',
+  `trade_discount_amount` decimal(12,2) DEFAULT '0.00',
+  `cash_discount_amount` decimal(12,2) DEFAULT '0.00'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `sale_items`
+--
+
+CREATE TABLE IF NOT EXISTS `sale_items` (
+  `id` int(11) NOT NULL,
+  `sale_id` int(11) NOT NULL,
+  `product_id` int(11) DEFAULT NULL,
+  `description` varchar(255) NOT NULL,
+  `variety_grade` varchar(100) DEFAULT '',
+  `batch_no` varchar(50) DEFAULT '',
+  `warehouse` varchar(100) DEFAULT 'Main Warehouse',
+  `qty` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `unit` varchar(20) DEFAULT 'Kg',
+  `rate` decimal(14,2) NOT NULL DEFAULT '0.00',
+  `discount_pct` decimal(5,2) DEFAULT '0.00',
+  `gst_pct` decimal(5,2) DEFAULT '0.00',
+  `tax_amount` decimal(12,2) DEFAULT '0.00',
+  `line_total` decimal(14,2) DEFAULT '0.00',
+  `moisture_pct` decimal(5,2) DEFAULT NULL,
+  `gross_wt` decimal(12,2) DEFAULT '0.00',
+  `tare_wt` decimal(12,2) DEFAULT '0.00',
+  `net_wt` decimal(12,2) DEFAULT '0.00',
+  `dhalta_kg` decimal(12,2) DEFAULT '0.00',
+  `billable_wt` decimal(12,2) DEFAULT '0.00',
+  `kanta_slip` varchar(50) DEFAULT '',
+  `kanta_data` text COMMENT 'JSON: {gross, tare, net, dhalta, billable, slip} — per-item kanta weights'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `service_categories`
+--
+
+CREATE TABLE IF NOT EXISTS `service_categories` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
+  `color` varchar(10) COLLATE utf8_unicode_ci DEFAULT '#00897B',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `settings`
+--
+
+CREATE TABLE IF NOT EXISTS `settings` (
+  `id` int(11) NOT NULL,
+  `key` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
+  `value` text COLLATE utf8_unicode_ci,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `smtp_profiles`
+--
+
+CREATE TABLE IF NOT EXISTS `smtp_profiles` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `host` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `port` smallint(6) NOT NULL DEFAULT '587',
+  `username` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `from_email` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `from_name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OPTMS Tech',
+  `encryption` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tls' COMMENT 'tls | ssl | none',
+  `provider` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'smtp' COMMENT 'smtp | gmail | sendgrid | mailgun',
+  `api_key` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_default` tinyint(1) NOT NULL DEFAULT '0',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `stock_adjustments`
+--
+
+CREATE TABLE IF NOT EXISTS `stock_adjustments` (
+  `id` int(11) NOT NULL,
+  `adjustment_no` varchar(50) NOT NULL,
+  `adjustment_date` date NOT NULL,
+  `adjustment_type` varchar(30) DEFAULT 'Moisture Loss',
+  `direction` varchar(3) NOT NULL DEFAULT 'out',
+  `warehouse` varchar(100) DEFAULT 'Main Warehouse',
+  `reference_no` varchar(100) DEFAULT '',
+  `reference_date` date DEFAULT NULL,
+  `product_id` int(11) NOT NULL,
+  `variety_grade` varchar(100) DEFAULT '',
+  `grade` varchar(50) DEFAULT '',
+  `unit` varchar(20) DEFAULT 'Kg',
+  `batch_no` varchar(50) DEFAULT '',
+  `manufacture_date` date DEFAULT NULL,
+  `expiry_date` date DEFAULT NULL,
+  `supplier_id` int(11) DEFAULT NULL,
+  `opening_stock` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `moisture_before_pct` decimal(5,2) DEFAULT NULL,
+  `moisture_after_pct` decimal(5,2) DEFAULT NULL,
+  `moisture_loss_pct` decimal(5,2) DEFAULT NULL,
+  `weight_loss_kg` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `final_stock` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `reason` varchar(100) DEFAULT '',
+  `remarks` text,
+  `attachment_path` varchar(255) DEFAULT '',
+  `approved_by` varchar(100) DEFAULT '',
+  `approval_date` date DEFAULT NULL,
+  `notes` text,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `stock_in_entries`
+--
+
+CREATE TABLE IF NOT EXISTS `stock_in_entries` (
+  `id` int(11) NOT NULL,
+  `reference_no` varchar(50) NOT NULL,
+  `reference_date` date NOT NULL,
+  `warehouse` varchar(100) DEFAULT 'Main Warehouse',
+  `stock_in_type` varchar(30) DEFAULT 'Purchase',
+  `remarks` text,
+  `weighing_type` varchar(30) DEFAULT 'Own Weighbridge',
+  `weighbridge_name` varchar(150) DEFAULT '',
+  `weighbridge_slip_no` varchar(50) DEFAULT '',
+  `weight_datetime` datetime DEFAULT NULL,
+  `gross_weight` decimal(12,2) DEFAULT '0.00',
+  `tare_weight` decimal(12,2) DEFAULT '0.00',
+  `operator_name` varchar(100) DEFAULT '',
+  `slip_path` varchar(255) DEFAULT '',
+  `supplier_id` int(11) DEFAULT NULL,
+  `challan_no` varchar(50) DEFAULT '',
+  `challan_date` date DEFAULT NULL,
+  `vehicle_no` varchar(30) DEFAULT '',
+  `driver_name` varchar(100) DEFAULT '',
+  `attachments` text,
+  `total_quantity` decimal(12,3) DEFAULT '0.000',
+  `total_amount` decimal(14,2) DEFAULT '0.00',
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `stock_in_items`
+--
+
+CREATE TABLE IF NOT EXISTS `stock_in_items` (
+  `id` int(11) NOT NULL,
+  `stock_in_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `variety` varchar(100) DEFAULT '',
+  `batch_no` varchar(50) DEFAULT '',
+  `mfg_date` date DEFAULT NULL,
+  `expiry_date` date DEFAULT NULL,
+  `qty` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `rate` decimal(14,2) DEFAULT '0.00',
+  `amount` decimal(14,2) DEFAULT '0.00',
+  `grade` varchar(50) DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `stock_ledger`
+--
+
+CREATE TABLE IF NOT EXISTS `stock_ledger` (
+  `id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `ref_type` enum('purchase','sale','adjustment') NOT NULL,
+  `ref_id` int(11) DEFAULT NULL,
+  `direction` enum('in','out') NOT NULL,
+  `qty` decimal(12,3) NOT NULL,
+  `rate` decimal(14,2) DEFAULT '0.00',
+  `balance_after` decimal(12,3) NOT NULL DEFAULT '0.000',
+  `movement_date` date NOT NULL,
+  `notes` varchar(255) DEFAULT '',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `warehouse` varchar(100) DEFAULT 'Main Warehouse',
+  `batch_no` varchar(50) DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `suppliers`
+--
+
+CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` int(11) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `contact_person` varchar(150) DEFAULT '',
+  `phone` varchar(30) DEFAULT '',
+  `email` varchar(150) DEFAULT '',
+  `gst_number` varchar(20) DEFAULT '',
+  `country` varchar(80) DEFAULT 'India',
+  `address` text,
+  `payment_terms` varchar(100) DEFAULT '',
+  `opening_balance` decimal(12,2) DEFAULT '0.00',
+  `notes` text,
+  `status` enum('active','archived') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `supplier_type` varchar(30) DEFAULT 'Trader',
+  `state` varchar(50) DEFAULT '',
+  `district` varchar(50) DEFAULT '',
+  `date_of_registration` date DEFAULT NULL,
+  `business_nature` varchar(100) DEFAULT '',
+  `website` varchar(150) DEFAULT '',
+  `city` varchar(80) DEFAULT '',
+  `pincode` varchar(12) DEFAULT '',
+  `pan_no` varchar(20) DEFAULT '',
+  `aadhaar_no` varchar(20) DEFAULT '',
+  `state_code` varchar(10) DEFAULT '',
+  `tan_no` varchar(20) DEFAULT '',
+  `msme_no` varchar(30) DEFAULT '',
+  `fssai_no` varchar(30) DEFAULT '',
+  `bank_name` varchar(150) DEFAULT '',
+  `bank_account_no` varchar(30) DEFAULT '',
+  `ifsc_code` varchar(15) DEFAULT '',
+  `account_holder_name` varchar(150) DEFAULT '',
+  `credit_limit` decimal(14,2) DEFAULT '0.00',
+  `default_price_list` varchar(100) DEFAULT '',
+  `documents` text
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
+  `email` varchar(150) COLLATE utf8_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `role` enum('owner','admin','manager','accountant','sales','viewer') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'viewer',
+  `avatar` text COLLATE utf8_unicode_ci,
+  `phone` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  `address` text COLLATE utf8_unicode_ci,
+  `tags` text COLLATE utf8_unicode_ci,
+  `alt_phone` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `is_verified` tinyint(1) NOT NULL DEFAULT '0',
+  `license_no` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `license_expiry` date DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_contacts`
+--
+
+CREATE TABLE IF NOT EXISTS `user_contacts` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `name` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `phone` varchar(100) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `relation` varchar(50) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `wa_message_log`
+--
+
+CREATE TABLE IF NOT EXISTS `wa_message_log` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `entry_id` varchar(40) NOT NULL,
+  `wamid` varchar(100) DEFAULT NULL,
+  `ts` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `type` varchar(40) NOT NULL DEFAULT 'unknown',
+  `status` varchar(20) NOT NULL DEFAULT 'sent_web',
+  `client` varchar(200) DEFAULT NULL,
+  `phone` varchar(30) DEFAULT NULL,
+  `inv_id` varchar(20) DEFAULT NULL,
+  `inv_num` varchar(40) DEFAULT NULL,
+  `inv_amt` varchar(30) DEFAULT NULL,
+  `inv_status` varchar(30) DEFAULT NULL,
+  `msg` text,
+  `error` varchar(500) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `activitys_log`
+--
+ALTER TABLE `activitys_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_actlog_type` (`type`),
+  ADD KEY `idx_actlog_invoice` (`invoice_id`),
+  ADD KEY `idx_actlog_created` (`created_at`);
+
+--
+-- Indexes for table `activity_log`
+--
+ALTER TABLE `activity_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `clients`
+--
+ALTER TABLE `clients`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `credit_notes`
+--
+ALTER TABLE `credit_notes`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_cn_number` (`cn_number`);
+
+--
+-- Indexes for table `customers`
+--
+ALTER TABLE `customers`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `edit_approval_requests`
+--
+ALTER TABLE `edit_approval_requests`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_ear_status` (`status`),
+  ADD KEY `idx_ear_entity` (`entity_type`,`entity_id`);
+
+--
+-- Indexes for table `email_logs`
+--
+ALTER TABLE `email_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `track_token` (`track_token`),
+  ADD KEY `idx_el_invoice` (`invoice_id`),
+  ADD KEY `idx_el_status` (`status`),
+  ADD KEY `idx_el_type` (`type`),
+  ADD KEY `idx_el_created` (`created_at`);
+
+--
+-- Indexes for table `email_templates`
+--
+ALTER TABLE `email_templates`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `type` (`type`);
+
+--
+-- Indexes for table `expenses`
+--
+ALTER TABLE `expenses`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_expenses_date` (`date`),
+  ADD KEY `idx_expenses_category` (`category`),
+  ADD KEY `idx_expenses_created` (`created_at`);
+
+--
+-- Indexes for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `invoice_number` (`invoice_number`),
+  ADD KEY `client_id` (`client_id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `invoice_items`
+--
+ALTER TABLE `invoice_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `invoice_id` (`invoice_id`);
+
+--
+-- Indexes for table `invoice_portal_tokens`
+--
+ALTER TABLE `invoice_portal_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `token` (`token`),
+  ADD KEY `idx_invoice` (`invoice_id`);
+
+--
+-- Indexes for table `payments`
+--
+ALTER TABLE `payments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `invoice_id` (`invoice_id`);
+
+--
+-- Indexes for table `payment_vouchers`
+--
+ALTER TABLE `payment_vouchers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_payvoucher_date` (`payment_date`);
+
+--
+-- Indexes for table `portal_tokens`
+--
+ALTER TABLE `portal_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_portal_invoice` (`invoice_id`),
+  ADD UNIQUE KEY `uk_portal_token` (`token`),
+  ADD UNIQUE KEY `invoice_id` (`invoice_id`),
+  ADD KEY `idx_portal_token` (`token`);
+
+--
+-- Indexes for table `portal_views`
+--
+ALTER TABLE `portal_views`
+  ADD PRIMARY KEY (`invoice_id`);
+
+--
+-- Indexes for table `products`
+--
+ALTER TABLE `products`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `product_categories`
+--
+ALTER TABLE `product_categories`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `proforma_invoices`
+--
+ALTER TABLE `proforma_invoices`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `promise_to_pay`
+--
+ALTER TABLE `promise_to_pay`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_ptp_inv` (`invoice_id`),
+  ADD KEY `idx_ptp_date` (`promise_date`);
+
+--
+-- Indexes for table `purchases`
+--
+ALTER TABLE `purchases`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `supplier_id` (`supplier_id`);
+
+--
+-- Indexes for table `purchase_items`
+--
+ALTER TABLE `purchase_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `purchase_id` (`purchase_id`),
+  ADD KEY `product_id` (`product_id`);
+
+--
+-- Indexes for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `recurring_schedule_items`
+--
+ALTER TABLE `recurring_schedule_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `schedule_id` (`schedule_id`);
+
+--
+-- Indexes for table `reminder_log`
+--
+ALTER TABLE `reminder_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_remlog_invoice` (`invoice_id`),
+  ADD KEY `idx_remlog_sent` (`sent_at`);
+
+--
+-- Indexes for table `reminder_settings`
+--
+ALTER TABLE `reminder_settings`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `role_permissions`
+--
+ALTER TABLE `role_permissions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_role_perm` (`role`,`permission_key`);
+
+--
+-- Indexes for table `sales`
+--
+ALTER TABLE `sales`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_sales_customer_date` (`customer_id`,`sale_date`);
+
+--
+-- Indexes for table `sale_items`
+--
+ALTER TABLE `sale_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `sale_id` (`sale_id`),
+  ADD KEY `product_id` (`product_id`);
+
+--
+-- Indexes for table `service_categories`
+--
+ALTER TABLE `service_categories`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `settings`
+--
+ALTER TABLE `settings`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `key` (`key`);
+
+--
+-- Indexes for table `smtp_profiles`
+--
+ALTER TABLE `smtp_profiles`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `stock_adjustments`
+--
+ALTER TABLE `stock_adjustments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `supplier_id` (`supplier_id`),
+  ADD KEY `idx_stockadj_product_date` (`product_id`,`adjustment_date`);
+
+--
+-- Indexes for table `stock_in_entries`
+--
+ALTER TABLE `stock_in_entries`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `supplier_id` (`supplier_id`);
+
+--
+-- Indexes for table `stock_in_items`
+--
+ALTER TABLE `stock_in_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `stock_in_id` (`stock_in_id`),
+  ADD KEY `product_id` (`product_id`);
+
+--
+-- Indexes for table `stock_ledger`
+--
+ALTER TABLE `stock_ledger`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_stock_product_date` (`product_id`,`movement_date`);
+
+--
+-- Indexes for table `suppliers`
+--
+ALTER TABLE `suppliers`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `user_contacts`
+--
+ALTER TABLE `user_contacts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `wa_message_log`
+--
+ALTER TABLE `wa_message_log`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_entry_id` (`entry_id`),
+  ADD KEY `idx_wa_log_ts` (`ts`),
+  ADD KEY `idx_wa_log_inv` (`inv_id`),
+  ADD KEY `idx_wa_log_wamid` (`wamid`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `activitys_log`
+--
+ALTER TABLE `activitys_log`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `activity_log`
+--
+ALTER TABLE `activity_log`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `clients`
+--
+ALTER TABLE `clients`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `credit_notes`
+--
+ALTER TABLE `credit_notes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `customers`
+--
+ALTER TABLE `customers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `edit_approval_requests`
+--
+ALTER TABLE `edit_approval_requests`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `email_logs`
+--
+ALTER TABLE `email_logs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `email_templates`
+--
+ALTER TABLE `email_templates`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `expenses`
+--
+ALTER TABLE `expenses`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `invoices`
+--
+ALTER TABLE `invoices`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `invoice_items`
+--
+ALTER TABLE `invoice_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `invoice_portal_tokens`
+--
+ALTER TABLE `invoice_portal_tokens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payments`
+--
+ALTER TABLE `payments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payment_vouchers`
+--
+ALTER TABLE `payment_vouchers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `portal_tokens`
+--
+ALTER TABLE `portal_tokens`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `products`
+--
+ALTER TABLE `products`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `product_categories`
+--
+ALTER TABLE `product_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `proforma_invoices`
+--
+ALTER TABLE `proforma_invoices`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `promise_to_pay`
+--
+ALTER TABLE `promise_to_pay`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `purchases`
+--
+ALTER TABLE `purchases`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `purchase_items`
+--
+ALTER TABLE `purchase_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `recurring_schedule_items`
+--
+ALTER TABLE `recurring_schedule_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `reminder_log`
+--
+ALTER TABLE `reminder_log`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `reminder_settings`
+--
+ALTER TABLE `reminder_settings`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `role_permissions`
+--
+ALTER TABLE `role_permissions`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `sales`
+--
+ALTER TABLE `sales`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `sale_items`
+--
+ALTER TABLE `sale_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `service_categories`
+--
+ALTER TABLE `service_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `settings`
+--
+ALTER TABLE `settings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `smtp_profiles`
+--
+ALTER TABLE `smtp_profiles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `stock_adjustments`
+--
+ALTER TABLE `stock_adjustments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `stock_in_entries`
+--
+ALTER TABLE `stock_in_entries`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `stock_in_items`
+--
+ALTER TABLE `stock_in_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `stock_ledger`
+--
+ALTER TABLE `stock_ledger`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `suppliers`
+--
+ALTER TABLE `suppliers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user_contacts`
+--
+ALTER TABLE `user_contacts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `wa_message_log`
+--
+ALTER TABLE `wa_message_log`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `activity_log`
+--
+ALTER TABLE `activity_log`
+  ADD CONSTRAINT `activity_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD CONSTRAINT `invoices_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `invoices_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `invoice_items`
+--
+ALTER TABLE `invoice_items`
+  ADD CONSTRAINT `invoice_items_ibfk_1` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `payments`
+--
+ALTER TABLE `payments`
+  ADD CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`invoice_id`) REFERENCES `invoices` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `purchases`
+--
+ALTER TABLE `purchases`
+  ADD CONSTRAINT `purchases_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`);
+
+--
+-- Constraints for table `purchase_items`
+--
+ALTER TABLE `purchase_items`
+  ADD CONSTRAINT `purchase_items_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `purchase_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+--
+-- Constraints for table `recurring_schedule_items`
+--
+ALTER TABLE `recurring_schedule_items`
+  ADD CONSTRAINT `recurring_schedule_items_ibfk_1` FOREIGN KEY (`schedule_id`) REFERENCES `recurring_schedules` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `sales`
+--
+ALTER TABLE `sales`
+  ADD CONSTRAINT `sales_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`);
+
+--
+-- Constraints for table `sale_items`
+--
+ALTER TABLE `sale_items`
+  ADD CONSTRAINT `sale_items_ibfk_1` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `sale_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+--
+-- Constraints for table `stock_adjustments`
+--
+ALTER TABLE `stock_adjustments`
+  ADD CONSTRAINT `stock_adjustments_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  ADD CONSTRAINT `stock_adjustments_ibfk_2` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`);
+
+--
+-- Constraints for table `stock_in_entries`
+--
+ALTER TABLE `stock_in_entries`
+  ADD CONSTRAINT `stock_in_entries_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`);
+
+--
+-- Constraints for table `stock_in_items`
+--
+ALTER TABLE `stock_in_items`
+  ADD CONSTRAINT `stock_in_items_ibfk_1` FOREIGN KEY (`stock_in_id`) REFERENCES `stock_in_entries` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `stock_in_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+--
+-- Constraints for table `stock_ledger`
+--
+ALTER TABLE `stock_ledger`
+  ADD CONSTRAINT `stock_ledger_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+--
+-- Constraints for table `user_contacts`
+--
+ALTER TABLE `user_contacts`
+  ADD CONSTRAINT `user_contacts_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
