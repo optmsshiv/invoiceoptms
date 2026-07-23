@@ -13,27 +13,6 @@ if (!empty($_SESSION['user_id'])) {
 }
 
 $error = '';
-
-// ── AJAX login (used by the fetch-based form submit below) ──
-$isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax) {
-    header('Content-Type: application/json');
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    if (!$email || !$password) {
-        echo json_encode(['success' => false, 'error' => 'Please enter both email and password.']);
-        exit;
-    }
-    $user = attemptLogin($email, $password);
-    if ($user) {
-        echo json_encode(['success' => true, 'redirect' => '/']);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Invalid email or password. Please try again.']);
-    }
-    exit;
-}
-
-// ── No-JS fallback: plain form POST + full page reload ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -50,7 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 // Use APP_NAME before login — getSetting() needs tenant DB which we don't have yet
-$companyName = APP_NAME;
+// $companyName = APP_NAME;
+$companyName = getSetting('company_name', 'OPTMS Tech');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -121,15 +101,6 @@ body{
 
 /* ── Card dims slightly while a submission is in flight ── */
 .wrap.submitting{opacity:.94;transform:scale(.994)}
-
-/* ── Card pulses green on a real, confirmed login success ── */
-@keyframes successPulse{
-  0%{box-shadow:0 12px 56px rgba(8,80,65,.13)}
-  50%{box-shadow:0 12px 66px rgba(29,158,117,.4)}
-  100%{box-shadow:0 12px 56px rgba(8,80,65,.13)}
-}
-.wrap.success-pulse{animation:successPulse .55s ease}
-.btn-login #btn-icon.fa-check{color:#fff}
 
 /* ── Staggered entrance for right-panel fields ── */
 @keyframes fieldIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -385,10 +356,12 @@ body{
     <div class="welcome-label stagger" style="animation-delay:.05s">Invoice Manager</div>
     <div class="welcome-title stagger" style="animation-delay:.1s">Welcome back</div>
 
-    <div class="err stagger" id="err-box" style="animation-delay:.1s<?= $error ? '' : ';display:none' ?>">
+    <?php if ($error): ?>
+    <div class="err stagger" style="animation-delay:.1s">
       <i class="fas fa-exclamation-circle"></i>
-      <span class="err-text"><?= htmlspecialchars($error) ?></span>
+      <?= htmlspecialchars($error) ?>
     </div>
+    <?php endif; ?>
 
     <form method="POST" autocomplete="on" id="login-form">
       <div class="field stagger" style="animation-delay:.15s">
@@ -488,64 +461,27 @@ const LoadingBar = {
 };
 
 /* ════════════════════════
-   Form submit handler (AJAX)
+   Form submit handler
 ════════════════════════ */
-document.getElementById('login-form').addEventListener('submit', function(e){
-  e.preventDefault();
+document.getElementById('login-form').addEventListener('submit', function(){
+  const btn   = document.getElementById('signin-btn');
+  const icon  = document.getElementById('btn-icon');
+  const label = document.getElementById('btn-label');
+  const card  = document.getElementById('login-card');
 
-  const form   = e.target;
-  const btn    = document.getElementById('signin-btn');
-  const icon   = document.getElementById('btn-icon');
-  const label  = document.getElementById('btn-label');
-  const card   = document.getElementById('login-card');
-  const errBox = document.getElementById('err-box');
-  const errTxt = errBox ? errBox.querySelector('.err-text') : null;
-
-  function showError(msg){
-    btn.disabled       = false;
-    icon.className     = 'fas fa-sign-in-alt';
-    label.textContent  = 'Sign in';
-    card.classList.remove('submitting');
-    if (errBox){
-      if (errTxt) errTxt.textContent = msg;
-      errBox.style.display = 'flex';
-    }
-    card.classList.add('shake');
-    card.addEventListener('animationend', () => card.classList.remove('shake'), {once:true});
-  }
-
-  // Start top loading bar + button/card "in flight" state
+  // Start top loading bar
   LoadingBar.start();
-  btn.disabled = true;
-  icon.className = 'fas fa-circle-notch btn-spinner';
-  label.textContent = 'Signing in…';
-  card.classList.add('submitting');
-  card.classList.remove('shake');
-  if (errBox) errBox.style.display = 'none';
 
-  fetch(form.getAttribute('action') || window.location.href, {
-    method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    body: new FormData(form)
-  })
-    .then(res => res.json())
-    .then(data => {
-      LoadingBar.finish();
-      if (data.success) {
-        // Real success state — checkmark + green pulse — then redirect
-        icon.className    = 'fas fa-check';
-        label.textContent = 'Success';
-        card.classList.remove('submitting');
-        card.classList.add('success-pulse');
-        setTimeout(() => { window.location.href = data.redirect || '/'; }, 550);
-      } else {
-        showError(data.error || 'Something went wrong. Please try again.');
-      }
-    })
-    .catch(() => {
-      LoadingBar.finish();
-      showError('Network error. Please check your connection and try again.');
-    });
+  // Update button state
+  btn.disabled    = true;
+  icon.className  = 'fas fa-circle-notch btn-spinner';
+  label.textContent = 'Signing in…';
+
+  // Dim/settle the whole card while the request is in flight
+  card.classList.add('submitting');
+
+  // If PHP returns an error the page reloads — finish bar on load
+  window.addEventListener('load', () => LoadingBar.finish());
 });
 
 /* ════════════════════════
