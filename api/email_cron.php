@@ -21,6 +21,16 @@
 define('CRON_MODE', true);
 ob_start();
 error_reporting(E_ALL);
+
+// Flush whatever's been echoed so far to the browser/terminal
+// immediately, instead of holding everything in the buffer until
+// the script finishes. If something crashes mid-run, you still see
+// every tenant that was processed before the crash, instead of a
+// blank page with zero information.
+function flush_progress(): void {
+    if (ob_get_level() > 0) { @ob_flush(); }
+    @flush();
+}
 ini_set('log_errors', 1);
 date_default_timezone_set('Asia/Kolkata');
 
@@ -449,13 +459,12 @@ HTML;
 //  Resolve active tenants, then run the routine above once per tenant
 //  against that tenant's own database + own SMTP / settings.
 // ================================================================
-try {
-    $master = getMasterDB();
-} catch (Throwable $e) {
-    echo "[" . date('Y-m-d H:i:s') . "] FATAL: could not connect to master DB: " . $e->getMessage() . "\n";
-    ob_end_flush();
-    exit(1);
-}
+// NOTE: getMasterDB() does NOT throw on failure — db.php catches the
+// PDOException internally and calls _dbError(), which prints its own
+// error page and exits the process directly. So this is intentionally
+// not wrapped in try/catch (it would never fire).
+flush_progress();
+$master = getMasterDB();
 
 $tenants = $master->query("SELECT id, slug, company_name, db_name FROM tenants WHERE status='active'")->fetchAll(PDO::FETCH_ASSOC);
 if (!$tenants) {
@@ -934,6 +943,7 @@ foreach ($tenants as $tenant) {
     $grandLog = array_merge($grandLog, $log);
     $tenantsRun++;
     echo "\n";
+    flush_progress();
 }
 
 // ================================================================
