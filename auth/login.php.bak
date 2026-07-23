@@ -94,20 +94,8 @@ body{
   position:relative;z-index:1;
   box-shadow:0 12px 56px rgba(8,80,65,.13);
   animation:fadeUp .45s ease;
-  transition:opacity .3s ease, transform .3s ease;
 }
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-
-/* ── Card dims slightly while a submission is in flight ── */
-.wrap.submitting{opacity:.94;transform:scale(.994)}
-
-/* ── Staggered entrance for right-panel fields ── */
-@keyframes fieldIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.stagger{opacity:0;animation:fieldIn .45s ease forwards}
-
-/* ── Icon micro-bounce on input focus ── */
-@keyframes iconBounce{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}
-.iw i.ic.bounce{animation:iconBounce .32s ease}
 
 /* ══ LEFT PANEL ══ */
 .left{
@@ -132,7 +120,7 @@ body{
 .left-title{font-size:17px;font-weight:700;color:#E1F5EE;line-height:1.4;margin-bottom:9px}
 .left-sub{font-size:12px;color:#5DCAA5;line-height:1.7}
 .feature-list{margin-top:28px;display:flex;flex-direction:column;gap:14px}
-.feat{display:flex;align-items:flex-start;gap:10px;opacity:0;animation:fieldIn .45s ease forwards}
+.feat{display:flex;align-items:flex-start;gap:10px}
 .feat-dot{
   width:22px;height:22px;border-radius:50%;
   background:rgba(29,158,117,.15);
@@ -327,15 +315,15 @@ body{
       <div class="left-title"><?= htmlspecialchars($companyName) ?><br>Invoice Manager</div>
       <div class="left-sub">Manage invoices, clients &amp; payments — all in one place.</div>
       <div class="feature-list">
-        <div class="feat" style="animation-delay:.55s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">GST-ready invoices</div>
         </div>
-        <div class="feat" style="animation-delay:.65s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">Client &amp; payment tracking</div>
         </div>
-        <div class="feat" style="animation-delay:.75s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">PDF export &amp; QR codes</div>
         </div>
@@ -352,18 +340,18 @@ body{
 
   <!-- ══ RIGHT PANEL ══ -->
   <div class="right">
-    <div class="welcome-label stagger" style="animation-delay:.05s">Invoice Manager</div>
-    <div class="welcome-title stagger" style="animation-delay:.1s">Welcome back</div>
+    <div class="welcome-label">Invoice Manager</div>
+    <div class="welcome-title">Welcome back</div>
 
     <?php if ($error): ?>
-    <div class="err stagger" style="animation-delay:.1s">
+    <div class="err">
       <i class="fas fa-exclamation-circle"></i>
       <?= htmlspecialchars($error) ?>
     </div>
     <?php endif; ?>
 
     <form method="POST" autocomplete="on" id="login-form">
-      <div class="field stagger" style="animation-delay:.15s">
+      <div class="field">
         <label class="fl" for="email">Email</label>
         <div class="iw">
           <i class="fas fa-envelope ic"></i>
@@ -374,7 +362,7 @@ body{
         </div>
       </div>
 
-      <div class="field stagger" style="animation-delay:.22s">
+      <div class="field">
         <label class="fl" for="password">Password</label>
         <div class="iw">
           <i class="fas fa-lock ic"></i>
@@ -386,21 +374,21 @@ body{
         </div>
       </div>
 
-      <div class="meta stagger" style="animation-delay:.28s">
+      <div class="meta">
         <label class="rem">
           <input type="checkbox" name="remember"> Remember me
         </label>
         <a href="forgot_password.php" class="fp">Forgot password?</a>
       </div>
 
-      <button type="submit" class="btn-login stagger" id="signin-btn" style="animation-delay:.34s">
+      <button type="submit" class="btn-login" id="signin-btn">
         <i class="fas fa-sign-in-alt" id="btn-icon"></i>
         <span id="btn-label">Sign in</span>
       </button>
     </form>
 
-    <div class="divline stagger" style="animation-delay:.4s"><hr><span>or continue with</span><hr></div>
-    <button type="button" class="sso-btn stagger" style="animation-delay:.45s">
+    <div class="divline"><hr><span>or continue with</span><hr></div>
+    <button type="button" class="sso-btn">
       <i class="fas fa-building"></i> Sign in with SSO
     </button>
   </div>
@@ -466,7 +454,6 @@ document.getElementById('login-form').addEventListener('submit', function(){
   const btn   = document.getElementById('signin-btn');
   const icon  = document.getElementById('btn-icon');
   const label = document.getElementById('btn-label');
-  const card  = document.getElementById('login-card');
 
   // Start top loading bar
   LoadingBar.start();
@@ -476,26 +463,8 @@ document.getElementById('login-form').addEventListener('submit', function(){
   icon.className  = 'fas fa-circle-notch btn-spinner';
   label.textContent = 'Signing in…';
 
-  // Dim/settle the whole card while the request is in flight
-  card.classList.add('submitting');
-
   // If PHP returns an error the page reloads — finish bar on load
   window.addEventListener('load', () => LoadingBar.finish());
-});
-
-/* ════════════════════════
-   Icon micro-bounce on focus
-════════════════════════ */
-document.querySelectorAll('.iw input').forEach(input => {
-  const icon = input.parentElement.querySelector('i.ic');
-  if (!icon) return;
-  input.addEventListener('focus', () => {
-    icon.classList.remove('bounce');
-    // restart the animation even if focused again quickly
-    void icon.offsetWidth;
-    icon.classList.add('bounce');
-  });
-  icon.addEventListener('animationend', () => icon.classList.remove('bounce'));
 });
 
 /* ════════════════════════
@@ -525,34 +494,14 @@ function togglePwd(){
 ════════════════════════ */
 (function(){
   const c = document.getElementById('geo-bg');
-  const ctx = c.getContext('2d');
-  let W = 0, H = 0;
+  function draw(){
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+    const ctx = c.getContext('2d');
+    const W = c.width, H = c.height;
+    const t = a => `rgba(8,80,65,${a})`;
 
-  // Base positions/sizes for the floating docs (unpacked once per resize)
-  const docBase = [
-    [.07,.12, 50,64,-18,.052, 0],
-    [.88,.10, 42,54, 15,.048, 1],
-    [.92,.76, 58,74, -9,.052, 2],
-    [.05,.80, 38,50, 24,.044, 3],
-    [.50,.05, 34,44,  7,.040, 4],
-    [.94,.42, 28,36,-14,.034, 5],
-    [.20,.92, 26,34, 32,.030, 6],
-    [.74,.94, 34,44, -6,.036, 7],
-  ];
-  const coinBase = [
-    [.28,.10,9],[.68,.20,7],[.14,.55,6],
-    [.83,.55,8],[.46,.96,6],[.60,.04,5],
-  ];
-  const stampBase = [[.35,.18,22],[.65,.83,18],[.91,.50,16]];
-
-  function resize(){
-    W = c.width  = window.innerWidth;
-    H = c.height = window.innerHeight;
-  }
-
-  const t = a => `rgba(8,80,65,${a})`;
-
-  function drawDoc(cx, cy, w, h, deg, alpha){
+    function drawDoc(cx, cy, w, h, deg, alpha){
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(deg * Math.PI / 180);
@@ -590,51 +539,45 @@ function togglePwd(){
       ctx.restore();
     }
 
-  function render(time){
-    ctx.clearRect(0, 0, W, H);
-    const sec = time / 1000;
+    // Floating invoice docs
+    [
+      [W*.07, H*.12, 50,64,-18,.052],
+      [W*.88, H*.10, 42,54, 15,.048],
+      [W*.92, H*.76, 58,74, -9,.052],
+      [W*.05, H*.80, 38,50, 24,.044],
+      [W*.50, H*.05, 34,44,  7,.040],
+      [W*.94, H*.42, 28,36,-14,.034],
+      [W*.20, H*.92, 26,34, 32,.030],
+      [W*.74, H*.94, 34,44, -6,.036],
+    ].forEach(d => { try { drawDoc(...d); } catch(e){} });
 
-    // Floating invoice docs — each drifts slowly on its own slightly
-    // different sine cycle so they never move in unison
-    docBase.forEach(([bx, by, w, h, deg, alpha, i]) => {
-      const speed = 0.15 + (i % 4) * 0.03;      // slightly different pace per doc
-      const driftX = Math.sin(sec * speed + i) * 9;
-      const driftY = Math.cos(sec * speed * 0.8 + i) * 7;
-      const driftDeg = Math.sin(sec * speed * 0.6 + i) * 2.5;
-      try { drawDoc(W*bx + driftX, H*by + driftY, w, h, deg + driftDeg, alpha); } catch(e){}
-    });
-
-    // Coin rings — very light drift
-    coinBase.forEach(([bx, by, r], i) => {
-      const x = W*bx + Math.sin(sec * 0.12 + i) * 5;
-      const y = H*by + Math.cos(sec * 0.10 + i) * 5;
+    // Coin rings
+    [
+      [W*.28,H*.10,9],[W*.68,H*.20,7],[W*.14,H*.55,6],
+      [W*.83,H*.55,8],[W*.46,H*.96,6],[W*.60,H*.04,5],
+    ].forEach(([x,y,r]) => {
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
       ctx.strokeStyle = t(.07); ctx.lineWidth = 1.2; ctx.stroke();
       ctx.beginPath(); ctx.arc(x,y,r*.5,0,Math.PI*2);
       ctx.strokeStyle = t(.05); ctx.lineWidth = .8; ctx.stroke();
     });
 
-    // Dashed stamp rings — fixed position, slow rotation of the dash pattern
-    stampBase.forEach(([bx, by, r], i) => {
-      ctx.beginPath(); ctx.arc(W*bx, H*by, r, 0, Math.PI*2);
+    // Dashed stamp rings
+    [[W*.35,H*.18,22],[W*.65,H*.83,18],[W*.91,H*.50,16]].forEach(([x,y,r]) => {
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
       ctx.strokeStyle = t(.06); ctx.lineWidth = 1;
-      ctx.setLineDash([3,3]);
-      ctx.lineDashOffset = sec * (4 + i * 2);
-      ctx.stroke(); ctx.setLineDash([]);
+      ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
     });
 
-    // Diagonal lines — static
+    // Diagonal lines
     [[0,H*.3,W*.45,0],[W*.55,H,W,H*.3],[0,H*.7,W*.3,H]].forEach(([x1,y1,x2,y2]) => {
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
       ctx.strokeStyle = t(.04); ctx.lineWidth = 1; ctx.stroke();
     });
-
-    requestAnimationFrame(render);
   }
 
-  resize();
-  window.addEventListener('resize', resize);
-  requestAnimationFrame(render);
+  draw();
+  window.addEventListener('resize', draw);
 })();
 </script>
 </body>
