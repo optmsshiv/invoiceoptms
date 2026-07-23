@@ -36,10 +36,27 @@ date_default_timezone_set('Asia/Kolkata');
 
 require_once __DIR__ . '/../config/db.php';
 
-// Load PHPMailer if available
-foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../vendor/autoload.php'] as $p) {
-    if (file_exists($p)) { require_once $p; break; }
-}
+// Load PHPMailer if available. Wrapped in try/catch: on a broken/incomplete
+// vendor/ folder (e.g. autoload_real.php internally references a dev-only
+// package file that was never uploaded — happens when composer install was
+// run with dev deps locally but only production files got deployed), a
+// failed require() throws a catchable \Error in PHP 7+ rather than silently
+// crashing. Without this, ANY vendor/ problem 500's the entire run for every
+// tenant. With it, we just skip sending (see PHPMAILER_AVAILABLE check
+// inside cronSendEmail) and every tenant still gets processed.
+define('PHPMAILER_AVAILABLE', (function () {
+    foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../vendor/autoload.php'] as $p) {
+        if (!file_exists($p)) continue;
+        try {
+            require_once $p;
+            if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) return true;
+        } catch (\Throwable $e) {
+            error_log('email_cron: vendor/autoload.php failed to load — ' . $e->getMessage()
+                . ' — emails will be skipped this run until vendor/ is fixed (try: composer install --no-dev on the server).');
+        }
+    }
+    return false;
+})());
 
 $today = date('Y-m-d');
 $grandLog        = [];   // messages across ALL tenants, for the final summary
