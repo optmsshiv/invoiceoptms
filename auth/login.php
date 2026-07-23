@@ -29,7 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 // Use APP_NAME before login — getSetting() needs tenant DB which we don't have yet
-$companyName = APP_NAME;
+// $companyName = APP_NAME;
+$companyName = getSetting('company_name', 'OPTMS Tech');
 ?>
 <!DOCTYPE html>
 <html lang="en">
