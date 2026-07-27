@@ -43,50 +43,13 @@ try {
   }
 
   // ── GET: balance + history ────────────────────────────────────
-  if ($method === 'GET' && empty($_GET['breakdown'])) {
+  if ($method === 'GET') {
     $balance = cihCurrentBalance($db);
     $stmt = $db->query('SELECT l.*, u.name AS created_by_name
                          FROM cash_in_hand_ledger l
                          LEFT JOIN users u ON u.id = l.created_by
                          ORDER BY l.id DESC LIMIT 200');
     jsonResponse(['balance' => $balance, 'data' => $stmt->fetchAll()]);
-  }
-
-  // ── GET ?breakdown=1&from=&to=: Total In / Total Out + spend breakdown
-  // for a date range. Total Out is computed from the LIVE Purchases/
-  // Expenses tables (not the ledger's edit/reversal history) — same
-  // source of truth Finance Report already uses, so it can never
-  // double-count a purchase that was later edited, and always matches
-  // what Purchases/Expenses actually show.
-  if ($method === 'GET' && !empty($_GET['breakdown'])) {
-    $from = $_GET['from'] ?? date('Y-m-01');
-    $to   = $_GET['to']   ?? date('Y-m-d');
-
-    $inStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_in_hand_ledger
-                             WHERE direction='in' AND type='topup' AND entry_date BETWEEN ? AND ?");
-    $inStmt->execute([$from, $to]);
-    $totalIn = (float)$inStmt->fetchColumn();
-
-    $purStmt = $db->prepare("SELECT COALESCE(SUM(amount_paid),0) FROM purchases
-                              WHERE payment_mode = 'Cash in Hand' AND purchase_date BETWEEN ? AND ?");
-    $purStmt->execute([$from, $to]);
-    $purchaseAmt = (float)$purStmt->fetchColumn();
-
-    $expStmt = $db->prepare("SELECT category, COALESCE(SUM(amount),0) amt FROM expenses
-                              WHERE method = 'Cash in Hand' AND `date` BETWEEN ? AND ?
-                              GROUP BY category ORDER BY amt DESC");
-    $expStmt->execute([$from, $to]);
-    $expRows = $expStmt->fetchAll();
-
-    $breakdown = [];
-    if ($purchaseAmt > 0) $breakdown[] = ['bucket' => 'Purchase', 'amount' => $purchaseAmt];
-    foreach ($expRows as $r) {
-      if ((float)$r['amt'] > 0) $breakdown[] = ['bucket' => $r['category'] ?: 'Other', 'amount' => (float)$r['amt']];
-    }
-    usort($breakdown, fn($a, $b) => $b['amount'] <=> $a['amount']);
-    $totalOut = $purchaseAmt + array_sum(array_column($expRows, 'amt'));
-
-    jsonResponse(['total_in' => $totalIn, 'total_out' => $totalOut, 'breakdown' => $breakdown]);
   }
 
   // ── POST: top up (Owner only) ─────────────────────────────────
