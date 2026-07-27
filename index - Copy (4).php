@@ -1727,11 +1727,6 @@ const SERVER = {
       <i class="fas fa-wallet"></i><span>Expenses</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.cash_in_hand'] ?? true): ?>
-    <a class="nav-item" data-page="cash-in-hand" onclick="showPage('cash-in-hand',this)">
-      <i class="fas fa-hand-holding-dollar"></i><span>Cash in Hand</span>
-    </a>
-    <?php endif; ?>
     <?php if ($perms['menu.tax'] ?? true): ?>
     <a class="nav-item" data-page="tax" onclick="showPage('tax',this)">
       <i class="fas fa-landmark"></i><span>Tax Summary</span>
@@ -2086,12 +2081,6 @@ const SERVER = {
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">EXPENSES</div>
             <div style="font-size:16px;font-weight:800;color:#E53935" id="db-stat-expenses">₹0</div>
             <div style="font-size:10px;color:var(--muted)" id="db-stat-expenses-sub">This month</div>
-          </div>
-          <div class="pne-card" style="padding:14px 16px;cursor:pointer" id="db-kpi-cih" onclick="showPage('cash-in-hand',null);renderCashInHand()">
-            <span class="sa-chip-icon" style="background:#E0F2F1;color:#00897B;width:34px;height:34px"><i class="fas fa-hand-holding-dollar"></i></span>
-            <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">CASH IN HAND</div>
-            <div style="font-size:16px;font-weight:800;color:#00897B" id="db-stat-cih">₹0</div>
-            <div style="font-size:10px;color:var(--muted)" id="db-stat-cih-sub">Manager fund balance</div>
           </div>
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-profit">
             <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-indian-rupee-sign"></i></span>
@@ -3264,7 +3253,7 @@ const SERVER = {
               </div>
 
               <div class="field"><label>Payment Mode</label>
-                <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
+                <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
               <div id="pne-split-panel" style="display:none">
                 <div class="pne-split-card">
@@ -5291,7 +5280,7 @@ const SERVER = {
           </div>
           <div class="field"><label>Payment For *</label><input id="mp-paymentfor" placeholder="e.g. Transport Charges - May 2024"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Mode *</label><select id="mp-mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option></select></div>
+            <div class="field"><label>Payment Mode *</label><select id="mp-mode"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>NEFT</option><option>RTGS</option><option>Cheque</option></select></div>
             <div class="field"><label>Amount (₹) *</label><input type="number" id="mp-amount" min="0" step="0.01"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -5303,25 +5292,6 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-makepayment')">Cancel</button>
           <button class="btn btn-primary" id="mp-save-btn" onclick="saveMakePayment()"><i class="fas fa-check"></i> Save Payment</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── ADD FUNDS (Cash in Hand — Owner only) ─────────── -->
-    <div class="modal-overlay" id="modal-addfunds">
-      <div class="modal" style="max-width:420px">
-        <div class="modal-header">
-          <span>Add Funds — Cash in Hand</span>
-          <button class="modal-close" onclick="closeModal('modal-addfunds')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <div class="field"><label>Date *</label><input type="date" id="cih-af-date"></div>
-          <div class="field"><label>Amount (₹) *</label><input type="number" id="cih-af-amount" min="0" step="0.01" placeholder="e.g. 10000"></div>
-          <div class="field"><label>Note</label><input id="cih-af-note" placeholder="e.g. Cash handed to Rajesh for site purchases"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-addfunds')">Cancel</button>
-          <button class="btn btn-primary" id="cih-af-save-btn" onclick="saveAddFunds()"><i class="fas fa-check"></i> Add Funds</button>
         </div>
       </div>
     </div>
@@ -7213,37 +7183,7 @@ View Invoice: {{6}}</pre></details>
       </div>
     </div>
 
-    <!-- ─────────── CASH IN HAND ─────────── -->
-    <div id="page-cash-in-hand" class="page">
-      <div class="page-toolbar">
-        <div class="toolbar-left">
-          <span style="font-size:13px;color:var(--muted)">A shared cash fund managers draw from for on-the-spot purchases &amp; expenses.</span>
-        </div>
-        <div class="toolbar-right">
-          <button class="btn btn-primary" id="cih-addfunds-btn" onclick="openAddFundsModal()" style="display:none">
-            <i class="fas fa-plus"></i> Add Funds
-          </button>
-        </div>
-      </div>
-
-      <!-- Balance card -->
-      <div class="pne-card" style="margin-bottom:18px;text-align:center;padding:28px">
-        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700">Current Balance</div>
-        <div id="cih-balance" style="font-size:38px;font-weight:800;margin-top:6px;color:var(--teal)">₹0.00</div>
-        <div id="cih-negative-flag" style="display:none;margin-top:8px;font-size:12.5px;font-weight:700;color:#E53935;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:8px 14px;display:inline-block">
-          <i class="fas fa-triangle-exclamation"></i> Balance is negative — more has been spent than was funded. Add funds to settle this.
-        </div>
-      </div>
-
-      <!-- Ledger -->
-      <div class="table-card">
-        <table class="data-table"><thead><tr>
-          <th>Date</th><th>Type</th><th>Description</th><th>By</th>
-          <th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Balance After</th>
-        </tr></thead><tbody id="cih-tbody"></tbody></table>
-      </div>
-    </div>
-
+    <!-- ─────────── CREDIT NOTES ─────────── -->
     <div id="page-credit-notes" class="page">
       <div class="page-toolbar">
         <div class="toolbar-left">
@@ -8274,7 +8214,7 @@ View Invoice: {{6}}</pre></details>
         <div class="field" style="margin:0"><label>Payment Method</label>
           <select id="exp-method" style="width:100%">
             <option>UPI</option><option>Bank Transfer</option><option>Cash</option>
-            <option>Credit Card</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option>
+            <option>Credit Card</option><option>Cheque</option>
           </select>
         </div>
       </div>
@@ -8590,7 +8530,6 @@ const breadcrumbs = {
   reports:'Reports', templates:'PDF Templates', whatsapp:'WhatsApp Setup',
   'email-setup':'Email Setup', settings:'Settings',
   msglog:'Message Log', aging:'Aging Report', expenses:'Expense Tracker',
-  'cash-in-hand':'Cash in Hand',
   tax:'Tax Summary', reminders:'Payment Reminders', portal:'Client Portal',
   activity:'Activity Log', profile:'My Profile', team:'Team',
   'proforma-list':'Proforma Invoices', 'proforma-new':'New Offer Price',
@@ -8639,7 +8578,6 @@ function showPage(name, el) {
   if (name === 'msglog')    renderMsgLog();
   if (name === 'aging')     renderAgingReport();
   if (name === 'expenses')  renderExpenses();
-  if (name === 'cash-in-hand') renderCashInHand();
   if (name === 'tax')       renderTaxSummary();
   if (name === 'reminders') renderReminders();
   if (name === 'portal')    renderPortal();
@@ -10023,7 +9961,6 @@ function _printProforma(d, curr, autoPrint = true) {
 function renderDashboard() {
   const biz = STATE.settings.businessType || 'service';
   applyBusinessTypeLabels(); // ensure nav reflects business type on every render
-  refreshCashInHandDashboardWidget();
   const showService = (biz === 'service' || biz === 'both');
   const showProduct = (biz === 'product' || biz === 'both');
   const sd = document.getElementById('dash-service');
@@ -27372,87 +27309,6 @@ function exportAgingCSV() {
     r.inv.amount||0, r.received.toFixed(2), r.outstanding.toFixed(2), r.bucket
   ]));
   _downloadCSV(rows, 'aging_report.csv');
-}
-
-// ══════════════════════════════════════════════════════════════
-// CASH IN HAND — shared manager fund, drawn from by Purchases &
-// Expenses when payment method = "Cash in Hand". Owner-only top-ups.
-// ══════════════════════════════════════════════════════════════
-async function renderCashInHand() {
-  const isOwner = (SERVER.user?.role === 'owner');
-  const addBtn = document.getElementById('cih-addfunds-btn');
-  if (addBtn) addBtn.style.display = isOwner ? '' : 'none';
-
-  try {
-    const r = await api('api/cash_in_hand.php');
-    const bal = parseFloat(r.balance) || 0;
-    const balEl = document.getElementById('cih-balance');
-    if (balEl) {
-      balEl.textContent = fmt_money(bal);
-      balEl.style.color = bal < 0 ? '#E53935' : 'var(--teal)';
-    }
-    const flagEl = document.getElementById('cih-negative-flag');
-    if (flagEl) flagEl.style.display = bal < 0 ? 'inline-block' : 'none';
-
-    const tbody = document.getElementById('cih-tbody');
-    if (tbody) tbody.innerHTML = (r.data||[]).map(l => {
-      const amt = parseFloat(l.amount)||0;
-      const isIn = l.direction === 'in';
-      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
-      const typeColor  = isIn ? '#00897B' : '#E53935';
-      return `<tr>
-        <td>${fmt_date_disp(l.entry_date)}</td>
-        <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
-        <td>${escHtml(l.note||'')}</td>
-        <td style="color:var(--muted)">${escHtml(l.created_by_name||'—')}</td>
-        <td style="text-align:right;color:#00897B;font-weight:600">${isIn ? fmt_money(amt) : ''}</td>
-        <td style="text-align:right;color:#E53935;font-weight:600">${!isIn ? fmt_money(amt) : ''}</td>
-        <td style="text-align:right;font-weight:700">${fmt_money(parseFloat(l.balance_after)||0)}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">No activity yet — add funds to get started</td></tr>';
-
-    // Keep the Dashboard KPI card in sync too
-    const dEl = document.getElementById('db-stat-cih');
-    if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function openAddFundsModal() {
-  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can add funds', 'warning'); return; }
-  document.getElementById('cih-af-date').value = fmt_date(new Date());
-  document.getElementById('cih-af-amount').value = '';
-  document.getElementById('cih-af-note').value = '';
-  openModal('modal-addfunds');
-}
-
-async function saveAddFunds() {
-  const amount = parseFloat(document.getElementById('cih-af-amount').value) || 0;
-  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
-  const payload = {
-    date: document.getElementById('cih-af-date').value,
-    amount,
-    note: document.getElementById('cih-af-note').value.trim(),
-  };
-  const btn = document.getElementById('cih-af-save-btn');
-  if (btn) { if (btn.disabled) return; btn.disabled = true; }
-  try {
-    await api('api/cash_in_hand.php?action=topup', 'POST', payload);
-    toast('✅ Funds added!', 'success');
-    closeModal('modal-addfunds');
-    renderCashInHand();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-// Quick, silent balance refresh for the Dashboard KPI card (no toast on
-// failure — this runs alongside other dashboard widgets on every load).
-async function refreshCashInHandDashboardWidget() {
-  try {
-    const r = await api('api/cash_in_hand.php');
-    const bal = parseFloat(r.balance) || 0;
-    const dEl = document.getElementById('db-stat-cih');
-    if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
-  } catch(e) { /* silent — dashboard widget, not critical */ }
 }
 
 // ══════════════════════════════════════════════════════════════

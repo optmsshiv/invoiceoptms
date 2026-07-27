@@ -70,36 +70,6 @@ function saveAttachment($dataUrl) {
   return '/assets/uploads/purchases/' . $fname;
 }
 
-// ── Cash in Hand ledger — shared fund pool, drawn from when a purchase's
-// payment_mode is "Cash in Hand". Best-effort: wrapped in try/catch so a
-// ledger hiccup never blocks the actual purchase save.
-function cihBalance($db) {
-  $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
-  return $row ? (float)$row['balance_after'] : 0.0;
-}
-function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $note, $userId) {
-  if ($amount <= 0) return;
-  try {
-    $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
-      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-      `type` ENUM('topup','purchase','expense','adjustment') NOT NULL DEFAULT 'topup',
-      `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
-      `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
-      `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
-      `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`),
-      INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
-    $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-      (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by)
-      VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId]);
-  } catch (Throwable $e) {
-    error_log('recordCashInHandMovement (purchases.php) failed: ' . $e->getMessage());
-  }
-}
-
 try {
 switch ($method) {
   case 'GET':
@@ -214,10 +184,6 @@ switch ($method) {
     }
 
     logActivity((int)$_SESSION['user_id'], 'create', 'purchase', $purchaseId, 'Purchase added: ' . $purchaseNo);
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $purchaseId,
-        "Purchase {$purchaseNo}", (int)$_SESSION['user_id']);
-    }
     jsonResponse(['success' => true, 'id' => $purchaseId, 'purchase_no' => $purchaseNo]);
     break;
 
@@ -228,12 +194,6 @@ switch ($method) {
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
-
-    // Capture the pre-edit payment state so we can reverse its Cash in Hand
-    // impact below if it changes (or stays the same but the amount changed).
-    $oldPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
-    $oldPayStmt->execute([$id]);
-    $oldPay = $oldPayStmt->fetch();
 
     $computed = array_map('computeItemWeights', $items);
     $subtotal = array_sum(array_column($computed, 'amount'));
@@ -323,19 +283,6 @@ switch ($method) {
         fn($it) => cleanProductId($it['product_id'] ?? null), $items
     ));
     rebalanceStockLedger($db, array_values($affectedProducts));
-
-    // Cash in Hand: reverse the old impact (if it was paid from the fund),
-    // then reapply the new one (if it still is) — handles method changes,
-    // amount changes, and switching away from Cash in Hand cleanly.
-    if ($oldPay && $oldPay['payment_mode'] === 'Cash in Hand' && (float)$oldPay['amount_paid'] > 0) {
-      recordCashInHandMovement($db, 'in', (float)$oldPay['amount_paid'], 'adjustment', $id,
-        "Reversal: Purchase {$oldPay['purchase_no']} edited", (int)$_SESSION['user_id']);
-    }
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $id,
-        'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', (int)$_SESSION['user_id']);
-    }
-
     jsonResponse(['success' => true]);
     break;
 
@@ -346,19 +293,11 @@ switch ($method) {
     $delProds = $db->prepare('SELECT DISTINCT product_id FROM purchase_items WHERE purchase_id = ?');
     $delProds->execute([$id]);
     $delProdIds = array_column($delProds->fetchAll(), 'product_id');
-    // Capture payment state before deleting, for the Cash in Hand reversal below
-    $delPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
-    $delPayStmt->execute([$id]);
-    $delPay = $delPayStmt->fetch();
     clearStockForPurchase($db, $id);
     $db->prepare('DELETE FROM purchase_items WHERE purchase_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM purchases WHERE id = ?')->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'delete', 'purchase', $id, 'Purchase deleted');
     rebalanceStockLedger($db, $delProdIds);
-    if ($delPay && $delPay['payment_mode'] === 'Cash in Hand' && (float)$delPay['amount_paid'] > 0) {
-      recordCashInHandMovement($db, 'in', (float)$delPay['amount_paid'], 'adjustment', $id,
-        "Reversal: Purchase {$delPay['purchase_no']} deleted", (int)$_SESSION['user_id']);
-    }
     jsonResponse(['success' => true]);
     break;
 

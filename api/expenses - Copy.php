@@ -28,36 +28,6 @@ function logAct(PDO $db, string $type, string $label, string $detail = '', ?int 
     } catch (Exception $e) { /* activity_log may not exist yet — silent */ }
 }
 
-// ── Cash in Hand ledger — shared fund pool, drawn from when an expense's
-// method is "Cash in Hand". Best-effort: wrapped in try/catch so a ledger
-// hiccup never blocks the actual expense save.
-function cihBalance($db) {
-    $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
-    return $row ? (float)$row['balance_after'] : 0.0;
-}
-function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $note, $userId) {
-    if ($amount <= 0) return;
-    try {
-        $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
-            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-            `type` ENUM('topup','purchase','expense','adjustment') NOT NULL DEFAULT 'topup',
-            `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
-            `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
-            `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
-            `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`),
-            INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
-        $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-            (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by)
-            VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId]);
-    } catch (Throwable $e) {
-        error_log('recordCashInHandMovement (expenses.php) failed: ' . $e->getMessage());
-    }
-}
-
 try {
     $db = getDB();
 
@@ -166,10 +136,6 @@ try {
             ':amount'=>$amount,':method'=>$meth,':notes'=>$notes]);
         $newId = $db->lastInsertId();
         logAct($db, 'expense_added', "Expense added: $vendor", '₹'.number_format($amount,2));
-        if ($meth === 'Cash in Hand') {
-            $user = currentUser();
-            recordCashInHandMovement($db, 'out', $amount, 'expense', (int)$newId, "Expense: {$vendor}", (int)($user['id'] ?? 0));
-        }
         echo json_encode(['success'=>true,'id'=>(int)$newId]);
         exit;
     }
@@ -188,13 +154,6 @@ try {
             echo json_encode(['success'=>false,'error'=>'date, vendor, and amount are required']);
             exit;
         }
-
-        // Capture the pre-edit state so we can reverse its Cash in Hand
-        // impact below if it changes (or the amount changed).
-        $oldStmt = $db->prepare('SELECT method, amount, vendor FROM expenses WHERE id=:id');
-        $oldStmt->execute([':id'=>$id]);
-        $oldExp = $oldStmt->fetch(PDO::FETCH_ASSOC);
-
         $stmt = $db->prepare(
             'UPDATE expenses SET `date`=:date,category=:cat,vendor=:vendor,
              amount=:amount,method=:method,notes=:notes WHERE id=:id'
@@ -202,32 +161,17 @@ try {
         $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
             ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,':id'=>$id]);
         logAct($db, 'expense_added', "Expense edited: $vendor", '₹'.number_format($amount,2));
-        $user = currentUser(); $uid = $user['id'] ?? null;
-        if ($oldExp && $oldExp['method'] === 'Cash in Hand' && (float)$oldExp['amount'] > 0) {
-            recordCashInHandMovement($db, 'in', (float)$oldExp['amount'], 'adjustment', $id,
-                "Reversal: Expense {$oldExp['vendor']} edited", $uid);
-        }
-        if ($meth === 'Cash in Hand') {
-            recordCashInHandMovement($db, 'out', $amount, 'expense', $id, "Expense: {$vendor} (edited)", $uid);
-        }
         echo json_encode(['success'=>true]);
         exit;
     }
 
     // ── DELETE ────────────────────────────────────────────────────
     if ($method === 'DELETE' && $id) {
-        $stmt = $db->prepare('SELECT vendor,amount,method FROM expenses WHERE id=:id');
+        $stmt = $db->prepare('SELECT vendor,amount FROM expenses WHERE id=:id');
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $db->prepare('DELETE FROM expenses WHERE id=:id')->execute([':id'=>$id]);
-        if ($row) {
-            logAct($db,'expense_added',"Expense deleted: {$row['vendor']}",'₹'.number_format($row['amount'],2));
-            if ($row['method'] === 'Cash in Hand' && (float)$row['amount'] > 0) {
-                $user = currentUser();
-                recordCashInHandMovement($db, 'in', (float)$row['amount'], 'adjustment', $id,
-                    "Reversal: Expense {$row['vendor']} deleted", $user['id'] ?? null);
-            }
-        }
+        if ($row) logAct($db,'expense_added',"Expense deleted: {$row['vendor']}",'₹'.number_format($row['amount'],2));
         echo json_encode(['success'=>true]);
         exit;
     }
