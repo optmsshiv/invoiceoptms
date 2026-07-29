@@ -66,25 +66,6 @@ try { switch (true) {
         )->execute([$reqId, $userId]);
         jsonResponse(['success' => true]);
 
-    // ── CHECK_ENTITY: does the requester already have a live request for
-    // this specific entity? (Used so re-opening the edit dialog resumes an
-    // existing pending/approved request instead of always showing a fresh
-    // request form.) ─────────────────────────────────────────────
-    case ($method === 'GET' && $action === 'check_entity'):
-        $entityType = trim($_GET['entity_type'] ?? '');
-        $entityId   = (int)($_GET['entity_id'] ?? 0);
-        if (!$entityType || !$entityId) jsonResponse(['error' => 'Missing entity_type or entity_id'], 400);
-        $stmt = $db->prepare(
-            'SELECT * FROM edit_approval_requests
-              WHERE requested_by=? AND entity_type=? AND entity_id=?
-                AND status IN ("pending","approved") AND expires_at > NOW()
-              ORDER BY id DESC LIMIT 1'
-        );
-        $stmt->execute([$userId, $entityType, $entityId]);
-        $req = $stmt->fetch();
-        if (!$req) jsonResponse(['error' => 'Not found'], 404);
-        jsonResponse(['success' => true, 'data' => $req]);
-
     // ── REQUEST: non-admin asks for edit permission ───────────────
     case ($method === 'POST' && $action === 'request'):
         $entityType  = trim($body['entity_type']  ?? '');
@@ -94,8 +75,7 @@ try { switch (true) {
         $entityLabel = trim($body['entity_label'] ?? '');
         $reason      = trim(substr($body['reason'] ?? '', 0, 500));
 
-        $allowed = ['purchase','sale','supplier','customer','product','stock_adjustment','stock_in',
-                    'cash_in_hand','cash_in_hand_correction','proforma'];
+        $allowed = ['purchase','sale','supplier','customer','product','stock_adjustment','stock_in'];
         if (!in_array($entityType, $allowed) || !$entityId) {
             jsonResponse(['error' => 'Invalid entity'], 400);
         }
