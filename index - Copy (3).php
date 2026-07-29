@@ -5322,7 +5322,7 @@ const SERVER = {
     <div class="modal-overlay" id="modal-addfunds">
       <div class="modal" style="max-width:440px;overflow:hidden">
         <div style="background:linear-gradient(135deg,#00897B,#00695C);padding:22px 24px;position:relative">
-          <button class="modal-close" onclick="closeModal('modal-addfunds')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <button class="modal-close" onclick="closeModal('modal-addfunds')" style="position:absolute;top:14px;right:16px;color:#fff;opacity:.85"><i class="fas fa-times"></i></button>
           <div style="display:flex;align-items:center;gap:14px">
             <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
               <i class="fas fa-hand-holding-dollar" style="color:#fff;font-size:19px"></i>
@@ -5361,7 +5361,7 @@ const SERVER = {
     <div class="modal-overlay" id="modal-cih-correction">
       <div class="modal" style="max-width:460px;overflow:hidden">
         <div style="background:linear-gradient(135deg,#F9A825,#E65100);padding:22px 24px;position:relative">
-          <button class="modal-close" onclick="closeModal('modal-cih-correction')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <button class="modal-close" onclick="closeModal('modal-cih-correction')" style="position:absolute;top:14px;right:16px;color:#fff;opacity:.85"><i class="fas fa-times"></i></button>
           <div style="display:flex;align-items:center;gap:14px">
             <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
               <i class="fas fa-wrench" style="color:#fff;font-size:18px"></i>
@@ -5412,7 +5412,7 @@ const SERVER = {
     <div class="modal-overlay" id="modal-cih-edit-topup">
       <div class="modal" style="max-width:440px;overflow:hidden">
         <div style="background:linear-gradient(135deg,#1976D2,#0D47A1);padding:22px 24px;position:relative">
-          <button class="modal-close" onclick="closeModal('modal-cih-edit-topup')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <button class="modal-close" onclick="closeModal('modal-cih-edit-topup')" style="position:absolute;top:14px;right:16px;color:#fff;opacity:.85"><i class="fas fa-times"></i></button>
           <div style="display:flex;align-items:center;gap:14px">
             <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
               <i class="fas fa-pen" style="color:#fff;font-size:17px"></i>
