@@ -7,16 +7,13 @@
 //                                     cPanel privilege grant (see create)
 //  GET    ?action=list      → list all tenants
 //  GET    ?action=get&id=N  → get single tenant
-//  GET    ?action=tenant_stats&id=N → DB size, table count, activity
 //  PATCH  ?action=suspend   → suspend tenant
 //  PATCH  ?action=activate  → reactivate tenant
 //  DELETE ?action=delete    → hard delete (careful!)
 //  POST   ?action=add_user  → add user to tenant
 //  GET    ?action=users&tenant_id=N → list tenant users
 //  PATCH  ?action=update_user       → update user role/status
-//  PATCH  ?action=reset_password    → reset a user's password
 //  DELETE ?action=remove_user&id=N  → remove user from tenant
-//  GET    ?action=audit_log         → super-admin action history
 //  POST   ?action=connect_db    → super admin: point session at any DB
 //  POST   ?action=disconnect_db → super admin: return session to master DB
 // ================================================================
@@ -61,45 +58,6 @@ try {
         $tenant = $stmt->fetch();
         if (!$tenant) jsonResponse(['error' => 'Tenant not found'], 404);
         jsonResponse(['success' => true, 'data' => $tenant]);
-    }
-
-    // ── Tenant health/usage stats: DB size, table count, last activity ──
-    // On-demand per tenant (not baked into ?action=list) since summing
-    // information_schema across every tenant on every page load would be
-    // slow once you have more than a handful of tenants.
-    if ($method === 'GET' && $action === 'tenant_stats') {
-        $id = (int)($_GET['id'] ?? 0);
-        $tStmt = $master->prepare('SELECT db_name FROM tenants WHERE id=?');
-        $tStmt->execute([$id]);
-        $tenant = $tStmt->fetch();
-        if (!$tenant) jsonResponse(['error' => 'Tenant not found'], 404);
-
-        $sizeStmt = $master->prepare(
-            "SELECT COUNT(*) AS table_count,
-                    COALESCE(SUM(data_length + index_length), 0) AS size_bytes,
-                    COALESCE(SUM(table_rows), 0) AS approx_rows
-             FROM information_schema.TABLES WHERE table_schema = ?"
-        );
-        $sizeStmt->execute([$tenant['db_name']]);
-        $size = $sizeStmt->fetch();
-
-        $activityStmt = $master->prepare(
-            'SELECT MAX(last_login) AS last_login, COUNT(*) AS user_count,
-                    SUM(status = "active") AS active_users
-             FROM users WHERE tenant_id = ?'
-        );
-        $activityStmt->execute([$id]);
-        $activity = $activityStmt->fetch();
-
-        jsonResponse(['success' => true, 'data' => [
-            'db_name'      => $tenant['db_name'],
-            'table_count'  => (int)$size['table_count'],
-            'size_bytes'   => (int)$size['size_bytes'],
-            'approx_rows'  => (int)$size['approx_rows'],
-            'last_login'   => $activity['last_login'],
-            'user_count'   => (int)$activity['user_count'],
-            'active_users' => (int)$activity['active_users'],
-        ]]);
     }
 
     // ── LIST tenant users ──────────────────────────────────────────
@@ -389,35 +347,6 @@ try {
         ]);
     }
 
-    // ── AUDIT LOG: every super-admin action, across all tenants ────────
-    // masterAuditLog() is already called throughout this file (suspend,
-    // activate, add_user, verification changes, connect_db, permission
-    // changes, etc.) — this just reads that history back.
-    if ($method === 'GET' && $action === 'audit_log') {
-        $limit  = min(200, max(1, (int)($_GET['limit'] ?? 100)));
-        $offset = max(0, (int)($_GET['offset'] ?? 0));
-        $tenantFilter = (int)($_GET['tenant_id'] ?? 0);
-
-        $where = '1=1';
-        $params = [];
-        if ($tenantFilter) { $where .= ' AND l.tenant_id = ?'; $params[] = $tenantFilter; }
-
-        $stmt = $master->prepare(
-            "SELECT l.*, u.name AS user_name, t.company_name AS tenant_name
-             FROM master_audit_log l
-             LEFT JOIN users u ON u.id = l.user_id
-             LEFT JOIN tenants t ON t.id = l.tenant_id
-             WHERE {$where}
-             ORDER BY l.created_at DESC LIMIT {$limit} OFFSET {$offset}"
-        );
-        $stmt->execute($params);
-
-        $countStmt = $master->prepare("SELECT COUNT(*) FROM master_audit_log l WHERE {$where}");
-        $countStmt->execute($params);
-
-        jsonResponse(['success' => true, 'data' => $stmt->fetchAll(), 'total' => (int)$countStmt->fetchColumn()]);
-    }
-
     // ── RECENT: databases this super admin has connected to before ─────
     // Sourced from the audit log — no separate table needed. Purely a
     // convenience list; connecting still requires a deliberate click.
@@ -584,45 +513,6 @@ try {
             "Updated verification/license for user #{$userId}");
 
         jsonResponse(['success' => true]);
-    }
-
-    // ── RESET user password (Super Admin only) ───────────────────────
-    // Passwords are stored in two places — the master `users` table and
-    // mirrored into the tenant's own database's `users` table (same as
-    // add_user / _finalizeTenantCreation do on create) — so both need
-    // updating here to keep them in sync.
-    if ($method === 'PATCH' && $action === 'reset_password') {
-        $userId = (int)($body['user_id'] ?? 0);
-        if (!$userId) jsonResponse(['error' => 'user_id required'], 400);
-
-        $uStmt = $master->prepare('SELECT tenant_id, email FROM users WHERE id=?');
-        $uStmt->execute([$userId]);
-        $userRow = $uStmt->fetch();
-        if (!$userRow) jsonResponse(['error' => 'User not found'], 404);
-
-        $newPassword = $body['password'] ?? _randomPassword();
-        $hashedPass  = password_hash($newPassword, PASSWORD_BCRYPT, ['cost' => 12]);
-
-        $master->prepare('UPDATE users SET password=? WHERE id=?')->execute([$hashedPass, $userId]);
-
-        // Mirror into the tenant DB too, same as add_user does
-        if ($userRow['tenant_id']) {
-            $tStmt = $master->prepare('SELECT db_name FROM tenants WHERE id=?');
-            $tStmt->execute([$userRow['tenant_id']]);
-            if ($tenant = $tStmt->fetch()) {
-                try {
-                    $tenantDb = getDBByName($tenant['db_name']);
-                    $tenantDb->prepare('UPDATE users SET password=? WHERE id=?')->execute([$hashedPass, $userId]);
-                } catch (Throwable $e) {
-                    error_log("reset_password: could not mirror into tenant DB for user {$userId}: " . $e->getMessage());
-                }
-            }
-        }
-
-        masterAuditLog($_SESSION['user_id'], $userRow['tenant_id'], 'user_password_reset',
-            "Password reset for: {$userRow['email']}");
-
-        jsonResponse(['success' => true, 'temp_pass' => $newPassword]);
     }
 
     // ── REMOVE user ────────────────────────────────────────────────

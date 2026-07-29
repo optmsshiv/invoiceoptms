@@ -237,9 +237,6 @@ tbody tr:hover td{background:#FAFBFD}
     </div>
 
     <div class="topbar-right">
-      <button class="icon-btn" id="recent-conn-btn" title="Connect to a tenant database" onclick="openRecentConnections()">
-        <i class="fas fa-database"></i>
-      </button>
       <button class="icon-btn" id="notif-btn" title="Notifications">
         <i class="fas fa-bell"></i>
         <span class="notif-dot"></span>
@@ -275,9 +272,6 @@ tbody tr:hover td{background:#FAFBFD}
       </a>
       <a class="side-nav-item" data-page="team" onclick="showAdminPage('team',this)">
         <i class="fas fa-users"></i> Team / Users
-      </a>
-      <a class="side-nav-item" data-page="audit" onclick="showAdminPage('audit',this)">
-        <i class="fas fa-clock-rotate-left"></i> Audit Log
       </a>
     </nav>
   </aside>
@@ -332,23 +326,16 @@ tbody tr:hover td{background:#FAFBFD}
         </button>
       </div>
     </div>
-    <div id="bulk-toolbar" style="display:none;align-items:center;gap:10px;padding:10px 22px;background:var(--accent-soft);border-bottom:1px solid var(--border-soft);font-size:12.5px">
-      <span id="bulk-count-label" style="font-weight:600"></span>
-      <button class="btn btn-outline" style="padding:5px 12px;font-size:12px" onclick="bulkAction('suspend')"><i class="fas fa-pause"></i> Suspend Selected</button>
-      <button class="btn btn-outline" style="padding:5px 12px;font-size:12px" onclick="bulkAction('activate')"><i class="fas fa-play"></i> Activate Selected</button>
-      <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;margin-left:auto" onclick="clearBulkSelection()">Clear</button>
-    </div>
     <div id="tenants-table-wrap" style="overflow-x:auto">
       <table>
         <thead>
           <tr>
-            <th style="width:32px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTenants(this)"></th>
             <th>Company</th><th>Contact</th><th>Identifiers</th><th>Plan</th><th>Status</th>
             <th>Users</th><th>Created</th><th style="text-align:right">Actions</th>
           </tr>
         </thead>
         <tbody id="tenants-tbody">
-          <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
+          <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -407,115 +394,8 @@ tbody tr:hover td{background:#FAFBFD}
   </div>
   </div><!-- /page-team -->
 
-  <div id="page-audit" class="admin-page">
-  <div class="container">
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">Super Admin</div>
-        <div class="page-title">Audit Log</div>
-        <div class="page-sub">Every super-admin action, across every tenant.</div>
-      </div>
-    </div>
-
-    <div class="table-card" style="background:var(--card);border:1px solid var(--border-soft);border-radius:16px;padding:22px">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-        <select id="audit-tenant-filter" onchange="loadAuditLog(0)" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
-          <option value="">All Tenants</option>
-        </select>
-        <button class="btn btn-outline" onclick="loadAuditLog(0)"><i class="fas fa-rotate"></i> Refresh</button>
-        <span id="audit-subtitle" style="font-size:12.5px;color:var(--text-mute);margin-left:auto"></span>
-      </div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Tenant</th><th>Details</th></tr></thead>
-          <tbody id="audit-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div style="text-align:center;margin-top:14px">
-        <button class="btn btn-outline" id="audit-load-more-btn" onclick="loadAuditLogMore()" style="display:none">Load More</button>
-      </div>
-    </div>
-  </div>
-  </div><!-- /page-audit -->
-
   </div><!-- /app-main -->
 </div><!-- /app-layout -->
-
-<!-- Connect to Database Modal -->
-<div class="modal-overlay" id="modal-connect-db">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('modal-connect-db')"><i class="fas fa-times"></i></button>
-    <div class="modal-head">
-      <div class="modal-icon"><i class="fas fa-database"></i></div>
-      <div>
-        <h3>Connect to a Database</h3>
-        <p>Points your own session at a tenant's database so you can browse the normal app UI as them — for support/debugging. Nothing is changed for the tenant; disconnect any time to return to the admin panel's usual view.</p>
-      </div>
-    </div>
-    <div class="modal-body">
-      <div id="connect-db-alert"></div>
-      <div class="field">
-        <label>Database Name</label>
-        <input id="cd-dbname" class="mono" placeholder="e.g. edrppymy_sneha_enterprises">
-      </div>
-      <div id="cd-recent-wrap" style="margin-top:16px">
-        <div style="font-size:11.5px;font-weight:700;color:var(--text-mute);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Recently Connected</div>
-        <div id="cd-recent-list" style="display:flex;flex-direction:column;gap:6px">
-          <div style="font-size:12.5px;color:var(--text-mute)">Loading…</div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeModal('modal-connect-db')">Cancel</button>
-      <button class="btn btn-primary" id="cd-connect-btn" onclick="connectToDatabase()">
-        <i class="fas fa-plug"></i> Connect
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Tenant Stats Modal -->
-<div class="modal-overlay" id="modal-tenant-stats">
-  <div class="modal" style="max-width:440px">
-    <button class="modal-close" onclick="closeModal('modal-tenant-stats')"><i class="fas fa-times"></i></button>
-    <div class="modal-head">
-      <div class="modal-icon"><i class="fas fa-chart-simple"></i></div>
-      <div>
-        <h3 id="ts-title">Tenant Health</h3>
-        <p>Database size and activity snapshot.</p>
-      </div>
-    </div>
-    <div class="modal-body" id="ts-body">
-      <div style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- Reset Password Modal -->
-<div class="modal-overlay" id="modal-reset-password">
-  <div class="modal" style="max-width:420px">
-    <button class="modal-close" onclick="closeModal('modal-reset-password')"><i class="fas fa-times"></i></button>
-    <div class="modal-head">
-      <div class="modal-icon"><i class="fas fa-key"></i></div>
-      <div>
-        <h3>Reset Password</h3>
-        <p id="rp-user-label">—</p>
-      </div>
-    </div>
-    <div class="modal-body">
-      <div id="rp-alert"></div>
-      <p style="font-size:12.5px;color:var(--text-mute)">A new random password will be generated. The user's old password stops working immediately.</p>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeModal('modal-reset-password')">Cancel</button>
-      <button class="btn btn-primary" id="rp-confirm-btn" onclick="confirmResetPassword()">
-        <i class="fas fa-key"></i> Reset Password
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- Create Tenant Modal -->
 <div class="modal-overlay" id="modal-create-tenant">
@@ -862,12 +742,12 @@ function renderTenants(list) {
 
   if (!TENANTS.length) {
     subtitle.textContent = 'No tenants yet';
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
   if (q && !list.length) {
     subtitle.textContent = `No matches for "${q}"`;
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
     return;
   }
   const totalUsers = list.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
@@ -875,11 +755,8 @@ function renderTenants(list) {
     ? `${list.length} of ${TENANTS.length} tenants matching "${q}"`
     : `${list.length} tenant${list.length===1?'':'s'} · ${totalUsers} user${totalUsers===1?'':'s'} total`;
 
-  tbody.innerHTML = list.map(t => {
-    const trialBadge = trialBadgeHTML(t);
-    return `
+  tbody.innerHTML = list.map(t => `
     <tr>
-      <td><input type="checkbox" class="bulk-tenant-cb" value="${t.id}" onchange="updateBulkToolbar()"></td>
       <td>
         <div class="cell-primary">
           <div class="avatar-md">${esc(initials(t.company_name))}</div>
@@ -898,7 +775,7 @@ function renderTenants(list) {
           <div class="dbn mono">${esc(t.db_name)}</div>
         </div>
       </td>
-      <td><span class="badge badge-${t.plan}">${t.plan}</span>${trialBadge}</td>
+      <td><span class="badge badge-${t.plan}">${t.plan}</span></td>
       <td><span class="badge badge-${t.status}">${t.status}</span></td>
       <td><span class="count-pill"><i class="fas fa-user"></i> ${t.user_count || 0}</span></td>
       <td><span class="muted-date">${t.created_at ? t.created_at.slice(0,10) : '—'}</span></td>
@@ -910,74 +787,13 @@ function renderTenants(list) {
           <button class="btn btn-icon" onclick="openTenantPermissions(${t.id}, '${esc(t.company_name)}')" title="Permissions">
             <i class="fas fa-key"></i>
           </button>
-          <button class="btn btn-icon" onclick="openTenantStats(${t.id}, '${esc(t.company_name)}')" title="Health / Usage Stats">
-            <i class="fas fa-chart-simple"></i>
-          </button>
-          <button class="btn btn-icon" onclick="connectToTenantDirect('${esc(t.db_name)}', '${esc(t.company_name)}')" title="Connect (browse as this tenant)">
-            <i class="fas fa-right-to-bracket"></i>
-          </button>
           ${t.status === 'active'
             ? `<button class="btn btn-icon" style="color:var(--warning)" onclick="suspendTenant(${t.id})" title="Suspend"><i class="fas fa-pause"></i></button>`
             : `<button class="btn btn-icon" style="color:#0B8A4E" onclick="activateTenant(${t.id})" title="Activate"><i class="fas fa-play"></i></button>`
           }
         </div>
       </td>
-    </tr>`;
-  }).join('');
-  updateBulkToolbar();
-}
-
-// ── Trial expiry badge — pure frontend, trial_ends already comes back
-// from ?action=list, no new backend needed.
-function trialBadgeHTML(t) {
-  if (t.plan !== 'trial' || !t.trial_ends) return '';
-  const daysLeft = Math.ceil((new Date(t.trial_ends) - new Date()) / 86400000);
-  if (daysLeft < 0) return ` <span class="badge" style="background:var(--danger-soft);color:var(--danger)">Expired ${Math.abs(daysLeft)}d ago</span>`;
-  if (daysLeft <= 7) return ` <span class="badge" style="background:#FFF4E0;color:#9A6700">Expires in ${daysLeft}d</span>`;
-  return '';
-}
-
-// ── Bulk actions ────────────────────────────────────────────────
-function toggleSelectAllTenants(master) {
-  document.querySelectorAll('.bulk-tenant-cb').forEach(cb => cb.checked = master.checked);
-  updateBulkToolbar();
-}
-function getSelectedTenantIds() {
-  return Array.from(document.querySelectorAll('.bulk-tenant-cb:checked')).map(cb => parseInt(cb.value));
-}
-function updateBulkToolbar() {
-  const ids = getSelectedTenantIds();
-  const bar = document.getElementById('bulk-toolbar');
-  bar.style.display = ids.length ? 'flex' : 'none';
-  document.getElementById('bulk-count-label').textContent = `${ids.length} tenant${ids.length===1?'':'s'} selected`;
-  const allCb = document.querySelectorAll('.bulk-tenant-cb');
-  document.getElementById('bulk-select-all').checked = allCb.length > 0 && ids.length === allCb.length;
-}
-function clearBulkSelection() {
-  document.querySelectorAll('.bulk-tenant-cb').forEach(cb => cb.checked = false);
-  document.getElementById('bulk-select-all').checked = false;
-  updateBulkToolbar();
-}
-async function bulkAction(action) {
-  const ids = getSelectedTenantIds();
-  if (!ids.length) return;
-  const verb = action === 'suspend' ? 'Suspend' : 'Activate';
-  if (!confirm(`${verb} ${ids.length} tenant${ids.length===1?'':'s'}?`)) return;
-
-  let okCount = 0, failCount = 0;
-  for (const id of ids) {
-    try {
-      const r = await fetch(`/api/tenant.php?action=${action}`, {
-        method: 'PATCH', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({id})
-      });
-      const data = await r.json();
-      if (data.success) okCount++; else failCount++;
-    } catch(e) { failCount++; }
-  }
-  clearBulkSelection();
-  loadTenants();
-  if (failCount) alert(`${okCount} succeeded, ${failCount} failed. Check individual tenants if needed.`);
+    </tr>`).join('');
 }
 
 // ── Create tenant ───────────────────────────────────────────────
@@ -1270,7 +1086,6 @@ function renderUsersList() {
       <td style="white-space:nowrap;text-align:right">
         <div class="action-group" style="display:inline-flex">
           <button class="btn btn-icon" onclick="openEditLicense(${u.id})" title="Edit verification & license"><i class="fas fa-id-card"></i></button>
-          <button class="btn btn-icon" onclick="openResetPasswordFromModal(${u.id})" title="Reset password"><i class="fas fa-key"></i></button>
           <button class="btn btn-icon" style="color:var(--danger)" onclick="removeUser(${u.id})" title="Deactivate"><i class="fas fa-times"></i></button>
         </div>
       </td>
@@ -1545,7 +1360,7 @@ async function clearTenantOverride(key) {
 }
 
 // ══ Page switching (sidebar) ═══════════════════════════════════
-const ADMIN_PAGE_TITLES = { tenants: 'Tenant Management', team: 'Team / Users', audit: 'Audit Log' };
+const ADMIN_PAGE_TITLES = { tenants: 'Tenant Management', team: 'Team / Users' };
 function showAdminPage(name, el) {
   document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.side-nav-item').forEach(n => n.classList.remove('active'));
@@ -1553,7 +1368,6 @@ function showAdminPage(name, el) {
   if (el) el.classList.add('active');
   document.getElementById('topbar-crumb-current').textContent = ADMIN_PAGE_TITLES[name] || name;
   if (name === 'team') loadTeamPage();
-  if (name === 'audit') loadAuditLog(0);
 }
 
 // ══ Team / Users — every user across every tenant ═════════════════
@@ -1638,7 +1452,6 @@ function renderTeamTable() {
       <td style="white-space:nowrap;text-align:right">
         <div class="action-group" style="display:inline-flex">
           <button class="btn btn-icon" onclick="openEditLicenseFromTeam(${u.id})" title="Edit verification & license"><i class="fas fa-id-card"></i></button>
-          <button class="btn btn-icon" onclick="openResetPasswordFromTeam(${u.id})" title="Reset password"><i class="fas fa-key"></i></button>
           <button class="btn btn-icon" style="color:var(--danger)" onclick="removeUserFromTeam(${u.id})" title="Deactivate"><i class="fas fa-times"></i></button>
         </div>
       </td>
@@ -1669,203 +1482,6 @@ async function removeUserFromTeam(id) {
   loadTeamPage();
   loadTenants();
 }
-
-// ══ Connect to Database (browse as a tenant) ═══════════════════════
-// Backend already fully supports this (connect_db/disconnect_db/
-// recent_connections) — this just wires up UI for it.
-function openRecentConnections() {
-  document.getElementById('connect-db-alert').innerHTML = '';
-  document.getElementById('cd-dbname').value = '';
-  loadRecentConnections();
-  document.getElementById('modal-connect-db').classList.add('open');
-}
-
-// Row-level "Connect" button — pre-fills the db name and jumps straight
-// to confirming, rather than making them retype it.
-function connectToTenantDirect(dbName, label) {
-  document.getElementById('connect-db-alert').innerHTML = '';
-  document.getElementById('cd-dbname').value = dbName;
-  loadRecentConnections();
-  document.getElementById('modal-connect-db').classList.add('open');
-}
-
-async function loadRecentConnections() {
-  const wrap = document.getElementById('cd-recent-list');
-  wrap.innerHTML = '<div style="font-size:12.5px;color:var(--text-mute)">Loading…</div>';
-  try {
-    const r = await fetch('/api/tenant.php?action=recent_connections');
-    const data = await r.json();
-    const list = data.data || [];
-    if (!list.length) {
-      wrap.innerHTML = '<div style="font-size:12.5px;color:var(--text-mute)">No previous connections yet</div>';
-      return;
-    }
-    wrap.innerHTML = list.map(c => `
-      <button class="btn btn-outline" style="justify-content:flex-start;text-align:left;font-size:12.5px;padding:8px 10px"
-              onclick="document.getElementById('cd-dbname').value='${esc(c.db_name)}'">
-        <i class="fas fa-database" style="margin-right:6px;color:var(--text-mute)"></i>
-        <strong>${esc(c.label)}</strong>
-        <span style="color:var(--text-mute);margin-left:6px" class="mono">${esc(c.db_name)}</span>
-      </button>`).join('');
-  } catch(e) {
-    wrap.innerHTML = '<div style="font-size:12.5px;color:var(--danger)">Failed to load recent connections</div>';
-  }
-}
-
-async function connectToDatabase() {
-  const dbName = document.getElementById('cd-dbname').value.trim();
-  if (!dbName) { showAlert('connect-db-alert', 'Enter a database name', 'error'); return; }
-  const btn = document.getElementById('cd-connect-btn');
-  btn.disabled = true; btn.textContent = 'Connecting…';
-  try {
-    const r = await fetch('/api/tenant.php?action=connect_db', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({db_name: dbName})
-    });
-    const data = await r.json();
-    if (data.success) {
-      window.location.href = '/dashboard.php';
-    } else {
-      showAlert('connect-db-alert', esc(data.error || 'Failed to connect'), 'error');
-      btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Connect';
-    }
-  } catch(e) {
-    showAlert('connect-db-alert', 'Network error: ' + e.message, 'error');
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Connect';
-  }
-}
-
-// ══ Tenant Health / Usage Stats ═════════════════════════════════════
-function fmtBytes(n) {
-  if (!n) return '0 B';
-  const units = ['B','KB','MB','GB'];
-  let i = 0;
-  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-  return n.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
-}
-
-async function openTenantStats(id, label) {
-  document.getElementById('ts-title').textContent = label;
-  const body = document.getElementById('ts-body');
-  body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</div>';
-  document.getElementById('modal-tenant-stats').classList.add('open');
-  try {
-    const r = await fetch(`/api/tenant.php?action=tenant_stats&id=${id}`);
-    const data = await r.json();
-    if (!data.success) { body.innerHTML = `<div class="alert alert-error">${esc(data.error||'Failed to load')}</div>`; return; }
-    const s = data.data;
-    body.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="stat-card" style="padding:14px"><div class="val" style="font-size:20px">${fmtBytes(s.size_bytes)}</div><div class="lbl">Database Size</div></div>
-        <div class="stat-card" style="padding:14px"><div class="val" style="font-size:20px">${s.table_count}</div><div class="lbl">Tables</div></div>
-        <div class="stat-card" style="padding:14px"><div class="val" style="font-size:20px">${s.approx_rows.toLocaleString()}</div><div class="lbl">Approx. Rows</div></div>
-        <div class="stat-card" style="padding:14px"><div class="val" style="font-size:20px">${s.active_users} / ${s.user_count}</div><div class="lbl">Active Users</div></div>
-      </div>
-      <div style="margin-top:14px;font-size:12.5px;color:var(--text-mute)">
-        <strong>Database:</strong> <span class="mono">${esc(s.db_name)}</span><br>
-        <strong>Last login (any user):</strong> ${s.last_login ? esc(s.last_login) : 'Never'}
-      </div>
-      <div style="margin-top:6px;font-size:10.5px;color:var(--text-mute)">Table row counts are MySQL estimates (from information_schema), not exact counts.</div>`;
-  } catch(e) {
-    body.innerHTML = `<div class="alert alert-error">Network error: ${esc(e.message)}</div>`;
-  }
-}
-
-// ══ Reset Password ══════════════════════════════════════════════════
-let RESET_PW_USER_ID = null;
-let RESET_PW_REFRESH = null; // which view to refresh after success
-
-function openResetPassword(userId, name, email, refreshFn) {
-  RESET_PW_USER_ID = userId;
-  RESET_PW_REFRESH = refreshFn;
-  document.getElementById('rp-user-label').textContent = `${name} (${email})`;
-  document.getElementById('rp-alert').innerHTML = '';
-  document.getElementById('modal-reset-password').classList.add('open');
-}
-// Convenience wrappers so row buttons don't need to know which page they're on
-function openResetPasswordFromModal(userId) {
-  const u = CURRENT_USERS.find(x => x.id == userId);
-  if (!u) return;
-  openResetPassword(userId, u.name, u.email, loadUsers);
-}
-function openResetPasswordFromTeam(userId) {
-  const u = ALL_TEAM_USERS.find(x => x.id == userId);
-  if (!u) return;
-  openResetPassword(userId, u.name, u.email, loadTeamPage);
-}
-
-async function confirmResetPassword() {
-  const btn = document.getElementById('rp-confirm-btn');
-  btn.disabled = true; btn.textContent = 'Resetting…';
-  try {
-    const r = await fetch('/api/tenant.php?action=reset_password', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({user_id: RESET_PW_USER_ID})
-    });
-    const data = await r.json();
-    if (data.success) {
-      document.getElementById('rp-alert').innerHTML =
-        `<div class="alert alert-success">✅ Password reset!<br><strong>New password:</strong> <code>${esc(data.temp_pass)}</code><br><em>Copy this — shown only once.</em></div>`;
-      btn.style.display = 'none';
-      if (typeof RESET_PW_REFRESH === 'function') RESET_PW_REFRESH();
-    } else {
-      showAlert('rp-alert', esc(data.error || 'Failed to reset password'), 'error');
-      btn.disabled = false; btn.innerHTML = '<i class="fas fa-key"></i> Reset Password';
-    }
-  } catch(e) {
-    showAlert('rp-alert', 'Network error: ' + e.message, 'error');
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-key"></i> Reset Password';
-  }
-}
-// Reset the modal's button state every time it's (re)opened
-document.getElementById('modal-reset-password').addEventListener('click', function(e) {
-  if (e.target.closest('.modal-close')) {
-    const btn = document.getElementById('rp-confirm-btn');
-    btn.style.display = ''; btn.disabled = false; btn.innerHTML = '<i class="fas fa-key"></i> Reset Password';
-  }
-});
-
-// ══ Audit Log ═══════════════════════════════════════════════════════
-let AUDIT_OFFSET = 0;
-const AUDIT_PAGE_SIZE = 50;
-
-async function loadAuditLog(offset = 0) {
-  AUDIT_OFFSET = offset;
-  const tbody = document.getElementById('audit-tbody');
-  if (offset === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>';
-
-  // Populate tenant filter dropdown (once TENANTS is available)
-  const filter = document.getElementById('audit-tenant-filter');
-  if (filter.options.length <= 1 && TENANTS.length) {
-    filter.innerHTML = '<option value="">All Tenants</option>' +
-      TENANTS.map(t => `<option value="${t.id}">${esc(t.company_name)}</option>`).join('');
-  }
-  const tenantId = filter.value;
-
-  try {
-    const r = await fetch(`/api/tenant.php?action=audit_log&limit=${AUDIT_PAGE_SIZE}&offset=${offset}${tenantId ? '&tenant_id='+tenantId : ''}`);
-    const data = await r.json();
-    if (!data.success) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--danger)">${esc(data.error||'Failed to load')}</td></tr>`; return; }
-
-    const rows = data.data || [];
-    const rowsHtml = rows.map(l => `<tr>
-      <td><span class="muted-date">${esc(l.created_at)}</span></td>
-      <td>${esc(l.user_name || 'System')}</td>
-      <td><span class="badge" style="background:var(--accent-soft);color:var(--accent-dark)">${esc(l.action)}</span></td>
-      <td>${l.tenant_name ? esc(l.tenant_name) : '<span class="muted-date">—</span>'}</td>
-      <td style="font-size:12px;color:var(--text-soft)">${esc(l.details || '')}</td>
-    </tr>`).join('');
-
-    if (offset === 0) tbody.innerHTML = rowsHtml || '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-mute)">No activity yet</td></tr>';
-    else tbody.insertAdjacentHTML('beforeend', rowsHtml);
-
-    document.getElementById('audit-subtitle').textContent = `Showing ${offset + rows.length} of ${data.total}`;
-    document.getElementById('audit-load-more-btn').style.display = (offset + rows.length) < data.total ? '' : 'none';
-  } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--danger)">Network error: ${esc(e.message)}</td></tr>`;
-  }
-}
-function loadAuditLogMore() { loadAuditLog(AUDIT_OFFSET + AUDIT_PAGE_SIZE); }
 
 // ── Init ─────────────────────────────────────────────────────────
 loadTenants();
