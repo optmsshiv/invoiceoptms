@@ -27477,13 +27477,9 @@ async function renderCashInHand() {
   if (addBtn) addBtn.style.display = SERVER.canCihEdit ? '' : 'none';
   if (corrBtn) corrBtn.style.display = SERVER.canCihDelete ? '' : 'none';
 
-  // Default the period filter to May 1 (this year) → today, the first time the page opens
+  // Default the period filter to "This Month" the first time the page opens
   const fromEl = document.getElementById('cih-from'), toEl = document.getElementById('cih-to');
-  if (fromEl && toEl && !fromEl.value) {
-    const now = new Date();
-    fromEl.value = fmt_date(new Date(now.getFullYear(), 4, 1)); // month index 4 = May
-    toEl.value   = fmt_date(now);
-  }
+  if (fromEl && toEl && !fromEl.value) setCihPeriodThisMonth(false);
 
   try {
     // Balance is always current/all-time — a lightweight call with no
