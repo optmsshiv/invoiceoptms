@@ -1561,6 +1561,13 @@ const SERVER = {
   canEdit:    <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.edit']    ?? true)) ?>,
   canCreate:  <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.create']  ?? true)) ?>,
   canApproveEdits: <?= json_encode(in_array($userRole, ['owner','admin','super_admin']) ? true : (bool)($perms['action.approve_edits'] ?? false)) ?>,
+  // Cash in Hand — deliberately its own permission keys (not the generic
+  // canEdit/canDelete above) since it's a shared money fund, not a normal
+  // record; defaults to owner-only until role_permissions grants it to
+  // another role. Falls back to owner-only (not the generic ?? true
+  // default) if the catalog rows haven't been added yet — see chat.
+  canCihEdit:   <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.cash_in_hand.edit']   ?? false)) ?>,
+  canCihDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.cash_in_hand.delete'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1686,7 +1693,7 @@ const SERVER = {
       <i class="fas fa-file-invoice-dollar"></i><span>Sales</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.sales'] ?? true): ?>
+    <?php if ($perms['menu.proforma'] ?? true): ?>
     <a class="nav-item" data-page="proforma-list" id="nav-proforma-item" onclick="showPage('proforma-list',this); renderProformaList();" style="display:none">
       <i class="fas fa-file-contract"></i><span>Proforma</span>
     </a>
@@ -27460,15 +27467,15 @@ function exportAgingCSV() {
 
 // ══════════════════════════════════════════════════════════════
 // CASH IN HAND — shared manager fund, drawn from by Purchases &
-// Expenses when payment method = "Cash in Hand". Owner-only top-ups,
-// corrections, and top-up edits.
+// Expenses when payment method = "Cash in Hand". Add Funds / Edit require
+// action.cash_in_hand.edit; Corrections require action.cash_in_hand.delete
+// — owner/super_admin always pass. See SERVER.canCihEdit/canCihDelete.
 // ══════════════════════════════════════════════════════════════
 async function renderCashInHand() {
-  const isOwner = (SERVER.user?.role === 'owner');
   const addBtn = document.getElementById('cih-addfunds-btn');
   const corrBtn = document.getElementById('cih-correction-btn');
-  if (addBtn) addBtn.style.display = isOwner ? '' : 'none';
-  if (corrBtn) corrBtn.style.display = isOwner ? '' : 'none';
+  if (addBtn) addBtn.style.display = SERVER.canCihEdit ? '' : 'none';
+  if (corrBtn) corrBtn.style.display = SERVER.canCihDelete ? '' : 'none';
 
   // Default the period filter to "This Month" the first time the page opens
   const fromEl = document.getElementById('cih-from'), toEl = document.getElementById('cih-to');
@@ -27530,14 +27537,12 @@ async function loadCihLedger(offset = 0) {
     CIH_LATEST_ID = r.latest_id || 0;
     const rows = r.data || [];
     if (offset === 0) CIH_LEDGER_ROWS = rows; else CIH_LEDGER_ROWS = CIH_LEDGER_ROWS.concat(rows);
-    const isOwner = (SERVER.user?.role === 'owner');
-
     const rowsHtml = rows.map(l => {
       const amt = parseFloat(l.amount)||0;
       const isIn = l.direction === 'in';
       const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
       const typeColor  = isIn ? '#00897B' : '#E53935';
-      const canEdit = isOwner && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
+      const canEdit = SERVER.canCihEdit && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
       return `<tr>
         <td>${fmt_date_disp(l.entry_date)}</td>
         <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
@@ -27546,7 +27551,7 @@ async function loadCihLedger(offset = 0) {
         <td style="text-align:right;color:#00897B;font-weight:600">${isIn ? fmt_money(amt) : ''}</td>
         <td style="text-align:right;color:#E53935;font-weight:600">${!isIn ? fmt_money(amt) : ''}</td>
         <td style="text-align:right;font-weight:700">${fmt_money(parseFloat(l.balance_after)||0)}</td>
-        <td>${l.type === 'topup' && isOwner
+        <td>${l.type === 'topup' && SERVER.canCihEdit
           ? `<button class="act-btn" title="${canEdit ? 'Edit this top-up' : 'Can\\'t edit — other activity happened since. Use Add Correction instead.'}"
                       onclick="openCihEditTopup(${l.id}, ${canEdit})" style="${canEdit ? '' : 'opacity:.4'}">
                <i class="fas fa-pen"></i>
@@ -27625,7 +27630,7 @@ async function renderCashInHandBreakdown() {
 }
 
 function openAddFundsModal() {
-  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can add funds', 'warning'); return; }
+  if (!SERVER.canCihEdit) { toast('⚠️ You don\'t have permission to add funds to Cash in Hand', 'warning'); return; }
   document.getElementById('cih-af-date').value = fmt_date(new Date());
   document.getElementById('cih-af-amount').value = '';
   document.getElementById('cih-af-note').value = '';
@@ -27653,7 +27658,7 @@ async function saveAddFunds() {
 
 // ── Correction — fixes a mistake without editing history (Option B) ──
 function openCorrectionModal() {
-  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can add corrections', 'warning'); return; }
+  if (!SERVER.canCihDelete) { toast('⚠️ You don\'t have permission to add corrections to Cash in Hand', 'warning'); return; }
   document.getElementById('cih-corr-date').value = fmt_date(new Date());
   document.getElementById('cih-corr-amount').value = '';
   document.getElementById('cih-corr-note').value = '';
@@ -27682,7 +27687,7 @@ async function saveCihCorrection() {
 // response than round-tripping to find out.
 let CIH_EDITING_ID = null;
 function openCihEditTopup(id, canEdit) {
-  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can edit this', 'warning'); return; }
+  if (!SERVER.canCihEdit) { toast('⚠️ You don\'t have permission to edit this', 'warning'); return; }
   if (!canEdit) {
     toast('⚠️ This top-up can\'t be edited directly — other activity happened since it was added. Use "Add Correction" instead.', 'warning');
     return;

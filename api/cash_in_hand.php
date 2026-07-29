@@ -11,16 +11,24 @@
 //  GET                         → current balance + paginated ledger history
 //    ?limit=&offset=           → pagination (default limit 50)
 //    ?from=&to=                → optional date filter on entry_date
-//  POST ?action=topup          → add funds (Owner only)
+//  POST ?action=topup          → add funds — requires action.cash_in_hand.edit
 //  POST ?action=correction     → fix a mistaken entry WITHOUT rewriting
 //                                 history — posts an offsetting adjustment
-//                                 (Owner only, note required)
+//                                 — requires action.cash_in_hand.delete,
+//                                 note required
 //  PATCH ?action=edit_topup    → direct edit, ONLY allowed when the topup
 //                                 being edited is still the single latest
 //                                 ledger row (nothing recorded since it),
 //                                 so no other balance depends on it yet.
 //                                 Otherwise rejected — use a correction
-//                                 entry instead. (Owner only)
+//                                 entry instead. Requires action.cash_in_hand.edit
+//
+//  Owner and super_admin always pass regardless of role_permissions
+//  (matching getEffectivePermissions()'s ceiling-only rule for those two
+//  roles). Other roles need action.cash_in_hand.edit / .delete granted
+//  via Team Permissions — see migration note below; these fail SAFE
+//  (denied) until the catalog rows exist, unlike most ?? true fallbacks
+//  elsewhere in the app.
 // ================================================================
 ob_start();
 error_reporting(0);
@@ -30,16 +38,19 @@ $db     = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
-function cihRequireOwner() {
-  // TODO: this should become a real permission-catalog entry
-  // (e.g. action.cash_in_hand.manage) checked via getEffectivePermissions(),
-  // consistent with every other permission in the app, instead of a
-  // hardcoded role check. Left as-is pending that wiring — see chat.
-  $user = currentUser();
-  if (($user['role'] ?? '') !== 'owner') {
-    jsonResponse(['error' => 'Only the owner can manage Cash in Hand funds'], 403);
+// Cash in Hand permission keys. Deliberately their own keys (not the
+// generic action.edit/action.delete) since this is a shared money fund,
+// not a normal record. Fails SAFE (owner-only) if the catalog rows for
+// these keys haven't been added to the `permissions` table yet — see the
+// migration note in the header comment above — rather than defaulting
+// open like most ?? true fallbacks elsewhere in the app.
+function cihRequirePermission(string $key) {
+  $role = $_SESSION['user_role'] ?? 'viewer';
+  if (in_array($role, ['owner', 'super_admin'], true)) return currentUser();
+  if (!can($key)) {
+    jsonResponse(['error' => 'You don\'t have permission to manage Cash in Hand. Ask the owner to grant this in Team Permissions.'], 403);
   }
-  return $user;
+  return currentUser();
 }
 
 try {
@@ -134,9 +145,9 @@ try {
     jsonResponse(['total_in' => $totalIn, 'total_out' => $totalOut, 'breakdown' => $breakdown]);
   }
 
-  // ── POST: top up (Owner only) ─────────────────────────────────
+  // ── POST: top up ────────────────────────────────────────────
   if ($method === 'POST' && $action === 'topup') {
-    $user = cihRequireOwner();
+    $user = cihRequirePermission('action.cash_in_hand.edit');
 
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
@@ -167,7 +178,7 @@ try {
   // correcting journal entry in real bookkeeping, rather than silently
   // editing the past.
   if ($method === 'POST' && $action === 'correction') {
-    $user = cihRequireOwner();
+    $user = cihRequirePermission('action.cash_in_hand.delete');
 
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
@@ -200,7 +211,7 @@ try {
   // other balance depends on the value being changed). Otherwise
   // rejected outright — use a correction entry instead.
   if ($method === 'PATCH' && $action === 'edit_topup') {
-    $user = cihRequireOwner();
+    $user = cihRequirePermission('action.cash_in_hand.edit');
 
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
