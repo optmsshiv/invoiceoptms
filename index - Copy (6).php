@@ -7235,6 +7235,38 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
+      <!-- Period filter -->
+      <div class="page-toolbar" style="margin-bottom:14px">
+        <div class="toolbar-left">
+          <span style="font-size:12px;color:var(--muted);font-weight:600">Period:</span>
+          <input type="date" id="cih-from" class="table-filter" onchange="renderCashInHandBreakdown()">
+          <span style="font-size:12px;color:var(--muted)">to</span>
+          <input type="date" id="cih-to" class="table-filter" onchange="renderCashInHandBreakdown()">
+          <button class="btn btn-outline" style="font-size:12px" onclick="setCihPeriodThisMonth()">This Month</button>
+        </div>
+      </div>
+
+      <!-- Total In / Total Out (for the selected period) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div class="pne-card" style="padding:16px">
+          <span class="sa-chip-icon" style="background:#E0F2F1;color:#00897B;width:34px;height:34px"><i class="fas fa-arrow-down"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL IN (this period)</div>
+          <div style="font-size:18px;font-weight:800;color:#00897B" id="cih-total-in">₹0</div>
+        </div>
+        <div class="pne-card" style="padding:16px">
+          <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-arrow-up"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL OUT (this period)</div>
+          <div style="font-size:18px;font-weight:800;color:#E53935" id="cih-total-out">₹0</div>
+        </div>
+      </div>
+
+      <!-- Spend breakdown chart -->
+      <div class="pne-card" style="margin-bottom:18px" id="cih-chart-card">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">Where Cash in Hand Was Used</div>
+        <div style="height:240px;position:relative"><canvas id="cih-breakdown-chart"></canvas></div>
+        <div id="cih-chart-empty" style="display:none;text-align:center;color:var(--muted);font-size:12.5px;padding:30px 0">No Cash in Hand spend in this period</div>
+      </div>
+
       <!-- Ledger -->
       <div class="table-card">
         <table class="data-table"><thead><tr>
@@ -27383,6 +27415,10 @@ async function renderCashInHand() {
   const addBtn = document.getElementById('cih-addfunds-btn');
   if (addBtn) addBtn.style.display = isOwner ? '' : 'none';
 
+  // Default the period filter to "This Month" the first time the page opens
+  const fromEl = document.getElementById('cih-from'), toEl = document.getElementById('cih-to');
+  if (fromEl && toEl && !fromEl.value) setCihPeriodThisMonth(false);
+
   try {
     const r = await api('api/cash_in_hand.php');
     const bal = parseFloat(r.balance) || 0;
@@ -27414,6 +27450,72 @@ async function renderCashInHand() {
     // Keep the Dashboard KPI card in sync too
     const dEl = document.getElementById('db-stat-cih');
     if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+
+  renderCashInHandBreakdown();
+}
+
+function setCihPeriodThisMonth(reload = true) {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('cih-from').value = fmt_date(first);
+  document.getElementById('cih-to').value   = fmt_date(now);
+  if (reload) renderCashInHandBreakdown();
+}
+
+async function renderCashInHandBreakdown() {
+  const from = document.getElementById('cih-from')?.value;
+  const to   = document.getElementById('cih-to')?.value;
+  if (!from || !to) return;
+
+  try {
+    const r = await api(`api/cash_in_hand.php?breakdown=1&from=${from}&to=${to}`);
+    const totalIn = parseFloat(r.total_in) || 0;
+    const totalOut = parseFloat(r.total_out) || 0;
+    const inEl = document.getElementById('cih-total-in');
+    const outEl = document.getElementById('cih-total-out');
+    if (inEl) inEl.textContent = fmt_money(totalIn);
+    if (outEl) outEl.textContent = fmt_money(totalOut);
+
+    const breakdown = r.breakdown || [];
+    const chartEl = document.getElementById('cih-breakdown-chart');
+    const emptyEl = document.getElementById('cih-chart-empty');
+    if (!breakdown.length) {
+      if (chartEl) chartEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = 'block';
+      if (window._cihChart) { window._cihChart.destroy(); window._cihChart = null; }
+      return;
+    }
+    if (chartEl) chartEl.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const colors = ['#00897B','#1976D2','#F9A825','#7B1FA2','#E53935','#43A047','#FB8C00','#5E35B1','#00ACC1','#8D6E63'];
+    if (chartEl) {
+      if (window._cihChart) window._cihChart.destroy();
+      window._cihChart = new Chart(chartEl, {
+        type: 'bar',
+        data: {
+          labels: breakdown.map(b => b.bucket),
+          datasets: [{
+            data: breakdown.map(b => b.amount),
+            backgroundColor: breakdown.map((_,i) => colors[i % colors.length]),
+            borderRadius: 5,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ` ${fmt_money(ctx.raw)}` } }
+          },
+          scales: {
+            x: { grid: { color: '#f0f0f0' }, ticks: { callback: v => '₹'+v.toLocaleString('en-IN') } },
+            y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+          }
+        }
+      });
+    }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 

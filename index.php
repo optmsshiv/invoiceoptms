@@ -5326,6 +5326,50 @@ const SERVER = {
       </div>
     </div>
 
+    <!-- ─────────── ADD CORRECTION (Cash in Hand — Owner only) ─────────── -->
+    <div class="modal-overlay" id="modal-cih-correction">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <span>Add Correction — Cash in Hand</span>
+          <button class="modal-close" onclick="closeModal('modal-cih-correction')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:12px;color:var(--muted);margin-top:0">Fixes a mistaken entry without editing history — posts a separate offsetting entry so both the mistake and the fix stay visible in the ledger.</p>
+          <div class="field"><label>Date *</label><input type="date" id="cih-corr-date"></div>
+          <div class="field">
+            <label>Amount (₹) *</label>
+            <input type="number" id="cih-corr-amount" step="0.01" placeholder="e.g. -5000 to remove, 5000 to add">
+            <div style="font-size:10.5px;color:var(--muted);margin-top:3px">Use a negative number to reduce the balance (e.g. previous top-up was too high), positive to increase it.</div>
+          </div>
+          <div class="field"><label>Reason *</label><input id="cih-corr-note" placeholder="e.g. Previous top-up of ₹50,000 was entered instead of ₹5,000"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-cih-correction')">Cancel</button>
+          <button class="btn btn-primary" id="cih-corr-save-btn" onclick="saveCihCorrection()"><i class="fas fa-check"></i> Add Correction</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── EDIT TOP-UP (Cash in Hand — only the latest entry) ─────────── -->
+    <div class="modal-overlay" id="modal-cih-edit-topup">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <span>Edit Top-up</span>
+          <button class="modal-close" onclick="closeModal('modal-cih-edit-topup')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="cih-edit-alert"></div>
+          <div class="field"><label>Date *</label><input type="date" id="cih-edit-date"></div>
+          <div class="field"><label>Amount (₹) *</label><input type="number" id="cih-edit-amount" min="0" step="0.01"></div>
+          <div class="field"><label>Note</label><input id="cih-edit-note"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-cih-edit-topup')">Cancel</button>
+          <button class="btn btn-primary" id="cih-edit-save-btn" onclick="saveCihEditTopup()"><i class="fas fa-check"></i> Save Changes</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ─────────── PAYMENTS (Service businesses — simple list) ─────────── -->
     <div id="page-payments-service" class="page">
       <!-- Summary cards -->
@@ -7220,6 +7264,9 @@ View Invoice: {{6}}</pre></details>
           <span style="font-size:13px;color:var(--muted)">A shared cash fund managers draw from for on-the-spot purchases &amp; expenses.</span>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-outline" id="cih-correction-btn" onclick="openCorrectionModal()" style="display:none">
+            <i class="fas fa-wrench"></i> Add Correction
+          </button>
           <button class="btn btn-primary" id="cih-addfunds-btn" onclick="openAddFundsModal()" style="display:none">
             <i class="fas fa-plus"></i> Add Funds
           </button>
@@ -7235,14 +7282,15 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Period filter -->
+      <!-- Period filter — also filters the ledger table below now -->
       <div class="page-toolbar" style="margin-bottom:14px">
         <div class="toolbar-left">
           <span style="font-size:12px;color:var(--muted);font-weight:600">Period:</span>
-          <input type="date" id="cih-from" class="table-filter" onchange="renderCashInHandBreakdown()">
+          <input type="date" id="cih-from" class="table-filter" onchange="renderCashInHandBreakdown();loadCihLedger(0)">
           <span style="font-size:12px;color:var(--muted)">to</span>
-          <input type="date" id="cih-to" class="table-filter" onchange="renderCashInHandBreakdown()">
+          <input type="date" id="cih-to" class="table-filter" onchange="renderCashInHandBreakdown();loadCihLedger(0)">
           <button class="btn btn-outline" style="font-size:12px" onclick="setCihPeriodThisMonth()">This Month</button>
+          <button class="btn btn-outline" style="font-size:12px" onclick="clearCihPeriod()">All Time</button>
         </div>
       </div>
 
@@ -7269,10 +7317,14 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Ledger -->
       <div class="table-card">
+        <div style="padding:12px 16px;font-size:12px;color:var(--muted)" id="cih-ledger-subtitle"></div>
         <table class="data-table"><thead><tr>
           <th>Date</th><th>Type</th><th>Description</th><th>By</th>
-          <th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Balance After</th>
+          <th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Balance After</th><th></th>
         </tr></thead><tbody id="cih-tbody"></tbody></table>
+        <div style="text-align:center;padding:14px">
+          <button class="btn btn-outline" id="cih-load-more-btn" onclick="loadCihLedgerMore()" style="display:none">Load More</button>
+        </div>
       </div>
     </div>
 
@@ -27408,19 +27460,24 @@ function exportAgingCSV() {
 
 // ══════════════════════════════════════════════════════════════
 // CASH IN HAND — shared manager fund, drawn from by Purchases &
-// Expenses when payment method = "Cash in Hand". Owner-only top-ups.
+// Expenses when payment method = "Cash in Hand". Owner-only top-ups,
+// corrections, and top-up edits.
 // ══════════════════════════════════════════════════════════════
 async function renderCashInHand() {
   const isOwner = (SERVER.user?.role === 'owner');
   const addBtn = document.getElementById('cih-addfunds-btn');
+  const corrBtn = document.getElementById('cih-correction-btn');
   if (addBtn) addBtn.style.display = isOwner ? '' : 'none';
+  if (corrBtn) corrBtn.style.display = isOwner ? '' : 'none';
 
   // Default the period filter to "This Month" the first time the page opens
   const fromEl = document.getElementById('cih-from'), toEl = document.getElementById('cih-to');
   if (fromEl && toEl && !fromEl.value) setCihPeriodThisMonth(false);
 
   try {
-    const r = await api('api/cash_in_hand.php');
+    // Balance is always current/all-time — a lightweight call with no
+    // date filter, kept separate from the (filterable) ledger fetch below.
+    const r = await api('api/cash_in_hand.php?limit=1');
     const bal = parseFloat(r.balance) || 0;
     const balEl = document.getElementById('cih-balance');
     if (balEl) {
@@ -27430,28 +27487,12 @@ async function renderCashInHand() {
     const flagEl = document.getElementById('cih-negative-flag');
     if (flagEl) flagEl.style.display = bal < 0 ? 'inline-block' : 'none';
 
-    const tbody = document.getElementById('cih-tbody');
-    if (tbody) tbody.innerHTML = (r.data||[]).map(l => {
-      const amt = parseFloat(l.amount)||0;
-      const isIn = l.direction === 'in';
-      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
-      const typeColor  = isIn ? '#00897B' : '#E53935';
-      return `<tr>
-        <td>${fmt_date_disp(l.entry_date)}</td>
-        <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
-        <td>${escHtml(l.note||'')}</td>
-        <td style="color:var(--muted)">${escHtml(l.created_by_name||'—')}</td>
-        <td style="text-align:right;color:#00897B;font-weight:600">${isIn ? fmt_money(amt) : ''}</td>
-        <td style="text-align:right;color:#E53935;font-weight:600">${!isIn ? fmt_money(amt) : ''}</td>
-        <td style="text-align:right;font-weight:700">${fmt_money(parseFloat(l.balance_after)||0)}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">No activity yet — add funds to get started</td></tr>';
-
     // Keep the Dashboard KPI card in sync too
     const dEl = document.getElementById('db-stat-cih');
     if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 
+  loadCihLedger(0);
   renderCashInHandBreakdown();
 }
 
@@ -27460,8 +27501,72 @@ function setCihPeriodThisMonth(reload = true) {
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   document.getElementById('cih-from').value = fmt_date(first);
   document.getElementById('cih-to').value   = fmt_date(now);
-  if (reload) renderCashInHandBreakdown();
+  if (reload) { renderCashInHandBreakdown(); loadCihLedger(0); }
 }
+function clearCihPeriod() {
+  document.getElementById('cih-from').value = '2000-01-01';
+  document.getElementById('cih-to').value   = fmt_date(new Date());
+  renderCashInHandBreakdown();
+  loadCihLedger(0);
+}
+
+// ── Ledger — paginated, date-filtered (reuses the same Period fields
+// as the Total In/Out cards above it) ──────────────────────────────
+let CIH_LEDGER_OFFSET = 0;
+let CIH_LATEST_ID = 0;
+let CIH_LEDGER_ROWS = []; // raw rows from the last load, keyed lookup for edit
+const CIH_PAGE_SIZE = 50;
+
+async function loadCihLedger(offset = 0) {
+  CIH_LEDGER_OFFSET = offset;
+  const from = document.getElementById('cih-from')?.value;
+  const to   = document.getElementById('cih-to')?.value;
+  const tbody = document.getElementById('cih-tbody');
+  if (offset === 0 && tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>';
+
+  try {
+    const qs = `limit=${CIH_PAGE_SIZE}&offset=${offset}` + (from ? `&from=${from}` : '') + (to ? `&to=${to}` : '');
+    const r = await api(`api/cash_in_hand.php?${qs}`);
+    CIH_LATEST_ID = r.latest_id || 0;
+    const rows = r.data || [];
+    if (offset === 0) CIH_LEDGER_ROWS = rows; else CIH_LEDGER_ROWS = CIH_LEDGER_ROWS.concat(rows);
+    const isOwner = (SERVER.user?.role === 'owner');
+
+    const rowsHtml = rows.map(l => {
+      const amt = parseFloat(l.amount)||0;
+      const isIn = l.direction === 'in';
+      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
+      const typeColor  = isIn ? '#00897B' : '#E53935';
+      const canEdit = isOwner && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
+      return `<tr>
+        <td>${fmt_date_disp(l.entry_date)}</td>
+        <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
+        <td>${escHtml(l.note||'')}</td>
+        <td style="color:var(--muted)">${escHtml(l.created_by_name||'—')}</td>
+        <td style="text-align:right;color:#00897B;font-weight:600">${isIn ? fmt_money(amt) : ''}</td>
+        <td style="text-align:right;color:#E53935;font-weight:600">${!isIn ? fmt_money(amt) : ''}</td>
+        <td style="text-align:right;font-weight:700">${fmt_money(parseFloat(l.balance_after)||0)}</td>
+        <td>${l.type === 'topup' && isOwner
+          ? `<button class="act-btn" title="${canEdit ? 'Edit this top-up' : 'Can\\'t edit — other activity happened since. Use Add Correction instead.'}"
+                      onclick="openCihEditTopup(${l.id}, ${canEdit})" style="${canEdit ? '' : 'opacity:.4'}">
+               <i class="fas fa-pen"></i>
+             </button>` : ''}</td>
+      </tr>`;
+    }).join('');
+
+    if (offset === 0) {
+      tbody.innerHTML = rowsHtml || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">No activity yet — add funds to get started</td></tr>';
+    } else {
+      tbody.insertAdjacentHTML('beforeend', rowsHtml);
+    }
+
+    const sub = document.getElementById('cih-ledger-subtitle');
+    if (sub) sub.textContent = `Showing ${offset + rows.length} of ${r.total}`;
+    const moreBtn = document.getElementById('cih-load-more-btn');
+    if (moreBtn) moreBtn.style.display = (offset + rows.length) < r.total ? '' : 'none';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+function loadCihLedgerMore() { loadCihLedger(CIH_LEDGER_OFFSET + CIH_PAGE_SIZE); }
 
 async function renderCashInHandBreakdown() {
   const from = document.getElementById('cih-from')?.value;
@@ -27546,11 +27651,78 @@ async function saveAddFunds() {
   finally { if (btn) btn.disabled = false; }
 }
 
+// ── Correction — fixes a mistake without editing history (Option B) ──
+function openCorrectionModal() {
+  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can add corrections', 'warning'); return; }
+  document.getElementById('cih-corr-date').value = fmt_date(new Date());
+  document.getElementById('cih-corr-amount').value = '';
+  document.getElementById('cih-corr-note').value = '';
+  openModal('modal-cih-correction');
+}
+async function saveCihCorrection() {
+  const amount = parseFloat(document.getElementById('cih-corr-amount').value);
+  if (!amount) { toast('⚠️ Enter a non-zero amount', 'warning'); return; }
+  const note = document.getElementById('cih-corr-note').value.trim();
+  if (!note) { toast('⚠️ A reason for the correction is required', 'warning'); return; }
+  const payload = { date: document.getElementById('cih-corr-date').value, amount, note };
+  const btn = document.getElementById('cih-corr-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
+  try {
+    await api('api/cash_in_hand.php?action=correction', 'POST', payload);
+    toast('✅ Correction added!', 'success');
+    closeModal('modal-cih-correction');
+    renderCashInHand();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+// ── Edit top-up — only when it's still the single latest ledger entry.
+// The server enforces this too (never trust the client-side check alone);
+// canEdit here just controls whether we even try, for a faster/clearer
+// response than round-tripping to find out.
+let CIH_EDITING_ID = null;
+function openCihEditTopup(id, canEdit) {
+  if (SERVER.user?.role !== 'owner') { toast('⚠️ Only the owner can edit this', 'warning'); return; }
+  if (!canEdit) {
+    toast('⚠️ This top-up can\'t be edited directly — other activity happened since it was added. Use "Add Correction" instead.', 'warning');
+    return;
+  }
+  const entry = CIH_LEDGER_ROWS.find(l => Number(l.id) === Number(id));
+  if (!entry) { toast('⚠️ Could not find that entry — try refreshing the page', 'warning'); return; }
+  CIH_EDITING_ID = id;
+  document.getElementById('cih-edit-alert').innerHTML = '';
+  document.getElementById('cih-edit-date').value = entry.entry_date;
+  document.getElementById('cih-edit-amount').value = parseFloat(entry.amount) || 0;
+  document.getElementById('cih-edit-note').value = entry.note || '';
+  openModal('modal-cih-edit-topup');
+}
+async function saveCihEditTopup() {
+  const amount = parseFloat(document.getElementById('cih-edit-amount').value) || 0;
+  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
+  const payload = {
+    id: CIH_EDITING_ID,
+    date: document.getElementById('cih-edit-date').value,
+    amount,
+    note: document.getElementById('cih-edit-note').value.trim(),
+  };
+  const btn = document.getElementById('cih-edit-save-btn');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
+  try {
+    await api('api/cash_in_hand.php?action=edit_topup', 'PATCH', payload);
+    toast('✅ Top-up updated!', 'success');
+    closeModal('modal-cih-edit-topup');
+    renderCashInHand();
+  } catch(e) {
+    document.getElementById('cih-edit-alert').innerHTML = `<div style="font-size:12px;color:#E53935;background:#FFEBEE;border-radius:6px;padding:8px 10px;margin-bottom:10px">${escHtml(e.message)}</div>`;
+  }
+  finally { if (btn) btn.disabled = false; }
+}
+
 // Quick, silent balance refresh for the Dashboard KPI card (no toast on
 // failure — this runs alongside other dashboard widgets on every load).
 async function refreshCashInHandDashboardWidget() {
   try {
-    const r = await api('api/cash_in_hand.php');
+    const r = await api('api/cash_in_hand.php?limit=1');
     const bal = parseFloat(r.balance) || 0;
     const dEl = document.getElementById('db-stat-cih');
     if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
