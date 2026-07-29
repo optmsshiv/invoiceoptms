@@ -17681,13 +17681,9 @@ function viewCustomerProfile(id) {
           const received = parseFloat(s.amount_received)||0;
           balance += invoiced - received;
           const status = s.payment_status || (balance <= 0 ? 'Paid' : 'Pending');
-          const productNames = (s.product_ids||'').split(',').filter(Boolean)
-            .map(pid => STATE.products.find(pr => String(pr.id).replace(/\D/g,'') === String(pid))?.name)
-            .filter(Boolean).join(', ');
           return `<tr>
             <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
-            <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
             <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
             <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -17695,9 +17691,9 @@ function viewCustomerProfile(id) {
           </tr>`;
         }).join('');
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice No.</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
