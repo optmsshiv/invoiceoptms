@@ -4480,7 +4480,7 @@ const SERVER = {
           <span>Add New Customer</span>
           <button class="modal-close" onclick="closeModal('modal-addcustomer')"><i class="fas fa-times"></i></button>
         </div>
-        <div class="modal-body" style="padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Customer Name *</label><input id="cus-name" placeholder="e.g. Patel Exports"></div>
             <div class="field"><label>Customer Type</label>
