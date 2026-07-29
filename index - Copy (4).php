@@ -5333,7 +5333,7 @@ const SERVER = {
             </div>
           </div>
         </div>
-        <div class="modal-body" style="padding:22px 24px">
+        <div class="modal-body" style="padding-top:22px">
           <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Amount</label>
           <div style="display:flex;align-items:center;gap:2px;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;margin-top:6px;margin-bottom:16px;transition:.15s" onfocusin="this.style.borderColor='#00897B'" onfocusout="this.style.borderColor='var(--border)'">
             <span style="font-size:26px;font-weight:700;color:var(--muted)">₹</span>
@@ -5372,7 +5372,7 @@ const SERVER = {
             </div>
           </div>
         </div>
-        <div class="modal-body" style="padding:22px 24px">
+        <div class="modal-body" style="padding-top:22px">
           <!-- Direction toggle instead of a raw signed number — much clearer intent -->
           <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Direction</label>
           <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:16px">
@@ -5423,7 +5423,7 @@ const SERVER = {
             </div>
           </div>
         </div>
-        <div class="modal-body" style="padding:22px 24px">
+        <div class="modal-body" style="padding-top:22px">
           <div id="cih-edit-alert"></div>
           <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Amount</label>
           <div style="display:flex;align-items:center;gap:2px;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;margin-top:6px;margin-bottom:16px" onfocusin="this.style.borderColor='#1976D2'" onfocusout="this.style.borderColor='var(--border)'">
