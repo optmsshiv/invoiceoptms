@@ -3505,8 +3505,8 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
             <div class="pne-grid-auto">
-              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)" oninput="_ppAutoSuggestSku()"></div>
-              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PRE-P0001" oninput="PP_SKU_AUTO=false"></div>
+              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
+              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
               <div class="field" id="pne-field-unit"><label id="pne-label-unit">Unit *</label>
                 <select id="pp-unit" data-pf-dropdown="unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
               </div>
@@ -3518,7 +3518,7 @@ const SERVER = {
               <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
               <div class="field" id="pne-field-shelf_life_months"><label id="pne-label-shelf_life_months">Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
               <div class="field" id="pne-field-variety"><label id="pne-label-variety">Variety</label>
-                <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange();_ppAutoSuggestSku()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+                <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
               <div class="field" id="pne-field-barcode"><label id="pne-label-barcode">Barcode</label>
                 <div style="display:flex;gap:6px">
@@ -3585,14 +3585,12 @@ const SERVER = {
               <div class="field" id="pne-field-max_stock"><label id="pne-label-max_stock">Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
               <div class="field" id="pne-field-default_warehouse"><label id="pne-label-default_warehouse">Default Warehouse</label><input id="pp-warehouse" placeholder="e.g. Main Warehouse"></div>
               <div class="field" style="display:flex;align-items:flex-end;gap:12px">
-                <label class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on');_ppToggleBatchSerialButtons()"></label>
+                <label class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></label>
                 <span style="font-size:12.5px;margin-bottom:2px">Track Batches</span>
-                <button type="button" id="pp-managebatches-btn" onclick="openManageBatches()" class="btn btn-outline" style="display:none;padding:4px 10px;font-size:11.5px;margin-left:auto"><i class="fas fa-layer-group"></i> Manage Batches</button>
               </div>
               <div class="field" style="display:flex;align-items:flex-end;gap:12px">
-                <label class="tog" id="pp-trackserial" onclick="this.classList.toggle('on');_ppToggleBatchSerialButtons()"></label>
+                <label class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></label>
                 <span style="font-size:12.5px;margin-bottom:2px">Track Serials</span>
-                <button type="button" id="pp-manageserials-btn" onclick="openManageSerials()" class="btn btn-outline" style="display:none;padding:4px 10px;font-size:11.5px;margin-left:auto"><i class="fas fa-barcode"></i> Manage Serials</button>
               </div>
             </div>
           </div>
@@ -4512,64 +4510,6 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addcustomer')">Cancel</button>
           <button class="btn btn-primary" id="cus-save-btn" onclick="saveCustomer()"><i class="fas fa-check"></i> Save Customer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── MANAGE BATCHES ─────────── -->
-    <div class="modal-overlay" id="modal-managebatches">
-      <div class="modal" style="max-width:640px">
-        <div class="modal-header">
-          <span>Manage Batches — <span id="pb-product-name"></span></span>
-          <button class="modal-close" onclick="closeModal('modal-managebatches')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:20px 22px">
-          <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:10px;align-items:end;background:var(--bg);border-radius:10px;padding:14px;margin-bottom:16px">
-            <div class="field" style="margin-bottom:0"><label>Batch Code</label><input id="pb-code" placeholder="Auto-suggested" oninput="PB_CODE_AUTO=false"></div>
-            <div class="field" style="margin-bottom:0"><label>Qty</label><input id="pb-qty" type="number" min="0" step="0.01" placeholder="0"></div>
-            <div class="field" style="margin-bottom:0"><label>Mfg Date</label><input id="pb-mfgdate" type="date"></div>
-            <div class="field" style="margin-bottom:0"><label>Expiry Date</label><input id="pb-expdate" type="date"></div>
-          </div>
-          <div style="text-align:right;margin-top:-10px;margin-bottom:14px">
-            <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="addProductBatch()"><i class="fas fa-plus"></i> Add Batch</button>
-          </div>
-          <div style="overflow-x:auto">
-            <table class="data-table">
-              <thead><tr><th>Batch Code</th><th style="text-align:right">Qty</th><th style="text-align:right">Remaining</th><th>Expiry</th><th>Status</th><th></th></tr></thead>
-              <tbody id="pb-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" onclick="closeModal('modal-managebatches')">Done</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─────────── MANAGE SERIALS ─────────── -->
-    <div class="modal-overlay" id="modal-manageserials">
-      <div class="modal" style="max-width:560px">
-        <div class="modal-header">
-          <span>Manage Serials — <span id="ps-product-name"></span></span>
-          <button class="modal-close" onclick="closeModal('modal-manageserials')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:20px 22px">
-          <div class="field">
-            <label>Add Serial Number(s)</label>
-            <textarea id="ps-bulk-input" rows="3" placeholder="One serial number per line — paste multiple at once for a bulk receipt"></textarea>
-          </div>
-          <div style="text-align:right;margin-bottom:14px">
-            <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="addProductSerials()"><i class="fas fa-plus"></i> Add</button>
-          </div>
-          <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-            <table class="data-table">
-              <thead><tr><th>Serial No.</th><th>Status</th><th></th></tr></thead>
-              <tbody id="ps-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" onclick="closeModal('modal-manageserials')">Done</button>
         </div>
       </div>
     </div>
@@ -16682,179 +16622,10 @@ function toggleProductStatus() {
   document.getElementById('pp-status-label').textContent = el.classList.contains('on') ? 'Active' : 'Inactive';
 }
 
-let PP_SKU_AUTO = true; // false the moment the user types directly into the SKU field
-
-// Suggests a Product Code/SKU derived from the name + variety, e.g.
-// "Basmati Rice" + "Premium" → BAS-PRE-P0001. Only fires while the user
-// hasn't taken manual control of the field (matches the same
-// auto-suggest-but-editable pattern Customer Code and OFR numbers use).
-function _ppAutoSuggestSku() {
-  if (!PP_SKU_AUTO) return;
-  const name = document.getElementById('pp-name').value.trim();
-  if (!name) return;
-  const variety = document.getElementById('pp-variety')?.value.trim() || '';
-
-  const letters = s => s.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase().padEnd(3, 'X');
-  const nameCode = letters(name);
-  const varietyCode = variety ? letters(variety) : '';
-
-  const seq = (STATE.products?.length || 0) + 1;
-  const seqStr = 'P' + String(seq).padStart(4, '0');
-
-  document.getElementById('pp-sku').value = [nameCode, varietyCode, seqStr].filter(Boolean).join('-');
-  // Note: setting .value programmatically does NOT fire the input's own
-  // oninput handler, so PP_SKU_AUTO correctly stays true — further edits
-  // to Name/Variety keep updating the suggestion until the user actually
-  // types into the SKU field themselves.
-}
-
-// ══════════════════════════════════════════════════════════════
-// BATCH / SERIAL TRACKING
-// Manage Batches/Serials only makes sense for an already-saved product
-// (batches need a real product_id to attach to) — buttons stay hidden
-// until PNP.editingId is set, i.e. the New Product form has been saved
-// at least once.
-// ══════════════════════════════════════════════════════════════
-function _ppToggleBatchSerialButtons() {
-  const isExisting = !!PNP.editingId;
-  const batchOn  = document.getElementById('pp-trackbatch')?.classList.contains('on');
-  const serialOn = document.getElementById('pp-trackserial')?.classList.contains('on');
-  const batchBtn  = document.getElementById('pp-managebatches-btn');
-  const serialBtn = document.getElementById('pp-manageserials-btn');
-  if (batchBtn)  batchBtn.style.display  = (isExisting && batchOn)  ? '' : 'none';
-  if (serialBtn) serialBtn.style.display = (isExisting && serialOn) ? '' : 'none';
-}
-
-// ── Batches ──────────────────────────────────────────────────────
-let PB_CODE_AUTO = true;
-let PB_CURRENT_PRODUCT_ID = null;
-let PB_CURRENT_BATCHES = [];
-
-function openManageBatches() {
-  if (!PNP.editingId) { toast('⚠️ Save the product first before adding batches', 'warning'); return; }
-  PB_CURRENT_PRODUCT_ID = PNP.editingId;
-  document.getElementById('pb-product-name').textContent = document.getElementById('pp-name').value;
-  document.getElementById('pb-code').value = '';
-  document.getElementById('pb-qty').value = '';
-  document.getElementById('pb-mfgdate').value = fmt_date(new Date());
-  document.getElementById('pb-expdate').value = '';
-  PB_CODE_AUTO = true;
-  loadProductBatches();
-  openModal('modal-managebatches');
-}
-
-async function loadProductBatches() {
-  const rawId = String(PB_CURRENT_PRODUCT_ID).replace(/\D/g,'');
-  try {
-    const r = await api(`api/product_batches.php?product_id=${rawId}`);
-    PB_CURRENT_BATCHES = r.data || [];
-    renderProductBatches();
-    // Auto-suggest next batch code, e.g. B0001, once we know how many exist
-    if (PB_CODE_AUTO) {
-      const seq = PB_CURRENT_BATCHES.length + 1;
-      document.getElementById('pb-code').value = 'B' + String(seq).padStart(4,'0');
-    }
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function renderProductBatches() {
-  const tbody = document.getElementById('pb-tbody');
-  tbody.innerHTML = PB_CURRENT_BATCHES.map(b => {
-    const depleted = b.status === 'depleted';
-    const untouched = Math.abs(parseFloat(b.remaining_qty) - parseFloat(b.qty)) < 0.001;
-    return `<tr>
-      <td>${escHtml(b.batch_code)}</td>
-      <td style="text-align:right">${parseFloat(b.qty).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;font-weight:600;color:${depleted?'#E53935':'#00897B'}">${parseFloat(b.remaining_qty).toLocaleString('en-IN')}</td>
-      <td>${b.expiry_date ? fmt_date_disp(b.expiry_date) : '—'}</td>
-      <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${depleted?'#FFEBEE':'#E8F5E9'};color:${depleted?'#E53935':'#00897B'}">${depleted?'Depleted':'Active'}</span></td>
-      <td>${untouched ? `<button class="act-btn" title="Delete" onclick="deleteProductBatch(${b.id})"><i class="fas fa-times"></i></button>` : ''}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">No batches yet</td></tr>';
-}
-
-async function addProductBatch() {
-  const batch_code = document.getElementById('pb-code').value.trim();
-  const qty = parseFloat(document.getElementById('pb-qty').value);
-  if (!batch_code) { toast('⚠️ Batch code is required', 'warning'); return; }
-  if (!qty || qty <= 0) { toast('⚠️ Enter a quantity greater than 0', 'warning'); return; }
-  const rawId = String(PB_CURRENT_PRODUCT_ID).replace(/\D/g,'');
-  try {
-    await api('api/product_batches.php', 'POST', {
-      product_id: rawId, batch_code, qty,
-      mfg_date: document.getElementById('pb-mfgdate').value || null,
-      expiry_date: document.getElementById('pb-expdate').value || null,
-    });
-    toast('✅ Batch added!', 'success');
-    document.getElementById('pb-qty').value = '';
-    document.getElementById('pb-expdate').value = '';
-    PB_CODE_AUTO = true;
-    loadProductBatches();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function deleteProductBatch(id) {
-  if (!confirm('Delete this batch? Only possible since nothing has been sold from it yet.')) return;
-  try {
-    await api('api/product_batches.php?id='+id, 'DELETE');
-    toast('🗑️ Batch deleted', 'info');
-    loadProductBatches();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// ── Serials ──────────────────────────────────────────────────────
-let PS_CURRENT_PRODUCT_ID = null;
-
-function openManageSerials() {
-  if (!PNP.editingId) { toast('⚠️ Save the product first before adding serials', 'warning'); return; }
-  PS_CURRENT_PRODUCT_ID = PNP.editingId;
-  document.getElementById('ps-product-name').textContent = document.getElementById('pp-name').value;
-  document.getElementById('ps-bulk-input').value = '';
-  loadProductSerials();
-  openModal('modal-manageserials');
-}
-
-async function loadProductSerials() {
-  const rawId = String(PS_CURRENT_PRODUCT_ID).replace(/\D/g,'');
-  try {
-    const r = await api(`api/product_serials.php?product_id=${rawId}`);
-    const serials = r.data || [];
-    document.getElementById('ps-tbody').innerHTML = serials.map(s => `<tr>
-      <td>${escHtml(s.serial_no)}</td>
-      <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${s.status==='sold'?'#FFEBEE':'#E8F5E9'};color:${s.status==='sold'?'#E53935':'#00897B'}">${s.status==='sold'?'Sold':'In Stock'}</span></td>
-      <td>${s.status!=='sold' ? `<button class="act-btn" title="Delete" onclick="deleteProductSerial(${s.id})"><i class="fas fa-times"></i></button>` : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">No serials yet</td></tr>';
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function addProductSerials() {
-  const raw = document.getElementById('ps-bulk-input').value.trim();
-  if (!raw) { toast('⚠️ Enter at least one serial number', 'warning'); return; }
-  const serial_nos = raw.split('\n').map(s=>s.trim()).filter(Boolean);
-  const rawId = String(PS_CURRENT_PRODUCT_ID).replace(/\D/g,'');
-  try {
-    const r = await api('api/product_serials.php', 'POST', { product_id: rawId, serial_nos });
-    toast(`✅ ${r.added} serial(s) added` + (r.skipped_duplicates ? `, ${r.skipped_duplicates} duplicate(s) skipped` : ''), 'success');
-    document.getElementById('ps-bulk-input').value = '';
-    loadProductSerials();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function deleteProductSerial(id) {
-  if (!confirm('Delete this serial number?')) return;
-  try {
-    await api('api/product_serials.php?id='+id, 'DELETE');
-    toast('🗑️ Serial deleted', 'info');
-    loadProductSerials();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
 function goToNewProductPage() {
   applyProductFormToPage();
   PNP.editingId = null;
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
-  PP_SKU_AUTO = true; // fresh form — SKU suggestion is live until the user types their own
-  _ppToggleBatchSerialButtons();
   document.getElementById('pnp-title').textContent = 'New Product';
   document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
   ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
@@ -16934,7 +16705,6 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  _ppToggleBatchSerialButtons();
   set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
   pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
   set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
