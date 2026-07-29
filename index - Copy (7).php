@@ -3991,11 +3991,8 @@ const SERVER = {
     <!-- ─────────── SALES LIST ─────────── -->
     <!-- ═══════════ PROFORMA INVOICE LIST ═══════════ -->
     <div id="page-proforma-list" class="page">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--text)">Proforma Invoices</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Offer price documents for customers</div>
-        </div>
+      <div class="page-header">
+        <div><div class="page-title">Proforma Invoices</div><div class="page-subtitle">Offer price documents for customers</div></div>
         <button class="btn btn-primary" onclick="goToNewProforma()"><i class="fas fa-plus"></i> New Offer</button>
       </div>
       <div class="pne-card" style="margin-bottom:14px">
@@ -4045,10 +4042,7 @@ const SERVER = {
             <div class="pne-grid4">
               <div class="field"><label>OFR Number</label><input id="ofr-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Customer / Consignee *</label>
-                <div style="display:flex;gap:6px">
-                  <select id="ofr-customer" onchange="onOfrCustomerChange()" style="flex:1"><option value="">Select customer…</option></select>
-                  <button type="button" class="btn btn-outline" title="Add a new customer" onclick="openAddCustomerModal('proforma')" style="padding:0 12px;flex-shrink:0"><i class="fas fa-plus"></i></button>
-                </div>
+                <select id="ofr-customer" onchange="onOfrCustomerChange()"><option value="">Select customer…</option></select>
               </div>
               <div class="field"><label>Offer Date *</label><input type="date" id="ofr-date"></div>
               <div class="field"><label>Valid Until</label><input type="date" id="ofr-valid"></div>
@@ -20377,10 +20371,7 @@ async function onCustomerPicked() {
   } catch(e) { /* non-fatal */ }
 }
 
-let ADD_CUSTOMER_CONTEXT = 'sale'; // 'sale' | 'proforma' — which dropdown to update after saving
-
-function openAddCustomerModal(context = 'sale') {
-  ADD_CUSTOMER_CONTEXT = context;
+function openAddCustomerModal() {
   ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
@@ -20406,15 +20397,9 @@ async function saveCustomer() {
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
     closeModal('modal-addcustomer');
-    if (ADD_CUSTOMER_CONTEXT === 'proforma') {
-      populateOfrCustomerDropdown();
-      document.getElementById('ofr-customer').value = res.id;
-      onOfrCustomerChange();
-    } else {
-      populateSaleCustomerDropdown();
-      document.getElementById('sn-customer').value = res.id;
-      onCustomerPicked();
-    }
+    populateSaleCustomerDropdown();
+    document.getElementById('sn-customer').value = res.id;
+    onCustomerPicked();
     toast('✅ "' + name + '" added!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
