@@ -86,18 +86,6 @@ code,.mono{font-family:'JetBrains Mono',monospace}
 
 /* Layout */
 .container{max-width:1240px;margin:0 auto;padding:32px 24px 60px}
-
-/* App layout: sidebar + main content, below the topbar */
-.app-layout{display:flex;align-items:flex-start;min-height:calc(100vh - 97px)}
-.sidebar{width:220px;flex-shrink:0;background:var(--card);border-right:1px solid var(--border-soft);position:sticky;top:97px;height:calc(100vh - 97px);padding:18px 12px}
-.side-nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--text-soft);text-decoration:none;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:2px}
-.side-nav-item i{width:16px;text-align:center;color:var(--text-mute);font-size:13px}
-.side-nav-item:hover{background:var(--surface)}
-.side-nav-item.active{background:var(--accent-soft);color:var(--accent-dark)}
-.side-nav-item.active i{color:var(--accent-dark)}
-.app-main{flex:1;min-width:0}
-.admin-page{display:none}
-.admin-page.active{display:block}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap}
 .eyebrow{font-size:11px;font-weight:700;color:var(--accent-dark);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
 .page-title{font-family:'Hanken Grotesk',sans-serif;font-size:24px;font-weight:600;letter-spacing:-.01em;color:var(--text)}
@@ -260,25 +248,11 @@ tbody tr:hover td{background:#FAFBFD}
   <div class="topbar-crumb-strip">
     <a href="/dashboard.php">Dashboard</a>
     <i class="fas fa-chevron-right"></i>
-    <span class="current" id="topbar-crumb-current">Tenant Management</span>
+    <span class="current">Tenant Management</span>
   </div>
 </div>
 
-<div class="app-layout">
-  <aside class="sidebar">
-    <nav>
-      <a class="side-nav-item active" data-page="tenants" onclick="showAdminPage('tenants',this)">
-        <i class="fas fa-building"></i> Tenant Management
-      </a>
-      <a class="side-nav-item" data-page="team" onclick="showAdminPage('team',this)">
-        <i class="fas fa-users"></i> Team / Users
-      </a>
-    </nav>
-  </aside>
-  <div class="app-main">
-
-  <div id="page-tenants" class="admin-page active">
-  <div class="container">
+<div class="container">
   <div class="page-head">
     <div>
       <div class="eyebrow">Super Admin</div>
@@ -340,62 +314,7 @@ tbody tr:hover td{background:#FAFBFD}
       </table>
     </div>
   </div>
-  </div>
-  </div><!-- /page-tenants -->
-
-  <div id="page-team" class="admin-page">
-  <div class="container">
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">Super Admin</div>
-        <div class="page-title">Team / Users</div>
-        <div class="page-sub">Every user across every tenant, in one place.</div>
-      </div>
-    </div>
-
-    <div class="table-card" style="background:var(--card);border:1px solid var(--border-soft);border-radius:16px;padding:22px">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-        <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0">
-          <i class="fas fa-search"></i>
-          <input type="text" id="team-search" placeholder="Search name or email…" oninput="renderTeamTable()">
-        </div>
-        <select id="team-tenant-filter" onchange="renderTeamTable()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
-          <option value="">All Tenants</option>
-        </select>
-        <select id="team-role-filter" onchange="renderTeamTable()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
-          <option value="">All Roles</option>
-          <option value="owner">Owner</option>
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="accountant">Accountant</option>
-          <option value="sales">Sales</option>
-          <option value="viewer">Viewer</option>
-        </select>
-        <select id="team-status-filter" onchange="renderTeamTable()" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
-          <option value="">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="invited">Invited</option>
-        </select>
-        <button class="btn btn-outline" onclick="loadTeamPage()"><i class="fas fa-rotate"></i> Refresh</button>
-      </div>
-      <div id="team-subtitle" style="font-size:12.5px;color:var(--text-mute);margin-bottom:10px"></div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr>
-            <th>User</th><th>Tenant</th><th>Role</th><th>Status</th><th>Last Login</th><th>Verified</th><th>License</th><th style="text-align:right">Actions</th>
-          </tr></thead>
-          <tbody id="team-tbody">
-            <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  </div><!-- /page-team -->
-
-  </div><!-- /app-main -->
-</div><!-- /app-layout -->
+</div>
 
 <!-- Create Tenant Modal -->
 <div class="modal-overlay" id="modal-create-tenant">
@@ -459,8 +378,8 @@ tbody tr:hover td{background:#FAFBFD}
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" id="ct-cancel-btn" onclick="closeModal('modal-create-tenant')">Cancel</button>
-      <button class="btn btn-primary" id="ct-submit-btn" onclick="createTenant()">
+      <button class="btn btn-outline" onclick="closeModal('modal-create-tenant')">Cancel</button>
+      <button class="btn btn-primary" onclick="createTenant()">
         <i class="fas fa-database"></i> Provision &amp; Create
       </button>
     </div>
@@ -527,8 +446,8 @@ tbody tr:hover td{background:#FAFBFD}
       </div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-outline" id="ae-cancel-btn" onclick="closeModal('modal-attach-existing')">Cancel</button>
-      <button class="btn btn-primary" id="ae-submit-btn" onclick="attachExistingTenant()">
+      <button class="btn btn-outline" onclick="closeModal('modal-attach-existing')">Cancel</button>
+      <button class="btn btn-primary" onclick="attachExistingTenant()">
         <i class="fas fa-plug"></i> Attach Database
       </button>
     </div>
@@ -800,28 +719,7 @@ function renderTenants(list) {
 function openCreateTenant() {
   document.getElementById('create-alert').innerHTML = '';
   PENDING_RESUME = null;
-  resetCreateTenantButtons();
   document.getElementById('modal-create-tenant').classList.add('open');
-}
-
-function resetCreateTenantButtons() {
-  const cancelBtn = document.getElementById('ct-cancel-btn');
-  const submitBtn = document.getElementById('ct-submit-btn');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => closeModal('modal-create-tenant');
-  submitBtn.style.display = '';
-  submitBtn.disabled = false;
-  submitBtn.innerHTML = '<i class="fas fa-database"></i> Provision &amp; Create';
-}
-
-function markCreateTenantDone() {
-  // Swap Cancel/Create into a single "Finish" button once a tenant has
-  // actually been created — "Cancel" no longer makes sense at that point.
-  const cancelBtn = document.getElementById('ct-cancel-btn');
-  const submitBtn = document.getElementById('ct-submit-btn');
-  submitBtn.style.display = 'none';
-  cancelBtn.innerHTML = '<i class="fas fa-check"></i> Finish';
-  cancelBtn.onclick = () => { closeModal('modal-create-tenant'); loadTenants(); };
 }
 
 document.getElementById('t-company').addEventListener('input', function() {
@@ -844,7 +742,7 @@ async function createTenant() {
     showAlert('create-alert', 'Company name and owner email are required', 'error');
     return;
   }
-  const btn = document.getElementById('ct-submit-btn');
+  const btn = event.target;
   btn.disabled = true; btn.textContent = 'Provisioning DB…';
   try {
     const r    = await fetch('/api/tenant.php?action=create', {
@@ -859,11 +757,9 @@ async function createTenant() {
          <strong>Password:</strong> <code>${data.temp_pass}</code><br>
          <strong>DB:</strong> ${data.db_name}<br>
          <em>Copy these credentials — password shown only once.</em>`, 'success');
-      markCreateTenantDone();
       loadTenants();
     } else if (data.needs_manual_grant) {
       PENDING_RESUME = data.resume_payload;
-      btn.style.display = 'none'; // the inline "Finish Setup" button below takes over from here
       document.getElementById('create-alert').innerHTML = `
         <div class="alert alert-error">
           ⚠️ Database <code>${esc(data.db_name)}</code> was created, but your hosting provider
@@ -879,12 +775,12 @@ async function createTenant() {
           <i class="fas fa-check"></i> I've granted privileges — Finish Setup
         </button>`;
     } else {
-      showAlert('create-alert', esc(data.error || 'Failed'), 'error');
+      showAlert('create-alert', data.error || 'Failed', 'error');
     }
   } catch(e) {
     showAlert('create-alert', 'Network error: ' + e.message, 'error');
   } finally {
-    if (btn.style.display !== 'none') { btn.disabled = false; btn.innerHTML = '<i class="fas fa-database"></i> Provision &amp; Create'; }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-database"></i> Provision & Create';
   }
 }
 
@@ -910,10 +806,9 @@ async function finishProvision() {
          <strong>DB:</strong> ${data.db_name}<br>
          <em>Copy these credentials — password shown only once.</em>`, 'success');
       PENDING_RESUME = null;
-      markCreateTenantDone();
       loadTenants();
     } else {
-      showAlert('create-alert', esc(data.error || 'Still failed — check that privileges were granted in cPanel.'), 'error');
+      showAlert('create-alert', data.error || 'Still failed — check that privileges were granted in cPanel.', 'error');
       btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> I\'ve granted privileges — Finish Setup';
     }
   } catch(e) {
@@ -926,26 +821,7 @@ async function finishProvision() {
 function openAttachExisting() {
   document.getElementById('attach-alert').innerHTML = '';
   ['a-dbname','a-company','a-slug','a-owner-email','a-phone'].forEach(id => document.getElementById(id).value = '');
-  resetAttachExistingButtons();
   document.getElementById('modal-attach-existing').classList.add('open');
-}
-
-function resetAttachExistingButtons() {
-  const cancelBtn = document.getElementById('ae-cancel-btn');
-  const submitBtn = document.getElementById('ae-submit-btn');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = () => closeModal('modal-attach-existing');
-  submitBtn.style.display = '';
-  submitBtn.disabled = false;
-  submitBtn.innerHTML = '<i class="fas fa-plug"></i> Attach Database';
-}
-
-function markAttachExistingDone() {
-  const cancelBtn = document.getElementById('ae-cancel-btn');
-  const submitBtn = document.getElementById('ae-submit-btn');
-  submitBtn.style.display = 'none';
-  cancelBtn.innerHTML = '<i class="fas fa-check"></i> Finish';
-  cancelBtn.onclick = () => { closeModal('modal-attach-existing'); loadTenants(); };
 }
 
 document.getElementById('a-company').addEventListener('input', function() {
@@ -967,7 +843,7 @@ async function attachExistingTenant() {
     showAlert('attach-alert', 'Database name, company name and owner email are required', 'error');
     return;
   }
-  const btn = document.getElementById('ae-submit-btn');
+  const btn = event.target.closest('button');
   btn.disabled = true; btn.textContent = 'Attaching…';
   try {
     const r = await fetch('/api/tenant.php?action=attach_existing', {
@@ -986,45 +862,30 @@ async function attachExistingTenant() {
           data.skipped_users.map(u => `${esc(u.email||'id '+u.old_id)} — ${esc(u.reason)}`).join('<br>');
       }
       showAlert('attach-alert', html, 'success');
-      markAttachExistingDone();
       loadTenants();
     } else {
-      showAlert('attach-alert', esc(data.error || 'Failed'), 'error');
+      showAlert('attach-alert', data.error || 'Failed', 'error');
     }
   } catch(e) {
     showAlert('attach-alert', 'Network error: ' + e.message, 'error');
   } finally {
-    if (btn.style.display !== 'none') { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Attach Database'; }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-plug"></i> Attach Database';
   }
 }
 
 async function suspendTenant(id) {
   if (!confirm('Suspend this tenant? Their users will not be able to log in.')) return;
-  try {
-    const r = await fetch('/api/tenant.php?action=suspend', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({id})
-    });
-    const data = await r.json();
-    if (!data.success) { alert('Failed to suspend tenant: ' + (data.error || 'Unknown error')); return; }
-  } catch(e) {
-    alert('Network error while suspending tenant: ' + e.message);
-    return;
-  }
+  await fetch('/api/tenant.php?action=suspend', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({id})
+  });
   loadTenants();
 }
 async function activateTenant(id) {
-  try {
-    const r = await fetch('/api/tenant.php?action=activate', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({id})
-    });
-    const data = await r.json();
-    if (!data.success) { alert('Failed to activate tenant: ' + (data.error || 'Unknown error')); return; }
-  } catch(e) {
-    alert('Network error while activating tenant: ' + e.message);
-    return;
-  }
+  await fetch('/api/tenant.php?action=activate', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({id})
+  });
   loadTenants();
 }
 
@@ -1124,16 +985,9 @@ async function saveVerification() {
   const data = await r.json();
   if (data.success) {
     closeModal('modal-edit-license');
-    // Refresh whichever view this edit was actually opened from — the
-    // per-tenant Users modal (needs ACTIVE_TENANT_ID) or the cross-tenant
-    // Team page (its own loader, no tenant context needed).
-    if (document.getElementById('page-team')?.classList.contains('active')) {
-      loadTeamPage();
-    } else if (ACTIVE_TENANT_ID) {
-      loadUsers();
-    }
+    loadUsers();
   } else {
-    showAlert('el-alert', esc(data.error || 'Failed to save'), 'error');
+    showAlert('el-alert', data.error || 'Failed to save', 'error');
   }
 }
 
@@ -1156,23 +1010,16 @@ async function addUser() {
       `✅ User added! Password: <code>${data.temp_pass}</code>`, 'success');
     loadUsers(); loadTenants();
   } else {
-    showAlert('users-alert', esc(data.error || 'Failed'), 'error');
+    showAlert('users-alert', data.error || 'Failed', 'error');
   }
 }
 
 async function removeUser(id) {
   if (!confirm('Deactivate this user?')) return;
-  try {
-    const r = await fetch('/api/tenant.php?action=remove_user', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({user_id: id})
-    });
-    const data = await r.json();
-    if (!data.success) { alert('Failed to deactivate user: ' + (data.error || 'Unknown error')); return; }
-  } catch(e) {
-    alert('Network error while deactivating user: ' + e.message);
-    return;
-  }
+  await fetch('/api/tenant.php?action=remove_user', {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({user_id: id})
+  });
   loadUsers(); loadTenants();
 }
 
@@ -1265,7 +1112,7 @@ async function setPlanPermission(key, enabled) {
       body: JSON.stringify({ plan, permission_key: key, enabled })
     });
     const data = await r.json();
-    if (!data.success) showAlert('plan-defaults-alert', esc(data.error || 'Failed to save'), 'error');
+    if (!data.success) showAlert('plan-defaults-alert', data.error || 'Failed to save', 'error');
   } catch(e) {
     showAlert('plan-defaults-alert', 'Network error: ' + e.message, 'error');
   }
@@ -1338,7 +1185,7 @@ async function setTenantOverride(key, enabled) {
       body: JSON.stringify({ tenant_id: ACTIVE_PERMS_TENANT_ID, permission_key: key, enabled })
     });
     const data = await r.json();
-    if (!data.success) { showAlert('tenant-perms-alert', esc(data.error || 'Failed to save'), 'error'); return; }
+    if (!data.success) { showAlert('tenant-perms-alert', data.error || 'Failed to save', 'error'); return; }
     loadTenantPermissions(); // refresh to show the OVERRIDE badge
   } catch(e) {
     showAlert('tenant-perms-alert', 'Network error: ' + e.message, 'error');
@@ -1352,135 +1199,11 @@ async function clearTenantOverride(key) {
       body: JSON.stringify({ tenant_id: ACTIVE_PERMS_TENANT_ID, permission_key: key })
     });
     const data = await r.json();
-    if (!data.success) { showAlert('tenant-perms-alert', esc(data.error || 'Failed to reset'), 'error'); return; }
+    if (!data.success) { showAlert('tenant-perms-alert', data.error || 'Failed to reset', 'error'); return; }
     loadTenantPermissions();
   } catch(e) {
     showAlert('tenant-perms-alert', 'Network error: ' + e.message, 'error');
   }
-}
-
-// ══ Page switching (sidebar) ═══════════════════════════════════
-const ADMIN_PAGE_TITLES = { tenants: 'Tenant Management', team: 'Team / Users' };
-function showAdminPage(name, el) {
-  document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.side-nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name)?.classList.add('active');
-  if (el) el.classList.add('active');
-  document.getElementById('topbar-crumb-current').textContent = ADMIN_PAGE_TITLES[name] || name;
-  if (name === 'team') loadTeamPage();
-}
-
-// ══ Team / Users — every user across every tenant ═════════════════
-// The API only supports fetching users for ONE tenant at a time
-// (?tenant_id=X), so this fetches all tenants' users in parallel and
-// merges them client-side, tagging each with which tenant they belong to.
-let ALL_TEAM_USERS = [];
-
-async function loadTeamPage() {
-  const tbody = document.getElementById('team-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">Loading every tenant\'s users…</td></tr>';
-
-  // Populate the tenant filter dropdown from what's already loaded
-  const tFilter = document.getElementById('team-tenant-filter');
-  const prevVal = tFilter.value;
-  tFilter.innerHTML = '<option value="">All Tenants</option>' +
-    TENANTS.map(t => `<option value="${t.id}">${esc(t.company_name)}</option>`).join('');
-  tFilter.value = prevVal;
-
-  try {
-    const results = await Promise.all(TENANTS.map(async t => {
-      try {
-        const r = await fetch(`/api/tenant.php?action=users&tenant_id=${t.id}`);
-        const data = await r.json();
-        return (data.data || []).map(u => ({ ...u, _tenant_id: t.id, _tenant_name: t.company_name }));
-      } catch(e) {
-        return []; // one tenant failing shouldn't block the rest
-      }
-    }));
-    ALL_TEAM_USERS = results.flat();
-    renderTeamTable();
-  } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--danger)">Failed to load: ${esc(e.message)}</td></tr>`;
-  }
-}
-
-function renderTeamTable() {
-  const q = (document.getElementById('team-search').value || '').toLowerCase().trim();
-  const tenantFilter = document.getElementById('team-tenant-filter').value;
-  const roleFilter   = document.getElementById('team-role-filter').value;
-  const statusFilter = document.getElementById('team-status-filter').value;
-
-  const rows = ALL_TEAM_USERS.filter(u => {
-    if (tenantFilter && String(u._tenant_id) !== tenantFilter) return false;
-    if (roleFilter && u.role !== roleFilter) return false;
-    if (statusFilter && u.status !== statusFilter) return false;
-    if (q && !((u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q))) return false;
-    return true;
-  });
-
-  document.getElementById('team-subtitle').textContent =
-    `${rows.length} of ${ALL_TEAM_USERS.length} users across ${TENANTS.length} tenant${TENANTS.length===1?'':'s'}`;
-
-  const tbody = document.getElementById('team-tbody');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-mute)">No users match your filters</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = rows.map(u => {
-    const licenseText = u.license_no
-      ? `${esc(u.license_no)}${u.license_expiry ? ' · ' + u.license_expiry.slice(0,10) : ''}`
-      : '<span style="color:var(--text-mute)">—</span>';
-    return `<tr>
-      <td>
-        <div class="cell-primary">
-          <div class="avatar-md" style="width:30px;height:30px;font-size:11px">${esc(initials(u.name))}</div>
-          <div>
-            <div class="name" style="font-size:12.8px">${esc(u.name)}</div>
-            <div class="meta">${esc(u.email)}</div>
-          </div>
-        </div>
-      </td>
-      <td><span style="font-size:12.5px;font-weight:600">${esc(u._tenant_name)}</span></td>
-      <td><span class="badge badge-${u.role}">${esc(u.role)}</span></td>
-      <td><span class="badge badge-${u.status}">${esc(u.status)}</span></td>
-      <td><span class="muted-date">${u.last_login ? u.last_login.slice(0,10) : 'Never'}</span></td>
-      <td>${u.is_verified == 1
-        ? '<span class="verified-tag">VERIFIED</span>'
-        : '<span style="font-size:11px;color:var(--text-mute)">Unverified</span>'}</td>
-      <td style="font-size:11.5px" class="mono">${licenseText}</td>
-      <td style="white-space:nowrap;text-align:right">
-        <div class="action-group" style="display:inline-flex">
-          <button class="btn btn-icon" onclick="openEditLicenseFromTeam(${u.id})" title="Edit verification & license"><i class="fas fa-id-card"></i></button>
-          <button class="btn btn-icon" style="color:var(--danger)" onclick="removeUserFromTeam(${u.id})" title="Deactivate"><i class="fas fa-times"></i></button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-// Reuse the existing single-user modals (Edit License, Deactivate) from the
-// Team page — they only need CURRENT_USERS to contain the target user, which
-// ALL_TEAM_USERS already does (it's a superset across every tenant).
-function openEditLicenseFromTeam(userId) {
-  CURRENT_USERS = ALL_TEAM_USERS;
-  openEditLicense(userId);
-}
-async function removeUserFromTeam(id) {
-  if (!confirm('Deactivate this user?')) return;
-  try {
-    const r = await fetch('/api/tenant.php?action=remove_user', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({user_id: id})
-    });
-    const data = await r.json();
-    if (!data.success) { alert('Failed to deactivate user: ' + (data.error || 'Unknown error')); return; }
-  } catch(e) {
-    alert('Network error while deactivating user: ' + e.message);
-    return;
-  }
-  loadTeamPage();
-  loadTenants();
 }
 
 // ── Init ─────────────────────────────────────────────────────────
