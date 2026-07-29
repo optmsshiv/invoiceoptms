@@ -113,40 +113,17 @@ try {
   ];
   $expenseHeads = array_values(array_filter($expenseHeads, fn($e) => $e['amount'] > 0));
 
-  // ── Payment mode summaries — kept SEPARATE by nature of money flow.
-  // Previously these were merged into one map, which silently added
-  // "cash received from sales" to "cash paid for purchases" as if they
-  // were the same number — meaningless for reading cash flow. Now each
-  // gets its own breakdown + its own subtotal.
-  function modeBreakdown($db, $sql, $params) {
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $map = [];
-    foreach ($stmt->fetchAll() as $r) {
-      $m = str_starts_with($r['m'], 'Split:') ? 'Split Payment' : $r['m'];
-      $map[$m] = ($map[$m] ?? 0) + (float)$r['a'];
-    }
-    arsort($map);
-    $out = [];
-    foreach ($map as $mode => $amt) $out[] = ['mode' => $mode, 'amount' => $amt];
-    return $out;
-  }
-
-  $paymentModesSales = modeBreakdown($db,
-    "SELECT payment_method m, SUM(amount_received) a FROM sales
-     WHERE sale_date BETWEEN ? AND ? AND payment_method != '' GROUP BY payment_method",
-    [$dateFrom, $dateTo]);
-
-  $paymentModesPurchases = modeBreakdown($db,
-    "SELECT payment_mode m, SUM(amount_paid) a FROM purchases
-     WHERE purchase_date BETWEEN ? AND ? AND payment_mode != ''" . $whWherePur . " GROUP BY payment_mode",
-    [$dateFrom, $dateTo]);
-
-  // Expenses — its own separate card, not folded into Purchases
-  $paymentModesExpenses = modeBreakdown($db,
-    "SELECT method m, SUM(amount) a FROM expenses
-     WHERE `date` BETWEEN ? AND ? AND method != '' GROUP BY method",
-    [$dateFrom, $dateTo]);
+  // ── Payment mode summary — combined from both Sales and Purchases ──
+  $modeMap = [];
+  $sModeStmt = $db->prepare("SELECT payment_method m, SUM(amount_received) a FROM sales WHERE sale_date BETWEEN ? AND ? AND payment_method != '' GROUP BY payment_method");
+  $sModeStmt->execute([$dateFrom, $dateTo]);
+  foreach ($sModeStmt->fetchAll() as $r) { $m = str_starts_with($r['m'],'Split:') ? 'Split Payment' : $r['m']; $modeMap[$m] = ($modeMap[$m] ?? 0) + (float)$r['a']; }
+  $pModeStmt = $db->prepare("SELECT payment_mode m, SUM(amount_paid) a FROM purchases WHERE purchase_date BETWEEN ? AND ? AND payment_mode != '' GROUP BY payment_mode");
+  $pModeStmt->execute([$dateFrom, $dateTo]);
+  foreach ($pModeStmt->fetchAll() as $r) { $m = str_starts_with($r['m'],'Split:') ? 'Split Payment' : $r['m']; $modeMap[$m] = ($modeMap[$m] ?? 0) + (float)$r['a']; }
+  arsort($modeMap);
+  $paymentModes = [];
+  foreach ($modeMap as $mode => $amt) $paymentModes[] = ['mode' => $mode, 'amount' => $amt];
 
   // ── Trade Summary: Kg quantities + dhalta (for agri businesses) ──
   $tradeStmt = $db->prepare("
@@ -242,9 +219,7 @@ try {
     'trend' => $trend,
     'income_heads' => $incomeHeads,
     'expense_heads' => $expenseHeads,
-    'payment_modes_sales'     => $paymentModesSales,
-    'payment_modes_purchases' => $paymentModesPurchases,
-    'payment_modes_expenses'  => $paymentModesExpenses,
+    'payment_modes' => $paymentModes,
     'cash_flow' => [
       'total_collections' => (float)$curSales['r'],
       'total_payments' => (float)$curPur['p'],

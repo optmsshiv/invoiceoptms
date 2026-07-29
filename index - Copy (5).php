@@ -5031,21 +5031,10 @@ const SERVER = {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
-        <div class="pne-card">
-          <div class="pne-card-head"><i class="fas fa-arrow-down" style="color:#00897B"></i> Received — Sales</div>
-          <div id="fr-paymode-sales-list" style="display:flex;flex-direction:column;gap:10px"></div>
-        </div>
-        <div class="pne-card">
-          <div class="pne-card-head"><i class="fas fa-arrow-up" style="color:#E53935"></i> Paid Out — Purchases</div>
-          <div id="fr-paymode-purchases-list" style="display:flex;flex-direction:column;gap:10px"></div>
-        </div>
-      </div>
-
       <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px">
         <div class="pne-card">
-          <div class="pne-card-head"><i class="fas fa-receipt" style="color:#F9A825"></i> Expense Payment Mode Summary</div>
-          <div id="fr-paymode-expenses-list" style="display:flex;flex-direction:column;gap:10px"></div>
+          <div class="pne-card-head">Payment Mode Summary</div>
+          <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
       </div>
 
@@ -19629,25 +19618,16 @@ async function renderFinanceReport() {
       : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
       + (expHeadTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expHeadTotal)}</td><td>100.0%</td></tr>` : '');
 
-    // Payment mode summaries — Sales, Purchases, and Expenses are kept
-    // fully separate now (previously merged into one confusing total that
-    // silently added money received to money paid out).
-    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64','Cash in Hand':'#00897B','NEFT':'#1565C0','RTGS':'#1565C0','Credit Card':'#6A4C93' };
-    function renderPaymodeCard(elId, modes, emptyMsg) {
-      const el = document.getElementById(elId);
-      if (!el) return;
-      const total = modes.reduce((s,m)=>s+m.amount, 0);
-      el.innerHTML = modes.length ? modes.map(m => `
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
-          <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
-        </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
-          <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
-        : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
-    }
-    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period');
-    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period');
-    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period');
+    // Payment mode summary
+    const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
+    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64' };
+    document.getElementById('fr-paymode-list').innerHTML = r.payment_modes.length ? r.payment_modes.map(m => `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
+        <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${pmTotal?((m.amount/pmTotal)*100).toFixed(2):'0.00'}%)</span></span>
+      </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
+        <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
+      : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
 
     renderFRCharts(r);
 
