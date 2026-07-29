@@ -58,62 +58,7 @@ function saveAttachment($dataUrl) {
   return '/assets/uploads/sales/' . $fname;
 }
 
-// ── Batch/serial consumption on sale — mirrors the product_batches /
-// product_serials tables built for Manage Batches/Serials + Purchases'
-// receiving side, so a sale actually draws down what was received instead
-// of the two systems drifting apart.
-function consumeFromBatch($db, $productId, $batchCode, $qty) {
-  $batchCode = trim((string)$batchCode);
-  if ($batchCode === '' || $qty <= 0) return;
-  try {
-    $row = $db->prepare('SELECT id, remaining_qty FROM product_batches WHERE product_id=? AND batch_code=? LIMIT 1');
-    $row->execute([$productId, $batchCode]);
-    $b = $row->fetch();
-    if (!$b) return; // batch not tracked in product_batches — don't hard-fail the sale over it
-    $newRemaining = max(0, (float)$b['remaining_qty'] - $qty);
-    $status = $newRemaining <= 0.001 ? 'depleted' : 'active';
-    $db->prepare('UPDATE product_batches SET remaining_qty=?, status=? WHERE id=?')->execute([$newRemaining, $status, $b['id']]);
-  } catch (Throwable $e) { error_log('consumeFromBatch (sales.php) failed: ' . $e->getMessage()); }
-}
-// Reversal for edit/delete — restores exactly what a specific sale item
-// previously consumed.
-function restoreToBatch($db, $productId, $batchCode, $qty) {
-  $batchCode = trim((string)$batchCode);
-  if ($batchCode === '' || $qty <= 0) return;
-  try {
-    $db->prepare('UPDATE product_batches SET remaining_qty=remaining_qty+?, status="active" WHERE product_id=? AND batch_code=?')
-       ->execute([$qty, $productId, $batchCode]);
-  } catch (Throwable $e) { error_log('restoreToBatch (sales.php) failed: ' . $e->getMessage()); }
-}
-function consumeSerial($db, $productId, $serialNo, $saleId) {
-  $serialNo = trim((string)$serialNo);
-  if ($serialNo === '') return;
-  try {
-    $db->exec("CREATE TABLE IF NOT EXISTS `product_serials` (
-      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `product_id` INT UNSIGNED NOT NULL,
-      `serial_no` VARCHAR(80) NOT NULL, `status` ENUM('in_stock','sold') NOT NULL DEFAULT 'in_stock',
-      `purchase_id` INT UNSIGNED NULL, `sale_id` INT UNSIGNED NULL, `notes` VARCHAR(255) DEFAULT NULL,
-      `created_by` INT UNSIGNED DEFAULT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `sold_at` DATETIME NULL,
-      PRIMARY KEY (`id`), UNIQUE KEY `uk_product_serial` (`product_id`,`serial_no`), INDEX `idx_ps_status` (`status`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $db->prepare('UPDATE product_serials SET status="sold", sale_id=?, sold_at=NOW() WHERE product_id=? AND serial_no=? AND status="in_stock"')
-       ->execute([$saleId, $productId, $serialNo]);
-  } catch (Throwable $e) { error_log('consumeSerial (sales.php) failed: ' . $e->getMessage()); }
-}
-function restoreSerial($db, $productId, $serialNo) {
-  $serialNo = trim((string)$serialNo);
-  if ($serialNo === '') return;
-  try {
-    $db->prepare('UPDATE product_serials SET status="in_stock", sale_id=NULL, sold_at=NULL WHERE product_id=? AND serial_no=?')
-       ->execute([$productId, $serialNo]);
-  } catch (Throwable $e) { error_log('restoreSerial (sales.php) failed: ' . $e->getMessage()); }
-}
-
 try {
-// Auto-migrate: sale_items already had batch_no, adding serial_no for
-// serial-tracked products (one unit sold = one specific serial consumed).
-try { $db->exec("ALTER TABLE sale_items ADD COLUMN serial_no VARCHAR(80) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
-
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -217,23 +162,19 @@ switch ($method) {
     $saleId = (int)$db->lastInsertId();
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
-      $batchNo = trim($it['batch_no'] ?? '');
-      $serialNo = trim($it['serial_no'] ?? '');
       $itemStmt->execute([
-        $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $batchNo, $serialNo, $it['moisture_pct'] ?? null,
+        $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
       ]);
       if ($productId) {
-        writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo, $it['warehouse'] ?? 'Main Warehouse', $batchNo);
-        if ($batchNo !== '') consumeFromBatch($db, $productId, $batchNo, $c['qty']);
-        if ($serialNo !== '') consumeSerial($db, $productId, $serialNo, $saleId);
+        writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo, $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
       }
     }
 
@@ -253,14 +194,6 @@ switch ($method) {
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
-
-    // Capture old items' batch_no/serial_no/qty before they're replaced,
-    // so their consumption can be reversed before the new items (below)
-    // consume their own — same reverse-then-reapply principle used
-    // throughout Purchases/Cash in Hand edits.
-    $oldItemsStmt = $db->prepare('SELECT product_id, batch_no, serial_no, qty FROM sale_items WHERE sale_id = ?');
-    $oldItemsStmt->execute([$id]);
-    $oldItems = $oldItemsStmt->fetchAll();
 
     $computed = array_map('computeSaleItem', $items);
     $subtotal = array_sum(array_column($computed, 'lineSubtotal'));
@@ -322,32 +255,20 @@ switch ($method) {
     clearStockForSale($db, $id);
     $db->prepare('DELETE FROM sale_items WHERE sale_id = ?')->execute([$id]);
 
-    // Restore what the OLD items had consumed, before the new items
-    // (below) consume their own.
-    foreach ($oldItems as $oi) {
-      if (!$oi['product_id']) continue;
-      if (trim((string)$oi['batch_no']) !== '') restoreToBatch($db, $oi['product_id'], $oi['batch_no'], (float)$oi['qty']);
-      if (trim((string)$oi['serial_no']) !== '') restoreSerial($db, $oi['product_id'], $oi['serial_no']);
-    }
-
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
-      $batchNo = trim($it['batch_no'] ?? '');
-      $serialNo = trim($it['serial_no'] ?? '');
       $itemStmt->execute([
-        $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $batchNo, $serialNo, $it['moisture_pct'] ?? null,
+        $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $it['batch_no'] ?? '', $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
         (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
       ]);
       if ($productId) {
-        writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)', $it['warehouse'] ?? 'Main Warehouse', $batchNo);
-        if ($batchNo !== '') consumeFromBatch($db, $productId, $batchNo, $c['qty']);
-        if ($serialNo !== '') consumeSerial($db, $productId, $serialNo, $id);
+        writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)', $it['warehouse'] ?? 'Main Warehouse', $it['batch_no'] ?? '');
       }
     }
 
@@ -365,20 +286,11 @@ switch ($method) {
     $delProds = $db->prepare('SELECT DISTINCT product_id FROM sale_items WHERE sale_id = ?');
     $delProds->execute([$id]);
     $delProdIds = array_column($delProds->fetchAll(), 'product_id');
-    // Capture item batch/serial info before deleting, to restore what was consumed
-    $delItemsStmt = $db->prepare('SELECT product_id, batch_no, serial_no, qty FROM sale_items WHERE sale_id = ?');
-    $delItemsStmt->execute([$id]);
-    $delItems = $delItemsStmt->fetchAll();
     clearStockForSale($db, $id);
     $db->prepare('DELETE FROM sale_items WHERE sale_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM sales WHERE id = ?')->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'delete', 'sale', $id, 'Sale deleted');
     rebalanceStockLedger($db, $delProdIds);
-    foreach ($delItems as $di) {
-      if (!$di['product_id']) continue;
-      if (trim((string)$di['batch_no']) !== '') restoreToBatch($db, $di['product_id'], $di['batch_no'], (float)$di['qty']);
-      if (trim((string)$di['serial_no']) !== '') restoreSerial($db, $di['product_id'], $di['serial_no']);
-    }
     jsonResponse(['success' => true]);
     break;
 

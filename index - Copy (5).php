@@ -3114,7 +3114,7 @@ const SERVER = {
               <table class="data-table pne-items-table">
                 <colgroup>
                   <col style="width:30px"><col style="width:140px"><col style="width:90px">
-                  <col style="width:70px"><col style="width:90px"><col style="width:90px">
+                  <col style="width:70px"><col style="width:90px">
                   <col style="width:72px"><col style="width:72px"><col style="width:78px">
                   <col style="width:55px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:90px">
@@ -3123,7 +3123,7 @@ const SERVER = {
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety</th>
-                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th><th rowspan="2">Batch Code</th>
+                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
                     <th colspan="3">Weight (Kg)</th>
                     <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Wt</th>
@@ -18666,7 +18666,7 @@ function setGstApplicable(applicable) {
 
 function pneEmptyItem() {
   const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
-  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '', batch_no: '',
+  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
     gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
 }
 
@@ -18752,7 +18752,6 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
-        <td class="pne-view-cell">${escHtml(it.batch_no || '—')}</td>
         <td class="pne-view-cell" id="pne-vgross-${it.id}">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell" id="pne-vtare-${it.id}">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
@@ -18784,7 +18783,6 @@ function renderPNEItemsTable() {
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium Grade" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
-      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional — e.g. B0001" oninput="updatePNEItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
       <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
@@ -19128,7 +19126,7 @@ async function editPurchase(id) {
     PNE.attachmentExisting = p.attachment_path || null;
     PNE.items = (p.items||[]).map(it => ({
       id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
-      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '', batch_no: it.batch_no || '',
+      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
     }));
@@ -19430,7 +19428,7 @@ async function savePurchaseEntry(mode) {
     attachment: attachment || undefined,
     items: PNE.items.map(it => ({
       product_id: it.product_id || null, description: it.description, hsn: '',
-      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
+      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade,
       gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
       dhalta_kg: parseFloat(it.dhalta_kg)||0, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
     })),
@@ -20442,20 +20440,6 @@ function exportStockHistoryCsv() {
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
 const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null };
-// Batch options per product, fetched from product_batches.php on demand —
-// only products with actual received batches will have entries here;
-// everything else just falls back to "No batch" (same as today, harmless).
-const SN_BATCH_CACHE = {};
-async function _snLoadBatchesForProduct(productId) {
-  if (!productId) return;
-  const rawId = String(productId).replace(/\D/g,'');
-  if (SN_BATCH_CACHE[rawId]) return; // already fetched this session
-  try {
-    const r = await api(`api/product_batches.php?product_id=${rawId}&action=active`);
-    SN_BATCH_CACHE[rawId] = r.data || [];
-  } catch(e) { SN_BATCH_CACHE[rawId] = []; }
-  renderSNItemsTable();
-}
 let snDeductionSeq = 1;
 let snItemSeq = 1;
 
@@ -20806,7 +20790,7 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.category || '—')}</td>
       <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
       <td>${escHtml(prod?.grade || '—')}</td>
-      <td>${_snBatchCellHtml(it)}</td>
+      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
       <td><span class="pne-computed" style="color:${avail<=0?'#E53935':'#00897B'}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
       <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
@@ -20834,31 +20818,15 @@ function renderSNItemsTable() {
   calcSaleNewTotals();
 }
 
-function _snBatchCellHtml(it) {
-  const rawId = it.product_id ? String(it.product_id).replace(/\D/g,'') : '';
-  const batches = rawId ? SN_BATCH_CACHE[rawId] : undefined;
-  if (!rawId || !batches || !batches.length) {
-    // No product selected yet, still loading, or genuinely no tracked
-    // batches for this product — fall back to free text (same as before).
-    return `<input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)">`;
-  }
-  return `<select onchange="updateSNItem(${it.id},'batch_no',this.value,true)">
-    <option value="">No batch</option>
-    ${batches.map(b => `<option value="${escHtml(b.batch_code)}" ${it.batch_no===b.batch_code?'selected':''}>${escHtml(b.batch_code)} (${parseFloat(b.remaining_qty).toLocaleString('en-IN')} left)</option>`).join('')}
-  </select>`;
-}
-
 function onSNProductChange(id, productId) {
   const it = SN.items.find(i => i.id === id); if (!it) return;
   it.product_id = productId || '';
-  it.batch_no = ''; // clear — the previous product's batch code doesn't apply to the new product
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
     if (p) {
       it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
       it.variety_grade = p.variety || it.variety_grade;
     }
-    _snLoadBatchesForProduct(productId); // async — re-renders once fetched
   }
   renderSNItemsTable();
 }
@@ -21292,7 +21260,6 @@ async function editSale(id) {
       batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
     }));
-    SN.items.forEach(it => { if (it.product_id) _snLoadBatchesForProduct(it.product_id); });
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     document.getElementById('psn-title').textContent = 'Edit Sale Entry';
     document.getElementById('psn-subtitle').textContent = s.invoice_no;

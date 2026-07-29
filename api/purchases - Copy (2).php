@@ -26,11 +26,11 @@ function currentStock($db, $productId) {
 // not goods that vanished from the warehouse. Rate is the effective cost
 // per physical kg (item amount ÷ net weight), so dhalta's cost impact is
 // correctly amortized into the stock's cost basis.
-function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
+function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note, $warehouse = 'Main Warehouse') {
   if ($netWeight <= 0) return;
   $bal = currentStock($db, $productId) + $netWeight;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse, $batchNo]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,"")');
+  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse]);
 }
 
 function clearStockForPurchase($db, $purchaseId) {
@@ -100,57 +100,7 @@ function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $n
   }
 }
 
-// ── Batch tracking on receipt — receiving stock for a batch-tracked
-// product either tops up an existing batch with that code, or creates a
-// new one. Shares the same product_batches table Manage Batches / opening
-// stock use, so all three stay reconciled instead of drifting apart.
-function _pbEnsureTable($db) {
-  $db->exec("CREATE TABLE IF NOT EXISTS `product_batches` (
-    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `product_id` INT UNSIGNED NOT NULL,
-    `batch_code` VARCHAR(60) NOT NULL, `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
-    `remaining_qty` DECIMAL(12,3) NOT NULL DEFAULT 0, `mfg_date` DATE NULL, `expiry_date` DATE NULL,
-    `purchase_id` INT UNSIGNED NULL, `notes` VARCHAR(255) DEFAULT NULL,
-    `status` ENUM('active','depleted') NOT NULL DEFAULT 'active',
-    `created_by` INT UNSIGNED DEFAULT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`), INDEX `idx_pb_product` (`product_id`), INDEX `idx_pb_expiry` (`expiry_date`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-}
-function receiveIntoBatch($db, $productId, $batchCode, $qty, $userId, $mfgDate = null, $expDate = null, $purchaseId = null) {
-  $batchCode = trim((string)$batchCode);
-  if ($batchCode === '' || $qty <= 0) return;
-  try {
-    _pbEnsureTable($db);
-    $existing = $db->prepare('SELECT id FROM product_batches WHERE product_id=? AND batch_code=? LIMIT 1');
-    $existing->execute([$productId, $batchCode]);
-    $row = $existing->fetch();
-    if ($row) {
-      $db->prepare('UPDATE product_batches SET qty=qty+?, remaining_qty=remaining_qty+?, status="active" WHERE id=?')
-         ->execute([$qty, $qty, $row['id']]);
-    } else {
-      $db->prepare('INSERT INTO product_batches (product_id,batch_code,qty,remaining_qty,mfg_date,expiry_date,purchase_id,created_by) VALUES (?,?,?,?,?,?,?,?)')
-         ->execute([$productId, $batchCode, $qty, $qty, $mfgDate ?: null, $expDate ?: null, $purchaseId, $userId]);
-    }
-  } catch (Throwable $e) { error_log('receiveIntoBatch (purchases.php) failed: ' . $e->getMessage()); }
-}
-// Reversal for edit/delete — removes exactly what a specific purchase item
-// previously added, rather than guessing from current totals.
-function reverseBatchReceive($db, $productId, $batchCode, $qty) {
-  $batchCode = trim((string)$batchCode);
-  if ($batchCode === '' || $qty <= 0) return;
-  try {
-    _pbEnsureTable($db);
-    $db->prepare('UPDATE product_batches SET qty=GREATEST(0,qty-?), remaining_qty=GREATEST(0,remaining_qty-?),
-                  status=IF(remaining_qty-? <= 0.001, "depleted", "active") WHERE product_id=? AND batch_code=?')
-       ->execute([$qty, $qty, $qty, $productId, $batchCode]);
-  } catch (Throwable $e) { error_log('reverseBatchReceive (purchases.php) failed: ' . $e->getMessage()); }
-}
-
 try {
-// Auto-migrate: purchase_items didn't have a batch_no column before —
-// stock_ledger already did (used by Sales), this brings Purchases in sync.
-try { $db->exec("ALTER TABLE purchase_items ADD COLUMN batch_no VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
-
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -247,24 +197,19 @@ switch ($method) {
 
     $itemStmt = $db->prepare('INSERT INTO purchase_items
       (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount,
-       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)');
+       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
-      $batchNo = trim($it['batch_no'] ?? '');
       $itemStmt->execute([
         $purchaseId, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
         $c['net'], 'kg', $c['net'], 'kg', $c['rate'], 0, $c['amount'],
         $it['variety_grade'] ?? '', $it['moisture_pct'] ?? 0, $it['quality_grade'] ?? '',
-        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo,
+        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'],
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $purchaseId, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . $purchaseNo, $d['warehouse'] ?? 'Main Warehouse', $batchNo);
-        if ($batchNo !== '') {
-          receiveIntoBatch($db, $productId, $batchNo, $c['net'], (int)$_SESSION['user_id'],
-            $it['mfg_date'] ?? null, $it['expiry_date'] ?? null, $purchaseId);
-        }
+        writeStockIn($db, $productId, $purchaseId, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . $purchaseNo, $d['warehouse'] ?? 'Main Warehouse');
       }
     }
 
@@ -289,13 +234,6 @@ switch ($method) {
     $oldPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
     $oldPayStmt->execute([$id]);
     $oldPay = $oldPayStmt->fetch();
-
-    // Capture old items' batch_no + qty too, so batch quantities can be
-    // reversed before the new items are received below (same principle
-    // as the Cash in Hand reversal-then-reapply pattern above).
-    $oldItemsStmt = $db->prepare('SELECT product_id, batch_no, qty FROM purchase_items WHERE purchase_id = ?');
-    $oldItemsStmt->execute([$id]);
-    $oldItems = $oldItemsStmt->fetchAll();
 
     $computed = array_map('computeItemWeights', $items);
     $subtotal = array_sum(array_column($computed, 'amount'));
@@ -361,35 +299,21 @@ switch ($method) {
     clearStockForPurchase($db, $id);
     $db->prepare('DELETE FROM purchase_items WHERE purchase_id = ?')->execute([$id]);
 
-    // Reverse the batch quantities the OLD items had added, before the new
-    // items (below) add their own — same reverse-then-reapply principle
-    // used for Cash in Hand edits.
-    foreach ($oldItems as $oi) {
-      if ($oi['product_id'] && trim((string)$oi['batch_no']) !== '') {
-        reverseBatchReceive($db, $oi['product_id'], $oi['batch_no'], (float)$oi['qty']);
-      }
-    }
-
     $itemStmt = $db->prepare('INSERT INTO purchase_items
       (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount,
-       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)');
+       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?)');
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
-      $batchNo = trim($it['batch_no'] ?? '');
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
         $c['net'], 'kg', $c['net'], 'kg', $c['rate'], 0, $c['amount'],
         $it['variety_grade'] ?? '', $it['moisture_pct'] ?? 0, $it['quality_grade'] ?? '',
-        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo,
+        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'],
       ]);
       if ($productId) {
-        writeStockIn($db, $productId, $id, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', $d['warehouse'] ?? 'Main Warehouse', $batchNo);
-        if ($batchNo !== '') {
-          receiveIntoBatch($db, $productId, $batchNo, $c['net'], (int)$_SESSION['user_id'],
-            $it['mfg_date'] ?? null, $it['expiry_date'] ?? null, $id);
-        }
+        writeStockIn($db, $productId, $id, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', $d['warehouse'] ?? 'Main Warehouse');
       }
     }
 
@@ -426,20 +350,11 @@ switch ($method) {
     $delPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
     $delPayStmt->execute([$id]);
     $delPay = $delPayStmt->fetch();
-    // Capture item batch info before deleting, to reverse batch quantities
-    $delItemsStmt = $db->prepare('SELECT product_id, batch_no, qty FROM purchase_items WHERE purchase_id = ?');
-    $delItemsStmt->execute([$id]);
-    $delItems = $delItemsStmt->fetchAll();
     clearStockForPurchase($db, $id);
     $db->prepare('DELETE FROM purchase_items WHERE purchase_id = ?')->execute([$id]);
     $db->prepare('DELETE FROM purchases WHERE id = ?')->execute([$id]);
     logActivity((int)$_SESSION['user_id'], 'delete', 'purchase', $id, 'Purchase deleted');
     rebalanceStockLedger($db, $delProdIds);
-    foreach ($delItems as $di) {
-      if ($di['product_id'] && trim((string)$di['batch_no']) !== '') {
-        reverseBatchReceive($db, $di['product_id'], $di['batch_no'], (float)$di['qty']);
-      }
-    }
     if ($delPay && $delPay['payment_mode'] === 'Cash in Hand' && (float)$delPay['amount_paid'] > 0) {
       recordCashInHandMovement($db, 'in', (float)$delPay['amount_paid'], 'adjustment', $id,
         "Reversal: Purchase {$delPay['purchase_no']} deleted", (int)$_SESSION['user_id']);
