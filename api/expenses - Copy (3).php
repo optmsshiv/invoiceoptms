@@ -220,12 +220,6 @@ try {
 
     // ── DELETE ────────────────────────────────────────────────────
     if ($method === 'DELETE' && $id) {
-        $role = $_SESSION['user_role'] ?? 'viewer';
-        if (!in_array($role, ['owner','super_admin'], true) && !can('action.expense.delete')) {
-            http_response_code(403);
-            echo json_encode(['success'=>false,'error'=>'You do not have permission to delete expenses. Ask the owner to grant this in Team Permissions.']);
-            exit;
-        }
         $stmt = $db->prepare('SELECT vendor,amount,method FROM expenses WHERE id=:id');
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

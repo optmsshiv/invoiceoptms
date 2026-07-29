@@ -1572,7 +1572,6 @@ const SERVER = {
   // separate from the generic canDelete, so it can be toggled per-role
   // independently in Team Permissions.
   canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
-  canExpenseDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.expense.delete'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -28043,9 +28042,7 @@ function _renderExpTable() {
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
       <td>
         <button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
-        ${SERVER.canExpenseDelete
-          ? `<button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>`
-          : `<button disabled title="Delete restricted by your role" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`}
+        <button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>
       </td>
     </tr>`;
   }).join('');
