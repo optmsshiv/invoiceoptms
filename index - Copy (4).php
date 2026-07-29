@@ -3594,11 +3594,6 @@ const SERVER = {
                 <span style="font-size:12.5px;margin-bottom:2px">Track Serials</span>
                 <button type="button" id="pp-manageserials-btn" onclick="openManageSerials()" class="btn btn-outline" style="display:none;padding:4px 10px;font-size:11.5px;margin-left:auto"><i class="fas fa-barcode"></i> Manage Serials</button>
               </div>
-              <div class="field" id="pne-field-opening_batch" style="display:none">
-                <label>Opening Stock Batch Code</label>
-                <input id="pp-openingbatch" placeholder="Auto-suggested" oninput="PP_OPENING_BATCH_AUTO=false">
-                <div style="font-size:10px;color:var(--muted);margin-top:3px">Only used if Opening Stock above is greater than 0</div>
-              </div>
             </div>
           </div>
 
@@ -16720,8 +16715,6 @@ function _ppAutoSuggestSku() {
 // until PNP.editingId is set, i.e. the New Product form has been saved
 // at least once.
 // ══════════════════════════════════════════════════════════════
-let PP_OPENING_BATCH_AUTO = true; // false the moment the user types their own opening batch code
-
 function _ppToggleBatchSerialButtons() {
   const isExisting = !!PNP.editingId;
   const batchOn  = document.getElementById('pp-trackbatch')?.classList.contains('on');
@@ -16730,17 +16723,6 @@ function _ppToggleBatchSerialButtons() {
   const serialBtn = document.getElementById('pp-manageserials-btn');
   if (batchBtn)  batchBtn.style.display  = (isExisting && batchOn)  ? '' : 'none';
   if (serialBtn) serialBtn.style.display = (isExisting && serialOn) ? '' : 'none';
-
-  // Inline "Opening Stock Batch Code" — shown whenever Track Batches is on
-  // (new OR existing product), so opening stock never gets written to
-  // stock_ledger without a batch attached the way it silently did before.
-  const openBatchField = document.getElementById('pne-field-opening_batch');
-  if (openBatchField) {
-    openBatchField.style.display = batchOn ? '' : 'none';
-    if (batchOn && PP_OPENING_BATCH_AUTO) {
-      document.getElementById('pp-openingbatch').value = 'B0001';
-    }
-  }
 }
 
 // ── Batches ──────────────────────────────────────────────────────
@@ -16872,8 +16854,6 @@ function goToNewProductPage() {
   PNP.editingId = null;
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
   PP_SKU_AUTO = true; // fresh form — SKU suggestion is live until the user types their own
-  PP_OPENING_BATCH_AUTO = true;
-  document.getElementById('pp-openingbatch').value = '';
   _ppToggleBatchSerialButtons();
   document.getElementById('pnp-title').textContent = 'New Product';
   document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
@@ -16954,8 +16934,6 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  PP_OPENING_BATCH_AUTO = true;
-  document.getElementById('pp-openingbatch').value = '';
   _ppToggleBatchSerialButtons();
   set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
   pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
@@ -17039,7 +17017,6 @@ async function saveProductEntry(mode) {
     default_warehouse: document.getElementById('pp-warehouse').value,
     track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
     track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
-    opening_batch_code: document.getElementById('pp-openingbatch')?.value.trim() || '',
     short_description: document.getElementById('pp-shortdesc').value.trim(),
     detailed_description: document.getElementById('pp-detaildesc').value.trim(),
     country_of_origin: document.getElementById('pp-country').value.trim() || 'India',
@@ -17064,29 +17041,16 @@ async function saveProductEntry(mode) {
   const loadBar = document.getElementById('pp-loading-bar');
   if (loadBar) loadBar.style.display = 'block';
   try {
-    let newProductId = null;
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
       consumeEditApproval(); toast('✅ Product updated!', 'success');
     } else {
-      const createRes = await api('api/products.php', 'POST', payload);
+      await api('api/products.php', 'POST', payload);
       consumeEditApproval(); toast('✅ Product saved!', 'success');
-      newProductId = createRes?.id || null;
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     updateServiceDropdown();
-
-    // If Track Serial is on and there's opening stock, that quantity needs
-    // real serial numbers, not just an untracked count — prompt straight
-    // into Manage Serials before resetting the form for the next entry.
-    const needsSerials = newProductId && payload.track_serial && payload.opening_stock > 0;
-    if (needsSerials) {
-      PNP.editingId = newProductId; // openManageSerials snapshots this into PS_CURRENT_PRODUCT_ID
-      toast(`ℹ️ Add ${payload.opening_stock} serial number(s) for the opening stock`, 'info');
-      openManageSerials();
-    }
-
     if (mode === 'new') {
       goToNewProductPage();
     } else {

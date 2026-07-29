@@ -43,40 +43,6 @@ function processFileArray($items, $subdir) {
   return $out;
 }
 
-// Reconciles opening stock with batch tracking: writes the batch code onto
-// the stock_ledger opening entry (that column already existed and was
-// already used by Stock In / Stock Adjustments — this was the only place
-// NOT setting it), and creates a matching product_batches record so
-// "Manage Batches" shows it too. Both stay in sync from here on.
-// Returns the batch code actually used (empty string if not applicable).
-function syncOpeningBatch($db, $productId, $trackBatch, $batchCode, $qty, $userId) {
-  $batchCode = trim((string)$batchCode);
-  if (!$trackBatch || $batchCode === '' || $qty <= 0) return '';
-  try {
-    $db->exec("CREATE TABLE IF NOT EXISTS `product_batches` (
-      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `product_id` INT UNSIGNED NOT NULL,
-      `batch_code` VARCHAR(60) NOT NULL, `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
-      `remaining_qty` DECIMAL(12,3) NOT NULL DEFAULT 0, `mfg_date` DATE NULL, `expiry_date` DATE NULL,
-      `purchase_id` INT UNSIGNED NULL, `notes` VARCHAR(255) DEFAULT NULL,
-      `status` ENUM('active','depleted') NOT NULL DEFAULT 'active',
-      `created_by` INT UNSIGNED DEFAULT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (`id`), INDEX `idx_pb_product` (`product_id`), INDEX `idx_pb_expiry` (`expiry_date`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    // Remove any existing opening-stock batch for this product first (PUT
-    // re-derives from scratch, same pattern products.php already uses for
-    // the stock_ledger 'opening' entry itself) — identified by notes tag.
-    $db->prepare("DELETE FROM product_batches WHERE product_id=? AND notes='Opening stock batch'")->execute([$productId]);
-
-    $db->prepare(
-      'INSERT INTO product_batches (product_id, batch_code, qty, remaining_qty, notes, created_by)
-       VALUES (?,?,?,?,?,?)'
-    )->execute([$productId, $batchCode, $qty, $qty, 'Opening stock batch', $userId]);
-  } catch (Throwable $e) { /* non-fatal — stock_ledger.batch_no below still gets set either way */ }
-  return $batchCode;
-}
-
 $FIELDS = [
   'name','category','rate','gst','unit_family',
   'sku','unit','brand','variety','grade','barcode','shelf_life_months','storage_type',
@@ -162,11 +128,10 @@ switch ($method) {
             $direction = $openingStock > 0 ? 'in' : 'out';
             $date      = date('Y-m-d');
             $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
-            $batchNo   = syncOpeningBatch($db, $id, !empty($d['track_batch']), $d['opening_batch_code'] ?? '', $qty, (int)$_SESSION['user_id']);
             $db->prepare(
-                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no)
-                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?, ?)'
-            )->execute([$id, $id, $direction, $qty, $openingStock, $date, 'Opening Stock', $warehouse, $batchNo]);
+                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
+                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
+            )->execute([$id, $id, $direction, $qty, $openingStock, $date, 'Opening Stock', $warehouse]);
         } catch (Throwable $e) { /* stock_ledger not present on this DB — skip */ }
     }
 
@@ -203,15 +168,11 @@ switch ($method) {
             $qty       = abs($openingStock);
             $direction = $openingStock > 0 ? 'in' : 'out';
             $warehouse = $d['default_warehouse'] ?? 'Main Warehouse';
-            $batchNo   = syncOpeningBatch($db, $id, !empty($d['track_batch']), $d['opening_batch_code'] ?? '', $qty, (int)$_SESSION['user_id']);
             $db->prepare(
-                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no)
-                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?, ?)'
-            )->execute([$id, $id, $direction, $qty, $openingStock, date('Y-m-d'), 'Opening Stock', $warehouse, $batchNo]);
+                'INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse)
+                 VALUES (?, "opening", ?, ?, ?, 0, ?, ?, ?, ?)'
+            )->execute([$id, $id, $direction, $qty, $openingStock, date('Y-m-d'), 'Opening Stock', $warehouse]);
             rebalanceStockLedger($db, [$id]);
-        } else {
-            // Opening stock was removed/zeroed — clean up its matching batch too
-            try { $db->prepare("DELETE FROM product_batches WHERE product_id=? AND notes='Opening stock batch'")->execute([$id]); } catch (Throwable $e) {}
         }
     } catch (Throwable $e) { /* stock_ledger table not present on this DB — skip */ }
 
