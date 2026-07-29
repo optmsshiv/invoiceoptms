@@ -27552,7 +27552,7 @@ async function loadCihLedger(offset = 0) {
         <td style="text-align:right;color:#E53935;font-weight:600">${!isIn ? fmt_money(amt) : ''}</td>
         <td style="text-align:right;font-weight:700">${fmt_money(parseFloat(l.balance_after)||0)}</td>
         <td>${l.type === 'topup' && SERVER.canCihEdit
-          ? `<button class="act-btn" title="${canEdit ? 'Edit this top-up' : 'Can\\'t edit — other activity happened since. Use Add Correction instead.'}"
+          ? `<button class="act-btn" title="${canEdit ? 'Edit this top-up' : 'Cannot edit — other activity happened since. Use Add Correction instead.'}"
                       onclick="openCihEditTopup(${l.id}, ${canEdit})" style="${canEdit ? '' : 'opacity:.4'}">
                <i class="fas fa-pen"></i>
              </button>` : ''}</td>
