@@ -201,11 +201,7 @@ try {
         );
         $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
             ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,':id'=>$id]);
-        $oldAmt = $oldExp ? (float)$oldExp['amount'] : null;
-        $diffLabel = ($oldAmt !== null && abs($oldAmt - $amount) > 0.004)
-            ? '₹'.number_format($oldAmt,2).' → ₹'.number_format($amount,2)
-            : '₹'.number_format($amount,2).' (amount unchanged)';
-        logAct($db, 'expense_edited', "Expense edited: $vendor", $diffLabel);
+        logAct($db, 'expense_added', "Expense edited: $vendor", '₹'.number_format($amount,2));
         $user = currentUser(); $uid = $user['id'] ?? null;
         if ($oldExp && $oldExp['method'] === 'Cash in Hand' && (float)$oldExp['amount'] > 0) {
             recordCashInHandMovement($db, 'in', (float)$oldExp['amount'], 'adjustment', $id,
@@ -225,7 +221,7 @@ try {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $db->prepare('DELETE FROM expenses WHERE id=:id')->execute([':id'=>$id]);
         if ($row) {
-            logAct($db,'expense_deleted',"Expense deleted: {$row['vendor']}",'₹'.number_format($row['amount'],2));
+            logAct($db,'expense_added',"Expense deleted: {$row['vendor']}",'₹'.number_format($row['amount'],2));
             if ($row['method'] === 'Cash in Hand' && (float)$row['amount'] > 0) {
                 $user = currentUser();
                 recordCashInHandMovement($db, 'in', (float)$row['amount'], 'adjustment', $id,

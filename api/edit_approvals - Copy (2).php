@@ -95,7 +95,7 @@ try { switch (true) {
         $reason      = trim(substr($body['reason'] ?? '', 0, 500));
 
         $allowed = ['purchase','sale','supplier','customer','product','stock_adjustment','stock_in',
-                    'cash_in_hand','cash_in_hand_correction','proforma','expense'];
+                    'cash_in_hand','cash_in_hand_correction','proforma'];
         if (!in_array($entityType, $allowed) || !$entityId) {
             jsonResponse(['error' => 'Invalid entity'], 400);
         }

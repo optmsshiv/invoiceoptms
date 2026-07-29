@@ -28041,7 +28041,7 @@ function _renderExpTable() {
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
       <td>
-        <button onclick="editExpense('${exp.id}')" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
+        <button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
         <button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>
       </td>
     </tr>`;
@@ -28114,10 +28114,15 @@ function saveExpense() {
     method: document.getElementById('exp-method').value,
     notes:  document.getElementById('exp-notes').value.trim() };
   if (id) {
+    const oldEntry = STATE.expenses.find(e=>String(e.id)===id);
+    const oldAmount = oldEntry ? parseFloat(oldEntry.amount)||0 : null;
     api('api/expenses.php?id='+id,'PUT',entry).then(()=>{
       const idx=STATE.expenses.findIndex(e=>String(e.id)===id);
       if(idx>-1) STATE.expenses[idx]=entry;
-      logActivity('expense_added',`Expense edited: ${vendor}`,fmt_money(amount));
+      const diffLabel = (oldAmount !== null && Math.abs(oldAmount - amount) > 0.004)
+        ? `${fmt_money(oldAmount)} → ${fmt_money(amount)}` : `${fmt_money(amount)} (amount unchanged)`;
+      logActivity('expense_edited', `Expense edited: ${vendor}`, diffLabel);
+      consumeEditApproval();
       closeModal('modal-expense'); renderExpenses(); toast('✅ Expense saved','success');
     }).catch(e=>toast('❌ '+e.message,'error'));
   } else {

@@ -1568,6 +1568,10 @@ const SERVER = {
   // default) if the catalog rows haven't been added yet — see chat.
   canCihEdit:   <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.cash_in_hand.edit']   ?? false)) ?>,
   canCihDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.cash_in_hand.delete'] ?? false)) ?>,
+  // Proforma — its own dedicated delete permission (action.proforma.delete),
+  // separate from the generic canDelete, so it can be toggled per-role
+  // independently in Team Permissions.
+  canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -3987,8 +3991,11 @@ const SERVER = {
     <!-- ─────────── SALES LIST ─────────── -->
     <!-- ═══════════ PROFORMA INVOICE LIST ═══════════ -->
     <div id="page-proforma-list" class="page">
-      <div class="page-header">
-        <div><div class="page-title">Proforma Invoices</div><div class="page-subtitle">Offer price documents for customers</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">Proforma Invoices</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Offer price documents for customers</div>
+        </div>
         <button class="btn btn-primary" onclick="goToNewProforma()"><i class="fas fa-plus"></i> New Offer</button>
       </div>
       <div class="pne-card" style="margin-bottom:14px">
@@ -4038,7 +4045,10 @@ const SERVER = {
             <div class="pne-grid4">
               <div class="field"><label>OFR Number</label><input id="ofr-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Customer / Consignee *</label>
-                <select id="ofr-customer" onchange="onOfrCustomerChange()"><option value="">Select customer…</option></select>
+                <div style="display:flex;gap:6px">
+                  <select id="ofr-customer" onchange="onOfrCustomerChange()" style="flex:1"><option value="">Select customer…</option></select>
+                  <button type="button" class="btn btn-outline" title="Add a new customer" onclick="openAddCustomerModal('proforma')" style="padding:0 12px;flex-shrink:0"><i class="fas fa-plus"></i></button>
+                </div>
               </div>
               <div class="field"><label>Offer Date *</label><input type="date" id="ofr-date"></div>
               <div class="field"><label>Valid Until</label><input type="date" id="ofr-valid"></div>
@@ -4470,7 +4480,7 @@ const SERVER = {
           <span>Add New Customer</span>
           <button class="modal-close" onclick="closeModal('modal-addcustomer')"><i class="fas fa-times"></i></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding:20px 22px;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Customer Name *</label><input id="cus-name" placeholder="e.g. Patel Exports"></div>
             <div class="field"><label>Customer Type</label>
@@ -5027,10 +5037,21 @@ const SERVER = {
         </div>
       </div>
 
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+        <div class="pne-card">
+          <div class="pne-card-head"><i class="fas fa-arrow-down" style="color:#00897B"></i> Received — Sales</div>
+          <div id="fr-paymode-sales-list" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+        <div class="pne-card">
+          <div class="pne-card-head"><i class="fas fa-arrow-up" style="color:#E53935"></i> Paid Out — Purchases</div>
+          <div id="fr-paymode-purchases-list" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px">
         <div class="pne-card">
-          <div class="pne-card-head">Payment Mode Summary</div>
-          <div id="fr-paymode-list" style="display:flex;flex-direction:column;gap:10px"></div>
+          <div class="pne-card-head"><i class="fas fa-receipt" style="color:#F9A825"></i> Expense Payment Mode Summary</div>
+          <div id="fr-paymode-expenses-list" style="display:flex;flex-direction:column;gap:10px"></div>
         </div>
       </div>
 
@@ -5316,59 +5337,118 @@ const SERVER = {
 
     <!-- ─────────── ADD FUNDS (Cash in Hand — Owner only) ─────────── -->
     <div class="modal-overlay" id="modal-addfunds">
-      <div class="modal" style="max-width:420px">
-        <div class="modal-header">
-          <span>Add Funds — Cash in Hand</span>
-          <button class="modal-close" onclick="closeModal('modal-addfunds')"><i class="fas fa-times"></i></button>
+      <div class="modal" style="max-width:440px;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#00897B,#00695C);padding:22px 24px;position:relative">
+          <button class="modal-close" onclick="closeModal('modal-addfunds')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-hand-holding-dollar" style="color:#fff;font-size:19px"></i>
+            </div>
+            <div>
+              <div style="color:#fff;font-size:16px;font-weight:700">Add Funds</div>
+              <div style="color:rgba(255,255,255,.8);font-size:12px">Cash in Hand — top up the shared fund</div>
+            </div>
+          </div>
         </div>
-        <div class="modal-body">
-          <div class="field"><label>Date *</label><input type="date" id="cih-af-date"></div>
-          <div class="field"><label>Amount (₹) *</label><input type="number" id="cih-af-amount" min="0" step="0.01" placeholder="e.g. 10000"></div>
-          <div class="field"><label>Note</label><input id="cih-af-note" placeholder="e.g. Cash handed to Rajesh for site purchases"></div>
+        <div class="modal-body" style="padding:22px 24px">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Amount</label>
+          <div style="display:flex;align-items:center;gap:2px;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;margin-top:6px;margin-bottom:16px;transition:.15s" onfocusin="this.style.borderColor='#00897B'" onfocusout="this.style.borderColor='var(--border)'">
+            <span style="font-size:26px;font-weight:700;color:var(--muted)">₹</span>
+            <input type="number" id="cih-af-amount" min="0" step="0.01" placeholder="0.00" oninput="_cihUpdateAddFundsPreview()"
+                   style="border:none;outline:none;font-size:26px;font-weight:700;flex:1;min-width:0;padding:0 0 0 4px;background:transparent">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div class="field" style="margin-bottom:0"><label><i class="fas fa-calendar-day" style="font-size:11px;color:var(--muted)"></i> Date</label><input type="date" id="cih-af-date"></div>
+            <div class="field" style="margin-bottom:0"><label><i class="fas fa-user" style="font-size:11px;color:var(--muted)"></i> Funded by</label><input value="<?= htmlspecialchars($user['name'] ?? '') ?>" disabled style="background:var(--bg);color:var(--muted)"></div>
+          </div>
+          <div class="field"><label><i class="fas fa-note-sticky" style="font-size:11px;color:var(--muted)"></i> Note</label><input id="cih-af-note" placeholder="e.g. Cash handed to Rajesh for site purchases"></div>
+          <div id="cih-af-preview" style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:10px;padding:12px 14px;margin-top:16px;font-size:12.5px">
+            <span style="color:var(--muted)">Balance after this top-up</span>
+            <span style="font-weight:700;color:#00897B" id="cih-af-preview-val">—</span>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addfunds')">Cancel</button>
-          <button class="btn btn-primary" id="cih-af-save-btn" onclick="saveAddFunds()"><i class="fas fa-check"></i> Add Funds</button>
+          <button class="btn btn-primary" id="cih-af-save-btn" onclick="saveAddFunds()" style="background:#00897B;border-color:#00897B"><i class="fas fa-check"></i> Add Funds</button>
         </div>
       </div>
     </div>
 
-    <!-- ─────────── ADD CORRECTION (Cash in Hand — Owner only) ─────────── -->
+    <!-- ─────────── ADD CORRECTION (Cash in Hand) ─────────── -->
     <div class="modal-overlay" id="modal-cih-correction">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <span>Add Correction — Cash in Hand</span>
-          <button class="modal-close" onclick="closeModal('modal-cih-correction')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <p style="font-size:12px;color:var(--muted);margin-top:0">Fixes a mistaken entry without editing history — posts a separate offsetting entry so both the mistake and the fix stay visible in the ledger.</p>
-          <div class="field"><label>Date *</label><input type="date" id="cih-corr-date"></div>
-          <div class="field">
-            <label>Amount (₹) *</label>
-            <input type="number" id="cih-corr-amount" step="0.01" placeholder="e.g. -5000 to remove, 5000 to add">
-            <div style="font-size:10.5px;color:var(--muted);margin-top:3px">Use a negative number to reduce the balance (e.g. previous top-up was too high), positive to increase it.</div>
+      <div class="modal" style="max-width:460px;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#F9A825,#E65100);padding:22px 24px;position:relative">
+          <button class="modal-close" onclick="closeModal('modal-cih-correction')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-wrench" style="color:#fff;font-size:18px"></i>
+            </div>
+            <div>
+              <div style="color:#fff;font-size:16px;font-weight:700">Add Correction</div>
+              <div style="color:rgba(255,255,255,.85);font-size:12px">Fixes a mistake without rewriting history</div>
+            </div>
           </div>
-          <div class="field"><label>Reason *</label><input id="cih-corr-note" placeholder="e.g. Previous top-up of ₹50,000 was entered instead of ₹5,000"></div>
+        </div>
+        <div class="modal-body" style="padding:22px 24px">
+          <!-- Direction toggle instead of a raw signed number — much clearer intent -->
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Direction</label>
+          <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:16px">
+            <button type="button" id="cih-corr-dir-add" onclick="_cihSetCorrDirection('add')"
+                    style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #00897B;background:#00897B;color:#fff;font-weight:700;font-size:13px;cursor:pointer">
+              <i class="fas fa-plus"></i> Add to balance
+            </button>
+            <button type="button" id="cih-corr-dir-remove" onclick="_cihSetCorrDirection('remove')"
+                    style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer">
+              <i class="fas fa-minus"></i> Remove from balance
+            </button>
+          </div>
+
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Amount</label>
+          <div style="display:flex;align-items:center;gap:2px;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;margin-top:6px;margin-bottom:16px" onfocusin="this.style.borderColor='#F9A825'" onfocusout="this.style.borderColor='var(--border)'">
+            <span style="font-size:26px;font-weight:700;color:var(--muted)">₹</span>
+            <input type="number" id="cih-corr-amount" min="0" step="0.01" placeholder="0.00" oninput="_cihUpdateCorrPreview()"
+                   style="border:none;outline:none;font-size:26px;font-weight:700;flex:1;min-width:0;padding:0 0 0 4px;background:transparent">
+          </div>
+
+          <div class="field"><label><i class="fas fa-circle-question" style="font-size:11px;color:var(--muted)"></i> Reason *</label><input id="cih-corr-note" placeholder="e.g. Previous top-up of ₹50,000 was entered instead of ₹5,000"></div>
+          <div class="field" style="margin-bottom:0"><label><i class="fas fa-calendar-day" style="font-size:11px;color:var(--muted)"></i> Date</label><input type="date" id="cih-corr-date"></div>
+
+          <div id="cih-corr-preview" style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:10px;padding:12px 14px;margin-top:16px;font-size:12.5px">
+            <span style="color:var(--muted)">Balance after this correction</span>
+            <span style="font-weight:700" id="cih-corr-preview-val">—</span>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-cih-correction')">Cancel</button>
-          <button class="btn btn-primary" id="cih-corr-save-btn" onclick="saveCihCorrection()"><i class="fas fa-check"></i> Add Correction</button>
+          <button class="btn btn-primary" id="cih-corr-save-btn" onclick="saveCihCorrection()" style="background:#E65100;border-color:#E65100"><i class="fas fa-check"></i> Add Correction</button>
         </div>
       </div>
     </div>
 
     <!-- ─────────── EDIT TOP-UP (Cash in Hand — only the latest entry) ─────────── -->
     <div class="modal-overlay" id="modal-cih-edit-topup">
-      <div class="modal" style="max-width:420px">
-        <div class="modal-header">
-          <span>Edit Top-up</span>
-          <button class="modal-close" onclick="closeModal('modal-cih-edit-topup')"><i class="fas fa-times"></i></button>
+      <div class="modal" style="max-width:440px;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#1976D2,#0D47A1);padding:22px 24px;position:relative">
+          <button class="modal-close" onclick="closeModal('modal-cih-edit-topup')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-pen" style="color:#fff;font-size:17px"></i>
+            </div>
+            <div>
+              <div style="color:#fff;font-size:16px;font-weight:700">Edit Top-up</div>
+              <div style="color:rgba(255,255,255,.85);font-size:12px">Only available — nothing recorded since this entry</div>
+            </div>
+          </div>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" style="padding:22px 24px">
           <div id="cih-edit-alert"></div>
-          <div class="field"><label>Date *</label><input type="date" id="cih-edit-date"></div>
-          <div class="field"><label>Amount (₹) *</label><input type="number" id="cih-edit-amount" min="0" step="0.01"></div>
-          <div class="field"><label>Note</label><input id="cih-edit-note"></div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Amount</label>
+          <div style="display:flex;align-items:center;gap:2px;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;margin-top:6px;margin-bottom:16px" onfocusin="this.style.borderColor='#1976D2'" onfocusout="this.style.borderColor='var(--border)'">
+            <span style="font-size:26px;font-weight:700;color:var(--muted)">₹</span>
+            <input type="number" id="cih-edit-amount" min="0" step="0.01" style="border:none;outline:none;font-size:26px;font-weight:700;flex:1;min-width:0;padding:0 0 0 4px;background:transparent">
+          </div>
+          <div class="field"><label><i class="fas fa-calendar-day" style="font-size:11px;color:var(--muted)"></i> Date</label><input type="date" id="cih-edit-date"></div>
+          <div class="field" style="margin-bottom:0"><label><i class="fas fa-note-sticky" style="font-size:11px;color:var(--muted)"></i> Note</label><input id="cih-edit-note"></div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-cih-edit-topup')">Cancel</button>
@@ -9736,13 +9816,15 @@ async function renderProformaList() {
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" onclick="viewProforma(${o.id})" title="View"><i class="fas fa-eye"></i></button>
-          <button class="act-btn" onclick="editProforma(${o.id})" title="Edit"><i class="fas fa-pen"></i></button>
+          <button class="act-btn" onclick="editWithApproval('proforma',${o.id},'Proforma ${escHtml((o.ofr_no||'#'+o.id).replace(/'/g,"\\'"))}',()=>editProforma(${o.id}))" title="Edit"><i class="fas fa-pen"></i></button>
           <span class="act-menu-wrap">
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="printProformaINR(${o.id})"><i class="fas fa-print" style="color:#1976D2"></i> Print ₹</button>
               ${isLocal ? '' : `<button onclick="printProformaUSD(${o.id})"><i class="fas fa-dollar-sign" style="color:#1976D2"></i> Print $</button>`}
-              <button class="danger" onclick="deleteProforma(${o.id})"><i class="fas fa-trash"></i> Delete</button>
+              ${SERVER.canProformaDelete
+                ? `<button class="danger" onclick="deleteProforma(${o.id})"><i class="fas fa-trash"></i> Delete</button>`
+                : `<button disabled style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i> Delete <span style="font-size:10px;color:var(--muted)">(restricted)</span></button>`}
             </div>
           </span>
         </div>
@@ -19553,16 +19635,25 @@ async function renderFinanceReport() {
       : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No purchases in this period</td></tr>`)
       + (expHeadTotal ? `<tr style="font-weight:700"><td colspan="2">Total</td><td>${fmt_money(expHeadTotal)}</td><td>100.0%</td></tr>` : '');
 
-    // Payment mode summary
-    const pmTotal = r.payment_modes.reduce((s,m)=>s+m.amount, 0);
-    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64' };
-    document.getElementById('fr-paymode-list').innerHTML = r.payment_modes.length ? r.payment_modes.map(m => `
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
-        <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${pmTotal?((m.amount/pmTotal)*100).toFixed(2):'0.00'}%)</span></span>
-      </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
-        <span>Total</span><span>${fmt_money(pmTotal)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
-      : `<div style="color:var(--muted);font-size:12px">No payments recorded in this period</div>`;
+    // Payment mode summaries — Sales, Purchases, and Expenses are kept
+    // fully separate now (previously merged into one confusing total that
+    // silently added money received to money paid out).
+    const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64','Cash in Hand':'#00897B','NEFT':'#1565C0','RTGS':'#1565C0','Credit Card':'#6A4C93' };
+    function renderPaymodeCard(elId, modes, emptyMsg) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const total = modes.reduce((s,m)=>s+m.amount, 0);
+      el.innerHTML = modes.length ? modes.map(m => `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
+          <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
+        </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
+          <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
+        : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
+    }
+    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period');
+    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period');
+    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period');
 
     renderFRCharts(r);
 
@@ -20286,7 +20377,10 @@ async function onCustomerPicked() {
   } catch(e) { /* non-fatal */ }
 }
 
-function openAddCustomerModal() {
+let ADD_CUSTOMER_CONTEXT = 'sale'; // 'sale' | 'proforma' — which dropdown to update after saving
+
+function openAddCustomerModal(context = 'sale') {
+  ADD_CUSTOMER_CONTEXT = context;
   ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
@@ -20312,9 +20406,15 @@ async function saveCustomer() {
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
     closeModal('modal-addcustomer');
-    populateSaleCustomerDropdown();
-    document.getElementById('sn-customer').value = res.id;
-    onCustomerPicked();
+    if (ADD_CUSTOMER_CONTEXT === 'proforma') {
+      populateOfrCustomerDropdown();
+      document.getElementById('ofr-customer').value = res.id;
+      onOfrCustomerChange();
+    } else {
+      populateSaleCustomerDropdown();
+      document.getElementById('sn-customer').value = res.id;
+      onCustomerPicked();
+    }
     toast('✅ "' + name + '" added!', 'success');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -27490,6 +27590,7 @@ async function renderCashInHand() {
     // date filter, kept separate from the (filterable) ledger fetch below.
     const r = await api('api/cash_in_hand.php?limit=1');
     const bal = parseFloat(r.balance) || 0;
+    CIH_CURRENT_BALANCE = bal;
     const balEl = document.getElementById('cih-balance');
     if (balEl) {
       balEl.textContent = fmt_money(bal);
@@ -27633,12 +27734,19 @@ async function renderCashInHandBreakdown() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+let CIH_CURRENT_BALANCE = 0; // cached from the last balance fetch, used by the Add Funds / Correction live previews
+
 function openAddFundsModal() {
   if (!SERVER.canCihEdit) { toast('⚠️ You don\'t have permission to add funds to Cash in Hand', 'warning'); return; }
   document.getElementById('cih-af-date').value = fmt_date(new Date());
   document.getElementById('cih-af-amount').value = '';
   document.getElementById('cih-af-note').value = '';
+  _cihUpdateAddFundsPreview();
   openModal('modal-addfunds');
+}
+function _cihUpdateAddFundsPreview() {
+  const amount = parseFloat(document.getElementById('cih-af-amount').value) || 0;
+  document.getElementById('cih-af-preview-val').textContent = fmt_money(CIH_CURRENT_BALANCE + amount);
 }
 
 async function saveAddFunds() {
@@ -27660,17 +27768,59 @@ async function saveAddFunds() {
   finally { if (btn) btn.disabled = false; }
 }
 
+// Cash in Hand — like editWithApproval(), but the bypass condition is
+// "is owner/super_admin" rather than the generic canDo('edit'). Even a
+// role that's been granted action.cash_in_hand.edit/delete via Team
+// Permissions still needs a per-instance owner approval before the
+// action actually goes through — the role permission controls who can
+// ever attempt it, this adds the same per-instance checkpoint every
+// other edit-approval-gated page already has.
+function cihEditWithApproval(entityType, entityId, label, actionFn) {
+  const isOwnerLike = ['owner', 'super_admin'].includes(SERVER.user?.role);
+  if (isOwnerLike || hasActiveApproval(entityType, entityId)) actionFn();
+  else requestEditApproval(entityType, entityId, label, actionFn);
+}
+
 // ── Correction — fixes a mistake without editing history (Option B) ──
 function openCorrectionModal() {
   if (!SERVER.canCihDelete) { toast('⚠️ You don\'t have permission to add corrections to Cash in Hand', 'warning'); return; }
+  cihEditWithApproval('cash_in_hand_correction', 1, 'Cash in Hand — Add Correction', _openCorrectionModalReal);
+}
+let CIH_CORR_DIRECTION = 'add'; // 'add' or 'remove' — set via the toggle buttons
+
+function _openCorrectionModalReal() {
   document.getElementById('cih-corr-date').value = fmt_date(new Date());
   document.getElementById('cih-corr-amount').value = '';
   document.getElementById('cih-corr-note').value = '';
+  _cihSetCorrDirection('add');
   openModal('modal-cih-correction');
 }
+function _cihSetCorrDirection(dir) {
+  CIH_CORR_DIRECTION = dir;
+  const addBtn = document.getElementById('cih-corr-dir-add');
+  const remBtn = document.getElementById('cih-corr-dir-remove');
+  if (dir === 'add') {
+    addBtn.style.background = '#00897B'; addBtn.style.borderColor = '#00897B'; addBtn.style.color = '#fff';
+    remBtn.style.background = 'var(--card)'; remBtn.style.borderColor = 'var(--border)'; remBtn.style.color = 'var(--muted)';
+  } else {
+    remBtn.style.background = '#E53935'; remBtn.style.borderColor = '#E53935'; remBtn.style.color = '#fff';
+    addBtn.style.background = 'var(--card)'; addBtn.style.borderColor = 'var(--border)'; addBtn.style.color = 'var(--muted)';
+  }
+  _cihUpdateCorrPreview();
+}
+function _cihUpdateCorrPreview() {
+  const amount = parseFloat(document.getElementById('cih-corr-amount').value) || 0;
+  const signed = CIH_CORR_DIRECTION === 'add' ? amount : -amount;
+  const newBal = CIH_CURRENT_BALANCE + signed;
+  const el = document.getElementById('cih-corr-preview-val');
+  el.textContent = fmt_money(newBal);
+  el.style.color = newBal < 0 ? '#E53935' : 'var(--text)';
+}
+
 async function saveCihCorrection() {
-  const amount = parseFloat(document.getElementById('cih-corr-amount').value);
-  if (!amount) { toast('⚠️ Enter a non-zero amount', 'warning'); return; }
+  const rawAmount = parseFloat(document.getElementById('cih-corr-amount').value);
+  if (!rawAmount || rawAmount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
+  const amount = CIH_CORR_DIRECTION === 'add' ? rawAmount : -rawAmount;
   const note = document.getElementById('cih-corr-note').value.trim();
   if (!note) { toast('⚠️ A reason for the correction is required', 'warning'); return; }
   const payload = { date: document.getElementById('cih-corr-date').value, amount, note };
@@ -27680,6 +27830,7 @@ async function saveCihCorrection() {
     await api('api/cash_in_hand.php?action=correction', 'POST', payload);
     toast('✅ Correction added!', 'success');
     closeModal('modal-cih-correction');
+    consumeEditApproval();
     renderCashInHand();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally { if (btn) btn.disabled = false; }
@@ -27698,6 +27849,9 @@ function openCihEditTopup(id, canEdit) {
   }
   const entry = CIH_LEDGER_ROWS.find(l => Number(l.id) === Number(id));
   if (!entry) { toast('⚠️ Could not find that entry — try refreshing the page', 'warning'); return; }
+  cihEditWithApproval('cash_in_hand', id, `Cash in Hand top-up (${fmt_money(parseFloat(entry.amount)||0)})`, () => _openCihEditTopupReal(id, entry));
+}
+function _openCihEditTopupReal(id, entry) {
   CIH_EDITING_ID = id;
   document.getElementById('cih-edit-alert').innerHTML = '';
   document.getElementById('cih-edit-date').value = entry.entry_date;
@@ -27720,6 +27874,7 @@ async function saveCihEditTopup() {
     await api('api/cash_in_hand.php?action=edit_topup', 'PATCH', payload);
     toast('✅ Top-up updated!', 'success');
     closeModal('modal-cih-edit-topup');
+    consumeEditApproval();
     renderCashInHand();
   } catch(e) {
     document.getElementById('cih-edit-alert').innerHTML = `<div style="font-size:12px;color:#E53935;background:#FFEBEE;border-radius:6px;padding:8px 10px;margin-bottom:10px">${escHtml(e.message)}</div>`;
@@ -27733,6 +27888,7 @@ async function refreshCashInHandDashboardWidget() {
   try {
     const r = await api('api/cash_in_hand.php?limit=1');
     const bal = parseFloat(r.balance) || 0;
+    CIH_CURRENT_BALANCE = bal;
     const dEl = document.getElementById('db-stat-cih');
     if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
   } catch(e) { /* silent — dashboard widget, not critical */ }
