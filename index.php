@@ -1833,8 +1833,8 @@ const SERVER = {
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
       <span id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-            style="display:none;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:#FFF4E0;border:1px solid #FFD9A0;color:#9A6700;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">
-        <i class="fas fa-calendar-days" style="font-size:9.5px"></i> <span id="gdr-topbar-badge-text"></span>
+            style="display:none;align-items:center;gap:6px;padding:5px 13px;border-radius:20px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:11.5px"></i> <span id="gdr-topbar-badge-text"></span>
       </span>
     </div>
     <div class="topbar-right">
@@ -28426,8 +28426,16 @@ async function saveCihEditTopup() {
 // failure — this runs alongside other dashboard widgets on every load).
 async function refreshCashInHandDashboardWidget() {
   try {
-    const r = await api('api/cash_in_hand.php?limit=1');
-    const bal = parseFloat(r.balance) || 0;
+    let bal;
+    if (GLOBAL_DATE_ACTIVE) {
+      // Same as the Cash in Hand page itself: period net (Total In − Total
+      // Out) when the global filter is active, so an empty period reads ₹0.
+      const r = await api(`api/cash_in_hand.php?breakdown=1&from=${GLOBAL_DATE_FROM}&to=${GLOBAL_DATE_TO}`);
+      bal = (parseFloat(r.total_in) || 0) - (parseFloat(r.total_out) || 0);
+    } else {
+      const r = await api('api/cash_in_hand.php?limit=1');
+      bal = parseFloat(r.balance) || 0;
+    }
     CIH_CURRENT_BALANCE = bal;
     const dEl = document.getElementById('db-stat-cih');
     if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
@@ -28471,7 +28479,7 @@ function _renderExpSummary() {
   const list = EXP.list || STATE.expenses; // whatever's currently filtered (search/category/month/global range)
   const total    = list.reduce((s,e) => s + parseFloat(e.amount||0), 0);
   const now      = new Date();
-  const thisMonth = STATE.expenses.filter(e => e.date?.slice(0,7) === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  const thisMonth = list.filter(e => e.date?.slice(0,7) === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
   const monthTotal = thisMonth.reduce((s,e) => s + parseFloat(e.amount||0), 0);
   const catTotals  = {};
   list.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + parseFloat(e.amount||0); });
