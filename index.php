@@ -3419,9 +3419,9 @@ const SERVER = {
       <div class="ps-bottom-grid" style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
         <div class="pne-card">
           <div class="pne-card-head" id="ps-movement-title">Stock Movement Summary (Last 7 Days)</div>
-          <div style="overflow-x:auto">
+          <div style="overflow-x:auto;overflow-y:auto;max-height:290px">
             <table class="data-table" style="font-size:12.5px;min-width:640px">
-              <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+              <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
               <tbody id="ps-movement-tbody"></tbody>
             </table>
           </div>
@@ -20234,17 +20234,13 @@ function resetSHFilter() {
 
 function goToStockHistory(productId, productName) {
   populateSHProductDropdown();
-  if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
-    document.getElementById('sh-f-to').value = fmt_date(new Date());
-  }
   if (productId) {
     document.getElementById('sh-f-product').value = String(productId).replace(/\D/g,'');
     onSHProductChange();
   }
   showPage('stock-history');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'stock-history'));
-  renderStockHistory();
+  renderStockHistory(); // handles the date range fully — global filter or default, correctly, in one place
 }
 
 let SH_LAST_ROWS = [];
@@ -23364,9 +23360,10 @@ async function renderPSMovementAndTrend() {
   try {
     const qs = GLOBAL_DATE_ACTIVE ? `?movement_summary=1&from=${GLOBAL_DATE_FROM}&to=${GLOBAL_DATE_TO}` : '?movement_summary=1';
     const r = await api(`api/product_stock.php${qs}`);
-    const rows = Array.isArray(r.data) ? r.data : [];
+    const rows = Array.isArray(r.data) ? r.data : []; // chronological — used below for the trend chart's x-axis
+    const tableRows = rows.slice().reverse(); // newest first — latest movement visible in the table without scrolling
     if (movTitle && r.truncated_to_31_days) movTitle.textContent += ' — showing most recent 31 days of this range';
-    document.getElementById('ps-movement-tbody').innerHTML = rows.map(m => `
+    document.getElementById('ps-movement-tbody').innerHTML = tableRows.map(m => `
       <tr>
         <td>${fmt_date_disp(m.date)}</td>
         <td>${m.opening_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>

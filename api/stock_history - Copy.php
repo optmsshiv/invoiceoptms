@@ -18,8 +18,8 @@ try {
   $productId = cleanId($_GET['product_id'] ?? null);
   $batchNo   = $_GET['batch_no'] ?? '';
   $warehouse = $_GET['warehouse'] ?? '';
-  $dateFrom  = !empty($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-d', strtotime('-30 days'));
-  $dateTo    = !empty($_GET['date_to'])   ? $_GET['date_to']   : date('Y-m-d');
+  $dateFrom  = $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
+  $dateTo    = $_GET['date_to']   ?? date('Y-m-d');
   $txnType   = $_GET['transaction_type'] ?? ''; // in | out | adjustment
   $refType   = $_GET['reference_type'] ?? ''; // purchase | sale | adjustment | stock_in
 
