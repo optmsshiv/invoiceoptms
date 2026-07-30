@@ -62,48 +62,29 @@ try {
   }
 
   // ── Batch/warehouse-level stock summary + dashboard stats ────
-  // Starts from `products` (LEFT JOIN to stock_ledger) so every active
-  // product always appears — even one with zero stock or no ledger
-  // activity yet — instead of silently disappearing just because the
-  // old INNER JOIN + HAVING structure only showed products that already
-  // had a matching ledger row. Matches stock.php's pattern.
   $productFilter = cleanId($_GET['product_id'] ?? null);
   $warehouseFilter = $_GET['warehouse'] ?? '';
   $batchFilter = $_GET['batch_no'] ?? '';
 
-  $where = ['(p.status = "active" OR p.status IS NULL)'];
-  if ($productFilter) { $where[] = 'p.id = ?'; }
-  $whereSql = implode(' AND ', $where);
-
-  // Warehouse/batch filters apply to the LEFT-JOINed ledger rows, not the
-  // product itself — kept in the JOIN condition (not WHERE) so filtering
-  // by warehouse/batch doesn't wrongly hide products that simply don't
-  // have a row in that specific warehouse/batch (a WHERE on joined
-  // columns would incorrectly drop the LEFT JOIN's NULL rows entirely).
-  $joinExtra = '';
-  if ($warehouseFilter) $joinExtra .= ' AND sl.warehouse = ?';
-  if ($batchFilter) $joinExtra .= ' AND sl.batch_no LIKE ?';
-
-  // Params in the exact positional order they appear in the SQL below:
-  // the JOIN clause (warehouse/batch) comes before the WHERE clause
-  // (product filter) in the query text, so they must be bound in that
-  // same order — not the order they're conceptually applied.
+  $where = ['1=1'];
   $params = [];
-  if ($warehouseFilter) $params[] = $warehouseFilter;
-  if ($batchFilter) $params[] = '%' . $batchFilter . '%';
-  if ($productFilter) $params[] = $productFilter;
+  if ($productFilter) { $where[] = 'sl.product_id = ?'; $params[] = $productFilter; }
+  if ($warehouseFilter) { $where[] = 'sl.warehouse = ?'; $params[] = $warehouseFilter; }
+  if ($batchFilter) { $where[] = 'sl.batch_no LIKE ?'; $params[] = '%' . $batchFilter . '%'; }
+  $whereSql = implode(' AND ', $where);
 
   $sql = "SELECT
       p.id AS product_id, p.name, p.category, p.variety, p.reorder_level,
-      COALESCE(sl.warehouse, 'Main Warehouse') AS warehouse, COALESCE(sl.batch_no, '') AS batch_no,
-      COALESCE(SUM(CASE WHEN sl.direction='in' THEN sl.qty ELSE -sl.qty END), 0) AS available_stock,
-      COALESCE(SUM(CASE WHEN sl.direction='in' THEN sl.qty*sl.rate ELSE 0 END), 0) AS in_value,
-      COALESCE(SUM(CASE WHEN sl.direction='in' THEN sl.qty ELSE 0 END), 0) AS in_qty,
+      sl.warehouse, sl.batch_no,
+      SUM(CASE WHEN sl.direction='in' THEN sl.qty ELSE -sl.qty END) AS available_stock,
+      SUM(CASE WHEN sl.direction='in' THEN sl.qty*sl.rate ELSE 0 END) AS in_value,
+      SUM(CASE WHEN sl.direction='in' THEN sl.qty ELSE 0 END) AS in_qty,
       MAX(CASE WHEN sl.direction='in' THEN sl.movement_date END) AS last_inward_date
-    FROM products p
-    LEFT JOIN stock_ledger sl ON sl.product_id = p.id{$joinExtra}
+    FROM stock_ledger sl
+    JOIN products p ON p.id = sl.product_id
     WHERE $whereSql
     GROUP BY p.id, sl.warehouse, sl.batch_no
+    HAVING available_stock <> 0
     ORDER BY p.name ASC, sl.warehouse ASC, sl.batch_no ASC";
   $stmt = $db->prepare($sql);
   $stmt->execute($params);
