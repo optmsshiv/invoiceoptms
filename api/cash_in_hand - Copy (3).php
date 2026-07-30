@@ -102,23 +102,8 @@ try {
     // editable (nothing recorded since it).
     $latestId = (int)($db->query('SELECT id FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetchColumn() ?: 0);
 
-    // Balance AS OF the 'to' date — used when the Global Date Range filter
-    // is active, so the fund's balance shown matches "what it was at the
-    // end of this period" rather than the true live balance. Only computed
-    // when a 'to' is actually given; the running-balance ledger already
-    // tracks everything, this just sums up to a cutoff instead of all-time.
-    $balanceAsOf = null;
-    if (!empty($_GET['to'])) {
-      $asOfStmt = $db->prepare(
-        "SELECT COALESCE(SUM(CASE WHEN direction='in' THEN amount ELSE -amount END),0)
-         FROM cash_in_hand_ledger WHERE entry_date <= ?"
-      );
-      $asOfStmt->execute([$_GET['to']]);
-      $balanceAsOf = (float)$asOfStmt->fetchColumn();
-    }
-
     jsonResponse([
-      'balance' => $balance, 'balance_as_of' => $balanceAsOf, 'data' => $stmt->fetchAll(),
+      'balance' => $balance, 'data' => $stmt->fetchAll(),
       'total' => (int)$countStmt->fetchColumn(), 'latest_id' => $latestId,
     ]);
   }

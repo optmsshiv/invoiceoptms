@@ -4017,7 +4017,6 @@ const SERVER = {
             <option value="">All Status</option>
             <option>Pending</option><option>Accepted</option><option>Expired</option><option>Cancelled</option><option>Draft</option>
           </select>
-          <span id="ofr-gdr-note" style="display:none;font-size:10px;color:#9A6700"><i class="fas fa-lock" style="font-size:9px"></i> Scoped to Global Date Range</span>
           <div style="margin-left:auto;display:flex;gap:10px">
             <div class="pne-stat-chip" style="background:#E8F5E9;color:#00897B"><i class="fas fa-file-contract"></i> <span id="ofr-count">0</span> offers</div>
           </div>
@@ -7450,7 +7449,7 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Balance card -->
       <div class="pne-card" style="margin-bottom:18px;text-align:center;padding:28px">
-        <div id="cih-balance-label" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700">Current Balance</div>
+        <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700">Current Balance</div>
         <div id="cih-balance" style="font-size:38px;font-weight:800;margin-top:6px;color:var(--teal)">₹0.00</div>
         <div id="cih-negative-flag" style="display:none;margin-top:8px;font-size:12.5px;font-weight:700;color:#E53935;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:8px 14px;display:inline-block">
           <i class="fas fa-triangle-exclamation"></i> Balance is negative — more has been spent than was funded. Add funds to settle this.
@@ -8775,47 +8774,17 @@ function gdrDateInRange(dateStr) {
 
 // Reusable wiring for any page's own local From/To filter inputs: when the
 // Global Date Range is active, forces them to match it and disables manual
-// editing (change it in Settings instead); when it goes from active to
-// inactive, clears them back to empty (this app's "blank = show everything"
-// convention on list pages) instead of leaving stale global-range dates
-// behind. Tracked per field-pair since this is shared across several pages.
-const _gdrWasActive = {};
+// editing (change it in Settings instead); when inactive, re-enables them
+// and leaves whatever the user had set alone (untouched, not reset).
 function _gdrApplyToFilter(fromId, toId) {
   const fromEl = document.getElementById(fromId), toEl = document.getElementById(toId);
   if (!fromEl || !toEl) return;
   if (GLOBAL_DATE_ACTIVE) {
     fromEl.value = GLOBAL_DATE_FROM; toEl.value = GLOBAL_DATE_TO;
     fromEl.disabled = true; toEl.disabled = true;
-    _gdrWasActive[fromId] = true;
   } else {
     fromEl.disabled = false; toEl.disabled = false;
-    if (_gdrWasActive[fromId]) { fromEl.value = ''; toEl.value = ''; }
-    _gdrWasActive[fromId] = false;
   }
-}
-
-// Refreshes whichever page is currently open, so saving the Global Date
-// Range in Settings takes effect immediately — without this, a page
-// already open would keep showing stale (un-refiltered) data until the
-// user manually navigated away and back.
-function _gdrRefreshCurrentPage() {
-  const activePage = document.querySelector('.page.active');
-  if (!activePage) return;
-  const renderMap = {
-    'page-dashboard':        renderDashboard,
-    'page-suppliers':        renderSuppliers,
-    'page-purchases':        renderPurchases,
-    'page-sales-list':       renderSales,
-    'page-proforma-list':    renderProformaList,
-    'page-finance-report':   renderFinanceReport,
-    'page-stock-history':    renderStockHistory,
-    'page-payments-product': renderPayments,
-    'page-payments-service': renderPayments,
-    'page-expenses':         renderExpenses,
-    'page-cash-in-hand':     renderCashInHand,
-  };
-  const fn = renderMap[activePage.id];
-  if (typeof fn === 'function') fn();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -9975,8 +9944,6 @@ async function renderProformaList() {
   const navEl = document.getElementById('nav-proforma-item');
   if (navEl) navEl.style.display = '';
   const tbody = document.getElementById('ofr-tbody'); if (!tbody) return;
-  const ofrGdrNote = document.getElementById('ofr-gdr-note');
-  if (ofrGdrNote) ofrGdrNote.style.display = GLOBAL_DATE_ACTIVE ? 'inline' : 'none';
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>';
   try {
     const r = await api('api/proforma.php');
@@ -9986,8 +9953,7 @@ async function renderProformaList() {
     const st = document.getElementById('ofr-filter-status')?.value||'';
     const filtered = rows.filter(o =>
       (!q || o.ofr_no.toLowerCase().includes(q) || (o.customer_name||'').toLowerCase().includes(q)) &&
-      (!st || o.status===st) &&
-      gdrDateInRange(o.ofr_date)
+      (!st || o.status===st)
     );
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">No proforma invoices found</td></tr>'; return; }
     const statusColor = {Pending:'#E65100',Accepted:'#00897B',Expired:'#757575',Cancelled:'#E53935',Draft:'#1976D2'};
@@ -10392,9 +10358,8 @@ function renderDashboard() {
   if (sd) sd.style.display = showService ? '' : 'none';
   if (pd) pd.style.display = showProduct ? '' : 'none';
 
-  // Initialise date range on first call — Global Date Range takes over if active
+  // Initialise date range on first call
   const fromEl = document.getElementById('db-from'), toEl = document.getElementById('db-to');
-  _gdrApplyToFilter('db-from', 'db-to');
   if (fromEl && toEl && !fromEl.value) {
     fromEl.value = BIZ_FROM_DATE;
     toEl.value = fmt_date(new Date());
@@ -17478,7 +17443,6 @@ async function renderSuppliers() {
   }
 
   populateSuppliersFilters();
-  _gdrApplyToFilter('spl-f-from', 'spl-f-to');
   const list = splFilteredSuppliers();
   const totals = splPurchaseTotals();
 
@@ -19984,8 +19948,6 @@ function resetFinanceFilter() {
   renderFinanceReport();
 }
 
-let FR_GDR_WAS_ACTIVE = false; // tracks previous render, so turning the global filter OFF properly restores "This Month" instead of leaving stale dates behind
-
 async function renderFinanceReport() {
   const frFromEl = document.getElementById('fr-from'), frToEl = document.getElementById('fr-to');
   const frAllTimeBtn = document.getElementById('fr-alltime-btn');
@@ -19998,16 +19960,14 @@ async function renderFinanceReport() {
     frFromEl.disabled = true; frToEl.disabled = true;
     if (frAllTimeBtn) frAllTimeBtn.style.display = 'none';
     if (frGdrNote) frGdrNote.style.display = 'block';
-    FR_GDR_WAS_ACTIVE = true;
   } else {
     frFromEl.disabled = false; frToEl.disabled = false;
     if (frAllTimeBtn) frAllTimeBtn.style.display = '';
     if (frGdrNote) frGdrNote.style.display = 'none';
-    if (FR_GDR_WAS_ACTIVE || !frFromEl.value) {
+    if (!frFromEl.value) {
       frFromEl.value = frMonthStart();
       frToEl.value = fmt_date(new Date());
     }
-    FR_GDR_WAS_ACTIVE = false;
   }
   const from = frFromEl.value;
   const to = frToEl.value;
@@ -20247,30 +20207,21 @@ function goToStockHistory(productId, productName) {
 
 let SH_LAST_ROWS = [];
 
-let SH_GDR_WAS_ACTIVE = false; // tracks previous render, so turning the global filter OFF can detect the transition and actually restore the wide default instead of leaving stale narrow dates behind
-
 async function renderStockHistory() {
   populateSHProductDropdown();
   const shFromEl = document.getElementById('sh-f-from'), shToEl = document.getElementById('sh-f-to');
   const shGdrNote = document.getElementById('sh-gdr-note');
   if (GLOBAL_DATE_ACTIVE) {
-    // Always overwrite while active — matches every other GDR-aware page;
-    // the earlier "only if empty" version let stale dates survive.
-    shFromEl.value = GLOBAL_DATE_FROM; shToEl.value = GLOBAL_DATE_TO;
+    if (!shFromEl.value) { shFromEl.value = GLOBAL_DATE_FROM; shToEl.value = GLOBAL_DATE_TO; }
     shFromEl.disabled = true; shToEl.disabled = true;
     if (shGdrNote) shGdrNote.style.display = 'block';
-    SH_GDR_WAS_ACTIVE = true;
   } else {
     shFromEl.disabled = false; shToEl.disabled = false;
     if (shGdrNote) shGdrNote.style.display = 'none';
-    // Restore the wide default when transitioning OFF (was active last
-    // render), OR on first-ever load (still empty) — otherwise leave
-    // whatever the user had manually set alone.
-    if (SH_GDR_WAS_ACTIVE || !shFromEl.value) {
+    if (!shFromEl.value) {
       shFromEl.value = BIZ_FROM_DATE;
       shToEl.value = fmt_date(new Date());
     }
-    SH_GDR_WAS_ACTIVE = false;
   }
   try {
     const params = new URLSearchParams({
@@ -23550,7 +23501,6 @@ function applyPmtFilters(all) {
     if (methodF && !(p.method===methodF || (p.method&&p.method.startsWith('Split:')&&p.method.includes(methodF)))) return false;
     if (partyTypeF && p.party_type !== partyTypeF) return false;
     if (statusF && p.status !== statusF) return false;
-    if (!gdrDateInRange(p.date)) return false;
     return true;
   });
 }
@@ -24223,7 +24173,6 @@ async function saveCompanySettings() {
     if (typeof SERVER !== 'undefined' && SERVER.settings) Object.assign(SERVER.settings, payload);
     _gdrLoadFromSettings();
     _gdrRenderTopBarBadge();
-    _gdrRefreshCurrentPage();
     livePreview();
     applyDhaltaPctVisibility();
     toast('✅ Settings saved!', 'success');
@@ -28057,8 +28006,6 @@ function exportAgingCSV() {
 // action.cash_in_hand.edit; Corrections require action.cash_in_hand.delete
 // — owner/super_admin always pass. See SERVER.canCihEdit/canCihDelete.
 // ══════════════════════════════════════════════════════════════
-let CIH_GDR_WAS_ACTIVE = false; // tracks previous render, same restore-on-OFF fix as Finance Report/Stock History
-
 async function renderCashInHand() {
   const addBtn = document.getElementById('cih-addfunds-btn');
   const corrBtn = document.getElementById('cih-correction-btn');
@@ -28077,32 +28024,25 @@ async function renderCashInHand() {
     if (cihMonthBtn) cihMonthBtn.style.display = 'none';
     if (cihAllBtn) cihAllBtn.style.display = 'none';
     if (cihGdrNote) cihGdrNote.style.display = 'inline';
-    CIH_GDR_WAS_ACTIVE = true;
   } else {
     fromEl.disabled = false; toEl.disabled = false;
     if (cihMonthBtn) cihMonthBtn.style.display = '';
     if (cihAllBtn) cihAllBtn.style.display = '';
     if (cihGdrNote) cihGdrNote.style.display = 'none';
-    if (CIH_GDR_WAS_ACTIVE || (fromEl && toEl && !fromEl.value)) {
+    if (fromEl && toEl && !fromEl.value) {
       const now = new Date();
       fromEl.value = fmt_date(new Date(now.getFullYear(), 4, 1)); // month index 4 = May
       toEl.value   = fmt_date(now);
     }
-    CIH_GDR_WAS_ACTIVE = false;
   }
 
   try {
-    // Balance is always current/all-time UNLESS the Global Date Range is
-    // active, in which case it shows the balance as it stood at the end
-    // of that range instead — relabeled so it's never ambiguous which
-    // number is being shown.
-    const balQs = GLOBAL_DATE_ACTIVE ? `&to=${GLOBAL_DATE_TO}` : '';
-    const r = await api(`api/cash_in_hand.php?limit=1${balQs}`);
-    const bal = GLOBAL_DATE_ACTIVE && r.balance_as_of !== null ? (parseFloat(r.balance_as_of) || 0) : (parseFloat(r.balance) || 0);
+    // Balance is always current/all-time — a lightweight call with no
+    // date filter, kept separate from the (filterable) ledger fetch below.
+    const r = await api('api/cash_in_hand.php?limit=1');
+    const bal = parseFloat(r.balance) || 0;
     CIH_CURRENT_BALANCE = bal;
     const balEl = document.getElementById('cih-balance');
-    const balLabelEl = document.getElementById('cih-balance-label');
-    if (balLabelEl) balLabelEl.textContent = GLOBAL_DATE_ACTIVE ? `Balance as of ${fmt_date_disp(GLOBAL_DATE_TO)}` : 'Current Balance';
     if (balEl) {
       balEl.textContent = fmt_money(bal);
       balEl.style.color = bal < 0 ? '#E53935' : 'var(--teal)';
@@ -28439,13 +28379,12 @@ function _populateExpenseMonthFilter() {
 function _renderExpSummary() {
   const el = document.getElementById('exp-summary-cards');
   if (!el) return;
-  const list = EXP.list || STATE.expenses; // whatever's currently filtered (search/category/month/global range)
-  const total    = list.reduce((s,e) => s + parseFloat(e.amount||0), 0);
+  const total    = STATE.expenses.reduce((s,e) => s + parseFloat(e.amount||0), 0);
   const now      = new Date();
   const thisMonth = STATE.expenses.filter(e => e.date?.slice(0,7) === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
   const monthTotal = thisMonth.reduce((s,e) => s + parseFloat(e.amount||0), 0);
   const catTotals  = {};
-  list.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + parseFloat(e.amount||0); });
+  STATE.expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + parseFloat(e.amount||0); });
   const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
   const revenue = STATE.invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const expRatio = revenue > 0 ? Math.round(total/revenue*100) : 0;
@@ -28463,13 +28402,13 @@ function _renderExpSummary() {
   // ── Expense mixed chart: stacked bars per category + total line ──
   const chartsRow = document.getElementById('exp-charts-row');
   if (chartsRow) {
-    chartsRow.style.display = list.length > 0 ? '' : 'none';
-    if (list.length > 0) {
+    chartsRow.style.display = STATE.expenses.length > 0 ? '' : 'none';
+    if (STATE.expenses.length > 0) {
       // Build month × category matrix
       const monthSet = new Set();
       const catSet   = new Set();
       const matrix   = {}; // matrix[month][category] = amount
-      list.forEach(e => {
+      STATE.expenses.forEach(e => {
         const m = e.date?.slice(0,7); if (!m) return;
         monthSet.add(m); catSet.add(e.category||'Other');
         if (!matrix[m]) matrix[m] = {};
