@@ -10191,7 +10191,7 @@ function _printProforma(d, curr, autoPrint = true) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; }
+    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; border: 2px solid #0d3b2e; }
     .head { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:flex-start; padding-bottom:18px; border-bottom:2px solid #0d3b2e; margin-bottom:20px; }
     .logo-wrap { display:flex; gap:16px; align-items:flex-start; }
     .logo-box { width:102px;height:102px;background:#0d3b2e;border-radius:10px;display:flex;align-items:center;justify-content:center; flex-shrink:0; }
@@ -10206,7 +10206,7 @@ function _printProforma(d, curr, autoPrint = true) {
     .meta-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#888; }
     .meta-val   { font-size:13px; font-weight:700; color:#0d3b2e; }
     .parties { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
-    .party { border:1px solid #000; border-radius:8px; padding:12px 14px; }
+    .party { border:1px solid #dde8dd; border-radius:8px; padding:12px 14px; }
     .party-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#0d3b2e; display:flex;align-items:center;gap:6px; margin-bottom:7px; }
     .party-name  { font-size:13px; font-weight:700; }
     .party-meta  { font-size:10.5px; color:#556; margin-top:4px; line-height:1.7; }
@@ -10217,8 +10217,8 @@ function _printProforma(d, curr, autoPrint = true) {
     td { padding:10px 10px; border-bottom:1px solid #eef2ee; vertical-align:top; font-size:11.5px; }
     td strong { font-size:12px; font-weight:700; color:#0d3b2e; }
     td .sub { font-size:10px; color:#778; margin-top:2px; }
-    .tbl-wrap { border:1px solid #000; border-radius:8px; overflow:hidden; margin-bottom:14px; }
-    .totals { max-width:260px; margin-left:auto; border:1px solid #000; border-radius:8px; overflow:hidden; margin-bottom:14px; }
+    .tbl-wrap { border:1px solid #dde; border-radius:8px; overflow:hidden; margin-bottom:14px; }
+    .totals { max-width:260px; margin-left:auto; border:1px solid #dde; border-radius:8px; overflow:hidden; margin-bottom:14px; }
     .tot-row { display:flex; justify-content:space-between; padding:7px 12px; font-size:11.5px; border-bottom:1px solid #eef2ee; }
     .tot-row:last-child { border-bottom:none; }
     .tot-row.grand { font-size:13px; font-weight:700; background:#f5faf5; }
@@ -10226,7 +10226,7 @@ function _printProforma(d, curr, autoPrint = true) {
     .per-kg { background:#E8F5E9; border:1px solid #A5D6A7; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .per-kg .lbl { font-size:10.5px; color:#2E7D32; }
     .per-kg .val { font-size:15px; font-weight:900; color:#1B5E20; }
-    .notes-box { background:#fafaf5; border:1px solid #000; border-radius:8px; padding:10px 14px; margin-bottom:18px; }
+    .notes-box { background:#fafaf5; border:1px solid #dde; border-radius:8px; padding:10px 14px; margin-bottom:18px; }
     .notes-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:4px; }
     .notes-txt { font-size:11px; color:#445; line-height:1.65; }
     .sig-section { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin:24px 0 16px; padding-top:12px; border-top:1px solid #dde; }
@@ -19670,7 +19670,7 @@ function printLocalPurchaseVoucher(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -19678,7 +19678,7 @@ function printLocalPurchaseVoucher(p) {
     .badge-voucher { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 20px; text-align: center; }
     .voucher-meta { text-align: right; font-size: 11.5px; color: #445; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 12px; color: #0d3b2e; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
     .box .kv { font-size: 11px; color: #667; margin-bottom: 8px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
@@ -19819,7 +19819,7 @@ function printTaxInvoicePurchase(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -19828,7 +19828,7 @@ function printTaxInvoicePurchase(p) {
     .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
     .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
     .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
@@ -21780,7 +21780,7 @@ function printSaleInvoice(s) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -21789,7 +21789,7 @@ function printSaleInvoice(s) {
     .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
     .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
     .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
@@ -21807,16 +21807,10 @@ function printSaleInvoice(s) {
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-    .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
-    @media print { .no-print { display: none !important; } }
   </style></head><body>
-    <div class="no-print">
-      <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
-      <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
-    </div>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -21891,7 +21885,7 @@ function printSaleInvoice(s) {
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
+    ${'<' + 'script>window.print();</' + 'script>'}
   </body></html>`);
   win.document.close();
 }
@@ -21926,7 +21920,7 @@ function _printSalePartyCopy(s) {
     .inv-title .no { font-size: 13px; font-weight: 700; margin-top: 4px; }
     .inv-title .date { font-size: 11px; color: #667; }
     .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .party-box { border: 1px solid #000; border-radius: 8px; padding: 12px 14px; }
+    .party-box { border: 1px solid #dde; border-radius: 8px; padding: 12px 14px; }
     .party-box h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #889; margin-bottom: 8px; font-weight: 700; }
     .party-box .name { font-size: 14px; font-weight: 800; color: #0d3b2e; }
     .party-box .meta { font-size: 10.5px; color: #556; margin-top: 4px; line-height: 1.6; }
@@ -24000,18 +23994,9 @@ function viewReceipt(i, list){
       <div style="font-size:28px;font-weight:800;color:${accent};font-family:var(--mono)">${fmt_money(p.amount)}</div>
       ${words ? `<div style="font-size:10.5px;color:var(--muted);margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
     </div>
-    <div style="border:1px solid #000;border-radius:8px;padding:12px 14px;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Party Details</div>
-      <table style="width:100%;border-collapse:collapse">
-        ${[[partyLabel,p.client],['Party Type',p.party_type||'—'],[refLabel,p.inv||'—'],['Purpose',p.payment_for||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
-      </table>
-    </div>
-    <div style="border:1px solid #000;border-radius:8px;padding:12px 14px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
-      <table style="width:100%;border-collapse:collapse">
-        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
-      </table>
-    </div>
+    <table style="width:100%;border-collapse:collapse">
+      ${[['Date',df],[refLabel,p.inv||'—'],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px;width:40%">${escHtml(k)}</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px">${escHtml(String(v))}</td></tr>`).join('')}
+    </table>
     <div style="margin-top:26px;display:flex;justify-content:space-between;padding:0 6px">
       <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
       <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
@@ -24040,18 +24025,9 @@ function printReceiptModal(){
       <div style="font-size:28px;font-weight:800;color:${accent}">${fmt_money(p.amount)}</div>
       ${words ? `<div style="font-size:11px;color:#777;margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
     </div>
-    <div style="margin:0 24px 12px;border:1px solid #000;border-radius:8px;padding:12px 16px">
-      <div style="font-size:11px;font-weight:700;color:${accent};margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Party Details</div>
-      <table style="width:100%;border-collapse:collapse">
-        ${[[partyLabel,p.client],['Party Type',p.party_type||'—'],[refLabel,p.inv||'—'],['Purpose',p.payment_for||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
-      </table>
-    </div>
-    <div style="margin:0 24px 20px;border:1px solid #000;border-radius:8px;padding:12px 16px">
-      <div style="font-size:11px;font-weight:700;color:${accent};margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
-      <table style="width:100%;border-collapse:collapse">
-        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
-      </table>
-    </div>
+    <table style="width:100%;border-collapse:collapse;padding:0 24px 24px">
+      ${[[refLabel,p.inv],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Date',df]].map(([k,v])=>`<tr><td style="padding:8px 24px;border-bottom:1px solid #eee;color:#666">${escHtml(k)}</td><td style="padding:8px 24px;border-bottom:1px solid #eee;font-weight:600">${escHtml(String(v||'—'))}</td></tr>`).join('')}
+    </table>
     <div style="padding:20px 24px 24px;display:flex;justify-content:space-between">
       <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
       <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
