@@ -1572,6 +1572,7 @@ const SERVER = {
   // separate from the generic canDelete, so it can be toggled per-role
   // independently in Team Permissions.
   canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
+  canExpenseDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.expense.delete'] ?? false)) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -3113,7 +3114,7 @@ const SERVER = {
               <table class="data-table pne-items-table">
                 <colgroup>
                   <col style="width:30px"><col style="width:140px"><col style="width:90px">
-                  <col style="width:70px"><col style="width:90px">
+                  <col style="width:70px"><col style="width:90px"><col style="width:90px">
                   <col style="width:72px"><col style="width:72px"><col style="width:78px">
                   <col style="width:55px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:90px">
@@ -3122,7 +3123,7 @@ const SERVER = {
                 <thead>
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety</th>
-                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th>
+                    <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th><th rowspan="2">Batch Code</th>
                     <th colspan="3">Weight (Kg)</th>
                     <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Wt</th>
@@ -3504,8 +3505,8 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-box-open"></i></span> Product Information</div>
             <div class="pne-grid-auto">
-              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)"></div>
-              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PREM-A01"></div>
+              <div class="field" id="pne-field-name"><label id="pne-label-name">Product Name *</label><input id="pp-name" placeholder="e.g. Makhana (Foxnut)" oninput="_ppAutoSuggestSku()"></div>
+              <div class="field" id="pne-field-sku"><label id="pne-label-sku">Product Code / SKU *</label><input id="pp-sku" placeholder="e.g. MKH-PRE-P0001" oninput="PP_SKU_AUTO=false"></div>
               <div class="field" id="pne-field-unit"><label id="pne-label-unit">Unit *</label>
                 <select id="pp-unit" data-pf-dropdown="unit" onchange="pnpSyncUnits()"><option>Kg</option><option>g</option><option>Ltr</option><option>ml</option><option>Pcs</option><option>Box</option><option>Dozen</option></select>
               </div>
@@ -3517,7 +3518,7 @@ const SERVER = {
               <div class="field" id="pne-field-base_unit_label"><label id="pne-label-base_unit_label">Base Unit</label><input id="pp-baseunit" readonly></div>
               <div class="field" id="pne-field-shelf_life_months"><label id="pne-label-shelf_life_months">Shelf Life (Months)</label><input type="number" id="pp-shelflife" min="0" placeholder="12"></div>
               <div class="field" id="pne-field-variety"><label id="pne-label-variety">Variety</label>
-                <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
+                <select id="pp-variety" data-pf-dropdown="variety" onchange="onPPVarietyChange();_ppAutoSuggestSku()"><option value="">—</option><option>Premium</option><option>SBD</option><option>BD</option><option>CD</option><option>RBD</option></select>
               </div>
               <div class="field" id="pne-field-barcode"><label id="pne-label-barcode">Barcode</label>
                 <div style="display:flex;gap:6px">
@@ -3584,12 +3585,19 @@ const SERVER = {
               <div class="field" id="pne-field-max_stock"><label id="pne-label-max_stock">Maximum Stock (Kg)</label><input type="number" id="pp-maxstock" min="0" step="0.01" value="0"></div>
               <div class="field" id="pne-field-default_warehouse"><label id="pne-label-default_warehouse">Default Warehouse</label><input id="pp-warehouse" placeholder="e.g. Main Warehouse"></div>
               <div class="field" style="display:flex;align-items:flex-end;gap:12px">
-                <label class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on')"></label>
+                <label class="tog" id="pp-trackbatch" onclick="this.classList.toggle('on');_ppToggleBatchSerialButtons()"></label>
                 <span style="font-size:12.5px;margin-bottom:2px">Track Batches</span>
+                <button type="button" id="pp-managebatches-btn" onclick="openManageBatches()" class="btn btn-outline" style="display:none;padding:4px 10px;font-size:11.5px;margin-left:auto"><i class="fas fa-layer-group"></i> Manage Batches</button>
               </div>
               <div class="field" style="display:flex;align-items:flex-end;gap:12px">
-                <label class="tog" id="pp-trackserial" onclick="this.classList.toggle('on')"></label>
+                <label class="tog" id="pp-trackserial" onclick="this.classList.toggle('on');_ppToggleBatchSerialButtons()"></label>
                 <span style="font-size:12.5px;margin-bottom:2px">Track Serials</span>
+                <button type="button" id="pp-manageserials-btn" onclick="openManageSerials()" class="btn btn-outline" style="display:none;padding:4px 10px;font-size:11.5px;margin-left:auto"><i class="fas fa-barcode"></i> Manage Serials</button>
+              </div>
+              <div class="field" id="pne-field-opening_batch" style="display:none">
+                <label>Opening Stock Batch Code</label>
+                <input id="pp-openingbatch" placeholder="Auto-suggested" oninput="PP_OPENING_BATCH_AUTO=false">
+                <div style="font-size:10px;color:var(--muted);margin-top:3px">Only used if Opening Stock above is greater than 0</div>
               </div>
             </div>
           </div>
@@ -4509,6 +4517,64 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addcustomer')">Cancel</button>
           <button class="btn btn-primary" id="cus-save-btn" onclick="saveCustomer()"><i class="fas fa-check"></i> Save Customer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── MANAGE BATCHES ─────────── -->
+    <div class="modal-overlay" id="modal-managebatches">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <span>Manage Batches — <span id="pb-product-name"></span></span>
+          <button class="modal-close" onclick="closeModal('modal-managebatches')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 22px">
+          <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:10px;align-items:end;background:var(--bg);border-radius:10px;padding:14px;margin-bottom:16px">
+            <div class="field" style="margin-bottom:0"><label>Batch Code</label><input id="pb-code" placeholder="Auto-suggested" oninput="PB_CODE_AUTO=false"></div>
+            <div class="field" style="margin-bottom:0"><label>Qty</label><input id="pb-qty" type="number" min="0" step="0.01" placeholder="0"></div>
+            <div class="field" style="margin-bottom:0"><label>Mfg Date</label><input id="pb-mfgdate" type="date"></div>
+            <div class="field" style="margin-bottom:0"><label>Expiry Date</label><input id="pb-expdate" type="date"></div>
+          </div>
+          <div style="text-align:right;margin-top:-10px;margin-bottom:14px">
+            <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="addProductBatch()"><i class="fas fa-plus"></i> Add Batch</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>Batch Code</th><th style="text-align:right">Qty</th><th style="text-align:right">Remaining</th><th>Expiry</th><th>Status</th><th></th></tr></thead>
+              <tbody id="pb-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeModal('modal-managebatches')">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── MANAGE SERIALS ─────────── -->
+    <div class="modal-overlay" id="modal-manageserials">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+          <span>Manage Serials — <span id="ps-product-name"></span></span>
+          <button class="modal-close" onclick="closeModal('modal-manageserials')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 22px">
+          <div class="field">
+            <label>Add Serial Number(s)</label>
+            <textarea id="ps-bulk-input" rows="3" placeholder="One serial number per line — paste multiple at once for a bulk receipt"></textarea>
+          </div>
+          <div style="text-align:right;margin-bottom:14px">
+            <button class="btn btn-primary" style="font-size:12px;padding:6px 14px" onclick="addProductSerials()"><i class="fas fa-plus"></i> Add</button>
+          </div>
+          <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+            <table class="data-table">
+              <thead><tr><th>Serial No.</th><th>Status</th><th></th></tr></thead>
+              <tbody id="ps-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeModal('modal-manageserials')">Done</button>
         </div>
       </div>
     </div>
@@ -16621,10 +16687,194 @@ function toggleProductStatus() {
   document.getElementById('pp-status-label').textContent = el.classList.contains('on') ? 'Active' : 'Inactive';
 }
 
+let PP_SKU_AUTO = true; // false the moment the user types directly into the SKU field
+
+// Suggests a Product Code/SKU derived from the name + variety, e.g.
+// "Basmati Rice" + "Premium" → BAS-PRE-P0001. Only fires while the user
+// hasn't taken manual control of the field (matches the same
+// auto-suggest-but-editable pattern Customer Code and OFR numbers use).
+function _ppAutoSuggestSku() {
+  if (!PP_SKU_AUTO) return;
+  const name = document.getElementById('pp-name').value.trim();
+  if (!name) return;
+  const variety = document.getElementById('pp-variety')?.value.trim() || '';
+
+  const letters = s => s.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase().padEnd(3, 'X');
+  const nameCode = letters(name);
+  const varietyCode = variety ? letters(variety) : '';
+
+  const seq = (STATE.products?.length || 0) + 1;
+  const seqStr = 'P' + String(seq).padStart(4, '0');
+
+  document.getElementById('pp-sku').value = [nameCode, varietyCode, seqStr].filter(Boolean).join('-');
+  // Note: setting .value programmatically does NOT fire the input's own
+  // oninput handler, so PP_SKU_AUTO correctly stays true — further edits
+  // to Name/Variety keep updating the suggestion until the user actually
+  // types into the SKU field themselves.
+}
+
+// ══════════════════════════════════════════════════════════════
+// BATCH / SERIAL TRACKING
+// Manage Batches/Serials only makes sense for an already-saved product
+// (batches need a real product_id to attach to) — buttons stay hidden
+// until PNP.editingId is set, i.e. the New Product form has been saved
+// at least once.
+// ══════════════════════════════════════════════════════════════
+let PP_OPENING_BATCH_AUTO = true; // false the moment the user types their own opening batch code
+
+function _ppToggleBatchSerialButtons() {
+  const isExisting = !!PNP.editingId;
+  const batchOn  = document.getElementById('pp-trackbatch')?.classList.contains('on');
+  const serialOn = document.getElementById('pp-trackserial')?.classList.contains('on');
+  const batchBtn  = document.getElementById('pp-managebatches-btn');
+  const serialBtn = document.getElementById('pp-manageserials-btn');
+  if (batchBtn)  batchBtn.style.display  = (isExisting && batchOn)  ? '' : 'none';
+  if (serialBtn) serialBtn.style.display = (isExisting && serialOn) ? '' : 'none';
+
+  // Inline "Opening Stock Batch Code" — shown whenever Track Batches is on
+  // (new OR existing product), so opening stock never gets written to
+  // stock_ledger without a batch attached the way it silently did before.
+  const openBatchField = document.getElementById('pne-field-opening_batch');
+  if (openBatchField) {
+    openBatchField.style.display = batchOn ? '' : 'none';
+    if (batchOn && PP_OPENING_BATCH_AUTO) {
+      document.getElementById('pp-openingbatch').value = 'B0001';
+    }
+  }
+}
+
+// ── Batches ──────────────────────────────────────────────────────
+let PB_CODE_AUTO = true;
+let PB_CURRENT_PRODUCT_ID = null;
+let PB_CURRENT_BATCHES = [];
+
+function openManageBatches() {
+  if (!PNP.editingId) { toast('⚠️ Save the product first before adding batches', 'warning'); return; }
+  PB_CURRENT_PRODUCT_ID = PNP.editingId;
+  document.getElementById('pb-product-name').textContent = document.getElementById('pp-name').value;
+  document.getElementById('pb-code').value = '';
+  document.getElementById('pb-qty').value = '';
+  document.getElementById('pb-mfgdate').value = fmt_date(new Date());
+  document.getElementById('pb-expdate').value = '';
+  PB_CODE_AUTO = true;
+  loadProductBatches();
+  openModal('modal-managebatches');
+}
+
+async function loadProductBatches() {
+  const rawId = String(PB_CURRENT_PRODUCT_ID).replace(/\D/g,'');
+  try {
+    const r = await api(`api/product_batches.php?product_id=${rawId}`);
+    PB_CURRENT_BATCHES = r.data || [];
+    renderProductBatches();
+    // Auto-suggest next batch code, e.g. B0001, once we know how many exist
+    if (PB_CODE_AUTO) {
+      const seq = PB_CURRENT_BATCHES.length + 1;
+      document.getElementById('pb-code').value = 'B' + String(seq).padStart(4,'0');
+    }
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function renderProductBatches() {
+  const tbody = document.getElementById('pb-tbody');
+  tbody.innerHTML = PB_CURRENT_BATCHES.map(b => {
+    const depleted = b.status === 'depleted';
+    const untouched = Math.abs(parseFloat(b.remaining_qty) - parseFloat(b.qty)) < 0.001;
+    return `<tr>
+      <td>${escHtml(b.batch_code)}</td>
+      <td style="text-align:right">${parseFloat(b.qty).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;font-weight:600;color:${depleted?'#E53935':'#00897B'}">${parseFloat(b.remaining_qty).toLocaleString('en-IN')}</td>
+      <td>${b.expiry_date ? fmt_date_disp(b.expiry_date) : '—'}</td>
+      <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${depleted?'#FFEBEE':'#E8F5E9'};color:${depleted?'#E53935':'#00897B'}">${depleted?'Depleted':'Active'}</span></td>
+      <td>${untouched ? `<button class="act-btn" title="Delete" onclick="deleteProductBatch(${b.id})"><i class="fas fa-times"></i></button>` : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px">No batches yet</td></tr>';
+}
+
+async function addProductBatch() {
+  const batch_code = document.getElementById('pb-code').value.trim();
+  const qty = parseFloat(document.getElementById('pb-qty').value);
+  if (!batch_code) { toast('⚠️ Batch code is required', 'warning'); return; }
+  if (!qty || qty <= 0) { toast('⚠️ Enter a quantity greater than 0', 'warning'); return; }
+  const rawId = String(PB_CURRENT_PRODUCT_ID).replace(/\D/g,'');
+  try {
+    await api('api/product_batches.php', 'POST', {
+      product_id: rawId, batch_code, qty,
+      mfg_date: document.getElementById('pb-mfgdate').value || null,
+      expiry_date: document.getElementById('pb-expdate').value || null,
+    });
+    toast('✅ Batch added!', 'success');
+    document.getElementById('pb-qty').value = '';
+    document.getElementById('pb-expdate').value = '';
+    PB_CODE_AUTO = true;
+    loadProductBatches();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteProductBatch(id) {
+  if (!confirm('Delete this batch? Only possible since nothing has been sold from it yet.')) return;
+  try {
+    await api('api/product_batches.php?id='+id, 'DELETE');
+    toast('🗑️ Batch deleted', 'info');
+    loadProductBatches();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// ── Serials ──────────────────────────────────────────────────────
+let PS_CURRENT_PRODUCT_ID = null;
+
+function openManageSerials() {
+  if (!PNP.editingId) { toast('⚠️ Save the product first before adding serials', 'warning'); return; }
+  PS_CURRENT_PRODUCT_ID = PNP.editingId;
+  document.getElementById('ps-product-name').textContent = document.getElementById('pp-name').value;
+  document.getElementById('ps-bulk-input').value = '';
+  loadProductSerials();
+  openModal('modal-manageserials');
+}
+
+async function loadProductSerials() {
+  const rawId = String(PS_CURRENT_PRODUCT_ID).replace(/\D/g,'');
+  try {
+    const r = await api(`api/product_serials.php?product_id=${rawId}`);
+    const serials = r.data || [];
+    document.getElementById('ps-tbody').innerHTML = serials.map(s => `<tr>
+      <td>${escHtml(s.serial_no)}</td>
+      <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${s.status==='sold'?'#FFEBEE':'#E8F5E9'};color:${s.status==='sold'?'#E53935':'#00897B'}">${s.status==='sold'?'Sold':'In Stock'}</span></td>
+      <td>${s.status!=='sold' ? `<button class="act-btn" title="Delete" onclick="deleteProductSerial(${s.id})"><i class="fas fa-times"></i></button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">No serials yet</td></tr>';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function addProductSerials() {
+  const raw = document.getElementById('ps-bulk-input').value.trim();
+  if (!raw) { toast('⚠️ Enter at least one serial number', 'warning'); return; }
+  const serial_nos = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const rawId = String(PS_CURRENT_PRODUCT_ID).replace(/\D/g,'');
+  try {
+    const r = await api('api/product_serials.php', 'POST', { product_id: rawId, serial_nos });
+    toast(`✅ ${r.added} serial(s) added` + (r.skipped_duplicates ? `, ${r.skipped_duplicates} duplicate(s) skipped` : ''), 'success');
+    document.getElementById('ps-bulk-input').value = '';
+    loadProductSerials();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteProductSerial(id) {
+  if (!confirm('Delete this serial number?')) return;
+  try {
+    await api('api/product_serials.php?id='+id, 'DELETE');
+    toast('🗑️ Serial deleted', 'info');
+    loadProductSerials();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
 function goToNewProductPage() {
   applyProductFormToPage();
   PNP.editingId = null;
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
+  PP_SKU_AUTO = true; // fresh form — SKU suggestion is live until the user types their own
+  PP_OPENING_BATCH_AUTO = true;
+  document.getElementById('pp-openingbatch').value = '';
+  _ppToggleBatchSerialButtons();
   document.getElementById('pnp-title').textContent = 'New Product';
   document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
   ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
@@ -16704,6 +16954,9 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
+  PP_OPENING_BATCH_AUTO = true;
+  document.getElementById('pp-openingbatch').value = '';
+  _ppToggleBatchSerialButtons();
   set('pp-shortdesc', p.short_description); set('pp-detaildesc', p.detailed_description);
   pnpCharCount('pp-shortdesc','pp-shortdesc-count',200); pnpCharCount('pp-detaildesc','pp-detaildesc-count',500);
   set('pp-country', p.country_of_origin || 'India'); set('pp-manufacturer', p.manufacturer);
@@ -16786,6 +17039,7 @@ async function saveProductEntry(mode) {
     default_warehouse: document.getElementById('pp-warehouse').value,
     track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
     track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
+    opening_batch_code: document.getElementById('pp-openingbatch')?.value.trim() || '',
     short_description: document.getElementById('pp-shortdesc').value.trim(),
     detailed_description: document.getElementById('pp-detaildesc').value.trim(),
     country_of_origin: document.getElementById('pp-country').value.trim() || 'India',
@@ -16810,16 +17064,29 @@ async function saveProductEntry(mode) {
   const loadBar = document.getElementById('pp-loading-bar');
   if (loadBar) loadBar.style.display = 'block';
   try {
+    let newProductId = null;
     if (PNP.editingId) {
       await api('api/products.php?id=' + PNP.editingId, 'PUT', payload);
       consumeEditApproval(); toast('✅ Product updated!', 'success');
     } else {
-      await api('api/products.php', 'POST', payload);
+      const createRes = await api('api/products.php', 'POST', payload);
       consumeEditApproval(); toast('✅ Product saved!', 'success');
+      newProductId = createRes?.id || null;
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     updateServiceDropdown();
+
+    // If Track Serial is on and there's opening stock, that quantity needs
+    // real serial numbers, not just an untracked count — prompt straight
+    // into Manage Serials before resetting the form for the next entry.
+    const needsSerials = newProductId && payload.track_serial && payload.opening_stock > 0;
+    if (needsSerials) {
+      PNP.editingId = newProductId; // openManageSerials snapshots this into PS_CURRENT_PRODUCT_ID
+      toast(`ℹ️ Add ${payload.opening_stock} serial number(s) for the opening stock`, 'info');
+      openManageSerials();
+    }
+
     if (mode === 'new') {
       goToNewProductPage();
     } else {
@@ -17414,9 +17681,13 @@ function viewCustomerProfile(id) {
           const received = parseFloat(s.amount_received)||0;
           balance += invoiced - received;
           const status = s.payment_status || (balance <= 0 ? 'Paid' : 'Pending');
+          const productNames = (s.product_ids||'').split(',').filter(Boolean)
+            .map(pid => STATE.products.find(pr => String(pr.id).replace(/\D/g,'') === String(pid))?.name)
+            .filter(Boolean).join(', ');
           return `<tr>
             <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
+            <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
             <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
             <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -17424,9 +17695,9 @@ function viewCustomerProfile(id) {
           </tr>`;
         }).join('');
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -17720,9 +17991,13 @@ function viewSupplierProfile(id) {
           const paid2  = parseFloat(p.amount_paid||0);
           balance += billed - paid2;
           const status = p.status || (balance <= 0 ? 'Paid' : 'Pending');
+          const productNames = (p.product_ids||'').split(',').filter(Boolean)
+            .map(pid => STATE.products.find(pr => String(pr.id).replace(/\D/g,'') === String(pid))?.name)
+            .filter(Boolean).join(', ');
           return `<tr>
             <td style="font-size:11px">${fmt_date_disp(p.purchase_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
+            <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
             <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
             <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -17732,9 +18007,9 @@ function viewSupplierProfile(id) {
         const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
         const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -18399,7 +18674,7 @@ function setGstApplicable(applicable) {
 
 function pneEmptyItem() {
   const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
-  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '',
+  return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '', batch_no: '',
     gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
 }
 
@@ -18485,6 +18760,7 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${escHtml(it.variety_grade || '—')}</td>
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
+        <td class="pne-view-cell">${escHtml(it.batch_no || '—')}</td>
         <td class="pne-view-cell" id="pne-vgross-${it.id}">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell" id="pne-vtare-${it.id}">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
@@ -18516,6 +18792,7 @@ function renderPNEItemsTable() {
       <td><input value="${escHtml(it.variety_grade)}" placeholder="e.g. Premium Grade" oninput="updatePNEItem(${it.id},'variety_grade',this.value,true)"></td>
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
+      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional — e.g. B0001" oninput="updatePNEItem(${it.id},'batch_no',this.value,true)"></td>
       <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
       <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
@@ -18859,7 +19136,7 @@ async function editPurchase(id) {
     PNE.attachmentExisting = p.attachment_path || null;
     PNE.items = (p.items||[]).map(it => ({
       id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
-      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '',
+      variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '', batch_no: it.batch_no || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
     }));
@@ -19161,7 +19438,7 @@ async function savePurchaseEntry(mode) {
     attachment: attachment || undefined,
     items: PNE.items.map(it => ({
       product_id: it.product_id || null, description: it.description, hsn: '',
-      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade,
+      variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
       gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
       dhalta_kg: parseFloat(it.dhalta_kg)||0, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
     })),
@@ -20173,6 +20450,20 @@ function exportStockHistoryCsv() {
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
 const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null };
+// Batch options per product, fetched from product_batches.php on demand —
+// only products with actual received batches will have entries here;
+// everything else just falls back to "No batch" (same as today, harmless).
+const SN_BATCH_CACHE = {};
+async function _snLoadBatchesForProduct(productId) {
+  if (!productId) return;
+  const rawId = String(productId).replace(/\D/g,'');
+  if (SN_BATCH_CACHE[rawId]) return; // already fetched this session
+  try {
+    const r = await api(`api/product_batches.php?product_id=${rawId}&action=active`);
+    SN_BATCH_CACHE[rawId] = r.data || [];
+  } catch(e) { SN_BATCH_CACHE[rawId] = []; }
+  renderSNItemsTable();
+}
 let snDeductionSeq = 1;
 let snItemSeq = 1;
 
@@ -20523,7 +20814,7 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.category || '—')}</td>
       <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
       <td>${escHtml(prod?.grade || '—')}</td>
-      <td><input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)"></td>
+      <td>${_snBatchCellHtml(it)}</td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
       <td><span class="pne-computed" style="color:${avail<=0?'#E53935':'#00897B'}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
       <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
@@ -20551,15 +20842,31 @@ function renderSNItemsTable() {
   calcSaleNewTotals();
 }
 
+function _snBatchCellHtml(it) {
+  const rawId = it.product_id ? String(it.product_id).replace(/\D/g,'') : '';
+  const batches = rawId ? SN_BATCH_CACHE[rawId] : undefined;
+  if (!rawId || !batches || !batches.length) {
+    // No product selected yet, still loading, or genuinely no tracked
+    // batches for this product — fall back to free text (same as before).
+    return `<input value="${escHtml(it.batch_no)}" placeholder="Optional" oninput="updateSNItem(${it.id},'batch_no',this.value,true)">`;
+  }
+  return `<select onchange="updateSNItem(${it.id},'batch_no',this.value,true)">
+    <option value="">No batch</option>
+    ${batches.map(b => `<option value="${escHtml(b.batch_code)}" ${it.batch_no===b.batch_code?'selected':''}>${escHtml(b.batch_code)} (${parseFloat(b.remaining_qty).toLocaleString('en-IN')} left)</option>`).join('')}
+  </select>`;
+}
+
 function onSNProductChange(id, productId) {
   const it = SN.items.find(i => i.id === id); if (!it) return;
   it.product_id = productId || '';
+  it.batch_no = ''; // clear — the previous product's batch code doesn't apply to the new product
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
     if (p) {
       it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
       it.variety_grade = p.variety || it.variety_grade;
     }
+    _snLoadBatchesForProduct(productId); // async — re-renders once fetched
   }
   renderSNItemsTable();
 }
@@ -20993,6 +21300,7 @@ async function editSale(id) {
       batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
       rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
     }));
+    SN.items.forEach(it => { if (it.product_id) _snLoadBatchesForProduct(it.product_id); });
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     document.getElementById('psn-title').textContent = 'Edit Sale Entry';
     document.getElementById('psn-subtitle').textContent = s.invoice_no;
@@ -28042,7 +28350,9 @@ function _renderExpTable() {
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
       <td>
         <button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
-        <button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>
+        ${SERVER.canExpenseDelete
+          ? `<button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>`
+          : `<button disabled title="Delete restricted by your role" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`}
       </td>
     </tr>`;
   }).join('');

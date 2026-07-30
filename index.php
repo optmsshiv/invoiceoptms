@@ -1832,6 +1832,10 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
+      <span id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
+            style="display:none;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:#FFF4E0;border:1px solid #FFD9A0;color:#9A6700;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:11px"></i> <span id="gdr-topbar-badge-text"></span>
+      </span>
     </div>
     <div class="topbar-right">
       <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
@@ -5014,8 +5018,9 @@ const SERVER = {
             <div style="display:flex;gap:6px">
               <input type="date" id="fr-from" class="table-search" style="max-width:none;flex:1">
               <input type="date" id="fr-to" class="table-search" style="max-width:none;flex:1">
-              <button class="btn btn-outline" style="white-space:nowrap" title="See totals across everything, not just the current range" onclick="setFRAllTime()">All Time</button>
+              <button class="btn btn-outline" id="fr-alltime-btn" style="white-space:nowrap" title="See totals across everything, not just the current range" onclick="setFRAllTime()">All Time</button>
             </div>
+            <div id="fr-gdr-note" style="display:none;font-size:10px;color:#9A6700;margin-top:3px"><i class="fas fa-lock" style="font-size:9px"></i> Locked by the Global Date Range — change it in Settings</div>
           </div>
           <div class="field"><label>Warehouse</label><select id="fr-warehouse"><option value="">All Warehouses</option><option>Main Warehouse</option><option>Secondary Warehouse</option></select></div>
           <div class="field" style="display:flex;align-items:flex-end;gap:8px">
@@ -5161,6 +5166,7 @@ const SERVER = {
               <input type="date" id="sh-f-to" class="table-search" style="max-width:none;flex:1">
               <button class="btn btn-outline" style="white-space:nowrap" title="See full history — useful for tracing a negative Opening Stock back to its source" onclick="setSHAllTime()">All Time</button>
             </div>
+            <div id="sh-gdr-note" style="display:none;font-size:10px;color:#9A6700;margin-top:3px"><i class="fas fa-lock" style="font-size:9px"></i> Default range locked by Global Date Range — "All Time" still works for tracing issues</div>
           </div>
           <div class="field"><label>Transaction Type</label><select id="sh-f-txntype"><option value="">All</option><option value="in">Stock In</option><option value="out">Stock Out</option><option value="adjustment">Stock Adjustment</option></select></div>
           <div class="field"><label>Reference Type</label><select id="sh-f-reftype"><option value="">All</option><option value="purchase">Purchase Entry</option><option value="stock_in">Stock In Entry</option><option value="sale">Sales Invoice</option><option value="adjustment">Stock Adjustment</option></select></div>
@@ -6959,6 +6965,20 @@ View Invoice: {{6}}</pre></details>
               <p style="font-size:10px;color:var(--muted);margin-top:6px">These are defaults. Each print's own "Signature" option (in its print settings) still acts as a master on/off switch for that one print.</p>
             </div>
           </div>
+
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
+            <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">When enabled, this range applies to every transaction list and report (Sales, Purchases, Expenses, Finance Report, Cash in Hand, Stock History, Aging) for the whole team — it never affects Customers, Suppliers, or Products, and it stays active until someone changes it here. It does not reset automatically.</p>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <label class="tog" id="gdr-active-tog" onclick="this.classList.toggle('on');_gdrToggleFields()"></label>
+              <span style="font-size:13px;font-weight:600">Enable Global Date Range</span>
+            </div>
+            <div class="pne-grid2" id="gdr-fields">
+              <div class="field"><label>From</label><input type="date" id="gdr-from"></div>
+              <div class="field"><label>To</label><input type="date" id="gdr-to"></div>
+            </div>
+          </div>
+
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
           </div>
@@ -7385,6 +7405,7 @@ View Invoice: {{6}}</pre></details>
           <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
             <option value="">All Time</option>
           </select>
+          <span id="exp-gdr-note" style="display:none;font-size:10px;color:#9A6700"><i class="fas fa-lock" style="font-size:9px"></i> Scoped to Global Date Range — change in Settings</span>
         </div>
         <div class="toolbar-right">
           <button class="btn btn-outline" onclick="exportExpensesCSV()"><i class="fas fa-download"></i> Export</button>
@@ -7442,8 +7463,9 @@ View Invoice: {{6}}</pre></details>
           <input type="date" id="cih-from" class="table-filter" onchange="renderCashInHandBreakdown();loadCihLedger(0)">
           <span style="font-size:12px;color:var(--muted)">to</span>
           <input type="date" id="cih-to" class="table-filter" onchange="renderCashInHandBreakdown();loadCihLedger(0)">
-          <button class="btn btn-outline" style="font-size:12px" onclick="setCihPeriodThisMonth()">This Month</button>
-          <button class="btn btn-outline" style="font-size:12px" onclick="clearCihPeriod()">All Time</button>
+          <button class="btn btn-outline" id="cih-thismonth-btn" style="font-size:12px" onclick="setCihPeriodThisMonth()">This Month</button>
+          <button class="btn btn-outline" id="cih-alltime-btn" style="font-size:12px" onclick="clearCihPeriod()">All Time</button>
+          <span id="cih-gdr-note" style="display:none;font-size:10px;color:#9A6700"><i class="fas fa-lock" style="font-size:9px"></i> Locked by Global Date Range — change in Settings</span>
         </div>
       </div>
 
@@ -8701,7 +8723,73 @@ let donutChartInstance = null;
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// GLOBAL DATE RANGE FILTER — owner-set, tenant-wide, persists in the
+// `settings` table (not localStorage — so it follows the user across
+// devices/logins, per the client's requirement). Never auto-resets;
+// stays exactly as set until someone changes it in Settings. Only
+// affects transaction lists/reports — never Customers/Suppliers/
+// Products, and never the dropdowns used to pick them inside a form.
+// ══════════════════════════════════════════════════════════════
+let GLOBAL_DATE_ACTIVE = false;
+let GLOBAL_DATE_FROM = '';
+let GLOBAL_DATE_TO = '';
+
+function _gdrLoadFromSettings() {
+  const s = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
+  GLOBAL_DATE_ACTIVE = s.global_date_active === '1';
+  GLOBAL_DATE_FROM = s.global_date_from || '';
+  GLOBAL_DATE_TO   = s.global_date_to   || '';
+  if (GLOBAL_DATE_ACTIVE && (!GLOBAL_DATE_FROM || !GLOBAL_DATE_TO)) GLOBAL_DATE_ACTIVE = false; // incomplete range — don't half-apply it
+}
+
+function _gdrRenderTopBarBadge() {
+  const badge = document.getElementById('gdr-topbar-badge');
+  const text  = document.getElementById('gdr-topbar-badge-text');
+  if (!badge || !text) return;
+  if (GLOBAL_DATE_ACTIVE) {
+    text.textContent = `Showing: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Toggle the Settings page's own From/To inputs enabled/disabled based on
+// the switch — purely visual feedback while editing, doesn't touch the
+// live GLOBAL_DATE_* values until Save is actually clicked.
+function _gdrToggleFields() {
+  const on = document.getElementById('gdr-active-tog')?.classList.contains('on');
+  const fields = document.getElementById('gdr-fields');
+  if (fields) fields.style.opacity = on ? '1' : '.5';
+  ['gdr-from','gdr-to'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
+}
+
+// Small helper other pages will call: returns true if a date falls within
+// the active global range (always true if the filter is off).
+function gdrDateInRange(dateStr) {
+  if (!GLOBAL_DATE_ACTIVE || !dateStr) return true;
+  return dateStr >= GLOBAL_DATE_FROM && dateStr <= GLOBAL_DATE_TO;
+}
+
+// Reusable wiring for any page's own local From/To filter inputs: when the
+// Global Date Range is active, forces them to match it and disables manual
+// editing (change it in Settings instead); when inactive, re-enables them
+// and leaves whatever the user had set alone (untouched, not reset).
+function _gdrApplyToFilter(fromId, toId) {
+  const fromEl = document.getElementById(fromId), toEl = document.getElementById(toId);
+  if (!fromEl || !toEl) return;
+  if (GLOBAL_DATE_ACTIVE) {
+    fromEl.value = GLOBAL_DATE_FROM; toEl.value = GLOBAL_DATE_TO;
+    fromEl.disabled = true; toEl.disabled = true;
+  } else {
+    fromEl.disabled = false; toEl.disabled = false;
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  _gdrLoadFromSettings();
+  _gdrRenderTopBarBadge();
   setTodayDates();
   addItem();
   updateClientDropdown();
@@ -18232,6 +18320,7 @@ function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
   populatePurchaseListFilters();
+  _gdrApplyToFilter('pl-f-from', 'pl-f-to');
   const list = plFilteredPurchases();
 
   // ── Stats over the filtered set ────────────────────────────
@@ -19860,12 +19949,28 @@ function resetFinanceFilter() {
 }
 
 async function renderFinanceReport() {
-  if (!document.getElementById('fr-from').value) {
-    document.getElementById('fr-from').value = frMonthStart();
-    document.getElementById('fr-to').value = fmt_date(new Date());
+  const frFromEl = document.getElementById('fr-from'), frToEl = document.getElementById('fr-to');
+  const frAllTimeBtn = document.getElementById('fr-alltime-btn');
+  const frGdrNote = document.getElementById('fr-gdr-note');
+  if (GLOBAL_DATE_ACTIVE) {
+    // Global range takes over — locked here, changeable only in Settings,
+    // so it can't silently drift out of sync with what the rest of the
+    // app is showing.
+    frFromEl.value = GLOBAL_DATE_FROM; frToEl.value = GLOBAL_DATE_TO;
+    frFromEl.disabled = true; frToEl.disabled = true;
+    if (frAllTimeBtn) frAllTimeBtn.style.display = 'none';
+    if (frGdrNote) frGdrNote.style.display = 'block';
+  } else {
+    frFromEl.disabled = false; frToEl.disabled = false;
+    if (frAllTimeBtn) frAllTimeBtn.style.display = '';
+    if (frGdrNote) frGdrNote.style.display = 'none';
+    if (!frFromEl.value) {
+      frFromEl.value = frMonthStart();
+      frToEl.value = fmt_date(new Date());
+    }
   }
-  const from = document.getElementById('fr-from').value;
-  const to = document.getElementById('fr-to').value;
+  const from = frFromEl.value;
+  const to = frToEl.value;
   const wh = document.getElementById('fr-warehouse').value;
 
   try {
@@ -20104,9 +20209,19 @@ let SH_LAST_ROWS = [];
 
 async function renderStockHistory() {
   populateSHProductDropdown();
-  if (!document.getElementById('sh-f-from').value) {
-    document.getElementById('sh-f-from').value = BIZ_FROM_DATE;
-    document.getElementById('sh-f-to').value = fmt_date(new Date());
+  const shFromEl = document.getElementById('sh-f-from'), shToEl = document.getElementById('sh-f-to');
+  const shGdrNote = document.getElementById('sh-gdr-note');
+  if (GLOBAL_DATE_ACTIVE) {
+    if (!shFromEl.value) { shFromEl.value = GLOBAL_DATE_FROM; shToEl.value = GLOBAL_DATE_TO; }
+    shFromEl.disabled = true; shToEl.disabled = true;
+    if (shGdrNote) shGdrNote.style.display = 'block';
+  } else {
+    shFromEl.disabled = false; shToEl.disabled = false;
+    if (shGdrNote) shGdrNote.style.display = 'none';
+    if (!shFromEl.value) {
+      shFromEl.value = BIZ_FROM_DATE;
+      shToEl.value = fmt_date(new Date());
+    }
   }
   try {
     const params = new URLSearchParams({
@@ -20684,7 +20799,7 @@ async function saveCustomer() {
   const name = document.getElementById('cus-name').value.trim();
   if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
   const payload = {
-    name, customer_type: document.getElementById('cus-type').value,
+    name, customer_type: document.getElementById('cus-type').value, status: 'active',
     mobile: document.getElementById('cus-mobile').value.trim(), email: document.getElementById('cus-email').value.trim(),
     gstin: document.getElementById('cus-gstin').value.trim(), state: document.getElementById('cus-state').value.trim(),
     district: document.getElementById('cus-district').value.trim(), billing_address: document.getElementById('cus-billing').value.trim(),
@@ -21463,6 +21578,7 @@ function renderSales() {
   const tbody = document.getElementById('salesTbody');
   if (!tbody) return;
   populateSalesListFilters();
+  _gdrApplyToFilter('sl-f-from', 'sl-f-to');
   const list = slFilteredSales();
 
   // ── Stats over the filtered set ────────────────────────────
@@ -24006,6 +24122,9 @@ async function saveCompanySettings() {
     company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_tagline: document.getElementById('sc-tagline')?.value || '',
     company_iso:     document.getElementById('sc-iso')?.value     || '',
+    global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
+    global_date_from:   document.getElementById('gdr-from')?.value || '',
+    global_date_to:     document.getElementById('gdr-to')?.value   || '',
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -24052,6 +24171,8 @@ async function saveCompanySettings() {
   try {
     await api('api/settings.php', 'POST', payload);
     if (typeof SERVER !== 'undefined' && SERVER.settings) Object.assign(SERVER.settings, payload);
+    _gdrLoadFromSettings();
+    _gdrRenderTopBarBadge();
     livePreview();
     applyDhaltaPctVisibility();
     toast('✅ Settings saved!', 'success');
@@ -26296,6 +26417,12 @@ function populateSettingsForm() {
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   set('sc-web',     s.website);
+  // Global Date Range — read raw from SERVER.settings, same as signatures below
+  const gdrSS = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
+  document.getElementById('gdr-active-tog')?.classList.toggle('on', gdrSS.global_date_active === '1');
+  set('gdr-from', gdrSS.global_date_from);
+  set('gdr-to',   gdrSS.global_date_to);
+  _gdrToggleFields();
   // Signature roles + toggle matrix — read raw from SERVER.settings (not
   // mirrored into STATE.settings since they're only needed here and at print time).
   const ss = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
@@ -27885,12 +28012,28 @@ async function renderCashInHand() {
   if (addBtn) addBtn.style.display = SERVER.canCihEdit ? '' : 'none';
   if (corrBtn) corrBtn.style.display = SERVER.canCihDelete ? '' : 'none';
 
-  // Default the period filter to May 1 (this year) → today, the first time the page opens
+  // Default the period filter to May 1 (this year) → today, the first time
+  // the page opens — unless the Global Date Range is active, in which case
+  // it takes over and locks the local controls, same as Finance Report.
   const fromEl = document.getElementById('cih-from'), toEl = document.getElementById('cih-to');
-  if (fromEl && toEl && !fromEl.value) {
-    const now = new Date();
-    fromEl.value = fmt_date(new Date(now.getFullYear(), 4, 1)); // month index 4 = May
-    toEl.value   = fmt_date(now);
+  const cihMonthBtn = document.getElementById('cih-thismonth-btn'), cihAllBtn = document.getElementById('cih-alltime-btn');
+  const cihGdrNote = document.getElementById('cih-gdr-note');
+  if (GLOBAL_DATE_ACTIVE) {
+    fromEl.value = GLOBAL_DATE_FROM; toEl.value = GLOBAL_DATE_TO;
+    fromEl.disabled = true; toEl.disabled = true;
+    if (cihMonthBtn) cihMonthBtn.style.display = 'none';
+    if (cihAllBtn) cihAllBtn.style.display = 'none';
+    if (cihGdrNote) cihGdrNote.style.display = 'inline';
+  } else {
+    fromEl.disabled = false; toEl.disabled = false;
+    if (cihMonthBtn) cihMonthBtn.style.display = '';
+    if (cihAllBtn) cihAllBtn.style.display = '';
+    if (cihGdrNote) cihGdrNote.style.display = 'none';
+    if (fromEl && toEl && !fromEl.value) {
+      const now = new Date();
+      fromEl.value = fmt_date(new Date(now.getFullYear(), 4, 1)); // month index 4 = May
+      toEl.value   = fmt_date(now);
+    }
   }
 
   try {
@@ -28209,16 +28352,18 @@ const EXP = { list: [], page: 1, per: 20 };
 
 function renderExpenses() {
   updateExpenseCatDropdowns();
+  const expGdrNote = document.getElementById('exp-gdr-note');
+  if (expGdrNote) expGdrNote.style.display = GLOBAL_DATE_ACTIVE ? 'inline' : 'none';
   // Refresh from DB then render
   api('api/expenses.php').then(r=>{
     if(r&&r.data) STATE.expenses=r.data;
     _populateExpenseMonthFilter();
-    EXP.list=[...STATE.expenses].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
   }).catch(()=>{
     // Fallback to cached STATE
     _populateExpenseMonthFilter();
-    EXP.list=[...STATE.expenses].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
   });
 }
@@ -28371,19 +28516,28 @@ function _renderExpPagination() {
 }
 function expPage(p) { EXP.page=p; _renderExpTable(); }
 
+// Starting point for every Expense filter function below — applies the
+// Global Date Range if active, so it stays respected no matter which
+// other filter (search/category/month) the user touches afterward.
+function _expBaseList() {
+  return GLOBAL_DATE_ACTIVE
+    ? STATE.expenses.filter(e => gdrDateInRange(e.date))
+    : [...STATE.expenses];
+}
+
 function filterExpenses(val) {
   const s = val.toLowerCase();
-  EXP.list = STATE.expenses.filter(e =>
+  EXP.list = _expBaseList().filter(e =>
     !s || (e.vendor||'').toLowerCase().includes(s) || (e.notes||'').toLowerCase().includes(s) || (e.category||'').toLowerCase().includes(s)
   ).sort((a,b)=>new Date(b.date)-new Date(a.date));
   EXP.page=1; _renderExpTable();
 }
 function filterExpensesCat(val) {
-  EXP.list = (val ? STATE.expenses.filter(e=>e.category===val) : [...STATE.expenses]).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  EXP.list = (val ? _expBaseList().filter(e=>e.category===val) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
   EXP.page=1; _renderExpTable();
 }
 function filterExpensesMonth(val) {
-  EXP.list = (val ? STATE.expenses.filter(e=>(e.date||'').startsWith(val)) : [...STATE.expenses]).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  EXP.list = (val ? _expBaseList().filter(e=>(e.date||'').startsWith(val)) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
   EXP.page=1; _renderExpTable();
 }
 

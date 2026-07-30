@@ -40,13 +40,6 @@ switch ($method) {
       'show_dhalta_pct'   => '1', // '1' show / '0' hide Dhalta % in purchase items table & local voucher
       'company_tagline'   => '', // shown under company name on printed documents (blank = hidden)
       'company_iso'       => '', // ISO 22000 certificate number
-      // ── Global Date Range filter — owner-set, tenant-wide, applies to
-      // every transaction list/report until manually changed (never
-      // auto-resets). Master data (customers/suppliers/products) is
-      // never affected by this — see chat.
-      'global_date_active' => '0',
-      'global_date_from'   => '',
-      'global_date_to'     => '',
       // ── Document signatures: up to 3 roles, each with its own image +
       // name, and its own on/off default per document type. Authorized
       // Signatory reuses company_sign as its image (already existed).
