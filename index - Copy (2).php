@@ -1833,8 +1833,8 @@ const SERVER = {
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
       <span id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-            style="display:none;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:#FFF4E0;border:1px solid #FFD9A0;color:#9A6700;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">
-        <i class="fas fa-calendar-days" style="font-size:9.5px"></i> <span id="gdr-topbar-badge-text"></span>
+            style="display:none;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:#FFF4E0;border:1px solid #FFD9A0;color:#9A6700;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:11px"></i> <span id="gdr-topbar-badge-text"></span>
       </span>
     </div>
     <div class="topbar-right">
@@ -5302,18 +5302,16 @@ const SERVER = {
         <div class="pne-card" style="padding:14px 16px;border-top:3px solid #1976D2">
           <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:32px;height:32px"><i class="fas fa-money-bill-wave"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">CASH</div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12.5px">
-            <span style="color:#00897B">In: <strong id="pmt-stat-cash-in">₹0</strong></span>
-            <span style="color:#E53935">Out: <strong id="pmt-stat-cash-out">₹0</strong></span>
-          </div>
+          <div style="font-size:15px;font-weight:800" id="pmt-stat-cash">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Cash transactions</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-cash"></div>
         </div>
         <div class="pne-card" style="padding:14px 16px;border-top:3px solid #6A4C93">
           <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:32px;height:32px"><i class="fas fa-building-columns"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">UPI / BANK</div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:12.5px">
-            <span style="color:#00897B">In: <strong id="pmt-stat-digital-in">₹0</strong></span>
-            <span style="color:#E53935">Out: <strong id="pmt-stat-digital-out">₹0</strong></span>
-          </div>
+          <div style="font-size:15px;font-weight:800" id="pmt-stat-digital">₹0.00</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Digital transactions</div>
+          <div style="font-size:10px;font-weight:700;margin-top:2px" id="pmt-chg-digital"></div>
         </div>
       </div>
 
@@ -8751,7 +8749,7 @@ function _gdrRenderTopBarBadge() {
   const text  = document.getElementById('gdr-topbar-badge-text');
   if (!badge || !text) return;
   if (GLOBAL_DATE_ACTIVE) {
-    text.textContent = `Session: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    text.textContent = `Showing: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
     badge.style.display = 'inline-flex';
   } else {
     badge.style.display = 'none';
@@ -10612,8 +10610,8 @@ function renderProductDashboard() {
   const txnEl = document.getElementById('db-recent-txns');
   if (txnEl) {
     const txns = [
-      ...sales.slice(0,5).map(s => ({ date: s.sale_date, type: 'Sales Invoice', ref: s.invoice_no, party: s.customer_name||'—', amount: s.total, status: s.payment_status||'Pending', icon: 'fa-file-invoice-dollar', color: '#00897B' })),
-      ...purchases.slice(0,5).map(p  => ({ date: p.purchase_date, type: 'Purchase Entry', ref: p.purchase_no, party: p.supplier_name||'—', amount: p.total, status: p.status||'Pending', icon: 'fa-cart-shopping', color: '#7B1FA2' })),
+      ...allSales.slice(0,5).map(s => ({ date: s.sale_date, type: 'Sales Invoice', ref: s.invoice_no, party: s.customer_name||'—', amount: s.total, status: s.payment_status||'Pending', icon: 'fa-file-invoice-dollar', color: '#00897B' })),
+      ...allPur.slice(0,5).map(p  => ({ date: p.purchase_date, type: 'Purchase Entry', ref: p.purchase_no, party: p.supplier_name||'—', amount: p.total, status: p.status||'Pending', icon: 'fa-cart-shopping', color: '#7B1FA2' })),
     ].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0,8);
     const statusColor = { Paid:'#00897B', Completed:'#00897B', Partial:'#E65100', Pending:'#1976D2', Unpaid:'#E53935' };
     txnEl.innerHTML = txns.length ? txns.map(t => `
@@ -10652,7 +10650,7 @@ function renderProductDashboard() {
   const custEl = document.getElementById('db-top-customers');
   if (custEl) {
     const custMap = {};
-    sales.forEach(s => {
+    allSales.forEach(s => {
       const k = s.customer_name||s.customer_id||'Unknown';
       custMap[k] = (custMap[k]||0) + (parseFloat(s.total)||0);
     });
@@ -10665,7 +10663,7 @@ function renderProductDashboard() {
   const supEl = document.getElementById('db-top-suppliers');
   if (supEl) {
     const supMap = {};
-    purchases.forEach(p => {
+    allPur.forEach(p => {
       const k = p.supplier_name||p.supplier_id||'Unknown';
       supMap[k] = (supMap[k]||0) + (parseFloat(p.total)||0);
     });
@@ -23743,10 +23741,7 @@ function pmtsSvcPage(p){const t=Math.ceil(PMTS.list.length/PMTS.per);if(p<1||p>t
 function viewReceiptSvc(i){ viewReceipt(i, PMTS.list); }
 
 function _renderPmtSummary(){
-  // Uses the already-filtered list (search/type/method/party/status AND
-  // the Global Date Range, if active) instead of the raw unfiltered merge
-  // — previously every card here ignored all of that.
-  const all = PMT.list;
+  const all = buildMergedPaymentsList();
   const now = new Date();
   const thisMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth(), 1));
   const lastMonthStart = fmt_date(new Date(now.getFullYear(), now.getMonth()-1, 1));
@@ -23761,13 +23756,12 @@ function _renderPmtSummary(){
   const isOut = p => p.direction === 'out';
   const isPending = p => p.status === 'Pending' || p.status === 'Partial';
 
-  // Outstanding/Payable stay cumulative (all-time), same reasoning as
-  // Aging Report — these represent CURRENT debt owed, not period activity,
-  // so filtering them by date would hide real outstanding amounts.
+  // Outstanding = total invoiced to customers − what's been received
   const totalInvoiced = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
   const totalCollected = (STATE.sales||[]).reduce((s,x) => s+(parseFloat(x.amount_received)||0), 0);
   const outstanding = Math.max(0, totalInvoiced - totalCollected);
 
+  // Payable = total purchased − what's been paid
   const totalPurchased = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.total)||0), 0);
   const totalPaidOut   = (STATE.purchases||[]).reduce((s,x) => s+(parseFloat(x.amount_paid)||0), 0);
   const payable = Math.max(0, totalPurchased - totalPaidOut);
@@ -23788,18 +23782,10 @@ function _renderPmtSummary(){
   setCard('pmt-stat-outstanding','pmt-chg-outstanding', outstanding, 0, 0);
   setCard('pmt-stat-payable',    'pmt-chg-payable',    payable, 0, 0);
 
-  // Cash / Digital — split into In vs Out instead of one merged number,
-  // which was silently adding cash received to cash paid out (same
-  // confusion Finance Report's payment-mode summary used to have).
   const cashPred   = p => (p.method||'').toLowerCase().includes('cash');
   const digitalPred = p => /upi|bank|neft|rtgs|imps/i.test(p.method||'');
-  const setInOut = (inId, outId, pred) => {
-    const inEl = document.getElementById(inId), outEl = document.getElementById(outId);
-    if (inEl)  inEl.textContent  = fmt_money(sum(all, p => pred(p) && isIn(p)));
-    if (outEl) outEl.textContent = fmt_money(sum(all, p => pred(p) && isOut(p)));
-  };
-  setInOut('pmt-stat-cash-in',    'pmt-stat-cash-out',    cashPred);
-  setInOut('pmt-stat-digital-in', 'pmt-stat-digital-out', digitalPred);
+  setCard('pmt-stat-cash',    'pmt-chg-cash',    sum(all,cashPred),    sum(thisMonth,cashPred),    sum(lastMonth,cashPred));
+  setCard('pmt-stat-digital', 'pmt-chg-digital', sum(all,digitalPred), sum(thisMonth,digitalPred), sum(lastMonth,digitalPred));
 
   _renderPmtCharts(all);
 }
@@ -28107,32 +28093,26 @@ async function renderCashInHand() {
 
   try {
     // Balance is always current/all-time UNLESS the Global Date Range is
-    // active — then it shows NET MOVEMENT for that period (Total In minus
-    // Total Out), consistent with the Total In/Out cards below it, so an
-    // empty period correctly reads ₹0 instead of a cumulative all-time
-    // number that would rarely ever be zero.
+    // active, in which case it shows the balance as it stood at the end
+    // of that range instead — relabeled so it's never ambiguous which
+    // number is being shown.
+    const balQs = GLOBAL_DATE_ACTIVE ? `&to=${GLOBAL_DATE_TO}` : '';
+    const r = await api(`api/cash_in_hand.php?limit=1${balQs}`);
+    const bal = GLOBAL_DATE_ACTIVE && r.balance_as_of !== null ? (parseFloat(r.balance_as_of) || 0) : (parseFloat(r.balance) || 0);
+    CIH_CURRENT_BALANCE = bal;
+    const balEl = document.getElementById('cih-balance');
     const balLabelEl = document.getElementById('cih-balance-label');
-    if (GLOBAL_DATE_ACTIVE) {
-      if (balLabelEl) balLabelEl.textContent = `Net for Session (${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)})`;
-      // Actual value + card styling is set by renderCashInHandBreakdown()
-      // below, which already fetches Total In/Out for this exact range.
-    } else {
-      const r = await api('api/cash_in_hand.php?limit=1');
-      const bal = parseFloat(r.balance) || 0;
-      CIH_CURRENT_BALANCE = bal;
-      const balEl = document.getElementById('cih-balance');
-      if (balLabelEl) balLabelEl.textContent = 'Current Balance';
-      if (balEl) {
-        balEl.textContent = fmt_money(bal);
-        balEl.style.color = bal < 0 ? '#E53935' : 'var(--teal)';
-      }
-      const flagEl = document.getElementById('cih-negative-flag');
-      if (flagEl) flagEl.style.display = bal < 0 ? 'inline-block' : 'none';
-
-      // Keep the Dashboard KPI card in sync too
-      const dEl = document.getElementById('db-stat-cih');
-      if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
+    if (balLabelEl) balLabelEl.textContent = GLOBAL_DATE_ACTIVE ? `Balance as of ${fmt_date_disp(GLOBAL_DATE_TO)}` : 'Current Balance';
+    if (balEl) {
+      balEl.textContent = fmt_money(bal);
+      balEl.style.color = bal < 0 ? '#E53935' : 'var(--teal)';
     }
+    const flagEl = document.getElementById('cih-negative-flag');
+    if (flagEl) flagEl.style.display = bal < 0 ? 'inline-block' : 'none';
+
+    // Keep the Dashboard KPI card in sync too
+    const dEl = document.getElementById('db-stat-cih');
+    if (dEl) { dEl.textContent = fmt_money(bal); dEl.style.color = bal < 0 ? '#E53935' : '#00897B'; }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 
   loadCihLedger(0);
@@ -28222,15 +28202,6 @@ async function renderCashInHandBreakdown() {
     const outEl = document.getElementById('cih-total-out');
     if (inEl) inEl.textContent = fmt_money(totalIn);
     if (outEl) outEl.textContent = fmt_money(totalOut);
-
-    if (GLOBAL_DATE_ACTIVE) {
-      const netBal = totalIn - totalOut;
-      CIH_CURRENT_BALANCE = netBal;
-      const balEl = document.getElementById('cih-balance');
-      if (balEl) { balEl.textContent = fmt_money(netBal); balEl.style.color = netBal < 0 ? '#E53935' : 'var(--teal)'; }
-      const flagEl = document.getElementById('cih-negative-flag');
-      if (flagEl) flagEl.style.display = netBal < 0 ? 'inline-block' : 'none';
-    }
 
     const breakdown = r.breakdown || [];
     const chartEl = document.getElementById('cih-breakdown-chart');
