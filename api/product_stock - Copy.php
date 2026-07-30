@@ -9,30 +9,10 @@ $method = $_SERVER['REQUEST_METHOD'];
 try {
   if ($method !== 'GET') jsonResponse(['error' => 'Method not allowed'], 405);
 
-  // ── Movement summary + trend — defaults to the last 7 real calendar
-  // days, or a specific date range when one's provided (e.g. the Global
-  // Date Range filter). Capped at 31 days even if a wider range is given —
-  // this does 4 queries per day, so an uncapped multi-month range would be
-  // both slow and produce an unreadably long table.
+  // ── 7-day movement summary + trend ──────────────────────────
   if (!empty($_GET['movement_summary'])) {
-    $fromParam = $_GET['from'] ?? null;
-    $toParam   = $_GET['to'] ?? null;
-
-    if ($fromParam && $toParam) {
-      $days = [];
-      $cursor = strtotime($toParam);
-      $limit  = strtotime($fromParam);
-      while ($cursor >= $limit && count($days) < 31) {
-        $days[] = date('Y-m-d', $cursor);
-        $cursor = strtotime('-1 day', $cursor);
-      }
-      $days = array_reverse($days); // chronological order
-      $truncated = (strtotime($toParam) - strtotime($fromParam)) / 86400 + 1 > 31;
-    } else {
-      $days = [];
-      for ($i = 6; $i >= 0; $i--) $days[] = date('Y-m-d', strtotime("-$i days"));
-      $truncated = false;
-    }
+    $days = [];
+    for ($i = 6; $i >= 0; $i--) $days[] = date('Y-m-d', strtotime("-$i days"));
 
     $rows = [];
     foreach ($days as $day) {
@@ -58,7 +38,7 @@ try {
         'stock_out' => $stockOut, 'adjustment' => $adjustment, 'closing_stock' => $closing,
       ];
     }
-    jsonResponse(['data' => $rows, 'truncated_to_31_days' => $truncated]);
+    jsonResponse(['data' => $rows]);
   }
 
   // ── Batch/warehouse-level stock summary + dashboard stats ────

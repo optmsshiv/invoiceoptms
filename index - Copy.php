@@ -3418,7 +3418,7 @@ const SERVER = {
 
       <div class="ps-bottom-grid" style="padding:20px 24px 0;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start">
         <div class="pne-card">
-          <div class="pne-card-head" id="ps-movement-title">Stock Movement Summary (Last 7 Days)</div>
+          <div class="pne-card-head">Stock Movement Summary (Last 7 Days)</div>
           <div style="overflow-x:auto">
             <table class="data-table" style="font-size:12.5px;min-width:640px">
               <thead><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
@@ -3427,7 +3427,7 @@ const SERVER = {
           </div>
         </div>
         <div class="pne-card">
-          <div class="pne-card-head" id="ps-trend-title">Stock Trend (Last 7 Days)</div>
+          <div class="pne-card-head">Stock Trend (Last 7 Days)</div>
           <canvas id="ps-trend-chart" height="220"></canvas>
         </div>
       </div>
@@ -23354,18 +23354,9 @@ function renderPSTable() {
 }
 
 async function renderPSMovementAndTrend() {
-  const rangeLabel = GLOBAL_DATE_ACTIVE
-    ? `(${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)})`
-    : '(Last 7 Days)';
-  const movTitle = document.getElementById('ps-movement-title');
-  const trendTitle = document.getElementById('ps-trend-title');
-  if (movTitle) movTitle.textContent = `Stock Movement Summary ${rangeLabel}`;
-  if (trendTitle) trendTitle.textContent = `Stock Trend ${rangeLabel}`;
   try {
-    const qs = GLOBAL_DATE_ACTIVE ? `?movement_summary=1&from=${GLOBAL_DATE_FROM}&to=${GLOBAL_DATE_TO}` : '?movement_summary=1';
-    const r = await api(`api/product_stock.php${qs}`);
+    const r = await api('api/product_stock.php?movement_summary=1');
     const rows = Array.isArray(r.data) ? r.data : [];
-    if (movTitle && r.truncated_to_31_days) movTitle.textContent += ' — showing most recent 31 days of this range';
     document.getElementById('ps-movement-tbody').innerHTML = rows.map(m => `
       <tr>
         <td>${fmt_date_disp(m.date)}</td>
