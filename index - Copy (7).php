@@ -3713,7 +3713,7 @@ const SERVER = {
                 <label>Customer Name *</label>
                 <div style="display:flex;gap:6px">
                   <select id="sn-customer" style="flex:1" onchange="onCustomerPicked()"><option value="">Select or add customer…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="goToNewCustomerFromSale()"><i class="fas fa-plus"></i></button>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="openAddCustomerModal('sale')"><i class="fas fa-plus"></i></button>
                 </div>
               </div>
               <div class="field"><label>Customer Type *</label>
@@ -10191,7 +10191,7 @@ function _printProforma(d, curr, autoPrint = true) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; }
     .head { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:flex-start; padding-bottom:18px; border-bottom:2px solid #0d3b2e; margin-bottom:20px; }
     .logo-wrap { display:flex; gap:16px; align-items:flex-start; }
     .logo-box { width:102px;height:102px;background:#0d3b2e;border-radius:10px;display:flex;align-items:center;justify-content:center; flex-shrink:0; }
@@ -10199,44 +10199,44 @@ function _printProforma(d, curr, autoPrint = true) {
     .logo-box img { width:102px;height:102px;object-fit:contain;border-radius:10px; }
     .co-name { font-size:18px; font-weight:900; color:#0d3b2e; letter-spacing:.3px; }
     .co-sub  { font-size:10px; font-weight:700; color:#557755; letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
-    .co-meta { font-size:10.5px; color:#556; margin-top:6px; line-height:1.7; }
+    .co-meta { font-size:10.5px; color:#333; margin-top:6px; line-height:1.7; }
     .doc-title-block { text-align:right; }
     .doc-title { font-size:26px; font-weight:900; color:#0d3b2e; letter-spacing:1px; }
     .meta-row { margin-top:8px; }
-    .meta-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#888; }
+    .meta-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#333; }
     .meta-val   { font-size:13px; font-weight:700; color:#0d3b2e; }
     .parties { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
-    .party { border:1px solid #dde8dd; border-radius:8px; padding:12px 14px; }
+    .party { border:1px solid #000; border-radius:8px; padding:12px 14px; }
     .party-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#0d3b2e; display:flex;align-items:center;gap:6px; margin-bottom:7px; }
     .party-name  { font-size:13px; font-weight:700; }
-    .party-meta  { font-size:10.5px; color:#556; margin-top:4px; line-height:1.7; }
-    .section-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#556; padding:7px 10px; background:#f5faf5; border-top:1px solid #dde; border-bottom:1px solid #dde; margin-bottom:0; }
+    .party-meta  { font-size:10.5px; color:#333; margin-top:4px; line-height:1.7; }
+    .section-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#333; padding:7px 10px; background:#f5faf5; border-top:1px solid #dde; border-bottom:1px solid #dde; margin-bottom:0; }
     table { width:100%; border-collapse:collapse; margin-bottom:0; }
-    th { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#556; padding:8px 10px; text-align:left; border-bottom:1px solid #dde; }
+    th { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#333; padding:8px 10px; text-align:left; border:1px solid #000; }
     th.r,td.r { text-align:right; }
-    td { padding:10px 10px; border-bottom:1px solid #eef2ee; vertical-align:top; font-size:11.5px; }
+    td { padding:10px 10px; border:1px solid #000; vertical-align:top; font-size:11.5px; }
     td strong { font-size:12px; font-weight:700; color:#0d3b2e; }
-    td .sub { font-size:10px; color:#778; margin-top:2px; }
-    .tbl-wrap { border:1px solid #dde; border-radius:8px; overflow:hidden; margin-bottom:14px; }
-    .totals { max-width:260px; margin-left:auto; border:1px solid #dde; border-radius:8px; overflow:hidden; margin-bottom:14px; }
+    td .sub { font-size:10px; color:#333; margin-top:2px; }
+    .tbl-wrap { border:1px solid #000; border-radius:8px; overflow:hidden; margin-bottom:14px; }
+    .totals { max-width:260px; margin-left:auto; border:1px solid #000; border-radius:8px; overflow:hidden; margin-bottom:14px; }
     .tot-row { display:flex; justify-content:space-between; padding:7px 12px; font-size:11.5px; border-bottom:1px solid #eef2ee; }
     .tot-row:last-child { border-bottom:none; }
     .tot-row.grand { font-size:13px; font-weight:700; background:#f5faf5; }
-    .tot-row .lbl { color:#556; }
+    .tot-row .lbl { color:#333; }
     .per-kg { background:#E8F5E9; border:1px solid #A5D6A7; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
     .per-kg .lbl { font-size:10.5px; color:#2E7D32; }
     .per-kg .val { font-size:15px; font-weight:900; color:#1B5E20; }
-    .notes-box { background:#fafaf5; border:1px solid #dde; border-radius:8px; padding:10px 14px; margin-bottom:18px; }
-    .notes-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#888; margin-bottom:4px; }
-    .notes-txt { font-size:11px; color:#445; line-height:1.65; }
+    .notes-box { background:#fafaf5; border:1px solid #000; border-radius:8px; padding:10px 14px; margin-bottom:18px; }
+    .notes-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#333; margin-bottom:4px; }
+    .notes-txt { font-size:11px; color:#333; line-height:1.65; }
     .sig-section { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin:24px 0 16px; padding-top:12px; border-top:1px solid #dde; }
     .sig-box { }
-    .sig-stamp { font-size:10.5px; color:#888; font-style:italic; margin-bottom:4px; }
+    .sig-stamp { font-size:10.5px; color:#333; font-style:italic; margin-bottom:4px; }
     .sig-role { font-size:12px; font-weight:700; color:#0d3b2e; }
-    .sig-dept { font-size:10.5px; color:#556; }
+    .sig-dept { font-size:10.5px; color:#333; }
     .sig-line { border-top:1px solid #ccc; margin:24px 0 6px; }
     .certs { display:flex; gap:20px; margin-bottom:14px; padding:12px 0; border-top:1px solid #eef2ee; border-bottom:1px solid #eef2ee; }
-    .footer { display:flex; justify-content:space-between; align-items:flex-start; padding-top:10px; border-top:1px solid #dde; font-size:9.5px; color:#999; }
+    .footer { display:flex; justify-content:space-between; align-items:flex-start; padding-top:10px; border-top:1px solid #dde; font-size:9.5px; color:#333; }
     .no-print { display:flex; gap:8px; margin-bottom:16px; }
     .no-print button { padding:8px 18px; border:none; border-radius:7px; cursor:pointer; font-weight:700; font-family:inherit; font-size:12.5px; }
     @media print { body { padding:20px 28px; } .no-print { display:none!important; } }
@@ -10343,7 +10343,7 @@ function _printProforma(d, curr, autoPrint = true) {
       ${gstTotalInr>0 ? `<div class="tot-row"><span class="lbl">${gstTermLabel}</span><span>${fmt(gstTotalInr)}</span></div>` : ''}
       <div class="tot-row grand"><span>Grand Total</span><span>${fmt((d.total_inr||0))}</span></div>
       ${ps.show_per_kg && parseFloat(d.per_kg_inr||0) > 0 ? `
-      <div style="padding:6px 12px 8px;text-align:right;font-size:10px;color:#99a">
+      <div style="padding:6px 12px 8px;text-align:right;font-size:10px;color:#333">
         Final cost: ${isUSD?'$'+parseFloat(d.per_kg_usd||0).toFixed(3):'₹'+parseFloat(d.per_kg_inr||0).toFixed(2)} / Kg
       </div>` : ''}
     </div>
@@ -19670,39 +19670,39 @@ function printLocalPurchaseVoucher(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
+    .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
+    .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
     .badge-voucher { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 20px; text-align: center; }
-    .voucher-meta { text-align: right; font-size: 11.5px; color: #445; margin-top: 8px; line-height: 1.7; }
+    .voucher-meta { text-align: right; font-size: 11.5px; color:#333; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 12px; color: #0d3b2e; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 8px; }
+    .box .kv { font-size: 11px; color:#333; margin-bottom: 8px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
     .pills { display: flex; gap: 6px; }
     .pill { font-size: 9.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
-    .pill.gray { background: #eef0f3; color: #556; } .pill.green { background: #e3f6ea; color: #0d7a3f; }
+    .pill.gray { background: #eef0f3; color:#333; } .pill.green { background: #e3f6ea; color: #0d7a3f; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #eef0f3; color: #0d3b2e; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #0d3b2e; }
-    table.items td { padding: 7px; border-bottom: 1px solid #eef0f3; }
+    table.items th { background: #eef0f3; color: #0d3b2e; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
+    table.items td { padding: 7px; border: 1px solid #000; }
     table.items td.r, table.items th.r { text-align: right; }
-    tfoot td { border-top: 2px solid #0d3b2e; border-bottom: 2px solid #0d3b2e; color: #0d3b2e; font-weight: 700; padding: 9px 7px; background: #fff; }
+    tfoot td { border: 2px solid #0d3b2e; color: #0d3b2e; font-weight: 700; padding: 9px 7px; background: #fff; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .ded-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
+    .ded-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color:#333; }
     .ded-total { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 700; color: #c0392b; display: flex; justify-content: space-between; }
-    .pay-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color: #445; }
+    .pay-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color:#333; }
     .pay-net { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 800; font-size: 15px; color: #0d3b2e; display: flex; justify-content: space-between; }
     .paymode { display: flex; gap: 6px; margin-top: 10px; }
-    .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #eef0f3; color: #889; }
+    .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #eef0f3; color:#333; }
     .paymode span.active { background: #0d3b2e; color: #fff; }
-    .remark { font-style: italic; color: #556; font-size: 11px; line-height: 1.6; }
-    .attach div { font-size: 11px; color: #445; margin-bottom: 6px; }
+    .remark { font-style: italic; color:#333; font-size: 11px; line-height: 1.6; }
+    .attach div { font-size: 11px; color:#333; margin-bottom: 6px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
+    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color:#333; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color:#333; }
     .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
     @media print { .no-print { display: none !important; } }
   </style></head><body>
@@ -19792,7 +19792,7 @@ function printLocalPurchaseVoucher(p) {
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
   win.document.close();
 }
@@ -19819,18 +19819,18 @@ function printTaxInvoicePurchase(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
+    .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
+    .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
     .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
-    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
-    .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
+    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color:#333; }
+    .inv-meta { text-align: right; font-size: 11px; color:#333; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
+    .box .kv { font-size: 11px; color:#333; margin-bottom: 7px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
     .wt-bar { background: #0d3b2e; color: #fff; border-radius: 8px; padding: 12px 18px; display: flex; justify-content: space-between; margin-bottom: 16px; }
     .wt-bar div { text-align: center; flex: 1; }
@@ -19838,32 +19838,32 @@ function printTaxInvoicePurchase(p) {
     .wt-bar b { font-size: 14px; }
     .wt-bar .billable { background: rgba(255,255,255,.15); border-radius: 6px; padding: 4px 8px; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #f3f5f7; color: #445; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #dde3ea; }
-    table.items td { padding: 8px 7px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
+    table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
+    table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
-    .muted { color: #99a; font-size: 10px; }
+    .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
-    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
+    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color:#333; }
+    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color:#333; }
     .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
     .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
-    .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
+    .words { font-style: italic; color:#333; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
+    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color:#333; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color:#333; }
     .kanta-box { border: 2px solid #0d3b2e; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; background: #f5faf7; }
     .kanta-title { font-size: 11px; font-weight: 800; color: #0d3b2e; letter-spacing: 1px; margin-bottom: 12px; }
     .kanta-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; }
     .kanta-cell { text-align: center; padding: 10px 6px; background: #fff; border-radius: 7px; border: 1px solid #d0e8dc; }
     .kanta-dhalta { border-color: #c0392b !important; background: #fff9f9 !important; }
     .kanta-billable { border-color: #0d7a3f !important; background: #f0faf5 !important; }
-    .kanta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .7px; color: #778; margin-bottom: 5px; font-weight: 700; }
+    .kanta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .7px; color:#333; margin-bottom: 5px; font-weight: 700; }
     .kanta-val { font-size: 18px; font-weight: 800; color: #0d3b2e; line-height: 1.1; }
     .kanta-dhalta .kanta-val { color: #c0392b; }
     .kanta-billable .kanta-val { color: #0d7a3f; }
     .kanta-unit { font-size: 11px; font-weight: 400; }
-    .kanta-pct { font-size: 9.5px; color: #889; margin-top: 3px; }
-    .kanta-meta { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #c8ddd5; font-size: 10px; color: #556; }
+    .kanta-pct { font-size: 9.5px; color:#333; margin-top: 3px; }
+    .kanta-meta { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #c8ddd5; font-size: 10px; color:#333; }
     .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
     @media print { .no-print { display: none !important; } }
   </style></head><body>
@@ -19953,7 +19953,7 @@ function printTaxInvoicePurchase(p) {
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
   win.document.close();
 }
@@ -21780,37 +21780,43 @@ function printSaleInvoice(s) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
-    .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
-    .co-meta { font-size: 10.5px; color: #445; margin-top: 6px; line-height: 1.6; }
+    .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
+    .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
     .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
-    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color: #6b7c93; }
-    .inv-meta { text-align: right; font-size: 11px; color: #445; margin-top: 8px; line-height: 1.7; }
+    .badge-inv small { display: block; font-size: 9px; font-weight: 600; color:#333; }
+    .inv-meta { text-align: right; font-size: 11px; color:#333; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .box { flex: 1; border: 1px solid #dde3ea; border-radius: 8px; padding: 14px 16px; }
+    .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box .kv { font-size: 11px; color: #667; margin-bottom: 7px; }
+    .box .kv { font-size: 11px; color:#333; margin-bottom: 7px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-    table.items th { background: #f3f5f7; color: #445; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border-bottom: 2px solid #dde3ea; }
-    table.items td { padding: 8px 7px; border-bottom: 1px solid #eef0f3; vertical-align: top; }
+    table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
+    table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
-    .muted { color: #99a; font-size: 10px; }
+    .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
-    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color: #445; }
-    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color: #445; }
+    .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color:#333; }
+    .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color:#333; }
     .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
     .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
-    .words { font-style: italic; color: #556; font-size: 11px; margin-top: 10px; }
+    .words { font-style: italic; color:#333; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
-    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
+    .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color:#333; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color:#333; }
+    .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
+    @media print { .no-print { display: none !important; } }
   </style></head><body>
+    <div class="no-print">
+      <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
+      <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
+    </div>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -21885,7 +21891,7 @@ function printSaleInvoice(s) {
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
   win.document.close();
 }
@@ -21914,29 +21920,29 @@ function _printSalePartyCopy(s) {
     body { font-family: Arial, sans-serif; color: #1a1a2e; padding: 28px 36px; font-size: 12px; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 20px; font-weight: 900; color: #0d3b2e; }
-    .co-meta { font-size: 10px; color: #667; margin-top: 4px; line-height: 1.7; }
+    .co-meta { font-size: 10px; color:#333; margin-top: 4px; line-height: 1.7; }
     .inv-title { text-align: right; }
     .inv-title .label { font-size: 22px; font-weight: 900; color: #0d3b2e; letter-spacing: 2px; }
     .inv-title .no { font-size: 13px; font-weight: 700; margin-top: 4px; }
-    .inv-title .date { font-size: 11px; color: #667; }
+    .inv-title .date { font-size: 11px; color:#333; }
     .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .party-box { border: 1px solid #dde; border-radius: 8px; padding: 12px 14px; }
-    .party-box h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #889; margin-bottom: 8px; font-weight: 700; }
+    .party-box { border: 1px solid #000; border-radius: 8px; padding: 12px 14px; }
+    .party-box h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color:#333; margin-bottom: 8px; font-weight: 700; }
     .party-box .name { font-size: 14px; font-weight: 800; color: #0d3b2e; }
-    .party-box .meta { font-size: 10.5px; color: #556; margin-top: 4px; line-height: 1.6; }
+    .party-box .meta { font-size: 10.5px; color:#333; margin-top: 4px; line-height: 1.6; }
     ${grossWt > 0 ? `.kanta { display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;padding:12px;background:#f5faf7;border:2px solid #0d3b2e;border-radius:8px; }
     .kanta h3 { font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#0d3b2e;font-weight:800;grid-column:1/-1;margin-bottom:4px; }
     .kc { text-align:center;background:#fff;border-radius:6px;border:1px solid #d0e8dc;padding:8px 4px; }
     .kc.dh { border-color:#c0392b;background:#fff9f9; }
     .kc.bl { border-color:#0d7a3f;background:#f0faf5; }
-    .kc .lbl { font-size:8px;text-transform:uppercase;color:#889;letter-spacing:.5px;margin-bottom:3px; }
+    .kc .lbl { font-size:8px;text-transform:uppercase;color:#333;letter-spacing:.5px;margin-bottom:3px; }
     .kc .val { font-size:16px;font-weight:800; } .kc.dh .val{color:#c0392b;} .kc.bl .val{color:#0d7a3f;}
     .kc .unit { font-size:10px;font-weight:400; }` : ''}
     table { width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px; }
-    th { background:#0d3b2e;color:#fff;padding:8px 7px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left; }
+    th { background:#0d3b2e;color:#fff;padding:8px 7px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;text-align:left;border:1px solid #000; }
     th.r, td.r { text-align:right; }
-    td { padding:7px;border-bottom:1px solid #eef; }
-    tfoot td { border-top:2px solid #0d3b2e;font-weight:700;background:#f5faf7; }
+    td { padding:7px;border:1px solid #000; }
+    tfoot td { border:2px solid #0d3b2e;font-weight:700;background:#f5faf7; }
     .summary { display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:16px; }
     .pay-box { }
     .pay-row { display:flex;justify-content:space-between;padding:6px 0;font-size:11.5px;border-bottom:1px solid #eef; }
@@ -21944,10 +21950,10 @@ function _printSalePartyCopy(s) {
     .outstanding { background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center; }
     .outstanding .lbl { font-size:11px;font-weight:700;color:#c0392b; }
     .outstanding .val { font-size:16px;font-weight:800;color:#c0392b; }
-    .words { font-size:10.5px;color:#556;font-style:italic;padding:8px 0;border-top:1px dashed #dde;border-bottom:1px dashed #dde;margin-bottom:14px; }
+    .words { font-size:10.5px;color:#333;font-style:italic;padding:8px 0;border-top:1px dashed #dde;border-bottom:1px dashed #dde;margin-bottom:14px; }
     .sig-row { display:flex;justify-content:space-between;margin-top:40px; }
-    .sig { width:28%;border-top:1px solid #aab;text-align:center;padding-top:6px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#778; }
-    .footer { margin-top:20px;border-top:1px solid #eef;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#aab; }
+    .sig { width:28%;border-top:1px solid #aab;text-align:center;padding-top:6px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#333; }
+    .footer { margin-top:20px;border-top:1px solid #eef;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#333; }
     .party-copy-stamp { position:fixed;top:120px;right:40px;border:3px solid #1976D2;color:#1976D2;font-weight:900;font-size:18px;padding:5px 18px;border-radius:8px;transform:rotate(-12deg);opacity:.6; }
   </style></head><body>
     <div class="party-copy-stamp">PARTY COPY</div>
@@ -23994,9 +24000,18 @@ function viewReceipt(i, list){
       <div style="font-size:28px;font-weight:800;color:${accent};font-family:var(--mono)">${fmt_money(p.amount)}</div>
       ${words ? `<div style="font-size:10.5px;color:var(--muted);margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
     </div>
-    <table style="width:100%;border-collapse:collapse">
-      ${[['Date',df],[refLabel,p.inv||'—'],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px;width:40%">${escHtml(k)}</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px">${escHtml(String(v))}</td></tr>`).join('')}
-    </table>
+    <div style="border:1px solid #000;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Party Details</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${[[partyLabel,p.client],['Party Type',p.party_type||'—'],[refLabel,p.inv||'—'],['Purpose',p.payment_for||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
+      </table>
+    </div>
+    <div style="border:1px solid #000;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
+      </table>
+    </div>
     <div style="margin-top:26px;display:flex;justify-content:space-between;padding:0 6px">
       <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
       <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
@@ -24025,9 +24040,18 @@ function printReceiptModal(){
       <div style="font-size:28px;font-weight:800;color:${accent}">${fmt_money(p.amount)}</div>
       ${words ? `<div style="font-size:11px;color:#777;margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
     </div>
-    <table style="width:100%;border-collapse:collapse;padding:0 24px 24px">
-      ${[[refLabel,p.inv],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Date',df]].map(([k,v])=>`<tr><td style="padding:8px 24px;border-bottom:1px solid #eee;color:#666">${escHtml(k)}</td><td style="padding:8px 24px;border-bottom:1px solid #eee;font-weight:600">${escHtml(String(v||'—'))}</td></tr>`).join('')}
-    </table>
+    <div style="margin:0 24px 12px;border:1px solid #000;border-radius:8px;padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:${accent};margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Party Details</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${[[partyLabel,p.client],['Party Type',p.party_type||'—'],[refLabel,p.inv||'—'],['Purpose',p.payment_for||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
+      </table>
+    </div>
+    <div style="margin:0 24px 20px;border:1px solid #000;border-radius:8px;padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:${accent};margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
+      </table>
+    </div>
     <div style="padding:20px 24px 24px;display:flex;justify-content:space-between">
       <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
       <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>

@@ -6982,6 +6982,18 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
 
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-bookmark" style="color:var(--teal)"></i> Date Range Presets</div>
+            <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Save named ranges (e.g. "Q1 Review") to switch between them with one click, instead of typing dates by hand — activating a preset just fills in and turns on the Global Date Range Filter above with its saved dates. Only one can be active at a time; turning one on turns any other off.</p>
+            <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;align-items:end;background:var(--bg);border-radius:10px;padding:14px;margin-bottom:14px">
+              <div class="field" style="margin-bottom:0"><label>Preset Name</label><input id="gdrp-name" placeholder="e.g. Q1 Review"></div>
+              <div class="field" style="margin-bottom:0"><label>From</label><input type="date" id="gdrp-from"></div>
+              <div class="field" style="margin-bottom:0"><label>To</label><input type="date" id="gdrp-to"></div>
+              <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
+            </div>
+            <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
           </div>
@@ -8738,12 +8750,17 @@ let GLOBAL_DATE_ACTIVE = false;
 let GLOBAL_DATE_FROM = '';
 let GLOBAL_DATE_TO = '';
 
+let GLOBAL_DATE_PRESETS = []; // [{id,name,from,to}]
+let GLOBAL_ACTIVE_PRESET_ID = '';
+
 function _gdrLoadFromSettings() {
   const s = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
   GLOBAL_DATE_ACTIVE = s.global_date_active === '1';
   GLOBAL_DATE_FROM = s.global_date_from || '';
   GLOBAL_DATE_TO   = s.global_date_to   || '';
   if (GLOBAL_DATE_ACTIVE && (!GLOBAL_DATE_FROM || !GLOBAL_DATE_TO)) GLOBAL_DATE_ACTIVE = false; // incomplete range — don't half-apply it
+  try { GLOBAL_DATE_PRESETS = JSON.parse(s.date_range_presets || '[]'); } catch(e) { GLOBAL_DATE_PRESETS = []; }
+  GLOBAL_ACTIVE_PRESET_ID = s.active_preset_id || '';
 }
 
 function _gdrRenderTopBarBadge() {
@@ -8751,7 +8768,8 @@ function _gdrRenderTopBarBadge() {
   const text  = document.getElementById('gdr-topbar-badge-text');
   if (!badge || !text) return;
   if (GLOBAL_DATE_ACTIVE) {
-    text.textContent = `Session: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
+    text.textContent = activePreset ? `Session: ${activePreset.name}` : `Session: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
     badge.style.display = 'inline-flex';
   } else {
     badge.style.display = 'none';
@@ -8766,6 +8784,105 @@ function _gdrToggleFields() {
   const fields = document.getElementById('gdr-fields');
   if (fields) fields.style.opacity = on ? '1' : '.5';
   ['gdr-from','gdr-to'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
+}
+
+// ══════════════════════════════════════════════════════════════
+// DATE RANGE PRESETS — a convenience layer only. Activating/deactivating
+// a preset writes straight into the same global_date_active/from/to keys
+// the plain toggle uses (and immediately saves + refreshes, unlike the
+// plain toggle which waits for "Save Company Settings"), so every page's
+// filtering logic keeps working completely untouched — there is still
+// only one real filtering mechanism, this just fills it in by name.
+// ══════════════════════════════════════════════════════════════
+function _gdrRenderPresetsList() {
+  const el = document.getElementById('gdrp-list');
+  if (!el) return;
+  if (!GLOBAL_DATE_PRESETS.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 2px">No saved presets yet — add one above.</div>';
+    return;
+  }
+  el.innerHTML = GLOBAL_DATE_PRESETS.map(p => {
+    const isActive = p.id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:${isActive?'var(--accent-soft, #E3F2FD)':'var(--card)'}">
+      <label class="tog ${isActive?'on':''}" onclick="toggleDateRangePreset('${p.id}')"></label>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${escHtml(p.name)}</div>
+        <div style="font-size:11px;color:var(--muted)">${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)}</div>
+      </div>
+      ${isActive ? '<span style="font-size:10px;font-weight:700;color:#1565C0;background:#E3F2FD;padding:3px 9px;border-radius:10px">ACTIVE</span>' : ''}
+      <button class="btn btn-icon" title="Delete preset" onclick="deleteDateRangePreset('${p.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function saveDateRangePreset() {
+  const name = document.getElementById('gdrp-name').value.trim();
+  const from = document.getElementById('gdrp-from').value;
+  const to   = document.getElementById('gdrp-to').value;
+  if (!name) { toast('⚠️ Enter a name for this preset', 'warning'); return; }
+  if (!from || !to) { toast('⚠️ Pick both a From and To date', 'warning'); return; }
+  if (from > to) { toast('⚠️ From date must be before To date', 'warning'); return; }
+
+  const newPreset = { id: 'gdrp_' + Date.now(), name, from, to };
+  GLOBAL_DATE_PRESETS.push(newPreset);
+  try {
+    await api('api/settings.php', 'POST', { date_range_presets: JSON.stringify(GLOBAL_DATE_PRESETS) });
+    if (SERVER.settings) SERVER.settings.date_range_presets = JSON.stringify(GLOBAL_DATE_PRESETS);
+    document.getElementById('gdrp-name').value = '';
+    document.getElementById('gdrp-from').value = '';
+    document.getElementById('gdrp-to').value = '';
+    _gdrRenderPresetsList();
+    toast('✅ Preset saved!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); GLOBAL_DATE_PRESETS.pop(); }
+}
+
+async function toggleDateRangePreset(id) {
+  const isCurrentlyActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
+  const preset = GLOBAL_DATE_PRESETS.find(p => p.id === id);
+  if (!preset) return;
+
+  const payload = isCurrentlyActive
+    ? { global_date_active: '0', global_date_from: '', global_date_to: '', active_preset_id: '' }
+    : { global_date_active: '1', global_date_from: preset.from, global_date_to: preset.to, active_preset_id: id };
+
+  try {
+    await api('api/settings.php', 'POST', payload);
+    if (SERVER.settings) Object.assign(SERVER.settings, payload);
+    _gdrLoadFromSettings();
+    // Keep the plain toggle's own fields in sync too, so Settings never
+    // shows contradictory state between the two sections.
+    document.getElementById('gdr-active-tog')?.classList.toggle('on', GLOBAL_DATE_ACTIVE);
+    document.getElementById('gdr-from').value = GLOBAL_DATE_FROM;
+    document.getElementById('gdr-to').value = GLOBAL_DATE_TO;
+    _gdrToggleFields();
+    _gdrRenderPresetsList();
+    _gdrRenderTopBarBadge();
+    _gdrRefreshCurrentPage();
+    toast(isCurrentlyActive ? 'ℹ️ Preset turned off' : `✅ "${preset.name}" is now active`, 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteDateRangePreset(id) {
+  if (!confirm('Delete this preset? This does not change whichever date range is currently active.')) return;
+  const wasActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
+  GLOBAL_DATE_PRESETS = GLOBAL_DATE_PRESETS.filter(p => p.id !== id);
+  const payload = { date_range_presets: JSON.stringify(GLOBAL_DATE_PRESETS) };
+  if (wasActive) Object.assign(payload, { global_date_active: '0', global_date_from: '', global_date_to: '', active_preset_id: '' });
+  try {
+    await api('api/settings.php', 'POST', payload);
+    if (SERVER.settings) Object.assign(SERVER.settings, payload);
+    _gdrLoadFromSettings();
+    if (wasActive) {
+      document.getElementById('gdr-active-tog')?.classList.remove('on');
+      document.getElementById('gdr-from').value = '';
+      document.getElementById('gdr-to').value = '';
+      _gdrToggleFields();
+      _gdrRenderTopBarBadge();
+      _gdrRefreshCurrentPage();
+    }
+    _gdrRenderPresetsList();
+    toast('🗑️ Preset deleted', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 // Small helper other pages will call: returns true if a date falls within
@@ -24241,6 +24358,16 @@ async function setActiveTemplate(n) {
 // SETTINGS SAVE
 // ══════════════════════════════════════════
 async function saveCompanySettings() {
+  // "Last touched wins": if the plain Global Date Range fields being saved
+  // here no longer match whichever preset is currently marked active,
+  // clear that association — this form is now in control. If they still
+  // match (e.g. the user saved some unrelated setting without touching
+  // dates), leave the preset's active status alone.
+  const gdrFromVal = document.getElementById('gdr-from')?.value || '';
+  const gdrToVal   = document.getElementById('gdr-to')?.value   || '';
+  const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
+  const presetDiverged = activePreset && (activePreset.from !== gdrFromVal || activePreset.to !== gdrToVal);
+
   const payload = {
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
@@ -24253,8 +24380,9 @@ async function saveCompanySettings() {
     company_tagline: document.getElementById('sc-tagline')?.value || '',
     company_iso:     document.getElementById('sc-iso')?.value     || '',
     global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
-    global_date_from:   document.getElementById('gdr-from')?.value || '',
-    global_date_to:     document.getElementById('gdr-to')?.value   || '',
+    global_date_from:   gdrFromVal,
+    global_date_to:     gdrToVal,
+    ...(presetDiverged ? { active_preset_id: '' } : {}),
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -24303,6 +24431,7 @@ async function saveCompanySettings() {
     if (typeof SERVER !== 'undefined' && SERVER.settings) Object.assign(SERVER.settings, payload);
     _gdrLoadFromSettings();
     _gdrRenderTopBarBadge();
+    _gdrRenderPresetsList();
     _gdrRefreshCurrentPage();
     livePreview();
     applyDhaltaPctVisibility();
@@ -26554,6 +26683,8 @@ function populateSettingsForm() {
   set('gdr-from', gdrSS.global_date_from);
   set('gdr-to',   gdrSS.global_date_to);
   _gdrToggleFields();
+  _gdrLoadFromSettings();
+  _gdrRenderPresetsList();
   // Signature roles + toggle matrix — read raw from SERVER.settings (not
   // mirrored into STATE.settings since they're only needed here and at print time).
   const ss = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};

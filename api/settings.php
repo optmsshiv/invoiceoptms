@@ -47,6 +47,16 @@ switch ($method) {
       'global_date_active' => '0',
       'global_date_from'   => '',
       'global_date_to'     => '',
+      // ── Named Date Range Presets — a convenience layer on top of the
+      // same three keys above, nothing more. Activating a preset just
+      // writes its from/to into global_date_active/from/to (exactly what
+      // the plain toggle already does) and records which preset that was,
+      // purely so the UI can show its name instead of raw dates. Every
+      // page's filtering logic reads only the three keys above — presets
+      // never touch it directly, so there's only ever one real filtering
+      // mechanism, not two competing ones.
+      'date_range_presets' => '[]', // JSON array of {id,name,from,to}
+      'active_preset_id'   => '',   // empty = no preset active (plain toggle in control, or filter off)
       // ── Document signatures: up to 3 roles, each with its own image +
       // name, and its own on/off default per document type. Authorized
       // Signatory reuses company_sign as its image (already existed).
