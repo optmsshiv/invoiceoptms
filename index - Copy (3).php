@@ -2903,7 +2903,7 @@ const SERVER = {
           <span>Add New Supplier</span>
           <button class="modal-close" onclick="closeModal('modal-addsupplier')"><i class="fas fa-times"></i></button>
         </div>
-        <div class="modal-body" style="padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Supplier / Company Name *</label><input id="supq-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
             <div class="field"><label>Contact Person</label><input id="supq-person" placeholder="e.g. Rajeev Kumar"></div>
@@ -10191,7 +10191,7 @@ function _printProforma(d, curr, autoPrint = true) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, sans-serif; color: #1a2e1a; background:#fff; padding:32px 40px; font-size:12px; }
     .head { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:flex-start; padding-bottom:18px; border-bottom:2px solid #0d3b2e; margin-bottom:20px; }
     .logo-wrap { display:flex; gap:16px; align-items:flex-start; }
     .logo-box { width:102px;height:102px;background:#0d3b2e;border-radius:10px;display:flex;align-items:center;justify-content:center; flex-shrink:0; }
@@ -18199,7 +18199,7 @@ function viewSupplierPdf(id) {
       </div>
     </div>
     <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())}</span></div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    <" + "script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -19670,7 +19670,7 @@ function printLocalPurchaseVoucher(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -19703,16 +19703,10 @@ function printLocalPurchaseVoucher(p) {
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
     .sig { width: 30%; border-top: 1px solid #99a; text-align: center; font-size: 10px; color: #667; padding-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
     .footer { margin-top: 30px; border-top: 1px solid #eef0f3; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9.5px; color: #99a; }
-    .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
-    @media print { .no-print { display: none !important; } }
   </style></head><body>
-    <div class="no-print">
-      <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
-      <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
-    </div>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:92px;height:92px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -19792,7 +19786,7 @@ function printLocalPurchaseVoucher(p) {
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    <" + "script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -19819,7 +19813,7 @@ function printTaxInvoicePurchase(p) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -19864,16 +19858,10 @@ function printTaxInvoicePurchase(p) {
     .kanta-unit { font-size: 11px; font-weight: 400; }
     .kanta-pct { font-size: 9.5px; color: #889; margin-top: 3px; }
     .kanta-meta { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #c8ddd5; font-size: 10px; color: #556; }
-    .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
-    @media print { .no-print { display: none !important; } }
   </style></head><body>
-    <div class="no-print">
-      <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
-      <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
-    </div>
     <div class="head">
       <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:92px;height:92px;object-fit:contain;border-radius:6px">` : ''}
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:72px;height:72px;object-fit:contain;border-radius:6px">` : ''}
         <div>
           <div class="co-name">${escHtml(co.name)}</div>
           <div class="co-meta">
@@ -19953,7 +19941,7 @@ function printTaxInvoicePurchase(p) {
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    <" + "script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -21780,7 +21768,7 @@ function printSaleInvoice(s) {
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; border: 2px solid #0d3b2e; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color: #6b7c93; letter-spacing: .5px; }
@@ -21885,7 +21873,7 @@ function printSaleInvoice(s) {
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
       <span>Printed on: ${fmt_date_disp(new Date())}</span>
     </div>
-    ${'<' + 'script>window.print();</' + 'script>'}
+    <" + "script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -22020,7 +22008,7 @@ function _printSalePartyCopy(s) {
       <span>This is a computer generated invoice</span>
       <span>Printed: ${fmt_date_disp(new Date())}</span>
     </div>
-  ${'<' + 'script>window.print();</' + 'script>'}
+  <" + "script>window.print();<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -23978,29 +23966,19 @@ function viewReceipt(i, list){
   const p=(list||PMT.list)[i]; if(!p) return;
   const sc=STATE.settings;
   const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'long',year:'numeric'}):p.date;
-  const isOut = p.direction === 'out';
-  const accent = isOut ? '#E65100' : 'var(--teal)';
-  const refLabel = p.source === 'purchase' ? 'Purchase Bill #' : (p.source === 'sale' || p.source === 'invoice') ? 'Invoice #' : 'Reference #';
-  const partyLabel = isOut ? 'Paid To' : 'Received From';
-  const words = (typeof numToWordsINR === 'function') ? numToWordsINR(parseFloat(p.amount)||0) : '';
   document.getElementById('receiptBody').innerHTML=`
     <div style="text-align:center;margin-bottom:18px">
       <div style="font-size:20px;font-weight:800;color:var(--teal)">${sc.company}</div>
       <div style="font-size:11px;color:var(--muted)">${sc.address} · ${sc.phone}</div>
     </div>
-    <div style="border:2px dashed ${accent};border-radius:10px;padding:18px;margin-bottom:16px;text-align:center">
-      <div style="font-size:36px;color:${accent}">${isOut ? '↗' : '✓'}</div>
-      <div style="font-weight:700;margin-bottom:4px">${isOut ? 'Payment Made' : 'Payment Received'}</div>
-      <div style="font-size:28px;font-weight:800;color:${accent};font-family:var(--mono)">${fmt_money(p.amount)}</div>
-      ${words ? `<div style="font-size:10.5px;color:var(--muted);margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
+    <div style="border:2px dashed var(--teal);border-radius:10px;padding:18px;margin-bottom:16px;text-align:center">
+      <div style="font-size:36px;color:#388E3C">✓</div>
+      <div style="font-weight:700;margin-bottom:4px">Payment Received</div>
+      <div style="font-size:28px;font-weight:800;color:var(--teal);font-family:var(--mono)">${fmt_money(p.amount)}</div>
     </div>
     <table style="width:100%;border-collapse:collapse">
-      ${[['Date',df],[refLabel,p.inv||'—'],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px;width:40%">${escHtml(k)}</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px">${escHtml(String(v))}</td></tr>`).join('')}
+      ${[['Date',df],['Invoice #',p.inv],['Client',p.client],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px;width:40%">${k}</td><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px">${v}</td></tr>`).join('')}
     </table>
-    <div style="margin-top:26px;display:flex;justify-content:space-between;padding:0 6px">
-      <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
-      <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
-    </div>
     <div style="margin-top:14px;text-align:center;font-size:10px;color:var(--muted)">Computer-generated receipt · ${STATE.settings.company || 'Invoice Manager'}</div>`;
   STATE._rcptIdx=i;
   openModal('modal-receipt');
@@ -24008,30 +23986,16 @@ function viewReceipt(i, list){
 function printReceiptModal(){
   const p=PMT.list[STATE._rcptIdx]; if(!p) return;
   const sc=STATE.settings;
-  const isOut = p.direction === 'out';
-  const accent = isOut ? '#E65100' : '#00897B';
-  const refLabel = p.source === 'purchase' ? 'Purchase Bill' : (p.source === 'sale' || p.source === 'invoice') ? 'Invoice' : 'Reference';
-  const partyLabel = isOut ? 'Paid To' : 'Received From';
-  const words = (typeof numToWordsINR === 'function') ? numToWordsINR(parseFloat(p.amount)||0) : '';
-  const w=window.open('','_blank','width=600,height=760');
+  const w=window.open('','_blank','width=600,height=700');
   const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'long',year:'numeric'}):p.date;
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:40px}.no-print{display:flex;gap:10px;margin-bottom:20px;padding:10px;background:#f5f5f5;border-radius:8px}@media print{.no-print{display:none!important}}</style></head><body>
-  <div class="no-print"><button onclick="window.print()" style="padding:8px 20px;background:${accent};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button><button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer">Close</button></div>
+  <div class="no-print"><button onclick="window.print()" style="padding:8px 20px;background:#00897B;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button><button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer">Close</button></div>
   <div style="max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
-    <div style="background:${accent};color:#fff;padding:20px;text-align:center"><h2>${sc.company}</h2><p style="font-size:12px;opacity:.8">${sc.address}</p></div>
-    <div style="padding:24px;text-align:center">
-      <div style="font-size:40px;color:${isOut?'#FFF3E0':'#C8E6C9'}">${isOut ? '↗' : '✓'}</div>
-      <div style="font-weight:700">${isOut ? 'Payment Made' : 'Payment Received'}</div>
-      <div style="font-size:28px;font-weight:800;color:${accent}">${fmt_money(p.amount)}</div>
-      ${words ? `<div style="font-size:11px;color:#777;margin-top:4px;font-style:italic">${escHtml(words)}</div>` : ''}
-    </div>
+    <div style="background:#00897B;color:#fff;padding:20px;text-align:center"><h2>${sc.company}</h2><p style="font-size:12px;opacity:.8">${sc.address}</p></div>
+    <div style="padding:24px;text-align:center"><div style="font-size:40px;color:#388E3C">✓</div><div style="font-weight:700">Payment Received</div><div style="font-size:28px;font-weight:800;color:#00897B">${fmt_money(p.amount)}</div></div>
     <table style="width:100%;border-collapse:collapse;padding:0 24px 24px">
-      ${[[refLabel,p.inv],[partyLabel,p.client],['Party Type',p.party_type||'—'],['Purpose',p.payment_for||'—'],['Method',p.method],['Txn ID',p.txn||'—'],['Date',df]].map(([k,v])=>`<tr><td style="padding:8px 24px;border-bottom:1px solid #eee;color:#666">${escHtml(k)}</td><td style="padding:8px 24px;border-bottom:1px solid #eee;font-weight:600">${escHtml(String(v||'—'))}</td></tr>`).join('')}
+      ${[['Date',df],['Invoice',p.inv],['Client',p.client],['Method',p.method],['Txn ID',p.txn||'—']].map(([k,v])=>`<tr><td style="padding:8px 24px;border-bottom:1px solid #eee;color:#666">${k}</td><td style="padding:8px 24px;border-bottom:1px solid #eee;font-weight:600">${v}</td></tr>`).join('')}
     </table>
-    <div style="padding:20px 24px 24px;display:flex;justify-content:space-between">
-      <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
-      <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
-    </div>
   </div></body></html>`);
   w.document.close();
 }
