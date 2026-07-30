@@ -3713,7 +3713,7 @@ const SERVER = {
                 <label>Customer Name *</label>
                 <div style="display:flex;gap:6px">
                   <select id="sn-customer" style="flex:1" onchange="onCustomerPicked()"><option value="">Select or add customer…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="openAddCustomerModal('sale')"><i class="fas fa-plus"></i></button>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new customer" onclick="goToNewCustomerFromSale()"><i class="fas fa-plus"></i></button>
                 </div>
               </div>
               <div class="field"><label>Customer Type *</label>
