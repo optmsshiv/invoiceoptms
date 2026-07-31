@@ -1445,7 +1445,7 @@ select { cursor: pointer; }
 .nav-item[href*="logout"]:hover { color: #ff6b6b !important; background:rgba(255,80,80,.1) !important; }
 
 /* ── User chip (topbar) ── */
-.user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:none;border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
+.user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
 .user-chip:hover { background:var(--bg);border-color:var(--teal); }
 .user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
@@ -1837,18 +1837,22 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-    </div>
-    <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-          style="display:none;flex-direction:column;align-items:center;gap:1px;padding:4px 16px;border-radius:12px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;cursor:pointer;white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
-      <span style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px"><i class="fas fa-calendar-days" style="font-size:10.5px"></i> <span id="gdr-topbar-badge-name"></span></span>
-      <span id="gdr-topbar-badge-dates" style="font-size:9.5px;font-weight:500;opacity:.85"></span>
+      <span id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
+            style="display:none;align-items:center;gap:6px;padding:5px 13px;border-radius:20px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:11.5px"></i> <span id="gdr-topbar-badge-text"></span>
+      </span>
     </div>
     <div class="topbar-right">
       <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
         <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
-      <?php /* Role badge removed from topbar — already shown in the user dropdown header */ ?>
+      <span id="topbarRoleBadge"
+            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
+            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
+        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
+        <?= htmlspecialchars($roleBadgeLabel) ?>
+      </span>
       <?php if ($isSuperAdmin): ?>
         <?php if ($connectedDb): ?>
           <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:600" title="Session is connected to this database — Sales/Invoices/etc. read from it">
@@ -1867,7 +1871,7 @@ const SERVER = {
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
         <div class="search-results" id="searchResults"></div>
       </div>
-      <button class="topbar-btn" id="topbar-newinvoice-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
+      <button class="topbar-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
       <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="showPage('reminders',null)" title="WA reminders queued">
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
@@ -1907,7 +1911,7 @@ const SERVER = {
             <div style="min-width:0">
               <div class="udh-name"><?= htmlspecialchars($user['name']) ?></div>
               <div class="udh-email"><?= htmlspecialchars($user['email']) ?></div>
-              <span class="udh-role" style="<?= $user['role']==='owner' ? 'background:#FFC107;color:#5D4200' : '' ?>"><?= ucfirst($user['role']) ?></span>
+              <span class="udh-role"><?= ucfirst($user['role']) ?></span>
             </div>
           </div>
           <div class="user-dropdown-body">
@@ -1917,11 +1921,6 @@ const SERVER = {
             <button class="ud-item" onclick="closeUserDropdown();showPage('settings',document.querySelector('[data-page=settings]'))">
               <i class="fas fa-cog"></i> Settings
             </button>
-            <?php if ($isSuperAdmin): ?>
-            <button class="ud-item" onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'">
-              <i class="fas fa-shield-halved"></i> Admin Panel
-            </button>
-            <?php endif; ?>
             <div class="ud-divider"></div>
             <button class="ud-item danger" onclick="confirmLogout()">
               <i class="fas fa-sign-out-alt"></i> Sign Out
@@ -8813,14 +8812,12 @@ function _gdrLoadFromSettings() {
 
 function _gdrRenderTopBarBadge() {
   const badge = document.getElementById('gdr-topbar-badge');
-  const nameEl = document.getElementById('gdr-topbar-badge-name');
-  const datesEl = document.getElementById('gdr-topbar-badge-dates');
-  if (!badge || !nameEl || !datesEl) return;
+  const text  = document.getElementById('gdr-topbar-badge-text');
+  if (!badge || !text) return;
   if (GLOBAL_DATE_ACTIVE) {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-    nameEl.textContent = activePreset ? activePreset.name : 'Session';
-    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
-    badge.style.display = 'flex';
+    text.textContent = activePreset ? `Session: ${activePreset.name}` : `Session: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    badge.style.display = 'inline-flex';
   } else {
     badge.style.display = 'none';
   }
@@ -16849,7 +16846,6 @@ function applyBusinessTypeLabels(type) {
   const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const ofrNav = document.getElementById('nav-proforma-item'); if (ofrNav) ofrNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
-  const newInvBtn = document.getElementById('topbar-newinvoice-btn'); if (newInvBtn) newInvBtn.style.display = STATE.settings.businessType === 'service' ? '' : 'none';
 }
 
 // ══════════════════════════════════════════
@@ -20182,7 +20178,7 @@ function renderCompareSessions() {
   } else {
     picker.innerHTML = GLOBAL_DATE_PRESETS.map(p => `
       <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer">
-        <input type="checkbox" class="cs-preset-cb" value="${p.id}" style="width:16px;height:16px;flex:0 0 auto;padding:0;border:none;background:transparent;accent-color:var(--teal)">
+        <input type="checkbox" class="cs-preset-cb" value="${p.id}">
         <div><div style="font-weight:600;font-size:13px">${escHtml(p.name)}</div><div style="font-size:11px;color:var(--muted)">${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)}</div></div>
       </label>`).join('');
   }
