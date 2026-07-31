@@ -4,30 +4,6 @@ startSession();
 if (!empty($_SESSION['user_id'])) { header('Location: ' . APP_URL . '/index.php'); exit; }
 
 $msg = ''; $error = '';
-
-// ── AJAX request (used by the fetch-based form submit below) ──
-$isAjax = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax) {
-    header('Content-Type: application/json');
-    $email = trim($_POST['email'] ?? '');
-    if (!$email) {
-        echo json_encode(['success' => false, 'error' => 'Please enter your email address.']);
-        exit;
-    }
-    $db   = getDB();
-    $stmt = $db->prepare('SELECT id, name FROM users WHERE email = ? AND is_active = 1');
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-    // Always show success to prevent email enumeration
-    $ajaxMsg = 'If that email is registered, a reset link has been sent. Please check your inbox.';
-    if ($user) {
-        logActivity($user['id'], 'password_reset_request', 'user', $user['id'], 'Password reset requested');
-    }
-    echo json_encode(['success' => true, 'message' => $ajaxMsg]);
-    exit;
-}
-
-// ── No-JS fallback: plain form POST + full page reload ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     if (!$email) {
@@ -111,28 +87,8 @@ body{
   position:relative;z-index:1;
   box-shadow:0 12px 56px rgba(8,80,65,.13);
   animation:fadeUp .45s ease;
-  transition:opacity .3s ease, transform .3s ease;
 }
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-
-/* ── Card dims slightly while a submission is in flight ── */
-.wrap.submitting{opacity:.94;transform:scale(.994)}
-
-/* ── Card pulses green on a real, confirmed success ── */
-@keyframes successPulse{
-  0%{box-shadow:0 12px 56px rgba(8,80,65,.13)}
-  50%{box-shadow:0 12px 66px rgba(29,158,117,.4)}
-  100%{box-shadow:0 12px 56px rgba(8,80,65,.13)}
-}
-.wrap.success-pulse{animation:successPulse .55s ease}
-
-/* ── Staggered entrance for right-panel fields ── */
-@keyframes fieldIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.stagger{opacity:0;animation:fieldIn .45s ease forwards}
-
-/* ── Icon micro-bounce on input focus ── */
-@keyframes iconBounce{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}
-.iw i.ic.bounce{animation:iconBounce .32s ease}
 
 /* ══ LEFT PANEL ══ */
 .left{
@@ -157,7 +113,7 @@ body{
 .left-title{font-size:17px;font-weight:700;color:#E1F5EE;line-height:1.4;margin-bottom:9px}
 .left-sub{font-size:12px;color:#5DCAA5;line-height:1.7}
 .feature-list{margin-top:28px;display:flex;flex-direction:column;gap:14px}
-.feat{display:flex;align-items:flex-start;gap:10px;opacity:0;animation:fieldIn .45s ease forwards}
+.feat{display:flex;align-items:flex-start;gap:10px}
 .feat-dot{
   width:22px;height:22px;border-radius:50%;
   background:rgba(29,158,117,.15);
@@ -354,15 +310,15 @@ body{
       <div class="left-title"><?= htmlspecialchars($companyName) ?><br>Account Recovery</div>
       <div class="left-sub">We'll help you get back into your account securely.</div>
       <div class="feature-list">
-        <div class="feat" style="animation-delay:.55s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">Secure email verification</div>
         </div>
-        <div class="feat" style="animation-delay:.65s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">Reset link expires for safety</div>
         </div>
-        <div class="feat" style="animation-delay:.75s">
+        <div class="feat">
           <div class="feat-dot"><i class="fas fa-check"></i></div>
           <div class="feat-text">Your data stays protected</div>
         </div>
@@ -380,25 +336,28 @@ body{
   <!-- ══ RIGHT PANEL ══ -->
   <div class="right">
 
-    <div id="fp-view-success" class="success-box" style="<?= $msg ? '' : 'display:none' ?>">
-      <div class="success-icon"><i class="fas fa-paper-plane"></i></div>
-      <div class="success-title">Check your inbox</div>
-      <div class="success-text" id="success-text"><?= htmlspecialchars($msg) ?></div>
-      <a href="login.php" class="btn-outline"><i class="fas fa-arrow-left"></i> Back to Login</a>
-    </div>
-
-    <div id="fp-view-form" style="<?= $msg ? 'display:none' : '' ?>">
-      <div class="welcome-label stagger" style="animation-delay:.05s">Account Recovery</div>
-      <div class="welcome-title stagger" style="animation-delay:.1s">Forgot password?</div>
-      <div class="welcome-desc stagger" style="animation-delay:.15s">Enter the email linked to your account and we'll send you a reset link.</div>
-
-      <div class="err stagger" id="err-box" style="animation-delay:.15s<?= $error ? '' : ';display:none' ?>">
-        <i class="fas fa-exclamation-circle"></i>
-        <span class="err-text"><?= htmlspecialchars($error) ?></span>
+    <?php if ($msg): ?>
+      <!-- Success state -->
+      <div class="success-box">
+        <div class="success-icon"><i class="fas fa-paper-plane"></i></div>
+        <div class="success-title">Check your inbox</div>
+        <div class="success-text"><?= htmlspecialchars($msg) ?></div>
+        <a href="login.php" class="btn-outline"><i class="fas fa-arrow-left"></i> Back to Login</a>
       </div>
+    <?php else: ?>
+      <div class="welcome-label">Account Recovery</div>
+      <div class="welcome-title">Forgot password?</div>
+      <div class="welcome-desc">Enter the email linked to your account and we'll send you a reset link.</div>
+
+      <?php if ($error): ?>
+      <div class="err">
+        <i class="fas fa-exclamation-circle"></i>
+        <?= htmlspecialchars($error) ?>
+      </div>
+      <?php endif; ?>
 
       <form method="POST" autocomplete="on" id="fp-form">
-        <div class="field stagger" style="animation-delay:.2s">
+        <div class="field">
           <label class="fl" for="email">Email Address</label>
           <div class="iw">
             <i class="fas fa-envelope ic"></i>
@@ -409,14 +368,14 @@ body{
           </div>
         </div>
 
-        <button type="submit" class="btn-primary stagger" id="send-btn" style="animation-delay:.27s">
+        <button type="submit" class="btn-primary" id="send-btn">
           <i class="fas fa-paper-plane" id="btn-icon"></i>
           <span id="btn-label">Send Reset Link</span>
         </button>
       </form>
 
-      <a href="login.php" class="back-link stagger" style="animation-delay:.33s"><i class="fas fa-arrow-left"></i> Back to Login</a>
-    </div>
+      <a href="login.php" class="back-link"><i class="fas fa-arrow-left"></i> Back to Login</a>
+    <?php endif; ?>
 
   </div>
 
@@ -472,83 +431,24 @@ const LoadingBar = {
 };
 
 /* ════════════════════════
-   Form submit handler (AJAX)
+   Form submit handler
 ════════════════════════ */
 const fpForm = document.getElementById('fp-form');
 if (fpForm) {
-  fpForm.addEventListener('submit', function(e){
-    e.preventDefault();
-
-    const form   = e.target;
-    const btn    = document.getElementById('send-btn');
-    const icon   = document.getElementById('btn-icon');
-    const label  = document.getElementById('btn-label');
-    const card   = document.getElementById('fp-card');
-    const errBox = document.getElementById('err-box');
-    const errTxt = errBox ? errBox.querySelector('.err-text') : null;
-    const viewForm    = document.getElementById('fp-view-form');
-    const viewSuccess = document.getElementById('fp-view-success');
-    const successTxt  = document.getElementById('success-text');
-
-    function showError(msg){
-      btn.disabled       = false;
-      icon.className     = 'fas fa-paper-plane';
-      label.textContent  = 'Send Reset Link';
-      card.classList.remove('submitting');
-      if (errBox){
-        if (errTxt) errTxt.textContent = msg;
-        errBox.style.display = 'flex';
-      }
-      card.classList.add('shake');
-      card.addEventListener('animationend', () => card.classList.remove('shake'), {once:true});
-    }
+  fpForm.addEventListener('submit', function(){
+    const btn   = document.getElementById('send-btn');
+    const icon  = document.getElementById('btn-icon');
+    const label = document.getElementById('btn-label');
 
     LoadingBar.start();
-    btn.disabled = true;
-    icon.className = 'fas fa-circle-notch btn-spinner';
-    label.textContent = 'Sending…';
-    card.classList.add('submitting');
-    card.classList.remove('shake');
-    if (errBox) errBox.style.display = 'none';
 
-    fetch(form.getAttribute('action') || window.location.href, {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: new FormData(form)
-    })
-      .then(res => res.json())
-      .then(data => {
-        LoadingBar.finish();
-        if (data.success) {
-          if (successTxt) successTxt.textContent = data.message || '';
-          card.classList.remove('submitting');
-          viewForm.style.display    = 'none';
-          viewSuccess.style.display = '';
-          card.classList.add('success-pulse');
-        } else {
-          showError(data.error || 'Something went wrong. Please try again.');
-        }
-      })
-      .catch(() => {
-        LoadingBar.finish();
-        showError('Network error. Please check your connection and try again.');
-      });
+    btn.disabled    = true;
+    icon.className  = 'fas fa-circle-notch btn-spinner';
+    label.textContent = 'Sending…';
+
+    window.addEventListener('load', () => LoadingBar.finish());
   });
 }
-
-/* ════════════════════════
-   Icon micro-bounce on focus
-════════════════════════ */
-document.querySelectorAll('.iw input').forEach(input => {
-  const icon = input.parentElement.querySelector('i.ic');
-  if (!icon) return;
-  input.addEventListener('focus', () => {
-    icon.classList.remove('bounce');
-    void icon.offsetWidth;
-    icon.classList.add('bounce');
-  });
-  icon.addEventListener('animationend', () => icon.classList.remove('bounce'));
-});
 
 /* ════════════════════════
    Shake on PHP error
@@ -567,34 +467,14 @@ document.querySelectorAll('.iw input').forEach(input => {
 ════════════════════════ */
 (function(){
   const c = document.getElementById('geo-bg');
-  const ctx = c.getContext('2d');
-  let W = 0, H = 0;
+  function draw(){
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+    const ctx = c.getContext('2d');
+    const W = c.width, H = c.height;
+    const t = a => `rgba(8,80,65,${a})`;
 
-  // Base positions/sizes for the floating locks (unpacked once per resize)
-  const lockBase = [
-    [.07,.12, 46,-18,.05,  0],
-    [.88,.10, 38, 15,.046, 1],
-    [.92,.76, 52, -9,.05,  2],
-    [.05,.80, 34, 24,.042, 3],
-    [.50,.05, 30,  7,.038, 4],
-    [.94,.42, 26,-14,.032, 5],
-    [.20,.92, 24, 32,.028, 6],
-    [.74,.94, 30, -6,.034, 7],
-  ];
-  const coinBase = [
-    [.28,.10,9],[.68,.20,7],[.14,.55,6],
-    [.83,.55,8],[.46,.96,6],[.60,.04,5],
-  ];
-  const stampBase = [[.35,.18,22],[.65,.83,18],[.91,.50,16]];
-
-  function resize(){
-    W = c.width  = window.innerWidth;
-    H = c.height = window.innerHeight;
-  }
-
-  const t = a => `rgba(8,80,65,${a})`;
-
-  function drawLock(cx, cy, s, deg, alpha){
+    function drawLock(cx, cy, s, deg, alpha){
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(deg * Math.PI / 180);
@@ -620,51 +500,45 @@ document.querySelectorAll('.iw input').forEach(input => {
       ctx.restore();
     }
 
-  function render(time){
-    ctx.clearRect(0, 0, W, H);
-    const sec = time / 1000;
+    // Floating locks
+    [
+      [W*.07, H*.12, 46,-18,.05],
+      [W*.88, H*.10, 38, 15,.046],
+      [W*.92, H*.76, 52, -9,.05],
+      [W*.05, H*.80, 34, 24,.042],
+      [W*.50, H*.05, 30,  7,.038],
+      [W*.94, H*.42, 26,-14,.032],
+      [W*.20, H*.92, 24, 32,.028],
+      [W*.74, H*.94, 30, -6,.034],
+    ].forEach(d => { try { drawLock(...d); } catch(e){} });
 
-    // Floating locks — each drifts slowly on its own slightly
-    // different sine cycle so they never move in unison
-    lockBase.forEach(([bx, by, s, deg, alpha, i]) => {
-      const speed = 0.15 + (i % 4) * 0.03;
-      const driftX = Math.sin(sec * speed + i) * 9;
-      const driftY = Math.cos(sec * speed * 0.8 + i) * 7;
-      const driftDeg = Math.sin(sec * speed * 0.6 + i) * 2.5;
-      try { drawLock(W*bx + driftX, H*by + driftY, s, deg + driftDeg, alpha); } catch(e){}
-    });
-
-    // Coin rings — very light drift
-    coinBase.forEach(([bx, by, r], i) => {
-      const x = W*bx + Math.sin(sec * 0.12 + i) * 5;
-      const y = H*by + Math.cos(sec * 0.10 + i) * 5;
+    // Coin/dot rings
+    [
+      [W*.28,H*.10,9],[W*.68,H*.20,7],[W*.14,H*.55,6],
+      [W*.83,H*.55,8],[W*.46,H*.96,6],[W*.60,H*.04,5],
+    ].forEach(([x,y,r]) => {
       ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
       ctx.strokeStyle = t(.07); ctx.lineWidth = 1.2; ctx.stroke();
       ctx.beginPath(); ctx.arc(x,y,r*.5,0,Math.PI*2);
       ctx.strokeStyle = t(.05); ctx.lineWidth = .8; ctx.stroke();
     });
 
-    // Dashed stamp rings — fixed position, slow rotation of the dash pattern
-    stampBase.forEach(([bx, by, r], i) => {
-      ctx.beginPath(); ctx.arc(W*bx, H*by, r, 0, Math.PI*2);
+    // Dashed stamp rings
+    [[W*.35,H*.18,22],[W*.65,H*.83,18],[W*.91,H*.50,16]].forEach(([x,y,r]) => {
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
       ctx.strokeStyle = t(.06); ctx.lineWidth = 1;
-      ctx.setLineDash([3,3]);
-      ctx.lineDashOffset = sec * (4 + i * 2);
-      ctx.stroke(); ctx.setLineDash([]);
+      ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
     });
 
-    // Diagonal lines — static
+    // Diagonal lines
     [[0,H*.3,W*.45,0],[W*.55,H,W,H*.3],[0,H*.7,W*.3,H]].forEach(([x1,y1,x2,y2]) => {
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
       ctx.strokeStyle = t(.04); ctx.lineWidth = 1; ctx.stroke();
     });
-
-    requestAnimationFrame(render);
   }
 
-  resize();
-  window.addEventListener('resize', resize);
-  requestAnimationFrame(render);
+  draw();
+  window.addEventListener('resize', draw);
 })();
 </script>
 </body>
