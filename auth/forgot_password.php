@@ -16,14 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax) {
         echo json_encode(['success' => false, 'error' => 'Please enter your email address.']);
         exit;
     }
-    $db   = getDB();
-    $stmt = $db->prepare('SELECT id, name FROM users WHERE email = ? AND is_active = 1');
+    $db   = getMasterDB();                                    // ← was getDB()
+    $stmt = $db->prepare(
+        'SELECT u.id, u.name, u.tenant_id
+           FROM users u
+           LEFT JOIN tenants t ON t.id = u.tenant_id
+          WHERE u.email = ? AND u.status = "active"'           // ← was is_active = 1
+    );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     // Always show success to prevent email enumeration
     $ajaxMsg = 'If that email is registered, a reset link has been sent. Please check your inbox.';
     if ($user) {
-        logActivity($user['id'], 'password_reset_request', 'user', $user['id'], 'Password reset requested');
+        masterAuditLog($user['id'], $user['tenant_id'], 'password_reset_request', 'Password reset requested');  // ← was logActivity()
     }
     echo json_encode(['success' => true, 'message' => $ajaxMsg]);
     exit;
@@ -35,16 +40,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$email) {
         $error = 'Please enter your email address.';
     } else {
-        $db   = getDB();
-        $stmt = $db->prepare('SELECT id, name FROM users WHERE email = ? AND is_active = 1');
+        $db   = getMasterDB();                                // ← was getDB()
+        $stmt = $db->prepare(
+            'SELECT u.id, u.name, u.tenant_id
+               FROM users u
+               LEFT JOIN tenants t ON t.id = u.tenant_id
+              WHERE u.email = ? AND u.status = "active"'       // ← was is_active = 1
+        );
         $stmt->execute([$email]);
         $user = $stmt->fetch();
-        // Always show success to prevent email enumeration
         $msg = 'If that email is registered, a reset link has been sent. Please check your inbox.';
         if ($user) {
-            // In production: generate token, store in DB, send email
-            // For now we just log the request
-            logActivity($user['id'], 'password_reset_request', 'user', $user['id'], 'Password reset requested');
+            masterAuditLog($user['id'], $user['tenant_id'], 'password_reset_request', 'Password reset requested');  // ← was logActivity()
         }
     }
 }
