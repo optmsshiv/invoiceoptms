@@ -178,12 +178,13 @@ function handleTrack($db) {
     $id = (int)($_GET['id'] ?? 0);
     if ($id) {
         try {
+            // Same IST-vs-server-timezone reasoning as sent_at/created_at above.
             $db->prepare(
                 "UPDATE email_logs SET
                     open_count = open_count + 1,
-                    opened_at  = COALESCE(opened_at, NOW())
+                    opened_at  = COALESCE(opened_at, ?)
                  WHERE id = ?"
-            )->execute([$id]);
+            )->execute([date('Y-m-d H:i:s'), $id]);
         } catch(\Exception $e) {}
     }
     // Return a 1×1 transparent GIF — no auth check needed (email clients don't send cookies)
@@ -417,8 +418,14 @@ function handleSend($db, $input) {
     $errMsg = $result['error']   ?? '';
     try {
         if ($logId) {
-            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=NOW() WHERE id=?")
-               ->execute([$status, $errMsg ?: null, $logId]);
+            // date('Y-m-d H:i:s') here (not MySQL's NOW()) — PHP's timezone
+            // is explicitly Asia/Kolkata (see top of file), but NOW() runs
+            // on the MySQL server's own clock/timezone, which may not be
+            // IST. The frontend (fmtEmailTime/_emRelTime in index.php)
+            // assumes every stored timestamp here IS IST, so we make sure
+            // it actually is.
+            $db->prepare("UPDATE email_logs SET status=?, error_msg=?, sent_at=? WHERE id=?")
+               ->execute([$status, $errMsg ?: null, date('Y-m-d H:i:s'), $logId]);
         } else {
             logEmailSent($db, $invId, $type, $to, $subject, $status, $errMsg, $toName);
         }
@@ -996,8 +1003,12 @@ function sendSmtpEmail(array $smtp, string $to, string $toName, string $subject,
 // ── Log sent email ───────────────────────────────────────────────
 function logEmailSent($db, ?int $invId, string $type, string $to, string $subject, string $status, string $error='', string $toName=''): void {
     try {
-        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())")
-           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null]);
+        // See note in handleSend(): PHP's date() (Asia/Kolkata) is used
+        // instead of MySQL's NOW() so this timestamp is genuinely IST,
+        // matching what the frontend display functions assume.
+        $now = date('Y-m-d H:i:s');
+        $db->prepare("INSERT INTO email_logs (invoice_id,type,to_email,to_name,subject,status,error_msg,sent_at,created_at) VALUES (?,?,?,?,?,?,?,?,?)")
+           ->execute([$invId ?: null, $type, $to, $toName ?: null, $subject, $status, $error ?: null, $now, $now]);
     } catch(\Exception $e) { error_log('logEmailSent: '.$e->getMessage()); }
 }
 
