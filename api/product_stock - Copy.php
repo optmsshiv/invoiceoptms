@@ -19,14 +19,8 @@ try {
     $toParam   = $_GET['to'] ?? null;
 
     if ($fromParam && $toParam) {
-      // Never let the displayed window extend past today — a preset range
-      // that runs into the future (e.g. "Second Season: Aug–Oct") would
-      // otherwise show the LAST 31 days of that range, which could be
-      // entirely future dates with nothing on them yet, instead of real
-      // recent activity.
-      $effectiveTo = min(strtotime($toParam), strtotime(date('Y-m-d')));
       $days = [];
-      $cursor = $effectiveTo;
+      $cursor = strtotime($toParam);
       $limit  = strtotime($fromParam);
       while ($cursor >= $limit && count($days) < 31) {
         $days[] = date('Y-m-d', $cursor);
