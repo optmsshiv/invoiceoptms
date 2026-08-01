@@ -12,13 +12,27 @@
 //    SMTP_FROM_EMAIL, SMTP_FROM_NAME, SMTP_SECURE (tls|ssl)
 // ================================================================
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 // ── Low-level sender: any HTML email via the shared SMTP account ──
 function sendAppEmail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody = ''): bool {
+    // Loaded here (not at file-top) so that any page which merely
+    // *includes* this file — without actually sending an email — still
+    // works even if `composer require phpmailer/phpmailer` hasn't been
+    // run yet. Missing autoload becomes a logged, non-fatal failure.
+    $autoload = __DIR__ . '/../vendor/autoload.php';
+    if (!file_exists($autoload)) {
+        error_log('sendAppEmail failed: vendor/autoload.php not found — run `composer require phpmailer/phpmailer` in the app root.');
+        return false;
+    }
+    require_once $autoload;
+
+    if (!class_exists(PHPMailer::class)) {
+        error_log('sendAppEmail failed: PHPMailer class not found — check composer install.');
+        return false;
+    }
+
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
