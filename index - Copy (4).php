@@ -1840,18 +1840,18 @@ const SERVER = {
     </div>
     <div style="display:flex;gap:10px;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
       <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-            style="display:none;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#E0F2F1;border:1px solid #80CBC4;cursor:pointer;white-space:nowrap">
-        <i class="fas fa-calendar-days" style="font-size:13px;color:#00695C"></i>
+            style="display:none;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#fff;border:1px solid var(--border);cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:13px;color:var(--muted)"></i>
         <div style="display:flex;flex-direction:column;line-height:1.35">
-          <span style="font-size:12.5px;font-weight:700;color:#00695C" id="gdr-topbar-badge-name"></span>
-          <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.8" id="gdr-topbar-badge-dates"></span>
+          <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Period:</span>
+          <span style="font-size:12.5px;font-weight:700;color:var(--text)" id="gdr-topbar-badge-name"></span>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#F3E8FF;border:1px solid #CE93D8;white-space:nowrap" title="<?= htmlspecialchars($firmName) ?>">
-        <i class="fas fa-building" style="font-size:13px;color:#6A1B9A"></i>
+      <div style="display:flex;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#fff;border:1px solid var(--border);white-space:nowrap" title="<?= htmlspecialchars($firmName) ?>">
+        <i class="fas fa-building" style="font-size:13px;color:var(--muted)"></i>
         <div style="display:flex;flex-direction:column;line-height:1.35">
-          <span style="font-size:9px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.4px">Entity:</span>
-          <span style="font-size:12.5px;font-weight:700;color:#6A1B9A;max-width:200px;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($firmName) ?></span>
+          <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Entity:</span>
+          <span style="font-size:12.5px;font-weight:700;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($firmName) ?></span>
         </div>
       </div>
     </div>
@@ -8822,13 +8822,11 @@ function _gdrLoadFromSettings() {
 function _gdrRenderTopBarBadge() {
   const badge = document.getElementById('gdr-topbar-badge');
   const nameEl = document.getElementById('gdr-topbar-badge-name');
-  const datesEl = document.getElementById('gdr-topbar-badge-dates');
-  if (!badge || !nameEl || !datesEl) return;
+  if (!badge || !nameEl) return;
   if (GLOBAL_DATE_ACTIVE) {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
     const label = activePreset ? activePreset.name : 'Custom Range';
-    nameEl.textContent = `PERIOD : ${label}`;
-    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} - ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    nameEl.textContent = `${label}: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
     badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
