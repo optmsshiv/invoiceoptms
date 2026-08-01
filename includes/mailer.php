@@ -4,8 +4,14 @@
 //  Thin PHPMailer wrapper, SMTP creds pulled from .env (same
 //  loadEnv()/env() mechanism config/db.php already uses).
 //
-//  REQUIRES: composer require phpmailer/phpmailer
-//  (run this once inside the invoiceoptms/ app root on the server)
+//  PHPMailer is used WITHOUT Composer — just the 3 raw source files,
+//  matching the no-build-step approach used elsewhere in this app.
+//  Download the latest release from:
+//    https://github.com/PHPMailer/PHPMailer/releases/latest
+//  and place these 3 files at:
+//    includes/PHPMailer/src/Exception.php
+//    includes/PHPMailer/src/PHPMailer.php
+//    includes/PHPMailer/src/SMTP.php
 //
 //  .env vars expected:
 //    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
@@ -19,18 +25,19 @@ use PHPMailer\PHPMailer\Exception as PHPMailerException;
 function sendAppEmail(string $toEmail, string $toName, string $subject, string $htmlBody, string $textBody = ''): bool {
     // Loaded here (not at file-top) so that any page which merely
     // *includes* this file — without actually sending an email — still
-    // works even if `composer require phpmailer/phpmailer` hasn't been
-    // run yet. Missing autoload becomes a logged, non-fatal failure.
-    $autoload = __DIR__ . '/../vendor/autoload.php';
-    if (!file_exists($autoload)) {
-        error_log('sendAppEmail failed: vendor/autoload.php not found — run `composer require phpmailer/phpmailer` in the app root.');
-        return false;
-    }
-    require_once $autoload;
-
+    // works even if PHPMailer hasn't been dropped in yet. A missing
+    // library becomes a logged, non-fatal failure instead of a 500.
+    $base = __DIR__ . '/PHPMailer/src/';
     if (!class_exists(PHPMailer::class)) {
-        error_log('sendAppEmail failed: PHPMailer class not found — check composer install.');
-        return false;
+        foreach (['Exception.php', 'PHPMailer.php', 'SMTP.php'] as $file) {
+            if (!file_exists($base . $file)) {
+                error_log("sendAppEmail failed: {$base}{$file} not found — download PHPMailer's src/ folder (no Composer needed) from https://github.com/PHPMailer/PHPMailer/releases/latest and place it at includes/PHPMailer/src/.");
+                return false;
+            }
+        }
+        require_once $base . 'Exception.php';
+        require_once $base . 'PHPMailer.php';
+        require_once $base . 'SMTP.php';
     }
 
     $mail = new PHPMailer(true);
