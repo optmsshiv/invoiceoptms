@@ -31,10 +31,6 @@ $FIELDS = [
   'supplier_type','state','district','date_of_registration','business_nature','website','city','pincode',
   'pan_no','aadhaar_no','state_code','tan_no','msme_no','fssai_no',
   'bank_name','bank_account_no','ifsc_code','account_holder_name','credit_limit','default_price_list',
-  'status', // was missing entirely — new suppliers got inserted with no status set at all,
-            // so they never matched the ?status=active filter used everywhere and
-            // looked like they'd silently failed to save (same bug class as
-            // customers.php's earlier missing-status issue)
 ];
 
 try {
@@ -74,7 +70,6 @@ switch ($method) {
     }
 
     if (empty($d['name'])) jsonResponse(['error' => 'Supplier name is required'], 400);
-    if (empty($d['status'])) $d['status'] = 'active'; // default when the caller doesn't send one explicitly
 
     $docs = processDocArray($d['documents'] ?? []);
     $cols = array_merge($FIELDS, ['documents']);
