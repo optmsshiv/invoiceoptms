@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Kolkata');
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../includes/auth.php';
@@ -20,14 +21,21 @@ try {
 
     if ($fromParam && $toParam) {
       // Never let the displayed window extend past today — a preset range
-      // that runs into the future (e.g. "Second Season: Aug–Oct") would
-      // otherwise show the LAST 31 days of that range, which could be
-      // entirely future dates with nothing on them yet, instead of real
-      // recent activity.
-      $effectiveTo = min(strtotime($toParam), strtotime(date('Y-m-d')));
+      // that runs into the future would otherwise show the LAST 31 days
+      // of that range, which could be entirely future dates with nothing
+      // on them yet. But if capping to today produces NO valid days at
+      // all (e.g. a server clock/timezone discrepancy, or the period
+      // hasn't technically started per the server yet even though real
+      // data already exists on its start date), fall back to the
+      // originally-requested range rather than showing nothing.
+      $todayTs = strtotime(date('Y-m-d'));
+      $fromTs  = strtotime($fromParam);
+      $toTs    = strtotime($toParam);
+      $effectiveTo = ($todayTs >= $fromTs) ? min($toTs, $todayTs) : $toTs;
+
       $days = [];
       $cursor = $effectiveTo;
-      $limit  = strtotime($fromParam);
+      $limit  = $fromTs;
       while ($cursor >= $limit && count($days) < 31) {
         $days[] = date('Y-m-d', $cursor);
         $cursor = strtotime('-1 day', $cursor);
