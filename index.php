@@ -1446,7 +1446,7 @@ select { cursor: pointer; }
 
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:none;border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
-.user-chip:hover { background:var(--bg);border-color:var(--teal); }
+.user-chip:hover { background: var(--bg); }
 .user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
@@ -19088,11 +19088,11 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional — e.g. B0001" oninput="updatePNEItem(${it.id},'batch_no',this.value,true)"></td>
-      <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
-      <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
+      <td><span class="pne-computed" id="pne-gross-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</span></td>
+      <td><span class="pne-computed" id="pne-tare-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</span></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
       <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
-      <td><input id="pne-dkg-${it.id}" type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
+      <td><span class="pne-computed" id="pne-dkg-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${(parseFloat(it.dhalta_kg)||0).toFixed(2)}</span></td>
       <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
@@ -19534,10 +19534,10 @@ function calcPNEKantaSummary() {
       const netEl    = document.getElementById('pne-net-'     + target.id);
       const billEl   = document.getElementById('pne-billable-'+ target.id);
       const amtEl    = document.getElementById('pne-amt-'     + target.id);
-      // Edit mode inputs — update value without cursor interference
-      // (these are the header→table sync, not user typing in the input)
-      if (grossIn && document.activeElement !== grossIn) grossIn.value = gross || '';
-      if (tareIn  && document.activeElement !== tareIn)  tareIn.value  = tare  || '';
+      // Row's gross/tare are read-only display now (weight only ever enters
+      // via this header Kanta section) — update via textContent, not value.
+      if (grossIn) grossIn.textContent = gross > 0 ? gross.toFixed(2) : '—';
+      if (tareIn)  tareIn.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
       // View mode cells
       if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
       if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
@@ -19624,7 +19624,7 @@ function onPNEHeaderDhaltaKgInput(val) {
     const billEl= document.getElementById('pne-billable-' + target.id);
     const amtEl = document.getElementById('pne-amt-'      + target.id);
     const dhEl  = document.getElementById('pne-dhaltapct-'+ target.id);
-    if (dkIn  && document.activeElement !== dkIn) dkIn.value = kg || '';
+    if (dkIn) dkIn.textContent = (kg || 0).toFixed(2);
     if (billEl) billEl.textContent = c.billable.toFixed(2);
     if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
     if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
@@ -20206,9 +20206,10 @@ async function runSessionComparison() {
       const s = results[i].stats;
       const sales = s.total_sales.value, purchase = s.total_purchase.value;
       const collections = s.total_collections.value, payments = s.total_payments.value;
+      const expenses = results[i].expenses?.total || 0;
       const netProfit = s.net_profit.value;
       const marginPct = sales > 0 ? (netProfit / sales) * 100 : 0;
-      return { name: p.name, from: p.from, to: p.to, sales, purchase, collections, payments, netProfit, marginPct };
+      return { name: p.name, from: p.from, to: p.to, sales, purchase, collections, payments, expenses, netProfit, marginPct };
     });
 
     // Combined column — real sums, margin recomputed from totals (not an
@@ -20218,6 +20219,7 @@ async function runSessionComparison() {
       name: 'Combined (All Selected)',
       sales: rows.reduce((s,r)=>s+r.sales,0), purchase: rows.reduce((s,r)=>s+r.purchase,0),
       collections: rows.reduce((s,r)=>s+r.collections,0), payments: rows.reduce((s,r)=>s+r.payments,0),
+      expenses: rows.reduce((s,r)=>s+r.expenses,0),
       netProfit: rows.reduce((s,r)=>s+r.netProfit,0),
     };
     combined.marginPct = combined.sales > 0 ? (combined.netProfit / combined.sales) * 100 : 0;
@@ -20237,6 +20239,7 @@ async function runSessionComparison() {
     const metricRows = [
       ['Total Sales', c=>fmt_money(c.sales)],
       ['Total Purchase', c=>fmt_money(c.purchase)],
+      ['Total Expenses', c=>fmt_money(c.expenses)],
       ['Total Collections', c=>fmt_money(c.collections)],
       ['Total Payments', c=>fmt_money(c.payments)],
       ['Net Profit', c=>fmt_money(c.netProfit)],

@@ -1445,7 +1445,7 @@ select { cursor: pointer; }
 .nav-item[href*="logout"]:hover { color: #ff6b6b !important; background:rgba(255,80,80,.1) !important; }
 
 /* ── User chip (topbar) ── */
-.user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1.5px solid var(--border);border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
+.user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:none;border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
 .user-chip:hover { background:var(--bg);border-color:var(--teal); }
 .user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
 .user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
@@ -1729,6 +1729,11 @@ const SERVER = {
       <i class="fas fa-sack-dollar"></i><span>Finance Report</span>
     </a>
     <?php endif; ?>
+    <?php if ($perms['menu.finance_report'] ?? true): ?>
+    <a class="nav-item" data-page="compare-sessions" onclick="showPage('compare-sessions',this); renderCompareSessions();">
+      <i class="fas fa-scale-balanced"></i><span>Compare Sessions</span>
+    </a>
+    <?php endif; ?>
     <?php if ($perms['menu.aging'] ?? true): ?>
     <a class="nav-item" data-page="aging" onclick="showPage('aging',this)">
       <i class="fas fa-hourglass-half"></i><span>Aging Report</span>
@@ -1832,22 +1837,18 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-      <span id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-            style="display:none;align-items:center;gap:6px;padding:5px 13px;border-radius:20px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">
-        <i class="fas fa-calendar-days" style="font-size:11.5px"></i> <span id="gdr-topbar-badge-text"></span>
-      </span>
+    </div>
+    <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
+          style="display:none;flex-direction:column;align-items:center;gap:1px;padding:4px 16px;border-radius:12px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;cursor:pointer;white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
+      <span style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px"><i class="fas fa-calendar-days" style="font-size:10.5px"></i> <span id="gdr-topbar-badge-name"></span></span>
+      <span id="gdr-topbar-badge-dates" style="font-size:9.5px;font-weight:500;opacity:.85"></span>
     </div>
     <div class="topbar-right">
       <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
         <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
         <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
       </span>
-      <span id="topbarRoleBadge"
-            style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:<?= $roleBadgeCol['bg'] ?>;color:<?= $roleBadgeCol['text'] ?>;font-size:12px;font-weight:600;<?= $isSuperAdmin ? 'cursor:pointer' : '' ?>"
-            <?php if ($isSuperAdmin): ?>onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'" title="Go to Admin Panel"<?php endif; ?>>
-        <?php if ($isSuperAdmin): ?><i class="fas fa-shield-halved" style="font-size:11px"></i><?php endif; ?>
-        <?= htmlspecialchars($roleBadgeLabel) ?>
-      </span>
+      <?php /* Role badge removed from topbar — already shown in the user dropdown header */ ?>
       <?php if ($isSuperAdmin): ?>
         <?php if ($connectedDb): ?>
           <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:20px;background:#E3F2FD;color:#1565C0;font-size:12px;font-weight:600" title="Session is connected to this database — Sales/Invoices/etc. read from it">
@@ -1866,7 +1867,7 @@ const SERVER = {
         <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
         <div class="search-results" id="searchResults"></div>
       </div>
-      <button class="topbar-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
+      <button class="topbar-btn" id="topbar-newinvoice-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
       <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="showPage('reminders',null)" title="WA reminders queued">
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
@@ -1906,7 +1907,7 @@ const SERVER = {
             <div style="min-width:0">
               <div class="udh-name"><?= htmlspecialchars($user['name']) ?></div>
               <div class="udh-email"><?= htmlspecialchars($user['email']) ?></div>
-              <span class="udh-role"><?= ucfirst($user['role']) ?></span>
+              <span class="udh-role" style="<?= $user['role']==='owner' ? 'background:#FFC107;color:#5D4200' : '' ?>"><?= ucfirst($user['role']) ?></span>
             </div>
           </div>
           <div class="user-dropdown-body">
@@ -1916,6 +1917,11 @@ const SERVER = {
             <button class="ud-item" onclick="closeUserDropdown();showPage('settings',document.querySelector('[data-page=settings]'))">
               <i class="fas fa-cog"></i> Settings
             </button>
+            <?php if ($isSuperAdmin): ?>
+            <button class="ud-item" onclick="window.location.href='<?= ADMIN_PANEL_URL ?>'">
+              <i class="fas fa-shield-halved"></i> Admin Panel
+            </button>
+            <?php endif; ?>
             <div class="ud-divider"></div>
             <button class="ud-item danger" onclick="confirmLogout()">
               <i class="fas fa-sign-out-alt"></i> Sign Out
@@ -5133,6 +5139,48 @@ const SERVER = {
       </div>
 
       <div style="padding:14px 0 30px;font-size:11px;color:var(--muted)"><i class="fas fa-circle-info"></i> All amounts are in INR (₹)</div>
+    </div>
+
+    <!-- ═══════════ COMPARE SESSIONS ═══════════ -->
+    <div id="page-compare-sessions" class="page">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Compare Sessions</div>
+          <div class="page-subtitle">Pick two or more saved Date Range Presets to compare side by side — see which session actually performed best.</div>
+        </div>
+      </div>
+
+      <div class="pne-card" style="margin-bottom:16px">
+        <div class="pne-card-head">Select Sessions to Compare</div>
+        <div id="cs-preset-picker" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="runSessionComparison()"><i class="fas fa-scale-balanced"></i> Compare Selected</button>
+          <button class="btn btn-outline" onclick="showPage('settings',null)"><i class="fas fa-plus"></i> Manage Presets in Settings</button>
+        </div>
+      </div>
+
+      <div id="cs-results" style="display:none">
+        <div class="pne-card" style="margin-bottom:16px;text-align:center;padding:20px" id="cs-winner-banner"></div>
+
+        <div class="pne-card" style="margin-bottom:16px">
+          <div class="pne-card-head">Profit Margin % by Session</div>
+          <div style="height:260px;position:relative"><canvas id="cs-margin-chart"></canvas></div>
+        </div>
+
+        <div class="pne-card">
+          <div class="pne-card-head">Full Comparison</div>
+          <div style="overflow-x:auto">
+            <table class="data-table" id="cs-compare-table">
+              <thead><tr id="cs-table-head"></tr></thead>
+              <tbody id="cs-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="cs-empty-state" style="text-align:center;color:var(--muted);padding:40px;font-size:13px">
+        Select at least 2 sessions above and click Compare.
+      </div>
     </div>
 
     <!-- ═══════════ STOCK HISTORY ═══════════ -->
@@ -8765,12 +8813,14 @@ function _gdrLoadFromSettings() {
 
 function _gdrRenderTopBarBadge() {
   const badge = document.getElementById('gdr-topbar-badge');
-  const text  = document.getElementById('gdr-topbar-badge-text');
-  if (!badge || !text) return;
+  const nameEl = document.getElementById('gdr-topbar-badge-name');
+  const datesEl = document.getElementById('gdr-topbar-badge-dates');
+  if (!badge || !nameEl || !datesEl) return;
   if (GLOBAL_DATE_ACTIVE) {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-    text.textContent = activePreset ? `Session: ${activePreset.name}` : `Session: ${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
-    badge.style.display = 'inline-flex';
+    nameEl.textContent = activePreset ? activePreset.name : 'Session';
+    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
   }
@@ -16799,6 +16849,7 @@ function applyBusinessTypeLabels(type) {
   const salesNav = document.getElementById('nav-sales-item'); if (salesNav) salesNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const ofrNav = document.getElementById('nav-proforma-item'); if (ofrNav) ofrNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
+  const newInvBtn = document.getElementById('topbar-newinvoice-btn'); if (newInvBtn) newInvBtn.style.display = STATE.settings.businessType === 'service' ? '' : 'none';
 }
 
 // ══════════════════════════════════════════
@@ -20116,6 +20167,105 @@ function resetFinanceFilter() {
 }
 
 let FR_GDR_WAS_ACTIVE = false; // tracks previous render, so turning the global filter OFF properly restores "This Month" instead of leaving stale dates behind
+
+// ══════════════════════════════════════════════════════════════
+// COMPARE SESSIONS — reuses finance_report.php entirely (calls it once
+// per selected preset, in parallel) rather than building a second
+// reporting engine. Presets already exist as named date ranges; this
+// just lines their results up side by side.
+// ══════════════════════════════════════════════════════════════
+function renderCompareSessions() {
+  const picker = document.getElementById('cs-preset-picker');
+  if (!picker) return;
+  if (!GLOBAL_DATE_PRESETS.length) {
+    picker.innerHTML = '<div style="color:var(--muted);font-size:13px">No saved presets yet — create some in Settings → Company Info → Date Range Presets first.</div>';
+  } else {
+    picker.innerHTML = GLOBAL_DATE_PRESETS.map(p => `
+      <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer">
+        <input type="checkbox" class="cs-preset-cb" value="${p.id}" style="width:16px;height:16px;flex:0 0 auto;padding:0;border:none;background:transparent;accent-color:var(--teal)">
+        <div><div style="font-weight:600;font-size:13px">${escHtml(p.name)}</div><div style="font-size:11px;color:var(--muted)">${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)}</div></div>
+      </label>`).join('');
+  }
+  document.getElementById('cs-results').style.display = 'none';
+  document.getElementById('cs-empty-state').style.display = '';
+}
+
+async function runSessionComparison() {
+  const selected = Array.from(document.querySelectorAll('.cs-preset-cb:checked')).map(cb => cb.value);
+  if (selected.length < 2) { toast('⚠️ Select at least 2 sessions to compare', 'warning'); return; }
+
+  const presets = selected.map(id => GLOBAL_DATE_PRESETS.find(p => p.id === id)).filter(Boolean);
+  toast('⏳ Comparing sessions…', 'info');
+
+  try {
+    const results = await Promise.all(presets.map(p =>
+      api(`api/finance_report.php?date_from=${p.from}&date_to=${p.to}`)
+    ));
+
+    const rows = presets.map((p, i) => {
+      const s = results[i].stats;
+      const sales = s.total_sales.value, purchase = s.total_purchase.value;
+      const collections = s.total_collections.value, payments = s.total_payments.value;
+      const netProfit = s.net_profit.value;
+      const marginPct = sales > 0 ? (netProfit / sales) * 100 : 0;
+      return { name: p.name, from: p.from, to: p.to, sales, purchase, collections, payments, netProfit, marginPct };
+    });
+
+    // Combined column — real sums, margin recomputed from totals (not an
+    // average of percentages, which would be mathematically wrong when
+    // sessions are different sizes).
+    const combined = {
+      name: 'Combined (All Selected)',
+      sales: rows.reduce((s,r)=>s+r.sales,0), purchase: rows.reduce((s,r)=>s+r.purchase,0),
+      collections: rows.reduce((s,r)=>s+r.collections,0), payments: rows.reduce((s,r)=>s+r.payments,0),
+      netProfit: rows.reduce((s,r)=>s+r.netProfit,0),
+    };
+    combined.marginPct = combined.sales > 0 ? (combined.netProfit / combined.sales) * 100 : 0;
+
+    const winner = rows.reduce((best, r) => r.marginPct > best.marginPct ? r : best, rows[0]);
+
+    // Winner banner
+    document.getElementById('cs-winner-banner').innerHTML = `
+      <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">MOST BENEFICIAL SESSION</div>
+      <div style="font-size:24px;font-weight:800;color:#00897B">🏆 ${escHtml(winner.name)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">${fmt_date_disp(winner.from)} – ${fmt_date_disp(winner.to)} · ${winner.marginPct.toFixed(1)}% profit margin</div>`;
+
+    // Table
+    const allCols = [...rows, combined];
+    document.getElementById('cs-table-head').innerHTML =
+      '<th>Metric</th>' + allCols.map(c => `<th style="text-align:right${c===winner?';background:#E0F2F1;color:#00897B':''}">${escHtml(c.name)}</th>`).join('');
+    const metricRows = [
+      ['Total Sales', c=>fmt_money(c.sales)],
+      ['Total Purchase', c=>fmt_money(c.purchase)],
+      ['Total Collections', c=>fmt_money(c.collections)],
+      ['Total Payments', c=>fmt_money(c.payments)],
+      ['Net Profit', c=>fmt_money(c.netProfit)],
+      ['Profit Margin %', c=>c.marginPct.toFixed(1)+'%'],
+    ];
+    document.getElementById('cs-table-body').innerHTML = metricRows.map(([label, fn]) => `
+      <tr><td style="font-weight:600">${label}</td>${allCols.map(c => `<td style="text-align:right${c===winner?';background:#E0F2F1;color:#00897B;font-weight:700':''}">${fn(c)}</td>`).join('')}</tr>
+    `).join('');
+
+    // Chart
+    const ctx = document.getElementById('cs-margin-chart');
+    if (window._csChart) window._csChart.destroy();
+    window._csChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.name),
+        datasets: [{ data: rows.map(r => r.marginPct.toFixed(1)), backgroundColor: rows.map(r => r===winner ? '#00897B' : '#90CAF9'), borderRadius: 6 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% profit margin` } } },
+        scales: { y: { ticks: { callback: v => v + '%' } } }
+      }
+    });
+
+    document.getElementById('cs-results').style.display = '';
+    document.getElementById('cs-empty-state').style.display = 'none';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
 
 async function renderFinanceReport() {
   const frFromEl = document.getElementById('fr-from'), frToEl = document.getElementById('fr-to');
