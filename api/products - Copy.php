@@ -84,15 +84,12 @@ $FIELDS = [
   'moisture_limit','foreign_matter_limit','broken_damage_limit','oil_content','admixture_limit',
   'color','aroma','shape_size','packing_type','packing_size',
   'purchase_rate','sale_rate','mrp','tax_type',
-  'opening_stock','reorder_level','max_stock','default_warehouse','track_batch','track_serial','track_session_price',
+  'opening_stock','reorder_level','max_stock','default_warehouse','track_batch','track_serial',
   'short_description','detailed_description',
   'country_of_origin','manufacturer','fssai_license','iec_code',
 ];
 
 try {
-// Auto-migrate: track_session_price didn't exist before this feature.
-try { $db->exec("ALTER TABLE products ADD COLUMN track_session_price TINYINT(1) DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
-
 // Dynamically filter $FIELDS to only columns that exist in the live DB
 // Handles both old schema (service: hsn_code, gst_rate) and new schema (product: hsn, gst)
 $colStmt = $db->query("SHOW COLUMNS FROM products");

@@ -57,13 +57,6 @@ switch ($method) {
       // mechanism, not two competing ones.
       'date_range_presets' => '[]', // JSON array of {id,name,from,to}
       'active_preset_id'   => '',   // empty = no preset active (plain toggle in control, or filter off)
-      // ── Session-wise Product Pricing — separate from presets themselves
-      // (a preset is just a date range; this is a separate map of
-      // {preset_id: {product_id: {purchase_rate, sale_rate}}}) so pricing
-      // data doesn't bloat the preset objects other features (Compare
-      // Sessions, the plain toggle) don't need to know about at all.
-      'session_pricing_enabled' => '0',
-      'session_product_prices'  => '{}',
       // ── Document signatures: up to 3 roles, each with its own image +
       // name, and its own on/off default per document type. Authorized
       // Signatory reuses company_sign as its image (already existed).

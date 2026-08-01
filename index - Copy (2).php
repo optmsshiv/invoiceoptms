@@ -3591,12 +3591,7 @@ const SERVER = {
               <div class="field" id="pne-field-tax_type"><label id="pne-label-tax_type">Tax Type</label>
                 <select id="pp-taxtype"><option value="Inclusive">Inclusive</option><option value="Exclusive">Exclusive</option></select>
               </div>
-              <div class="field" style="display:flex;align-items:center;gap:12px;grid-column:1/-1">
-                <label class="tog" id="pp-sessionpricing" onclick="this.classList.toggle('on');_ppToggleSessionPricing()"></label>
-                <span style="font-size:12.5px">Use Session-wise Pricing <span style="color:var(--muted);font-weight:400">(price is set per session in Settings, instead of a fixed rate here)</span></span>
-              </div>
             </div>
-            <div id="pp-session-price-summary" style="display:none;margin-top:14px;padding:12px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)"></div>
           </div>
 
           <!-- 4. Inventory Information -->
@@ -7055,35 +7050,6 @@ View Invoice: {{6}}</pre></details>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
           </div>
 
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-tags" style="color:var(--teal)"></i> Session-wise Product Pricing</div>
-            <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Set a different price per product for each saved session — useful when crop/product rates genuinely change season to season. A product only follows session pricing if you turn it on for that specific product (Product page → Pricing & Tax Information); everything else keeps using its normal fixed rate.</p>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <label class="tog" id="ssp-enabled-tog" onclick="this.classList.toggle('on');toggleSessionPricingEnabled()"></label>
-              <span style="font-size:13px;font-weight:600">Enable Session-wise Pricing</span>
-            </div>
-            <div id="ssp-body" style="opacity:.5">
-              <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-                <div class="field" style="margin-bottom:0;min-width:220px">
-                  <label>Managing prices for</label>
-                  <select id="ssp-preset-select" onchange="loadSessionPricingTable()" disabled>
-                    <option value="">— Select a saved session —</option>
-                  </select>
-                </div>
-                <input type="text" id="ssp-search" placeholder="Search products…" oninput="renderSessionPricingTable()" disabled style="flex:1;min-width:180px;margin-top:18px">
-              </div>
-              <div style="overflow-x:auto;max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
-                <table class="data-table" style="font-size:12.5px">
-                  <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Product</th><th style="text-align:right">Purchase Rate (₹)</th><th style="text-align:right">Sale Rate (₹)</th></tr></thead>
-                  <tbody id="ssp-table-body"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr></tbody>
-                </table>
-              </div>
-              <div style="margin-top:14px">
-                <button class="btn btn-primary" id="ssp-save-btn" onclick="saveSessionPricingTable()" disabled><i class="fas fa-save"></i> Save Prices for This Session</button>
-              </div>
-            </div>
-          </div>
-
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
           </div>
@@ -8978,123 +8944,8 @@ async function deleteDateRangePreset(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-// ══════════════════════════════════════════════════════════════
-// SESSION-WISE PRODUCT PRICING — a separate concern from presets
-// themselves (a preset is just a date range). Prices are stored keyed by
-// preset id: SESSION_PRICES[presetId][productId] = {purchase_rate, sale_rate}.
-// A product only actually USES this if its own track_session_price=1 —
-// everything else keeps its normal fixed rate regardless of this data
-// existing or not.
-// ══════════════════════════════════════════════════════════════
-let SESSION_PRICING_ENABLED = false;
-let SESSION_PRICES = {}; // { [presetId]: { [productId]: {purchase_rate, sale_rate} } }
-
-function initSessionPricingSettings() {
-  const s = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
-  SESSION_PRICING_ENABLED = s.session_pricing_enabled === '1';
-  try { SESSION_PRICES = JSON.parse(s.session_product_prices || '{}'); } catch(e) { SESSION_PRICES = {}; }
-
-  document.getElementById('ssp-enabled-tog')?.classList.toggle('on', SESSION_PRICING_ENABLED);
-  _sspApplyEnabledState();
-
-  const sel = document.getElementById('ssp-preset-select');
-  if (sel) {
-    sel.innerHTML = '<option value="">— Select a saved session —</option>' +
-      GLOBAL_DATE_PRESETS.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
-  }
-  document.getElementById('ssp-table-body').innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
-}
-
-function _sspApplyEnabledState() {
-  const body = document.getElementById('ssp-body');
-  const on = SESSION_PRICING_ENABLED;
-  if (body) body.style.opacity = on ? '1' : '.5';
-  ['ssp-preset-select','ssp-search','ssp-save-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
-}
-
-async function toggleSessionPricingEnabled() {
-  SESSION_PRICING_ENABLED = document.getElementById('ssp-enabled-tog')?.classList.contains('on');
-  _sspApplyEnabledState();
-  try {
-    await api('api/settings.php', 'POST', { session_pricing_enabled: SESSION_PRICING_ENABLED ? '1' : '0' });
-    if (SERVER.settings) SERVER.settings.session_pricing_enabled = SESSION_PRICING_ENABLED ? '1' : '0';
-    toast(SESSION_PRICING_ENABLED ? '✅ Session-wise Pricing enabled' : 'ℹ️ Session-wise Pricing disabled', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function loadSessionPricingTable() { renderSessionPricingTable(); }
-
-function renderSessionPricingTable() {
-  const presetId = document.getElementById('ssp-preset-select')?.value;
-  const tbody = document.getElementById('ssp-table-body');
-  if (!presetId) {
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
-    return;
-  }
-  const q = (document.getElementById('ssp-search')?.value || '').toLowerCase();
-  const prices = SESSION_PRICES[presetId] || {};
-  const products = (STATE.products || []).filter(p => !q || (p.name||'').toLowerCase().includes(q));
-
-  if (!products.length) {
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">No products match your search</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = products.map(p => {
-    const rawId = String(p.id).replace(/\D/g,'');
-    const saved = prices[rawId] || {};
-    return `<tr>
-      <td>${escHtml(p.name)}</td>
-      <td style="text-align:right"><input type="number" min="0" step="0.01" data-ssp-product="${rawId}" data-ssp-field="purchase_rate" value="${saved.purchase_rate ?? ''}" placeholder="${p.purchase_rate ?? '0'}" style="width:110px;text-align:right"></td>
-      <td style="text-align:right"><input type="number" min="0" step="0.01" data-ssp-product="${rawId}" data-ssp-field="sale_rate" value="${saved.sale_rate ?? ''}" placeholder="${p.sale_rate ?? '0'}" style="width:110px;text-align:right"></td>
-    </tr>`;
-  }).join('');
-}
-
-async function saveSessionPricingTable() {
-  const presetId = document.getElementById('ssp-preset-select')?.value;
-  if (!presetId) { toast('⚠️ Select a session first', 'warning'); return; }
-
-  const updated = { ...(SESSION_PRICES[presetId] || {}) };
-  document.querySelectorAll('#ssp-table-body input[data-ssp-product]').forEach(input => {
-    const pid = input.dataset.sspProduct, field = input.dataset.sspField;
-    const val = parseFloat(input.value);
-    if (!updated[pid]) updated[pid] = {};
-    if (!isNaN(val) && val >= 0) updated[pid][field] = val;
-    else delete updated[pid][field];
-    if (!updated[pid].purchase_rate && !updated[pid].sale_rate) delete updated[pid]; // clean up empty entries
-  });
-  SESSION_PRICES[presetId] = updated;
-
-  const btn = document.getElementById('ssp-save-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
-  try {
-    await api('api/settings.php', 'POST', { session_product_prices: JSON.stringify(SESSION_PRICES) });
-    if (SERVER.settings) SERVER.settings.session_product_prices = JSON.stringify(SESSION_PRICES);
-    toast('✅ Prices saved for this session!', 'success');
-    // Refresh anything currently showing a price that might depend on this
-    _gdrRefreshCurrentPage();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Prices for This Session'; } }
-}
-
-// ── Shared lookup: what price should THIS product actually use right
-// now, considering session pricing? Used by the Product page display
-// AND Sale/Purchase Entry's rate auto-suggestion — one source of truth.
-// Returns null if the product doesn't use session pricing, or if it does
-// but no price is set for the currently active session (caller should
-// fall back to the product's own base rate and show a warning).
-function getSessionPrice(product, rateType) {
-  if (!SESSION_PRICING_ENABLED || !product || !parseInt(product.track_session_price)) return null;
-  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) return null;
-  const rawId = String(product.id).replace(/\D/g,'');
-  const presetPrices = SESSION_PRICES[GLOBAL_ACTIVE_PRESET_ID];
-  if (!presetPrices || !presetPrices[rawId]) return null;
-  const val = presetPrices[rawId][rateType];
-  return (val !== undefined && val !== null) ? parseFloat(val) : null;
-}
-
-
+// Small helper other pages will call: returns true if a date falls within
+// the active global range (always true if the filter is off).
 function gdrDateInRange(dateStr) {
   if (!GLOBAL_DATE_ACTIVE || !dateStr) return true;
   return dateStr >= GLOBAL_DATE_FROM && dateStr <= GLOBAL_DATE_TO;
@@ -17194,46 +17045,6 @@ function _ppToggleBatchSerialButtons() {
   }
 }
 
-// Session Pricing toggle — locks the rate fields (they're controlled by
-// whichever session is active, not typed here directly) and shows the
-// currently-active session's price, or a warning if none is set yet.
-function _ppToggleSessionPricing() {
-  const on = document.getElementById('pp-sessionpricing')?.classList.contains('on');
-  const purchaseRateEl = document.getElementById('pp-purchaserate');
-  const saleRateEl = document.getElementById('pp-salerate');
-  const summaryEl = document.getElementById('pp-session-price-summary');
-  if (purchaseRateEl) purchaseRateEl.disabled = on;
-  if (saleRateEl) saleRateEl.disabled = on;
-  if (!summaryEl) return;
-
-  if (!on) { summaryEl.style.display = 'none'; return; }
-  summaryEl.style.display = 'block';
-
-  if (!SESSION_PRICING_ENABLED) {
-    summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> Session-wise Pricing is turned off tenant-wide — enable it in Settings → Company Info first, or this toggle won't take effect.</div>`;
-    return;
-  }
-  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) {
-    summaryEl.innerHTML = `<div style="color:var(--muted);font-size:12.5px"><i class="fas fa-circle-info"></i> No session is currently active — set one in Settings to see live pricing here.</div>`;
-    return;
-  }
-  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
-  const rawId = PNP.editingId ? String(PNP.editingId).replace(/\D/g,'') : null;
-  const fakeProduct = { id: rawId, track_session_price: 1 };
-  const pRate = rawId ? getSessionPrice(fakeProduct, 'purchase_rate') : null;
-  const sRate = rawId ? getSessionPrice(fakeProduct, 'sale_rate') : null;
-
-  if (!rawId) {
-    summaryEl.innerHTML = `<div style="color:var(--muted);font-size:12.5px"><i class="fas fa-circle-info"></i> Save this product first, then set its price for each session in Settings → Company Info → Session-wise Product Pricing.</div>`;
-    return;
-  }
-  if (pRate === null && sRate === null) {
-    summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> No price set for "${escHtml(activePreset?.name||'this session')}" yet — falling back to this product's base rate until one's added in Settings.</div>`;
-    return;
-  }
-  summaryEl.innerHTML = `<div style="font-size:12.5px"><i class="fas fa-tag" style="color:var(--teal)"></i> Active price for <strong>${escHtml(activePreset?.name||'current session')}</strong>: Purchase ₹${pRate!==null?pRate.toFixed(2):'—'} · Sale ₹${sRate!==null?sRate.toFixed(2):'—'}</div>`;
-}
-
 // ── Batches ──────────────────────────────────────────────────────
 let PB_CODE_AUTO = true;
 let PB_CURRENT_PRODUCT_ID = null;
@@ -17389,8 +17200,6 @@ function goToNewProductPage() {
   document.getElementById('pp-warehouse').value = 'Main Warehouse';
   document.getElementById('pp-trackbatch').classList.remove('on');
   document.getElementById('pp-trackserial').classList.remove('on');
-  document.getElementById('pp-sessionpricing')?.classList.remove('on');
-  _ppToggleSessionPricing();
   document.getElementById('pp-country').value = 'India';
   document.getElementById('pp-status').classList.add('on');
   document.getElementById('pp-status-label').textContent = 'Active';
@@ -17447,8 +17256,6 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  document.getElementById('pp-sessionpricing')?.classList.toggle('on', !!parseInt(p.track_session_price));
-  _ppToggleSessionPricing();
   PP_OPENING_BATCH_AUTO = true;
   document.getElementById('pp-openingbatch').value = '';
   _ppToggleBatchSerialButtons();
@@ -17534,7 +17341,6 @@ async function saveProductEntry(mode) {
     default_warehouse: document.getElementById('pp-warehouse').value,
     track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
     track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
-    track_session_price: document.getElementById('pp-sessionpricing')?.classList.contains('on') ? 1 : 0,
     opening_batch_code: document.getElementById('pp-openingbatch')?.value.trim() || '',
     short_description: document.getElementById('pp-shortdesc').value.trim(),
     detailed_description: document.getElementById('pp-detaildesc').value.trim(),
@@ -19400,12 +19206,7 @@ function onPNEProductChange(id, productId) {
       it.description = p.name;
       // Auto-fill from product master — only when the field is blank so a
       // user who changes product mid-entry doesn't silently lose what they typed.
-      // Session price (if this product uses it, and one's set for the
-      // currently active session) takes priority over the base rate.
-      if (!it.rate) {
-        const sessionRate = getSessionPrice(p, 'purchase_rate');
-        it.rate = sessionRate !== null ? sessionRate : (parseFloat(p.purchase_rate ?? p.rate) || 0);
-      }
+      if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
       if (!it.variety_grade) it.variety_grade = p.variety || '';
       if (!it.quality_grade) it.quality_grade = p.grade || '';
       // moisture_limit is the product's stored expected moisture — editable per purchase lot
@@ -21557,10 +21358,7 @@ function onSNProductChange(id, productId) {
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
     if (p) {
-      it.description = p.name;
-      const sessionRate = getSessionPrice(p, 'sale_rate');
-      it.rate = sessionRate !== null ? sessionRate : (parseFloat(p.sale_rate || p.rate) || it.rate);
-      it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
+      it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
       it.variety_grade = p.variety || it.variety_grade;
     }
     _snLoadBatchesForProduct(productId); // async — re-renders once fetched
@@ -27091,7 +26889,6 @@ function populateSettingsForm() {
   _gdrToggleFields();
   _gdrLoadFromSettings();
   _gdrRenderPresetsList();
-  initSessionPricingSettings();
   // Signature roles + toggle matrix — read raw from SERVER.settings (not
   // mirrored into STATE.settings since they're only needed here and at print time).
   const ss = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
