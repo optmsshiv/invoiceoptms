@@ -9000,14 +9000,11 @@ async function deleteDateRangePreset(id) {
 let SESSION_PRICING_ENABLED = false;
 let SESSION_PRICES = {}; // { [presetId]: { [productId]: {purchase_rate, sale_rate} } }
 
-function _loadSessionPricingData() {
+function initSessionPricingSettings() {
   const s = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
   SESSION_PRICING_ENABLED = s.session_pricing_enabled === '1';
   try { SESSION_PRICES = JSON.parse(s.session_product_prices || '{}'); } catch(e) { SESSION_PRICES = {}; }
-}
 
-function initSessionPricingSettings() {
-  _loadSessionPricingData();
   document.getElementById('ssp-enabled-tog')?.classList.toggle('on', SESSION_PRICING_ENABLED);
   _sspApplyEnabledState();
 
@@ -9162,7 +9159,6 @@ function _gdrRefreshCurrentPage() {
 window.addEventListener('DOMContentLoaded', () => {
   _gdrLoadFromSettings();
   _gdrRenderTopBarBadge();
-  _loadSessionPricingData();
   setTodayDates();
   addItem();
   updateClientDropdown();
@@ -17221,20 +17217,8 @@ function _ppToggleSessionPricing() {
   if (saleRateEl) saleRateEl.disabled = on;
   if (!summaryEl) return;
 
-  if (!on) {
-    summaryEl.style.display = 'none';
-    // Restore whatever base rate was actually saved, in case it got
-    // temporarily overwritten below to show a session price.
-    if (purchaseRateEl && purchaseRateEl.dataset.baseRate !== undefined) purchaseRateEl.value = purchaseRateEl.dataset.baseRate;
-    if (saleRateEl && saleRateEl.dataset.baseRate !== undefined) saleRateEl.value = saleRateEl.dataset.baseRate;
-    return;
-  }
+  if (!on) { summaryEl.style.display = 'none'; return; }
   summaryEl.style.display = 'block';
-  // Remember the real base rate before we override the displayed value,
-  // so turning the toggle back off restores it correctly instead of
-  // leaving whatever session price was last shown.
-  if (purchaseRateEl && purchaseRateEl.dataset.baseRate === undefined) purchaseRateEl.dataset.baseRate = purchaseRateEl.value;
-  if (saleRateEl && saleRateEl.dataset.baseRate === undefined) saleRateEl.dataset.baseRate = saleRateEl.value;
 
   if (!SESSION_PRICING_ENABLED) {
     summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> Session-wise Pricing is turned off tenant-wide — enable it in Settings → Company Info first, or this toggle won't take effect.</div>`;
@@ -17258,14 +17242,6 @@ function _ppToggleSessionPricing() {
     summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> No price set for "${escHtml(activePreset?.name||'this session')}" yet — falling back to this product's base rate until one's added in Settings.</div>`;
     return;
   }
-  // Show the actual effective numbers in the fields themselves — a locked
-  // field displaying the old base rate while a box below says something
-  // different reads as broken, even when both numbers are technically
-  // correct. Only overwrite whichever of the two actually has a session
-  // price set; leave the other showing its base rate + summary line
-  // rather than showing a blank/zero.
-  if (pRate !== null && purchaseRateEl) purchaseRateEl.value = pRate.toFixed(2);
-  if (sRate !== null && saleRateEl) saleRateEl.value = sRate.toFixed(2);
   summaryEl.innerHTML = `<div style="font-size:12.5px"><i class="fas fa-tag" style="color:var(--teal)"></i> Active price for <strong>${escHtml(activePreset?.name||'current session')}</strong>: Purchase ₹${pRate!==null?pRate.toFixed(2):'—'} · Sale ₹${sRate!==null?sRate.toFixed(2):'—'}</div>`;
 }
 
@@ -17425,8 +17401,6 @@ function goToNewProductPage() {
   document.getElementById('pp-trackbatch').classList.remove('on');
   document.getElementById('pp-trackserial').classList.remove('on');
   document.getElementById('pp-sessionpricing')?.classList.remove('on');
-  delete document.getElementById('pp-purchaserate').dataset.baseRate;
-  delete document.getElementById('pp-salerate').dataset.baseRate;
   _ppToggleSessionPricing();
   document.getElementById('pp-country').value = 'India';
   document.getElementById('pp-status').classList.add('on');
@@ -17484,8 +17458,6 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
-  delete document.getElementById('pp-purchaserate').dataset.baseRate;
-  delete document.getElementById('pp-salerate').dataset.baseRate;
   document.getElementById('pp-sessionpricing')?.classList.toggle('on', !!parseInt(p.track_session_price));
   _ppToggleSessionPricing();
   PP_OPENING_BATCH_AUTO = true;
@@ -17561,9 +17533,9 @@ async function saveProductEntry(mode) {
     color: document.getElementById('pp-color').value.trim(), aroma: document.getElementById('pp-aroma').value.trim(),
     shape_size: document.getElementById('pp-shapesize').value.trim(), packing_type: document.getElementById('pp-packingtype').value,
     packing_size: document.getElementById('pp-packingsize').value.trim(),
-    purchase_rate: (() => { const el = document.getElementById('pp-purchaserate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(),
-    sale_rate: (() => { const el = document.getElementById('pp-salerate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(),
-    rate: (() => { const el = document.getElementById('pp-salerate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(), // legacy 'rate' column mirrors sale rate for compatibility
+    purchase_rate: parseFloat(document.getElementById('pp-purchaserate').value) || 0,
+    sale_rate: parseFloat(document.getElementById('pp-salerate').value) || 0,
+    rate: parseFloat(document.getElementById('pp-salerate').value) || 0, // legacy 'rate' column mirrors sale rate for compatibility
     mrp: parseFloat(document.getElementById('pp-mrp').value) || 0,
     gst: parseInt(document.getElementById('pp-gst').value) || 0,
     tax_type: document.getElementById('pp-taxtype').value,
@@ -18924,19 +18896,6 @@ function prlFilteredProducts() {
   });
 }
 
-// Session price if this product uses it and one's set for the active
-// session, falling back to the base rate — with a small teal tag when
-// the number shown is session-driven, so it's clear it's not the fixed rate.
-function _prlRateCell(p, field) {
-  const sessionVal = getSessionPrice(p, field);
-  const baseVal = parseFloat(field === 'sale_rate' ? (p.sale_rate ?? p.rate) : p.purchase_rate) || 0;
-  const shown = sessionVal !== null ? sessionVal : baseVal;
-  const fmt = shown.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-  return sessionVal !== null
-    ? `${fmt} <span style="font-size:9px;font-weight:700;color:#00695C;background:#E0F2F1;padding:1px 6px;border-radius:8px;margin-left:3px" title="Session price">S</span>`
-    : fmt;
-}
-
 function renderProductsList() {
   const tbody = document.getElementById('prl-tbody');
   if (!tbody) return;
@@ -19000,8 +18959,8 @@ function renderProductsList() {
       <td>${escHtml(p.category||'—')}</td>
       <td>${escHtml(p.unit||'Kg')}</td>
       <td>${escHtml(p.hsn||'—')}</td>
-      <td style="text-align:right">${_prlRateCell(p, 'sale_rate')}</td>
-      <td style="text-align:right">${_prlRateCell(p, 'purchase_rate')}</td>
+      <td style="text-align:right">${(parseFloat(p.sale_rate ?? p.rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right">${(parseFloat(p.purchase_rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600;color:${stockColor}">${stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escHtml(p.unit||'Kg')}</td>
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
