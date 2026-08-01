@@ -85,7 +85,7 @@ code,.mono{font-family:'JetBrains Mono',monospace}
 @media (max-width:900px){.topbar-search{display:none}}
 
 /* Layout */
-.container{max-width:0px;margin:0 auto;padding:32px 24px 60px}
+.container{margin:0 auto;padding:32px 24px 60px}
 
 /* App layout: sidebar + main content, below the topbar */
 .app-layout{display:flex;align-items:flex-start;min-height:calc(100vh - 97px)}
