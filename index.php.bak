@@ -5189,17 +5189,6 @@ const SERVER = {
             </table>
           </div>
         </div>
-
-        <div class="pne-card" style="margin-top:16px">
-          <div class="pne-card-head">Product-wise Purchases</div>
-          <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 10px">Only products purchased in at least one selected session are shown.</div>
-          <div style="overflow-x:auto">
-            <table class="data-table" id="cs-product-table">
-              <thead><tr id="cs-product-table-head"></tr></thead>
-              <tbody id="cs-product-table-body"></tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       <div id="cs-empty-state" style="text-align:center;color:var(--muted);padding:40px;font-size:13px">
@@ -20462,9 +20451,6 @@ async function runSessionComparison() {
     const results = await Promise.all(presets.map(p =>
       api(`api/finance_report.php?date_from=${p.from}&date_to=${p.to}`)
     ));
-    const productResults = await Promise.all(presets.map(p =>
-      api(`api/product_stock.php?product_purchases=1&from=${p.from}&to=${p.to}`)
-    ));
 
     const rows = presets.map((p, i) => {
       const s = results[i].stats;
@@ -20528,32 +20514,6 @@ async function runSessionComparison() {
         scales: { y: { ticks: { callback: v => v + '%' } } }
       }
     });
-
-    // Product-wise Purchases table — one row per product with activity in
-    // AT LEAST one selected session (quiet products stay out of the way),
-    // one column per session, plus a running total.
-    const productMap = {}; // { productName: { [sessionIndex]: qty } }
-    presets.forEach((p, i) => {
-      (productResults[i].data || []).forEach(row => {
-        if (!productMap[row.name]) productMap[row.name] = {};
-        productMap[row.name][i] = parseFloat(row.qty) || 0;
-      });
-    });
-    const productNames = Object.keys(productMap).sort();
-    const prodHead = document.getElementById('cs-product-table-head');
-    const prodBody = document.getElementById('cs-product-table-body');
-    if (prodHead && prodBody) {
-      prodHead.innerHTML = '<th>Product</th>' + presets.map(p => `<th style="text-align:right">${escHtml(p.name)}</th>`).join('') + '<th style="text-align:right;color:#0d3b2e">Total (Kg)</th>';
-      if (!productNames.length) {
-        prodBody.innerHTML = `<tr><td colspan="${presets.length+2}" style="text-align:center;color:var(--muted);padding:20px">No purchases recorded in any of the selected sessions</td></tr>`;
-      } else {
-        prodBody.innerHTML = productNames.map(name => {
-          const qtys = presets.map((p, i) => productMap[name][i] || 0);
-          const total = qtys.reduce((s,q)=>s+q, 0);
-          return `<tr><td style="font-weight:600">${escHtml(name)}</td>${qtys.map(q => `<td style="text-align:right">${q.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`).join('')}<td style="text-align:right;font-weight:700">${total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`;
-        }).join('');
-      }
-    }
 
     document.getElementById('cs-results').style.display = '';
     document.getElementById('cs-empty-state').style.display = 'none';

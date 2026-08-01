@@ -3435,7 +3435,7 @@ const SERVER = {
           <div class="pne-card-head" id="ps-movement-title">Stock Movement Summary (Last 7 Days)</div>
           <div style="overflow-x:auto;overflow-y:auto;max-height:290px">
             <table class="data-table" style="font-size:12.5px;min-width:640px">
-              <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+              <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Date</th><th>Opening Stock (Kg) <i class="fas fa-circle-info" title="Includes ALL stock from before this specific date, not just recent days — the true running total up to that point" style="color:var(--muted);cursor:help"></i></th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
               <tbody id="ps-movement-tbody"></tbody>
             </table>
           </div>
@@ -5253,7 +5253,7 @@ const SERVER = {
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
         <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-box"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock</div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock <i class="fas fa-circle-info" title="Includes ALL stock from before this period started, not just this period — this is how much genuinely existed on day one, carried forward from every earlier purchase/sale" style="cursor:help"></i></div>
           <div style="font-size:16px;font-weight:800" id="sh-stat-opening">0.00 Kg</div>
           <div style="font-size:10px;color:var(--muted)" id="sh-stat-opening-date"></div>
         </div>

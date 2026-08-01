@@ -10,29 +10,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 try {
   if ($method !== 'GET') jsonResponse(['error' => 'Method not allowed'], 405);
 
-  // ── Per-product purchase totals for a date range — used by Compare
-  // Sessions' Product-wise Purchases table. Reads directly from
-  // stock_ledger (same source Stock History already uses), so it stays
-  // consistent with everything else that reports on stock movement.
-  if (!empty($_GET['product_purchases'])) {
-    $from = $_GET['from'] ?? null;
-    $to   = $_GET['to'] ?? null;
-    if (!$from || !$to) jsonResponse(['error' => 'from and to are required'], 400);
-
-    $stmt = $db->prepare(
-      "SELECT p.id AS product_id, p.name, SUM(sl.qty) AS qty
-       FROM stock_ledger sl
-       JOIN products p ON p.id = sl.product_id
-       WHERE sl.direction = 'in' AND sl.ref_type = 'purchase'
-         AND sl.movement_date BETWEEN ? AND ?
-       GROUP BY p.id, p.name
-       HAVING qty > 0
-       ORDER BY p.name ASC"
-    );
-    $stmt->execute([$from, $to]);
-    jsonResponse(['data' => $stmt->fetchAll()]);
-  }
-
   // ── Movement summary + trend — defaults to the last 7 real calendar
   // days, or a specific date range when one's provided (e.g. the Global
   // Date Range filter). Capped at 31 days even if a wider range is given —
