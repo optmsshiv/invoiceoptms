@@ -8828,7 +8828,7 @@ function _gdrRenderTopBarBadge() {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
     const label = activePreset ? activePreset.name : 'Custom Range';
     nameEl.textContent = `PERIOD : ${label}`;
-    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} - ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    datesEl.textContent = `${fmt_date_long_mdy(GLOBAL_DATE_FROM)} - ${fmt_date_long_mdy(GLOBAL_DATE_TO)}`;
     badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
@@ -18375,7 +18375,7 @@ function viewSupplierPdf(id) {
         ${kv('Notes', s.notes)}
       </div>
     </div>
-    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())}</span></div>
+    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span></div>
     ${'<' + 'script>window.print();</' + 'script>'}
   </body></html>`);
   win.document.close();
@@ -18593,7 +18593,7 @@ function renderPurchases() {
     <tr>
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td>${fmt_date_disp(p.purchase_date)}</td>
+      <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
       <td>${escHtml(p.supplier_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -18803,6 +18803,48 @@ function fmt_date_disp(d) {
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
+}
+
+const _FMT_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// "01 Aug 2026" — day first, used for Stock Movement Summary
+function fmt_date_long_dmy(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return String(dt.getDate()).padStart(2,'0') + ' ' + _FMT_MONTHS_SHORT[dt.getMonth()] + ' ' + dt.getFullYear();
+}
+
+// "Aug 01, 2026" — month first, used for the topbar Period badge
+function fmt_date_long_mdy(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return _FMT_MONTHS_SHORT[dt.getMonth()] + ' ' + String(dt.getDate()).padStart(2,'0') + ', ' + dt.getFullYear();
+}
+
+// "02:30 PM" — 12-hour with AM/PM, used everywhere a time is shown
+function fmt_time_ampm(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '';
+  let h = dt.getHours();
+  const m = String(dt.getMinutes()).padStart(2,'0');
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return String(h).padStart(2,'0') + ':' + m + ' ' + ap;
+}
+
+// Stacked date+time HTML for table cells — date on top, time below in
+// smaller muted text. Returns '' (not a fallback dash) when there's no
+// time component to show, so a plain date-only value doesn't get a
+// confusing blank second line.
+function fmt_datetime_stacked(d) {
+  if (!d) return '<span style="color:var(--muted)">—</span>';
+  const dt = new Date(d);
+  if (isNaN(dt)) return escHtml(String(d));
+  const timeStr = fmt_time_ampm(d);
+  return `<div>${fmt_date_disp(d)}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
 }
 
 
@@ -19967,7 +20009,7 @@ function printLocalPurchaseVoucher(p) {
     </div>
     <div class="footer">
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -20128,7 +20170,7 @@ function printTaxInvoicePurchase(p) {
     </div>
     <div class="footer">
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -20662,7 +20704,7 @@ function renderSHTable() {
     return `
     <tr>
       <td>${start + idx + 1}</td>
-      <td>${fmt_date_disp(row.movement_date)}</td>
+      <td><div>${fmt_date_disp(row.movement_date)}</div>${row.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(row.created_at)}</div>` : ''}</td>
       <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
       <td>${refLabel[refType]||'Unknown'}</td>
       <td>${escHtml(row.reference_no||'—')}</td>
@@ -22168,7 +22210,7 @@ function printSaleInvoice(s) {
     </div>
     <div class="footer">
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -23662,7 +23704,7 @@ async function renderPSMovementAndTrend() {
     if (movTitle && r.truncated_to_31_days) movTitle.textContent += ' — showing most recent 31 days of this range';
     document.getElementById('ps-movement-tbody').innerHTML = tableRows.map(m => `
       <tr>
-        <td>${fmt_date_disp(m.date)}</td>
+        <td>${fmt_date_long_dmy(m.date)}</td>
         <td>${m.opening_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
         <td style="color:#00897B">${m.stock_in.toFixed(2)}</td>
         <td style="color:#E53935">${m.stock_out.toFixed(2)}</td>
@@ -28539,7 +28581,7 @@ async function loadCihLedger(offset = 0) {
       const typeColor  = isIn ? '#00897B' : '#E53935';
       const canEdit = SERVER.canCihEdit && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
       return `<tr>
-        <td>${fmt_date_disp(l.entry_date)}</td>
+        <td><div>${fmt_date_disp(l.entry_date)}</div>${l.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(l.created_at)}</div>` : ''}</td>
         <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
         <td>${escHtml(l.note||'')}</td>
         <td style="color:var(--muted)">${escHtml(l.created_by_name||'—')}</td>

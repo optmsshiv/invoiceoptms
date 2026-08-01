@@ -1446,9 +1446,9 @@ select { cursor: pointer; }
 
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:none;border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
-.user-chip:hover { background: var(--bg); }
+.user-chip:hover { background: #E0F2F1; }
 .user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
-.user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
+.user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
 
 /* ── User dropdown ── */
@@ -1838,16 +1838,24 @@ const SERVER = {
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
     </div>
-    <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-          style="display:none;flex-direction:column;align-items:center;gap:1px;padding:4px 16px;border-radius:12px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;cursor:pointer;white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
-      <span style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px"><i class="fas fa-calendar-days" style="font-size:10.5px"></i> <span id="gdr-topbar-badge-name"></span></span>
-      <span id="gdr-topbar-badge-dates" style="font-size:9.5px;font-weight:500;opacity:.85"></span>
+    <div style="display:flex;gap:10px;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
+      <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
+            style="display:none;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#E0F2F1;border:1px solid #80CBC4;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:13px;color:#00695C"></i>
+        <div style="display:flex;flex-direction:column;line-height:1.35">
+          <span style="font-size:12.5px;font-weight:700;color:#00695C" id="gdr-topbar-badge-name"></span>
+          <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.8" id="gdr-topbar-badge-dates"></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#F3E8FF;border:1px solid #CE93D8;white-space:nowrap" title="<?= htmlspecialchars($firmName) ?>">
+        <i class="fas fa-building" style="font-size:13px;color:#6A1B9A"></i>
+        <div style="display:flex;flex-direction:column;line-height:1.35">
+          <span style="font-size:9px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.4px">Entity:</span>
+          <span style="font-size:12.5px;font-weight:700;color:#6A1B9A;max-width:200px;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($firmName) ?></span>
+        </div>
+      </div>
     </div>
     <div class="topbar-right">
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
-        <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
-        <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
-      </span>
       <?php /* Role badge removed from topbar — already shown in the user dropdown header */ ?>
       <?php if ($isSuperAdmin): ?>
         <?php if ($connectedDb): ?>
@@ -1896,7 +1904,7 @@ const SERVER = {
           <div class="user-chip-avatar" id="chipAvatar">
             <?php if(!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover"><?php else: ?><?= strtoupper(substr($user['name'],0,2)) ?><?php endif; ?>
           </div>
-          <span class="user-chip-name"><?= htmlspecialchars(explode(' ',$user['name'])[0]) ?></span>
+          <span class="user-chip-name"><?= htmlspecialchars($user['name']) ?></span>
           <i class="fas fa-chevron-down user-chip-chevron" id="userChipChevron"></i>
         </button>
         <div class="user-dropdown" id="userDropdown">
@@ -8818,8 +8826,9 @@ function _gdrRenderTopBarBadge() {
   if (!badge || !nameEl || !datesEl) return;
   if (GLOBAL_DATE_ACTIVE) {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-    nameEl.textContent = activePreset ? activePreset.name : 'Session';
-    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    const label = activePreset ? activePreset.name : 'Custom Range';
+    nameEl.textContent = `PERIOD : ${label}`;
+    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} - ${fmt_date_disp(GLOBAL_DATE_TO)}`;
     badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
@@ -17783,7 +17792,7 @@ async function saveSupplier() {
   const btn = document.getElementById('sup-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
-    name,
+    name, status: 'active',
     contact_person:  document.getElementById('supq-person').value.trim(),
     phone:           document.getElementById('supq-phone').value.trim(),
     email:           document.getElementById('supq-email').value.trim(),
@@ -26976,7 +26985,7 @@ function _syncProfileUI(name, avatarSrc) {
   if (name) {
     // Topbar chip
     const chipName = document.querySelector('.user-chip-name');
-    if (chipName) chipName.textContent = name.split(' ')[0];
+    if (chipName) chipName.textContent = name;
     // Sidebar footer name
     const sidebarName = document.querySelector('.sidebar-footer .user-name');
     if (sidebarName) sidebarName.textContent = name;
