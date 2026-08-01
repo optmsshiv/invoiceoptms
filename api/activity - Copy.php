@@ -132,8 +132,8 @@ try {
         $ip   = $_SERVER['REMOTE_ADDR'] ?? null;
 
         $stmt = $db->prepare(
-            'INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO activity_log (user_id, action, entity_type, entity_id, details, ip_address)
+             VALUES (?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $uid,
@@ -141,10 +141,7 @@ try {
             $entityType ?: null,
             $entityId ?: null,
             $details,
-            $ip,
-            date('Y-m-d H:i:s'), // explicit, respects this file's own Asia/Kolkata setting —
-                                  // MySQL's own CURRENT_TIMESTAMP default would ignore that
-                                  // entirely and use MySQL's separate server timezone instead
+            $ip
         ]);
 
         echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId()]);

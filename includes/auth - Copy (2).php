@@ -5,14 +5,6 @@
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 
-// Set once, here, since this file is require_once'd by virtually every
-// backend endpoint (requireLogin() is called everywhere) — without this,
-// PHP's date()/time()/strtotime() default to the server's own timezone
-// (often UTC on shared hosting), which is NOT the same as MySQL's own
-// CURRENT_TIMESTAMP default and caused timestamps recorded via PHP to
-// drift from real IST time across the app.
-date_default_timezone_set('Asia/Kolkata');
-
 // ── Session start ─────────────────────────────────────────────────
 function startSession(): void {
     if (session_status() === PHP_SESSION_NONE) {
@@ -255,10 +247,10 @@ function logActivity(int $userId, string $action, string $entityType,
     try {
         getDB()->prepare(
             'INSERT INTO activity_log
-               (user_id, action, entity_type, entity_id, details, ip_address, created_at)
-             VALUES (?,?,?,?,?,?,?)'
+               (user_id, action, entity_type, entity_id, details, ip_address)
+             VALUES (?,?,?,?,?,?)'
         )->execute([$userId, $action, $entityType, $entityId,
-                    $details, $_SERVER['REMOTE_ADDR'] ?? '', date('Y-m-d H:i:s')]);
+                    $details, $_SERVER['REMOTE_ADDR'] ?? '']);
     } catch (Exception $e) { /* non-fatal */ }
 }
 
@@ -267,10 +259,10 @@ function masterAuditLog(int $userId, ?int $tenantId,
                          string $action, string $details = ''): void {
     try {
         getMasterDB()->prepare(
-            'INSERT INTO master_audit_log (user_id, tenant_id, action, details, ip, created_at)
-             VALUES (?,?,?,?,?,?)'
+            'INSERT INTO master_audit_log (user_id, tenant_id, action, details, ip)
+             VALUES (?,?,?,?,?)'
         )->execute([$userId, $tenantId, $action,
-                    $details, $_SERVER['REMOTE_ADDR'] ?? '', date('Y-m-d H:i:s')]);
+                    $details, $_SERVER['REMOTE_ADDR'] ?? '']);
     } catch (Exception $e) { /* non-fatal */ }
 }
 

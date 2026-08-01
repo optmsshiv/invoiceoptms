@@ -31294,35 +31294,6 @@ function _actGroupKey(e) {
   if (t==='credit_note')                            return 'credit_note';
   if (t==='expense_added' || (t==='create' && l.includes('expense'))) return 'expense_added';
   if (t==='status_changed' || (t==='update' && l.includes('status'))) return 'status_changed';
-  // Cash in Hand — these three action names are unique to this entity,
-  // no other entity uses 'topup'/'edit'/'correction' as its action verb.
-  if (t==='topup')      return 'cash_in_hand_topup';
-  if (t==='edit')       return 'cash_in_hand_edit';
-  if (t==='correction') return 'cash_in_hand_correction';
-  if (t==='update' && l.includes('settings')) return 'settings_updated';
-  // Batch/Serial checked BEFORE the generic 'product' rule below, since
-  // their labels also contain the word "product" and would otherwise
-  // false-match the broader product_* rule first.
-  if (l.includes('batch'))  return t==='delete' ? 'product_batch_deleted' : (t==='update' ? 'product_batch_updated' : 'product_batch_created');
-  if (l.includes('serial')) return t==='delete' ? 'product_serial_deleted' : 'product_serial_created';
-  if (l.includes('stock adjustment') || l.includes('adjustment')) return t==='delete' ? 'stock_adjustment_deleted' : 'stock_adjustment_created';
-  if (l.includes('purchase')) return t==='delete' ? 'purchase_deleted' : (t==='update' ? 'purchase_updated' : 'purchase_created');
-  if (l.includes('sale') && !l.includes('wholesale')) return t==='delete' ? 'sale_deleted' : (t==='update' ? 'sale_updated' : 'sale_created');
-  if (l.includes('customer')) {
-    if (t==='archive') return 'customer_archived';
-    if (t==='restore') return 'customer_restored';
-    return t==='update' ? 'client_edited' : 'client_added';
-  }
-  if (l.includes('supplier')) {
-    if (t==='archive') return 'supplier_archived';
-    if (t==='restore') return 'supplier_restored';
-    return t==='delete' ? 'supplier_deleted' : (t==='update' ? 'supplier_updated' : 'supplier_created');
-  }
-  if (l.includes('product')) {
-    if (t==='archive') return 'product_archived';
-    if (t==='restore') return 'product_restored';
-    return t==='update' ? 'product_updated' : 'product_created';
-  }
   // PHP generic actions with no entity match — return as-is so _actTypeInfo can style them
   return t;
 }
@@ -31391,37 +31362,6 @@ function _actTypeInfo(type) {
     create:             {icon:'➕', label:'Created',    col:'#1976D2', bg:'#e3f2fd'},
     delete:             {icon:'🗑️', label:'Deleted',   col:'#C62828', bg:'#ffebee'},
     update:             {icon:'✏️', label:'Updated',    col:'#7B1FA2', bg:'#f3e5f5'},
-    // ── Product-side activity types (Purchases, Sales, Suppliers,
-    // Products, Stock, Batches/Serials, Cash in Hand) — these were
-    // missing entirely before, silently falling back to a bare bullet.
-    purchase_created:      {icon:'🛒', label:'Purchase',      col:'#6A1B9A', bg:'#f3e5f5'},
-    purchase_updated:      {icon:'✏️', label:'Pur.Edited',    col:'#8E24AA', bg:'#f3e5f5'},
-    purchase_deleted:      {icon:'🗑️', label:'Pur.Deleted',   col:'#B71C1C', bg:'#ffebee'},
-    sale_created:           {icon:'🧾', label:'Sale',          col:'#2E7D32', bg:'#e8f5e9'},
-    sale_updated:           {icon:'✏️', label:'Sale Edited',   col:'#43A047', bg:'#e8f5e9'},
-    sale_deleted:           {icon:'🗑️', label:'Sale Deleted',  col:'#B71C1C', bg:'#ffebee'},
-    supplier_created:       {icon:'🚚', label:'Supplier',      col:'#00838F', bg:'#e0f7fa'},
-    supplier_updated:       {icon:'✏️', label:'Sup.Edited',    col:'#0097A7', bg:'#e0f7fa'},
-    supplier_deleted:       {icon:'🗑️', label:'Sup.Deleted',   col:'#B71C1C', bg:'#ffebee'},
-    supplier_archived:      {icon:'📦', label:'Archived',      col:'#78909C', bg:'#eceff1'},
-    supplier_restored:      {icon:'♻️', label:'Restored',      col:'#2E7D32', bg:'#e8f5e9'},
-    product_created:        {icon:'📦', label:'Product',       col:'#EF6C00', bg:'#fff3e0'},
-    product_updated:        {icon:'✏️', label:'Prod.Edited',   col:'#F57C00', bg:'#fff3e0'},
-    product_archived:       {icon:'📦', label:'Archived',      col:'#78909C', bg:'#eceff1'},
-    product_restored:       {icon:'♻️', label:'Restored',      col:'#2E7D32', bg:'#e8f5e9'},
-    stock_adjustment_created: {icon:'⚖️', label:'Stock Adj.',  col:'#5D4037', bg:'#efebe9'},
-    stock_adjustment_deleted: {icon:'🗑️', label:'Adj.Deleted', col:'#B71C1C', bg:'#ffebee'},
-    product_batch_created:  {icon:'🏷️', label:'Batch',        col:'#00695C', bg:'#e0f2f1'},
-    product_batch_updated:  {icon:'✏️', label:'Batch Edited',  col:'#00897B', bg:'#e0f2f1'},
-    product_batch_deleted:  {icon:'🗑️', label:'Batch Deleted', col:'#B71C1C', bg:'#ffebee'},
-    product_serial_created: {icon:'🔢', label:'Serial',        col:'#4527A0', bg:'#ede7f6'},
-    product_serial_deleted: {icon:'🗑️', label:'Serial Del.',   col:'#B71C1C', bg:'#ffebee'},
-    cash_in_hand_topup:     {icon:'💵', label:'Cash Added',    col:'#2E7D32', bg:'#e8f5e9'},
-    cash_in_hand_edit:      {icon:'✏️', label:'Cash Edited',   col:'#43A047', bg:'#e8f5e9'},
-    cash_in_hand_correction:{icon:'⚖️', label:'Correction',    col:'#E65100', bg:'#fbe9e7'},
-    settings_updated:       {icon:'⚙️', label:'Settings',      col:'#546E7A', bg:'#eceff1'},
-    customer_archived:      {icon:'📦', label:'Cl.Archived',    col:'#78909C', bg:'#eceff1'},
-    customer_restored:      {icon:'♻️', label:'Cl.Restored',    col:'#2E7D32', bg:'#e8f5e9'},
   };
   return map[type] || {icon:'•', label:type, col:'#9E9E9E', bg:'#f5f5f5'};
 }
