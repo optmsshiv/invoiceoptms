@@ -1,5 +1,4 @@
 <?php
-date_default_timezone_set('Asia/Kolkata');
 // ================================================================
 //  api/cash_in_hand.php — Cash in Hand fund ledger
 //
@@ -107,7 +106,7 @@ try {
                              FROM cash_in_hand_ledger l
                              LEFT JOIN users u ON u.id = l.created_by
                              WHERE {$where}
-                             ORDER BY l.entry_date ASC, l.created_at ASC, l.id ASC");
+                             ORDER BY l.entry_date ASC, l.id ASC");
       $allStmt->execute($params);
       $allRows = $allStmt->fetchAll();
 
@@ -172,7 +171,7 @@ try {
     $to   = $_GET['to']   ?? date('Y-m-d');
 
     $inStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_in_hand_ledger
-                             WHERE direction='in' AND entry_date BETWEEN ? AND ?");
+                             WHERE direction='in' AND type='topup' AND entry_date BETWEEN ? AND ?");
     $inStmt->execute([$from, $to]);
     $totalIn = (float)$inStmt->fetchColumn();
 
@@ -187,22 +186,13 @@ try {
     $expStmt->execute([$from, $to]);
     $expRows = $expStmt->fetchAll();
 
-    // Negative corrections (type='adjustment', direction='out') — safe to
-    // add directly since 'adjustment' entries have no live Purchase/Expense
-    // row to double-count against, unlike purchase/expense-driven entries.
-    $adjOutStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_in_hand_ledger
-                                 WHERE direction='out' AND type='adjustment' AND entry_date BETWEEN ? AND ?");
-    $adjOutStmt->execute([$from, $to]);
-    $adjOutAmt = (float)$adjOutStmt->fetchColumn();
-
     $breakdown = [];
     if ($purchaseAmt > 0) $breakdown[] = ['bucket' => 'Purchase', 'amount' => $purchaseAmt];
     foreach ($expRows as $r) {
       if ((float)$r['amt'] > 0) $breakdown[] = ['bucket' => $r['category'] ?: 'Other', 'amount' => (float)$r['amt']];
     }
-    if ($adjOutAmt > 0) $breakdown[] = ['bucket' => 'Correction', 'amount' => $adjOutAmt];
     usort($breakdown, fn($a, $b) => $b['amount'] <=> $a['amount']);
-    $totalOut = $purchaseAmt + array_sum(array_column($expRows, 'amt')) + $adjOutAmt;
+    $totalOut = $purchaseAmt + array_sum(array_column($expRows, 'amt'));
 
     jsonResponse(['total_in' => $totalIn, 'total_out' => $totalOut, 'breakdown' => $breakdown]);
   }
@@ -222,10 +212,10 @@ try {
     $newBalance = cihCurrentBalance($db) + $amount;
     $stmt = $db->prepare(
       "INSERT INTO cash_in_hand_ledger
-         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by, created_at)
-       VALUES (?, 'topup', 'in', ?, ?, 'topup', ?, ?, ?)"
+         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by)
+       VALUES (?, 'topup', 'in', ?, ?, 'topup', ?, ?)"
     );
-    $stmt->execute([$date, $amount, $newBalance, $note, (int)($user['id'] ?? 0), date('Y-m-d H:i:s')]);
+    $stmt->execute([$date, $amount, $newBalance, $note, (int)($user['id'] ?? 0)]);
 
     logActivity((int)($user['id'] ?? 0), 'topup', 'cash_in_hand', (int)$db->lastInsertId(),
       'Cash in Hand funded: ₹' . number_format($amount, 2));
@@ -268,10 +258,10 @@ try {
 
     $stmt = $db->prepare(
       "INSERT INTO cash_in_hand_ledger
-         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by, created_at)
-       VALUES (?, 'carry_forward', ?, ?, ?, 'carry_forward', ?, ?, ?)"
+         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by)
+       VALUES (?, 'carry_forward', ?, ?, ?, 'carry_forward', ?, ?)"
     );
-    $stmt->execute([$entryDate, $direction, $absAmount, $newBalance, $note, (int)($user['id'] ?? 0), date('Y-m-d H:i:s')]);
+    $stmt->execute([$entryDate, $direction, $absAmount, $newBalance, $note, (int)($user['id'] ?? 0)]);
 
     logActivity((int)($user['id'] ?? 0), 'carry_forward', 'cash_in_hand', (int)$db->lastInsertId(),
       'Cash in Hand: ' . $note);
@@ -303,10 +293,10 @@ try {
 
     $stmt = $db->prepare(
       "INSERT INTO cash_in_hand_ledger
-         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by, created_at)
-       VALUES (?, 'adjustment', ?, ?, ?, 'adjustment', ?, ?, ?)"
+         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by)
+       VALUES (?, 'adjustment', ?, ?, ?, 'adjustment', ?, ?)"
     );
-    $stmt->execute([$date, $direction, $absAmount, $newBalance, 'Correction: ' . $note, (int)($user['id'] ?? 0), date('Y-m-d H:i:s')]);
+    $stmt->execute([$date, $direction, $absAmount, $newBalance, 'Correction: ' . $note, (int)($user['id'] ?? 0)]);
 
     logActivity((int)($user['id'] ?? 0), 'correction', 'cash_in_hand', (int)$db->lastInsertId(),
       'Cash in Hand correction: ' . ($amount > 0 ? '+' : '-') . '₹' . number_format($absAmount, 2) . ' — ' . $note);
