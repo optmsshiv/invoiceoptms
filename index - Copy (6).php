@@ -7585,8 +7585,8 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Total In / Total Out / Remaining Balance (for the selected period) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
+      <!-- Total In / Total Out (for the selected period) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
         <div class="pne-card" style="padding:16px">
           <span class="sa-chip-icon" style="background:#E0F2F1;color:#00897B;width:34px;height:34px"><i class="fas fa-arrow-down"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL IN (this period)</div>
@@ -7596,11 +7596,6 @@ View Invoice: {{6}}</pre></details>
           <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-arrow-up"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL OUT (this period)</div>
           <div style="font-size:18px;font-weight:800;color:#E53935" id="cih-total-out">₹0</div>
-        </div>
-        <div class="pne-card" style="padding:16px">
-          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1565C0;width:34px;height:34px"><i class="fas fa-scale-balanced"></i></span>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">REMAINING BALANCE (this period)</div>
-          <div style="font-size:18px;font-weight:800" id="cih-remaining-balance">₹0</div>
         </div>
       </div>
 
@@ -28912,10 +28907,6 @@ async function renderCashInHandBreakdown() {
     const outEl = document.getElementById('cih-total-out');
     if (inEl) inEl.textContent = fmt_money(totalIn);
     if (outEl) outEl.textContent = fmt_money(totalOut);
-
-    const remaining = totalIn - totalOut;
-    const remEl = document.getElementById('cih-remaining-balance');
-    if (remEl) { remEl.textContent = fmt_money(remaining); remEl.style.color = remaining < 0 ? '#E53935' : '#1565C0'; }
 
     if (GLOBAL_DATE_ACTIVE) {
       const netBal = totalIn - totalOut;
