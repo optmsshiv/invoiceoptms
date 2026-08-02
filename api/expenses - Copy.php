@@ -40,54 +40,22 @@ function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $n
     try {
         $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-            `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup',
+            `type` ENUM('topup','purchase','expense','adjustment') NOT NULL DEFAULT 'topup',
             `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
             `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
             `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
             `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `source_end_date` DATE NULL, PRIMARY KEY (`id`),
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`),
             INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
         $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-            (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by, created_at)
-            VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId, date('Y-m-d H:i:s')]);
+            (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by)
+            VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId]);
     } catch (Throwable $e) {
         error_log('recordCashInHandMovement (expenses.php) failed: ' . $e->getMessage());
     }
-}
-
-// Blocks spending from Cash in Hand if the session it belongs to was
-// already carried forward elsewhere AND the strict restriction is on —
-// same rule and same underlying data as the Cash in Hand page itself,
-// just enforced here too since an Expense can also draw from that pool.
-function expCheckCarriedRestriction($db, $sessionToDate) {
-    if (!$sessionToDate) return;
-    try {
-        $restrictSetting = $db->prepare('SELECT value FROM settings WHERE `key` = ?');
-        $restrictSetting->execute(['cih_restrict_carried_sessions']);
-        $restrictVal = $restrictSetting->fetchColumn();
-        if ($restrictVal !== false && $restrictVal !== '1') return; // explicitly turned off
-    } catch (Throwable $e) { /* settings table missing — fail open, don't block */ return; }
-
-    try {
-        $stmt = $db->prepare(
-            "SELECT l.amount, l.created_at, u.name AS by_name
-             FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-             WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-        );
-        $stmt->execute([$sessionToDate]);
-        $row = $stmt->fetch();
-        if (!$row) return;
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' =>
-            'This session\'s Cash in Hand balance (₹' . number_format($row['amount'], 2) . ') was already carried forward on ' .
-            date('d-m-Y', strtotime($row['created_at'])) . ' by ' . ($row['by_name'] ?: 'someone') .
-            '. Turn off the restriction in Settings if this expense genuinely needs to draw from it.']);
-        exit;
-    } catch (Throwable $e) { /* table/column missing — fail open, don't block */ }
 }
 
 try {
@@ -190,9 +158,6 @@ try {
             echo json_encode(['success'=>false,'error'=>'date, vendor, and amount are required']);
             exit;
         }
-        if ($meth === 'Cash in Hand') {
-            expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? '')); // checked BEFORE insert — never leaves an orphaned expense if blocked
-        }
         $stmt = $db->prepare(
             'INSERT INTO expenses (`date`,category,vendor,amount,method,notes)
              VALUES (:date,:cat,:vendor,:amount,:method,:notes)'
@@ -222,9 +187,6 @@ try {
             http_response_code(422);
             echo json_encode(['success'=>false,'error'=>'date, vendor, and amount are required']);
             exit;
-        }
-        if ($meth === 'Cash in Hand') {
-            expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? ''));
         }
 
         // Capture the pre-edit state so we can reverse its Cash in Hand

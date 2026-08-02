@@ -82,51 +82,22 @@ function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $n
   try {
     $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
       `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-      `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup',
+      `type` ENUM('topup','purchase','expense','adjustment') NOT NULL DEFAULT 'topup',
       `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
       `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
       `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
       `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      `source_end_date` DATE NULL, PRIMARY KEY (`id`),
+      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`),
       INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
     $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-      (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by, created_at)
-      VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId, date('Y-m-d H:i:s')]);
+      (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by)
+      VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId]);
   } catch (Throwable $e) {
     error_log('recordCashInHandMovement (purchases.php) failed: ' . $e->getMessage());
   }
-}
-
-// Same rule as expenses.php / Cash in Hand page — blocks drawing from a
-// session's Cash in Hand pool once its closing balance has already been
-// carried forward elsewhere, unless the restriction's been turned off.
-function pnCheckCarriedRestriction($db, $sessionToDate) {
-  if (!$sessionToDate) return;
-  try {
-    $restrictSetting = $db->prepare('SELECT value FROM settings WHERE `key` = ?');
-    $restrictSetting->execute(['cih_restrict_carried_sessions']);
-    $restrictVal = $restrictSetting->fetchColumn();
-    if ($restrictVal !== false && $restrictVal !== '1') return;
-  } catch (Throwable $e) { return; }
-
-  try {
-    $stmt = $db->prepare(
-      "SELECT l.amount, l.created_at, u.name AS by_name
-       FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-       WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-    );
-    $stmt->execute([$sessionToDate]);
-    $row = $stmt->fetch();
-    if (!$row) return;
-    jsonResponse(['error' =>
-      'This session\'s Cash in Hand balance (₹' . number_format($row['amount'], 2) . ') was already carried forward on ' .
-      date('d-m-Y', strtotime($row['created_at'])) . ' by ' . ($row['by_name'] ?: 'someone') .
-      '. Turn off the restriction in Settings if this purchase genuinely needs to draw from it.'], 400);
-  } catch (Throwable $e) { /* fail open */ }
 }
 
 // ── Batch tracking on receipt — receiving stock for a batch-tracked
@@ -211,9 +182,6 @@ switch ($method) {
     if (empty($d['purchase_date'])) jsonResponse(['error' => 'Purchase date is required'], 400);
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      pnCheckCarriedRestriction($db, trim($d['session_to_date'] ?? '')); // checked before ANY insert — purchase writes its header+items before the payment-mode block further down
-    }
 
     $purchaseNo = trim($d['purchase_no'] ?? '');
     if ($purchaseNo === '') {
@@ -315,9 +283,6 @@ switch ($method) {
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      pnCheckCarriedRestriction($db, trim($d['session_to_date'] ?? ''));
-    }
 
     // Capture the pre-edit payment state so we can reverse its Cash in Hand
     // impact below if it changes (or stays the same but the amount changed).

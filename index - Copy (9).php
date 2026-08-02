@@ -1446,9 +1446,9 @@ select { cursor: pointer; }
 
 /* ── User chip (topbar) ── */
 .user-chip { display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:none;border-radius:10px;background:transparent;cursor:pointer;transition:.18s;position:relative; }
-.user-chip:hover { background:var(--bg);border-color:var(--teal); }
+.user-chip:hover { background: #E0F2F1; }
 .user-chip-avatar { width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;overflow:hidden; }
-.user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap; }
+.user-chip-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis; }
 .user-chip-chevron { font-size:10px;color:var(--muted);margin-left:2px;transition:.2s; }
 
 /* ── User dropdown ── */
@@ -1838,16 +1838,24 @@ const SERVER = {
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
     </div>
-    <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-          style="display:none;flex-direction:column;align-items:center;gap:1px;padding:4px 16px;border-radius:12px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;cursor:pointer;white-space:nowrap;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
-      <span style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px"><i class="fas fa-calendar-days" style="font-size:10.5px"></i> <span id="gdr-topbar-badge-name"></span></span>
-      <span id="gdr-topbar-badge-dates" style="font-size:9.5px;font-weight:500;opacity:.85"></span>
+    <div style="display:flex;gap:10px;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
+      <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
+            style="display:none;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#E0F2F1;border:1px solid #80CBC4;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:13px;color:#00695C"></i>
+        <div style="display:flex;flex-direction:column;line-height:1.35">
+          <span style="font-size:12.5px;font-weight:700;color:#00695C" id="gdr-topbar-badge-name"></span>
+          <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.8" id="gdr-topbar-badge-dates"></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#F3E8FF;border:1px solid #CE93D8;white-space:nowrap" title="<?= htmlspecialchars($firmName) ?>">
+        <i class="fas fa-building" style="font-size:13px;color:#6A1B9A"></i>
+        <div style="display:flex;flex-direction:column;line-height:1.35">
+          <span style="font-size:9px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.4px">Entity:</span>
+          <span style="font-size:12.5px;font-weight:700;color:#6A1B9A;max-width:200px;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($firmName) ?></span>
+        </div>
+      </div>
     </div>
     <div class="topbar-right">
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--text2)" title="<?= htmlspecialchars($firmName) ?>">
-        <i class="fas fa-building" style="font-size:11px;color:var(--muted)"></i>
-        <span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars($firmName) ?></span>
-      </span>
       <?php /* Role badge removed from topbar — already shown in the user dropdown header */ ?>
       <?php if ($isSuperAdmin): ?>
         <?php if ($connectedDb): ?>
@@ -1896,7 +1904,7 @@ const SERVER = {
           <div class="user-chip-avatar" id="chipAvatar">
             <?php if(!empty($user['avatar'])): ?><img src="<?= htmlspecialchars($user['avatar']) ?>" style="width:100%;height:100%;object-fit:cover"><?php else: ?><?= strtoupper(substr($user['name'],0,2)) ?><?php endif; ?>
           </div>
-          <span class="user-chip-name"><?= htmlspecialchars(explode(' ',$user['name'])[0]) ?></span>
+          <span class="user-chip-name"><?= htmlspecialchars($user['name']) ?></span>
           <i class="fas fa-chevron-down user-chip-chevron" id="userChipChevron"></i>
         </button>
         <div class="user-dropdown" id="userDropdown">
@@ -3427,7 +3435,7 @@ const SERVER = {
           <div class="pne-card-head" id="ps-movement-title">Stock Movement Summary (Last 7 Days)</div>
           <div style="overflow-x:auto;overflow-y:auto;max-height:290px">
             <table class="data-table" style="font-size:12.5px;min-width:640px">
-              <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Date</th><th>Opening Stock (Kg)</th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
+              <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Date</th><th>Opening Stock (Kg) <i class="fas fa-circle-info" title="Includes ALL stock from before this specific date, not just recent days — the true running total up to that point" style="color:var(--muted);cursor:help"></i></th><th>Stock In (Kg)</th><th>Stock Out (Kg)</th><th>Adjustment (Kg) <i class="fas fa-circle-info" title="Losses from Stock Adjustments (moisture/damage/cleaning)" style="color:var(--muted)"></i></th><th>Closing Stock (Kg)</th></tr></thead>
               <tbody id="ps-movement-tbody"></tbody>
             </table>
           </div>
@@ -3583,7 +3591,12 @@ const SERVER = {
               <div class="field" id="pne-field-tax_type"><label id="pne-label-tax_type">Tax Type</label>
                 <select id="pp-taxtype"><option value="Inclusive">Inclusive</option><option value="Exclusive">Exclusive</option></select>
               </div>
+              <div class="field" style="display:flex;align-items:center;gap:12px;grid-column:1/-1">
+                <label class="tog" id="pp-sessionpricing" onclick="this.classList.toggle('on');_ppToggleSessionPricing()"></label>
+                <span style="font-size:12.5px">Use Session-wise Pricing <span style="color:var(--muted);font-weight:400">(price is set per session in Settings, instead of a fixed rate here)</span></span>
+              </div>
             </div>
+            <div id="pp-session-price-summary" style="display:none;margin-top:14px;padding:12px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)"></div>
           </div>
 
           <!-- 4. Inventory Information -->
@@ -5176,6 +5189,17 @@ const SERVER = {
             </table>
           </div>
         </div>
+
+        <div class="pne-card" style="margin-top:16px">
+          <div class="pne-card-head">Product-wise Purchases</div>
+          <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 10px">Only products purchased in at least one selected session are shown.</div>
+          <div style="overflow-x:auto">
+            <table class="data-table" id="cs-product-table">
+              <thead><tr id="cs-product-table-head"></tr></thead>
+              <tbody id="cs-product-table-body"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div id="cs-empty-state" style="text-align:center;color:var(--muted);padding:40px;font-size:13px">
@@ -5229,7 +5253,7 @@ const SERVER = {
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:16px" class="ps-stats-row">
         <div class="pne-card" style="padding:14px 16px">
           <span class="sa-chip-icon" style="background:#F3E8FF;color:#6A4C93;width:34px;height:34px"><i class="fas fa-box"></i></span>
-          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock</div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">Opening Stock <i class="fas fa-circle-info" title="Includes ALL stock from before this period started, not just this period — this is how much genuinely existed on day one, carried forward from every earlier purchase/sale" style="cursor:help"></i></div>
           <div style="font-size:16px;font-weight:800" id="sh-stat-opening">0.00 Kg</div>
           <div style="font-size:10px;color:var(--muted)" id="sh-stat-opening-date"></div>
         </div>
@@ -5493,6 +5517,43 @@ const SERVER = {
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal('modal-addfunds')">Cancel</button>
           <button class="btn btn-primary" id="cih-af-save-btn" onclick="saveAddFunds()" style="background:#00897B;border-color:#00897B"><i class="fas fa-check"></i> Add Funds</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-carryforward">
+      <div class="modal" style="max-width:460px;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:22px 24px;position:relative">
+          <button class="modal-close" onclick="closeModal('modal-carryforward')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-right-left" style="color:#fff;font-size:19px"></i>
+            </div>
+            <div>
+              <div style="color:#fff;font-size:16px;font-weight:700">Carry Forward Balance</div>
+              <div style="color:rgba(255,255,255,.8);font-size:12px">Move a past session's true closing balance into the current one</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-body" style="padding:22px 24px">
+          <div class="field">
+            <label><i class="fas fa-calendar-days" style="font-size:11px;color:var(--muted)"></i> Carry forward from</label>
+            <select id="cf-source-session" onchange="onCarryForwardSourceChange()">
+              <option value="">— Select a session —</option>
+            </select>
+          </div>
+          <div id="cf-preview" style="display:none;background:var(--bg);border-radius:10px;padding:14px 16px;margin-top:14px;text-align:center">
+            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Closing Balance</div>
+            <div style="font-size:24px;font-weight:800;margin-top:4px" id="cf-preview-amount">₹0.00</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px" id="cf-preview-date"></div>
+          </div>
+          <div id="cf-target-note" style="font-size:11.5px;color:var(--muted);margin-top:14px;padding:10px 12px;background:#FFF4E0;border:1px solid #FFD9A0;border-radius:8px">
+            <i class="fas fa-circle-info" style="color:#9A6700"></i> This will be recorded as a real ledger entry dated at the start of your currently active session (<strong id="cf-target-name">—</strong>), not just a display change.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('modal-carryforward')">Cancel</button>
+          <button class="btn btn-primary" id="cf-confirm-btn" onclick="confirmCarryForward()" style="background:#1565C0;border-color:#1565C0" disabled><i class="fas fa-check"></i> Confirm Transfer</button>
         </div>
       </div>
     </div>
@@ -7040,6 +7101,39 @@ View Invoice: {{6}}</pre></details>
               <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
             </div>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+              <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
+              <span style="font-size:12.5px">Block editing a session's balance after it's been carried forward elsewhere <span style="color:var(--muted);font-weight:400">(recommended — turn off only if a genuine correction is needed on a carried-forward session)</span></span>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-tags" style="color:var(--teal)"></i> Session-wise Product Pricing</div>
+            <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Set a different price per product for each saved session — useful when crop/product rates genuinely change season to season. A product only follows session pricing if you turn it on for that specific product (Product page → Pricing & Tax Information); everything else keeps using its normal fixed rate.</p>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <label class="tog" id="ssp-enabled-tog" onclick="this.classList.toggle('on');toggleSessionPricingEnabled()"></label>
+              <span style="font-size:13px;font-weight:600">Enable Session-wise Pricing</span>
+            </div>
+            <div id="ssp-body" style="opacity:.5">
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+                <div class="field" style="margin-bottom:0;min-width:220px">
+                  <label>Managing prices for</label>
+                  <select id="ssp-preset-select" onchange="loadSessionPricingTable()" disabled>
+                    <option value="">— Select a saved session —</option>
+                  </select>
+                </div>
+                <input type="text" id="ssp-search" placeholder="Search products…" oninput="renderSessionPricingTable()" disabled style="flex:1;min-width:180px;margin-top:18px">
+              </div>
+              <div style="overflow-x:auto;max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+                <table class="data-table" style="font-size:12.5px">
+                  <thead style="position:sticky;top:0;background:var(--card);z-index:1"><tr><th>Product</th><th style="text-align:right">Purchase Rate (₹)</th><th style="text-align:right">Sale Rate (₹)</th></tr></thead>
+                  <tbody id="ssp-table-body"><tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr></tbody>
+                </table>
+              </div>
+              <div style="margin-top:14px">
+                <button class="btn btn-primary" id="ssp-save-btn" onclick="saveSessionPricingTable()" disabled><i class="fas fa-save"></i> Save Prices for This Session</button>
+              </div>
+            </div>
           </div>
 
           <div class="stab-footer">
@@ -7501,6 +7595,9 @@ View Invoice: {{6}}</pre></details>
           <span style="font-size:13px;color:var(--muted)">A shared cash fund managers draw from for on-the-spot purchases &amp; expenses.</span>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-outline" id="cih-carryforward-btn" onclick="openCarryForwardModal()" style="display:none">
+            <i class="fas fa-right-left"></i> Carry Forward Balance
+          </button>
           <button class="btn btn-outline" id="cih-correction-btn" onclick="openCorrectionModal()" style="display:none">
             <i class="fas fa-wrench"></i> Add Correction
           </button>
@@ -7517,6 +7614,7 @@ View Invoice: {{6}}</pre></details>
         <div id="cih-negative-flag" style="display:none;margin-top:8px;font-size:12.5px;font-weight:700;color:#E53935;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:8px 14px;display:inline-block">
           <i class="fas fa-triangle-exclamation"></i> Balance is negative — more has been spent than was funded. Add funds to settle this.
         </div>
+        <div id="cih-carried-banner" style="display:none;margin-top:8px;font-size:12.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 14px"></div>
       </div>
 
       <!-- Period filter — also filters the ledger table below now -->
@@ -7532,8 +7630,8 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
 
-      <!-- Total In / Total Out (for the selected period) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      <!-- Total In / Total Out / Remaining Balance (for the selected period) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px">
         <div class="pne-card" style="padding:16px">
           <span class="sa-chip-icon" style="background:#E0F2F1;color:#00897B;width:34px;height:34px"><i class="fas fa-arrow-down"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL IN (this period)</div>
@@ -7543,6 +7641,11 @@ View Invoice: {{6}}</pre></details>
           <span class="sa-chip-icon" style="background:#FFEBEE;color:#E53935;width:34px;height:34px"><i class="fas fa-arrow-up"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL OUT (this period)</div>
           <div style="font-size:18px;font-weight:800;color:#E53935" id="cih-total-out">₹0</div>
+        </div>
+        <div class="pne-card" style="padding:16px">
+          <span class="sa-chip-icon" style="background:#E3F2FD;color:#1565C0;width:34px;height:34px"><i class="fas fa-scale-balanced"></i></span>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">REMAINING BALANCE (this period)</div>
+          <div style="font-size:18px;font-weight:800" id="cih-remaining-balance">₹0</div>
         </div>
       </div>
 
@@ -8818,8 +8921,9 @@ function _gdrRenderTopBarBadge() {
   if (!badge || !nameEl || !datesEl) return;
   if (GLOBAL_DATE_ACTIVE) {
     const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-    nameEl.textContent = activePreset ? activePreset.name : 'Session';
-    datesEl.textContent = `${fmt_date_disp(GLOBAL_DATE_FROM)} – ${fmt_date_disp(GLOBAL_DATE_TO)}`;
+    const label = activePreset ? activePreset.name : 'Custom Range';
+    nameEl.textContent = `PERIOD : ${label}`;
+    datesEl.textContent = `${fmt_date_long_mdy(GLOBAL_DATE_FROM)} - ${fmt_date_long_mdy(GLOBAL_DATE_TO)}`;
     badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
@@ -8935,8 +9039,135 @@ async function deleteDateRangePreset(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-// Small helper other pages will call: returns true if a date falls within
-// the active global range (always true if the filter is off).
+// ══════════════════════════════════════════════════════════════
+// SESSION-WISE PRODUCT PRICING — a separate concern from presets
+// themselves (a preset is just a date range). Prices are stored keyed by
+// preset id: SESSION_PRICES[presetId][productId] = {purchase_rate, sale_rate}.
+// A product only actually USES this if its own track_session_price=1 —
+// everything else keeps its normal fixed rate regardless of this data
+// existing or not.
+// ══════════════════════════════════════════════════════════════
+let SESSION_PRICING_ENABLED = false;
+let SESSION_PRICES = {}; // { [presetId]: { [productId]: {purchase_rate, sale_rate} } }
+
+function _loadSessionPricingData() {
+  const s = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
+  SESSION_PRICING_ENABLED = s.session_pricing_enabled === '1';
+  try { SESSION_PRICES = JSON.parse(s.session_product_prices || '{}'); } catch(e) { SESSION_PRICES = {}; }
+}
+
+function initSessionPricingSettings() {
+  _loadSessionPricingData();
+  document.getElementById('ssp-enabled-tog')?.classList.toggle('on', SESSION_PRICING_ENABLED);
+  _sspApplyEnabledState();
+
+  const sel = document.getElementById('ssp-preset-select');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Select a saved session —</option>' +
+      GLOBAL_DATE_PRESETS.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+  }
+  document.getElementById('ssp-table-body').innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
+}
+
+function _sspApplyEnabledState() {
+  const body = document.getElementById('ssp-body');
+  const on = SESSION_PRICING_ENABLED;
+  if (body) body.style.opacity = on ? '1' : '.5';
+  ['ssp-preset-select','ssp-search','ssp-save-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
+}
+
+async function toggleCihRestriction() {
+  const on = document.getElementById('cih-restrict-tog')?.classList.contains('on');
+  try {
+    await api('api/settings.php', 'POST', { cih_restrict_carried_sessions: on ? '1' : '0' });
+    if (SERVER.settings) SERVER.settings.cih_restrict_carried_sessions = on ? '1' : '0';
+    toast(on ? '✅ Restriction enabled' : 'ℹ️ Restriction disabled — carried-forward sessions can be edited again', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function toggleSessionPricingEnabled() {
+  SESSION_PRICING_ENABLED = document.getElementById('ssp-enabled-tog')?.classList.contains('on');
+  _sspApplyEnabledState();
+  try {
+    await api('api/settings.php', 'POST', { session_pricing_enabled: SESSION_PRICING_ENABLED ? '1' : '0' });
+    if (SERVER.settings) SERVER.settings.session_pricing_enabled = SESSION_PRICING_ENABLED ? '1' : '0';
+    toast(SESSION_PRICING_ENABLED ? '✅ Session-wise Pricing enabled' : 'ℹ️ Session-wise Pricing disabled', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function loadSessionPricingTable() { renderSessionPricingTable(); }
+
+function renderSessionPricingTable() {
+  const presetId = document.getElementById('ssp-preset-select')?.value;
+  const tbody = document.getElementById('ssp-table-body');
+  if (!presetId) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
+    return;
+  }
+  const q = (document.getElementById('ssp-search')?.value || '').toLowerCase();
+  const prices = SESSION_PRICES[presetId] || {};
+  const products = (STATE.products || []).filter(p => !q || (p.name||'').toLowerCase().includes(q));
+
+  if (!products.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">No products match your search</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const rawId = String(p.id).replace(/\D/g,'');
+    const saved = prices[rawId] || {};
+    return `<tr>
+      <td>${escHtml(p.name)}</td>
+      <td style="text-align:right"><input type="number" min="0" step="0.01" data-ssp-product="${rawId}" data-ssp-field="purchase_rate" value="${saved.purchase_rate ?? ''}" placeholder="${p.purchase_rate ?? '0'}" style="width:110px;text-align:right"></td>
+      <td style="text-align:right"><input type="number" min="0" step="0.01" data-ssp-product="${rawId}" data-ssp-field="sale_rate" value="${saved.sale_rate ?? ''}" placeholder="${p.sale_rate ?? '0'}" style="width:110px;text-align:right"></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveSessionPricingTable() {
+  const presetId = document.getElementById('ssp-preset-select')?.value;
+  if (!presetId) { toast('⚠️ Select a session first', 'warning'); return; }
+
+  const updated = { ...(SESSION_PRICES[presetId] || {}) };
+  document.querySelectorAll('#ssp-table-body input[data-ssp-product]').forEach(input => {
+    const pid = input.dataset.sspProduct, field = input.dataset.sspField;
+    const val = parseFloat(input.value);
+    if (!updated[pid]) updated[pid] = {};
+    if (!isNaN(val) && val >= 0) updated[pid][field] = val;
+    else delete updated[pid][field];
+    if (!updated[pid].purchase_rate && !updated[pid].sale_rate) delete updated[pid]; // clean up empty entries
+  });
+  SESSION_PRICES[presetId] = updated;
+
+  const btn = document.getElementById('ssp-save-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  try {
+    await api('api/settings.php', 'POST', { session_product_prices: JSON.stringify(SESSION_PRICES) });
+    if (SERVER.settings) SERVER.settings.session_product_prices = JSON.stringify(SESSION_PRICES);
+    toast('✅ Prices saved for this session!', 'success');
+    // Refresh anything currently showing a price that might depend on this
+    _gdrRefreshCurrentPage();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Prices for This Session'; } }
+}
+
+// ── Shared lookup: what price should THIS product actually use right
+// now, considering session pricing? Used by the Product page display
+// AND Sale/Purchase Entry's rate auto-suggestion — one source of truth.
+// Returns null if the product doesn't use session pricing, or if it does
+// but no price is set for the currently active session (caller should
+// fall back to the product's own base rate and show a warning).
+function getSessionPrice(product, rateType) {
+  if (!SESSION_PRICING_ENABLED || !product || !parseInt(product.track_session_price)) return null;
+  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) return null;
+  const rawId = String(product.id).replace(/\D/g,'');
+  const presetPrices = SESSION_PRICES[GLOBAL_ACTIVE_PRESET_ID];
+  if (!presetPrices || !presetPrices[rawId]) return null;
+  const val = presetPrices[rawId][rateType];
+  return (val !== undefined && val !== null) ? parseFloat(val) : null;
+}
+
+
 function gdrDateInRange(dateStr) {
   if (!GLOBAL_DATE_ACTIVE || !dateStr) return true;
   return dateStr >= GLOBAL_DATE_FROM && dateStr <= GLOBAL_DATE_TO;
@@ -8990,6 +9221,7 @@ function _gdrRefreshCurrentPage() {
 window.addEventListener('DOMContentLoaded', () => {
   _gdrLoadFromSettings();
   _gdrRenderTopBarBadge();
+  _loadSessionPricingData();
   setTodayDates();
   addItem();
   updateClientDropdown();
@@ -17036,6 +17268,66 @@ function _ppToggleBatchSerialButtons() {
   }
 }
 
+// Session Pricing toggle — locks the rate fields (they're controlled by
+// whichever session is active, not typed here directly) and shows the
+// currently-active session's price, or a warning if none is set yet.
+function _ppToggleSessionPricing() {
+  const on = document.getElementById('pp-sessionpricing')?.classList.contains('on');
+  const purchaseRateEl = document.getElementById('pp-purchaserate');
+  const saleRateEl = document.getElementById('pp-salerate');
+  const summaryEl = document.getElementById('pp-session-price-summary');
+  if (purchaseRateEl) purchaseRateEl.disabled = on;
+  if (saleRateEl) saleRateEl.disabled = on;
+  if (!summaryEl) return;
+
+  if (!on) {
+    summaryEl.style.display = 'none';
+    // Restore whatever base rate was actually saved, in case it got
+    // temporarily overwritten below to show a session price.
+    if (purchaseRateEl && purchaseRateEl.dataset.baseRate !== undefined) purchaseRateEl.value = purchaseRateEl.dataset.baseRate;
+    if (saleRateEl && saleRateEl.dataset.baseRate !== undefined) saleRateEl.value = saleRateEl.dataset.baseRate;
+    return;
+  }
+  summaryEl.style.display = 'block';
+  // Remember the real base rate before we override the displayed value,
+  // so turning the toggle back off restores it correctly instead of
+  // leaving whatever session price was last shown.
+  if (purchaseRateEl && purchaseRateEl.dataset.baseRate === undefined) purchaseRateEl.dataset.baseRate = purchaseRateEl.value;
+  if (saleRateEl && saleRateEl.dataset.baseRate === undefined) saleRateEl.dataset.baseRate = saleRateEl.value;
+
+  if (!SESSION_PRICING_ENABLED) {
+    summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> Session-wise Pricing is turned off tenant-wide — enable it in Settings → Company Info first, or this toggle won't take effect.</div>`;
+    return;
+  }
+  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) {
+    summaryEl.innerHTML = `<div style="color:var(--muted);font-size:12.5px"><i class="fas fa-circle-info"></i> No session is currently active — set one in Settings to see live pricing here.</div>`;
+    return;
+  }
+  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
+  const rawId = PNP.editingId ? String(PNP.editingId).replace(/\D/g,'') : null;
+  const fakeProduct = { id: rawId, track_session_price: 1 };
+  const pRate = rawId ? getSessionPrice(fakeProduct, 'purchase_rate') : null;
+  const sRate = rawId ? getSessionPrice(fakeProduct, 'sale_rate') : null;
+
+  if (!rawId) {
+    summaryEl.innerHTML = `<div style="color:var(--muted);font-size:12.5px"><i class="fas fa-circle-info"></i> Save this product first, then set its price for each session in Settings → Company Info → Session-wise Product Pricing.</div>`;
+    return;
+  }
+  if (pRate === null && sRate === null) {
+    summaryEl.innerHTML = `<div style="color:#E65100;font-size:12.5px"><i class="fas fa-triangle-exclamation"></i> No price set for "${escHtml(activePreset?.name||'this session')}" yet — falling back to this product's base rate until one's added in Settings.</div>`;
+    return;
+  }
+  // Show the actual effective numbers in the fields themselves — a locked
+  // field displaying the old base rate while a box below says something
+  // different reads as broken, even when both numbers are technically
+  // correct. Only overwrite whichever of the two actually has a session
+  // price set; leave the other showing its base rate + summary line
+  // rather than showing a blank/zero.
+  if (pRate !== null && purchaseRateEl) purchaseRateEl.value = pRate.toFixed(2);
+  if (sRate !== null && saleRateEl) saleRateEl.value = sRate.toFixed(2);
+  summaryEl.innerHTML = `<div style="font-size:12.5px"><i class="fas fa-tag" style="color:var(--teal)"></i> Active price for <strong>${escHtml(activePreset?.name||'current session')}</strong>: Purchase ₹${pRate!==null?pRate.toFixed(2):'—'} · Sale ₹${sRate!==null?sRate.toFixed(2):'—'}</div>`;
+}
+
 // ── Batches ──────────────────────────────────────────────────────
 let PB_CODE_AUTO = true;
 let PB_CURRENT_PRODUCT_ID = null;
@@ -17191,6 +17483,10 @@ function goToNewProductPage() {
   document.getElementById('pp-warehouse').value = 'Main Warehouse';
   document.getElementById('pp-trackbatch').classList.remove('on');
   document.getElementById('pp-trackserial').classList.remove('on');
+  document.getElementById('pp-sessionpricing')?.classList.remove('on');
+  delete document.getElementById('pp-purchaserate').dataset.baseRate;
+  delete document.getElementById('pp-salerate').dataset.baseRate;
+  _ppToggleSessionPricing();
   document.getElementById('pp-country').value = 'India';
   document.getElementById('pp-status').classList.add('on');
   document.getElementById('pp-status-label').textContent = 'Active';
@@ -17247,6 +17543,10 @@ function editProductRich(id) {
   set('pp-maxstock', p.max_stock || 0); set('pp-warehouse', p.default_warehouse || 'Main Warehouse');
   document.getElementById('pp-trackbatch').classList.toggle('on', !!parseInt(p.track_batch));
   document.getElementById('pp-trackserial').classList.toggle('on', !!parseInt(p.track_serial));
+  delete document.getElementById('pp-purchaserate').dataset.baseRate;
+  delete document.getElementById('pp-salerate').dataset.baseRate;
+  document.getElementById('pp-sessionpricing')?.classList.toggle('on', !!parseInt(p.track_session_price));
+  _ppToggleSessionPricing();
   PP_OPENING_BATCH_AUTO = true;
   document.getElementById('pp-openingbatch').value = '';
   _ppToggleBatchSerialButtons();
@@ -17320,9 +17620,9 @@ async function saveProductEntry(mode) {
     color: document.getElementById('pp-color').value.trim(), aroma: document.getElementById('pp-aroma').value.trim(),
     shape_size: document.getElementById('pp-shapesize').value.trim(), packing_type: document.getElementById('pp-packingtype').value,
     packing_size: document.getElementById('pp-packingsize').value.trim(),
-    purchase_rate: parseFloat(document.getElementById('pp-purchaserate').value) || 0,
-    sale_rate: parseFloat(document.getElementById('pp-salerate').value) || 0,
-    rate: parseFloat(document.getElementById('pp-salerate').value) || 0, // legacy 'rate' column mirrors sale rate for compatibility
+    purchase_rate: (() => { const el = document.getElementById('pp-purchaserate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(),
+    sale_rate: (() => { const el = document.getElementById('pp-salerate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(),
+    rate: (() => { const el = document.getElementById('pp-salerate'); return parseFloat(el.dataset.baseRate ?? el.value) || 0; })(), // legacy 'rate' column mirrors sale rate for compatibility
     mrp: parseFloat(document.getElementById('pp-mrp').value) || 0,
     gst: parseInt(document.getElementById('pp-gst').value) || 0,
     tax_type: document.getElementById('pp-taxtype').value,
@@ -17332,6 +17632,7 @@ async function saveProductEntry(mode) {
     default_warehouse: document.getElementById('pp-warehouse').value,
     track_batch: document.getElementById('pp-trackbatch').classList.contains('on') ? 1 : 0,
     track_serial: document.getElementById('pp-trackserial').classList.contains('on') ? 1 : 0,
+    track_session_price: document.getElementById('pp-sessionpricing')?.classList.contains('on') ? 1 : 0,
     opening_batch_code: document.getElementById('pp-openingbatch')?.value.trim() || '',
     short_description: document.getElementById('pp-shortdesc').value.trim(),
     detailed_description: document.getElementById('pp-detaildesc').value.trim(),
@@ -17783,7 +18084,7 @@ async function saveSupplier() {
   const btn = document.getElementById('sup-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
-    name,
+    name, status: 'active',
     contact_person:  document.getElementById('supq-person').value.trim(),
     phone:           document.getElementById('supq-phone').value.trim(),
     email:           document.getElementById('supq-email').value.trim(),
@@ -18366,7 +18667,7 @@ function viewSupplierPdf(id) {
         ${kv('Notes', s.notes)}
       </div>
     </div>
-    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())}</span></div>
+    <div class="footer"><span>Supplier profile — system generated</span><span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span></div>
     ${'<' + 'script>window.print();</' + 'script>'}
   </body></html>`);
   win.document.close();
@@ -18584,7 +18885,7 @@ function renderPurchases() {
     <tr>
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td>${fmt_date_disp(p.purchase_date)}</td>
+      <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
       <td>${escHtml(p.supplier_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -18682,6 +18983,19 @@ function prlFilteredProducts() {
   });
 }
 
+// Session price if this product uses it and one's set for the active
+// session, falling back to the base rate — with a small teal tag when
+// the number shown is session-driven, so it's clear it's not the fixed rate.
+function _prlRateCell(p, field) {
+  const sessionVal = getSessionPrice(p, field);
+  const baseVal = parseFloat(field === 'sale_rate' ? (p.sale_rate ?? p.rate) : p.purchase_rate) || 0;
+  const shown = sessionVal !== null ? sessionVal : baseVal;
+  const fmt = shown.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return sessionVal !== null
+    ? `${fmt} <span style="font-size:9px;font-weight:700;color:#00695C;background:#E0F2F1;padding:1px 6px;border-radius:8px;margin-left:3px" title="Session price">S</span>`
+    : fmt;
+}
+
 function renderProductsList() {
   const tbody = document.getElementById('prl-tbody');
   if (!tbody) return;
@@ -18745,8 +19059,8 @@ function renderProductsList() {
       <td>${escHtml(p.category||'—')}</td>
       <td>${escHtml(p.unit||'Kg')}</td>
       <td>${escHtml(p.hsn||'—')}</td>
-      <td style="text-align:right">${(parseFloat(p.sale_rate ?? p.rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right">${(parseFloat(p.purchase_rate)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td style="text-align:right">${_prlRateCell(p, 'sale_rate')}</td>
+      <td style="text-align:right">${_prlRateCell(p, 'purchase_rate')}</td>
       <td style="text-align:right;font-weight:600;color:${stockColor}">${stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} ${escHtml(p.unit||'Kg')}</td>
       <td><span style="font-size:11px;font-weight:700;color:${active?'#00897B':'#889'};background:${active?'#00897B':'#889'}18;padding:2px 9px;border-radius:10px">${active?'Active':'Inactive'}</span></td>
       <td>
@@ -18794,6 +19108,48 @@ function fmt_date_disp(d) {
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return String(dt.getDate()).padStart(2,'0') + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + dt.getFullYear();
+}
+
+const _FMT_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// "01 Aug 2026" — day first, used for Stock Movement Summary
+function fmt_date_long_dmy(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return String(dt.getDate()).padStart(2,'0') + ' ' + _FMT_MONTHS_SHORT[dt.getMonth()] + ' ' + dt.getFullYear();
+}
+
+// "Aug 01, 2026" — month first, used for the topbar Period badge
+function fmt_date_long_mdy(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return _FMT_MONTHS_SHORT[dt.getMonth()] + ' ' + String(dt.getDate()).padStart(2,'0') + ', ' + dt.getFullYear();
+}
+
+// "02:30 PM" — 12-hour with AM/PM, used everywhere a time is shown
+function fmt_time_ampm(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '';
+  let h = dt.getHours();
+  const m = String(dt.getMinutes()).padStart(2,'0');
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return String(h).padStart(2,'0') + ':' + m + ' ' + ap;
+}
+
+// Stacked date+time HTML for table cells — date on top, time below in
+// smaller muted text. Returns '' (not a fallback dash) when there's no
+// time component to show, so a plain date-only value doesn't get a
+// confusing blank second line.
+function fmt_datetime_stacked(d) {
+  if (!d) return '<span style="color:var(--muted)">—</span>';
+  const dt = new Date(d);
+  if (isNaN(dt)) return escHtml(String(d));
+  const timeStr = fmt_time_ampm(d);
+  return `<div>${fmt_date_disp(d)}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
 }
 
 
@@ -19088,11 +19444,11 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional — e.g. B0001" oninput="updatePNEItem(${it.id},'batch_no',this.value,true)"></td>
-      <td><input id="pne-gross-${it.id}" type="number" value="${it.gross_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'gross_weight',this.value)"></td>
-      <td><input id="pne-tare-${it.id}" type="number" value="${it.tare_weight||''}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'tare_weight',this.value)"></td>
+      <td><span class="pne-computed" id="pne-gross-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</span></td>
+      <td><span class="pne-computed" id="pne-tare-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</span></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
       <td class="pne-dhpct-col"><span class="pne-computed" id="pne-dhaltapct-${it.id}">${c.dhaltaPct.toFixed(2)}</span></td>
-      <td><input id="pne-dkg-${it.id}" type="number" value="${it.dhalta_kg}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'dhalta_kg',this.value)"></td>
+      <td><span class="pne-computed" id="pne-dkg-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${(parseFloat(it.dhalta_kg)||0).toFixed(2)}</span></td>
       <td><span class="pne-computed" id="pne-billable-${it.id}">${c.billable.toFixed(2)}</span></td>
       <td><input type="number" value="${it.rate}" min="0" step="0.01" oninput="updatePNEItem(${it.id},'rate',this.value)"></td>
       <td><input type="number" value="${it.discount_pct}" min="0" max="100" step="0.01" oninput="updatePNEItem(${it.id},'discount_pct',this.value)"></td>
@@ -19155,7 +19511,12 @@ function onPNEProductChange(id, productId) {
       it.description = p.name;
       // Auto-fill from product master — only when the field is blank so a
       // user who changes product mid-entry doesn't silently lose what they typed.
-      if (!it.rate)          it.rate = parseFloat(p.purchase_rate ?? p.rate) || 0;
+      // Session price (if this product uses it, and one's set for the
+      // currently active session) takes priority over the base rate.
+      if (!it.rate) {
+        const sessionRate = getSessionPrice(p, 'purchase_rate');
+        it.rate = sessionRate !== null ? sessionRate : (parseFloat(p.purchase_rate ?? p.rate) || 0);
+      }
       if (!it.variety_grade) it.variety_grade = p.variety || '';
       if (!it.quality_grade) it.quality_grade = p.grade || '';
       // moisture_limit is the product's stored expected moisture — editable per purchase lot
@@ -19534,10 +19895,10 @@ function calcPNEKantaSummary() {
       const netEl    = document.getElementById('pne-net-'     + target.id);
       const billEl   = document.getElementById('pne-billable-'+ target.id);
       const amtEl    = document.getElementById('pne-amt-'     + target.id);
-      // Edit mode inputs — update value without cursor interference
-      // (these are the header→table sync, not user typing in the input)
-      if (grossIn && document.activeElement !== grossIn) grossIn.value = gross || '';
-      if (tareIn  && document.activeElement !== tareIn)  tareIn.value  = tare  || '';
+      // Row's gross/tare are read-only display now (weight only ever enters
+      // via this header Kanta section) — update via textContent, not value.
+      if (grossIn) grossIn.textContent = gross > 0 ? gross.toFixed(2) : '—';
+      if (tareIn)  tareIn.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
       // View mode cells
       if (vGrossEl) vGrossEl.textContent = gross > 0 ? gross.toFixed(2) : '—';
       if (vTareEl)  vTareEl.textContent  = tare  > 0 ? tare.toFixed(2)  : '—';
@@ -19624,7 +19985,7 @@ function onPNEHeaderDhaltaKgInput(val) {
     const billEl= document.getElementById('pne-billable-' + target.id);
     const amtEl = document.getElementById('pne-amt-'      + target.id);
     const dhEl  = document.getElementById('pne-dhaltapct-'+ target.id);
-    if (dkIn  && document.activeElement !== dkIn) dkIn.value = kg || '';
+    if (dkIn) dkIn.textContent = (kg || 0).toFixed(2);
     if (billEl) billEl.textContent = c.billable.toFixed(2);
     if (amtEl)  amtEl.textContent  = fmt_money(c.amount);
     if (dhEl)   dhEl.textContent   = c.dhaltaPct.toFixed(2);
@@ -19958,7 +20319,7 @@ function printLocalPurchaseVoucher(p) {
     </div>
     <div class="footer">
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -20119,7 +20480,7 @@ function printTaxInvoicePurchase(p) {
     </div>
     <div class="footer">
       <span>${escHtml(p.purchase_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -20201,14 +20562,18 @@ async function runSessionComparison() {
     const results = await Promise.all(presets.map(p =>
       api(`api/finance_report.php?date_from=${p.from}&date_to=${p.to}`)
     ));
+    const productResults = await Promise.all(presets.map(p =>
+      api(`api/product_stock.php?product_purchases=1&from=${p.from}&to=${p.to}`)
+    ));
 
     const rows = presets.map((p, i) => {
       const s = results[i].stats;
       const sales = s.total_sales.value, purchase = s.total_purchase.value;
       const collections = s.total_collections.value, payments = s.total_payments.value;
+      const expenses = results[i].expenses?.total || 0;
       const netProfit = s.net_profit.value;
       const marginPct = sales > 0 ? (netProfit / sales) * 100 : 0;
-      return { name: p.name, from: p.from, to: p.to, sales, purchase, collections, payments, netProfit, marginPct };
+      return { name: p.name, from: p.from, to: p.to, sales, purchase, collections, payments, expenses, netProfit, marginPct };
     });
 
     // Combined column — real sums, margin recomputed from totals (not an
@@ -20218,6 +20583,7 @@ async function runSessionComparison() {
       name: 'Combined (All Selected)',
       sales: rows.reduce((s,r)=>s+r.sales,0), purchase: rows.reduce((s,r)=>s+r.purchase,0),
       collections: rows.reduce((s,r)=>s+r.collections,0), payments: rows.reduce((s,r)=>s+r.payments,0),
+      expenses: rows.reduce((s,r)=>s+r.expenses,0),
       netProfit: rows.reduce((s,r)=>s+r.netProfit,0),
     };
     combined.marginPct = combined.sales > 0 ? (combined.netProfit / combined.sales) * 100 : 0;
@@ -20237,6 +20603,7 @@ async function runSessionComparison() {
     const metricRows = [
       ['Total Sales', c=>fmt_money(c.sales)],
       ['Total Purchase', c=>fmt_money(c.purchase)],
+      ['Total Expenses', c=>fmt_money(c.expenses)],
       ['Total Collections', c=>fmt_money(c.collections)],
       ['Total Payments', c=>fmt_money(c.payments)],
       ['Net Profit', c=>fmt_money(c.netProfit)],
@@ -20261,6 +20628,32 @@ async function runSessionComparison() {
         scales: { y: { ticks: { callback: v => v + '%' } } }
       }
     });
+
+    // Product-wise Purchases table — one row per product with activity in
+    // AT LEAST one selected session (quiet products stay out of the way),
+    // one column per session, plus a running total.
+    const productMap = {}; // { productName: { [sessionIndex]: qty } }
+    presets.forEach((p, i) => {
+      (productResults[i].data || []).forEach(row => {
+        if (!productMap[row.name]) productMap[row.name] = {};
+        productMap[row.name][i] = parseFloat(row.qty) || 0;
+      });
+    });
+    const productNames = Object.keys(productMap).sort();
+    const prodHead = document.getElementById('cs-product-table-head');
+    const prodBody = document.getElementById('cs-product-table-body');
+    if (prodHead && prodBody) {
+      prodHead.innerHTML = '<th>Product</th>' + presets.map(p => `<th style="text-align:right">${escHtml(p.name)}</th>`).join('') + '<th style="text-align:right;color:#0d3b2e">Total (Kg)</th>';
+      if (!productNames.length) {
+        prodBody.innerHTML = `<tr><td colspan="${presets.length+2}" style="text-align:center;color:var(--muted);padding:20px">No purchases recorded in any of the selected sessions</td></tr>`;
+      } else {
+        prodBody.innerHTML = productNames.map(name => {
+          const qtys = presets.map((p, i) => productMap[name][i] || 0);
+          const total = qtys.reduce((s,q)=>s+q, 0);
+          return `<tr><td style="font-weight:600">${escHtml(name)}</td>${qtys.map(q => `<td style="text-align:right">${q.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`).join('')}<td style="text-align:right;font-weight:700">${total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`;
+        }).join('');
+      }
+    }
 
     document.getElementById('cs-results').style.display = '';
     document.getElementById('cs-empty-state').style.display = 'none';
@@ -20650,7 +21043,7 @@ function renderSHTable() {
     return `
     <tr>
       <td>${start + idx + 1}</td>
-      <td>${fmt_date_disp(row.movement_date)}</td>
+      <td><div>${fmt_date_disp(row.movement_date)}</div>${row.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(row.created_at)}</div>` : ''}</td>
       <td><span style="font-size:10.5px;font-weight:700;color:${typeColor[refType]||'#889'};background:${typeColor[refType]||'#889'}18;padding:2px 8px;border-radius:10px">${typeLabel[refType]||'Unknown'}</span></td>
       <td>${refLabel[refType]||'Unknown'}</td>
       <td>${escHtml(row.reference_no||'—')}</td>
@@ -21304,7 +21697,10 @@ function onSNProductChange(id, productId) {
   if (productId) {
     const p = STATE.products.find(x => String(x.id) === String(productId));
     if (p) {
-      it.description = p.name; it.rate = parseFloat(p.sale_rate || p.rate) || it.rate; it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
+      it.description = p.name;
+      const sessionRate = getSessionPrice(p, 'sale_rate');
+      it.rate = sessionRate !== null ? sessionRate : (parseFloat(p.sale_rate || p.rate) || it.rate);
+      it.gst_pct = p.gst !== undefined ? p.gst : it.gst_pct;
       it.variety_grade = p.variety || it.variety_grade;
     }
     _snLoadBatchesForProduct(productId); // async — re-renders once fetched
@@ -22156,7 +22552,7 @@ function printSaleInvoice(s) {
     </div>
     <div class="footer">
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
-      <span>Printed on: ${fmt_date_disp(new Date())}</span>
+      <span>Printed on: ${fmt_date_disp(new Date())} ${fmt_time_ampm(new Date())}</span>
     </div>
     ${'<' + 'script>window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };</' + 'script>'}
   </body></html>`);
@@ -23650,7 +24046,7 @@ async function renderPSMovementAndTrend() {
     if (movTitle && r.truncated_to_31_days) movTitle.textContent += ' — showing most recent 31 days of this range';
     document.getElementById('ps-movement-tbody').innerHTML = tableRows.map(m => `
       <tr>
-        <td>${fmt_date_disp(m.date)}</td>
+        <td>${fmt_date_long_dmy(m.date)}</td>
         <td>${m.opening_stock.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
         <td style="color:#00897B">${m.stock_in.toFixed(2)}</td>
         <td style="color:#E53935">${m.stock_out.toFixed(2)}</td>
@@ -26835,6 +27231,8 @@ function populateSettingsForm() {
   _gdrToggleFields();
   _gdrLoadFromSettings();
   _gdrRenderPresetsList();
+  initSessionPricingSettings();
+  document.getElementById('cih-restrict-tog')?.classList.toggle('on', (SERVER.settings?.cih_restrict_carried_sessions ?? '1') === '1');
   // Signature roles + toggle matrix — read raw from SERVER.settings (not
   // mirrored into STATE.settings since they're only needed here and at print time).
   const ss = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
@@ -26973,7 +27371,7 @@ function _syncProfileUI(name, avatarSrc) {
   if (name) {
     // Topbar chip
     const chipName = document.querySelector('.user-chip-name');
-    if (chipName) chipName.textContent = name.split(' ')[0];
+    if (chipName) chipName.textContent = name;
     // Sidebar footer name
     const sidebarName = document.querySelector('.sidebar-footer .user-name');
     if (sidebarName) sidebarName.textContent = name;
@@ -28419,12 +28817,15 @@ function exportAgingCSV() {
 // — owner/super_admin always pass. See SERVER.canCihEdit/canCihDelete.
 // ══════════════════════════════════════════════════════════════
 let CIH_GDR_WAS_ACTIVE = false; // tracks previous render, same restore-on-OFF fix as Finance Report/Stock History
+let CIH_SESSION_ALREADY_CARRIED = false; // true when the active session was already carried forward AND the strict restriction is on
 
 async function renderCashInHand() {
   const addBtn = document.getElementById('cih-addfunds-btn');
   const corrBtn = document.getElementById('cih-correction-btn');
+  const cfBtn = document.getElementById('cih-carryforward-btn');
   if (addBtn) addBtn.style.display = SERVER.canCihEdit ? '' : 'none';
   if (corrBtn) corrBtn.style.display = SERVER.canCihDelete ? '' : 'none';
+  if (cfBtn) cfBtn.style.display = SERVER.canCihEdit ? '' : 'none';
 
   // Default the period filter to May 1 (this year) → today, the first time
   // the page opens — unless the Global Date Range is active, in which case
@@ -28523,11 +28924,11 @@ async function loadCihLedger(offset = 0) {
     const rowsHtml = rows.map(l => {
       const amt = parseFloat(l.amount)||0;
       const isIn = l.direction === 'in';
-      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
+      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment', carry_forward:'Carried Forward' }[l.type] || l.type;
       const typeColor  = isIn ? '#00897B' : '#E53935';
       const canEdit = SERVER.canCihEdit && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
       return `<tr>
-        <td>${fmt_date_disp(l.entry_date)}</td>
+        <td><div>${fmt_date_disp(l.entry_date)}</div>${l.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(l.created_at)}</div>` : ''}</td>
         <td><span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:${typeColor}22;color:${typeColor}">${typeLabel}</span></td>
         <td>${escHtml(l.note||'')}</td>
         <td style="color:var(--muted)">${escHtml(l.created_by_name||'—')}</td>
@@ -28561,6 +28962,30 @@ async function renderCashInHandBreakdown() {
   const to   = document.getElementById('cih-to')?.value;
   if (!from || !to) return;
 
+  // Was this session's closing balance already carried forward elsewhere?
+  // Shows a warning either way; disables Add Funds/Correction only if the
+  // strict restriction (Settings) is currently on.
+  CIH_SESSION_ALREADY_CARRIED = false;
+  try {
+    const cc = await api(`api/cash_in_hand.php?check_carried=1&to=${to}`);
+    const bannerEl = document.getElementById('cih-carried-banner');
+    if (cc.carried) {
+      CIH_SESSION_ALREADY_CARRIED = !!cc.restrict_enabled;
+      if (bannerEl) {
+        bannerEl.style.display = 'block';
+        bannerEl.innerHTML = `<i class="fas fa-right-left"></i> This session's closing balance (₹${Math.abs(cc.amount).toLocaleString('en-IN',{minimumFractionDigits:2})}) was already carried forward on ${fmt_date_disp(cc.when)} by ${escHtml(cc.by_name)} — treat this as already used, not available.`;
+      }
+    } else if (bannerEl) {
+      bannerEl.style.display = 'none';
+    }
+  } catch(e) { /* non-fatal — banner just won't show */ }
+  const addBtn2 = document.getElementById('cih-addfunds-btn');
+  const corrBtn2 = document.getElementById('cih-correction-btn');
+  if (addBtn2) addBtn2.disabled = CIH_SESSION_ALREADY_CARRIED;
+  if (corrBtn2) corrBtn2.title = CIH_SESSION_ALREADY_CARRIED ? 'This session was already carried forward — disable the restriction in Settings to edit anyway' : '';
+  if (addBtn2) addBtn2.title = corrBtn2?.title || '';
+  if (corrBtn2) corrBtn2.disabled = CIH_SESSION_ALREADY_CARRIED;
+
   try {
     const r = await api(`api/cash_in_hand.php?breakdown=1&from=${from}&to=${to}`);
     const totalIn = parseFloat(r.total_in) || 0;
@@ -28569,6 +28994,10 @@ async function renderCashInHandBreakdown() {
     const outEl = document.getElementById('cih-total-out');
     if (inEl) inEl.textContent = fmt_money(totalIn);
     if (outEl) outEl.textContent = fmt_money(totalOut);
+
+    const remaining = totalIn - totalOut;
+    const remEl = document.getElementById('cih-remaining-balance');
+    if (remEl) { remEl.textContent = fmt_money(remaining); remEl.style.color = remaining < 0 ? '#E53935' : '#1565C0'; }
 
     if (GLOBAL_DATE_ACTIVE) {
       const netBal = totalIn - totalOut;
@@ -28643,6 +29072,7 @@ async function saveAddFunds() {
     date: document.getElementById('cih-af-date').value,
     amount,
     note: document.getElementById('cih-af-note').value.trim(),
+    session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,
   };
   const btn = document.getElementById('cih-af-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; }
@@ -28669,6 +29099,68 @@ function cihEditWithApproval(entityType, entityId, label, actionFn) {
 }
 
 // ── Correction — fixes a mistake without editing history (Option B) ──
+// ── Carry Forward Balance — moves a chosen past session's true closing
+// balance into the currently active session, as one real ledger entry.
+// Source session is always explicitly picked, never auto-detected.
+function openCarryForwardModal() {
+  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) {
+    toast('⚠️ Activate a session first (Settings → Date Range Presets) — carry forward moves a balance INTO the currently active session', 'warning');
+    return;
+  }
+  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
+  const sel = document.getElementById('cf-source-session');
+  const otherPresets = GLOBAL_DATE_PRESETS.filter(p => p.id !== GLOBAL_ACTIVE_PRESET_ID);
+  sel.innerHTML = '<option value="">— Select a session —</option>' +
+    otherPresets.map(p => `<option value="${p.id}">${escHtml(p.name)} (${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)})</option>`).join('');
+  document.getElementById('cf-target-name').textContent = activePreset ? activePreset.name : 'current session';
+  document.getElementById('cf-preview').style.display = 'none';
+  document.getElementById('cf-confirm-btn').disabled = true;
+  openModal('modal-carryforward');
+}
+
+async function onCarryForwardSourceChange() {
+  const sourceId = document.getElementById('cf-source-session').value;
+  const previewEl = document.getElementById('cf-preview');
+  const confirmBtn = document.getElementById('cf-confirm-btn');
+  if (!sourceId) { previewEl.style.display = 'none'; confirmBtn.disabled = true; return; }
+
+  const source = GLOBAL_DATE_PRESETS.find(p => p.id === sourceId);
+  if (!source) return;
+  try {
+    const r = await api(`api/cash_in_hand.php?limit=1&to=${source.to}`);
+    const bal = parseFloat(r.balance_as_of) || 0;
+    document.getElementById('cf-preview-amount').textContent = fmt_money(bal);
+    document.getElementById('cf-preview-amount').style.color = bal < 0 ? '#E53935' : '#1565C0';
+    document.getElementById('cf-preview-date').textContent = `As of ${fmt_date_disp(source.to)}, end of "${source.name}"`;
+    previewEl.style.display = 'block';
+    confirmBtn.disabled = Math.abs(bal) < 0.01;
+    if (Math.abs(bal) < 0.01) document.getElementById('cf-preview-date').textContent += ' — nothing to carry forward';
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function confirmCarryForward() {
+  const sourceId = document.getElementById('cf-source-session').value;
+  const source = GLOBAL_DATE_PRESETS.find(p => p.id === sourceId);
+  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
+  if (!source || !activePreset) return;
+
+  const btn = document.getElementById('cf-confirm-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transferring…';
+  try {
+    const r = await api('api/cash_in_hand.php?action=carry_forward', 'POST', {
+      source_to_date: source.to,
+      entry_date: activePreset.from,
+      source_session_name: source.name,
+    });
+    closeModal('modal-carryforward');
+    toast(`✅ ₹${Math.abs(r.amount).toLocaleString('en-IN',{minimumFractionDigits:2})} carried forward from "${source.name}"`, 'success');
+    renderCashInHand();
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Confirm Transfer';
+  }
+}
+
 function openCorrectionModal() {
   if (!SERVER.canCihDelete) { toast('⚠️ You don\'t have permission to add corrections to Cash in Hand', 'warning'); return; }
   cihEditWithApproval('cash_in_hand_correction', 1, 'Cash in Hand — Add Correction', _openCorrectionModalReal);
@@ -28710,7 +29202,7 @@ async function saveCihCorrection() {
   const amount = CIH_CORR_DIRECTION === 'add' ? rawAmount : -rawAmount;
   const note = document.getElementById('cih-corr-note').value.trim();
   if (!note) { toast('⚠️ A reason for the correction is required', 'warning'); return; }
-  const payload = { date: document.getElementById('cih-corr-date').value, amount, note };
+  const payload = { date: document.getElementById('cih-corr-date').value, amount, note, session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null };
   const btn = document.getElementById('cih-corr-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; }
   try {
@@ -30956,6 +31448,35 @@ function _actGroupKey(e) {
   if (t==='credit_note')                            return 'credit_note';
   if (t==='expense_added' || (t==='create' && l.includes('expense'))) return 'expense_added';
   if (t==='status_changed' || (t==='update' && l.includes('status'))) return 'status_changed';
+  // Cash in Hand — these three action names are unique to this entity,
+  // no other entity uses 'topup'/'edit'/'correction' as its action verb.
+  if (t==='topup')      return 'cash_in_hand_topup';
+  if (t==='edit')       return 'cash_in_hand_edit';
+  if (t==='correction') return 'cash_in_hand_correction';
+  if (t==='update' && l.includes('settings')) return 'settings_updated';
+  // Batch/Serial checked BEFORE the generic 'product' rule below, since
+  // their labels also contain the word "product" and would otherwise
+  // false-match the broader product_* rule first.
+  if (l.includes('batch'))  return t==='delete' ? 'product_batch_deleted' : (t==='update' ? 'product_batch_updated' : 'product_batch_created');
+  if (l.includes('serial')) return t==='delete' ? 'product_serial_deleted' : 'product_serial_created';
+  if (l.includes('stock adjustment') || l.includes('adjustment')) return t==='delete' ? 'stock_adjustment_deleted' : 'stock_adjustment_created';
+  if (l.includes('purchase')) return t==='delete' ? 'purchase_deleted' : (t==='update' ? 'purchase_updated' : 'purchase_created');
+  if (l.includes('sale') && !l.includes('wholesale')) return t==='delete' ? 'sale_deleted' : (t==='update' ? 'sale_updated' : 'sale_created');
+  if (l.includes('customer')) {
+    if (t==='archive') return 'customer_archived';
+    if (t==='restore') return 'customer_restored';
+    return t==='update' ? 'client_edited' : 'client_added';
+  }
+  if (l.includes('supplier')) {
+    if (t==='archive') return 'supplier_archived';
+    if (t==='restore') return 'supplier_restored';
+    return t==='delete' ? 'supplier_deleted' : (t==='update' ? 'supplier_updated' : 'supplier_created');
+  }
+  if (l.includes('product')) {
+    if (t==='archive') return 'product_archived';
+    if (t==='restore') return 'product_restored';
+    return t==='update' ? 'product_updated' : 'product_created';
+  }
   // PHP generic actions with no entity match — return as-is so _actTypeInfo can style them
   return t;
 }
@@ -31024,6 +31545,37 @@ function _actTypeInfo(type) {
     create:             {icon:'➕', label:'Created',    col:'#1976D2', bg:'#e3f2fd'},
     delete:             {icon:'🗑️', label:'Deleted',   col:'#C62828', bg:'#ffebee'},
     update:             {icon:'✏️', label:'Updated',    col:'#7B1FA2', bg:'#f3e5f5'},
+    // ── Product-side activity types (Purchases, Sales, Suppliers,
+    // Products, Stock, Batches/Serials, Cash in Hand) — these were
+    // missing entirely before, silently falling back to a bare bullet.
+    purchase_created:      {icon:'🛒', label:'Purchase',      col:'#6A1B9A', bg:'#f3e5f5'},
+    purchase_updated:      {icon:'✏️', label:'Pur.Edited',    col:'#8E24AA', bg:'#f3e5f5'},
+    purchase_deleted:      {icon:'🗑️', label:'Pur.Deleted',   col:'#B71C1C', bg:'#ffebee'},
+    sale_created:           {icon:'🧾', label:'Sale',          col:'#2E7D32', bg:'#e8f5e9'},
+    sale_updated:           {icon:'✏️', label:'Sale Edited',   col:'#43A047', bg:'#e8f5e9'},
+    sale_deleted:           {icon:'🗑️', label:'Sale Deleted',  col:'#B71C1C', bg:'#ffebee'},
+    supplier_created:       {icon:'🚚', label:'Supplier',      col:'#00838F', bg:'#e0f7fa'},
+    supplier_updated:       {icon:'✏️', label:'Sup.Edited',    col:'#0097A7', bg:'#e0f7fa'},
+    supplier_deleted:       {icon:'🗑️', label:'Sup.Deleted',   col:'#B71C1C', bg:'#ffebee'},
+    supplier_archived:      {icon:'📦', label:'Archived',      col:'#78909C', bg:'#eceff1'},
+    supplier_restored:      {icon:'♻️', label:'Restored',      col:'#2E7D32', bg:'#e8f5e9'},
+    product_created:        {icon:'📦', label:'Product',       col:'#EF6C00', bg:'#fff3e0'},
+    product_updated:        {icon:'✏️', label:'Prod.Edited',   col:'#F57C00', bg:'#fff3e0'},
+    product_archived:       {icon:'📦', label:'Archived',      col:'#78909C', bg:'#eceff1'},
+    product_restored:       {icon:'♻️', label:'Restored',      col:'#2E7D32', bg:'#e8f5e9'},
+    stock_adjustment_created: {icon:'⚖️', label:'Stock Adj.',  col:'#5D4037', bg:'#efebe9'},
+    stock_adjustment_deleted: {icon:'🗑️', label:'Adj.Deleted', col:'#B71C1C', bg:'#ffebee'},
+    product_batch_created:  {icon:'🏷️', label:'Batch',        col:'#00695C', bg:'#e0f2f1'},
+    product_batch_updated:  {icon:'✏️', label:'Batch Edited',  col:'#00897B', bg:'#e0f2f1'},
+    product_batch_deleted:  {icon:'🗑️', label:'Batch Deleted', col:'#B71C1C', bg:'#ffebee'},
+    product_serial_created: {icon:'🔢', label:'Serial',        col:'#4527A0', bg:'#ede7f6'},
+    product_serial_deleted: {icon:'🗑️', label:'Serial Del.',   col:'#B71C1C', bg:'#ffebee'},
+    cash_in_hand_topup:     {icon:'💵', label:'Cash Added',    col:'#2E7D32', bg:'#e8f5e9'},
+    cash_in_hand_edit:      {icon:'✏️', label:'Cash Edited',   col:'#43A047', bg:'#e8f5e9'},
+    cash_in_hand_correction:{icon:'⚖️', label:'Correction',    col:'#E65100', bg:'#fbe9e7'},
+    settings_updated:       {icon:'⚙️', label:'Settings',      col:'#546E7A', bg:'#eceff1'},
+    customer_archived:      {icon:'📦', label:'Cl.Archived',    col:'#78909C', bg:'#eceff1'},
+    customer_restored:      {icon:'♻️', label:'Cl.Restored',    col:'#2E7D32', bg:'#e8f5e9'},
   };
   return map[type] || {icon:'•', label:type, col:'#9E9E9E', bg:'#f5f5f5'};
 }

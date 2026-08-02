@@ -106,7 +106,7 @@ try {
   }
 
   // ── GET: balance + paginated (optionally date-filtered) history ────
-  if ($method === 'GET' && empty($_GET['breakdown'])) {
+  if ($method === 'GET' && empty($_GET['breakdown']) && empty($_GET['check_carried'])) {
     $balance = cihCurrentBalance($db);
     $limit   = min(200, max(1, (int)($_GET['limit'] ?? 50)));
     $offset  = max(0, (int)($_GET['offset'] ?? 0));

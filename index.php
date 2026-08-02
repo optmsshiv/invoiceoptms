@@ -3294,7 +3294,8 @@ const SERVER = {
               </div>
 
               <div class="field"><label>Payment Mode</label>
-                <select id="pn-paymode" onchange="togglePNESplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
+                <select id="pn-paymode" onchange="togglePNESplitPayment();checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner')"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
+                <div id="pn-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
               </div>
               <div id="pne-split-panel" style="display:none">
                 <div class="pne-split-card">
@@ -8697,12 +8698,13 @@ View Invoice: {{6}}</pre></details>
           </select>
         </div>
         <div class="field" style="margin:0"><label>Payment Method</label>
-          <select id="exp-method" style="width:100%">
+          <select id="exp-method" style="width:100%" onchange="checkCihRestrictionBanner('exp-method', 'exp-cih-banner')">
             <option>UPI</option><option>Bank Transfer</option><option>Cash</option>
             <option>Credit Card</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option>
           </select>
         </div>
       </div>
+      <div id="exp-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-bottom:12px"></div>
       <div class="field" style="margin:0"><label>Vendor / Description *</label>
         <input id="exp-vendor" placeholder="e.g. AWS, Zomato, Office Rent" style="width:100%">
       </div>
@@ -19845,6 +19847,7 @@ async function editPurchase(id) {
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
     document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
+    checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner');
     document.getElementById('pne-split-panel').style.display = isSplitSaved ? 'block' : 'none';
     document.getElementById('pne-split-rows').innerHTML = '';
     if (isSplitSaved) {
@@ -20092,6 +20095,7 @@ async function savePurchaseEntry(mode) {
     payment_date: document.getElementById('pn-paydate').value || null,
     notes: document.getElementById('pn-notes').value.trim(),
     attachment: attachment || undefined,
+    session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,
     items: PNE.items.map(it => ({
       product_id: it.product_id || null, description: it.description, hsn: '',
       variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
@@ -29102,6 +29106,32 @@ function cihEditWithApproval(entityType, entityId, label, actionFn) {
 // ── Carry Forward Balance — moves a chosen past session's true closing
 // balance into the currently active session, as one real ledger entry.
 // Source session is always explicitly picked, never auto-detected.
+// Shared by Expense and Purchase Entry forms — shows a warning the moment
+// "Cash in Hand" is selected as payment method, if the active session's
+// balance was already carried forward elsewhere. Same underlying check
+// the Cash in Hand page itself uses; just surfaced earlier here so
+// someone finds out before filling in the whole form, not only at save.
+async function checkCihRestrictionBanner(selectId, bannerId) {
+  const banner = document.getElementById(bannerId);
+  if (!banner) return;
+  const val = document.getElementById(selectId)?.value || '';
+  if (!val.includes('Cash in Hand') || !GLOBAL_DATE_ACTIVE || !GLOBAL_DATE_TO) {
+    banner.style.display = 'none';
+    return;
+  }
+  try {
+    const cc = await api(`api/cash_in_hand.php?check_carried=1&to=${GLOBAL_DATE_TO}`);
+    if (cc.carried) {
+      banner.style.display = 'block';
+      const blocked = !!cc.restrict_enabled;
+      banner.innerHTML = `<i class="fas fa-triangle-exclamation"></i> This session's Cash in Hand balance (₹${Math.abs(cc.amount).toLocaleString('en-IN',{minimumFractionDigits:2})}) was already carried forward on ${fmt_date_disp(cc.when)} by ${escHtml(cc.by_name)}.` +
+        (blocked ? ' <strong>This payment method is blocked for this session</strong> — turn off the restriction in Settings if genuinely needed.' : ' Using it is still allowed since the restriction is currently off in Settings.');
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch(e) { banner.style.display = 'none'; }
+}
+
 function openCarryForwardModal() {
   if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) {
     toast('⚠️ Activate a session first (Settings → Date Range Presets) — carry forward moves a balance INTO the currently active session', 'warning');
@@ -29501,6 +29531,7 @@ function editExpense(id) {
   document.getElementById('exp-method').value   = exp.method||'UPI';
   document.getElementById('exp-vendor').value   = exp.vendor||'';
   document.getElementById('exp-notes').value    = exp.notes||'';
+  checkCihRestrictionBanner('exp-method', 'exp-cih-banner');
   openModal('modal-expense');
 }
 
@@ -29513,7 +29544,8 @@ function saveExpense() {
   if (!date || !amount || !category || !vendor) { toast('⚠️ Fill all required fields','warning'); return; }
   const entry = { id: id || (Date.now()+''), date, amount, category, vendor,
     method: document.getElementById('exp-method').value,
-    notes:  document.getElementById('exp-notes').value.trim() };
+    notes:  document.getElementById('exp-notes').value.trim(),
+    session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null };
   if (id) {
     const oldEntry = STATE.expenses.find(e=>String(e.id)===id);
     const oldAmount = oldEntry ? parseFloat(oldEntry.amount)||0 : null;
