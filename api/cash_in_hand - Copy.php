@@ -71,9 +71,6 @@ try {
     INDEX `idx_cih_ref`  (`reference_type`,`reference_id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-  // Auto-migrate: 'carry_forward' wasn't part of the original ENUM.
-  try { $db->exec("ALTER TABLE cash_in_hand_ledger MODIFY COLUMN `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup'"); } catch (Throwable $e) { /* already migrated */ }
-
   function cihCurrentBalance(PDO $db): float {
     $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
     return $row ? (float)$row['balance_after'] : 0.0;
@@ -187,52 +184,6 @@ try {
       'Cash in Hand funded: ₹' . number_format($amount, 2));
 
     jsonResponse(['success' => true, 'balance' => $newBalance]);
-  }
-
-  // ── POST: carry forward — moves a past session's true closing balance
-  // into the currently active session as one real, traceable ledger
-  // entry (not a cosmetic recalculation). The source session is always
-  // explicitly chosen by the user, never auto-detected, since sessions
-  // aren't guaranteed to be chronologically sequential.
-  if ($method === 'POST' && $action === 'carry_forward') {
-    $user = cihRequirePermission('action.cash_in_hand.edit');
-
-    $d = json_decode(file_get_contents('php://input'), true);
-    if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
-
-    $sourceToDate = $d['source_to_date'] ?? null;   // end date of the session being carried FROM
-    $entryDate    = $d['entry_date'] ?? null;        // start date of the session being carried INTO
-    $sourceName   = trim($d['source_session_name'] ?? 'a previous session');
-    if (!$sourceToDate || !$entryDate) jsonResponse(['error' => 'Missing source or target session date'], 400);
-
-    // True cumulative closing balance of the source session — everything
-    // up to and including its end date, same calculation the balance
-    // card itself uses, not just that session's own isolated net.
-    $balStmt = $db->prepare(
-      "SELECT COALESCE(SUM(CASE WHEN direction='in' THEN amount ELSE -amount END),0)
-       FROM cash_in_hand_ledger WHERE entry_date <= ?"
-    );
-    $balStmt->execute([$sourceToDate]);
-    $closingBalance = (float)$balStmt->fetchColumn();
-
-    if (abs($closingBalance) < 0.01) jsonResponse(['error' => 'That session\'s closing balance is ₹0 — nothing to carry forward'], 400);
-
-    $direction = $closingBalance >= 0 ? 'in' : 'out';
-    $absAmount = abs($closingBalance);
-    $newBalance = $direction === 'in' ? cihCurrentBalance($db) + $absAmount : cihCurrentBalance($db) - $absAmount;
-    $note = 'Carried forward from ' . $sourceName . ' (closing balance as of ' . $sourceToDate . ')';
-
-    $stmt = $db->prepare(
-      "INSERT INTO cash_in_hand_ledger
-         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by)
-       VALUES (?, 'carry_forward', ?, ?, ?, 'carry_forward', ?, ?)"
-    );
-    $stmt->execute([$entryDate, $direction, $absAmount, $newBalance, $note, (int)($user['id'] ?? 0)]);
-
-    logActivity((int)($user['id'] ?? 0), 'carry_forward', 'cash_in_hand', (int)$db->lastInsertId(),
-      'Cash in Hand: ' . $note);
-
-    jsonResponse(['success' => true, 'balance' => $newBalance, 'amount' => $closingBalance]);
   }
 
   // ── POST: correction — fixes a mistake WITHOUT rewriting history.

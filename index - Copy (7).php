@@ -5521,43 +5521,6 @@ const SERVER = {
       </div>
     </div>
 
-    <div class="modal-overlay" id="modal-carryforward">
-      <div class="modal" style="max-width:460px;overflow:hidden">
-        <div style="background:linear-gradient(135deg,#1565C0,#0D47A1);padding:22px 24px;position:relative">
-          <button class="modal-close" onclick="closeModal('modal-carryforward')" style="position:absolute;top:14px;right:16px;z-index:2;background:rgba(255,255,255,.18);color:#fff"><i class="fas fa-times"></i></button>
-          <div style="display:flex;align-items:center;gap:14px">
-            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <i class="fas fa-right-left" style="color:#fff;font-size:19px"></i>
-            </div>
-            <div>
-              <div style="color:#fff;font-size:16px;font-weight:700">Carry Forward Balance</div>
-              <div style="color:rgba(255,255,255,.8);font-size:12px">Move a past session's true closing balance into the current one</div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-body" style="padding:22px 24px">
-          <div class="field">
-            <label><i class="fas fa-calendar-days" style="font-size:11px;color:var(--muted)"></i> Carry forward from</label>
-            <select id="cf-source-session" onchange="onCarryForwardSourceChange()">
-              <option value="">— Select a session —</option>
-            </select>
-          </div>
-          <div id="cf-preview" style="display:none;background:var(--bg);border-radius:10px;padding:14px 16px;margin-top:14px;text-align:center">
-            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Closing Balance</div>
-            <div style="font-size:24px;font-weight:800;margin-top:4px" id="cf-preview-amount">₹0.00</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px" id="cf-preview-date"></div>
-          </div>
-          <div id="cf-target-note" style="font-size:11.5px;color:var(--muted);margin-top:14px;padding:10px 12px;background:#FFF4E0;border:1px solid #FFD9A0;border-radius:8px">
-            <i class="fas fa-circle-info" style="color:#9A6700"></i> This will be recorded as a real ledger entry dated at the start of your currently active session (<strong id="cf-target-name">—</strong>), not just a display change.
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-carryforward')">Cancel</button>
-          <button class="btn btn-primary" id="cf-confirm-btn" onclick="confirmCarryForward()" style="background:#1565C0;border-color:#1565C0" disabled><i class="fas fa-check"></i> Confirm Transfer</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ─────────── ADD CORRECTION (Cash in Hand) ─────────── -->
     <div class="modal-overlay" id="modal-cih-correction">
       <div class="modal" style="max-width:460px;overflow:hidden">
@@ -7591,9 +7554,6 @@ View Invoice: {{6}}</pre></details>
           <span style="font-size:13px;color:var(--muted)">A shared cash fund managers draw from for on-the-spot purchases &amp; expenses.</span>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-outline" id="cih-carryforward-btn" onclick="openCarryForwardModal()" style="display:none">
-            <i class="fas fa-right-left"></i> Carry Forward Balance
-          </button>
           <button class="btn btn-outline" id="cih-correction-btn" onclick="openCorrectionModal()" style="display:none">
             <i class="fas fa-wrench"></i> Add Correction
           </button>
@@ -28806,10 +28766,8 @@ let CIH_GDR_WAS_ACTIVE = false; // tracks previous render, same restore-on-OFF f
 async function renderCashInHand() {
   const addBtn = document.getElementById('cih-addfunds-btn');
   const corrBtn = document.getElementById('cih-correction-btn');
-  const cfBtn = document.getElementById('cih-carryforward-btn');
   if (addBtn) addBtn.style.display = SERVER.canCihEdit ? '' : 'none';
   if (corrBtn) corrBtn.style.display = SERVER.canCihDelete ? '' : 'none';
-  if (cfBtn) cfBtn.style.display = SERVER.canCihEdit ? '' : 'none';
 
   // Default the period filter to May 1 (this year) → today, the first time
   // the page opens — unless the Global Date Range is active, in which case
@@ -28908,7 +28866,7 @@ async function loadCihLedger(offset = 0) {
     const rowsHtml = rows.map(l => {
       const amt = parseFloat(l.amount)||0;
       const isIn = l.direction === 'in';
-      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment', carry_forward:'Carried Forward' }[l.type] || l.type;
+      const typeLabel = { topup:'Top-up', purchase:'Purchase', expense:'Expense', adjustment:'Adjustment' }[l.type] || l.type;
       const typeColor  = isIn ? '#00897B' : '#E53935';
       const canEdit = SERVER.canCihEdit && l.type === 'topup' && Number(l.id) === CIH_LATEST_ID;
       return `<tr>
@@ -29058,68 +29016,6 @@ function cihEditWithApproval(entityType, entityId, label, actionFn) {
 }
 
 // ── Correction — fixes a mistake without editing history (Option B) ──
-// ── Carry Forward Balance — moves a chosen past session's true closing
-// balance into the currently active session, as one real ledger entry.
-// Source session is always explicitly picked, never auto-detected.
-function openCarryForwardModal() {
-  if (!GLOBAL_DATE_ACTIVE || !GLOBAL_ACTIVE_PRESET_ID) {
-    toast('⚠️ Activate a session first (Settings → Date Range Presets) — carry forward moves a balance INTO the currently active session', 'warning');
-    return;
-  }
-  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
-  const sel = document.getElementById('cf-source-session');
-  const otherPresets = GLOBAL_DATE_PRESETS.filter(p => p.id !== GLOBAL_ACTIVE_PRESET_ID);
-  sel.innerHTML = '<option value="">— Select a session —</option>' +
-    otherPresets.map(p => `<option value="${p.id}">${escHtml(p.name)} (${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)})</option>`).join('');
-  document.getElementById('cf-target-name').textContent = activePreset ? activePreset.name : 'current session';
-  document.getElementById('cf-preview').style.display = 'none';
-  document.getElementById('cf-confirm-btn').disabled = true;
-  openModal('modal-carryforward');
-}
-
-async function onCarryForwardSourceChange() {
-  const sourceId = document.getElementById('cf-source-session').value;
-  const previewEl = document.getElementById('cf-preview');
-  const confirmBtn = document.getElementById('cf-confirm-btn');
-  if (!sourceId) { previewEl.style.display = 'none'; confirmBtn.disabled = true; return; }
-
-  const source = GLOBAL_DATE_PRESETS.find(p => p.id === sourceId);
-  if (!source) return;
-  try {
-    const r = await api(`api/cash_in_hand.php?limit=1&to=${source.to}`);
-    const bal = parseFloat(r.balance_as_of) || 0;
-    document.getElementById('cf-preview-amount').textContent = fmt_money(bal);
-    document.getElementById('cf-preview-amount').style.color = bal < 0 ? '#E53935' : '#1565C0';
-    document.getElementById('cf-preview-date').textContent = `As of ${fmt_date_disp(source.to)}, end of "${source.name}"`;
-    previewEl.style.display = 'block';
-    confirmBtn.disabled = Math.abs(bal) < 0.01;
-    if (Math.abs(bal) < 0.01) document.getElementById('cf-preview-date').textContent += ' — nothing to carry forward';
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function confirmCarryForward() {
-  const sourceId = document.getElementById('cf-source-session').value;
-  const source = GLOBAL_DATE_PRESETS.find(p => p.id === sourceId);
-  const activePreset = GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID);
-  if (!source || !activePreset) return;
-
-  const btn = document.getElementById('cf-confirm-btn');
-  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transferring…';
-  try {
-    const r = await api('api/cash_in_hand.php?action=carry_forward', 'POST', {
-      source_to_date: source.to,
-      entry_date: activePreset.from,
-      source_session_name: source.name,
-    });
-    closeModal('modal-carryforward');
-    toast(`✅ ₹${Math.abs(r.amount).toLocaleString('en-IN',{minimumFractionDigits:2})} carried forward from "${source.name}"`, 'success');
-    renderCashInHand();
-  } catch(e) {
-    toast('❌ ' + e.message, 'error');
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Confirm Transfer';
-  }
-}
-
 function openCorrectionModal() {
   if (!SERVER.canCihDelete) { toast('⚠️ You don\'t have permission to add corrections to Cash in Hand', 'warning'); return; }
   cihEditWithApproval('cash_in_hand_correction', 1, 'Cash in Hand — Add Correction', _openCorrectionModalReal);
