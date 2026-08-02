@@ -90,49 +90,15 @@ try {
     if (!empty($_GET['from'])) { $where .= ' AND l.entry_date >= ?'; $params[] = $_GET['from']; }
     if (!empty($_GET['to']))   { $where .= ' AND l.entry_date <= ?'; $params[] = $_GET['to']; }
 
-    $sessionScoped = !empty($_GET['from']) && !empty($_GET['to']);
+    $stmt = $db->prepare("SELECT l.*, u.name AS created_by_name
+                           FROM cash_in_hand_ledger l
+                           LEFT JOIN users u ON u.id = l.created_by
+                           WHERE {$where}
+                           ORDER BY l.id DESC LIMIT {$limit} OFFSET {$offset}");
+    $stmt->execute($params);
 
-    if ($sessionScoped) {
-      // A session should show its OWN running balance — starting fresh at
-      // ₹0 unless a Carry Forward entry was explicitly added — not the
-      // true all-time cumulative figure. Otherwise old money from before
-      // the session would silently appear here even without ever using
-      // Carry Forward, which defeats the point of that feature entirely.
-      // Fetch everything in the range chronologically first (can't paginate
-      // at the SQL level and still compute a correct running total), walk
-      // forward to assign each row its session-relative balance, then
-      // paginate + reverse for display to match the existing newest-first UI.
-      $allStmt = $db->prepare("SELECT l.*, u.name AS created_by_name
-                             FROM cash_in_hand_ledger l
-                             LEFT JOIN users u ON u.id = l.created_by
-                             WHERE {$where}
-                             ORDER BY l.entry_date ASC, l.id ASC");
-      $allStmt->execute($params);
-      $allRows = $allStmt->fetchAll();
-
-      $running = 0;
-      foreach ($allRows as &$row) {
-        $running += ($row['direction'] === 'in' ? 1 : -1) * (float)$row['amount'];
-        $row['balance_after'] = $running; // override the stored all-time value with the session-relative one
-      }
-      unset($row);
-
-      $total = count($allRows);
-      $newestFirst = array_reverse($allRows);
-      $rows = array_slice($newestFirst, $offset, $limit);
-    } else {
-      $stmt = $db->prepare("SELECT l.*, u.name AS created_by_name
-                             FROM cash_in_hand_ledger l
-                             LEFT JOIN users u ON u.id = l.created_by
-                             WHERE {$where}
-                             ORDER BY l.id DESC LIMIT {$limit} OFFSET {$offset}");
-      $stmt->execute($params);
-      $rows = $stmt->fetchAll();
-
-      $countStmt = $db->prepare("SELECT COUNT(*) FROM cash_in_hand_ledger l WHERE {$where}");
-      $countStmt->execute($params);
-      $total = (int)$countStmt->fetchColumn();
-    }
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM cash_in_hand_ledger l WHERE {$where}");
+    $countStmt->execute($params);
 
     // The single latest row overall (not affected by the date filter) —
     // the frontend uses this to know which topup, if any, is still safely
@@ -155,8 +121,8 @@ try {
     }
 
     jsonResponse([
-      'balance' => $balance, 'balance_as_of' => $balanceAsOf, 'data' => $rows,
-      'total' => $total, 'latest_id' => $latestId,
+      'balance' => $balance, 'balance_as_of' => $balanceAsOf, 'data' => $stmt->fetchAll(),
+      'total' => (int)$countStmt->fetchColumn(), 'latest_id' => $latestId,
     ]);
   }
 
