@@ -19249,7 +19249,6 @@ function goToNewPurchase() {
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
   document.getElementById('pn-paymode').value = 'Cash';
-  checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
   document.getElementById('pne-split-rows').innerHTML = '';
   document.getElementById('pn-transactionno').value = '';
@@ -29112,7 +29111,6 @@ function cihEditWithApproval(entityType, entityId, label, actionFn) {
 // balance was already carried forward elsewhere. Same underlying check
 // the Cash in Hand page itself uses; just surfaced earlier here so
 // someone finds out before filling in the whole form, not only at save.
-let _cihBannerReqId = 0;
 async function checkCihRestrictionBanner(selectId, bannerId) {
   const banner = document.getElementById(bannerId);
   if (!banner) return;
@@ -29121,10 +29119,8 @@ async function checkCihRestrictionBanner(selectId, bannerId) {
     banner.style.display = 'none';
     return;
   }
-  const myReqId = ++_cihBannerReqId; // if the selection changes again before this resolves, a stale response won't overwrite the newer state
   try {
     const cc = await api(`api/cash_in_hand.php?check_carried=1&to=${GLOBAL_DATE_TO}`);
-    if (myReqId !== _cihBannerReqId) return; // a newer check has since started — ignore this stale result
     if (cc.carried) {
       banner.style.display = 'block';
       const blocked = !!cc.restrict_enabled;
@@ -29133,7 +29129,7 @@ async function checkCihRestrictionBanner(selectId, bannerId) {
     } else {
       banner.style.display = 'none';
     }
-  } catch(e) { if (myReqId === _cihBannerReqId) banner.style.display = 'none'; }
+  } catch(e) { banner.style.display = 'none'; }
 }
 
 function openCarryForwardModal() {
@@ -29521,7 +29517,6 @@ function openAddExpenseModal() {
   document.getElementById('exp-method').value = 'UPI';
   document.getElementById('exp-vendor').value = '';
   document.getElementById('exp-notes').value = '';
-  checkCihRestrictionBanner('exp-method', 'exp-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   openModal('modal-expense');
 }
 
