@@ -79,27 +79,6 @@ try {
   // detected and blocked, instead of silently double-counting the money.
   try { $db->exec("ALTER TABLE cash_in_hand_ledger ADD COLUMN source_end_date DATE NULL"); } catch (Throwable $e) { /* already exists */ }
 
-  // Blocks an action if the given session (identified by its own end date)
-  // was already carried forward elsewhere AND the strict restriction is
-  // currently enabled. Shared by topup and correction — both represent
-  // editing a session's own balance, which shouldn't drift after that
-  // balance has already been moved (and likely spent) somewhere else.
-  function cihCheckCarriedRestriction(PDO $db, ?string $sessionToDate): void {
-    if (!$sessionToDate) return; // no session context given — nothing to check
-    if (getSetting('cih_restrict_carried_sessions', '1') !== '1') return; // restriction turned off
-    $stmt = $db->prepare(
-      "SELECT l.amount, l.created_at, u.name AS by_name
-       FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-       WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-    );
-    $stmt->execute([$sessionToDate]);
-    $row = $stmt->fetch();
-    if (!$row) return;
-    jsonResponse(['error' => 'This session\'s closing balance (₹' . number_format($row['amount'], 2) .
-      ') was already carried forward on ' . date('d-m-Y', strtotime($row['created_at'])) . ' by ' . ($row['by_name'] ?: 'someone') .
-      '. Editing this session further could drift from what was actually carried. Turn off the restriction in Settings if this correction is genuinely needed.'], 400);
-  }
-
   function cihCurrentBalance(PDO $db): float {
     $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
     return $row ? (float)$row['balance_after'] : 0.0;
@@ -192,27 +171,6 @@ try {
   // source of truth Finance Report already uses, so it can never
   // double-count a purchase that was later edited, and always matches
   // what Purchases/Expenses actually show.
-  // ── GET ?check_carried=1&to=: was THIS session's closing balance
-  // already carried forward elsewhere? Used for the warning banner and
-  // to gate Add Funds/Correction when the strict restriction is on.
-  if ($method === 'GET' && !empty($_GET['check_carried'])) {
-    $to = $_GET['to'] ?? null;
-    if (!$to) jsonResponse(['carried' => false]);
-    $stmt = $db->prepare(
-      "SELECT l.amount, l.entry_date, l.created_at, u.name AS by_name
-       FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-       WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-    );
-    $stmt->execute([$to]);
-    $row = $stmt->fetch();
-    if (!$row) jsonResponse(['carried' => false]);
-    jsonResponse([
-      'carried' => true, 'amount' => (float)$row['amount'], 'to_date' => $row['entry_date'],
-      'by_name' => $row['by_name'] ?: 'someone', 'when' => $row['created_at'],
-      'restrict_enabled' => getSetting('cih_restrict_carried_sessions', '1') === '1',
-    ]);
-  }
-
   if ($method === 'GET' && !empty($_GET['breakdown'])) {
     $from = $_GET['from'] ?? date('Y-m-01');
     $to   = $_GET['to']   ?? date('Y-m-d');
@@ -264,7 +222,6 @@ try {
     if ($amount <= 0) jsonResponse(['error' => 'Enter an amount greater than 0'], 400);
     $date = $d['date'] ?? date('Y-m-d');
     $note = trim($d['note'] ?? '') ?: 'Funds added';
-    cihCheckCarriedRestriction($db, $d['session_to_date'] ?? null);
 
     $newBalance = cihCurrentBalance($db) + $amount;
     $stmt = $db->prepare(
@@ -359,7 +316,6 @@ try {
     $note = trim($d['note'] ?? '');
     if (!$note) jsonResponse(['error' => 'A note explaining the correction is required'], 400);
     $date = $d['date'] ?? date('Y-m-d');
-    cihCheckCarriedRestriction($db, $d['session_to_date'] ?? null);
 
     $direction = $amount > 0 ? 'in' : 'out';
     $absAmount = abs($amount);

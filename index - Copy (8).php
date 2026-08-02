@@ -7101,10 +7101,6 @@ View Invoice: {{6}}</pre></details>
               <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
             </div>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-              <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
-              <span style="font-size:12.5px">Block editing a session's balance after it's been carried forward elsewhere <span style="color:var(--muted);font-weight:400">(recommended — turn off only if a genuine correction is needed on a carried-forward session)</span></span>
-            </div>
           </div>
 
           <div class="settings-block">
@@ -7614,7 +7610,6 @@ View Invoice: {{6}}</pre></details>
         <div id="cih-negative-flag" style="display:none;margin-top:8px;font-size:12.5px;font-weight:700;color:#E53935;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:8px 14px;display:inline-block">
           <i class="fas fa-triangle-exclamation"></i> Balance is negative — more has been spent than was funded. Add funds to settle this.
         </div>
-        <div id="cih-carried-banner" style="display:none;margin-top:8px;font-size:12.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 14px"></div>
       </div>
 
       <!-- Period filter — also filters the ledger table below now -->
@@ -9074,15 +9069,6 @@ function _sspApplyEnabledState() {
   const on = SESSION_PRICING_ENABLED;
   if (body) body.style.opacity = on ? '1' : '.5';
   ['ssp-preset-select','ssp-search','ssp-save-btn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
-}
-
-async function toggleCihRestriction() {
-  const on = document.getElementById('cih-restrict-tog')?.classList.contains('on');
-  try {
-    await api('api/settings.php', 'POST', { cih_restrict_carried_sessions: on ? '1' : '0' });
-    if (SERVER.settings) SERVER.settings.cih_restrict_carried_sessions = on ? '1' : '0';
-    toast(on ? '✅ Restriction enabled' : 'ℹ️ Restriction disabled — carried-forward sessions can be edited again', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 async function toggleSessionPricingEnabled() {
@@ -27232,7 +27218,6 @@ function populateSettingsForm() {
   _gdrLoadFromSettings();
   _gdrRenderPresetsList();
   initSessionPricingSettings();
-  document.getElementById('cih-restrict-tog')?.classList.toggle('on', (SERVER.settings?.cih_restrict_carried_sessions ?? '1') === '1');
   // Signature roles + toggle matrix — read raw from SERVER.settings (not
   // mirrored into STATE.settings since they're only needed here and at print time).
   const ss = (typeof SERVER !== 'undefined' && SERVER.settings) ? SERVER.settings : {};
@@ -28817,7 +28802,6 @@ function exportAgingCSV() {
 // — owner/super_admin always pass. See SERVER.canCihEdit/canCihDelete.
 // ══════════════════════════════════════════════════════════════
 let CIH_GDR_WAS_ACTIVE = false; // tracks previous render, same restore-on-OFF fix as Finance Report/Stock History
-let CIH_SESSION_ALREADY_CARRIED = false; // true when the active session was already carried forward AND the strict restriction is on
 
 async function renderCashInHand() {
   const addBtn = document.getElementById('cih-addfunds-btn');
@@ -28962,30 +28946,6 @@ async function renderCashInHandBreakdown() {
   const to   = document.getElementById('cih-to')?.value;
   if (!from || !to) return;
 
-  // Was this session's closing balance already carried forward elsewhere?
-  // Shows a warning either way; disables Add Funds/Correction only if the
-  // strict restriction (Settings) is currently on.
-  CIH_SESSION_ALREADY_CARRIED = false;
-  try {
-    const cc = await api(`api/cash_in_hand.php?check_carried=1&to=${to}`);
-    const bannerEl = document.getElementById('cih-carried-banner');
-    if (cc.carried) {
-      CIH_SESSION_ALREADY_CARRIED = !!cc.restrict_enabled;
-      if (bannerEl) {
-        bannerEl.style.display = 'block';
-        bannerEl.innerHTML = `<i class="fas fa-right-left"></i> This session's closing balance (₹${Math.abs(cc.amount).toLocaleString('en-IN',{minimumFractionDigits:2})}) was already carried forward on ${fmt_date_disp(cc.when)} by ${escHtml(cc.by_name)} — treat this as already used, not available.`;
-      }
-    } else if (bannerEl) {
-      bannerEl.style.display = 'none';
-    }
-  } catch(e) { /* non-fatal — banner just won't show */ }
-  const addBtn2 = document.getElementById('cih-addfunds-btn');
-  const corrBtn2 = document.getElementById('cih-correction-btn');
-  if (addBtn2) addBtn2.disabled = CIH_SESSION_ALREADY_CARRIED;
-  if (corrBtn2) corrBtn2.title = CIH_SESSION_ALREADY_CARRIED ? 'This session was already carried forward — disable the restriction in Settings to edit anyway' : '';
-  if (addBtn2) addBtn2.title = corrBtn2?.title || '';
-  if (corrBtn2) corrBtn2.disabled = CIH_SESSION_ALREADY_CARRIED;
-
   try {
     const r = await api(`api/cash_in_hand.php?breakdown=1&from=${from}&to=${to}`);
     const totalIn = parseFloat(r.total_in) || 0;
@@ -29072,7 +29032,6 @@ async function saveAddFunds() {
     date: document.getElementById('cih-af-date').value,
     amount,
     note: document.getElementById('cih-af-note').value.trim(),
-    session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,
   };
   const btn = document.getElementById('cih-af-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; }
@@ -29202,7 +29161,7 @@ async function saveCihCorrection() {
   const amount = CIH_CORR_DIRECTION === 'add' ? rawAmount : -rawAmount;
   const note = document.getElementById('cih-corr-note').value.trim();
   if (!note) { toast('⚠️ A reason for the correction is required', 'warning'); return; }
-  const payload = { date: document.getElementById('cih-corr-date').value, amount, note, session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null };
+  const payload = { date: document.getElementById('cih-corr-date').value, amount, note };
   const btn = document.getElementById('cih-corr-save-btn');
   if (btn) { if (btn.disabled) return; btn.disabled = true; }
   try {

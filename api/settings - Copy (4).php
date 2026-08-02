@@ -64,12 +64,6 @@ switch ($method) {
       // Sessions, the plain toggle) don't need to know about at all.
       'session_pricing_enabled' => '0',
       'session_product_prices'  => '{}',
-      // Blocks Add Funds/Correction on a session whose closing balance was
-      // already carried forward elsewhere — that money's already been
-      // moved and likely spent, so editing the source session further
-      // would silently drift from what was actually carried. Default ON
-      // (safer); toggle off only when a genuine correction is needed.
-      'cih_restrict_carried_sessions' => '1',
       // ── Document signatures: up to 3 roles, each with its own image +
       // name, and its own on/off default per document type. Authorized
       // Signatory reuses company_sign as its image (already existed).
