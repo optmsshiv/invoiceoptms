@@ -74,10 +74,6 @@ try {
 
   // Auto-migrate: 'carry_forward' wasn't part of the original ENUM.
   try { $db->exec("ALTER TABLE cash_in_hand_ledger MODIFY COLUMN `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup'"); } catch (Throwable $e) { /* already migrated */ }
-  // Auto-migrate: tracks which source session a carry_forward entry came
-  // from, so a second transfer from the SAME source can be reliably
-  // detected and blocked, instead of silently double-counting the money.
-  try { $db->exec("ALTER TABLE cash_in_hand_ledger ADD COLUMN source_end_date DATE NULL"); } catch (Throwable $e) { /* already exists */ }
 
   function cihCurrentBalance(PDO $db): float {
     $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
@@ -253,22 +249,6 @@ try {
     $sourceName   = trim($d['source_session_name'] ?? 'a previous session');
     if (!$sourceToDate || !$entryDate) jsonResponse(['error' => 'Missing source or target session date'], 400);
 
-    // Block a second transfer from the SAME source session — otherwise
-    // the same money gets counted twice if someone double-clicks, or a
-    // teammate does the same transfer without realizing it's already done.
-    $dupStmt = $db->prepare(
-      "SELECT l.amount, l.entry_date, l.created_at, u.name AS by_name
-       FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-       WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-    );
-    $dupStmt->execute([$sourceToDate]);
-    $dup = $dupStmt->fetch();
-    if ($dup) {
-      jsonResponse(['error' => 'Already carried forward from this session on ' . date('d-m-Y', strtotime($dup['created_at'])) .
-        ' by ' . ($dup['by_name'] ?: 'someone') . ' — ₹' . number_format($dup['amount'], 2) .
-        '. Carrying forward again would count that money twice.'], 400);
-    }
-
     // True cumulative closing balance of the source session — everything
     // up to and including its end date, same calculation the balance
     // card itself uses, not just that session's own isolated net.
@@ -288,10 +268,10 @@ try {
 
     $stmt = $db->prepare(
       "INSERT INTO cash_in_hand_ledger
-         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by, created_at, source_end_date)
-       VALUES (?, 'carry_forward', ?, ?, ?, 'carry_forward', ?, ?, ?, ?)"
+         (entry_date, type, direction, amount, balance_after, reference_type, note, created_by, created_at)
+       VALUES (?, 'carry_forward', ?, ?, ?, 'carry_forward', ?, ?, ?)"
     );
-    $stmt->execute([$entryDate, $direction, $absAmount, $newBalance, $note, (int)($user['id'] ?? 0), date('Y-m-d H:i:s'), $sourceToDate]);
+    $stmt->execute([$entryDate, $direction, $absAmount, $newBalance, $note, (int)($user['id'] ?? 0), date('Y-m-d H:i:s')]);
 
     logActivity((int)($user['id'] ?? 0), 'carry_forward', 'cash_in_hand', (int)$db->lastInsertId(),
       'Cash in Hand: ' . $note);
