@@ -39,16 +39,15 @@ if ($tenantExpired && ($user['role'] ?? '') !== 'owner') {
 
 $expiryDateRaw = $tenantExpired ? $user['tenant_license_expiry'] : $user['license_expiry'];
 
-// Is there already a pending renewal request matching this specific
-// reason (tenant subscription vs personal license)?
+// Is there already a pending renewal request for this user?
 $pendingRequest = null;
 try {
     $stmt = getMasterDB()->prepare(
         "SELECT id, requested_at FROM license_renewal_requests
-          WHERE user_id = ? AND scope = ? AND status = 'pending'
+          WHERE user_id = ? AND status = 'pending'
           ORDER BY requested_at DESC LIMIT 1"
     );
-    $stmt->execute([$user['id'], $tenantExpired ? 'tenant' : 'user']);
+    $stmt->execute([$user['id']]);
     $pendingRequest = $stmt->fetch() ?: null;
 } catch (Exception $e) {
     error_log('license_renew.php: pending request lookup failed: ' . $e->getMessage());

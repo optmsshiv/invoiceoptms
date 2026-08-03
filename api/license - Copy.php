@@ -27,29 +27,12 @@ try {
     if ($method === 'POST' && $action === 'request_renewal') {
         if (!$userId) jsonResponse(['error' => 'Not authenticated'], 401);
 
-        // Scope is derived server-side from actual current expiry state
-        // — same priority order as index.php's gate (tenant first) —
-        // never taken from client input, so a request can't be spoofed
-        // into the wrong scope (e.g. staff claiming a tenant request).
-        $user = currentUser();
-        if (!$user) jsonResponse(['error' => 'Not authenticated'], 401);
-
-        $scope = null;
-        if (isTenantLicenseExpired($user) && ($user['role'] ?? '') === 'owner') {
-            $scope = 'tenant';
-        } elseif (isLicenseExpired($user)) {
-            $scope = 'user';
-        }
-        if (!$scope) {
-            jsonResponse(['error' => 'Nothing appears to be expired on your account right now.'], 400);
-        }
-
-        // Don't create duplicate pending requests of the SAME scope —
+        // Don't create duplicate pending requests if one already exists —
         // just tell the caller it's already in the queue.
         $chk = $master->prepare(
-            "SELECT id FROM license_renewal_requests WHERE user_id = ? AND scope = ? AND status = 'pending'"
+            "SELECT id FROM license_renewal_requests WHERE user_id = ? AND status = 'pending'"
         );
-        $chk->execute([$userId, $scope]);
+        $chk->execute([$userId]);
         if ($chk->fetch()) {
             jsonResponse(['success' => true, 'already_pending' => true,
                 'message' => 'A renewal request is already pending review.']);
@@ -57,11 +40,11 @@ try {
 
         $tenantId = $_SESSION['tenant_id'] ?? null;
         $master->prepare(
-            "INSERT INTO license_renewal_requests (user_id, tenant_id, scope, requested_at, status)
-             VALUES (?, ?, ?, ?, 'pending')"
-        )->execute([$userId, $tenantId, $scope, date('Y-m-d H:i:s')]);
+            "INSERT INTO license_renewal_requests (user_id, tenant_id, requested_at, status)
+             VALUES (?, ?, ?, 'pending')"
+        )->execute([$userId, $tenantId, date('Y-m-d H:i:s')]);
 
-        masterAuditLog($userId, $tenantId, 'license_renewal_requested', "User requested {$scope}-level license renewal");
+        masterAuditLog($userId, $tenantId, 'license_renewal_requested', 'User requested license renewal');
 
         jsonResponse(['success' => true, 'message' => 'Renewal request sent. You will be notified once approved.']);
     }

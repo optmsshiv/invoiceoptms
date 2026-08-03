@@ -462,7 +462,7 @@ tbody tr:hover td{background:#FAFBFD}
       <div style="overflow-x:auto">
         <table>
           <thead><tr>
-            <th>Requested</th><th>Staff Member</th><th>Tenant</th><th>Type</th><th>Expired</th><th style="text-align:right">Actions</th>
+            <th>Requested</th><th>Staff Member</th><th>Tenant</th><th>License No.</th><th>Expired</th><th style="text-align:right">Actions</th>
           </tr></thead>
           <tbody id="lr-tbody">
             <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
@@ -764,32 +764,6 @@ tbody tr:hover td{background:#FAFBFD}
   </div>
 </div>
 
-<!-- ══ Set Tenant Subscription Expiry Modal ═══════════════════════ -->
-<div class="modal-overlay" id="modal-set-subscription">
-  <div class="modal" style="max-width:420px">
-    <button class="modal-close" onclick="closeModal('modal-set-subscription')"><i class="fas fa-times"></i></button>
-    <div class="modal-head">
-      <div class="modal-icon"><i class="fas fa-calendar-check"></i></div>
-      <div>
-        <h3>Subscription Expiry</h3>
-        <p id="ss-tenant-label"></p>
-      </div>
-    </div>
-    <div class="modal-body">
-      <div id="ss-alert"></div>
-      <div class="field">
-        <label>Expiry Date</label>
-        <input id="ss-expiry" type="date">
-        <p style="font-size:11.5px;color:var(--text-mute);margin-top:6px">Leave blank for no expiry (subscription never lapses).</p>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" onclick="closeModal('modal-set-subscription')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTenantSubscription()"><i class="fas fa-save"></i> Save</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ Plan Defaults Modal ══════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-plan-defaults">
   <div class="modal" style="max-width:620px">
@@ -935,7 +909,7 @@ function renderTenants(list) {
     : `${list.length} tenant${list.length===1?'':'s'} · ${totalUsers} user${totalUsers===1?'':'s'} total`;
 
   tbody.innerHTML = list.map(t => {
-    const licenseBadge = licenseBadgeHTML(t);
+    const trialBadge = trialBadgeHTML(t);
     return `
     <tr>
       <td><input type="checkbox" class="bulk-tenant-cb" value="${t.id}" onchange="updateBulkToolbar()"></td>
@@ -957,7 +931,7 @@ function renderTenants(list) {
           <div class="dbn mono">${esc(t.db_name)}</div>
         </div>
       </td>
-      <td><span class="badge badge-${t.plan}">${t.plan}</span>${licenseBadge}</td>
+      <td><span class="badge badge-${t.plan}">${t.plan}</span>${trialBadge}</td>
       <td><span class="badge badge-${t.status}">${t.status}</span></td>
       <td><span class="count-pill"><i class="fas fa-user"></i> ${t.user_count || 0}</span></td>
       <td><span class="muted-date">${t.created_at ? t.created_at.slice(0,10) : '—'}</span></td>
@@ -971,9 +945,6 @@ function renderTenants(list) {
           </button>
           <button class="btn btn-icon" onclick="openTenantStats(${t.id}, '${esc(t.company_name)}')" title="Health / Usage Stats">
             <i class="fas fa-chart-simple"></i>
-          </button>
-          <button class="btn btn-icon" onclick="openSetSubscription(${t.id}, '${esc(t.company_name)}', ${t.license_expiry ? `'${t.license_expiry}'` : 'null'})" title="Set Subscription Expiry">
-            <i class="fas fa-calendar-check"></i>
           </button>
           <button class="btn btn-icon" onclick="connectToTenantDirect('${esc(t.db_name)}', '${esc(t.company_name)}')" title="Connect (browse as this tenant)">
             <i class="fas fa-right-to-bracket"></i>
@@ -989,13 +960,11 @@ function renderTenants(list) {
   updateBulkToolbar();
 }
 
-// ── License/subscription expiry badge — pure frontend, license_expiry
-// already comes back from ?action=list (SELECT t.*), no new backend
-// needed for the badge itself. Applies to every plan now, not just
-// trial (was trial-only when this column was still called trial_ends).
-function licenseBadgeHTML(t) {
-  if (!t.license_expiry) return '';
-  const daysLeft = Math.ceil((new Date(t.license_expiry) - new Date()) / 86400000);
+// ── Trial expiry badge — pure frontend, trial_ends already comes back
+// from ?action=list, no new backend needed.
+function trialBadgeHTML(t) {
+  if (t.plan !== 'trial' || !t.trial_ends) return '';
+  const daysLeft = Math.ceil((new Date(t.trial_ends) - new Date()) / 86400000);
   if (daysLeft < 0) return ` <span class="badge" style="background:var(--danger-soft);color:var(--danger)">Expired ${Math.abs(daysLeft)}d ago</span>`;
   if (daysLeft <= 7) return ` <span class="badge" style="background:#FFF4E0;color:#9A6700">Expires in ${daysLeft}d</span>`;
   return '';
@@ -1386,39 +1355,6 @@ async function saveVerification() {
     if (typeof loadLicenseRequests === 'function') loadLicenseRequests();
   } else {
     showAlert('el-alert', esc(data.error || 'Failed to save'), 'error');
-  }
-}
-
-// ── Tenant-level subscription expiry (separate from per-user license
-// above — gates the whole organization, not one staff member) ─────
-let ACTIVE_SUBSCRIPTION_TENANT_ID = null;
-
-function openSetSubscription(tenantId, companyName, currentExpiry) {
-  ACTIVE_SUBSCRIPTION_TENANT_ID = tenantId;
-  document.getElementById('ss-tenant-label').textContent = companyName;
-  document.getElementById('ss-expiry').value = currentExpiry ? currentExpiry.slice(0,10) : '';
-  document.getElementById('ss-alert').innerHTML = '';
-  document.getElementById('modal-set-subscription').classList.add('open');
-}
-
-async function saveTenantSubscription() {
-  const payload = {
-    tenant_id: ACTIVE_SUBSCRIPTION_TENANT_ID,
-    license_expiry: document.getElementById('ss-expiry').value.trim(),
-  };
-  const r    = await fetch('/api/tenant.php?action=update_tenant_license', {
-    method: 'PATCH', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  });
-  const data = await r.json();
-  if (data.success) {
-    closeModal('modal-set-subscription');
-    loadTenants();
-    // update_tenant_license auto-resolves any pending scope='tenant'
-    // request for this tenant server-side — refresh the queue/badge.
-    if (typeof loadLicenseRequests === 'function') loadLicenseRequests();
-  } else {
-    showAlert('ss-alert', esc(data.error || 'Failed to save'), 'error');
   }
 }
 
@@ -1995,9 +1931,7 @@ function renderLicenseRequestsTable() {
     return;
   }
 
-  tbody.innerHTML = LICENSE_REQUESTS.map(r => {
-    const isTenant = r.scope === 'tenant';
-    return `
+  tbody.innerHTML = LICENSE_REQUESTS.map(r => `
     <tr>
       <td><span class="muted-date">${r.requested_at ? r.requested_at.slice(0,10) : '—'}</span></td>
       <td>
@@ -2005,29 +1939,24 @@ function renderLicenseRequestsTable() {
           <div class="avatar-md" style="width:30px;height:30px;font-size:11px">${esc(initials(r.user_name))}</div>
           <div>
             <div class="name" style="font-size:12.8px">${esc(r.user_name)}</div>
-            <div class="meta">${esc(r.user_email)}${isTenant ? ' · Owner' : ''}</div>
+            <div class="meta">${esc(r.user_email)}</div>
           </div>
         </div>
       </td>
       <td><span style="font-size:12.5px;font-weight:600">${esc(r.tenant_name || '—')}</span></td>
-      <td>
-        ${isTenant
-          ? '<span class="badge" style="background:#E8F0FE;color:#1A73E8">Subscription</span>'
-          : `<span class="badge" style="background:#F2E8FE;color:#8B3FE8">Personal</span> <span class="mono" style="font-size:11px">${esc(r.license_no || '—')}</span>`}
-      </td>
-      <td><span style="font-size:12.5px;color:var(--danger);font-weight:600">${(isTenant ? r.tenant_license_expiry : r.license_expiry) ? (isTenant ? r.tenant_license_expiry : r.license_expiry).slice(0,10) : '—'}</span></td>
+      <td style="font-size:11.5px" class="mono">${esc(r.license_no || '—')}</td>
+      <td><span style="font-size:12.5px;color:var(--danger);font-weight:600">${r.license_expiry ? r.license_expiry.slice(0,10) : '—'}</span></td>
       <td style="white-space:nowrap;text-align:right">
         <div class="action-group" style="display:inline-flex;gap:6px">
-          ${isTenant
-            ? `<button class="btn btn-outline" style="font-size:11.5px;padding:6px 12px" onclick="openSetSubscription(${r.tenant_id}, '${esc(r.tenant_name)}', ${r.tenant_license_expiry ? `'${r.tenant_license_expiry}'` : 'null'})"><i class="fas fa-calendar-check"></i> Renew Subscription</button>`
-            : `<button class="btn btn-outline" style="font-size:11.5px;padding:6px 12px" onclick="openEditLicenseFromRequest(${r.user_id})"><i class="fas fa-id-card"></i> Renew License</button>`}
+          <button class="btn btn-outline" style="font-size:11.5px;padding:6px 12px" onclick="openEditLicenseFromRequest(${r.user_id})">
+            <i class="fas fa-id-card"></i> Renew License
+          </button>
           <button class="btn btn-icon" style="color:var(--danger)" onclick="dismissLicenseRequest(${r.id})" title="Dismiss without renewing">
             <i class="fas fa-times"></i>
           </button>
         </div>
       </td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
 }
 
 // Reuses the existing single-user "Edit verification & license" modal
