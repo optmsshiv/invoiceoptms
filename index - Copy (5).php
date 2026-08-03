@@ -29497,21 +29497,6 @@ function _renderExpSummary() {
   }
 }
 
-// Formats just the time portion of a DATETIME string for small secondary
-// labels (e.g. under a date cell). Same "assume IST if no timezone marker
-// present" convention as fmtEmailTime, since backend timestamps here are
-// stored via PHP's date() (Asia/Kolkata), not MySQL's own clock.
-function fmtTimeOnly(raw) {
-  if (!raw) return '';
-  let normalized = String(raw).trim();
-  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
-    normalized = normalized.replace(' ', 'T') + '+05:30';
-  }
-  const d = new Date(normalized);
-  if (isNaN(d)) return '';
-  return d.toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
-}
-
 function _renderExpTable() {
   const tbody = document.getElementById('exp-tbody');
   const info  = document.getElementById('exp-info');
@@ -29526,7 +29511,7 @@ function _renderExpTable() {
   tbody.innerHTML = pg.map(exp => {
     const col = getExpCatColor(exp.category);
     return `<tr>
-      <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
+      <td>${exp.date||'—'}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>

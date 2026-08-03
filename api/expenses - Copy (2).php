@@ -194,17 +194,11 @@ try {
             expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? '')); // checked BEFORE insert — never leaves an orphaned expense if blocked
         }
         $stmt = $db->prepare(
-            'INSERT INTO expenses (`date`,category,vendor,amount,method,notes,created_at,updated_at)
-             VALUES (:date,:cat,:vendor,:amount,:method,:notes,:created_at,:updated_at)'
+            'INSERT INTO expenses (`date`,category,vendor,amount,method,notes)
+             VALUES (:date,:cat,:vendor,:amount,:method,:notes)'
         );
-        // Explicit PHP timestamp (Asia/Kolkata, set in includes/auth.php)
-        // instead of the column's own DEFAULT CURRENT_TIMESTAMP — that
-        // default runs on MySQL's own server timezone, which caused the
-        // same "wrong time shown" bug we already fixed for email logs.
-        $now = date('Y-m-d H:i:s');
         $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
-            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
-            ':created_at'=>$now,':updated_at'=>$now]);
+            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes]);
         $newId = $db->lastInsertId();
         logAct($db, 'expense_added', "Expense added: $vendor", '₹'.number_format($amount,2));
         if ($meth === 'Cash in Hand') {
@@ -241,11 +235,10 @@ try {
 
         $stmt = $db->prepare(
             'UPDATE expenses SET `date`=:date,category=:cat,vendor=:vendor,
-             amount=:amount,method=:method,notes=:notes,updated_at=:updated_at WHERE id=:id'
+             amount=:amount,method=:method,notes=:notes WHERE id=:id'
         );
         $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
-            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
-            ':updated_at'=>date('Y-m-d H:i:s'),':id'=>$id]);
+            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,':id'=>$id]);
         $oldAmt = $oldExp ? (float)$oldExp['amount'] : null;
         $diffLabel = ($oldAmt !== null && abs($oldAmt - $amount) > 0.004)
             ? '₹'.number_format($oldAmt,2).' → ₹'.number_format($amount,2)
