@@ -7143,45 +7143,39 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
 
-          <?php if ($canEditGlobalDateRange): ?>
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">When enabled, this range applies to every transaction list and report (Sales, Purchases, Expenses, Finance Report, Cash in Hand, Stock History, Aging) for the whole team — it never affects Customers, Suppliers, or Products, and it stays active until someone changes it here. It does not reset automatically.</p>
+            <?php if (!$canEditGlobalDateRange): ?>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
+              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can change this — ask them, or have them grant you this permission in Team Permissions.
+            </div>
+            <?php endif; ?>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <label class="tog" id="gdr-active-tog" onclick="this.classList.toggle('on');_gdrToggleFields()"></label>
+              <label class="tog" id="gdr-active-tog" <?= $canEditGlobalDateRange
+                ? "onclick=\"this.classList.toggle('on');_gdrToggleFields()\""
+                : 'style="opacity:.5;cursor:not-allowed;pointer-events:none"' ?>></label>
               <span style="font-size:13px;font-weight:600">Enable Global Date Range</span>
             </div>
             <div class="pne-grid2" id="gdr-fields">
-              <div class="field"><label>From</label><input type="date" id="gdr-from"></div>
-              <div class="field"><label>To</label><input type="date" id="gdr-to"></div>
+              <div class="field"><label>From</label><input type="date" id="gdr-from" <?= $canEditGlobalDateRange ? '' : 'disabled' ?>></div>
+              <div class="field"><label>To</label><input type="date" id="gdr-to" <?= $canEditGlobalDateRange ? '' : 'disabled' ?>></div>
             </div>
           </div>
 
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-bookmark" style="color:var(--teal)"></i> Date Range Presets</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Save named ranges (e.g. "Q1 Review") to switch between them with one click, instead of typing dates by hand — activating a preset just fills in and turns on the Global Date Range Filter above with its saved dates. Only one can be active at a time; turning one on turns any other off.</p>
+            <?php if ($canEditGlobalDateRange): ?>
             <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;align-items:end;background:var(--bg);border-radius:10px;padding:14px;margin-bottom:14px">
               <div class="field" style="margin-bottom:0"><label>Preset Name</label><input id="gdrp-name" placeholder="e.g. Q1 Review"></div>
               <div class="field" style="margin-bottom:0"><label>From</label><input type="date" id="gdrp-from"></div>
               <div class="field" style="margin-bottom:0"><label>To</label><input type="date" id="gdrp-to"></div>
               <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
             </div>
+            <?php endif; ?>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
-          </div>
-          <?php else: ?>
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
-            <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
-              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can view and change this — ask them, or have them grant you this permission in Team Permissions. Whatever's currently active still shows in the top bar.
-            </div>
-          </div>
-          <?php endif; ?>
-
-          <!-- Not part of the Global Date Range Filter — a separate Cash in
-               Hand setting that lives here for proximity, but stays visible
-               to everyone regardless of the date-range permission above. -->
-          <div class="settings-block">
-            <div style="display:flex;align-items:center;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
               <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
               <span style="font-size:12.5px">Block editing a session's balance after it's been carried forward elsewhere <span style="color:var(--muted);font-weight:400">(recommended — turn off only if a genuine correction is needed on a carried-forward session)</span></span>
             </div>
@@ -9052,9 +9046,7 @@ function _gdrRenderPresetsList() {
 }
 
 async function saveDateRangePreset() {
-  const nameEl = document.getElementById('gdrp-name');
-  if (!nameEl) return; // hidden entirely for non-owners — nothing to do
-  const name = nameEl.value.trim();
+  const name = document.getElementById('gdrp-name').value.trim();
   const from = document.getElementById('gdrp-from').value;
   const to   = document.getElementById('gdrp-to').value;
   if (!name) { toast('⚠️ Enter a name for this preset', 'warning'); return; }
@@ -9075,7 +9067,6 @@ async function saveDateRangePreset() {
 }
 
 async function toggleDateRangePreset(id) {
-  if (!SERVER.canEditGlobalDateRange) return; // defense in depth — button that calls this is hidden entirely for non-owners
   const isCurrentlyActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
   const preset = GLOBAL_DATE_PRESETS.find(p => p.id === id);
   if (!preset) return;
@@ -9091,9 +9082,8 @@ async function toggleDateRangePreset(id) {
     // Keep the plain toggle's own fields in sync too, so Settings never
     // shows contradictory state between the two sections.
     document.getElementById('gdr-active-tog')?.classList.toggle('on', GLOBAL_DATE_ACTIVE);
-    const fromEl = document.getElementById('gdr-from'), toEl = document.getElementById('gdr-to');
-    if (fromEl) fromEl.value = GLOBAL_DATE_FROM;
-    if (toEl)   toEl.value   = GLOBAL_DATE_TO;
+    document.getElementById('gdr-from').value = GLOBAL_DATE_FROM;
+    document.getElementById('gdr-to').value = GLOBAL_DATE_TO;
     _gdrToggleFields();
     _gdrRenderPresetsList();
     _gdrRenderTopBarBadge();
@@ -9103,7 +9093,6 @@ async function toggleDateRangePreset(id) {
 }
 
 async function deleteDateRangePreset(id) {
-  if (!SERVER.canEditGlobalDateRange) return; // defense in depth — button that calls this is hidden entirely for non-owners
   if (!confirm('Delete this preset? This does not change whichever date range is currently active.')) return;
   const wasActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
   GLOBAL_DATE_PRESETS = GLOBAL_DATE_PRESETS.filter(p => p.id !== id);
@@ -9115,9 +9104,8 @@ async function deleteDateRangePreset(id) {
     _gdrLoadFromSettings();
     if (wasActive) {
       document.getElementById('gdr-active-tog')?.classList.remove('on');
-      const fromEl = document.getElementById('gdr-from'), toEl = document.getElementById('gdr-to');
-      if (fromEl) fromEl.value = '';
-      if (toEl)   toEl.value   = '';
+      document.getElementById('gdr-from').value = '';
+      document.getElementById('gdr-to').value = '';
       _gdrToggleFields();
       _gdrRenderTopBarBadge();
       _gdrRefreshCurrentPage();
@@ -25000,30 +24988,12 @@ async function saveCompanySettings() {
   // clear that association — this form is now in control. If they still
   // match (e.g. the user saved some unrelated setting without touching
   // dates), leave the preset's active status alone.
-  //
-  // These fields don't exist in the DOM at all for non-owners (the whole
-  // card is hidden — see Settings page). Omit the 3 date-range keys from
-  // the payload entirely in that case, rather than sending them as off/
-  // empty: settings.php rejects the WHOLE save if a non-owner's payload
-  // touches these keys at all, so including them here would silently
-  // block every other unrelated field (company name, GST, etc.) too.
-  const gdrEl = document.getElementById('gdr-from');
-  let dateRangeFields = {};
-  if (gdrEl) {
-    const gdrFromVal = gdrEl.value || '';
-    const gdrToVal   = document.getElementById('gdr-to')?.value || '';
-    const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-    const presetDiverged = activePreset && (activePreset.from !== gdrFromVal || activePreset.to !== gdrToVal);
-    dateRangeFields = {
-      global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
-      global_date_from:   gdrFromVal,
-      global_date_to:     gdrToVal,
-      ...(presetDiverged ? { active_preset_id: '' } : {}),
-    };
-  }
+  const gdrFromVal = document.getElementById('gdr-from')?.value || '';
+  const gdrToVal   = document.getElementById('gdr-to')?.value   || '';
+  const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
+  const presetDiverged = activePreset && (activePreset.from !== gdrFromVal || activePreset.to !== gdrToVal);
 
   const payload = {
-    ...dateRangeFields,
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
     company_pan:     document.getElementById('sc-pan')?.value     || '',
@@ -25034,6 +25004,10 @@ async function saveCompanySettings() {
     company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_tagline: document.getElementById('sc-tagline')?.value || '',
     company_iso:     document.getElementById('sc-iso')?.value     || '',
+    global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
+    global_date_from:   gdrFromVal,
+    global_date_to:     gdrToVal,
+    ...(presetDiverged ? { active_preset_id: '' } : {}),
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
