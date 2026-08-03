@@ -223,17 +223,6 @@ function isTenantLicenseExpired(array $user): bool {
     return time() > $expiryEnd;
 }
 
-// Same 2-day advance-warning pattern as isLicenseExpiringSoon, but for
-// the tenant/subscription-level date.
-function isTenantLicenseExpiringSoon(array $user, int $warnDays = 2): bool {
-    if (($user['role'] ?? '') === 'super_admin') return false;
-    if (empty($user['tenant_license_expiry'])) return false;
-    if (isTenantLicenseExpired($user)) return false;
-    $expiryEnd = strtotime($user['tenant_license_expiry'] . ' 23:59:59');
-    if ($expiryEnd === false) return false;
-    return ($expiryEnd - time()) <= ($warnDays * 86400);
-}
-
 // ── Login ─────────────────────────────────────────────────────────
 function attemptLogin(string $email, string $password): array|false {
     try {

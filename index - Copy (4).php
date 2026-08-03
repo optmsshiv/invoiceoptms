@@ -43,7 +43,6 @@ if (isLicenseExpired($user)) {
     exit;
 }
 $licenseExpiringSoon = isLicenseExpiringSoon($user, 2);
-$tenantExpiringSoon  = isTenantLicenseExpiringSoon($user, 2);
 
 // ── Effective per-role/tenant permission map (plan ceiling × role toggle) ──
 // Drives which sidebar menu items are shown. See includes/auth.php.
@@ -1856,23 +1855,6 @@ const SERVER = {
      MAIN CONTENT
 ══════════════════════════════════════════ -->
 <div class="main-wrap" id="mainWrap">
-
-  <?php if ($tenantExpiringSoon): ?>
-  <div id="tenant-warn-banner" style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:#FFF4E5;border-bottom:1px solid #F5C89A;color:#8A5A00;font-size:13px;font-weight:600">
-    <i class="fas fa-triangle-exclamation" style="color:#B45309"></i>
-    <?php if (($user['role'] ?? '') === 'owner'): ?>
-      <span><?= htmlspecialchars($user['company_name'] ?? 'Your organization') ?>'s subscription expires on
-        <?= htmlspecialchars(date('d M Y', strtotime($user['tenant_license_expiry']))) ?>. Renew it to avoid losing access for your whole team.</span>
-    <?php else: ?>
-      <span><?= htmlspecialchars($user['company_name'] ?? 'Your organization') ?>'s subscription expires on
-        <?= htmlspecialchars(date('d M Y', strtotime($user['tenant_license_expiry']))) ?>. Contact your administrator to renew it.</span>
-    <?php endif; ?>
-    <button onclick="document.getElementById('tenant-warn-banner').style.display='none'"
-      style="margin-left:auto;background:none;border:none;color:#8A5A00;cursor:pointer;font-size:14px;opacity:.7" title="Dismiss for this session">
-      <i class="fas fa-times"></i>
-    </button>
-  </div>
-  <?php endif; ?>
 
   <?php if ($licenseExpiringSoon): ?>
   <div id="license-warn-banner" style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:#FFF4E5;border-bottom:1px solid #F5C89A;color:#8A5A00;font-size:13px;font-weight:600">
