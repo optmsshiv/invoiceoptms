@@ -133,19 +133,7 @@ switch ($method) {
   case 'POST':
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error'=>'Invalid JSON'], 400);
-
-    // ── Global Date Range Filter is owner-gated — see permissions.php /
-    // action.settings.global_date_range. Reading the active filter stays
-    // open to everyone (GET above is untouched); this only blocks writes.
-    // Checked as its own request (not folded into the general save) so a
-    // blocked date-range change gives a clear reason instead of silently
-    // dropping those 3 keys from a larger settings payload.
-    $dateRangeKeys = ['global_date_active', 'global_date_from', 'global_date_to'];
-    if (array_intersect(array_keys($d), $dateRangeKeys) && !can('action.settings.global_date_range')) {
-        http_response_code(403);
-        jsonResponse(['error' => 'Only the owner can change the Global Date Range filter. Ask them to update it, or to grant you this permission in Team Permissions.']);
-    }
-
+    
     $stmt = $db->prepare('INSERT INTO settings (`key`, value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=?');
     foreach ($d as $key => $val) {
       $stmt->execute([$key, $val, $val]);

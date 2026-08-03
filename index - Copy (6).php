@@ -72,14 +72,6 @@ $ROLE_BADGE_COLORS = [
 ];
 $userRole      = $user['role'] ?? 'viewer';
 $isSuperAdmin  = $userRole === 'super_admin';
-// Global Date Range Filter — owner-gated (see api/settings.php /
-// action.settings.global_date_range). Same owner-only fallback pattern
-// as Cash in Hand: defaults to false (not the generic ?? true) if the
-// catalog row hasn't been migrated in yet, so nobody but the owner can
-// touch it until that's deliberately set up.
-$canEditGlobalDateRange = in_array($userRole, ['owner','super_admin'], true)
-    ? true
-    : (bool)($perms['action.settings.global_date_range'] ?? false);
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
 // Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
 $connectedDb    = $_SESSION['tenant_db'] ?? null;
@@ -1605,9 +1597,6 @@ const SERVER = {
   // independently in Team Permissions.
   canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
   canExpenseDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.expense.delete'] ?? false)) ?>,
-  // Global Date Range Filter — see $canEditGlobalDateRange above (same
-  // value, just also needed here for the JS-rendered presets list).
-  canEditGlobalDateRange: <?= json_encode($canEditGlobalDateRange) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -7146,34 +7135,25 @@ View Invoice: {{6}}</pre></details>
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">When enabled, this range applies to every transaction list and report (Sales, Purchases, Expenses, Finance Report, Cash in Hand, Stock History, Aging) for the whole team — it never affects Customers, Suppliers, or Products, and it stays active until someone changes it here. It does not reset automatically.</p>
-            <?php if (!$canEditGlobalDateRange): ?>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
-              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can change this — ask them, or have them grant you this permission in Team Permissions.
-            </div>
-            <?php endif; ?>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <label class="tog" id="gdr-active-tog" <?= $canEditGlobalDateRange
-                ? "onclick=\"this.classList.toggle('on');_gdrToggleFields()\""
-                : 'style="opacity:.5;cursor:not-allowed;pointer-events:none"' ?>></label>
+              <label class="tog" id="gdr-active-tog" onclick="this.classList.toggle('on');_gdrToggleFields()"></label>
               <span style="font-size:13px;font-weight:600">Enable Global Date Range</span>
             </div>
             <div class="pne-grid2" id="gdr-fields">
-              <div class="field"><label>From</label><input type="date" id="gdr-from" <?= $canEditGlobalDateRange ? '' : 'disabled' ?>></div>
-              <div class="field"><label>To</label><input type="date" id="gdr-to" <?= $canEditGlobalDateRange ? '' : 'disabled' ?>></div>
+              <div class="field"><label>From</label><input type="date" id="gdr-from"></div>
+              <div class="field"><label>To</label><input type="date" id="gdr-to"></div>
             </div>
           </div>
 
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-bookmark" style="color:var(--teal)"></i> Date Range Presets</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Save named ranges (e.g. "Q1 Review") to switch between them with one click, instead of typing dates by hand — activating a preset just fills in and turns on the Global Date Range Filter above with its saved dates. Only one can be active at a time; turning one on turns any other off.</p>
-            <?php if ($canEditGlobalDateRange): ?>
             <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;align-items:end;background:var(--bg);border-radius:10px;padding:14px;margin-bottom:14px">
               <div class="field" style="margin-bottom:0"><label>Preset Name</label><input id="gdrp-name" placeholder="e.g. Q1 Review"></div>
               <div class="field" style="margin-bottom:0"><label>From</label><input type="date" id="gdrp-from"></div>
               <div class="field" style="margin-bottom:0"><label>To</label><input type="date" id="gdrp-to"></div>
               <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
             </div>
-            <?php endif; ?>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
               <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
@@ -9032,15 +9012,14 @@ function _gdrRenderPresetsList() {
   }
   el.innerHTML = GLOBAL_DATE_PRESETS.map(p => {
     const isActive = p.id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
-    const canEdit  = SERVER.canEditGlobalDateRange;
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:${isActive?'var(--accent-soft, #E3F2FD)':'var(--card)'}">
-      <label class="tog ${isActive?'on':''}" ${canEdit ? `onclick="toggleDateRangePreset('${p.id}')"` : 'style="opacity:.5;cursor:not-allowed;pointer-events:none"'}></label>
+      <label class="tog ${isActive?'on':''}" onclick="toggleDateRangePreset('${p.id}')"></label>
       <div style="flex:1">
         <div style="font-weight:700;font-size:13px">${escHtml(p.name)}</div>
         <div style="font-size:11px;color:var(--muted)">${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)}</div>
       </div>
       ${isActive ? '<span style="font-size:10px;font-weight:700;color:#1565C0;background:#E3F2FD;padding:3px 9px;border-radius:10px">ACTIVE</span>' : ''}
-      ${canEdit ? `<button class="btn btn-icon" title="Delete preset" onclick="deleteDateRangePreset('${p.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>` : ''}
+      <button class="btn btn-icon" title="Delete preset" onclick="deleteDateRangePreset('${p.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>
     </div>`;
   }).join('');
 }
