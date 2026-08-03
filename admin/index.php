@@ -315,6 +315,14 @@ tbody tr:hover td{background:#FAFBFD}
       <div class="stat-icon" style="background:#EAF1FE;color:#1D5FE0"><i class="fas fa-users"></i></div>
       <div><div class="val" id="stat-users">—</div><div class="lbl">Total Users</div></div>
     </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#FFF4E0;color:#9A6700"><i class="fas fa-clock"></i></div>
+      <div><div class="val" id="stat-expiring">—</div><div class="lbl">Expiring Soon</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:var(--danger-soft);color:var(--danger)"><i class="fas fa-calendar-xmark"></i></div>
+      <div><div class="val" id="stat-expired">—</div><div class="lbl">Expired</div></div>
+    </div>
   </div>
 
   <!-- Tenants Table -->
@@ -348,11 +356,12 @@ tbody tr:hover td{background:#FAFBFD}
           <tr>
             <th style="width:32px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTenants(this)"></th>
             <th>Company</th><th>Contact</th><th>Identifiers</th><th>Plan</th><th>Status</th>
+            <th class="sortable" style="cursor:pointer" onclick="sortTenantsByExpiry()">Expiry <i class="fas fa-sort" id="expiry-sort-icon"></i></th>
             <th>Users</th><th>Created</th><th style="text-align:right">Actions</th>
           </tr>
         </thead>
         <tbody id="tenants-tbody">
-          <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
+          <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -848,6 +857,17 @@ tbody tr:hover td{background:#FAFBFD}
 let TENANTS  = [];
 let ACTIVE_TENANT_ID = null;
 let PENDING_RESUME = null;
+let EXPIRY_SORT_DIR = null; // null | 'asc' | 'desc'
+
+function sortTenantsByExpiry() {
+  EXPIRY_SORT_DIR = EXPIRY_SORT_DIR === 'asc' ? 'desc' : 'asc';
+  const icon = document.getElementById('expiry-sort-icon');
+  if (icon) icon.className = EXPIRY_SORT_DIR === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+  // Re-apply whatever's currently shown (search filter, if any) — the
+  // sort itself happens inside renderTenants so it stays consistent
+  // no matter which path calls it.
+  filterTenants(document.getElementById('topbar-search-input')?.value || '');
+}
 
 // ── Topbar search ───────────────────────────────────────────────
 function filterTenants(query) {
@@ -906,10 +926,18 @@ async function loadTenants() {
   const suspended = TENANTS.filter(t => t.status === 'suspended').length;
   const users     = TENANTS.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
 
+  const withExpiry = TENANTS.filter(t => t.license_expiry).map(t => ({
+    ...t, daysLeft: Math.ceil((new Date(t.license_expiry) - new Date()) / 86400000)
+  }));
+  const expiringSoon = withExpiry.filter(t => t.daysLeft >= 0 && t.daysLeft <= 7).length;
+  const expired      = withExpiry.filter(t => t.daysLeft < 0).length;
+
   document.getElementById('stat-total').textContent     = TENANTS.length;
   document.getElementById('stat-active').textContent    = active;
   document.getElementById('stat-suspended').textContent = suspended;
   document.getElementById('stat-users').textContent     = users;
+  document.getElementById('stat-expiring').textContent  = expiringSoon;
+  document.getElementById('stat-expired').textContent   = expired;
 
   renderTenants(TENANTS);
 }
@@ -921,12 +949,12 @@ function renderTenants(list) {
 
   if (!TENANTS.length) {
     subtitle.textContent = 'No tenants yet';
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
   if (q && !list.length) {
     subtitle.textContent = `No matches for "${q}"`;
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
     return;
   }
   const totalUsers = list.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
@@ -934,8 +962,17 @@ function renderTenants(list) {
     ? `${list.length} of ${TENANTS.length} tenants matching "${q}"`
     : `${list.length} tenant${list.length===1?'':'s'} · ${totalUsers} user${totalUsers===1?'':'s'} total`;
 
+  if (EXPIRY_SORT_DIR) {
+    list = [...list].sort((a, b) => {
+      if (!a.license_expiry && !b.license_expiry) return 0;
+      if (!a.license_expiry) return 1;  // tenants with no expiry set sort last either way
+      if (!b.license_expiry) return -1;
+      const diff = new Date(a.license_expiry) - new Date(b.license_expiry);
+      return EXPIRY_SORT_DIR === 'asc' ? diff : -diff;
+    });
+  }
+
   tbody.innerHTML = list.map(t => {
-    const licenseBadge = licenseBadgeHTML(t);
     return `
     <tr>
       <td><input type="checkbox" class="bulk-tenant-cb" value="${t.id}" onchange="updateBulkToolbar()"></td>
@@ -957,8 +994,9 @@ function renderTenants(list) {
           <div class="dbn mono">${esc(t.db_name)}</div>
         </div>
       </td>
-      <td><span class="badge badge-${t.plan}">${t.plan}</span>${licenseBadge}</td>
+      <td><span class="badge badge-${t.plan}">${t.plan}</span></td>
       <td><span class="badge badge-${t.status}">${t.status}</span></td>
+      <td>${licenseExpiryCellHTML(t)}</td>
       <td><span class="count-pill"><i class="fas fa-user"></i> ${t.user_count || 0}</span></td>
       <td><span class="muted-date">${t.created_at ? t.created_at.slice(0,10) : '—'}</span></td>
       <td>
@@ -989,16 +1027,24 @@ function renderTenants(list) {
   updateBulkToolbar();
 }
 
-// ── License/subscription expiry badge — pure frontend, license_expiry
-// already comes back from ?action=list (SELECT t.*), no new backend
-// needed for the badge itself. Applies to every plan now, not just
-// trial (was trial-only when this column was still called trial_ends).
-function licenseBadgeHTML(t) {
-  if (!t.license_expiry) return '';
+// ── License/subscription expiry cell — always shows the actual date
+// for every tenant (not just when close to expiry), color-coded, and
+// clickable straight into the Set Subscription Expiry modal. license_expiry
+// already comes back from ?action=list (SELECT t.*), no new backend needed.
+function licenseExpiryCellHTML(t) {
+  const onclick = `openSetSubscription(${t.id}, '${esc(t.company_name)}', ${t.license_expiry ? `'${t.license_expiry}'` : 'null'})`;
+  if (!t.license_expiry) {
+    return `<span class="muted-date" style="cursor:pointer" onclick="${onclick}" title="Click to set">No expiry set</span>`;
+  }
   const daysLeft = Math.ceil((new Date(t.license_expiry) - new Date()) / 86400000);
-  if (daysLeft < 0) return ` <span class="badge" style="background:var(--danger-soft);color:var(--danger)">Expired ${Math.abs(daysLeft)}d ago</span>`;
-  if (daysLeft <= 7) return ` <span class="badge" style="background:#FFF4E0;color:#9A6700">Expires in ${daysLeft}d</span>`;
-  return '';
+  const dateStr  = t.license_expiry.slice(0,10);
+  let sub = '', color = 'var(--text-mute)';
+  if (daysLeft < 0)      { sub = `Expired ${Math.abs(daysLeft)}d ago`; color = 'var(--danger)'; }
+  else if (daysLeft <= 7) { sub = `Expires in ${daysLeft}d`;            color = '#9A6700'; }
+  return `<div style="cursor:pointer" onclick="${onclick}" title="Click to change">
+    <div style="font-size:12.5px;font-weight:600;color:${daysLeft<0?'var(--danger)':'var(--text)'}">${dateStr}</div>
+    ${sub ? `<div style="font-size:10.5px;color:${color};font-weight:600">${sub}</div>` : ''}
+  </div>`;
 }
 
 // ── Bulk actions ────────────────────────────────────────────────
