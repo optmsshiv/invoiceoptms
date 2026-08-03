@@ -169,8 +169,7 @@ function currentUser(): ?array {
                     u.address, u.created_at,
                     u.is_verified, u.license_no, u.license_expiry,
                     u.tenant_id, t.company_name, t.slug AS tenant_slug,
-                    t.db_name AS tenant_db, t.plan, t.status AS tenant_status,
-                    t.license_expiry AS tenant_license_expiry
+                    t.db_name AS tenant_db, t.plan, t.status AS tenant_status
              FROM users u
              LEFT JOIN tenants t ON t.id = u.tenant_id
              WHERE u.id = ? AND u.status = "active"'
@@ -208,19 +207,6 @@ function isLicenseExpiringSoon(array $user, int $warnDays = 2): bool {
     $expiryEnd = strtotime($user['license_expiry'] . ' 23:59:59');
     if ($expiryEnd === false) return false;
     return ($expiryEnd - time()) <= ($warnDays * 86400);
-}
-
-// ── Tenant-level (organization/subscription) expiry ──────────────
-// Separate from the per-user checks above: this gates the whole
-// organization, not one staff member. super_admin has no tenant of
-// their own and is exempt. Same end-of-day-IST treatment as the
-// per-user version.
-function isTenantLicenseExpired(array $user): bool {
-    if (($user['role'] ?? '') === 'super_admin') return false;
-    if (empty($user['tenant_license_expiry'])) return false;
-    $expiryEnd = strtotime($user['tenant_license_expiry'] . ' 23:59:59');
-    if ($expiryEnd === false) return false;
-    return time() > $expiryEnd;
 }
 
 // ── Login ─────────────────────────────────────────────────────────

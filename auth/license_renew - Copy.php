@@ -17,27 +17,12 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
-// This page serves two different reasons for landing here:
-//  - tenant-level expiry (owner only — see index.php's gate order)
-//  - per-user license expiry (any non-super_admin staff member)
-// Tenant is checked first since that's what index.php checks first.
-$tenantExpired = isTenantLicenseExpired($user);
-$userExpired   = isLicenseExpired($user);
-
-// Neither is actually expired (already fixed) — send them back in.
-if (!$tenantExpired && !$userExpired) {
+// License already renewed (or wasn't actually expired) — send them
+// back into the app instead of showing this page pointlessly.
+if (!isLicenseExpired($user)) {
     header('Location: /index.php');
     exit;
 }
-
-// A non-owner landing here via a stale/guessed URL during a tenant
-// expiry has nothing to act on — send them to the plain screen instead.
-if ($tenantExpired && ($user['role'] ?? '') !== 'owner') {
-    header('Location: /auth/subscription_inactive.php');
-    exit;
-}
-
-$expiryDateRaw = $tenantExpired ? $user['tenant_license_expiry'] : $user['license_expiry'];
 
 // Is there already a pending renewal request for this user?
 $pendingRequest = null;
@@ -159,20 +144,12 @@ body{min-height:100vh;background:#E8EFEC;padding:40px 20px;display:flex;justify-
       <h1>Renewal Request <span class="accent" style="color:#0F6E56">Sent</span></h1>
       <p>Your request is awaiting review by our team. You'll get access back as soon as it's approved — no need to send another request.</p>
     </div>
-  <?php elseif ($tenantExpired): ?>
-    <div class="hero">
-      <div class="hero-icon"><i class="fas fa-triangle-exclamation"></i></div>
-      <h1>Your Subscription Has <span class="accent">Expired</span></h1>
-      <p><b><?= htmlspecialchars($businessName) ?></b>'s subscription to <?= htmlspecialchars($companyName) ?> expired on
-        <b><?= htmlspecialchars(date('d F Y', strtotime($expiryDateRaw))) ?></b>.<br>
-        Renew it to restore access for your whole team.</p>
-    </div>
   <?php else: ?>
     <div class="hero">
       <div class="hero-icon"><i class="fas fa-triangle-exclamation"></i></div>
       <h1>Your License Has <span class="accent">Expired</span></h1>
       <p>Your <?= htmlspecialchars($companyName) ?> license expired on
-        <b><?= htmlspecialchars(date('d F Y', strtotime($expiryDateRaw))) ?></b>.<br>
+        <b><?= htmlspecialchars(date('d F Y', strtotime($user['license_expiry']))) ?></b>.<br>
         Please renew your license to continue using all features without interruption.</p>
     </div>
   <?php endif; ?>
@@ -181,29 +158,24 @@ body{min-height:100vh;background:#E8EFEC;padding:40px 20px;display:flex;justify-
     <div class="info-item">
       <div class="ic red"><i class="fas fa-calendar-days"></i></div>
       <div>
-        <div class="lbl"><?= $tenantExpired ? 'Subscription Expired On' : 'License Expired On' ?></div>
-        <div class="val danger"><?= htmlspecialchars(date('d F Y', strtotime($expiryDateRaw))) ?></div>
+        <div class="lbl">License Expired On</div>
+        <div class="val danger"><?= htmlspecialchars(date('d F Y', strtotime($user['license_expiry']))) ?></div>
         <div class="sub">11:59 PM</div>
       </div>
     </div>
     <div class="info-item">
       <div class="ic blue"><i class="fas fa-id-badge"></i></div>
       <div>
-        <div class="lbl"><?= $tenantExpired ? 'Organization' : 'Staff Member' ?></div>
-        <div class="val"><?= htmlspecialchars($tenantExpired ? $businessName : $user['name']) ?></div>
-        <div class="sub"><?= $tenantExpired ? htmlspecialchars($user['name']) . ' · Owner' : htmlspecialchars($businessName) ?></div>
+        <div class="lbl">Staff Member</div>
+        <div class="val"><?= htmlspecialchars($user['name']) ?></div>
+        <div class="sub"><?= htmlspecialchars($businessName) ?></div>
       </div>
     </div>
     <div class="info-item">
       <div class="ic amber"><i class="fas fa-shield-halved"></i></div>
       <div>
-        <?php if ($tenantExpired): ?>
-          <div class="lbl">Plan</div>
-          <div class="val"><?= htmlspecialchars(ucfirst($user['plan'] ?? 'Standard')) ?></div>
-        <?php else: ?>
-          <div class="lbl">License No.</div>
-          <div class="val"><?= htmlspecialchars($user['license_no'] ?: '—') ?></div>
-        <?php endif; ?>
+        <div class="lbl">License No.</div>
+        <div class="val"><?= htmlspecialchars($user['license_no'] ?: '—') ?></div>
         <div class="val status-pill">Expired</div>
       </div>
     </div>
@@ -212,9 +184,9 @@ body{min-height:100vh;background:#E8EFEC;padding:40px 20px;display:flex;justify-
   <div class="notice <?= $pendingRequest ? 'pending' : '' ?>">
     <div class="row">
       <i class="fas <?= $pendingRequest ? 'fa-check-circle' : 'fa-triangle-exclamation' ?>"></i>
-      <?= $pendingRequest ? 'Request sent — awaiting approval.' : ($tenantExpired ? 'Your whole team is currently in limited access mode.' : 'Your account is currently in limited access mode.') ?>
+      <?= $pendingRequest ? 'Request sent — awaiting approval.' : 'Your account is currently in limited access mode.' ?>
     </div>
-    <p><?= $pendingRequest ? "We'll restore your access as soon as it's reviewed." : 'Request renewal now to reactivate ' . ($tenantExpired ? 'your team\'s' : 'your') . ' access and avoid disruption.' ?></p>
+    <p><?= $pendingRequest ? "We'll restore your access as soon as it's reviewed." : 'Request renewal now to reactivate your account and avoid disruption.' ?></p>
   </div>
 
   <div class="why">

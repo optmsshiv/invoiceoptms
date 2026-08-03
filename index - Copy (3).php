@@ -21,20 +21,6 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
-// ── Tenant-level (subscription) gate ─────────────────────────────
-// Checked first — if the whole organization's subscription is
-// inactive, that supersedes any individual per-user license state.
-// Owner is routed to the renewal-request page (only role that can
-// act on it); everyone else gets a plain "contact your admin" screen.
-if (isTenantLicenseExpired($user)) {
-    if (($user['role'] ?? '') === 'owner') {
-        header('Location: /auth/license_renew.php');
-    } else {
-        header('Location: /auth/subscription_inactive.php');
-    }
-    exit;
-}
-
 // ── License gate: expired staff license → renewal page instead of app ──
 // Checked once per full page load (not on every AJAX call — see
 // license_renew.php notes for why that scope was chosen deliberately).
