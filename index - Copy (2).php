@@ -21,6 +21,30 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
+// ── Tenant-level (subscription) gate ─────────────────────────────
+// Checked first — if the whole organization's subscription is
+// inactive, that supersedes any individual per-user license state.
+// Owner is routed to the renewal-request page (only role that can
+// act on it); everyone else gets a plain "contact your admin" screen.
+if (isTenantLicenseExpired($user)) {
+    if (($user['role'] ?? '') === 'owner') {
+        header('Location: /auth/license_renew.php');
+    } else {
+        header('Location: /auth/subscription_inactive.php');
+    }
+    exit;
+}
+
+// ── License gate: expired staff license → renewal page instead of app ──
+// Checked once per full page load (not on every AJAX call — see
+// license_renew.php notes for why that scope was chosen deliberately).
+if (isLicenseExpired($user)) {
+    header('Location: /auth/license_renew.php');
+    exit;
+}
+$licenseExpiringSoon = isLicenseExpiringSoon($user, 2);
+$tenantExpiringSoon  = isTenantLicenseExpiringSoon($user, 2);
+
 // ── Effective per-role/tenant permission map (plan ceiling × role toggle) ──
 // Drives which sidebar menu items are shown. See includes/auth.php.
 $perms = getEffectivePermissions($user['tenant_id'] ?? null, $user['role'] ?? 'viewer');
@@ -48,6 +72,14 @@ $ROLE_BADGE_COLORS = [
 ];
 $userRole      = $user['role'] ?? 'viewer';
 $isSuperAdmin  = $userRole === 'super_admin';
+// Global Date Range Filter — owner-gated (see api/settings.php /
+// action.settings.global_date_range). Same owner-only fallback pattern
+// as Cash in Hand: defaults to false (not the generic ?? true) if the
+// catalog row hasn't been migrated in yet, so nobody but the owner can
+// touch it until that's deliberately set up.
+$canEditGlobalDateRange = in_array($userRole, ['owner','super_admin'], true)
+    ? true
+    : (bool)($perms['action.settings.global_date_range'] ?? false);
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
 // Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
 $connectedDb    = $_SESSION['tenant_db'] ?? null;
@@ -1573,6 +1605,9 @@ const SERVER = {
   // independently in Team Permissions.
   canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
   canExpenseDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.expense.delete'] ?? false)) ?>,
+  // Global Date Range Filter — see $canEditGlobalDateRange above (same
+  // value, just also needed here for the JS-rendered presets list).
+  canEditGlobalDateRange: <?= json_encode($canEditGlobalDateRange) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -1832,6 +1867,35 @@ const SERVER = {
      MAIN CONTENT
 ══════════════════════════════════════════ -->
 <div class="main-wrap" id="mainWrap">
+
+  <?php if ($tenantExpiringSoon): ?>
+  <div id="tenant-warn-banner" style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:#FFF4E5;border-bottom:1px solid #F5C89A;color:#8A5A00;font-size:13px;font-weight:600">
+    <i class="fas fa-triangle-exclamation" style="color:#B45309"></i>
+    <?php if (($user['role'] ?? '') === 'owner'): ?>
+      <span><?= htmlspecialchars($user['company_name'] ?? 'Your organization') ?>'s subscription expires on
+        <?= htmlspecialchars(date('d M Y', strtotime($user['tenant_license_expiry']))) ?>. Renew it to avoid losing access for your whole team.</span>
+    <?php else: ?>
+      <span><?= htmlspecialchars($user['company_name'] ?? 'Your organization') ?>'s subscription expires on
+        <?= htmlspecialchars(date('d M Y', strtotime($user['tenant_license_expiry']))) ?>. Contact your administrator to renew it.</span>
+    <?php endif; ?>
+    <button onclick="document.getElementById('tenant-warn-banner').style.display='none'"
+      style="margin-left:auto;background:none;border:none;color:#8A5A00;cursor:pointer;font-size:14px;opacity:.7" title="Dismiss for this session">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($licenseExpiringSoon): ?>
+  <div id="license-warn-banner" style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:#FFF4E5;border-bottom:1px solid #F5C89A;color:#8A5A00;font-size:13px;font-weight:600">
+    <i class="fas fa-triangle-exclamation" style="color:#B45309"></i>
+    <span>Your license (<?= htmlspecialchars($user['license_no'] ?: 'on file') ?>) expires on
+      <?= htmlspecialchars(date('d M Y', strtotime($user['license_expiry']))) ?>. Renew it to avoid losing access.</span>
+    <button onclick="document.getElementById('license-warn-banner').style.display='none'"
+      style="margin-left:auto;background:none;border:none;color:#8A5A00;cursor:pointer;font-size:14px;opacity:.7" title="Dismiss for this session">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <?php endif; ?>
 
   <!-- Top Bar -->
   <header class="topbar">
@@ -7079,6 +7143,7 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
 
+          <?php if ($canEditGlobalDateRange): ?>
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">When enabled, this range applies to every transaction list and report (Sales, Purchases, Expenses, Finance Report, Cash in Hand, Stock History, Aging) for the whole team — it never affects Customers, Suppliers, or Products, and it stays active until someone changes it here. It does not reset automatically.</p>
@@ -7102,7 +7167,21 @@ View Invoice: {{6}}</pre></details>
               <button class="btn btn-primary" style="height:38px" onclick="saveDateRangePreset()"><i class="fas fa-plus"></i> Add</button>
             </div>
             <div id="gdrp-list" style="display:flex;flex-direction:column;gap:8px"></div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          </div>
+          <?php else: ?>
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-calendar-days" style="color:var(--teal)"></i> Global Date Range Filter</div>
+            <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
+              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can view and change this — ask them, or have them grant you this permission in Team Permissions. Whatever's currently active still shows in the top bar.
+            </div>
+          </div>
+          <?php endif; ?>
+
+          <!-- Not part of the Global Date Range Filter — a separate Cash in
+               Hand setting that lives here for proximity, but stays visible
+               to everyone regardless of the date-range permission above. -->
+          <div class="settings-block">
+            <div style="display:flex;align-items:center;gap:10px">
               <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
               <span style="font-size:12.5px">Block editing a session's balance after it's been carried forward elsewhere <span style="color:var(--muted);font-weight:400">(recommended — turn off only if a genuine correction is needed on a carried-forward session)</span></span>
             </div>
@@ -8959,20 +9038,23 @@ function _gdrRenderPresetsList() {
   }
   el.innerHTML = GLOBAL_DATE_PRESETS.map(p => {
     const isActive = p.id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
+    const canEdit  = SERVER.canEditGlobalDateRange;
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:${isActive?'var(--accent-soft, #E3F2FD)':'var(--card)'}">
-      <label class="tog ${isActive?'on':''}" onclick="toggleDateRangePreset('${p.id}')"></label>
+      <label class="tog ${isActive?'on':''}" ${canEdit ? `onclick="toggleDateRangePreset('${p.id}')"` : 'style="opacity:.5;cursor:not-allowed;pointer-events:none"'}></label>
       <div style="flex:1">
         <div style="font-weight:700;font-size:13px">${escHtml(p.name)}</div>
         <div style="font-size:11px;color:var(--muted)">${fmt_date_disp(p.from)} – ${fmt_date_disp(p.to)}</div>
       </div>
       ${isActive ? '<span style="font-size:10px;font-weight:700;color:#1565C0;background:#E3F2FD;padding:3px 9px;border-radius:10px">ACTIVE</span>' : ''}
-      <button class="btn btn-icon" title="Delete preset" onclick="deleteDateRangePreset('${p.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>
+      ${canEdit ? `<button class="btn btn-icon" title="Delete preset" onclick="deleteDateRangePreset('${p.id}')" style="color:var(--red)"><i class="fas fa-trash"></i></button>` : ''}
     </div>`;
   }).join('');
 }
 
 async function saveDateRangePreset() {
-  const name = document.getElementById('gdrp-name').value.trim();
+  const nameEl = document.getElementById('gdrp-name');
+  if (!nameEl) return; // hidden entirely for non-owners — nothing to do
+  const name = nameEl.value.trim();
   const from = document.getElementById('gdrp-from').value;
   const to   = document.getElementById('gdrp-to').value;
   if (!name) { toast('⚠️ Enter a name for this preset', 'warning'); return; }
@@ -8993,6 +9075,7 @@ async function saveDateRangePreset() {
 }
 
 async function toggleDateRangePreset(id) {
+  if (!SERVER.canEditGlobalDateRange) return; // defense in depth — button that calls this is hidden entirely for non-owners
   const isCurrentlyActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
   const preset = GLOBAL_DATE_PRESETS.find(p => p.id === id);
   if (!preset) return;
@@ -9008,8 +9091,9 @@ async function toggleDateRangePreset(id) {
     // Keep the plain toggle's own fields in sync too, so Settings never
     // shows contradictory state between the two sections.
     document.getElementById('gdr-active-tog')?.classList.toggle('on', GLOBAL_DATE_ACTIVE);
-    document.getElementById('gdr-from').value = GLOBAL_DATE_FROM;
-    document.getElementById('gdr-to').value = GLOBAL_DATE_TO;
+    const fromEl = document.getElementById('gdr-from'), toEl = document.getElementById('gdr-to');
+    if (fromEl) fromEl.value = GLOBAL_DATE_FROM;
+    if (toEl)   toEl.value   = GLOBAL_DATE_TO;
     _gdrToggleFields();
     _gdrRenderPresetsList();
     _gdrRenderTopBarBadge();
@@ -9019,6 +9103,7 @@ async function toggleDateRangePreset(id) {
 }
 
 async function deleteDateRangePreset(id) {
+  if (!SERVER.canEditGlobalDateRange) return; // defense in depth — button that calls this is hidden entirely for non-owners
   if (!confirm('Delete this preset? This does not change whichever date range is currently active.')) return;
   const wasActive = id === GLOBAL_ACTIVE_PRESET_ID && GLOBAL_DATE_ACTIVE;
   GLOBAL_DATE_PRESETS = GLOBAL_DATE_PRESETS.filter(p => p.id !== id);
@@ -9030,8 +9115,9 @@ async function deleteDateRangePreset(id) {
     _gdrLoadFromSettings();
     if (wasActive) {
       document.getElementById('gdr-active-tog')?.classList.remove('on');
-      document.getElementById('gdr-from').value = '';
-      document.getElementById('gdr-to').value = '';
+      const fromEl = document.getElementById('gdr-from'), toEl = document.getElementById('gdr-to');
+      if (fromEl) fromEl.value = '';
+      if (toEl)   toEl.value   = '';
       _gdrToggleFields();
       _gdrRenderTopBarBadge();
       _gdrRefreshCurrentPage();
@@ -24914,12 +25000,30 @@ async function saveCompanySettings() {
   // clear that association — this form is now in control. If they still
   // match (e.g. the user saved some unrelated setting without touching
   // dates), leave the preset's active status alone.
-  const gdrFromVal = document.getElementById('gdr-from')?.value || '';
-  const gdrToVal   = document.getElementById('gdr-to')?.value   || '';
-  const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
-  const presetDiverged = activePreset && (activePreset.from !== gdrFromVal || activePreset.to !== gdrToVal);
+  //
+  // These fields don't exist in the DOM at all for non-owners (the whole
+  // card is hidden — see Settings page). Omit the 3 date-range keys from
+  // the payload entirely in that case, rather than sending them as off/
+  // empty: settings.php rejects the WHOLE save if a non-owner's payload
+  // touches these keys at all, so including them here would silently
+  // block every other unrelated field (company name, GST, etc.) too.
+  const gdrEl = document.getElementById('gdr-from');
+  let dateRangeFields = {};
+  if (gdrEl) {
+    const gdrFromVal = gdrEl.value || '';
+    const gdrToVal   = document.getElementById('gdr-to')?.value || '';
+    const activePreset = GLOBAL_ACTIVE_PRESET_ID ? GLOBAL_DATE_PRESETS.find(p => p.id === GLOBAL_ACTIVE_PRESET_ID) : null;
+    const presetDiverged = activePreset && (activePreset.from !== gdrFromVal || activePreset.to !== gdrToVal);
+    dateRangeFields = {
+      global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
+      global_date_from:   gdrFromVal,
+      global_date_to:     gdrToVal,
+      ...(presetDiverged ? { active_preset_id: '' } : {}),
+    };
+  }
 
   const payload = {
+    ...dateRangeFields,
     company_name:    document.getElementById('sc-name')?.value    || '',
     company_gst:     document.getElementById('sc-gst')?.value     || '',
     company_pan:     document.getElementById('sc-pan')?.value     || '',
@@ -24930,10 +25034,6 @@ async function saveCompanySettings() {
     company_msme:    document.getElementById('sc-msme')?.value    || '',
     company_tagline: document.getElementById('sc-tagline')?.value || '',
     company_iso:     document.getElementById('sc-iso')?.value     || '',
-    global_date_active: document.getElementById('gdr-active-tog')?.classList.contains('on') ? '1' : '0',
-    global_date_from:   gdrFromVal,
-    global_date_to:     gdrToVal,
-    ...(presetDiverged ? { active_preset_id: '' } : {}),
     company_phone:   document.getElementById('sc-phone')?.value   || '',
     company_email:   document.getElementById('sc-email')?.value   || '',
     company_website: document.getElementById('sc-web')?.value     || '',
@@ -29444,6 +29544,21 @@ function _renderExpSummary() {
   }
 }
 
+// Formats just the time portion of a DATETIME string for small secondary
+// labels (e.g. under a date cell). Same "assume IST if no timezone marker
+// present" convention as fmtEmailTime, since backend timestamps here are
+// stored via PHP's date() (Asia/Kolkata), not MySQL's own clock.
+function fmtTimeOnly(raw) {
+  if (!raw) return '';
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
+  const d = new Date(normalized);
+  if (isNaN(d)) return '';
+  return d.toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+}
+
 function _renderExpTable() {
   const tbody = document.getElementById('exp-tbody');
   const info  = document.getElementById('exp-info');
@@ -29458,7 +29573,7 @@ function _renderExpTable() {
   tbody.innerHTML = pg.map(exp => {
     const col = getExpCatColor(exp.category);
     return `<tr>
-      <td>${exp.date||'—'}</td>
+      <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>

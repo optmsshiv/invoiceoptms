@@ -3081,7 +3081,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -18911,6 +18911,23 @@ function plFilteredPurchases() {
   });
 }
 
+// Renders up to 2 product-name chips for a purchase row, "+N more" for
+// the rest. product_names comes from the list query as a '|~|'-separated
+// string (purchase_items.description, DISTINCT — same field used
+// everywhere else for product name, including freetext/non-catalog
+// items, so this works whether or not each item is linked to a catalog
+// product).
+function purchaseProductChipsHTML(raw) {
+  const names = (raw || '').split('|~|').map(s => s.trim()).filter(Boolean);
+  if (!names.length) return '<span style="color:var(--muted)">—</span>';
+  const shown = names.slice(0, 2);
+  const extra = names.length - shown.length;
+  const chip = n => `<span style="display:inline-block;font-size:10.5px;font-weight:600;color:var(--teal);background:var(--teal-bg);padding:2px 8px;border-radius:10px;margin:1px 3px 1px 0;white-space:nowrap">${escHtml(n)}</span>`;
+  return shown.map(chip).join('') + (extra > 0
+    ? `<span style="display:inline-block;font-size:10.5px;font-weight:600;color:var(--muted);padding:2px 6px">+${extra} more</span>`
+    : '');
+}
+
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
@@ -18954,7 +18971,7 @@ function renderPurchases() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
     return;
   }
 
@@ -18975,6 +18992,7 @@ function renderPurchases() {
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
       <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
       <td>${escHtml(p.supplier_name||'—')}</td>
+      <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
