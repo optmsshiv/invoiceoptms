@@ -17,8 +17,6 @@
 //  PATCH  ?action=reset_password    → reset a user's password
 //  DELETE ?action=remove_user&id=N  → remove user from tenant
 //  GET    ?action=audit_log         → super-admin action history
-//  GET    ?action=license_requests  → pending license renewal requests
-//  PATCH  ?action=dismiss_license_request → dismiss a request w/o renewing
 //  POST   ?action=connect_db    → super admin: point session at any DB
 //  POST   ?action=disconnect_db → super admin: return session to master DB
 // ================================================================
@@ -582,14 +580,6 @@ try {
             'UPDATE users SET is_verified=?, license_no=?, license_expiry=? WHERE id=?'
         )->execute([$isVerified, $licenseNo ?: null, $licenseExp ?: null, $userId]);
 
-        // Updating the license here IS the resolution of any pending
-        // renewal request — auto-close it rather than making the admin
-        // dismiss it as a separate step.
-        $master->prepare(
-            "UPDATE license_renewal_requests SET status='resolved', resolved_at=?, resolved_by=?
-             WHERE user_id=? AND status='pending'"
-        )->execute([date('Y-m-d H:i:s'), $_SESSION['user_id'], $userId]);
-
         masterAuditLog($_SESSION['user_id'], null, 'user_verification_updated',
             "Updated verification/license for user #{$userId}");
 
@@ -639,37 +629,6 @@ try {
     if (($method === 'DELETE' || $method === 'PATCH') && $action === 'remove_user') {
         $userId = (int)($body['user_id'] ?? $_GET['id'] ?? 0);
         $master->prepare('UPDATE users SET status="inactive" WHERE id=?')->execute([$userId]);
-        jsonResponse(['success' => true]);
-    }
-
-    // ── LIST pending license renewal requests (Super Admin queue) ──
-    if ($method === 'GET' && $action === 'license_requests') {
-        $stmt = $master->query(
-            "SELECT r.id, r.user_id, r.tenant_id, r.requested_at,
-                    u.name AS user_name, u.email AS user_email,
-                    u.is_verified, u.license_no, u.license_expiry,
-                    t.company_name AS tenant_name
-             FROM license_renewal_requests r
-             JOIN users u ON u.id = r.user_id
-             LEFT JOIN tenants t ON t.id = r.tenant_id
-             WHERE r.status = 'pending'
-             ORDER BY r.requested_at ASC"
-        );
-        jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
-    }
-
-    // ── DISMISS a renewal request without changing the license ─────
-    // (handled outside the system, duplicate, or mistaken request —
-    // for actually renewing, use ?action=update_verification instead,
-    // which auto-resolves the matching pending request on its own)
-    if ($method === 'PATCH' && $action === 'dismiss_license_request') {
-        $reqId = (int)($body['id'] ?? 0);
-        if (!$reqId) jsonResponse(['error' => 'id required'], 400);
-        $master->prepare(
-            "UPDATE license_renewal_requests SET status='resolved', resolved_at=?, resolved_by=?
-             WHERE id=? AND status='pending'"
-        )->execute([date('Y-m-d H:i:s'), $_SESSION['user_id'], $reqId]);
-        masterAuditLog($_SESSION['user_id'], null, 'license_request_dismissed', "Dismissed renewal request #{$reqId}");
         jsonResponse(['success' => true]);
     }
 

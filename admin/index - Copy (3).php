@@ -279,10 +279,6 @@ tbody tr:hover td{background:#FAFBFD}
       <a class="side-nav-item" data-page="audit" onclick="showAdminPage('audit',this)">
         <i class="fas fa-clock-rotate-left"></i> Audit Log
       </a>
-      <a class="side-nav-item" data-page="license_requests" onclick="showAdminPage('license_requests',this)">
-        <i class="fas fa-id-card-clip"></i> License Requests
-        <span id="lr-nav-badge" style="display:none;margin-left:auto;background:#C0392B;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px"></span>
-      </a>
     </nav>
   </aside>
   <div class="app-main">
@@ -443,35 +439,6 @@ tbody tr:hover td{background:#FAFBFD}
     </div>
   </div>
   </div><!-- /page-audit -->
-
-  <div id="page-license_requests" class="admin-page">
-  <div class="container">
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">Super Admin</div>
-        <div class="page-title">License Requests</div>
-        <div class="page-sub">Staff members whose license expired and requested renewal.</div>
-      </div>
-    </div>
-
-    <div class="table-card" style="background:var(--card);border:1px solid var(--border-soft);border-radius:16px;padding:22px">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-        <button class="btn btn-outline" onclick="loadLicenseRequests()"><i class="fas fa-rotate"></i> Refresh</button>
-        <span id="lr-subtitle" style="font-size:12.5px;color:var(--text-mute);margin-left:auto"></span>
-      </div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr>
-            <th>Requested</th><th>Staff Member</th><th>Tenant</th><th>License No.</th><th>Expired</th><th style="text-align:right">Actions</th>
-          </tr></thead>
-          <tbody id="lr-tbody">
-            <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  </div><!-- /page-license_requests -->
 
   </div><!-- /app-main -->
 </div><!-- /app-layout -->
@@ -1350,9 +1317,6 @@ async function saveVerification() {
     } else if (ACTIVE_TENANT_ID) {
       loadUsers();
     }
-    // update_verification auto-resolves any pending renewal request for
-    // this user server-side — refresh the queue/badge to reflect that.
-    if (typeof loadLicenseRequests === 'function') loadLicenseRequests();
   } else {
     showAlert('el-alert', esc(data.error || 'Failed to save'), 'error');
   }
@@ -1581,7 +1545,7 @@ async function clearTenantOverride(key) {
 }
 
 // ══ Page switching (sidebar) ═══════════════════════════════════
-const ADMIN_PAGE_TITLES = { tenants: 'Tenant Management', team: 'Team / Users', audit: 'Audit Log', license_requests: 'License Requests' };
+const ADMIN_PAGE_TITLES = { tenants: 'Tenant Management', team: 'Team / Users', audit: 'Audit Log' };
 function showAdminPage(name, el) {
   document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.side-nav-item').forEach(n => n.classList.remove('active'));
@@ -1590,7 +1554,6 @@ function showAdminPage(name, el) {
   document.getElementById('topbar-crumb-current').textContent = ADMIN_PAGE_TITLES[name] || name;
   if (name === 'team') loadTeamPage();
   if (name === 'audit') loadAuditLog(0);
-  if (name === 'license_requests') loadLicenseRequests();
 }
 
 // ══ Team / Users — every user across every tenant ═════════════════
@@ -1904,106 +1867,8 @@ async function loadAuditLog(offset = 0) {
 }
 function loadAuditLogMore() { loadAuditLog(AUDIT_OFFSET + AUDIT_PAGE_SIZE); }
 
-// ══ License Renewal Requests ═══════════════════════════════════════
-let LICENSE_REQUESTS = [];
-
-async function loadLicenseRequests() {
-  const tbody = document.getElementById('lr-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>';
-  try {
-    const r = await fetch('/api/tenant.php?action=license_requests');
-    const data = await r.json();
-    LICENSE_REQUESTS = data.data || [];
-    renderLicenseRequestsTable();
-    updateLicenseRequestsBadge();
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--danger)">Failed to load: ${esc(e.message)}</td></tr>`;
-  }
-}
-
-function renderLicenseRequestsTable() {
-  const tbody = document.getElementById('lr-tbody');
-  const sub   = document.getElementById('lr-subtitle');
-  sub.textContent = `${LICENSE_REQUESTS.length} pending request${LICENSE_REQUESTS.length===1?'':'s'}`;
-
-  if (!LICENSE_REQUESTS.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-mute)">No pending renewal requests</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = LICENSE_REQUESTS.map(r => `
-    <tr>
-      <td><span class="muted-date">${r.requested_at ? r.requested_at.slice(0,10) : '—'}</span></td>
-      <td>
-        <div class="cell-primary">
-          <div class="avatar-md" style="width:30px;height:30px;font-size:11px">${esc(initials(r.user_name))}</div>
-          <div>
-            <div class="name" style="font-size:12.8px">${esc(r.user_name)}</div>
-            <div class="meta">${esc(r.user_email)}</div>
-          </div>
-        </div>
-      </td>
-      <td><span style="font-size:12.5px;font-weight:600">${esc(r.tenant_name || '—')}</span></td>
-      <td style="font-size:11.5px" class="mono">${esc(r.license_no || '—')}</td>
-      <td><span style="font-size:12.5px;color:var(--danger);font-weight:600">${r.license_expiry ? r.license_expiry.slice(0,10) : '—'}</span></td>
-      <td style="white-space:nowrap;text-align:right">
-        <div class="action-group" style="display:inline-flex;gap:6px">
-          <button class="btn btn-outline" style="font-size:11.5px;padding:6px 12px" onclick="openEditLicenseFromRequest(${r.user_id})">
-            <i class="fas fa-id-card"></i> Renew License
-          </button>
-          <button class="btn btn-icon" style="color:var(--danger)" onclick="dismissLicenseRequest(${r.id})" title="Dismiss without renewing">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-      </td>
-    </tr>`).join('');
-}
-
-// Reuses the existing single-user "Edit verification & license" modal
-// (same one Team/Users uses) — just needs CURRENT_USERS to contain
-// this user, which it may not yet if you haven't visited Team/Users
-// this session, so we synthesize a minimal entry from the request row.
-function openEditLicenseFromRequest(userId) {
-  const req = LICENSE_REQUESTS.find(r => r.user_id == userId);
-  if (!req) return;
-  const existing = (typeof ALL_TEAM_USERS !== 'undefined' ? ALL_TEAM_USERS : []).find(u => u.id == userId);
-  CURRENT_USERS = existing ? ALL_TEAM_USERS : [{
-    id: req.user_id, name: req.user_name, email: req.user_email,
-    is_verified: req.is_verified, license_no: req.license_no, license_expiry: req.license_expiry
-  }];
-  openEditLicense(userId);
-}
-
-async function dismissLicenseRequest(id) {
-  if (!confirm('Dismiss this request without renewing the license? The staff member will remain blocked.')) return;
-  try {
-    const r = await fetch('/api/tenant.php?action=dismiss_license_request', {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id })
-    });
-    const data = await r.json();
-    if (!data.success) { alert('Failed to dismiss: ' + (data.error || 'Unknown error')); return; }
-  } catch (e) {
-    alert('Network error: ' + e.message);
-    return;
-  }
-  loadLicenseRequests();
-}
-
-function updateLicenseRequestsBadge() {
-  const badge = document.getElementById('lr-nav-badge');
-  if (!badge) return;
-  if (LICENSE_REQUESTS.length) {
-    badge.textContent = LICENSE_REQUESTS.length;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
 // ── Init ─────────────────────────────────────────────────────────
 loadTenants();
-loadLicenseRequests();
 
 // Close modal on overlay click
 document.querySelectorAll('.modal-overlay').forEach(el => {

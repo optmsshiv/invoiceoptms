@@ -182,33 +182,6 @@ function currentUser(): ?array {
     }
 }
 
-// ── License expiry checks ──────────────────────────────────────────
-// license_expiry is a DATE column (no time component). We treat it as
-// valid through the END of that calendar day in IST — e.g. an expiry
-// of 2026-08-15 stays valid all day on the 15th, and only lapses once
-// the 16th begins. super_admin is exempt: this is a per-user
-// professional/trade license, not a platform-access license, so a
-// licensing edge case should never be able to lock out the one role
-// that could fix it.
-function isLicenseExpired(array $user): bool {
-    if (($user['role'] ?? '') === 'super_admin') return false;
-    if (empty($user['license_expiry'])) return false;
-    $expiryEnd = strtotime($user['license_expiry'] . ' 23:59:59');
-    if ($expiryEnd === false) return false;
-    return time() > $expiryEnd;
-}
-
-// Used for the 2-day advance warning badge/banner — true only in the
-// window BEFORE expiry, not after (isLicenseExpired covers after).
-function isLicenseExpiringSoon(array $user, int $warnDays = 2): bool {
-    if (($user['role'] ?? '') === 'super_admin') return false;
-    if (empty($user['license_expiry'])) return false;
-    if (isLicenseExpired($user)) return false;
-    $expiryEnd = strtotime($user['license_expiry'] . ' 23:59:59');
-    if ($expiryEnd === false) return false;
-    return ($expiryEnd - time()) <= ($warnDays * 86400);
-}
-
 // ── Login ─────────────────────────────────────────────────────────
 function attemptLogin(string $email, string $password): array|false {
     try {
