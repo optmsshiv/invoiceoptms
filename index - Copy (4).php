@@ -19999,14 +19999,7 @@ function calcPNEKantaSummary() {
   // Push gross/tare into the item data and update computed cells directly
   // WITHOUT re-rendering the whole table (which would cause an infinite loop
   // since the gross/tare inputs have oninput → this function).
-  //
-  // No "gross > 0 || tare > 0" guard here on purpose — that used to skip
-  // this whole block whenever both were reset to 0/empty, which meant
-  // clearing the Kanta fields never propagated the reset to the item row
-  // or the footer totals (they'd stay stuck on the last real values). The
-  // only real precondition is "is there a target row to sync into", which
-  // the `if (target)` check below already covers on its own.
-  {
+  if (gross > 0 || tare > 0) {
     let target = null;
     if (PNE.items.length === 1) {
       target = PNE.items[0];
