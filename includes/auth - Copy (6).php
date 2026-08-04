@@ -269,16 +269,12 @@ function attemptLogin(string $email, string $password): array|false {
         $_SESSION['last_activity']= time();
 
         // If first login via invite — activate user
-        // date('Y-m-d H:i:s') here (not NOW()) — same fix as email_logs,
-        // expenses, etc.: MySQL's NOW() runs on the DB server's own
-        // timezone, not the Asia/Kolkata this app assumes everywhere.
-        $loginTime = date('Y-m-d H:i:s');
         if ($user['status'] === 'invited') {
-            $db->prepare('UPDATE users SET status="active", last_login=?, login_count=login_count+1 WHERE id=?')
-               ->execute([$loginTime, $user['id']]);
+            $db->prepare('UPDATE users SET status="active", last_login=NOW(), login_count=login_count+1 WHERE id=?')
+               ->execute([$user['id']]);
         } else {
-            $db->prepare('UPDATE users SET last_login=?, login_count=login_count+1 WHERE id=?')
-               ->execute([$loginTime, $user['id']]);
+            $db->prepare('UPDATE users SET last_login=NOW(), login_count=login_count+1 WHERE id=?')
+               ->execute([$user['id']]);
         }
 
         masterAuditLog($user['id'], $user['tenant_id'] ?? null, 'login', 'User logged in');

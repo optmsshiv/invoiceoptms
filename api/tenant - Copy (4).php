@@ -109,7 +109,7 @@ try {
     if ($method === 'GET' && $action === 'users') {
         $tid  = (int)($_GET['tenant_id'] ?? 0);
         $stmt = $master->prepare(
-            'SELECT id, name, email, phone, role, status, last_login, created_at,
+            'SELECT id, name, email, role, status, last_login, created_at,
                     is_verified, license_no, license_expiry
              FROM users WHERE tenant_id = ? ORDER BY role, name'
         );
