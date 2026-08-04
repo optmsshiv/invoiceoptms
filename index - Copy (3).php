@@ -19122,7 +19122,7 @@ function renderPurchases() {
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
       <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
-      <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
+      <td>${escHtml(p.supplier_name||'—')} ${supplierTypeBadgeHTML(p.supplier_type)}</td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
