@@ -20078,27 +20078,17 @@ function calcPNEKantaSummary() {
 // this specific row; Billable = current item's net − its own dhalta.
 function calcPNEQualitySummary() {
   const net = parseFloat(document.getElementById('pn-kanta-net').value) || 0;
-
-  const pctEl = document.getElementById('pn-q-dhaltapct');
-  const kgEl  = document.getElementById('pn-q-dhaltakg');
-  const bilEl = document.getElementById('pn-q-billable');
-
-  if (!net) {
-    // No weight entered yet, OR just reset back to zero — either way the
-    // dependent fields should actually show blank, not silently keep
-    // whatever they last displayed. (Previously this just returned early,
-    // which left pn-q-billable stuck on its last value after a reset.)
-    if (pctEl) pctEl.value = '';
-    if (kgEl && document.activeElement !== kgEl) kgEl.value = '';
-    if (bilEl) bilEl.value = '';
-    return;
-  }
+  if (!net) return; // no weight entered yet — leave fields blank
 
   // Use only the current editing item's dhalta (per-row, not total)
   const editingItem = PNE.items.find(i => i.editing);
   const dhaltaKg = editingItem ? (parseFloat(editingItem.dhalta_kg) || 0) : 0;
   const dhaltaPct = net > 0 ? (dhaltaKg / net * 100) : 0;
   const billable  = Math.max(0, net - dhaltaKg);
+
+  const pctEl = document.getElementById('pn-q-dhaltapct');
+  const kgEl  = document.getElementById('pn-q-dhaltakg');
+  const bilEl = document.getElementById('pn-q-billable');
 
   if (pctEl) pctEl.value = dhaltaPct > 0 ? dhaltaPct.toFixed(2) : '';
   if (kgEl && document.activeElement !== kgEl) kgEl.value = dhaltaKg > 0 ? dhaltaKg.toFixed(2) : '';
