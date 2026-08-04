@@ -356,8 +356,8 @@ tbody tr:hover td{background:#FAFBFD}
           <tr>
             <th style="width:32px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTenants(this)"></th>
             <th>Company</th><th>Contact</th><th>Identifiers</th><th>Plan</th><th>Status</th>
-            <th class="sortable" style="cursor:pointer" onclick="sortTenantsByExpiry()">Expiry <i class="fas fa-sort" id="expiry-sort-icon"></i></th>
-            <th>Users</th><th>Created</th><th style="text-align:right">Actions</th>
+            <th class="sortable" style="cursor:pointer" onclick="sortTenantsByExpiry()">Expiry <i class="fas fa-sort" id="expiry-sort-icon"></i><div style="font-size:9.5px;font-weight:400;color:var(--text-mute);text-transform:none">Date &amp; Time</div></th>
+            <th>Users</th><th>Created<div style="font-size:9.5px;font-weight:400;color:var(--text-mute);text-transform:none">Date &amp; Time</div></th><th style="text-align:right">Actions</th>
           </tr>
         </thead>
         <tbody id="tenants-tbody">
@@ -997,8 +997,16 @@ function renderTenants(list) {
       <td><span class="badge badge-${t.plan}">${t.plan}</span></td>
       <td><span class="badge badge-${t.status}">${t.status}</span></td>
       <td>${licenseExpiryCellHTML(t)}</td>
-      <td><span class="count-pill"><i class="fas fa-user"></i> ${t.user_count || 0}</span></td>
-      <td><span class="muted-date">${t.created_at ? t.created_at.slice(0,10) : '—'}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <i class="fas fa-user" style="color:var(--text-mute);font-size:11px"></i>
+          <div>
+            <div style="font-size:12.5px;font-weight:700">${t.user_count || 0}</div>
+            <div style="font-size:10px;color:var(--text-mute)">${(t.user_count||0)===1?'user':'users'}</div>
+          </div>
+        </div>
+      </td>
+      <td>${createdAtCellHTML(t.created_at)}</td>
       <td>
         <div class="action-group">
           <button class="btn btn-icon" onclick="openUsers(${t.id}, '${esc(t.company_name)}')" title="Users">
@@ -1031,6 +1039,12 @@ function renderTenants(list) {
 // for every tenant (not just when close to expiry), color-coded, and
 // clickable straight into the Set Subscription Expiry modal. license_expiry
 // already comes back from ?action=list (SELECT t.*), no new backend needed.
+//
+// The "11:59 PM" line is NOT a per-tenant time — license_expiry is a DATE
+// column, and every tenant's cutoff is uniformly end-of-day IST (see
+// isTenantLicenseExpired() in includes/auth.php). Showing it here makes
+// that real, existing rule visible instead of leaving people to guess
+// whether expiry means midnight or end of day.
 function licenseExpiryCellHTML(t) {
   const onclick = `openSetSubscription(${t.id}, '${esc(t.company_name)}', ${t.license_expiry ? `'${t.license_expiry}'` : 'null'})`;
   if (!t.license_expiry) {
@@ -1043,8 +1057,21 @@ function licenseExpiryCellHTML(t) {
   else if (daysLeft <= 7) { sub = `Expires in ${daysLeft}d`;            color = '#9A6700'; }
   return `<div style="cursor:pointer" onclick="${onclick}" title="Click to change">
     <div style="font-size:12.5px;font-weight:600;color:${daysLeft<0?'var(--danger)':'var(--text)'}">${dateStr}</div>
+    <div style="font-size:10px;color:var(--text-mute)">11:59 PM</div>
     ${sub ? `<div style="font-size:10.5px;color:${color};font-weight:600">${sub}</div>` : ''}
   </div>`;
+}
+
+// ── Created cell — real timestamp, both date and time. Unlike the expiry
+// cutoff above, this genuinely varies per tenant (whenever they were
+// actually created), so it shows the real recorded time, not a fixed rule.
+function createdAtCellHTML(raw) {
+  if (!raw) return '<span class="muted-date">—</span>';
+  const dt = new Date(String(raw).replace(' ', 'T') + '+05:30');
+  if (isNaN(dt)) return '<span class="muted-date">' + esc(raw) + '</span>';
+  const dateStr = dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  const timeStr = dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+  return `<div style="font-size:12.5px;font-weight:600">${dateStr}</div><div style="font-size:10px;color:var(--text-mute)">${timeStr}</div>`;
 }
 
 // ── Bulk actions ────────────────────────────────────────────────

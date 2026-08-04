@@ -1737,6 +1737,35 @@ async function loadTeamPage() {
   }
 }
 
+// Relative "time ago" for a real timestamp (e.g. last_login) — never used
+// to claim live presence, just how long since that recorded event.
+// Assumes IST if no timezone marker present, same convention as the SPA's
+// fmtEmailTime/fmtTimeOnly, since backend timestamps here are written via
+// PHP's date() (Asia/Kolkata), not MySQL's own clock.
+function _relTimeAgo(raw) {
+  if (!raw) return '';
+  let normalized = String(raw).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
+  const d = new Date(normalized);
+  if (isNaN(d)) return '';
+  const diffMs = Date.now() - d.getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1)   return 'just now';
+  if (min < 60)  return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24)   return `${hr} hr ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 30)  return `${day}d ago`;
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+const ROLE_ICONS = {
+  owner: 'fa-crown', admin: 'fa-user-shield', manager: 'fa-user-tie',
+  accountant: 'fa-calculator', sales: 'fa-handshake', viewer: 'fa-eye'
+};
+
 function renderTeamTable() {
   const q = (document.getElementById('team-search').value || '').toLowerCase().trim();
   const tenantFilter = document.getElementById('team-tenant-filter').value;
@@ -1761,27 +1790,68 @@ function renderTeamTable() {
   }
 
   tbody.innerHTML = rows.map(u => {
-    const licenseText = u.license_no
-      ? `${esc(u.license_no)}${u.license_expiry ? ' · ' + u.license_expiry.slice(0,10) : ''}`
-      : '<span style="color:var(--text-mute)">—</span>';
+    const uid = 'UID-' + String(u.id).padStart(6, '0');
+    const tenant = TENANTS.find(t => t.id === u._tenant_id);
+    const tenantUserCount = tenant?.user_count || 0;
+
+    // License — real data, same days-left math already used on the
+    // Tenants Expiry column.
+    let licenseHTML = '<span style="color:var(--text-mute)">—</span>';
+    if (u.license_no) {
+      let sub = '';
+      if (u.license_expiry) {
+        const daysLeft = Math.ceil((new Date(u.license_expiry) - new Date()) / 86400000);
+        const dateStr  = u.license_expiry.slice(0,10);
+        if (daysLeft < 0) sub = `<div style="font-size:10.5px;color:var(--danger);font-weight:600">Expired ${Math.abs(daysLeft)}d ago</div>`;
+        else sub = `<div style="font-size:10px;color:var(--text-mute)">Valid till</div><div style="font-size:11px;font-weight:600">${dateStr}</div><div style="font-size:10.5px;color:${daysLeft<=7?'#9A6700':'var(--teal)'};font-weight:600">${daysLeft}d left</div>`;
+      }
+      licenseHTML = `<div style="font-weight:700;font-size:12px;font-family:monospace">${esc(u.license_no)}</div>${sub}`;
+    }
+
+    // Last Login — real timestamp only. No "online now" claim: this app
+    // has no session/presence tracking, so that would be fabricated, not
+    // approximated. Showing exactly when they last logged in instead.
+    let lastLoginHTML = '<span style="color:var(--text-mute)">Never</span>';
+    if (u.last_login) {
+      const dt = new Date(u.last_login.replace(' ','T') + '+05:30');
+      const dateStr = dt.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      const timeStr = dt.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+      lastLoginHTML = `
+        <div style="font-size:11.5px"><i class="fas fa-calendar-days" style="color:var(--text-mute);width:12px"></i> ${dateStr}</div>
+        <div style="font-size:11.5px;color:var(--text-mute)"><i class="fas fa-clock" style="width:12px"></i> ${timeStr}</div>
+        <span style="display:inline-block;margin-top:2px;font-size:10px;font-weight:600;color:var(--teal);background:var(--teal-bg);padding:1px 7px;border-radius:8px">${_relTimeAgo(u.last_login)}</span>`;
+    }
+
+    const roleIcon = ROLE_ICONS[u.role] || 'fa-user';
+
     return `<tr>
       <td>
         <div class="cell-primary">
-          <div class="avatar-md" style="width:30px;height:30px;font-size:11px">${esc(initials(u.name))}</div>
+          <div class="avatar-md" style="width:34px;height:34px;font-size:12px">${esc(initials(u.name))}</div>
           <div>
             <div class="name" style="font-size:12.8px">${esc(u.name)}</div>
             <div class="meta">${esc(u.email)}</div>
+            ${u.phone ? `<div class="meta">${esc(u.phone)}</div>` : ''}
+            <span style="display:inline-block;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--text-mute);background:var(--bg);border:1px solid var(--border-soft);padding:1px 6px;border-radius:6px">${uid}</span>
           </div>
         </div>
       </td>
-      <td><span style="font-size:12.5px;font-weight:600">${esc(u._tenant_name)}</span></td>
-      <td><span class="badge badge-${u.role}">${esc(u.role)}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <i class="fas fa-building" style="color:var(--text-mute);font-size:12px"></i>
+          <div>
+            <div style="font-size:12.5px;font-weight:600">${esc(u._tenant_name)}</div>
+            <div style="font-size:10.5px;color:var(--text-mute)">${tenantUserCount} user${tenantUserCount===1?'':'s'}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-${u.role}"><i class="fas ${roleIcon}" style="margin-right:4px;font-size:10px"></i>${esc(u.role)}</span></td>
       <td><span class="badge badge-${u.status}">${esc(u.status)}</span></td>
-      <td><span class="muted-date">${u.last_login ? u.last_login.slice(0,10) : 'Never'}</span></td>
+      <td>${lastLoginHTML}</td>
       <td>${u.is_verified == 1
-        ? '<span class="verified-tag">VERIFIED</span>'
+        ? '<span class="verified-tag"><i class="fas fa-check" style="margin-right:3px"></i>VERIFIED</span>'
         : '<span style="font-size:11px;color:var(--text-mute)">Unverified</span>'}</td>
-      <td style="font-size:11.5px" class="mono">${licenseText}</td>
+      <td>${licenseHTML}</td>
       <td style="white-space:nowrap;text-align:right">
         <div class="action-group" style="display:inline-flex">
           <button class="btn btn-icon" onclick="openEditLicenseFromTeam(${u.id})" title="Edit verification & license"><i class="fas fa-id-card"></i></button>

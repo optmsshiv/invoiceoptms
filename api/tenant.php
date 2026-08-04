@@ -308,10 +308,12 @@ try {
 
             // 1) Register the tenant — pointing at the EXISTING database.
             //    No schema file is run, no cPanel calls are made.
+            // created_at set explicitly (not MySQL's DEFAULT CURRENT_TIMESTAMP)
+            // — same timezone fix applied everywhere else in this app.
             $master->prepare(
-                'INSERT INTO tenants (slug, company_name, db_name, plan, owner_email, owner_name, phone, status, created_by)
-                 VALUES (?,?,?,?,?,?,?,"active",?)'
-            )->execute([$slug, $name, $dbName, $plan, $matchOwner['email'], $matchOwner['name'], $phone, $_SESSION['user_id']]);
+                'INSERT INTO tenants (slug, company_name, db_name, plan, owner_email, owner_name, phone, status, created_by, created_at)
+                 VALUES (?,?,?,?,?,?,?,"active",?,?)'
+            )->execute([$slug, $name, $dbName, $plan, $matchOwner['email'], $matchOwner['name'], $phone, $_SESSION['user_id'], date('Y-m-d H:i:s')]);
             $tenantId = (int)$master->lastInsertId();
 
             $migrated = [];
@@ -867,10 +869,12 @@ function _finalizeTenantCreation(
     string $ownerEmail, string $ownerName, string $ownerPass,
     string $plan, string $phone, int $actingUserId, string $businessType = 'both'
 ): array {
+    // created_at set explicitly (not MySQL's DEFAULT CURRENT_TIMESTAMP) —
+    // same timezone fix applied everywhere else in this app.
     $master->prepare(
-        'INSERT INTO tenants (slug, company_name, db_name, plan, business_type, owner_email, owner_name, phone, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?)'
-    )->execute([$slug, $name, $dbName, $plan, $businessType, $ownerEmail, $ownerName, $phone, $actingUserId]);
+        'INSERT INTO tenants (slug, company_name, db_name, plan, business_type, owner_email, owner_name, phone, created_by, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)'
+    )->execute([$slug, $name, $dbName, $plan, $businessType, $ownerEmail, $ownerName, $phone, $actingUserId, date('Y-m-d H:i:s')]);
     $tenantId = (int)$master->lastInsertId();
 
     $hashedPass = password_hash($ownerPass, PASSWORD_BCRYPT, ['cost' => 12]);
