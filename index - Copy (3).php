@@ -3135,7 +3135,7 @@ const SERVER = {
                 <label>Supplier / Farmer Name *</label>
                 <div style="display:flex;gap:6px">
                   <select id="pn-supplier" style="flex:1" onchange="onSupplierPicked()"><option value="">Select or add supplier…</option></select>
-                  <button class="btn btn-outline" style="padding:0 12px" title="Add new supplier" onclick="openAddSupplierModal('purchase')"><i class="fas fa-plus"></i></button>
+                  <button class="btn btn-outline" style="padding:0 12px" title="Add new supplier" onclick="openAddSupplierModal()"><i class="fas fa-plus"></i></button>
                 </div>
               </div>
               <div class="field"><label>Mobile No.</label><input id="pn-mobile" placeholder="+91 XXXXX XXXXX" readonly></div>
@@ -18138,10 +18138,7 @@ function exportSuppliersExcel() {
   toast('✅ Exported ' + list.length + ' suppliers', 'success');
 }
 
-let ADD_SUPPLIER_CONTEXT = 'page'; // 'page' (Suppliers page) | 'purchase' (Purchase Entry's inline + button) — which dropdown to select the new supplier into after saving
-
-function openAddSupplierModal(context = 'page') {
-  ADD_SUPPLIER_CONTEXT = context;
+function openAddSupplierModal() {
   SUP.editingId = null;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
   ['supq-name','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
@@ -18186,32 +18183,19 @@ async function saveSupplier() {
     opening_balance: parseFloat(document.getElementById('supq-opening').value) || 0,
     notes:           document.getElementById('supq-notes').value.trim(),
   };
-  const isEdit = !!SUP.editingId;
   try {
-    let newId = null;
-    if (isEdit) {
+    if (SUP.editingId) {
       await api('api/suppliers.php?id=' + SUP.editingId, 'PUT', payload);
       consumeEditApproval(); toast('✅ Supplier updated!', 'success');
     } else {
-      const res = await api('api/suppliers.php', 'POST', payload);
-      newId = res?.id;
+      await api('api/suppliers.php', 'POST', payload);
       toast('✅ "' + name + '" added!', 'success');
     }
     const r = await api('api/suppliers.php');
     STATE.suppliers = Array.isArray(r.data) ? r.data : STATE.suppliers;
     SUP.editingId = null;
     closeModal('modal-addsupplier');
-
-    // Select the newly created supplier back into whichever dropdown this
-    // modal was actually opened from — same pattern saveCustomer() already
-    // uses for Sale Entry. Only on a genuine new add, not an edit.
-    if (!isEdit && ADD_SUPPLIER_CONTEXT === 'purchase' && newId) {
-      populatePNESupplierDropdown();
-      document.getElementById('pn-supplier').value = newId;
-      await onSupplierPicked();
-    } else {
-      renderSuppliers();
-    }
+    renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Save Supplier'; } }
 }
