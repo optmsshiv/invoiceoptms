@@ -248,17 +248,6 @@ switch ($method) {
     $attachmentPath = saveAttachment($d['attachment'] ?? null);
     $kantaSlipPath  = saveAttachment($d['kanta_slip'] ?? null);
 
-    // created_at set explicitly via PHP's date() (Asia/Kolkata), not left
-    // to the column's own DEFAULT CURRENT_TIMESTAMP — same fix already
-    // applied to expenses.php and email_logs for the same reason: MySQL's
-    // default runs on the DB server's own clock, not IST.
-    //
-    // NOTE: not also setting updated_at here — couldn't confirm that
-    // column actually exists on `purchases` (no schema file available,
-    // and the PUT/edit handler below never references it either). If it
-    // does exist and also has the same DEFAULT CURRENT_TIMESTAMP issue,
-    // share the table's CREATE statement and I'll add it properly.
-    $now = date('Y-m-d H:i:s');
     $stmt = $db->prepare('INSERT INTO purchases
       (purchase_no, supplier_id, supplier_invoice_ref, purchase_date, currency, exchange_rate,
        subtotal, gst_amount, gst_pct, total, amount_paid, status, notes,
@@ -269,9 +258,8 @@ switch ($method) {
        attachment_path, payment_mode, transaction_no, payment_date,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
        kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
-       header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight,
-       created_at)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?)');
+       header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight)
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -287,7 +275,6 @@ switch ($method) {
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '', $kantaSlipPath,
       $d['header_moisture_pct'] ?? null, $d['header_impurity_pct'] ?? null, $d['header_dhalta_pct'] ?? null,
       $d['header_dhalta_kg'] ?? null, $d['header_billable_weight'] ?? null,
-      $now,
     ]);
     $purchaseId = (int)$db->lastInsertId();
 
