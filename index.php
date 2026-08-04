@@ -19366,15 +19366,21 @@ function fmt_date_long_mdy(d) {
 }
 
 // "02:30 PM" — 12-hour with AM/PM, used everywhere a time is shown
+// Assumes IST if no timezone marker present — same convention as
+// fmtEmailTime/fmtTimeOnly, since backend timestamps are written via
+// PHP's date() (Asia/Kolkata), not the viewer's own device timezone.
+// (Previously this called `new Date(d)` directly on the raw string,
+// which only happened to show correctly if the viewer's own browser/
+// device was also set to IST — wrong for anyone who wasn't.)
 function fmt_time_ampm(d) {
   if (!d) return '';
-  const dt = new Date(d);
+  let normalized = String(d).trim();
+  if (!normalized.includes('T') && !normalized.includes('+') && !normalized.includes('Z')) {
+    normalized = normalized.replace(' ', 'T') + '+05:30';
+  }
+  const dt = new Date(normalized);
   if (isNaN(dt)) return '';
-  let h = dt.getHours();
-  const m = String(dt.getMinutes()).padStart(2,'0');
-  const ap = h >= 12 ? 'PM' : 'AM';
-  h = h % 12; if (h === 0) h = 12;
-  return String(h).padStart(2,'0') + ':' + m + ' ' + ap;
+  return dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
 }
 
 // Stacked date+time HTML for table cells — date on top, time below in
@@ -22613,7 +22619,7 @@ function renderSales() {
     <tr>
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(s.invoice_no)}</strong></td>
-      <td>${fmt_date_disp(s.sale_date)}</td>
+      <td><div>${fmt_date_disp(s.sale_date)}</div>${s.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(s.created_at)}</div>` : ''}</td>
       <td>${escHtml(s.customer_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>

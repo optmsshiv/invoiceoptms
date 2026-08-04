@@ -191,15 +191,6 @@ switch ($method) {
       return (is_string($a) && str_starts_with($a, 'data:')) ? saveAttachment($a) : $a;
     }, $d['attachments'] ?? [])));
 
-    // created_at set explicitly via PHP's date() (Asia/Kolkata), not left
-    // to the column's own DEFAULT CURRENT_TIMESTAMP — same fix already
-    // applied to purchases.php, expenses.php, and email_logs for the same
-    // reason: MySQL's default runs on the DB server's own clock, not IST.
-    //
-    // NOTE: not also setting updated_at — couldn't confirm that column
-    // exists on `sales` (no schema file available, and the UPDATE handler
-    // below never references it either). If it exists and has the same
-    // issue, share the table's CREATE statement and I'll add it properly.
     $stmt = $db->prepare('INSERT INTO sales
       (invoice_no, customer_id, sale_date, due_date, sales_executive, payment_terms, sales_type, place_of_supply, currency,
        subtotal, transport_charge, loading_charge, packing_charge, insurance_charge, other_charges, round_off, discount_amount, discount_remarks,
@@ -209,8 +200,8 @@ switch ($method) {
        customer_notes, internal_notes, delivery_instructions, attachments,
        prepared_by, checked_by, approved_by, status,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime, kanta_operator_name,
-       kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?)');
+       kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg)
+      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?)');
     $stmt->execute([
       $invoiceNo, (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
@@ -222,7 +213,6 @@ switch ($method) {
       $d['prepared_by'] ?? '', $d['checked_by'] ?? '', $d['approved_by'] ?? '', $d['status'] ?? 'Confirmed',
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null, $d['kanta_operator_name'] ?? '',
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_moisture_pct'] ?? null, (float)($d['kanta_dhalta_kg'] ?? 0),
-      date('Y-m-d H:i:s'),
     ]);
     $saleId = (int)$db->lastInsertId();
 

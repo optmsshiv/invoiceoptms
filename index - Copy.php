@@ -3124,9 +3124,8 @@ const SERVER = {
               <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
               <div class="field"><label>Supplier Type *</label>
-                <select id="pn-suppliertype" onchange="onSupplierTypeChange()">
-                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
-                </select>
+                <input id="pn-suppliertype" list="supplier-type-options" placeholder="Type or pick a supplier type…" onchange="onSupplierTypeChange()" oninput="onSupplierTypeChange()">
+                <datalist id="supplier-type-options"></datalist>
               </div>
               <div class="field"><label>Reference (PO No.)</label><input id="pn-refpo" placeholder="Enter (Optional)"></div>
             </div>
@@ -4827,10 +4826,7 @@ const SERVER = {
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
             <div class="pne-grid5">
               <div class="field"><label>Type *</label>
-                <select id="sup-type" onchange="onSupplierTypeChangeRich()">
-                  <option value="">Select Type</option>
-                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
-                </select>
+                <input id="sup-type" list="supplier-type-options" placeholder="Type or pick a type…" onchange="onSupplierTypeChangeRich()" oninput="onSupplierTypeChangeRich()">
               </div>
               <div class="field"><label>Name / Company / Organization *</label><input id="sup-name" placeholder="Enter name"></div>
               <div class="field"><label>Contact Person *</label><input id="sup-contactperson" placeholder="Enter contact person"></div>
@@ -7339,6 +7335,15 @@ View Invoice: {{6}}</pre></details>
               <span style="font-size:12px;color:var(--muted);align-self:center">Select a dropdown to edit its options</span>
             </div>
             <div id="pf-dropdown-editor" style="max-width:480px"></div>
+          </div>
+
+          <!-- Supplier Types Manager -->
+          <div class="settings-block">
+            <div class="sb-title"><i class="fas fa-truck-field" style="color:var(--teal)"></i> Supplier Types Manager</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+              Manage the suggested Supplier Type values shown on Purchase Entry and the Supplier form. These are suggestions, not a strict list — anyone can still type a new type on the spot, and it'll show up as a suggestion for next time too.
+            </p>
+            <div id="st-types-editor" style="max-width:420px"></div>
           </div>
         </div>
 
@@ -9905,6 +9910,14 @@ const PFC = {
   _saveTimer: null,
 };
 
+// Supplier Type suggestions — separate from PFC (that one's explicitly for
+// product fields). Two sources merge into the actual <datalist> shown on
+// the Purchase Entry / Supplier form fields: this managed list (edited in
+// Settings → Catalog) plus whatever types already exist on real suppliers
+// (see populateSupplierTypeDatalist), so nothing already in use is ever
+// hidden just because it hasn't been formally added here yet.
+let SUPPLIER_TYPES = [];
+
 // Default dropdown options
 const PF_DROPDOWN_DEFAULTS = {
   category:     ['General','Raw Material','Finished Goods','Packaging','Services','Other'],
@@ -9933,6 +9946,78 @@ function loadProductFormConfig() {
   PFC.activePreset = STATE.settings.product_active_preset || null;
   // Rebuild variety-grade link maps from saved config
   if (Object.keys(PFC.varGradeMap).length) _rebuildVarGradeMaps();
+}
+
+// ── Supplier Types (Settings → Catalog manager + the type-or-pick
+// combo box on Purchase Entry / Supplier form) ──────────────────────
+function loadSupplierTypes() {
+  const raw = STATE.settings.supplier_types;
+  if (raw) { try { SUPPLIER_TYPES = JSON.parse(raw); } catch(e) { SUPPLIER_TYPES = []; } }
+  if (!Array.isArray(SUPPLIER_TYPES) || !SUPPLIER_TYPES.length) {
+    SUPPLIER_TYPES = ['Farmer','Trader','Company','Cooperative','Other'];
+  }
+  populateSupplierTypeDatalist();
+  if (document.getElementById('stab-catalog')?.classList.contains('active')) renderSupplierTypesEditor();
+}
+
+// Shared <datalist> for both the Purchase Entry and Supplier form Type
+// fields — merges the managed list (Settings) with whatever's already
+// actually used on real suppliers, so nothing in current data is ever
+// hidden just because it hasn't been formally added to the managed list.
+function populateSupplierTypeDatalist() {
+  const dl = document.getElementById('supplier-type-options');
+  if (!dl) return;
+  const used = (STATE.suppliers || []).map(s => (s.supplier_type||'').trim()).filter(Boolean);
+  const merged = [...new Set([...SUPPLIER_TYPES, ...used])];
+  dl.innerHTML = merged.map(t => `<option value="${escHtml(t)}">`).join('');
+}
+
+function renderSupplierTypesEditor() {
+  const container = document.getElementById('st-types-editor');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+      ${SUPPLIER_TYPES.map((t,i) => `
+        <div style="display:flex;gap:6px;align-items:center">
+          <input value="${escHtml(t)}" onchange="stUpdateType(${i},this.value)"
+            style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
+          <button class="act-btn" style="color:#E53935" onclick="stRemoveType(${i})"><i class="fas fa-times"></i></button>
+        </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px">
+      <input id="st-new-type" placeholder="Add new supplier type…" class="table-search" style="flex:1"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();stAddType();}">
+      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="stAddType()"><i class="fas fa-plus"></i> Add</button>
+    </div>`;
+}
+function stAddType() {
+  const inp = document.getElementById('st-new-type');
+  const val = inp.value.trim(); if (!val) return;
+  if (!SUPPLIER_TYPES.includes(val)) SUPPLIER_TYPES.push(val);
+  inp.value = '';
+  _stAutoSave();
+  renderSupplierTypesEditor();
+}
+function stUpdateType(idx, val) {
+  SUPPLIER_TYPES[idx] = val.trim();
+  _stAutoSave();
+}
+function stRemoveType(idx) {
+  if (!confirm('Remove this supplier type from the suggestions list? Existing suppliers already using it are unaffected — this only controls what gets suggested going forward.')) return;
+  SUPPLIER_TYPES.splice(idx, 1);
+  _stAutoSave();
+  renderSupplierTypesEditor();
+}
+let _stSaveTimer = null;
+function _stAutoSave() {
+  populateSupplierTypeDatalist();
+  clearTimeout(_stSaveTimer);
+  _stSaveTimer = setTimeout(async () => {
+    try {
+      await api('api/settings.php', 'POST', { supplier_types: JSON.stringify(SUPPLIER_TYPES) });
+      if (STATE.settings) STATE.settings.supplier_types = JSON.stringify(SUPPLIER_TYPES);
+    } catch(e) { toast('❌ Failed to save supplier types: ' + e.message, 'error'); }
+  }, 800);
 }
 
 function renderProductFormBuilder() {
@@ -18086,7 +18171,7 @@ async function renderSuppliers() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(s.name)}</strong></td>
+      <td><strong>${escHtml(s.name)}</strong><div style="margin-top:3px">${supplierTypeBadgeHTML(s.supplier_type)}</div></td>
       <td>${escHtml(s.contact_person||'—')}</td>
       <td>${escHtml(s.phone||'—')}</td>
       <td>${escHtml(s.email||'—')}</td>
@@ -18927,6 +19012,36 @@ function plFilteredPurchases() {
   });
 }
 
+// Colored badge for a supplier type — fixed, meaningful colors for the
+// known defaults; any custom type (since these are now free-text, see
+// Settings → Catalog → Supplier Types Manager) gets a deterministic color
+// from a rotating palette, so the same custom type always looks the same
+// without needing to store a color choice anywhere.
+const SUPPLIER_TYPE_COLORS = {
+  farmer:      { bg: '#E4F7EC', text: '#1D9E75' },
+  trader:      { bg: '#E8F0FE', text: '#1A73E8' },
+  company:     { bg: '#F2E8FE', text: '#8B3FE8' },
+  cooperative: { bg: '#E4F7F7', text: '#12A5A5' },
+  other:       { bg: '#F1F2F4', text: '#6B7280' },
+};
+const SUPPLIER_TYPE_FALLBACK_PALETTE = [
+  { bg: '#FFF3E0', text: '#F57C00' }, { bg: '#FDECEC', text: '#D32F2F' },
+  { bg: '#E8F5E9', text: '#2E7D32' }, { bg: '#EDE7F6', text: '#5E35B1' },
+  { bg: '#E1F5FE', text: '#0277BD' }, { bg: '#FCE4EC', text: '#C2185B' },
+];
+function supplierTypeBadgeHTML(type) {
+  const t = (type || '').trim();
+  if (!t) return '';
+  const key = t.toLowerCase();
+  let color = SUPPLIER_TYPE_COLORS[key];
+  if (!color) {
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+    color = SUPPLIER_TYPE_FALLBACK_PALETTE[hash % SUPPLIER_TYPE_FALLBACK_PALETTE.length];
+  }
+  return `<span style="display:inline-block;font-size:10px;font-weight:700;color:${color.text};background:${color.bg};padding:2px 8px;border-radius:9px;white-space:nowrap">${escHtml(t)}</span>`;
+}
+
 // Renders up to 2 product-name chips for a purchase row, "+N more" for
 // the rest. product_names comes from the list query as a '|~|'-separated
 // string (purchase_items.description, DISTINCT — same field used
@@ -19007,7 +19122,7 @@ function renderPurchases() {
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
       <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
-      <td>${escHtml(p.supplier_name||'—')}</td>
+      <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -26981,6 +27096,8 @@ async function loadAllData() {
       if (s.product_var_grade_map)  STATE.settings.product_var_grade_map  = s.product_var_grade_map;
       if (s.product_active_preset) STATE.settings.product_active_preset = s.product_active_preset;
       if (s.ofr_print_settings)   STATE.settings.ofr_print_settings   = s.ofr_print_settings;
+      if (s.supplier_types)       STATE.settings.supplier_types       = s.supplier_types;
+      loadSupplierTypes();
       // Apply form config immediately so variety-grade maps are live
       if (s.product_form_config || s.product_var_grade_map) {
         setTimeout(() => { if (typeof loadProductFormConfig === 'function') { loadProductFormConfig(); } }, 100);
@@ -27596,6 +27713,7 @@ window.settingsTab = function(name, btn) {
     loadProductFormConfig();
     renderProductFormBuilder();
   }
+  if (name === 'catalog') { renderSupplierTypesEditor(); }
   if (name === 'proformaprint') { loadOfrPrintSettings(); }
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
