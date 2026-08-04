@@ -355,13 +355,13 @@ tbody tr:hover td{background:#FAFBFD}
         <thead>
           <tr>
             <th style="width:32px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTenants(this)"></th>
-            <th>Company</th><th>Contact</th><th>Identifiers</th><th>Plan</th><th>Status</th>
+            <th>Company</th><th>Identifiers</th><th>Plan</th><th>Status</th>
             <th class="sortable" style="cursor:pointer" onclick="sortTenantsByExpiry()">Expiry <i class="fas fa-sort" id="expiry-sort-icon"></i><div style="font-size:9.5px;font-weight:400;color:var(--text-mute);text-transform:none">Date &amp; Time</div></th>
             <th>Users</th><th>Created<div style="font-size:9.5px;font-weight:400;color:var(--text-mute);text-transform:none">Date &amp; Time</div></th><th style="text-align:right">Actions</th>
           </tr>
         </thead>
         <tbody id="tenants-tbody">
-          <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -949,12 +949,12 @@ function renderTenants(list) {
 
   if (!TENANTS.length) {
     subtitle.textContent = 'No tenants yet';
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants yet — create one above</td></tr>';
     return;
   }
   if (q && !list.length) {
     subtitle.textContent = `No matches for "${q}"`;
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-mute)">No tenants match your search</td></tr>';
     return;
   }
   const totalUsers = list.reduce((s, t) => s + parseInt(t.user_count || 0), 0);
@@ -982,11 +982,9 @@ function renderTenants(list) {
           <div>
             <div class="name">${esc(t.company_name)}</div>
             <div class="meta">${esc(t.owner_email)}</div>
+            ${t.phone ? `<div class="meta"><i class="fas fa-phone" style="font-size:10px;margin-right:3px"></i>${esc(t.phone)}</div>` : ''}
           </div>
         </div>
-      </td>
-      <td>
-        ${t.phone ? `<div class="contact-cell"><i class="fas fa-phone"></i> ${esc(t.phone)}</div>` : '<span class="muted-date">—</span>'}
       </td>
       <td>
         <div class="id-stack">
