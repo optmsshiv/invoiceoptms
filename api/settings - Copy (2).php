@@ -32,13 +32,6 @@ switch ($method) {
       'wa_followup_days'  => '7',
       'wa_allow_web_fallback' => '0',
       'business_type'     => 'both', // 'service' | 'product' | 'both' — controls Products page wording
-      // Supplier Type options — user-managed list (Settings → Catalog),
-      // seeded with the 5 values that used to be hardcoded in a <select>
-      // so existing behavior is unchanged until someone actually edits
-      // the list. The Purchase Entry / Supplier form fields are a type-
-      // or-pick combo box, not a rigid dropdown, so this list is really
-      // just "known suggestions" — any value can still be typed freely.
-      'supplier_types'    => '["Farmer","Trader","Company","Cooperative","Other"]',
       'product_form_config' => '', // JSON: field visibility + label overrides
       'product_dropdowns'   => '', // JSON: custom dropdown options per field
       'product_var_grade_map' => '', // JSON: { variety: grade } linked pair map
@@ -140,7 +133,19 @@ switch ($method) {
   case 'POST':
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error'=>'Invalid JSON'], 400);
-    
+
+    // ── Global Date Range Filter is owner-gated — see permissions.php /
+    // action.settings.global_date_range. Reading the active filter stays
+    // open to everyone (GET above is untouched); this only blocks writes.
+    // Checked as its own request (not folded into the general save) so a
+    // blocked date-range change gives a clear reason instead of silently
+    // dropping those 3 keys from a larger settings payload.
+    $dateRangeKeys = ['global_date_active', 'global_date_from', 'global_date_to'];
+    if (array_intersect(array_keys($d), $dateRangeKeys) && !can('action.settings.global_date_range')) {
+        http_response_code(403);
+        jsonResponse(['error' => 'Only the owner can change the Global Date Range filter. Ask them to update it, or to grant you this permission in Team Permissions.']);
+    }
+
     $stmt = $db->prepare('INSERT INTO settings (`key`, value) VALUES (?,?) ON DUPLICATE KEY UPDATE value=?');
     foreach ($d as $key => $val) {
       $stmt->execute([$key, $val, $val]);

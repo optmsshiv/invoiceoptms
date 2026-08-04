@@ -3124,8 +3124,9 @@ const SERVER = {
               <div class="field"><label>Purchase No. *</label><input id="pn-no" placeholder="Auto-generated"></div>
               <div class="field"><label>Purchase Date *</label><input type="date" id="pn-date"></div>
               <div class="field"><label>Supplier Type *</label>
-                <input id="pn-suppliertype" list="supplier-type-options" placeholder="Type or pick a supplier type…" onchange="onSupplierTypeChange()" oninput="onSupplierTypeChange()">
-                <datalist id="supplier-type-options"></datalist>
+                <select id="pn-suppliertype" onchange="onSupplierTypeChange()">
+                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
+                </select>
               </div>
               <div class="field"><label>Reference (PO No.)</label><input id="pn-refpo" placeholder="Enter (Optional)"></div>
             </div>
@@ -4826,7 +4827,10 @@ const SERVER = {
             <div class="pne-card-head"><span class="pne-num"><i class="fas fa-id-card"></i></span> Basic Information</div>
             <div class="pne-grid5">
               <div class="field"><label>Type *</label>
-                <input id="sup-type" list="supplier-type-options" placeholder="Type or pick a type…" onchange="onSupplierTypeChangeRich()" oninput="onSupplierTypeChangeRich()">
+                <select id="sup-type" onchange="onSupplierTypeChangeRich()">
+                  <option value="">Select Type</option>
+                  <option>Farmer</option><option>Trader</option><option>Company</option><option>Cooperative</option><option>Other</option>
+                </select>
               </div>
               <div class="field"><label>Name / Company / Organization *</label><input id="sup-name" placeholder="Enter name"></div>
               <div class="field"><label>Contact Person *</label><input id="sup-contactperson" placeholder="Enter contact person"></div>
@@ -7335,15 +7339,6 @@ View Invoice: {{6}}</pre></details>
               <span style="font-size:12px;color:var(--muted);align-self:center">Select a dropdown to edit its options</span>
             </div>
             <div id="pf-dropdown-editor" style="max-width:480px"></div>
-          </div>
-
-          <!-- Supplier Types Manager -->
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-truck-field" style="color:var(--teal)"></i> Supplier Types Manager</div>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-              Manage the suggested Supplier Type values shown on Purchase Entry and the Supplier form. These are suggestions, not a strict list — anyone can still type a new type on the spot, and it'll show up as a suggestion for next time too.
-            </p>
-            <div id="st-types-editor" style="max-width:420px"></div>
           </div>
         </div>
 
@@ -9910,14 +9905,6 @@ const PFC = {
   _saveTimer: null,
 };
 
-// Supplier Type suggestions — separate from PFC (that one's explicitly for
-// product fields). Two sources merge into the actual <datalist> shown on
-// the Purchase Entry / Supplier form fields: this managed list (edited in
-// Settings → Catalog) plus whatever types already exist on real suppliers
-// (see populateSupplierTypeDatalist), so nothing already in use is ever
-// hidden just because it hasn't been formally added here yet.
-let SUPPLIER_TYPES = [];
-
 // Default dropdown options
 const PF_DROPDOWN_DEFAULTS = {
   category:     ['General','Raw Material','Finished Goods','Packaging','Services','Other'],
@@ -9946,78 +9933,6 @@ function loadProductFormConfig() {
   PFC.activePreset = STATE.settings.product_active_preset || null;
   // Rebuild variety-grade link maps from saved config
   if (Object.keys(PFC.varGradeMap).length) _rebuildVarGradeMaps();
-}
-
-// ── Supplier Types (Settings → Catalog manager + the type-or-pick
-// combo box on Purchase Entry / Supplier form) ──────────────────────
-function loadSupplierTypes() {
-  const raw = STATE.settings.supplier_types;
-  if (raw) { try { SUPPLIER_TYPES = JSON.parse(raw); } catch(e) { SUPPLIER_TYPES = []; } }
-  if (!Array.isArray(SUPPLIER_TYPES) || !SUPPLIER_TYPES.length) {
-    SUPPLIER_TYPES = ['Farmer','Trader','Company','Cooperative','Other'];
-  }
-  populateSupplierTypeDatalist();
-  if (document.getElementById('stab-catalog')?.classList.contains('active')) renderSupplierTypesEditor();
-}
-
-// Shared <datalist> for both the Purchase Entry and Supplier form Type
-// fields — merges the managed list (Settings) with whatever's already
-// actually used on real suppliers, so nothing in current data is ever
-// hidden just because it hasn't been formally added to the managed list.
-function populateSupplierTypeDatalist() {
-  const dl = document.getElementById('supplier-type-options');
-  if (!dl) return;
-  const used = (STATE.suppliers || []).map(s => (s.supplier_type||'').trim()).filter(Boolean);
-  const merged = [...new Set([...SUPPLIER_TYPES, ...used])];
-  dl.innerHTML = merged.map(t => `<option value="${escHtml(t)}">`).join('');
-}
-
-function renderSupplierTypesEditor() {
-  const container = document.getElementById('st-types-editor');
-  if (!container) return;
-  container.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
-      ${SUPPLIER_TYPES.map((t,i) => `
-        <div style="display:flex;gap:6px;align-items:center">
-          <input value="${escHtml(t)}" onchange="stUpdateType(${i},this.value)"
-            style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12.5px;background:var(--card)">
-          <button class="act-btn" style="color:#E53935" onclick="stRemoveType(${i})"><i class="fas fa-times"></i></button>
-        </div>`).join('')}
-    </div>
-    <div style="display:flex;gap:6px">
-      <input id="st-new-type" placeholder="Add new supplier type…" class="table-search" style="flex:1"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();stAddType();}">
-      <button class="btn btn-primary" style="padding:5px 12px;font-size:12px" onclick="stAddType()"><i class="fas fa-plus"></i> Add</button>
-    </div>`;
-}
-function stAddType() {
-  const inp = document.getElementById('st-new-type');
-  const val = inp.value.trim(); if (!val) return;
-  if (!SUPPLIER_TYPES.includes(val)) SUPPLIER_TYPES.push(val);
-  inp.value = '';
-  _stAutoSave();
-  renderSupplierTypesEditor();
-}
-function stUpdateType(idx, val) {
-  SUPPLIER_TYPES[idx] = val.trim();
-  _stAutoSave();
-}
-function stRemoveType(idx) {
-  if (!confirm('Remove this supplier type from the suggestions list? Existing suppliers already using it are unaffected — this only controls what gets suggested going forward.')) return;
-  SUPPLIER_TYPES.splice(idx, 1);
-  _stAutoSave();
-  renderSupplierTypesEditor();
-}
-let _stSaveTimer = null;
-function _stAutoSave() {
-  populateSupplierTypeDatalist();
-  clearTimeout(_stSaveTimer);
-  _stSaveTimer = setTimeout(async () => {
-    try {
-      await api('api/settings.php', 'POST', { supplier_types: JSON.stringify(SUPPLIER_TYPES) });
-      if (STATE.settings) STATE.settings.supplier_types = JSON.stringify(SUPPLIER_TYPES);
-    } catch(e) { toast('❌ Failed to save supplier types: ' + e.message, 'error'); }
-  }, 800);
 }
 
 function renderProductFormBuilder() {
@@ -27066,8 +26981,6 @@ async function loadAllData() {
       if (s.product_var_grade_map)  STATE.settings.product_var_grade_map  = s.product_var_grade_map;
       if (s.product_active_preset) STATE.settings.product_active_preset = s.product_active_preset;
       if (s.ofr_print_settings)   STATE.settings.ofr_print_settings   = s.ofr_print_settings;
-      if (s.supplier_types)       STATE.settings.supplier_types       = s.supplier_types;
-      loadSupplierTypes();
       // Apply form config immediately so variety-grade maps are live
       if (s.product_form_config || s.product_var_grade_map) {
         setTimeout(() => { if (typeof loadProductFormConfig === 'function') { loadProductFormConfig(); } }, 100);
@@ -27683,7 +27596,6 @@ window.settingsTab = function(name, btn) {
     loadProductFormConfig();
     renderProductFormBuilder();
   }
-  if (name === 'catalog') { renderSupplierTypesEditor(); }
   if (name === 'proformaprint') { loadOfrPrintSettings(); }
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
