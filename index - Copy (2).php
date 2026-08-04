@@ -18171,7 +18171,7 @@ async function renderSuppliers() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(s.name)}</strong><div style="margin-top:3px">${supplierTypeBadgeHTML(s.supplier_type)}</div></td>
+      <td><strong>${escHtml(s.name)}</strong></td>
       <td>${escHtml(s.contact_person||'—')}</td>
       <td>${escHtml(s.phone||'—')}</td>
       <td>${escHtml(s.email||'—')}</td>
@@ -19012,36 +19012,6 @@ function plFilteredPurchases() {
   });
 }
 
-// Colored badge for a supplier type — fixed, meaningful colors for the
-// known defaults; any custom type (since these are now free-text, see
-// Settings → Catalog → Supplier Types Manager) gets a deterministic color
-// from a rotating palette, so the same custom type always looks the same
-// without needing to store a color choice anywhere.
-const SUPPLIER_TYPE_COLORS = {
-  farmer:      { bg: '#E4F7EC', text: '#1D9E75' },
-  trader:      { bg: '#E8F0FE', text: '#1A73E8' },
-  company:     { bg: '#F2E8FE', text: '#8B3FE8' },
-  cooperative: { bg: '#E4F7F7', text: '#12A5A5' },
-  other:       { bg: '#F1F2F4', text: '#6B7280' },
-};
-const SUPPLIER_TYPE_FALLBACK_PALETTE = [
-  { bg: '#FFF3E0', text: '#F57C00' }, { bg: '#FDECEC', text: '#D32F2F' },
-  { bg: '#E8F5E9', text: '#2E7D32' }, { bg: '#EDE7F6', text: '#5E35B1' },
-  { bg: '#E1F5FE', text: '#0277BD' }, { bg: '#FCE4EC', text: '#C2185B' },
-];
-function supplierTypeBadgeHTML(type) {
-  const t = (type || '').trim();
-  if (!t) return '';
-  const key = t.toLowerCase();
-  let color = SUPPLIER_TYPE_COLORS[key];
-  if (!color) {
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-    color = SUPPLIER_TYPE_FALLBACK_PALETTE[hash % SUPPLIER_TYPE_FALLBACK_PALETTE.length];
-  }
-  return `<span style="display:inline-block;font-size:10px;font-weight:700;color:${color.text};background:${color.bg};padding:2px 8px;border-radius:9px;white-space:nowrap">${escHtml(t)}</span>`;
-}
-
 // Renders up to 2 product-name chips for a purchase row, "+N more" for
 // the rest. product_names comes from the list query as a '|~|'-separated
 // string (purchase_items.description, DISTINCT — same field used
@@ -19122,7 +19092,7 @@ function renderPurchases() {
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong></td>
       <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
-      <td>${escHtml(p.supplier_name||'—')} ${supplierTypeBadgeHTML(p.supplier_type)}</td>
+      <td>${escHtml(p.supplier_name||'—')}</td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
