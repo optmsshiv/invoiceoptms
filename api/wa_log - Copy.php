@@ -2,22 +2,6 @@
 // ================================================================
 //  api/wa_log.php  — WhatsApp Message Log (DB persistence)
 //  UPDATED: Timezone fix, proper ordering, security improvements
-//  UPDATED: Lazy self-healing schema check — the CREATE TABLE and
-//  ALTER TABLE (add wamid column) used to run on EVERY single
-//  request, including this file's own 60-second polling call. That
-//  meant, for as long as any tab had the WhatsApp Log page open,
-//  MySQL was being asked "does this table/column exist?" roughly
-//  once a minute, forever — after the very first successful run,
-//  every one of those checks was pure waste (the CREATE TABLE
-//  IF NOT EXISTS was always a no-op, and the ALTER TABLE was
-//  silently failing every time since the column already existed).
-//
-//  Now: queries just run directly. Only if a query actually fails
-//  because the table or column is genuinely missing (a real error,
-//  not a routine check) does it self-heal — create/alter once, then
-//  retry that same request. A brand-new tenant's very first request
-//  still self-heals correctly and transparently; every request after
-//  that just runs at normal speed with zero schema-check overhead.
 //
 //  GET    /api/wa_log.php              → fetch recent log (newest first, max 500)
 //  POST   /api/wa_log.php              → append a log entry
@@ -43,8 +27,13 @@ const WA_ALLOWED_TYPES = [
 ];
 const WA_ALLOWED_STATUSES = ['sending', 'sent_api', 'sent_web', 'failed', 'delivered', 'read'];
 
-// ── Full schema (used only the very first time it's ever needed) ───
-function waLogCreateTable(PDO $db): void {
+try {
+    $db = getDB();
+    
+    // ── SET MYSQL TIMEZONE TO IST (+05:30) ──────────────────────
+    $db->exec("SET time_zone = '+05:30'");
+
+    // ── Auto-create table if migration not run ───────────────────
     $db->exec("CREATE TABLE IF NOT EXISTS `wa_message_log` (
         `id`         INT UNSIGNED  NOT NULL AUTO_INCREMENT,
         `entry_id`   VARCHAR(40)   NOT NULL,
@@ -66,61 +55,35 @@ function waLogCreateTable(PDO $db): void {
         INDEX `idx_wa_log_inv` (`inv_id`),
         INDEX `idx_wa_log_wamid` (`wamid`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
 
-// Inspects a caught PDOException and, if it's genuinely a "table
-// missing" or "column missing" error, fixes the schema and returns
-// true so the caller can retry the same query once. Returns false for
-// any other kind of error (bad SQL, connection issue, etc.) so the
-// caller re-throws it instead of masking a real problem as a schema
-// issue.
-function waLogSelfHeal(PDO $db, PDOException $e): bool {
-    $mysqlErrCode = $e->errorInfo[1] ?? null; // 1146 = no such table, 1054 = unknown column
-    if ($mysqlErrCode === 1146) {
-        waLogCreateTable($db);
-        return true;
-    }
-    if ($mysqlErrCode === 1054) {
-        try {
-            $db->exec("ALTER TABLE `wa_message_log` ADD COLUMN `wamid` VARCHAR(100) NULL AFTER `entry_id`");
-            $db->exec("ALTER TABLE `wa_message_log` ADD INDEX `idx_wa_log_wamid` (`wamid`)");
-        } catch (Exception $e2) { /* another concurrent request already added it — fine */ }
-        return true;
-    }
-    return false;
-}
-
-try {
-    $db = getDB();
-
-    // ── SET MYSQL TIMEZONE TO IST (+05:30) ──────────────────────
-    $db->exec("SET time_zone = '+05:30'");
+    // Add wamid column if upgrading from old schema
+    try {
+        $db->exec("ALTER TABLE `wa_message_log` ADD COLUMN `wamid` VARCHAR(100) NULL AFTER `entry_id`");
+        $db->exec("ALTER TABLE `wa_message_log` ADD INDEX `idx_wa_log_wamid` (`wamid`)");
+    } catch (Exception $e) { /* column already exists */ }
 
     // ── GET: fetch log ───────────────────────────────────────────
     if ($method === 'GET') {
-        $sql = 'SELECT
+        // ✅ FIXED: Order by ts DESC (newest first), then by id DESC for consistent ordering
+        $stmt = $db->query(
+            'SELECT 
                 entry_id AS id,
                 wamid,
                 DATE_FORMAT(ts, "%Y-%m-%d %H:%i:%s") as ts,
-                type,
-                status,
-                client,
+                type, 
+                status, 
+                client, 
                 phone,
-                inv_id,
-                inv_num,
-                inv_amt,
-                inv_status,
-                msg,
+                inv_id, 
+                inv_num, 
+                inv_amt, 
+                inv_status, 
+                msg, 
                 error
              FROM wa_message_log
              ORDER BY ts DESC, id DESC
-             LIMIT 500';
-        try {
-            $stmt = $db->query($sql);
-        } catch (PDOException $e) {
-            if (!waLogSelfHeal($db, $e)) throw $e;
-            $stmt = $db->query($sql); // retry once, now that schema is fixed
-        }
+             LIMIT 500'
+        );
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode([
             'success'  => true,
@@ -154,25 +117,19 @@ try {
 
         // If status is not 'sending', try to update existing row first by entry_id
         if ($status !== 'sending') {
-            $updSql = 'UPDATE wa_message_log
+            $upd = $db->prepare(
+                'UPDATE wa_message_log
                  SET status = :status,
                      error  = :error,
                      wamid  = COALESCE(NULLIF(:wamid,""), wamid)
-                 WHERE entry_id = :eid AND status = "sending"';
-            $updParams = [
+                 WHERE entry_id = :eid AND status = "sending"'
+            );
+            $upd->execute([
                 ':status' => $status,
                 ':error'  => substr($body['error'] ?? '', 0, 500),
                 ':wamid'  => $wamid,
                 ':eid'    => $entryId,
-            ];
-            try {
-                $upd = $db->prepare($updSql);
-                $upd->execute($updParams);
-            } catch (PDOException $e) {
-                if (!waLogSelfHeal($db, $e)) throw $e;
-                $upd = $db->prepare($updSql);
-                $upd->execute($updParams); // retry once
-            }
+            ]);
             if ($upd->rowCount() > 0) {
                 echo json_encode(['success' => true, 'updated' => true, 'timezone' => 'Asia/Kolkata (IST)']);
                 exit;
@@ -180,13 +137,17 @@ try {
         }
 
         // Insert new row (INSERT IGNORE to handle race conditions)
-        $insSql = 'INSERT IGNORE INTO wa_message_log
+        // ✅ FIXED: Using date() which now respects Asia/Kolkata timezone
+        $stmt = $db->prepare(
+            'INSERT IGNORE INTO wa_message_log
                (entry_id, wamid, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
              VALUES
-               (:eid, :wamid, :ts, :type, :status, :client, :phone, :inv_id, :inv_num, :inv_amt, :inv_status, :msg, :error)';
+               (:eid, :wamid, :ts, :type, :status, :client, :phone, :inv_id, :inv_num, :inv_amt, :inv_status, :msg, :error)'
+        );
 
         $currentTime = date('Y-m-d H:i:s');
-        $insParams = [
+
+        $stmt->execute([
             ':eid'        => $entryId,
             ':wamid'      => $wamid ?: null,
             ':ts'         => !empty($body['ts'])
@@ -202,15 +163,7 @@ try {
             ':inv_status' => substr($body['inv_status'] ?? '', 0, 30),
             ':msg'        => $body['msg']   ?? '',
             ':error'      => substr($body['error'] ?? '', 0, 500),
-        ];
-        try {
-            $stmt = $db->prepare($insSql);
-            $stmt->execute($insParams);
-        } catch (PDOException $e) {
-            if (!waLogSelfHeal($db, $e)) throw $e;
-            $stmt = $db->prepare($insSql);
-            $stmt->execute($insParams); // retry once
-        }
+        ]);
 
         echo json_encode([
             'success'  => true,
@@ -226,14 +179,7 @@ try {
         // ── Single entry delete ──────────────────────────────────
         if (!empty($body['entry_id'])) {
             $entryId = substr($body['entry_id'], 0, 40);
-            try {
-                $db->prepare("DELETE FROM wa_message_log WHERE entry_id = ?")->execute([$entryId]);
-            } catch (PDOException $e) {
-                // Table missing on delete just means there's nothing to
-                // delete anyway — still self-heal so the NEXT request
-                // (e.g. this same page's next poll) works normally.
-                if (!waLogSelfHeal($db, $e)) throw $e;
-            }
+            $db->prepare("DELETE FROM wa_message_log WHERE entry_id = ?")->execute([$entryId]);
             echo json_encode(['success' => true, 'deleted' => $entryId]);
             exit;
         }
@@ -241,7 +187,7 @@ try {
         // ── Clear all with confirmation ──────────────────────────
         $confirmCode = $body['confirm_code'] ?? '';
         $expectedCode = 'CLEAR_WA_LOG_' . date('Y-m-d');
-
+        
         if ($confirmCode !== $expectedCode) {
             http_response_code(403);
             echo json_encode([
@@ -253,15 +199,11 @@ try {
         }
 
         // ✅ Log deletion action for audit trail
-        error_log('[WA_LOG_DELETE] User: ' . ($user['email'] ?? 'unknown') .
-                  ' | Time: ' . date('Y-m-d H:i:s') .
+        error_log('[WA_LOG_DELETE] User: ' . ($user['email'] ?? 'unknown') . 
+                  ' | Time: ' . date('Y-m-d H:i:s') . 
                   ' | IP: ' . $_SERVER['REMOTE_ADDR']);
 
-        try {
-            $db->exec('DELETE FROM wa_message_log');
-        } catch (PDOException $e) {
-            if (!waLogSelfHeal($db, $e)) throw $e;
-        }
+        $db->exec('DELETE FROM wa_message_log');
         echo json_encode([
             'success'  => true,
             'message'  => 'All WhatsApp message logs cleared',
@@ -283,3 +225,4 @@ try {
         'timezone' => 'Asia/Kolkata (IST)'
     ]);
 }
+?>
