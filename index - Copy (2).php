@@ -9373,21 +9373,6 @@ function fmt_money(n, sym) {
   const s = sym !== undefined ? sym : ((STATE.settings && STATE.settings.currency) || '₹');
   return s + parseFloat(n||0).toLocaleString(_moneyLocale(),{minimumFractionDigits:2,maximumFractionDigits:2});
 }
-// Actual cash collected across a set of invoices — sums real payments
-// (payments.amount) linked to those invoices, NOT invoice.amount. This is
-// the one correct way to compute "revenue actually received": an invoice's
-// own `amount` never changes even after a Settlement Discount is applied
-// during payment recording (that discount lives on the payment record,
-// not the invoice), so summing invoice.amount for "Paid" invoices silently
-// counts written-off discount as if it were cash received. Takes an array
-// of invoices (not a filter function) so callers can pass any already-
-// filtered/searched subset (e.g. a Reports page's current result set).
-function sumActualPaid(invoiceList) {
-  const ids = new Set((invoiceList||[]).map(i => String(i.id)));
-  return STATE.payments
-    .filter(p => ids.has(String(p.invoice_id)))
-    .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-}
 // Escapes text before it's injected into innerHTML, to prevent stored-XSS
 // from product/client names, categories, HSN codes, etc.
 function escHtml(v) {
@@ -11752,12 +11737,6 @@ function applyFiltersAndRender() {
     const invId = String(inv.id);
     const paidPayments = STATE.payments.filter(p => p.invoice_id && String(p.invoice_id) === invId);
     const totalPaid = paidPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
-    // Only relevant for Paid invoices — a settlement discount written off
-    // during payment recording, which the invoice's own `amount` never
-    // reflects (that field is fixed at invoice creation and doesn't change
-    // afterward). Used below to show what was ACTUALLY collected next to
-    // the invoice's full billed total, only when the two differ.
-    const invSettleDisc = paidPayments.reduce((s,p) => s + (parseFloat(p.settlement_discount)||0), 0);
     let paidCell = '';
     if (inv.status === 'Paid') {
       // Show the paid date instead of "Full" pill
@@ -11842,12 +11821,7 @@ function applyFiltersAndRender() {
       <td>${serviceBadge}</td>
       <td>${inv.issued}</td>
       <td><span style="${dueCellStyle}">${inv.due}</span>${overdueBadge}</td>
-      <td>
-        <strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong>
-        ${inv.status === 'Paid' && invSettleDisc > 0.004
-          ? `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#2E7D32;background:#E8F5E9;padding:1px 7px;border-radius:9px;white-space:nowrap">Paid ${fmt_money(totalPaid)}</span></div>`
-          : ''}
-      </td>
+      <td><strong style="font-family:var(--mono)">${fmt_money(inv.amount)}</strong></td>
       <td style="text-align:center">${paidCell}${progressBar}</td>
       <td>${statusBadgeHtml}</td>
       <td>
@@ -15830,7 +15804,7 @@ function renderClients() {
   }
   grid.innerHTML = visibleClients.map(c => {
     const initials = getInitials(c.name);
-    const rev = sumActualPaid(STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid'));
+    const rev = STATE.invoices.filter(i=>i.client===c.id && i.status==='Paid').reduce((s,i)=>s+i.amount,0);
     const cnt = STATE.invoices.filter(i=>i.client===c.id).length;
     const _clientInvNums = STATE.invoices.filter(i=>i.client===c.id).map(i=>i.num||i.invoice_number||'');
     const _remSentCount  = (STATE.reminders||[]).filter(e=>_clientInvNums.includes(e.invNum)&&e.status==='sent').length;
@@ -25057,11 +25031,11 @@ function _renderRptStats(){
   const el=document.getElementById('rptStatCards');if(!el)return;
   const inv=RPT.list;
   const tot=inv.reduce((s,i)=>s+i.amount,0);
-  const paid=sumActualPaid(inv.filter(i=>i.status==='Paid'));
+  const paid=inv.filter(i=>i.status==='Paid').reduce((s,i)=>s+i.amount,0);
   const pend=inv.filter(i=>i.status==='Pending').reduce((s,i)=>s+i.amount,0);
   const over=inv.filter(i=>i.status==='Overdue').length;
   const rate=tot>0?Math.round(paid/tot*100):0;
-  const top=STATE.clients.map(c=>({...c,r:sumActualPaid(inv.filter(i=>i.client===c.id&&i.status==='Paid'))})).sort((a,b)=>b.r-a.r)[0];
+  const top=STATE.clients.map(c=>({...c,r:inv.filter(i=>i.client===c.id&&i.status==='Paid').reduce((s,i)=>s+i.amount,0)})).sort((a,b)=>b.r-a.r)[0];
   el.innerHTML=`
     <div class="stat-card"><div class="stat-icon" style="background:#e0f2f1;color:#00897B"><i class="fas fa-rupee-sign"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(tot)}</div><div class="stat-lbl">Total Revenue</div><div class="stat-trend neutral">${inv.length} invoices</div></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;color:#388E3C"><i class="fas fa-check-circle"></i></div><div class="stat-body"><div class="stat-val">${fmt_money(paid)}</div><div class="stat-lbl">Collected</div><div class="stat-trend up">${rate}%</div></div></div>
@@ -26637,7 +26611,7 @@ function renderDashKpis() {
   const el = document.getElementById('dashQuickKpis');
   if (!el) return;
   const tot   = STATE.invoices.reduce((s,i) => s + i.amount, 0);
-  const paid  = sumActualPaid(STATE.invoices.filter(i => i.status==='Paid'));
+  const paid  = STATE.invoices.filter(i => i.status==='Paid').reduce((s,i) => s + i.amount, 0);
   const over  = STATE.invoices.filter(i => i.status==='Overdue').length;
   const tm    = new Date().getMonth();
   const mInv  = STATE.invoices.filter(i => i.issued && new Date(i.issued).getMonth()===tm).length;
@@ -26779,7 +26753,7 @@ function renderDashKpis() {
 
 function renderDashTopClients() {
   const el=document.getElementById('dashTopClients'); if(!el) return;
-  const top=STATE.clients.map(c=>({...c,rev:sumActualPaid(STATE.invoices.filter(i=>i.client===c.id&&i.status==='Paid'))})).sort((a,b)=>b.rev-a.rev).slice(0,5);
+  const top=STATE.clients.map(c=>({...c,rev:STATE.invoices.filter(i=>i.client===c.id&&i.status==='Paid').reduce((s,i)=>s+i.amount,0)})).sort((a,b)=>b.rev-a.rev).slice(0,5);
   const mx=top[0]?.rev||1;
   el.innerHTML=top.map(c=>`<div style="margin-bottom:9px">
     <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="font-weight:600">${c.name}</span><span style="color:var(--muted);font-family:var(--mono)">${fmt_money(c.rev)}</span></div>
@@ -29658,7 +29632,7 @@ function _renderExpSummary() {
   const catTotals  = {};
   list.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + parseFloat(e.amount||0); });
   const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
-  const revenue = sumActualPaid(STATE.invoices.filter(i=>i.status==='Paid'));
+  const revenue = STATE.invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
   const expRatio = revenue > 0 ? Math.round(total/revenue*100) : 0;
   const cards = [
     {l:'Total Expenses',    v:fmt_money(total),         ic:'fa-wallet',         col:'#E65100', bg:'#fbe9e7'},
