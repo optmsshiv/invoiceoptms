@@ -2984,13 +2984,10 @@ const SERVER = {
         <div class="modal-body" style="padding:20px 22px;display:flex;flex-direction:column;gap:12px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Supplier / Company Name *</label><input id="supq-name" placeholder="e.g. Sunrise Textiles Pvt Ltd"></div>
-            <div class="field"><label>Supplier Type</label><input id="supq-type" list="supplier-type-options" placeholder="Type or pick a type…"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Contact Person</label><input id="supq-person" placeholder="e.g. Rajeev Kumar"></div>
-            <div class="field"><label>Phone</label><input id="supq-phone" placeholder="+91 XXXXX XXXXX"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>Phone</label><input id="supq-phone" placeholder="+91 XXXXX XXXXX"></div>
             <div class="field"><label>Email</label><input id="supq-email" type="email" placeholder="supplier@example.com"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -18258,7 +18255,7 @@ function openAddSupplierModal(context = 'page') {
   ADD_SUPPLIER_CONTEXT = context;
   SUP.editingId = null;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
-  ['supq-name','supq-type','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
+  ['supq-name','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('supq-country').value = 'India';
@@ -18271,7 +18268,6 @@ function editSupplier(id) {
   SUP.editingId = id;
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Edit Supplier';
   document.getElementById('supq-name').value    = s.name || '';
-  document.getElementById('supq-type').value    = s.supplier_type || '';
   document.getElementById('supq-person').value  = s.contact_person || '';
   document.getElementById('supq-phone').value   = s.phone || '';
   document.getElementById('supq-email').value   = s.email || '';
@@ -18291,7 +18287,6 @@ async function saveSupplier() {
   if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   const payload = {
     name, status: 'active',
-    supplier_type:   document.getElementById('supq-type').value.trim(),
     contact_person:  document.getElementById('supq-person').value.trim(),
     phone:           document.getElementById('supq-phone').value.trim(),
     email:           document.getElementById('supq-email').value.trim(),
