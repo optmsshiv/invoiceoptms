@@ -18725,14 +18725,10 @@ async function viewPurchaseDetails(id) {
   document.getElementById('pd-body').innerHTML = '';
   document.getElementById('pd-foot').innerHTML = '';
 
-  let p, paymentHistory = [];
+  let p;
   try {
-    const [pr, hr] = await Promise.all([
-      api('api/purchases.php?id=' + id),
-      api('api/purchase_payments.php?purchase_id=' + id).catch(() => ({ data: [] })),
-    ]);
-    p = pr.data;
-    paymentHistory = Array.isArray(hr.data) ? hr.data : [];
+    const r = await api('api/purchases.php?id=' + id);
+    p = r.data;
   } catch(e) {
     document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
     return;
@@ -18773,25 +18769,6 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
       </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Payment History (${paymentHistory.length})</div>
-      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px">
-        ${paymentHistory.map((h, i) => {
-          const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
-          const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-          const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
-          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:9px">
-            <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700">#${paymentHistory.length - i}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12.5px;font-weight:600">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
-              <div style="font-size:11px;color:var(--muted)">${escHtml(h.method||'—')}${h.transaction_id ? ' · Ref: ' + escHtml(h.transaction_id) : ''}${h.notes ? ' · ' + escHtml(h.notes) : ''}</div>
-            </div>
-            <strong style="font-family:var(--mono);font-size:13px;color:var(--teal)">${fmt_money(h.amount)}</strong>
-          </div>`;
-        }).join('')}
-      </div>` : `<div class="sp-empty"><i class="fas fa-receipt"></i><div class="sp-empty-title">No payments recorded yet</div></div>`}
     </div>
 
     <div class="sp-section">
