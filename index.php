@@ -20339,12 +20339,15 @@ function calcPNEKantaSummary() {
   // only real precondition is "is there a target row to sync into", which
   // the `if (target)` check below already covers on its own.
   {
-    let target = null;
-    if (PNE.items.length === 1) {
-      target = PNE.items[0];
-    } else {
-      target = PNE.items.find(it => it.editing) || null;
-    }
+    // No special-case for a single-item purchase anymore — that used to
+    // write into PNE.items[0] unconditionally, with no check for whether
+    // anything was actually being edited. That's what let the header
+    // fields overwrite real saved data (e.g. after Done resets them to
+    // blank, or before any pencil icon was ever clicked). Now this always
+    // requires an item actually marked editing:true, same rule regardless
+    // of how many items there are — matching what editPNEItem()/
+    // addPurchaseNewItem() already correctly set before calling this.
+    let target = PNE.items.find(it => it.editing) || null;
     if (target) {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;
