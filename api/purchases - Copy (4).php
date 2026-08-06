@@ -29,13 +29,8 @@ function currentStock($db, $productId) {
 function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($netWeight <= 0) return;
   $bal = currentStock($db, $productId) + $netWeight;
-  // created_at set explicitly via PHP's date() (Asia/Kolkata) — same fix
-  // already applied to purchases/sales/expenses/email_logs. Without this,
-  // it falls back to the column's own DEFAULT CURRENT_TIMESTAMP, which
-  // runs on the DB server's own clock, not IST — exactly what was showing
-  // the wrong time in the Stock History table.
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no, created_at) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse, $batchNo, date('Y-m-d H:i:s')]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function clearStockForPurchase($db, $purchaseId) {

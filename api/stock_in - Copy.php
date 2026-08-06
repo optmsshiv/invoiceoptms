@@ -19,12 +19,8 @@ function currentStock($db, $productId) {
 function writeStockInEntry($db, $productId, $stockInId, $qty, $rate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
   $bal = currentStock($db, $productId) + $qty;
-  // created_at set explicitly — same fix as writeStockIn()/writeStockOut()
-  // in purchases.php/sales.php and writeAdjustmentLedger() in
-  // stock_adjustments.php: without it, this falls back to MySQL's own
-  // clock instead of PHP's Asia/Kolkata date().
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no, created_at) VALUES (?,"stock_in",?,"in",?,?,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $stockInId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo, date('Y-m-d H:i:s')]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"stock_in",?,"in",?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $stockInId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo]);
 }
 function clearStockForEntry($db, $stockInId) {
   $db->prepare('DELETE FROM stock_ledger WHERE ref_type = "stock_in" AND ref_id = ?')->execute([$stockInId]);

@@ -25,11 +25,8 @@ function currentStock($db, $productId) {
 function writeStockOut($db, $productId, $saleId, $qty, $rate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($qty <= 0) return;
   $bal = currentStock($db, $productId) - $qty;
-  // created_at set explicitly — same fix as writeStockIn() in purchases.php
-  // and everywhere else today: without it, this falls back to MySQL's own
-  // clock instead of PHP's Asia/Kolkata date().
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no, created_at) VALUES (?,"sale",?,"out",?,?,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $saleId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo, date('Y-m-d H:i:s')]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"sale",?,"out",?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $saleId, $qty, $rate, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function clearStockForSale($db, $saleId) {

@@ -22,13 +22,8 @@ function writeAdjustmentLedger($db, $productId, $adjustmentId, $qty, $date, $not
   // Allow qty=0 — exact corrections that set stock to same level still need a ledger record
   $direction = $direction === 'in' ? 'in' : 'out';
   $bal = currentStock($db, $productId) + ($direction === 'in' ? $qty : -$qty);
-  // created_at set explicitly via PHP's date() (Asia/Kolkata) — same fix
-  // already applied to the stock_ledger writes in purchases.php/sales.php,
-  // and everywhere else today. Without this it falls back to the column's
-  // own DEFAULT CURRENT_TIMESTAMP, which runs on the DB server's own
-  // clock, not IST.
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no, created_at) VALUES (?,"adjustment",?,?,?,0,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $adjustmentId, $direction, $qty, $bal, $date, $note, $warehouse, $batchNo, date('Y-m-d H:i:s')]);
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"adjustment",?,?,?,0,?,?,?,?,?)');
+  $stmt->execute([$productId, $adjustmentId, $direction, $qty, $bal, $date, $note, $warehouse, $batchNo]);
 }
 
 function saveAttachment($dataUrl) {
