@@ -18725,10 +18725,14 @@ async function viewPurchaseDetails(id) {
   document.getElementById('pd-body').innerHTML = '';
   document.getElementById('pd-foot').innerHTML = '';
 
-  let p;
+  let p, paymentHistory = [];
   try {
-    const r = await api('api/purchases.php?id=' + id);
-    p = r.data;
+    const [pr, hr] = await Promise.all([
+      api('api/purchases.php?id=' + id),
+      api('api/purchase_payments.php?purchase_id=' + id).catch(() => ({ data: [] })),
+    ]);
+    p = pr.data;
+    paymentHistory = Array.isArray(hr.data) ? hr.data : [];
   } catch(e) {
     document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
     return;
@@ -18769,6 +18773,25 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
       </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Payment History (${paymentHistory.length})</div>
+      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px">
+        ${paymentHistory.map((h, i) => {
+          const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
+          const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+          const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:9px">
+            <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700">#${paymentHistory.length - i}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
+              <div style="font-size:11px;color:var(--muted)">${escHtml(h.method||'—')}${h.transaction_id ? ' · Ref: ' + escHtml(h.transaction_id) : ''}${h.notes ? ' · ' + escHtml(h.notes) : ''}</div>
+            </div>
+            <strong style="font-family:var(--mono);font-size:13px;color:var(--teal)">${fmt_money(h.amount)}</strong>
+          </div>`;
+        }).join('')}
+      </div>` : `<div class="sp-empty"><i class="fas fa-receipt"></i><div class="sp-empty-title">No payments recorded yet</div></div>`}
     </div>
 
     <div class="sp-section">
@@ -19720,6 +19743,7 @@ function setPNEKantaFieldsLocked(locked) {
     const el = document.getElementById(id);
     if (!el) return;
     el.readOnly = locked;
+    if (locked) el.value = ''; // readOnly alone only blocks typing, not a value already sitting there
     el.placeholder = locked ? 'Click Edit on an item row' : '';
     el.style.background = locked ? 'var(--bg)' : '';
     el.style.cursor = locked ? 'default' : '';
@@ -20233,8 +20257,12 @@ async function editPurchase(id) {
     document.getElementById('pn-kantaname').value = p.kanta_name || '';
     document.getElementById('pn-slipno').value = p.weighbridge_slip_no || '';
     document.getElementById('pn-weightdatetime').value = p.weight_datetime ? p.weight_datetime.replace(' ', 'T').slice(0,16) : '';
-    document.getElementById('pn-kanta-gross').value = p.kanta_gross_weight || '';
-    document.getElementById('pn-kanta-tare').value = p.kanta_tare_weight || '';
+    // Gross/Tare deliberately NOT pre-filled from p.kanta_gross_weight/
+    // kanta_tare_weight here — those columns are just "whatever was in
+    // this scratch field the moment the purchase was last saved", not a
+    // separate authoritative reading. Showing them on load reintroduced
+    // the exact "editable but looks like it isn't" risk that was just
+    // fixed. setPNEKantaFieldsLocked(true) below explicitly blanks these.
     document.getElementById('pn-kanta-operator').value = p.kanta_operator_name || '';
     PNE.kantaSlipDataUrl = null;
     if (p.kanta_slip_path) {
@@ -20295,6 +20323,15 @@ async function editPurchase(id) {
     // all, so an auto-filled-but-unlocked card meant a stray click could
     // silently edit the saved weight without ever clicking Edit.
     setPNEKantaFieldsLocked(true);
+    // Net/Billable are computed display-only fields (already always
+    // readonly), but they're not covered by setPNEKantaFieldsLocked above
+    // — clearing them explicitly too, in case a prior item edit on a
+    // DIFFERENT purchase was left mid-way (clicked pencil, never clicked
+    // Done) before navigating here, which would otherwise leave stale
+    // numbers showing.
+    document.getElementById('pn-kanta-net').value = '';
+    document.getElementById('pn-q-billable').value = '';
+    document.getElementById('pn-q-dhaltapct').value = '';
     renderPNEItemsTable();
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
@@ -20325,12 +20362,15 @@ function calcPNEKantaSummary() {
   // only real precondition is "is there a target row to sync into", which
   // the `if (target)` check below already covers on its own.
   {
-    let target = null;
-    if (PNE.items.length === 1) {
-      target = PNE.items[0];
-    } else {
-      target = PNE.items.find(it => it.editing) || null;
-    }
+    // No special-case for a single-item purchase anymore — that used to
+    // write into PNE.items[0] unconditionally, with no check for whether
+    // anything was actually being edited. That's what let the header
+    // fields overwrite real saved data (e.g. after Done resets them to
+    // blank, or before any pencil icon was ever clicked). Now this always
+    // requires an item actually marked editing:true, same rule regardless
+    // of how many items there are — matching what editPNEItem()/
+    // addPurchaseNewItem() already correctly set before calling this.
+    let target = PNE.items.find(it => it.editing) || null;
     if (target) {
       target.gross_weight = gross || 0;
       target.tare_weight  = tare  || 0;

@@ -18777,7 +18777,7 @@ async function viewPurchaseDetails(id) {
 
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Payment History (${paymentHistory.length})</div>
-      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px">
+      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px;max-height:140px;overflow-y:auto;padding-right:4px">
         ${paymentHistory.map((h, i) => {
           const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
           const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -24495,12 +24495,20 @@ async function saveRecordPurchasePayment() {
   const btn = document.getElementById('rpp-save-btn');
   if (btn) { btn.disabled = true; }
 
+  // Combine the picked date with the REAL current time (not a hardcoded
+  // 00:00:00) — the date field lets you record a payment against a past
+  // date, but it was always saving midnight as the time regardless of
+  // when it was actually being entered, which is why every entry showed
+  // 12:00 AM in the history.
+  const _now = new Date();
+  const _timeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0') + ':' + String(_now.getSeconds()).padStart(2,'0');
+  const selectedDate = document.getElementById('rpp-date').value;
+
   const payload = {
     purchase_id: RPP_ACTIVE_PURCHASE.id,
     supplier_name: RPP_ACTIVE_PURCHASE.supplier_name || '',
     amount: amount,
-    payment_date: document.getElementById('rpp-date').value
-      ? document.getElementById('rpp-date').value + ' 00:00:00' : null,
+    payment_date: selectedDate ? selectedDate + ' ' + _timeStr : null,
     method: document.getElementById('rpp-method').value,
     transaction_id: document.getElementById('rpp-txn').value.trim(),
     notes: document.getElementById('rpp-notes').value.trim(),
