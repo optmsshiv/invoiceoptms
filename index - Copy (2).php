@@ -24444,7 +24444,7 @@ async function openRecordPurchasePayment(purchaseId) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12px">
           <div>
             <span style="font-weight:700">#${rows.length - i}</span>
-            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)}${h.payment_date ? ' · ' + fmt_time_ampm(h.payment_date) : ''} · ${escHtml(h.method||'—')}</span>
+            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)} · ${escHtml(h.method||'—')}</span>
           </div>
           <strong style="font-family:var(--mono)">${fmt_money(h.amount)}</strong>
         </div>`).join('');
