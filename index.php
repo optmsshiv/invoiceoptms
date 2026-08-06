@@ -20695,6 +20695,8 @@ function printLocalPurchaseVoucher(p) {
   const addCharges = (parseFloat(p.transport_charge)||0)+(parseFloat(p.loading_charge)||0)+(parseFloat(p.packing_charge)||0)+(parseFloat(p.other_charges)||0);
   const deductions = Array.isArray(p.deductions) ? p.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
+  const amountPaid = parseFloat(p.amount_paid) || 0;
+  const remainingAmt = Math.max(0, (parseFloat(p.total)||0) - amountPaid);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
@@ -20726,7 +20728,7 @@ function printLocalPurchaseVoucher(p) {
     .pay-net { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 800; font-size: 15px; color: #0d3b2e; display: flex; justify-content: space-between; }
     .paymode { display: flex; gap: 6px; margin-top: 10px; }
     .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #eef0f3; color:#333; }
-    .paymode span.active { background: #0d3b2e; color: #fff; }
+    .paymode span.active { background: #000; color: #fff; border: 1.5px solid #000; }
     .remark { font-style: italic; color:#333; font-size: 11px; line-height: 1.6; }
     .attach div { font-size: 11px; color:#333; margin-bottom: 6px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
@@ -20752,7 +20754,7 @@ function printLocalPurchaseVoucher(p) {
         </div>
       </div>
       <div>
-        <div class="badge-voucher">LOCAL PURCHASE<br>VOUCHER</div>
+        <div class="badge-voucher">INVOICE</div>
         <div class="voucher-meta">Voucher No: ${escHtml(p.purchase_no)}<br>Date: ${fmt_date_disp(p.purchase_date)}<br>Warehouse: ${escHtml(p.warehouse||'')}</div>
       </div>
     </div>
@@ -20760,10 +20762,10 @@ function printLocalPurchaseVoucher(p) {
 
     <div class="row2">
       <div class="box">
-        <h3>👤 FARMER INFORMATION <span class="pills"><span class="pill gray">SUPPLIER: ${escHtml((p.supplier_type||'FARMER').toUpperCase())}</span><span class="pill green">GST: EXEMPT</span></span></h3>
-        <div class="kv">Farmer Name<b>${escHtml(p.supplier_name||'')}</b></div>
-        <div class="kv">Location<b>${escHtml(p.district||p.state||'—')}</b></div>
-        <div class="kv">Mobile Number<b>${escHtml(p.supplier_phone||'—')}</b></div>
+        <h3>BILLED TO <span class="pills"><span class="pill gray">SUPPLIER: ${escHtml((p.supplier_type||'FARMER').toUpperCase())}</span><span class="pill green">GST: EXEMPT</span></span></h3>
+        <div class="kv">Name<b>${escHtml(p.supplier_name||'')}</b></div>
+        <div class="kv">Add<b>${escHtml([p.supplier_address, p.supplier_city, p.supplier_state, p.supplier_pincode].filter(Boolean).join(', ') || '—')}</b></div>
+        <div class="kv">Mobile<b>${escHtml(p.supplier_phone||'—')}</b></div>
       </div>
       <div class="box">
         <h3>🚚 LOGISTICS</h3>
@@ -20785,11 +20787,11 @@ function printLocalPurchaseVoucher(p) {
         <div class="ded-row"><span>Loading &amp; Unloading</span><span>${fmt_money(p.loading_charge)}</span></div>
         <div class="ded-row"><span>Transport Allowance</span><span>${fmt_money(p.transport_charge)}</span></div>
         <div class="ded-row"><span>Packing Materials</span><span>${fmt_money(p.packing_charge)}</span></div>
-        <div class="ded-row"><span>Other / Mandi Tax</span><span>${fmt_money(p.other_charges)}</span></div>
+        ${(parseFloat(p.other_charges)||0) > 0 ? `<div class="ded-row"><span>Others</span><span>${fmt_money(p.other_charges)}</span></div>` : ''}
         <div class="ded-total" style="color:#0d7a3f"><span>Total Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
       </div>
       <div class="box">
-        <h3>PAYMENT SETTLEMENT</h3>
+        <h3>PAYMENTS</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
         ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
@@ -20797,12 +20799,18 @@ function printLocalPurchaseVoucher(p) {
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.cash_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Cash Discount</span><span>- ${fmt_money(p.cash_discount_amount)}</span></div>` : ''}
         <div class="pay-net"><span>Net Payable</span><span>${fmt_money(p.total)}</span></div>
+        <div class="pay-row" style="margin-top:8px;font-weight:700;color:#0d7a3f"><span>Total Received</span><span>${fmt_money(amountPaid)}</span></div>
+        ${remainingAmt > 0.004 ? `<div class="pay-row" style="font-weight:700;color:#c0392b"><span>Remaining Amount</span><span>${fmt_money(remainingAmt)}</span></div>` : ''}
         <div class="paymode">
-          <span class="${p.payment_mode==='Cash'?'active':''}">Cash</span>
-          <span class="${(p.payment_mode||'').includes('Bank')?'active':''}">Bank Transfer</span>
-          <span class="${(p.payment_mode||'').includes('UPI')?'active':''}">UPI</span>
+          <span class="${p.payment_mode==='Cash'?'active':''}">${p.payment_mode==='Cash'?'✓ ':''}Cash</span>
+          <span class="${(p.payment_mode||'').includes('Bank')?'active':''}">${(p.payment_mode||'').includes('Bank')?'✓ ':''}Bank Transfer</span>
+          <span class="${(p.payment_mode||'').includes('UPI')?'active':''}">${(p.payment_mode||'').includes('UPI')?'✓ ':''}UPI</span>
         </div>
       </div>
+    </div>
+
+    <div class="box" style="margin-bottom:16px">
+      <div class="kv" style="margin-bottom:0">Total paid amount in words<b>${numToWordsINR(amountPaid)}</b></div>
     </div>
     ${deductions.length ? `
     <div class="box" style="margin-top:12px">
@@ -20813,7 +20821,7 @@ function printLocalPurchaseVoucher(p) {
     ${p.remarks ? `<div class="box" style="margin-bottom:16px"><h3>OBSERVATIONS &amp; REMARKS</h3><div class="remark">${escHtml(p.remarks)}</div></div>` : ''}
 
     <div class="sig-row">
-      <div class="sig">Farmer Signature / Thumb</div>
+      <div class="sig">Receiver Sign/Thumb</div>
       <div class="sig">Receiving Officer</div>
       <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
     </div>

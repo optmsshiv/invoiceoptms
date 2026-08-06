@@ -213,7 +213,10 @@ switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
       $id = (int)$_GET['id'];
-      $stmt = $db->prepare('SELECT p.*, s.name AS supplier_name, s.supplier_type FROM purchases p JOIN suppliers s ON s.id = p.supplier_id WHERE p.id = ?');
+      $stmt = $db->prepare('SELECT p.*, s.name AS supplier_name, s.supplier_type,
+        s.phone AS supplier_phone, s.address AS supplier_address, s.city AS supplier_city,
+        s.state AS supplier_state, s.pincode AS supplier_pincode
+        FROM purchases p JOIN suppliers s ON s.id = p.supplier_id WHERE p.id = ?');
       $stmt->execute([$id]);
       $purchase = $stmt->fetch();
       if (!$purchase) jsonResponse(['error' => 'Not found'], 404);

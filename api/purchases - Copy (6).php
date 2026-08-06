@@ -29,8 +29,13 @@ function currentStock($db, $productId) {
 function writeStockIn($db, $productId, $purchaseId, $netWeight, $effectiveRate, $date, $note, $warehouse = 'Main Warehouse', $batchNo = '') {
   if ($netWeight <= 0) return;
   $bal = currentStock($db, $productId) + $netWeight;
-  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,?)');
-  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse, $batchNo]);
+  // created_at set explicitly via PHP's date() (Asia/Kolkata) — same fix
+  // already applied to purchases/sales/expenses/email_logs. Without this,
+  // it falls back to the column's own DEFAULT CURRENT_TIMESTAMP, which
+  // runs on the DB server's own clock, not IST — exactly what was showing
+  // the wrong time in the Stock History table.
+  $stmt = $db->prepare('INSERT INTO stock_ledger (product_id, ref_type, ref_id, direction, qty, rate, balance_after, movement_date, notes, warehouse, batch_no, created_at) VALUES (?,"purchase",?,"in",?,?,?,?,?,?,?,?)');
+  $stmt->execute([$productId, $purchaseId, $netWeight, $effectiveRate, $bal, $date, $note, $warehouse, $batchNo, date('Y-m-d H:i:s')]);
 }
 
 function clearStockForPurchase($db, $purchaseId) {
@@ -180,11 +185,35 @@ try {
 // stock_ledger already did (used by Sales), this brings Purchases in sync.
 try { $db->exec("ALTER TABLE purchase_items ADD COLUMN batch_no VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
 
+// Same table purchase_payments.php creates — needed here too since this
+// file also writes to it directly (the "first payment at creation" row).
+// Without this, a brand-new install's very first paid purchase would hit
+// a 1146 "table doesn't exist" error if this file happened to run before
+// purchase_payments.php ever had.
+$db->exec("CREATE TABLE IF NOT EXISTS `purchase_payments` (
+    `id`              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `purchase_id`     INT UNSIGNED  NOT NULL,
+    `purchase_no`     VARCHAR(60)   NULL,
+    `supplier_name`   VARCHAR(200)  NULL,
+    `amount`          DECIMAL(12,2) NOT NULL DEFAULT 0,
+    `remaining_amt`   DECIMAL(12,2) NOT NULL DEFAULT 0,
+    `payment_date`    DATETIME      NULL,
+    `method`          VARCHAR(60)   NULL,
+    `transaction_id`  VARCHAR(100)  NULL,
+    `notes`           VARCHAR(500)  NULL,
+    `purchase_deleted` TINYINT(1)   NOT NULL DEFAULT 0,
+    `created_by`      INT UNSIGNED  NULL,
+    `created_at`      DATETIME      NOT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_pp_purchase` (`purchase_id`),
+    INDEX `idx_pp_date` (`payment_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
       $id = (int)$_GET['id'];
-      $stmt = $db->prepare('SELECT p.*, s.name AS supplier_name FROM purchases p JOIN suppliers s ON s.id = p.supplier_id WHERE p.id = ?');
+      $stmt = $db->prepare('SELECT p.*, s.name AS supplier_name, s.supplier_type FROM purchases p JOIN suppliers s ON s.id = p.supplier_id WHERE p.id = ?');
       $stmt->execute([$id]);
       $purchase = $stmt->fetch();
       if (!$purchase) jsonResponse(['error' => 'Not found'], 404);
@@ -196,7 +225,7 @@ switch ($method) {
       break;
     }
 
-    $stmt = $db->query('SELECT p.*, s.name AS supplier_name,
+    $stmt = $db->query('SELECT p.*, s.name AS supplier_name, s.supplier_type,
       (SELECT COUNT(*) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS item_count,
       (SELECT COALESCE(SUM(pi.qty),0) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS total_qty,
       (SELECT GROUP_CONCAT(DISTINCT pi.product_id) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS product_ids,
@@ -319,6 +348,28 @@ switch ($method) {
       recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $purchaseId,
         "Purchase {$purchaseNo}", (int)$_SESSION['user_id']);
     }
+    // First payment-history row, if anything was paid at creation time —
+    // keeps the payment-history table complete from day one instead of
+    // starting only from the 2nd payment onward. See purchase_payments.php
+    // for how every payment after this one gets recorded.
+    $initialPaid = (float)($d['amount_paid'] ?? 0);
+    if ($initialPaid > 0) {
+      $supNameStmt = $db->prepare('SELECT name FROM suppliers WHERE id = ?');
+      $supNameStmt->execute([(int)$d['supplier_id']]);
+      $remainingAtCreate = max(0, round($total - $initialPaid, 2));
+      $db->prepare(
+        'INSERT INTO purchase_payments
+           (purchase_id, purchase_no, supplier_name, amount, remaining_amt,
+            payment_date, method, transaction_id, notes, created_by, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+      )->execute([
+        $purchaseId, $purchaseNo, $supNameStmt->fetchColumn() ?: '',
+        $initialPaid, $remainingAtCreate,
+        $d['payment_date'] ?: $now, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '',
+        'Initial payment at purchase creation',
+        (int)$_SESSION['user_id'], $now,
+      ]);
+    }
     jsonResponse(['success' => true, 'id' => $purchaseId, 'purchase_no' => $purchaseNo]);
     break;
 
@@ -372,9 +423,14 @@ switch ($method) {
     $newAttachment = saveAttachment($d['attachment'] ?? null);
     $newKantaSlip  = saveAttachment($d['kanta_slip'] ?? null);
 
+    // amount_paid and status are DELIBERATELY not in this UPDATE anymore —
+    // that was the actual root cause of the "second partial payment
+    // overwrites the first" bug. Payment info is now only ever changed by
+    // purchase_payments.php (recachePurchasePaid), never by editing the
+    // purchase itself, so this SET clause structurally cannot touch it.
     $sql = 'UPDATE purchases SET
       supplier_id=?, supplier_invoice_ref=?, purchase_date=?, currency=?, exchange_rate=?,
-      subtotal=?, gst_amount=?, gst_pct=?, total=?, amount_paid=?, status=?, notes=?,
+      subtotal=?, gst_amount=?, gst_pct=?, total=?, notes=?,
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
       transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, remarks=?,
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?, discount_remarks=?,
@@ -388,8 +444,7 @@ switch ($method) {
     $params = [
       (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
-      $subtotal, $gstAmount, $gstPct, $total, (float)($d['amount_paid'] ?? 0),
-      $d['payment_status'] ?? 'Pending', $d['notes'] ?? '',
+      $subtotal, $gstAmount, $gstPct, $total, $d['notes'] ?? '',
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',

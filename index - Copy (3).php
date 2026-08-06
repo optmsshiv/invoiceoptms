@@ -18725,10 +18725,14 @@ async function viewPurchaseDetails(id) {
   document.getElementById('pd-body').innerHTML = '';
   document.getElementById('pd-foot').innerHTML = '';
 
-  let p;
+  let p, paymentHistory = [];
   try {
-    const r = await api('api/purchases.php?id=' + id);
-    p = r.data;
+    const [pr, hr] = await Promise.all([
+      api('api/purchases.php?id=' + id),
+      api('api/purchase_payments.php?purchase_id=' + id).catch(() => ({ data: [] })),
+    ]);
+    p = pr.data;
+    paymentHistory = Array.isArray(hr.data) ? hr.data : [];
   } catch(e) {
     document.getElementById('pd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load purchase</div>`;
     return;
@@ -18769,6 +18773,25 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
       </div>
+    </div>
+
+    <div class="sp-section">
+      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Payment History (${paymentHistory.length})</div>
+      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px;max-height:140px;overflow-y:auto;padding-right:4px">
+        ${paymentHistory.map((h, i) => {
+          const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
+          const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+          const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:9px">
+            <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700">#${paymentHistory.length - i}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12.5px;font-weight:600">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
+              <div style="font-size:11px;color:var(--muted)">${escHtml(h.method||'—')}${h.transaction_id ? ' · Ref: ' + escHtml(h.transaction_id) : ''}${h.notes ? ' · ' + escHtml(h.notes) : ''}</div>
+            </div>
+            <strong style="font-family:var(--mono);font-size:13px;color:var(--teal)">${fmt_money(h.amount)}</strong>
+          </div>`;
+        }).join('')}
+      </div>` : `<div class="sp-empty"><i class="fas fa-receipt"></i><div class="sp-empty-title">No payments recorded yet</div></div>`}
     </div>
 
     <div class="sp-section">
@@ -24421,7 +24444,7 @@ async function openRecordPurchasePayment(purchaseId) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12px">
           <div>
             <span style="font-weight:700">#${rows.length - i}</span>
-            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)} · ${escHtml(h.method||'—')}</span>
+            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)}${h.payment_date ? ' · ' + fmt_time_ampm(h.payment_date) : ''} · ${escHtml(h.method||'—')}</span>
           </div>
           <strong style="font-family:var(--mono)">${fmt_money(h.amount)}</strong>
         </div>`).join('');
@@ -24472,12 +24495,20 @@ async function saveRecordPurchasePayment() {
   const btn = document.getElementById('rpp-save-btn');
   if (btn) { btn.disabled = true; }
 
+  // Combine the picked date with the REAL current time (not a hardcoded
+  // 00:00:00) — the date field lets you record a payment against a past
+  // date, but it was always saving midnight as the time regardless of
+  // when it was actually being entered, which is why every entry showed
+  // 12:00 AM in the history.
+  const _now = new Date();
+  const _timeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0') + ':' + String(_now.getSeconds()).padStart(2,'0');
+  const selectedDate = document.getElementById('rpp-date').value;
+
   const payload = {
     purchase_id: RPP_ACTIVE_PURCHASE.id,
     supplier_name: RPP_ACTIVE_PURCHASE.supplier_name || '',
     amount: amount,
-    payment_date: document.getElementById('rpp-date').value
-      ? document.getElementById('rpp-date').value + ' 00:00:00' : null,
+    payment_date: selectedDate ? selectedDate + ' ' + _timeStr : null,
     method: document.getElementById('rpp-method').value,
     transaction_id: document.getElementById('rpp-txn').value.trim(),
     notes: document.getElementById('rpp-notes').value.trim(),
