@@ -185,6 +185,30 @@ try {
 // stock_ledger already did (used by Sales), this brings Purchases in sync.
 try { $db->exec("ALTER TABLE purchase_items ADD COLUMN batch_no VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
 
+// Same table purchase_payments.php creates — needed here too since this
+// file also writes to it directly (the "first payment at creation" row).
+// Without this, a brand-new install's very first paid purchase would hit
+// a 1146 "table doesn't exist" error if this file happened to run before
+// purchase_payments.php ever had.
+$db->exec("CREATE TABLE IF NOT EXISTS `purchase_payments` (
+    `id`              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `purchase_id`     INT UNSIGNED  NOT NULL,
+    `purchase_no`     VARCHAR(60)   NULL,
+    `supplier_name`   VARCHAR(200)  NULL,
+    `amount`          DECIMAL(12,2) NOT NULL DEFAULT 0,
+    `remaining_amt`   DECIMAL(12,2) NOT NULL DEFAULT 0,
+    `payment_date`    DATETIME      NULL,
+    `method`          VARCHAR(60)   NULL,
+    `transaction_id`  VARCHAR(100)  NULL,
+    `notes`           VARCHAR(500)  NULL,
+    `purchase_deleted` TINYINT(1)   NOT NULL DEFAULT 0,
+    `created_by`      INT UNSIGNED  NULL,
+    `created_at`      DATETIME      NOT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_pp_purchase` (`purchase_id`),
+    INDEX `idx_pp_date` (`payment_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
