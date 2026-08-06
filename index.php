@@ -1779,6 +1779,11 @@ const SERVER = {
       <i class="fas fa-wallet"></i><span>Expenses</span>
     </a>
     <?php endif; ?>
+    <?php if ($perms['menu.credit'] ?? false): ?>
+    <a class="nav-item" data-page="credit" onclick="showPage('credit',this)">
+      <i class="fas fa-hand-holding-hand"></i><span>Credit</span>
+    </a>
+    <?php endif; ?>
     <?php if ($perms['menu.cash_in_hand'] ?? true): ?>
     <a class="nav-item" data-page="cash-in-hand" onclick="showPage('cash-in-hand',this)">
       <i class="fas fa-hand-holding-dollar"></i><span>Cash in Hand</span>
@@ -7746,6 +7751,25 @@ View Invoice: {{6}}</pre></details>
       </div>
     </div>
 
+    <!-- ─────────── CREDIT (Owner Personal Expenses) ─────────── -->
+    <div id="page-credit" class="page">
+      <div class="page-toolbar">
+        <div class="toolbar-left">
+          <span style="font-size:13px;color:var(--muted)">Quick-capture log for personal spending the owner will formally categorize as an Expense later. Once added, an entry is locked — corrections happen at the conversion step.</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-primary" onclick="openAddCreditModal()"><i class="fas fa-plus"></i> Add Credit Entry</button>
+        </div>
+      </div>
+      <div class="table-card">
+        <table class="data-table"><thead><tr>
+          <th>Date</th><th>Purpose</th><th>Paid To</th><th style="text-align:right">Amount</th><th>Status</th><th style="text-align:right">Action</th>
+        </tr></thead><tbody id="credit-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
     <!-- ─────────── CASH IN HAND ─────────── -->
     <div id="page-cash-in-hand" class="page">
       <div class="page-toolbar">
@@ -8876,6 +8900,86 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
+<!-- Add Credit Entry Modal -->
+<div class="modal-overlay" id="modal-credit-add">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-hand-holding-hand" style="color:var(--teal);font-size:13px"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Add Credit Entry</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-credit-add')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+        <i class="fas fa-circle-info"></i> Once saved, this entry is locked — there's no edit or delete. If something's wrong, you can still fix it when converting to an Expense later.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field" style="margin:0"><label>Date *</label><input type="date" id="credit-date" style="width:100%"></div>
+        <div class="field" style="margin:0"><label>Amount (₹) *</label><input type="number" id="credit-amount" placeholder="0.00" style="width:100%"></div>
+      </div>
+      <div class="field" style="margin:0"><label>Purpose *</label>
+        <input id="credit-purpose" placeholder="e.g. Fuel for site visit" style="width:100%">
+      </div>
+      <div class="field" style="margin:0"><label>Paid To <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input id="credit-paidto" placeholder="e.g. Shell Petrol Pump" style="width:100%">
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
+      <button class="btn btn-success" onclick="saveCreditEntry()" style="flex:1"><i class="fas fa-save"></i> Save Entry</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-credit-add')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Convert Credit Entry to Expense Modal -->
+<div class="modal-overlay" id="modal-credit-convert">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-right-left" style="color:#E65100;font-size:13px"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Convert to Expense</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-credit-convert')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <input type="hidden" id="cc-credit-id">
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+        This creates a real entry in your Expense Tracker. You can adjust any of the values below before confirming — this is your one chance to fix a typo from the original entry.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field" style="margin:0"><label>Date *</label><input type="date" id="cc-date" style="width:100%"></div>
+        <div class="field" style="margin:0"><label>Amount (₹) *</label><input type="number" id="cc-amount" placeholder="0.00" style="width:100%"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field" style="margin:0"><label>Category *</label>
+          <select id="cc-category" style="width:100%"><option value="">— Select —</option></select>
+        </div>
+        <div class="field" style="margin:0"><label>Payment Method</label>
+          <select id="cc-method" style="width:100%">
+            <option>UPI</option><option>Bank Transfer</option><option>Cash</option>
+            <option>Credit Card</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin:0"><label>Vendor / Description *</label>
+        <input id="cc-vendor" placeholder="e.g. Shell Petrol Pump" style="width:100%">
+      </div>
+      <div class="field" style="margin:0"><label>Notes <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+        <input id="cc-notes" placeholder="Additional details…" style="width:100%">
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
+      <button class="btn btn-success" onclick="saveCreditConversion()" style="flex:1"><i class="fas fa-check"></i> Confirm &amp; Create Expense</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-credit-convert')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete Confirm Modal -->
 <div class="modal-overlay" id="modal-delete">
   <div class="modal modal-sm">
@@ -9577,6 +9681,7 @@ function showPage(name, el) {
   if (name === 'msglog')    renderMsgLog();
   if (name === 'aging')     renderAgingReport();
   if (name === 'expenses')  renderExpenses();
+  if (name === 'credit')    loadCreditEntries();
   if (name === 'cash-in-hand') renderCashInHand();
   if (name === 'tax')       renderTaxSummary();
   if (name === 'reminders') renderReminders();
@@ -30166,6 +30271,113 @@ function filterExpensesCat(val) {
 function filterExpensesMonth(val) {
   EXP.list = (val ? _expBaseList().filter(e=>(e.date||'').startsWith(val)) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
   EXP.page=1; _renderExpTable();
+}
+
+// ── Credit (Owner Personal Expenses) ────────────────────────────────
+let CREDIT_ENTRIES = [];
+
+async function loadCreditEntries() {
+  const tbody = document.getElementById('credit-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>';
+  try {
+    const r = await api('api/credit_entries.php');
+    CREDIT_ENTRIES = Array.isArray(r.data) ? r.data : [];
+    renderCreditTable();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--danger)">Failed to load: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function renderCreditTable() {
+  const tbody = document.getElementById('credit-tbody');
+  if (!CREDIT_ENTRIES.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
+    return;
+  }
+  tbody.innerHTML = CREDIT_ENTRIES.map(c => {
+    const isConverted = c.status === 'converted';
+    return `<tr>
+      <td>${fmt_date_disp(c.entry_date)}</td>
+      <td>${escHtml(c.purpose)}</td>
+      <td>${escHtml(c.paid_to || '—')}</td>
+      <td style="text-align:right;font-weight:600">${fmt_money(c.amount)}</td>
+      <td>${isConverted
+        ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
+        : `<span class="badge" style="background:#FFF3E0;color:#9A6700">Pending</span>`}</td>
+      <td style="text-align:right">
+        ${isConverted
+          ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
+          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> Convert to Expense</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddCreditModal() {
+  document.getElementById('credit-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('credit-amount').value = '';
+  document.getElementById('credit-purpose').value = '';
+  document.getElementById('credit-paidto').value = '';
+  openModal('modal-credit-add');
+}
+
+async function saveCreditEntry() {
+  const date = document.getElementById('credit-date').value;
+  const amount = parseFloat(document.getElementById('credit-amount').value) || 0;
+  const purpose = document.getElementById('credit-purpose').value.trim();
+  const paidTo = document.getElementById('credit-paidto').value.trim();
+
+  if (!date || !purpose || amount <= 0) {
+    toast('⚠️ Date, purpose, and amount are required', 'warning');
+    return;
+  }
+
+  try {
+    await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo });
+    closeModal('modal-credit-add');
+    toast('✅ Credit entry saved!', 'success');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+function openConvertCreditEntry(id) {
+  const c = CREDIT_ENTRIES.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('cc-credit-id').value = id;
+  document.getElementById('cc-date').value = (c.entry_date || '').slice(0,10);
+  document.getElementById('cc-amount').value = c.amount;
+  document.getElementById('cc-vendor').value = c.paid_to || c.purpose;
+  document.getElementById('cc-notes').value = c.purpose;
+  document.getElementById('cc-method').value = 'Cash';
+  // Reuse the same category list already maintained for Expenses
+  const cats = STATE.expenseCategories || [];
+  document.getElementById('cc-category').innerHTML =
+    `<option value="">— Select —</option>` + cats.map(cat => `<option>${escHtml(cat.name)}</option>`).join('');
+  openModal('modal-credit-convert');
+}
+
+async function saveCreditConversion() {
+  const id = document.getElementById('cc-credit-id').value;
+  const date = document.getElementById('cc-date').value;
+  const amount = parseFloat(document.getElementById('cc-amount').value) || 0;
+  const category = document.getElementById('cc-category').value;
+  const vendor = document.getElementById('cc-vendor').value.trim();
+  const method = document.getElementById('cc-method').value;
+  const notes = document.getElementById('cc-notes').value.trim();
+
+  if (!date || !vendor || !category || amount <= 0) {
+    toast('⚠️ Date, category, vendor, and amount are required', 'warning');
+    return;
+  }
+
+  try {
+    await api('api/credit_entries.php?action=convert&id=' + id, 'POST', {
+      date, amount, category, vendor, method, notes,
+    });
+    closeModal('modal-credit-convert');
+    toast('✅ Converted to Expense!', 'success');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function openAddExpenseModal() {
