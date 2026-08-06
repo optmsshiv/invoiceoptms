@@ -7761,8 +7761,6 @@ View Invoice: {{6}}</pre></details>
           <button class="btn btn-primary" onclick="openAddCreditModal()"><i class="fas fa-plus"></i> Add Credit Entry</button>
         </div>
       </div>
-      <!-- Summary cards -->
-      <div id="credit-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
       <div class="table-card">
         <table class="data-table"><thead><tr>
           <th>Date</th><th>Purpose</th><th>Paid To</th><th>Payment Method</th><th style="text-align:right">Amount</th><th>Status</th><th style="text-align:right">Action</th>
@@ -30286,32 +30284,6 @@ function filterExpensesMonth(val) {
 // ── Credit (Owner Personal Expenses) ────────────────────────────────
 let CREDIT_ENTRIES = [];
 
-// Given/Used/Available here means: Given = every entry ever logged
-// (pending + converted), Used = converted (formally became an expense),
-// Available = still-pending (logged but not yet accounted for) —
-// Given always equals Used + Available. There's no actual credit LIMIT
-// anywhere in this feature (it was deliberately built as a staging area,
-// not a balance system), so "Available" is a running total of unconverted
-// entries, not a cap being drawn down against.
-function _renderCreditSummary() {
-  const el = document.getElementById('credit-summary-cards');
-  if (!el) return;
-  const list = CREDIT_ENTRIES || [];
-  const given = list.reduce((s,c) => s + parseFloat(c.amount||0), 0);
-  const used  = list.filter(c => c.status === 'converted').reduce((s,c) => s + parseFloat(c.amount||0), 0);
-  const available = given - used;
-  const cards = [
-    {l:'Total Credit Given', v:fmt_money(given),      ic:'fa-hand-holding-hand', col:'#1976D2', bg:'#e3f2fd'},
-    {l:'Total Credit Used',  v:fmt_money(used),        ic:'fa-right-left',       col:'#E65100', bg:'#fff3e0'},
-    {l:'Available Credit',   v:fmt_money(available),   ic:'fa-wallet',           col:'#388E3C', bg:'#e8f5e9'},
-    {l:'Total Transactions', v:list.length,             ic:'fa-list',             col:'#7B1FA2', bg:'#f3e5f5'},
-  ];
-  el.innerHTML = cards.map(c => `<div class="stat-card">
-    <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
-    <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
-  </div>`).join('');
-}
-
 async function loadCreditEntries() {
   const tbody = document.getElementById('credit-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>';
@@ -30325,7 +30297,6 @@ async function loadCreditEntries() {
 }
 
 function renderCreditTable() {
-  _renderCreditSummary();
   const tbody = document.getElementById('credit-tbody');
   if (!CREDIT_ENTRIES.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
@@ -30334,7 +30305,7 @@ function renderCreditTable() {
   tbody.innerHTML = CREDIT_ENTRIES.map(c => {
     const isConverted = c.status === 'converted';
     return `<tr>
-      <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
+      <td>${fmt_date_disp(c.entry_date)}</td>
       <td>${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
       <td>${escHtml(c.payment_method || '—')}</td>
