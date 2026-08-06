@@ -19720,7 +19720,6 @@ function setPNEKantaFieldsLocked(locked) {
     const el = document.getElementById(id);
     if (!el) return;
     el.readOnly = locked;
-    if (locked) el.value = ''; // readOnly alone only blocks typing, not a value already sitting there
     el.placeholder = locked ? 'Click Edit on an item row' : '';
     el.style.background = locked ? 'var(--bg)' : '';
     el.style.cursor = locked ? 'default' : '';
@@ -20234,12 +20233,8 @@ async function editPurchase(id) {
     document.getElementById('pn-kantaname').value = p.kanta_name || '';
     document.getElementById('pn-slipno').value = p.weighbridge_slip_no || '';
     document.getElementById('pn-weightdatetime').value = p.weight_datetime ? p.weight_datetime.replace(' ', 'T').slice(0,16) : '';
-    // Gross/Tare deliberately NOT pre-filled from p.kanta_gross_weight/
-    // kanta_tare_weight here — those columns are just "whatever was in
-    // this scratch field the moment the purchase was last saved", not a
-    // separate authoritative reading. Showing them on load reintroduced
-    // the exact "editable but looks like it isn't" risk that was just
-    // fixed. setPNEKantaFieldsLocked(true) below explicitly blanks these.
+    document.getElementById('pn-kanta-gross').value = p.kanta_gross_weight || '';
+    document.getElementById('pn-kanta-tare').value = p.kanta_tare_weight || '';
     document.getElementById('pn-kanta-operator').value = p.kanta_operator_name || '';
     PNE.kantaSlipDataUrl = null;
     if (p.kanta_slip_path) {
@@ -20300,15 +20295,6 @@ async function editPurchase(id) {
     // all, so an auto-filled-but-unlocked card meant a stray click could
     // silently edit the saved weight without ever clicking Edit.
     setPNEKantaFieldsLocked(true);
-    // Net/Billable are computed display-only fields (already always
-    // readonly), but they're not covered by setPNEKantaFieldsLocked above
-    // — clearing them explicitly too, in case a prior item edit on a
-    // DIFFERENT purchase was left mid-way (clicked pencil, never clicked
-    // Done) before navigating here, which would otherwise leave stale
-    // numbers showing.
-    document.getElementById('pn-kanta-net').value = '';
-    document.getElementById('pn-q-billable').value = '';
-    document.getElementById('pn-q-dhaltapct').value = '';
     renderPNEItemsTable();
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
