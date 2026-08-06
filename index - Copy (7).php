@@ -19602,7 +19602,6 @@ function goToNewPurchase() {
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
   setPurchasePaymentInfoLocked(false);
-  setPNEKantaFieldsLocked(false);
   document.getElementById('pn-paymode').value = 'Cash';
   checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
@@ -19693,7 +19692,6 @@ function addPurchaseNewItem() {
   ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  setPNEKantaFieldsLocked(false); // new item starts in edit mode (pneEmptyItem sets editing:true), so unlock to match
   calcPNEKantaSummary();
   renderPNEItemsTable();
   document.getElementById('pn-kanta-gross')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -19707,29 +19705,9 @@ function removePNEItem(id) {
   calcPNEKantaSummary();
 }
 
-// Locks (or unlocks) just the three per-item weight capture fields —
-// Gross, Tare, Dhalta Kg. Net and Billable are already always-readonly
-// (computed, green background), so they don't need this. The other
-// Kanta card fields (Dharam Kanta Name, Weighbridge Slip No., Weight
-// Date & Time, Operator Name) are purchase-level, not per-item, so they
-// stay normally editable regardless — only the three fields that
-// actually write into a specific item's data need to be gated behind
-// "is a row actually selected for editing".
-function setPNEKantaFieldsLocked(locked) {
-  ['pn-kanta-gross', 'pn-kanta-tare', 'pn-q-dhaltakg'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.readOnly = locked;
-    el.placeholder = locked ? 'Click Edit on an item row' : '';
-    el.style.background = locked ? 'var(--bg)' : '';
-    el.style.cursor = locked ? 'default' : '';
-  });
-}
-
 function editPNEItem(id) {
   const it = PNE.items.find(i => i.id === id); if (!it) return;
   it.editing = true;
-  setPNEKantaFieldsLocked(false);
   // Restore this item's weight + dhalta back to the header fields
   const gEl  = document.getElementById('pn-kanta-gross');
   const tEl  = document.getElementById('pn-kanta-tare');
@@ -19754,7 +19732,6 @@ function donePNEItem(id) {
   ['pn-kanta-gross','pn-kanta-tare','pn-kanta-net','pn-q-dhaltakg','pn-q-billable','pn-q-dhaltapct'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  setPNEKantaFieldsLocked(true);
   renderPNEItemsTable();
   calcPurchaseNewTotals();
 }
@@ -20163,45 +20140,26 @@ function getPNESplitLabel() {
 }
 
 
-// Locks (or unlocks) every real form control inside the Payment
+// Disables (or re-enables) every real form control inside the Payment
 // Information card in one pass — deliberately NOT a hand-picked list of
 // field IDs, since that's exactly how pn-paymode got missed the first
-// time. Works correctly even for controls added dynamically later (e.g.
-// Split Payment rows), since it's called AFTER those are populated in
+// time. Also dims the whole card visually so it reads as "locked", and
+// works correctly even for controls added dynamically later (e.g. Split
+// Payment rows), since it's called AFTER those are populated in
 // editPurchase() below.
-//
-// Uses readOnly (not disabled) for text/number/date fields — stays full
-// color and legible, just not typeable, matching how the footer already
-// shows this info cleanly rather than looking "broken"/unavailable.
-// <select>, checkboxes, and buttons have no real readOnly equivalent in
-// HTML, so those genuinely need `disabled` — but the browser's default
-// grayed-out disabled look is stripped off below so they still read as
-// normal info, not as broken controls.
 function setPurchasePaymentInfoLocked(locked) {
   const card = document.getElementById('pn-payment-info-card');
   if (!card) return;
-  card.querySelectorAll('input, textarea').forEach(el => {
-    if (el.type === 'checkbox' || el.type === 'radio') {
-      el.disabled = locked; // readOnly has no effect on checkboxes/radios — disabled is the only option
-    } else {
-      el.readOnly = locked;
-      el.style.background = locked ? 'var(--bg)' : '';
-      el.style.cursor = locked ? 'default' : '';
-    }
-  });
-  card.querySelectorAll('select, button').forEach(el => {
-    el.disabled = locked;
-    el.style.opacity = locked ? '1' : '';       // strip the browser's default dimmed-disabled look
-    el.style.color = locked ? 'var(--text)' : ''; // keep full-color, legible text instead of gray
-    el.style.cursor = locked ? 'default' : '';
-  });
+  card.querySelectorAll('input, select, textarea, button').forEach(el => { el.disabled = locked; });
+  card.style.opacity = locked ? '.55' : '';
+  card.style.pointerEvents = locked ? 'none' : '';
   let note = document.getElementById('pn-pay-editnote');
   if (locked) {
     if (!note) {
       note = document.createElement('div');
       note.id = 'pn-pay-editnote';
-      note.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:8px';
-      note.innerHTML = '<i class="fas fa-circle-info"></i> To record another payment, use "Record Payment" from the purchase list instead of editing this.';
+      note.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:8px;pointer-events:auto;opacity:1';
+      note.innerHTML = '<i class="fas fa-circle-info"></i> Payment info is locked here. To record another payment, use "Record Payment" from the purchase list instead.';
       card.appendChild(note);
     }
     note.style.display = 'block';
@@ -20286,15 +20244,6 @@ async function editPurchase(id) {
     // dynamically-created inputs get caught and locked too.
     setPurchasePaymentInfoLocked(true);
     document.getElementById('pn-notes').value = p.notes || '';
-    // Weight Information card stays BLANK and LOCKED until an item's
-    // pencil icon is actually clicked (setPNEKantaFieldsLocked below,
-    // wired into editPNEItem/donePNEItem). Auto-filling this on load was
-    // tried and reverted — for a single-item purchase, calcPNEKantaSummary
-    // has a shortcut that treats ANY change to these fields as live data
-    // for that one item with no "is a row actually selected" check at
-    // all, so an auto-filled-but-unlocked card meant a stray click could
-    // silently edit the saved weight without ever clicking Edit.
-    setPNEKantaFieldsLocked(true);
     renderPNEItemsTable();
     showPage('purchase-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'purchases'));
