@@ -34,7 +34,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `credit_entries` (
     `amount`              DECIMAL(12,2) NOT NULL DEFAULT 0,
     `purpose`             VARCHAR(255)  NOT NULL,
     `paid_to`             VARCHAR(200)  NULL,
-    `payment_method`      VARCHAR(60)   NULL,
     `status`              ENUM('pending','converted') NOT NULL DEFAULT 'pending',
     `converted_expense_id` INT UNSIGNED NULL,
     `converted_at`        DATETIME      NULL,
@@ -43,11 +42,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `credit_entries` (
     PRIMARY KEY (`id`),
     INDEX `idx_credit_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-// Migration guard — for installs where credit_entries already existed
-// before payment_method was added to the schema above.
-try { $db->exec("ALTER TABLE credit_entries ADD COLUMN payment_method VARCHAR(60) NULL AFTER paid_to"); }
-catch (Throwable $e) { /* already exists */ }
 
 try {
     if ($method === 'GET') {
@@ -85,7 +79,7 @@ try {
         $amount   = isset($body['amount']) && $body['amount'] !== '' ? (float)$body['amount'] : (float)$entry['amount'];
         $vendor   = trim($body['vendor']   ?? '') ?: ($entry['paid_to'] ?: $entry['purpose']);
         $category = trim($body['category'] ?? 'Other');
-        $method_  = trim($body['method']   ?? '') ?: ($entry['payment_method'] ?: 'Cash');
+        $method_  = trim($body['method']   ?? 'Cash');
         $notes    = trim($body['notes']    ?? $entry['purpose']);
 
         if (!$date || !$vendor || $amount <= 0) {
@@ -116,17 +110,16 @@ try {
         $amount  = (float)($body['amount'] ?? 0);
         $purpose = trim($body['purpose'] ?? '');
         $paidTo  = trim($body['paid_to'] ?? '');
-        $payMethod = trim($body['payment_method'] ?? '');
 
         if (!$date || !$purpose || $amount <= 0) {
             jsonResponse(['error' => 'date, purpose, and amount are required'], 422);
         }
 
         $stmt = $db->prepare(
-            'INSERT INTO credit_entries (entry_date, amount, purpose, paid_to, payment_method, created_by, created_at)
-             VALUES (?,?,?,?,?,?,?)'
+            'INSERT INTO credit_entries (entry_date, amount, purpose, paid_to, created_by, created_at)
+             VALUES (?,?,?,?,?,?)'
         );
-        $stmt->execute([$date, $amount, $purpose, $paidTo ?: null, $payMethod ?: null, (int)($_SESSION['user_id'] ?? 0), date('Y-m-d H:i:s')]);
+        $stmt->execute([$date, $amount, $purpose, $paidTo ?: null, (int)($_SESSION['user_id'] ?? 0), date('Y-m-d H:i:s')]);
         $newId = (int)$db->lastInsertId();
 
         logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'credit_entry', $newId,

@@ -7763,9 +7763,9 @@ View Invoice: {{6}}</pre></details>
       </div>
       <div class="table-card">
         <table class="data-table"><thead><tr>
-          <th>Date</th><th>Purpose</th><th>Paid To</th><th>Payment Method</th><th style="text-align:right">Amount</th><th>Status</th><th style="text-align:right">Action</th>
+          <th>Date</th><th>Purpose</th><th>Paid To</th><th style="text-align:right">Amount</th><th>Status</th><th style="text-align:right">Action</th>
         </tr></thead><tbody id="credit-tbody">
-          <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>
+          <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>
         </tbody></table>
       </div>
     </div>
@@ -8920,16 +8920,8 @@ View Invoice: {{6}}</pre></details>
         <div class="field" style="margin:0"><label>Date *</label><input type="date" id="credit-date" style="width:100%"></div>
         <div class="field" style="margin:0"><label>Amount (₹) *</label><input type="number" id="credit-amount" placeholder="0.00" style="width:100%"></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field" style="margin:0"><label>Purpose *</label>
-          <input id="credit-purpose" placeholder="e.g. Fuel for site visit" style="width:100%">
-        </div>
-        <div class="field" style="margin:0"><label>Payment Method</label>
-          <select id="credit-method" style="width:100%">
-            <option>Cash</option><option>UPI</option><option>Bank Transfer</option>
-            <option>Credit Card</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option>
-          </select>
-        </div>
+      <div class="field" style="margin:0"><label>Purpose *</label>
+        <input id="credit-purpose" placeholder="e.g. Fuel for site visit" style="width:100%">
       </div>
       <div class="field" style="margin:0"><label>Paid To <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
         <input id="credit-paidto" placeholder="e.g. Shell Petrol Pump" style="width:100%">
@@ -30286,7 +30278,7 @@ let CREDIT_ENTRIES = [];
 
 async function loadCreditEntries() {
   const tbody = document.getElementById('credit-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>';
   try {
     const r = await api('api/credit_entries.php');
     CREDIT_ENTRIES = Array.isArray(r.data) ? r.data : [];
@@ -30299,7 +30291,7 @@ async function loadCreditEntries() {
 function renderCreditTable() {
   const tbody = document.getElementById('credit-tbody');
   if (!CREDIT_ENTRIES.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
     return;
   }
   tbody.innerHTML = CREDIT_ENTRIES.map(c => {
@@ -30308,7 +30300,6 @@ function renderCreditTable() {
       <td>${fmt_date_disp(c.entry_date)}</td>
       <td>${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
-      <td>${escHtml(c.payment_method || '—')}</td>
       <td style="text-align:right;font-weight:600">${fmt_money(c.amount)}</td>
       <td>${isConverted
         ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
@@ -30327,7 +30318,6 @@ function openAddCreditModal() {
   document.getElementById('credit-amount').value = '';
   document.getElementById('credit-purpose').value = '';
   document.getElementById('credit-paidto').value = '';
-  document.getElementById('credit-method').value = 'Cash';
   openModal('modal-credit-add');
 }
 
@@ -30336,7 +30326,6 @@ async function saveCreditEntry() {
   const amount = parseFloat(document.getElementById('credit-amount').value) || 0;
   const purpose = document.getElementById('credit-purpose').value.trim();
   const paidTo = document.getElementById('credit-paidto').value.trim();
-  const paymentMethod = document.getElementById('credit-method').value;
 
   if (!date || !purpose || amount <= 0) {
     toast('⚠️ Date, purpose, and amount are required', 'warning');
@@ -30344,7 +30333,7 @@ async function saveCreditEntry() {
   }
 
   try {
-    await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
+    await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo });
     closeModal('modal-credit-add');
     toast('✅ Credit entry saved!', 'success');
     loadCreditEntries();
@@ -30359,7 +30348,7 @@ function openConvertCreditEntry(id) {
   document.getElementById('cc-amount').value = c.amount;
   document.getElementById('cc-vendor').value = c.paid_to || c.purpose;
   document.getElementById('cc-notes').value = c.purpose;
-  document.getElementById('cc-method').value = c.payment_method || 'Cash';
+  document.getElementById('cc-method').value = 'Cash';
   // Reuse the same category list already maintained for Expenses
   const cats = STATE.expenseCategories || [];
   document.getElementById('cc-category').innerHTML =
