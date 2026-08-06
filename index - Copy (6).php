@@ -3394,7 +3394,7 @@ const SERVER = {
               <div class="pne-grand-total"><span>Grand Total (₹)</span><strong id="pn-sum-grand">₹0.00</strong></div>
             </div>
 
-            <div class="pne-card" id="pn-payment-info-card">
+            <div class="pne-card">
               <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
               <div class="field"><label>Payment Status</label>
                 <select id="pn-paystatus" onchange="calcPurchaseNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
@@ -19600,8 +19600,12 @@ function goToNewPurchase() {
   renderPNDeductions();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
+  document.getElementById('pn-paystatus').disabled = false;
   document.getElementById('pn-amountpaid').value = 0;
-  setPurchasePaymentInfoLocked(false);
+  document.getElementById('pn-amountpaid').disabled = false;
+  document.getElementById('pn-amountpaid').readOnly = false;
+  const pnPayNote = document.getElementById('pn-pay-editnote');
+  if (pnPayNote) pnPayNote.style.display = 'none';
   document.getElementById('pn-paymode').value = 'Cash';
   checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
@@ -20140,34 +20144,6 @@ function getPNESplitLabel() {
 }
 
 
-// Disables (or re-enables) every real form control inside the Payment
-// Information card in one pass — deliberately NOT a hand-picked list of
-// field IDs, since that's exactly how pn-paymode got missed the first
-// time. Also dims the whole card visually so it reads as "locked", and
-// works correctly even for controls added dynamically later (e.g. Split
-// Payment rows), since it's called AFTER those are populated in
-// editPurchase() below.
-function setPurchasePaymentInfoLocked(locked) {
-  const card = document.getElementById('pn-payment-info-card');
-  if (!card) return;
-  card.querySelectorAll('input, select, textarea, button').forEach(el => { el.disabled = locked; });
-  card.style.opacity = locked ? '.55' : '';
-  card.style.pointerEvents = locked ? 'none' : '';
-  let note = document.getElementById('pn-pay-editnote');
-  if (locked) {
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'pn-pay-editnote';
-      note.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:8px;pointer-events:auto;opacity:1';
-      note.innerHTML = '<i class="fas fa-circle-info"></i> Payment info is locked here. To record another payment, use "Record Payment" from the purchase list instead.';
-      card.appendChild(note);
-    }
-    note.style.display = 'block';
-  } else if (note) {
-    note.style.display = 'none';
-  }
-}
-
 async function editPurchase(id) {
   try {
     const r = await api('api/purchases.php?id=' + id);
@@ -20227,7 +20203,23 @@ async function editPurchase(id) {
     PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
+    document.getElementById('pn-paystatus').disabled = true;
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
+    document.getElementById('pn-amountpaid').disabled = true;
+    document.getElementById('pn-amountpaid').readOnly = true;
+    // Payment info can no longer be edited here — that used to let a
+    // second partial payment silently overwrite the first. Use the
+    // "Record Payment" action on the purchase row instead, which adds a
+    // new payment-history entry rather than replacing the total.
+    let pnPayNote = document.getElementById('pn-pay-editnote');
+    if (!pnPayNote) {
+      pnPayNote = document.createElement('div');
+      pnPayNote.id = 'pn-pay-editnote';
+      pnPayNote.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:6px;grid-column:1/-1';
+      pnPayNote.innerHTML = '<i class="fas fa-circle-info"></i> To record another payment, use "Record Payment" from the purchase list instead of editing this.';
+      document.getElementById('pn-amountpaid')?.closest('.field')?.parentElement?.appendChild(pnPayNote);
+    }
+    pnPayNote.style.display = 'block';
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
     document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
     checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner');
@@ -20238,11 +20230,6 @@ async function editPurchase(id) {
     }
     document.getElementById('pn-transactionno').value = p.transaction_no || '';
     document.getElementById('pn-paydate').value = p.payment_date || '';
-    // Locks the WHOLE Payment Information card — status, amount, mode,
-    // split rows, transaction ref, date — not just a couple of fields.
-    // Called last, after split rows above are populated, so those
-    // dynamically-created inputs get caught and locked too.
-    setPurchasePaymentInfoLocked(true);
     document.getElementById('pn-notes').value = p.notes || '';
     renderPNEItemsTable();
     showPage('purchase-new');
