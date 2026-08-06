@@ -324,28 +324,6 @@ switch ($method) {
       recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $purchaseId,
         "Purchase {$purchaseNo}", (int)$_SESSION['user_id']);
     }
-    // First payment-history row, if anything was paid at creation time —
-    // keeps the payment-history table complete from day one instead of
-    // starting only from the 2nd payment onward. See purchase_payments.php
-    // for how every payment after this one gets recorded.
-    $initialPaid = (float)($d['amount_paid'] ?? 0);
-    if ($initialPaid > 0) {
-      $supNameStmt = $db->prepare('SELECT name FROM suppliers WHERE id = ?');
-      $supNameStmt->execute([(int)$d['supplier_id']]);
-      $remainingAtCreate = max(0, round($total - $initialPaid, 2));
-      $db->prepare(
-        'INSERT INTO purchase_payments
-           (purchase_id, purchase_no, supplier_name, amount, remaining_amt,
-            payment_date, method, transaction_id, notes, created_by, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-      )->execute([
-        $purchaseId, $purchaseNo, $supNameStmt->fetchColumn() ?: '',
-        $initialPaid, $remainingAtCreate,
-        $d['payment_date'] ?: $now, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '',
-        'Initial payment at purchase creation',
-        (int)$_SESSION['user_id'], $now,
-      ]);
-    }
     jsonResponse(['success' => true, 'id' => $purchaseId, 'purchase_no' => $purchaseNo]);
     break;
 
@@ -399,14 +377,9 @@ switch ($method) {
     $newAttachment = saveAttachment($d['attachment'] ?? null);
     $newKantaSlip  = saveAttachment($d['kanta_slip'] ?? null);
 
-    // amount_paid and status are DELIBERATELY not in this UPDATE anymore —
-    // that was the actual root cause of the "second partial payment
-    // overwrites the first" bug. Payment info is now only ever changed by
-    // purchase_payments.php (recachePurchasePaid), never by editing the
-    // purchase itself, so this SET clause structurally cannot touch it.
     $sql = 'UPDATE purchases SET
       supplier_id=?, supplier_invoice_ref=?, purchase_date=?, currency=?, exchange_rate=?,
-      subtotal=?, gst_amount=?, gst_pct=?, total=?, notes=?,
+      subtotal=?, gst_amount=?, gst_pct=?, total=?, amount_paid=?, status=?, notes=?,
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
       transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, remarks=?,
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?, discount_remarks=?,
@@ -420,7 +393,8 @@ switch ($method) {
     $params = [
       (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
-      $subtotal, $gstAmount, $gstPct, $total, $d['notes'] ?? '',
+      $subtotal, $gstAmount, $gstPct, $total, (float)($d['amount_paid'] ?? 0),
+      $d['payment_status'] ?? 'Pending', $d['notes'] ?? '',
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',

@@ -3011,76 +3011,6 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Record Payment Modal (Purchases) — mirrors the Invoice "Record
-         Payment" pattern: every payment is its own history row, never an
-         overwritable single field. -->
-    <div class="modal-overlay" id="modal-record-purchase-payment">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
-              <i class="fas fa-money-bill-wave" style="color:var(--teal);font-size:14px"></i>
-            </div>
-            <div>
-              <div style="font-size:14px;font-weight:700;color:var(--text)">Record Payment</div>
-              <div id="rpp-subtitle" style="font-size:11px;color:var(--muted);font-weight:400;margin-top:1px"></div>
-            </div>
-          </div>
-          <button class="modal-close" onclick="closeModal('modal-record-purchase-payment')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto">
-
-          <div style="background:linear-gradient(135deg,var(--teal),#00695C);border-radius:10px;padding:12px 16px;color:#fff">
-            <div style="display:flex;justify-content:space-between;align-items:baseline">
-              <span style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.8px">Grand Total</span>
-              <strong id="rpp-total" style="font-size:16px;font-family:var(--mono)"></strong>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25)">
-              <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px">
-                <span style="font-size:11px;font-weight:600;color:#FFE082">Already Paid</span>
-                <strong id="rpp-already" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-              </div>
-              <div style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px">
-                <span style="font-size:11px;font-weight:600;color:#FFCDD2">Remaining</span>
-                <strong id="rpp-remaining" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-              </div>
-            </div>
-          </div>
-
-          <div id="rpp-history-wrap" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment History</div>
-            <div id="rpp-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto"></div>
-          </div>
-
-          <div class="field">
-            <label>Amount</label>
-            <input type="number" id="rpp-amount" step="0.01" min="0" oninput="updateRPPNotice()">
-          </div>
-
-          <div id="rpp-notice" style="display:none;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px">
-            <i class="fas fa-circle-info" style="font-size:14px;margin-top:1px"></i>
-            <span id="rpp-notice-text" style="font-size:12px"></span>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Date</label><input type="date" id="rpp-date"></div>
-            <div class="field">
-              <label>Method</label>
-              <select id="rpp-method">
-                <option>UPI</option><option>Bank Transfer</option><option>Cash</option><option>Cheque</option>
-              </select>
-            </div>
-          </div>
-          <div class="field"><label>Transaction Ref (optional)</label><input id="rpp-txn" placeholder="UTR / reference number"></div>
-          <div class="field"><label>Notes (optional)</label><input id="rpp-notes" placeholder="Any additional notes"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-record-purchase-payment')">Cancel</button>
-          <button class="btn btn-primary" id="rpp-save-btn" onclick="saveRecordPurchasePayment()"><i class="fas fa-check"></i> Record Payment</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ─────────── PURCHASES ─────────── -->
     <div id="page-purchases" class="page">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -19226,15 +19156,7 @@ function renderPurchases() {
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right">
-        <div style="font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        ${p.status === 'Partial' ? (() => {
-          const tot = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
-          const remain = Math.max(0, tot - paid);
-          const pct = tot > 0 ? Math.round((remain/tot)*100) : 0;
-          return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
-        })() : ''}
-      </td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(p.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
       <td>${escHtml(p.payment_type||'—')}</td>
@@ -19247,9 +19169,6 @@ function renderPurchases() {
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="editWithApproval('purchase',${p.id},'Purchase ${escHtml((p.purchase_no||'#'+p.id).replace(/'/g,"\\'"))}',()=>editPurchase(${p.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${p.status === 'Paid'
-                ? `<button disabled style="opacity:.45;cursor:not-allowed" title="Already fully paid"><i class="fas fa-money-bill-wave" style="color:#9CA3AF"></i> Record Payment</button>`
-                : `<button onclick="openRecordPurchasePayment(${p.id})"><i class="fas fa-money-bill-wave" style="color:#2E7D32"></i> Record Payment</button>`}
               ${_delItem("deletePurchase("+p.id+")")}
             </div>
           </span>
@@ -19600,12 +19519,7 @@ function goToNewPurchase() {
   renderPNDeductions();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
-  document.getElementById('pn-paystatus').disabled = false;
   document.getElementById('pn-amountpaid').value = 0;
-  document.getElementById('pn-amountpaid').disabled = false;
-  document.getElementById('pn-amountpaid').readOnly = false;
-  const pnPayNote = document.getElementById('pn-pay-editnote');
-  if (pnPayNote) pnPayNote.style.display = 'none';
   document.getElementById('pn-paymode').value = 'Cash';
   checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
@@ -20203,23 +20117,7 @@ async function editPurchase(id) {
     PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
-    document.getElementById('pn-paystatus').disabled = true;
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
-    document.getElementById('pn-amountpaid').disabled = true;
-    document.getElementById('pn-amountpaid').readOnly = true;
-    // Payment info can no longer be edited here — that used to let a
-    // second partial payment silently overwrite the first. Use the
-    // "Record Payment" action on the purchase row instead, which adds a
-    // new payment-history entry rather than replacing the total.
-    let pnPayNote = document.getElementById('pn-pay-editnote');
-    if (!pnPayNote) {
-      pnPayNote = document.createElement('div');
-      pnPayNote.id = 'pn-pay-editnote';
-      pnPayNote.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:6px;grid-column:1/-1';
-      pnPayNote.innerHTML = '<i class="fas fa-circle-info"></i> To record another payment, use "Record Payment" from the purchase list instead of editing this.';
-      document.getElementById('pn-amountpaid')?.closest('.field')?.parentElement?.appendChild(pnPayNote);
-    }
-    pnPayNote.style.display = 'block';
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
     document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
     checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner');
@@ -24301,117 +24199,6 @@ async function deleteStockInEntry(id) {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-
-// ── Record Payment (Purchases) ──────────────────────────────────────
-// Every payment is its own history row — see purchase_payments.php.
-// This modal only ever ADDS a row; it never edits/overwrites a prior
-// payment. Amount defaults to the full remaining balance, editable for
-// a further partial payment.
-let RPP_ACTIVE_PURCHASE = null;
-
-async function openRecordPurchasePayment(purchaseId) {
-  try {
-    const r = await api('api/purchases.php?id=' + purchaseId);
-    const p = r.data;
-    RPP_ACTIVE_PURCHASE = p;
-
-    const total     = parseFloat(p.total) || 0;
-    const alreadyPaid = parseFloat(p.amount_paid) || 0;
-    const remaining = Math.max(0, total - alreadyPaid);
-
-    document.getElementById('rpp-subtitle').textContent = `${p.purchase_no} · ${escHtml(p.supplier_name || '')}`;
-    document.getElementById('rpp-total').textContent = fmt_money(total);
-    document.getElementById('rpp-already').textContent = fmt_money(alreadyPaid);
-    document.getElementById('rpp-remaining').textContent = fmt_money(remaining);
-    document.getElementById('rpp-amount').value = remaining.toFixed(2);
-    document.getElementById('rpp-date').value = fmt_date(new Date());
-    document.getElementById('rpp-method').value = 'UPI';
-    document.getElementById('rpp-txn').value = '';
-    document.getElementById('rpp-notes').value = '';
-
-    // Payment history
-    const hist = await api('api/purchase_payments.php?purchase_id=' + purchaseId);
-    const rows = Array.isArray(hist.data) ? hist.data : [];
-    const wrap = document.getElementById('rpp-history-wrap');
-    const list = document.getElementById('rpp-history-list');
-    if (rows.length) {
-      wrap.style.display = 'block';
-      list.innerHTML = rows.map((h, i) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12px">
-          <div>
-            <span style="font-weight:700">#${rows.length - i}</span>
-            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)} · ${escHtml(h.method||'—')}</span>
-          </div>
-          <strong style="font-family:var(--mono)">${fmt_money(h.amount)}</strong>
-        </div>`).join('');
-    } else {
-      wrap.style.display = 'none';
-      list.innerHTML = '';
-    }
-
-    updateRPPNotice();
-    openModal('modal-record-purchase-payment');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// Live "this will still leave X due / status stays Partial" notice —
-// no manual status picker, the outcome is always derived from the
-// amount actually typed, same as the Invoice side already works.
-function updateRPPNotice() {
-  if (!RPP_ACTIVE_PURCHASE) return;
-  const total = parseFloat(RPP_ACTIVE_PURCHASE.total) || 0;
-  const alreadyPaid = parseFloat(RPP_ACTIVE_PURCHASE.amount_paid) || 0;
-  const remaining = Math.max(0, total - alreadyPaid);
-  const amt = parseFloat(document.getElementById('rpp-amount').value) || 0;
-
-  const notice = document.getElementById('rpp-notice');
-  const noticeText = document.getElementById('rpp-notice-text');
-  const saveBtn = document.getElementById('rpp-save-btn');
-  const stillDue = Math.max(0, remaining - amt);
-
-  if (amt > 0 && amt < remaining - 0.004) {
-    notice.style.display = 'flex';
-    notice.style.background = '#FFF3E0';
-    notice.style.color = '#7B3F00';
-    noticeText.textContent = `This leaves ${fmt_money(stillDue)} still due. Status stays Partial after this payment.`;
-    saveBtn.innerHTML = '<i class="fas fa-check"></i> Record Partial Payment';
-    saveBtn.style.background = '#E65100';
-  } else {
-    notice.style.display = 'none';
-    saveBtn.innerHTML = '<i class="fas fa-check"></i> Record Payment';
-    saveBtn.style.background = '';
-  }
-}
-
-async function saveRecordPurchasePayment() {
-  if (!RPP_ACTIVE_PURCHASE) return;
-  const amount = parseFloat(document.getElementById('rpp-amount').value) || 0;
-  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
-
-  const btn = document.getElementById('rpp-save-btn');
-  if (btn) { btn.disabled = true; }
-
-  const payload = {
-    purchase_id: RPP_ACTIVE_PURCHASE.id,
-    supplier_name: RPP_ACTIVE_PURCHASE.supplier_name || '',
-    amount: amount,
-    payment_date: document.getElementById('rpp-date').value
-      ? document.getElementById('rpp-date').value + ' 00:00:00' : null,
-    method: document.getElementById('rpp-method').value,
-    transaction_id: document.getElementById('rpp-txn').value.trim(),
-    notes: document.getElementById('rpp-notes').value.trim(),
-  };
-
-  try {
-    await api('api/purchase_payments.php', 'POST', payload);
-    closeModal('modal-record-purchase-payment');
-    toast('✅ Payment recorded!', 'success');
-    const r = await api('api/purchases.php');
-    STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
-    renderPurchases();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
 
 async function deletePurchase(id) {
   if (!assertCanDelete('this purchase')) return;
