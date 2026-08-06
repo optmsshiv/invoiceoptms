@@ -20727,8 +20727,8 @@ function printLocalPurchaseVoucher(p) {
     .pay-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 5px 0; color:#333; }
     .pay-net { border-top: 1px solid #dde3ea; margin-top: 6px; padding-top: 8px; font-weight: 800; font-size: 15px; color: #0d3b2e; display: flex; justify-content: space-between; }
     .paymode { display: flex; gap: 6px; margin-top: 10px; }
-    .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #fff; color:#333; border: 1.5px solid #ccc; }
-    .paymode span.active { border: 2.5px solid #0d3b2e; color: #0d3b2e; }
+    .paymode span { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700; background: #eef0f3; color:#333; }
+    .paymode span.active { background: #000; color: #fff; border: 1.5px solid #000; }
     .remark { font-style: italic; color:#333; font-size: 11px; line-height: 1.6; }
     .attach div { font-size: 11px; color:#333; margin-bottom: 6px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
@@ -20762,7 +20762,7 @@ function printLocalPurchaseVoucher(p) {
 
     <div class="row2">
       <div class="box">
-        <h3>👤 BILLED TO <span class="pills"><span class="pill gray">SUPPLIER: ${escHtml((p.supplier_type||'FARMER').toUpperCase())}</span><span class="pill green">GST: EXEMPT</span></span></h3>
+        <h3>BILLED TO <span class="pills"><span class="pill gray">SUPPLIER: ${escHtml((p.supplier_type||'FARMER').toUpperCase())}</span><span class="pill green">GST: EXEMPT</span></span></h3>
         <div class="kv">Name<b>${escHtml(p.supplier_name||'')}</b></div>
         <div class="kv">Add<b>${escHtml([p.supplier_address, p.supplier_city, p.supplier_state, p.supplier_pincode].filter(Boolean).join(', ') || '—')}</b></div>
         <div class="kv">Mobile<b>${escHtml(p.supplier_phone||'—')}</b></div>
