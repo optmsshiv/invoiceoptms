@@ -20810,8 +20810,9 @@ function printLocalPurchaseVoucher(p) {
     </div>
 
     <div class="box" style="margin-bottom:16px">
-      <div class="kv" style="margin-bottom:0">
-        Total paid amount in words : <b style="display:inline">${numToWordsINR(amountPaid)}</b>
+      <div class="kv" style="margin-bottom:0;display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <span>Total paid amount in words</span>
+        <b style="display:inline;text-align:right">${numToWordsINR(amountPaid)}</b>
       </div>
     </div>
     ${deductions.length ? `
