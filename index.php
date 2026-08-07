@@ -23421,7 +23421,7 @@ function printSaleInvoice(s, paymentHistory = []) {
         </div>
         <div class="box">
           <h3>DEDUCTION DETAILS</h3>
-          ${deductions.length ? `<ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${deductions.map(d => `<li style="display:flex;justify-content:space-between;padding-right:4px"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></li>`).join('')}</ol>` : `<div style="font-size:11px;color:#333">—</div>`}
+          ${deductions.length ? `<ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${deductions.map(d => `<li style="padding-right:4px"><span style="display:flex;justify-content:space-between"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></span></li>`).join('')}</ol>` : `<div style="font-size:11px;color:#333">—</div>`}
         </div>
       </div>
       <div class="box">
