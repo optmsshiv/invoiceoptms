@@ -23271,9 +23271,8 @@ async function printSaleEntry(id) {
 function printSaleInvoice(s, paymentHistory = []) {
   const co = pneCompanyInfo();
   const items = s.items || [];
-  const rows = items.map((it, i) => `
+  const rows = items.map(it => `
     <tr>
-      <td style="text-align:center">${i+1}</td>
       <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
       <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
@@ -23289,37 +23288,27 @@ function printSaleInvoice(s, paymentHistory = []) {
   const deductions = Array.isArray(s.deductions) ? s.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
   const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
-  const stampCfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
-  const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
-  const tncList = ((STATE.settings||{}).default_tnc || '').split('\n').map(t => t.trim()).filter(Boolean);
 
   const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
+  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
-    .header-stamp { transform: rotate(-14deg); border: 2px solid; border-radius: 6px; padding: 3px 12px; text-align: center; background: #fff; opacity: .92; }
-    .header-stamp .label { font-weight: 800; font-size: 12px; }
-    .header-stamp .date { border-top: 1px solid; margin-top: 2px; padding-top: 2px; font-size: 8px; font-weight: 700; }
+    .head-wrap { position: relative; padding-bottom: 22px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; }
+    .header-stamp { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%) rotate(-6deg); text-align: center; }
+    .header-stamp .label { border-width: 2.5px; border-style: solid; font-weight: 800; font-size: 14px; padding: 3px 24px; border-radius: 6px; opacity: .85; background: #fff; }
+    .header-stamp .date { font-size: 8.5px; font-weight: 700; margin-top: 2px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
     .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
     .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
     .badge-inv small { display: block; font-size: 9px; font-weight: 600; color:#333; }
-    .inv-meta { text-align: right; font-size: 11px; color:#333; line-height: 1.7; }
-    .parties { display: flex; border: 1px solid #999; border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
-    .party { flex: 1; padding: 12px 16px; }
-    .party + .party { border-left: 1px solid #999; }
-    .party .ptitle { font-size: 11px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-    .party .pname { font-weight: 800; font-size: 13px; color: #1a2b3c; }
-    .party .paddr { font-size: 11px; color: #1565C0; margin-top: 5px; }
-    .party .pkv { font-size: 10.5px; margin-top: 8px; color: #333; }
+    .inv-meta { text-align: right; font-size: 11px; color:#333; margin-top: 8px; line-height: 1.7; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
     .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box h3.underline { border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    .box .kv { font-size: 11px; color:#333; margin-bottom: 7px; }
+    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
     .box .kv2 { font-size: 11px; color:#333; margin-bottom: 7px; }
     .box .kv2 b { font-size: 12.5px; color: #223; font-weight: 700; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
@@ -23328,11 +23317,8 @@ function printSaleInvoice(s, paymentHistory = []) {
     table.items td.r, table.items th.r { text-align: right; }
     table.items tfoot td { border: 2px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
-    .row3 { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
-    .row3-left { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color:#333; }
-    .ded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
-    .ded-item { display: flex; justify-content: space-between; font-size: 10.5px; color:#333; padding: 3px 0; border-bottom: 1px dashed #eee; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color:#333; }
     .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
     .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
@@ -23347,58 +23333,60 @@ function printSaleInvoice(s, paymentHistory = []) {
       <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
       <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
     </div>
-    <div class="head">
-      <div style="display:flex;gap:12px;align-items:flex-start">
-        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
-        <div>
-          <div class="co-name">${escHtml(co.name)}</div>
-          <div class="co-meta">
-            ${co.address?escHtml(co.address)+'<br>':''}
-            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
+    <div class="head-wrap">
+      <div class="head">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
+          <div>
+            <div class="co-name">${escHtml(co.name)}</div>
+            <div class="co-meta">
+              ${co.address?escHtml(co.address)+'<br>':''}
+              ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
+              ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
+            </div>
           </div>
         </div>
-      </div>
-      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-        <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-        <div style="display:flex;align-items:center;gap:10px">
-          ${stampCfg ? `<div class="header-stamp" style="border-color:${stampCfg.c}">
-            <div class="label" style="color:${stampCfg.t}">${escHtml(s.payment_status.toUpperCase())}</div>
-            <div class="date" style="border-color:${stampCfg.c};color:${stampCfg.t}">${stampDate}</div>
-          </div>` : ''}
+        <div>
+          <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
           <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
         </div>
       </div>
+      ${(() => {
+        const cfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
+        if (!cfg) return '';
+        const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
+        return `<div class="header-stamp">
+          <div class="label" style="border-color:${cfg.c};color:${cfg.t}">${escHtml(s.payment_status.toUpperCase())}</div>
+          <div class="date" style="color:${cfg.t}">${stampDate}</div>
+        </div>`;
+      })()}
     </div>
 
-    <div class="parties">
-      <div class="party">
-        <div class="ptitle"><i class="fas fa-user" style="color:#0d3b2e;font-size:13px"></i> Buyer (Bill To)</div>
-        <div class="pname">${escHtml(s.customer_name||'—')}</div>
-        <div class="paddr">${escHtml(s.customer_address||'—')}</div>
-        ${(s.customer_city||s.customer_state||s.customer_pincode) ? `<div class="paddr">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</div>` : ''}
-        <div class="pkv"><b>GSTIN/UIN:</b> ${escHtml(s.customer_gstin||'—')}</div>
-        ${s.customer_state ? `<div class="pkv"><b>State Name:</b> ${escHtml(s.customer_state)}</div>` : ''}
+    <div class="row2" style="margin-top:16px">
+      <div class="box">
+        <h3>👤 BILL TO</h3>
+        <div class="kv2">Name : <b>${escHtml(s.customer_name||'—')}</b></div>
+        <div class="kv2" style="line-height:1.6">Add: <b>${escHtml(s.customer_address||'—')}</b>${(s.customer_city||s.customer_state||s.customer_pincode) ? `<br><b style="margin-left:28px;display:inline-block">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</b>` : ''}</div>
+        <div class="kv2">Contact : <b>${escHtml(s.customer_phone||'—')}</b></div>
       </div>
-      <div class="party">
-        <div class="ptitle"><i class="fas fa-truck" style="color:#0d3b2e;font-size:13px"></i> Consignee (Ship To)</div>
-        <div class="pname">${escHtml(s.customer_name||'—')}</div>
-        <div class="paddr">${escHtml(s.customer_address||'—')}</div>
-        ${(s.customer_city||s.customer_state||s.customer_pincode) ? `<div class="paddr">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</div>` : ''}
-        ${s.customer_state ? `<div class="pkv"><b>State Name:</b> ${escHtml(s.customer_state)}</div>` : ''}
-        <!-- vehicle_no isn't captured anywhere in Sales yet (unlike
-             Purchases, which has a dedicated column) — shown honestly
-             as "—" rather than fabricated. Would need adding to the
-             Sale Entry form + sales table to actually populate. -->
-        <div class="pkv"><b>Vehicle No.:</b> ${escHtml(s.vehicle_no||'—')}</div>
+      <div class="box">
+        <h3>🚚 LOGISTICS</h3>
+        <!-- Vehicle No. / Driver Name / driver mobile: this data isn't
+             captured anywhere in Sales yet (unlike Purchases, which has
+             dedicated columns for these) — showing "—" honestly rather
+             than fabricating values. See chat: these fields would need
+             to be added to the Sale Entry form + sales table first. -->
+        <div class="kv2">Vehicle No. : <b>${escHtml(s.vehicle_no||'—')}</b></div>
+        <div class="kv2">Driver Name : <b>${escHtml(s.driver_name||'—')}</b></div>
+        <div class="kv2">Mobile Number : <b>${escHtml(s.driver_mobile||'—')}</b></div>
       </div>
     </div>
 
     <table class="items">
-      <thead><tr><th style="width:28px;text-align:center">#</th><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr style="background:#f5faf7;font-weight:800">
-        <td colspan="3">GRAND TOTAL</td>
+        <td colspan="2">GRAND TOTAL</td>
         <td class="r">${items.reduce((sum,it)=>sum+parseFloat(it.qty||0),0).toFixed(2)}</td>
         <td></td><td></td>
         <td class="r">${fmt_money(items.reduce((sum,it)=>sum+(it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100),0))}</td>
@@ -23409,29 +23397,23 @@ function printSaleInvoice(s, paymentHistory = []) {
     </table>
 
     <div class="row3">
-      <div class="row3-left">
-        <div class="box">
-          <h3>TAX SUMMARY</h3>
-          <div class="tax-row"><span>Taxable Value :</span><span>${fmt_money(s.taxable_amount)}</span></div>
-          ${isInterstate
-            ? `<div class="tax-row"><span>IGST :</span><span>${fmt_money(s.igst_amount)}</span></div>`
-            : `<div class="tax-row"><span>CGST :</span><span>${fmt_money(s.cgst_amount)}</span></div>
-               <div class="tax-row"><span>SGST :</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
-          ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges :</span><span>${fmt_money(addCharges)}</span></div>` : ''}
-        </div>
-        <div class="box">
-          <h3>DEDUCTION DETAILS</h3>
-          ${deductions.length ? `<div class="ded-grid">${deductions.map(d => `<div class="ded-item"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></div>`).join('')}</div>` : `<div style="font-size:11px;color:#333">—</div>`}
-        </div>
+      <div class="box">
+        <h3>TAX SUMMARY</h3>
+        <div class="tax-row"><span>Taxable Value</span><span>${fmt_money(s.taxable_amount)}</span></div>
+        ${isInterstate
+          ? `<div class="tax-row"><span>IGST</span><span>${fmt_money(s.igst_amount)}</span></div>`
+          : `<div class="tax-row"><span>CGST</span><span>${fmt_money(s.cgst_amount)}</span></div>
+             <div class="tax-row"><span>SGST</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
+        ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges</span><span>${fmt_money(addCharges)}</span></div>` : ''}
       </div>
       <div class="box">
-        <div class="sum-row"><span>Sub-Total (before tax) :</span><span>${fmt_money(s.subtotal)}</span></div>
-        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions :</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
-        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''} :</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%) :</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')}) :</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
-        <div class="sum-row"><span>Total Tax :</span><span>${fmt_money(s.total_tax)}</span></div>
-        <div class="sum-row"><span>Round-off :</span><span>${fmt_money(s.round_off)}</span></div>
+        <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''}</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
+        <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
+        <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccc">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d3b2e">Payment Mode : <span>${escHtml(s.payment_method||'—')}</span></div>
@@ -23445,14 +23427,18 @@ function printSaleInvoice(s, paymentHistory = []) {
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
     ${pnePaymentHistoryTableHTML(paymentHistory, s.total)}
 
-    <div class="box" style="margin-top:12px">
-      <h3 class="underline">WEIGHT DETAILS</h3>
-      <div style="display:flex;justify-content:space-between">
-        <div><div style="font-size:10px;color:#666;font-weight:700">Gross Wt.</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_gross_weight||0).toFixed(2)} Kg</div></div>
-        <div><div style="font-size:10px;color:#666;font-weight:700">Tare Wt.</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_tare_weight||0).toFixed(2)} Kg</div></div>
-        <div><div style="font-size:10px;color:#666;font-weight:700">Net Wt.</div><div style="font-size:12px;margin-top:2px">${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)).toFixed(2)} Kg</div></div>
-        <div><div style="font-size:10px;color:#666;font-weight:700">Dhalta</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_dhalta_kg||0).toFixed(2)} Kg</div></div>
-        <div><div style="font-size:10px;color:#666;font-weight:700">Billable Wt.</div><div style="font-size:13px;margin-top:2px;font-weight:800">${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)-(parseFloat(s.kanta_dhalta_kg)||0)).toFixed(2)} Kg</div></div>
+    <div class="row2" style="margin-top:12px">
+      <div class="box">
+        <h3>DEDUCTION DETAILS</h3>
+        ${deductions.length ? deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('') : `<div style="font-size:11px;color:#333">—</div>`}
+      </div>
+      <div class="box">
+        <h3>⚖️ WT. INFO</h3>
+        <div class="tax-row"><span>Gross Wt.</span><b>${parseFloat(s.kanta_gross_weight||0).toFixed(2)} Kg</b></div>
+        <div class="tax-row"><span>Tare Wt.</span><b>${parseFloat(s.kanta_tare_weight||0).toFixed(2)} Kg</b></div>
+        <div class="tax-row"><span>Net Wt.</span><b>${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)).toFixed(2)} Kg</b></div>
+        <div class="tax-row"><span>Dhalta</span><b>${parseFloat(s.kanta_dhalta_kg||0).toFixed(2)} Kg</b></div>
+        <div class="tax-row" style="border-top:1px solid #eee;margin-top:4px;padding-top:6px;color:#0d3b2e"><span><b>Billable Wt.</b></span><b>${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)-(parseFloat(s.kanta_dhalta_kg)||0)).toFixed(2)} Kg</b></div>
       </div>
     </div>
 
@@ -23463,7 +23449,7 @@ function printSaleInvoice(s, paymentHistory = []) {
       </div>
       <div class="box">
         <h3>TERMS &amp; CONDITIONS</h3>
-        ${tncList.length ? `<ol style="font-size:10px;color:#333;line-height:1.7;margin:0;padding-left:16px">${tncList.map(t => `<li>${escHtml(t)}</li>`).join('')}</ol>` : `<div style="font-size:10.5px;color:#333">—</div>`}
+        <div style="font-size:10.5px;color:#333;line-height:1.6;white-space:pre-line">${escHtml((STATE.settings||{}).default_tnc||'—')}</div>
       </div>
     </div>
 
