@@ -23401,15 +23401,12 @@ function printSaleInvoice(s) {
 // ── FEATURE 4: Sale Invoice — Clean Party (Customer) Copy ─────────────
 async function printSalePartyCopy(id) {
   try {
-    const [sr, hr] = await Promise.all([
-      api('api/sales.php?id=' + id),
-      api('api/sale_payments.php?sale_id=' + id).catch(() => ({ data: [] })),
-    ]);
-    _printSalePartyCopy(sr.data, Array.isArray(hr.data) ? hr.data : []);
+    const r = await api('api/sales.php?id=' + id);
+    _printSalePartyCopy(r.data);
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-function _printSalePartyCopy(s, paymentHistory = []) {
+function _printSalePartyCopy(s) {
   const co = pneCompanyInfo();
   const items = s.items || [];
   const grossWt  = parseFloat(s.kanta_gross_weight||0);
@@ -23460,13 +23457,7 @@ function _printSalePartyCopy(s, paymentHistory = []) {
     .sig { width:28%;border-top:1px solid #aab;text-align:center;padding-top:6px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#333; }
     .footer { margin-top:20px;border-top:1px solid #eef;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#333; }
     .party-copy-stamp { position:fixed;top:120px;right:40px;border:3px solid #1976D2;color:#1976D2;font-weight:900;font-size:18px;padding:5px 18px;border-radius:8px;transform:rotate(-12deg);opacity:.6; }
-    .no-print { display: flex; gap: 10px; padding: 10px 0 18px; }
-    @media print { .no-print { display: none !important; } }
   </style></head><body>
-    <div class="no-print">
-      <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
-      <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
-    </div>
     <div class="party-copy-stamp">PARTY COPY</div>
     <div class="head">
       <div>
@@ -23527,7 +23518,6 @@ function _printSalePartyCopy(s, paymentHistory = []) {
       </div>
     </div>
     <div class="words">Amount in Words: <em>${numToWordsINR(s.total)}</em></div>
-    ${pnePaymentHistoryTableHTML(paymentHistory, s.total)}
 
     <div class="sig-row">
       <div class="sig">Receiver's Signature</div>
@@ -23536,8 +23526,9 @@ function _printSalePartyCopy(s, paymentHistory = []) {
     </div>
     <div class="footer">
       <span>This is a computer generated invoice</span>
-      <span>Printed: ${fmt_date_disp(new Date())} at ${fmt_time_ampm(new Date())} &nbsp;|&nbsp; Printed By: ${escHtml(SERVER.user?.name || '—')}</span>
+      <span>Printed: ${fmt_date_disp(new Date())}</span>
     </div>
+  ${'<' + 'script>window.print();</' + 'script>'}
   </body></html>`);
   win.document.close();
 }
