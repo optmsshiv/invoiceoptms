@@ -28,29 +28,6 @@ try {
     $tenantId = $_SESSION['tenant_id'] ?? null;
     if (!$tenantId) jsonResponse(['error' => 'No tenant context'], 400);
 
-    // Auto-migrate: "Compare Sessions" used to piggyback on the
-    // menu.finance_report permission key (see index.php sidebar), so there
-    // was no way to grant/restrict it independently in the Team permissions
-    // UI. Give it its own catalog row, placed right after Finance Report,
-    // the first time this endpoint runs after the update. Self-healing —
-    // once the row exists this block is a no-op on every later request.
-    try {
-        $csExists = $master->prepare('SELECT id FROM permissions WHERE `key` = ?');
-        $csExists->execute(['menu.compare_sessions']);
-        if (!$csExists->fetch()) {
-            $frStmt = $master->prepare('SELECT category, sort_order FROM permissions WHERE `key` = ?');
-            $frStmt->execute(['menu.finance_report']);
-            $fr = $frStmt->fetch();
-            $category  = $fr['category'] ?? 'Menu';
-            $sortOrder = $fr ? ((int)$fr['sort_order'] + 1) : 999;
-            // Make room so it lands directly after Finance Report instead of at the end
-            $master->prepare('UPDATE permissions SET sort_order = sort_order + 1 WHERE sort_order >= ?')
-                   ->execute([$sortOrder]);
-            $master->prepare('INSERT INTO permissions (`key`, label, category, sort_order) VALUES (?,?,?,?)')
-                   ->execute(['menu.compare_sessions', 'Compare Sessions', $category, $sortOrder]);
-        }
-    } catch (Exception $e) { error_log('role_permissions.php compare_sessions migrate: ' . $e->getMessage()); }
-
     $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
     $tStmt->execute([$tenantId]);
     $plan = $tStmt->fetchColumn() ?: 'trial';
@@ -78,26 +55,6 @@ try {
         $rolePerms = $tenantDb->query('SELECT role, permission_key, enabled FROM role_permissions')->fetchAll();
         $roleMap   = [];
         foreach ($rolePerms as $rp) $roleMap[$rp['role']][$rp['permission_key']] = (bool)$rp['enabled'];
-
-        // One-time per-tenant carry-forward: menu.compare_sessions is newly
-        // split out from menu.finance_report (they used to share one toggle).
-        // If this tenant has no row for the new key yet, seed each role's
-        // Compare Sessions toggle from its current Finance Report toggle, so
-        // access doesn't silently disappear the first time this loads after
-        // the update — from here on the owner can change either independently.
-        $hasCompareSessionsRow = false;
-        foreach ($ROLES as $role) { if (isset($roleMap[$role]['menu.compare_sessions'])) { $hasCompareSessionsRow = true; break; } }
-        if (!$hasCompareSessionsRow) {
-            $seedIns = $tenantDb->prepare(
-                'INSERT INTO role_permissions (role, permission_key, enabled) VALUES (?,?,?)
-                 ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)'
-            );
-            foreach ($ROLES as $role) {
-                $inherited = $roleMap[$role]['menu.finance_report'] ?? false;
-                $seedIns->execute([$role, 'menu.compare_sessions', $inherited ? 1 : 0]);
-                $roleMap[$role]['menu.compare_sessions'] = $inherited;
-            }
-        }
 
         $data = [];
         foreach ($catalog as $perm) {

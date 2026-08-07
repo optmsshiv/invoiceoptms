@@ -5638,11 +5638,11 @@ const SERVER = {
         <div style="overflow-x:auto">
           <table class="data-table ps-stock-table" style="min-width:1150px;table-layout:fixed">
             <colgroup>
-              <col style="width:30px"><col style="width:90px"><col style="width:100px"><col style="width:130px"><col style="width:85px">
+              <col style="width:30px"><col style="width:100px"><col style="width:100px"><col style="width:160px">
               <col style="width:160px"><col style="width:95px"><col style="width:90px"><col style="width:70px"><col style="width:75px">
             </colgroup>
             <thead><tr>
-              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th><th>Party Type</th>
+              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th>
               <th>Payment For</th><th>Payment Mode</th><th>Amount (₹)</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody id="paymentsTbody"></tbody>
@@ -9600,6 +9600,12 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(livePreview, 100);
   STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
+  // Remember whichever sidebar page the user is on, so a refresh can
+  // restore it below instead of always landing back on Dashboard.
+  document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.nav-item[data-page]');
+    if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
+  });
 });
 
 function setTodayDates() {
@@ -23260,16 +23266,20 @@ function printCurrentSaleInvoice() {
 
 async function printSaleEntry(id) {
   try {
-    const r = await api('api/sales.php?id=' + id);
-    printSaleInvoice(r.data);
+    const [sr, hr] = await Promise.all([
+      api('api/sales.php?id=' + id),
+      api('api/sale_payments.php?sale_id=' + id).catch(() => ({ data: [] })),
+    ]);
+    printSaleInvoice(sr.data, Array.isArray(hr.data) ? hr.data : []);
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
 }
 
-function printSaleInvoice(s) {
+function printSaleInvoice(s, paymentHistory = []) {
   const co = pneCompanyInfo();
   const items = s.items || [];
-  const rows = items.map(it => `
+  const rows = items.map((it, i) => `
     <tr>
+      <td style="text-align:center">${i+1}</td>
       <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
       <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
@@ -23284,33 +23294,53 @@ function printSaleInvoice(s) {
   const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
   const deductions = Array.isArray(s.deductions) ? s.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
+  const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
+  const stampCfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
+  const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
+  const tncList = ((STATE.settings||{}).default_tnc || '').split('\n').map(t => t.trim()).filter(Boolean);
 
   const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
+  win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
+    .header-stamp { transform: rotate(-14deg); border: 2px solid; border-radius: 6px; padding: 3px 12px; text-align: center; background: #fff; opacity: .92; }
+    .header-stamp .label { font-weight: 800; font-size: 12px; }
+    .header-stamp .date { border-top: 1px solid; margin-top: 2px; padding-top: 2px; font-size: 8px; font-weight: 700; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
     .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
     .badge-inv { border: 1.5px solid #0d3b2e; color: #0d3b2e; font-weight: 700; font-size: 12px; padding: 8px 16px; border-radius: 8px; text-align: center; }
     .badge-inv small { display: block; font-size: 9px; font-weight: 600; color:#333; }
-    .inv-meta { text-align: right; font-size: 11px; color:#333; margin-top: 8px; line-height: 1.7; }
+    .inv-meta { text-align: right; font-size: 11px; color:#333; line-height: 1.7; }
+    .parties { display: flex; border: 1px solid #999; border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+    .party { flex: 1; padding: 12px 16px; }
+    .party + .party { border-left: 1px solid #999; }
+    .party .ptitle { font-size: 11px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .party .pname { font-weight: 800; font-size: 13px; color: #1a2b3c; }
+    .party .paddr { font-size: 11px; color: #1565C0; margin-top: 5px; }
+    .party .pkv { font-size: 10.5px; margin-top: 8px; color: #333; }
     .row2 { display: flex; gap: 16px; margin-bottom: 16px; }
     .box { flex: 1; border: 1px solid #000; border-radius: 8px; padding: 14px 16px; }
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
-    .box .kv { font-size: 11px; color:#333; margin-bottom: 7px; }
-    .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
+    .box h3.underline { border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    .box .kv2 { font-size: 11px; color:#333; margin-bottom: 7px; }
+    .box .kv2 b { font-size: 12.5px; color: #223; font-weight: 700; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
     table.items tfoot td { border: 2px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
-    .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
+    .row3 { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+    .row3-left { flex: 1; display: flex; flex-direction: column; gap: 12px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color:#333; }
+    .ded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    .ded-item { display: flex; justify-content: space-between; font-size: 10.5px; color:#333; padding: 3px 0; border-bottom: 1px dashed #eee; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color:#333; }
-    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand { border: 1px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
     .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color:#333; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
@@ -23335,38 +23365,46 @@ function printSaleInvoice(s) {
           </div>
         </div>
       </div>
-      <div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
         <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${stampCfg ? `<div class="header-stamp" style="border-color:${stampCfg.c}">
+            <div class="label" style="color:${stampCfg.t}">${escHtml(s.payment_status.toUpperCase())}</div>
+            <div class="date" style="border-color:${stampCfg.c};color:${stampCfg.t}">${stampDate}</div>
+          </div>` : ''}
+          <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+        </div>
       </div>
     </div>
-    ${pnePaymentStamp(s.payment_status)}
 
-    <div class="row2">
-      <div class="box">
-        <h3>👤 BILL TO</h3>
-        <div class="kv">Name<b>${escHtml(s.customer_name||'—')}</b></div>
-        <div class="kv">Add<b>${escHtml([s.customer_address, s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', ') || '—')}</b></div>
-        <div class="kv">Contact<b>${escHtml(s.customer_phone||'—')}</b></div>
+    <div class="parties">
+      <div class="party">
+        <div class="ptitle"><i class="fas fa-user" style="color:#0d3b2e;font-size:13px"></i> Buyer (Bill To)</div>
+        <div class="pname">${escHtml(s.customer_name||'—')}</div>
+        <div class="paddr">${escHtml(s.customer_address||'—')}</div>
+        ${(s.customer_city||s.customer_state||s.customer_pincode) ? `<div class="paddr">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</div>` : ''}
+        <div class="pkv"><b>GSTIN/UIN:</b> ${escHtml(s.customer_gstin||'—')}</div>
+        ${s.customer_state ? `<div class="pkv"><b>State Name:</b> ${escHtml(s.customer_state)}</div>` : ''}
       </div>
-      <div class="box">
-        <h3>🚚 LOGISTICS</h3>
-        <!-- Vehicle No. / Driver Name / driver mobile: this data isn't
-             captured anywhere in Sales yet (unlike Purchases, which has
-             dedicated columns for these) — showing "—" honestly rather
-             than fabricating values. See chat: these fields would need
-             to be added to the Sale Entry form + sales table first. -->
-        <div class="kv">Vehicle No.<b>${escHtml(s.vehicle_no||'—')}</b></div>
-        <div class="kv">Driver Name<b>${escHtml(s.driver_name||'—')}</b></div>
-        <div class="kv">Mobile Number<b>${escHtml(s.driver_mobile||'—')}</b></div>
+      <div class="party">
+        <div class="ptitle"><i class="fas fa-truck" style="color:#0d3b2e;font-size:13px"></i> Consignee (Ship To)</div>
+        <div class="pname">${escHtml(s.customer_name||'—')}</div>
+        <div class="paddr">${escHtml(s.customer_address||'—')}</div>
+        ${(s.customer_city||s.customer_state||s.customer_pincode) ? `<div class="paddr">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</div>` : ''}
+        ${s.customer_state ? `<div class="pkv"><b>State Name:</b> ${escHtml(s.customer_state)}</div>` : ''}
+        <!-- vehicle_no isn't captured anywhere in Sales yet (unlike
+             Purchases, which has a dedicated column) — shown honestly
+             as "—" rather than fabricated. Would need adding to the
+             Sale Entry form + sales table to actually populate. -->
+        <div class="pkv"><b>Vehicle No.:</b> ${escHtml(s.vehicle_no||'—')}</div>
       </div>
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th style="width:28px;text-align:center">#</th><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr style="background:#f5faf7;font-weight:800">
-        <td colspan="2">GRAND TOTAL</td>
+        <td colspan="3">GRAND TOTAL</td>
         <td class="r">${items.reduce((sum,it)=>sum+parseFloat(it.qty||0),0).toFixed(2)}</td>
         <td></td><td></td>
         <td class="r">${fmt_money(items.reduce((sum,it)=>sum+(it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100),0))}</td>
@@ -23377,38 +23415,52 @@ function printSaleInvoice(s) {
     </table>
 
     <div class="row3">
-      <div class="box">
-        <h3>TAX SUMMARY</h3>
-        <div class="tax-row"><span>Taxable Value</span><span>${fmt_money(s.taxable_amount)}</span></div>
-        ${isInterstate
-          ? `<div class="tax-row"><span>IGST</span><span>${fmt_money(s.igst_amount)}</span></div>`
-          : `<div class="tax-row"><span>CGST</span><span>${fmt_money(s.cgst_amount)}</span></div>
-             <div class="tax-row"><span>SGST</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
-        ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges</span><span>${fmt_money(addCharges)}</span></div>` : ''}
+      <div class="row3-left">
+        <div class="box">
+          <h3>TAX SUMMARY</h3>
+          <div class="tax-row"><span>Taxable Value :</span><span>${fmt_money(s.taxable_amount)}</span></div>
+          ${isInterstate
+            ? `<div class="tax-row"><span>IGST :</span><span>${fmt_money(s.igst_amount)}</span></div>`
+            : `<div class="tax-row"><span>CGST :</span><span>${fmt_money(s.cgst_amount)}</span></div>
+               <div class="tax-row"><span>SGST :</span><span>${fmt_money(s.sgst_amount)}</span></div>`}
+          ${addCharges > 0 ? `<div class="tax-row"><span>Additional Charges :</span><span>${fmt_money(addCharges)}</span></div>` : ''}
+        </div>
+        <div class="box">
+          <h3>DEDUCTION DETAILS</h3>
+          ${deductions.length ? `<ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${deductions.map(d => `<li style="padding-right:4px"><span style="display:flex;justify-content:space-between"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></span></li>`).join('')}</ol>` : `<div style="font-size:11px;color:#333">—</div>`}
+        </div>
       </div>
       <div class="box">
-        <div class="sum-row"><span>Sub-Total</span><span>${fmt_money(s.subtotal)}</span></div>
-        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
-        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''}</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
-        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')})</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
-        <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
-        <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
+        <div class="sum-row"><span>Sub-Total (before tax) :</span><span>${fmt_money(s.subtotal)}</span></div>
+        ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions :</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
+        ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''} :</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%) :</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
+        ${(parseFloat(s.cash_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Cash Discount (${parseFloat(s.cash_discount_pct||0).toFixed(1)}% — ${escHtml(s.cd_applicable_within||'Same Day')}) :</span><span>- ${fmt_money(s.cash_discount_amount)}</span></div>` : ''}
+        <div class="sum-row"><span>Total Tax :</span><span>${fmt_money(s.total_tax)}</span></div>
+        <div class="sum-row"><span>Round-off :</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccc">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d3b2e">Payment Mode : <span>${escHtml(s.payment_method||'—')}</span></div>
-          <div style="font-size:11.5px;font-weight:700;margin-top:4px;color:${{Paid:'#0d7a3f',Partial:'#9A6700',Pending:'#c0392b'}[s.payment_status]||'#333'}">
-            ✓ Status : ${escHtml(s.payment_status||'—')}
-          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">
+          <span style="font-size:11.5px;font-weight:700;color:#0d7a3f">Total Paid : ${fmt_money(s.amount_received)}</span>
+          ${outstanding > 0.004 ? `<span style="font-size:11.5px;font-weight:700;color:#c0392b">Remaining Balance : ${fmt_money(outstanding)}</span>` : ''}
         </div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
-    ${deductions.length ? `
+    ${pnePaymentHistoryTableHTML(paymentHistory, s.total)}
+
     <div class="box" style="margin-top:12px">
-      <h3>DEDUCTION DETAILS</h3>
-      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
-    </div>` : ''}
+      <h3 class="underline">WEIGHT DETAILS</h3>
+      <div style="display:flex;justify-content:space-between">
+        <div><div style="font-size:10px;color:#666;font-weight:700">Gross Wt.</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_gross_weight||0).toFixed(2)} Kg</div></div>
+        <div><div style="font-size:10px;color:#666;font-weight:700">Tare Wt.</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_tare_weight||0).toFixed(2)} Kg</div></div>
+        <div><div style="font-size:10px;color:#666;font-weight:700">Net Wt.</div><div style="font-size:12px;margin-top:2px">${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)).toFixed(2)} Kg</div></div>
+        <div><div style="font-size:10px;color:#666;font-weight:700">Dhalta</div><div style="font-size:12px;margin-top:2px">${parseFloat(s.kanta_dhalta_kg||0).toFixed(2)} Kg</div></div>
+        <div><div style="font-size:10px;color:#666;font-weight:700">Billable Wt.</div><div style="font-size:13px;margin-top:2px;font-weight:800">${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)-(parseFloat(s.kanta_dhalta_kg)||0)).toFixed(2)} Kg</div></div>
+      </div>
+    </div>
 
     <div class="row2" style="margin-top:12px">
       <div class="box">
@@ -23417,7 +23469,7 @@ function printSaleInvoice(s) {
       </div>
       <div class="box">
         <h3>TERMS &amp; CONDITIONS</h3>
-        <div style="font-size:10.5px;color:#333;line-height:1.6;white-space:pre-line">${escHtml((STATE.settings||{}).default_tnc||'—')}</div>
+        ${tncList.length ? `<ol style="font-size:10px;color:#333;line-height:1.7;margin:0;padding-left:16px">${tncList.map(t => `<li>${escHtml(t)}</li>`).join('')}</ol>` : `<div style="font-size:10.5px;color:#333">—</div>`}
       </div>
     </div>
 
@@ -25322,7 +25374,7 @@ function buildMergedPaymentsList() {
     source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
   }));
   const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
-    id: 'sale-' + s.id, date: s.sale_date, inv: s.invoice_no, client: s.customer_name || '—',
+    id: 'sale-' + s.id, date: s.sale_date, _createdAt: s.created_at, inv: s.invoice_no, client: s.customer_name || '—',
     method: s.payment_method || '—', txn: s.transaction_no || '', amount: s.amount_received, status: s.payment_status || 'Pending',
     source: 'sale', party_type: 'Customer', payment_for: 'Invoice ' + (s.invoice_no||''), direction: 'in',
   }));
@@ -25715,7 +25767,6 @@ function _renderPmtPage(){
   const modeColors = { Cash:['#2E7D32','#E8F5E9'], UPI:['#6A4C93','#F3E8FF'], NEFT:['#1976D2','#E3F2FD'], RTGS:['#E65100','#FFF3E0'], Cheque:['#455A64','#ECEFF1'] };
 
   tbody.innerHTML=pg.map((p,i)=>{
-    const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}):p.date;
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
     const [ptColor, ptBg] = partyTypeColors[p.party_type] || partyTypeColors.Other;
     const modeShort = (p.method||'').startsWith('Split:') ? 'Split' : (p.method||'—').split(' (')[0];
@@ -25723,10 +25774,13 @@ function _renderPmtPage(){
     const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
       <td>${s+i+1}</td>
-      <td style="font-size:12px">${df}</td>
+      <td style="font-size:12px">${(function(){
+        const dateStr = fmt_date_disp(p.date);
+        const timeStr = fmt_time_ampm(p._createdAt || p.date);
+        return `<div>${dateStr}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
+      })()}</td>
       <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
-      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:2px 7px;border-radius:9px">${escHtml(p.party_type||'—')}</span></td>
+      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong><br><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:1px 6px;border-radius:9px;display:inline-block;margin-top:2px">${escHtml(p.party_type||'—')}</span></td>
       <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
       <td><span style="font-size:10px;font-weight:700;color:${mColor};background:${mBg};padding:2px 7px;border-radius:9px">${escHtml(modeShort)}</span></td>
       <td><strong style="color:${isDeleted?'var(--muted)':(p.direction==='in'?'#2E7D32':'#223')}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
@@ -25736,7 +25790,7 @@ function _renderPmtPage(){
         ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)"><i class="fas fa-undo"></i></button>` : (p.source==='voucher' ? `<button class="act-btn" title="Delete" onclick="deletePaymentVoucher(${String(p.id).replace('pv-','')})"><i class="fas fa-trash"></i></button>` : '')}
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
   const pg2=document.getElementById('pmtPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="pmtPage(${PMT.page-1})" ${PMT.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMT.page?'active':''}" onclick="pmtPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtPage(${PMT.page+1})" ${PMT.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -28067,6 +28121,21 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       setTimeout(livePreview, 100);
       document.addEventListener('click', closeAllDropdowns);
+      // Restore whichever sidebar page the user was on before the page
+      // reloaded, instead of always dropping back to Dashboard. Re-clicking
+      // the nav item (rather than calling showPage directly) reuses whatever
+      // handler it's wired to — showPage, showPaymentsPage, goToProductsPage,
+      // etc. — so business-type-specific routing still resolves correctly.
+      // Pages not reachable from the sidebar (edit/detail screens, "-new"
+      // forms) were never stored here, so this only ever restores top-level
+      // list/report pages and safely falls back to Dashboard otherwise.
+      try {
+        const _lastPage = localStorage.getItem('optms_lastPage');
+        if (_lastPage && _lastPage !== 'dashboard') {
+          const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
+          if (_navEl) _navEl.click();
+        }
+      } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
     } catch(initErr) {
       console.error('App init error:', initErr);
     }

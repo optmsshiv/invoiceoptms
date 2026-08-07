@@ -1764,7 +1764,7 @@ const SERVER = {
       <i class="fas fa-sack-dollar"></i><span>Finance Report</span>
     </a>
     <?php endif; ?>
-    <?php if ($perms['menu.finance_report'] ?? true): ?>
+    <?php if ($perms['menu.compare_sessions'] ?? true): ?>
     <a class="nav-item" data-page="compare-sessions" onclick="showPage('compare-sessions',this); renderCompareSessions();">
       <i class="fas fa-scale-balanced"></i><span>Compare Sessions</span>
     </a>
