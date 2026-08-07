@@ -9040,10 +9040,10 @@ View Invoice: {{6}}</pre></details>
           <select id="cc-category" style="width:100%"><option value="">— Select —</option></select>
         </div>
         <div class="field" style="margin:0"><label>Payment Method</label>
-          <div style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:7px">
-            <i class="fas fa-wallet" style="color:var(--teal);font-size:12px"></i> Cash in Hand
-          </div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Every credit conversion is paid back from the shared fund.</div>
+          <select id="cc-method" style="width:100%">
+            <option>UPI</option><option>Bank Transfer</option><option>Cash</option>
+            <option>Credit Card</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option>
+          </select>
         </div>
       </div>
       <div class="field" style="margin:0"><label>Vendor / Description *</label>
@@ -30548,7 +30548,7 @@ function _renderExpTable() {
     return `<tr>
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
-      <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px"><i class="fas fa-hand-holding-hand" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
+      <td style="font-weight:600">${exp.vendor||'—'}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
@@ -30726,8 +30726,7 @@ function openConvertCreditEntry(id) {
   }
   document.getElementById('cc-vendor').value = c.paid_to || c.purpose;
   document.getElementById('cc-notes').value = c.purpose;
-  // Payment Method is fixed to Cash in Hand (shown as static info in the
-  // modal, not a field) — nothing to set here anymore.
+  document.getElementById('cc-method').value = c.payment_method || 'Cash';
   // Reuse the same category list already maintained for Expenses
   const cats = STATE.expenseCategories || [];
   document.getElementById('cc-category').innerHTML =
@@ -30741,6 +30740,7 @@ async function saveCreditConversion() {
   const amount = parseFloat(document.getElementById('cc-amount').value) || 0;
   const category = document.getElementById('cc-category').value;
   const vendor = document.getElementById('cc-vendor').value.trim();
+  const method = document.getElementById('cc-method').value;
   const notes = document.getElementById('cc-notes').value.trim();
 
   if (!date || !vendor || !category || amount <= 0) {
@@ -30749,10 +30749,8 @@ async function saveCreditConversion() {
   }
 
   try {
-    // method is deliberately not sent — the backend always uses
-    // Cash in Hand for a credit conversion, this isn't a real choice.
     await api('api/credit_entries.php?action=convert&id=' + id, 'POST', {
-      date, amount, category, vendor, notes,
+      date, amount, category, vendor, method, notes,
     });
     closeModal('modal-credit-convert');
     toast('✅ Converted to Expense!', 'success');

@@ -147,12 +147,7 @@ try {
         $amount   = isset($body['amount']) && $body['amount'] !== '' ? (float)$body['amount'] : $remaining;
         $vendor   = trim($body['vendor']   ?? '') ?: ($entry['paid_to'] ?: $entry['purpose']);
         $category = trim($body['category'] ?? 'Other');
-        // Payment method is ALWAYS "Cash in Hand" for a credit conversion
-        // now — not a choice. This is a deliberate client decision: every
-        // credit-converted expense is paid back from the shared Cash in
-        // Hand fund, so the ledger movement below always fires, on
-        // purpose, not conditionally on what the user picked.
-        $method_  = 'Cash in Hand';
+        $method_  = trim($body['method']   ?? '') ?: ($entry['payment_method'] ?: 'Cash');
         $notes    = trim($body['notes']    ?? $entry['purpose']);
 
         if (!$date || !$vendor || $amount <= 0) {
@@ -165,24 +160,18 @@ try {
             jsonResponse(['error' => "Only ₹" . number_format($remaining, 2) . " remains on this entry — can't convert ₹" . number_format($amount, 2) . "."], 422);
         }
 
-        // Migration guard — traces which expenses came from a Credit
-        // conversion vs. being entered directly, so the Expense ledger
-        // can show a clear badge for these. NULL/'direct' = normal.
-        try { $db->exec("ALTER TABLE expenses ADD COLUMN source VARCHAR(20) NULL AFTER method"); }
-        catch (Throwable $e) { /* already exists */ }
-
         $now = date('Y-m-d H:i:s');
         $exp = $db->prepare(
-            'INSERT INTO expenses (`date`,category,vendor,amount,method,source,notes,created_at,updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?)'
+            'INSERT INTO expenses (`date`,category,vendor,amount,method,notes,created_at,updated_at)
+             VALUES (?,?,?,?,?,?,?,?)'
         );
-        $exp->execute([$date, $category, $vendor, $amount, $method_, 'credit', $notes, $now, $now]);
+        $exp->execute([$date, $category, $vendor, $amount, $method_, $notes, $now, $now]);
         $expenseId = (int)$db->lastInsertId();
 
-        // Method is always Cash in Hand now, so this always fires —
-        // deliberately unconditional, not "if selected".
-        creditRecordCashInHandMovement($db, 'out', $amount, 'expense', $expenseId,
-            "Credit converted: {$vendor}", (int)($_SESSION['user_id'] ?? 0));
+        if ($method_ === 'Cash in Hand') {
+            creditRecordCashInHandMovement($db, 'out', $amount, 'expense', $expenseId,
+                "Credit converted: {$vendor}", (int)($_SESSION['user_id'] ?? 0));
+        }
 
         $db->prepare(
             'INSERT INTO credit_entry_conversions (credit_entry_id, expense_id, amount, created_by, created_at)
