@@ -25761,6 +25761,9 @@ function _renderPmtPage(){
   const modeColors = { Cash:['#2E7D32','#E8F5E9'], UPI:['#6A4C93','#F3E8FF'], NEFT:['#1976D2','#E3F2FD'], RTGS:['#E65100','#FFF3E0'], Cheque:['#455A64','#ECEFF1'] };
 
   tbody.innerHTML=pg.map((p,i)=>{
+    const dObj = p.date ? new Date(p.date) : null;
+    const df = dObj ? dObj.toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}) : (p.date||'—');
+    const tf = dObj ? dObj.toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
     const [ptColor, ptBg] = partyTypeColors[p.party_type] || partyTypeColors.Other;
     const modeShort = (p.method||'').startsWith('Split:') ? 'Split' : (p.method||'—').split(' (')[0];
@@ -25768,7 +25771,7 @@ function _renderPmtPage(){
     const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
       <td>${s+i+1}</td>
-      <td style="font-size:12px">${fmt_datetime_stacked(p.date)}</td>
+      <td style="font-size:12px">${df}${tf ? `<br><span style="font-size:10px;color:var(--muted)">${tf}</span>` : ''}</td>
       <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
       <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong><br><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:1px 6px;border-radius:9px;display:inline-block;margin-top:2px">${escHtml(p.party_type||'—')}</span></td>
       <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
