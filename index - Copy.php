@@ -23260,15 +23260,12 @@ function printCurrentSaleInvoice() {
 
 async function printSaleEntry(id) {
   try {
-    const [sr, hr] = await Promise.all([
-      api('api/sales.php?id=' + id),
-      api('api/sale_payments.php?sale_id=' + id).catch(() => ({ data: [] })),
-    ]);
-    printSaleInvoice(sr.data, Array.isArray(hr.data) ? hr.data : []);
+    const r = await api('api/sales.php?id=' + id);
+    printSaleInvoice(r.data);
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
 }
 
-function printSaleInvoice(s, paymentHistory = []) {
+function printSaleInvoice(s) {
   const co = pneCompanyInfo();
   const items = s.items || [];
   const rows = items.map(it => `
@@ -23287,17 +23284,12 @@ function printSaleInvoice(s, paymentHistory = []) {
   const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
   const deductions = Array.isArray(s.deductions) ? s.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
-  const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title><style>
     * { box-sizing: border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color: #1a2b3c; padding: 26px 34px; font-size: 12.5px; position: relative; }
-    .head-wrap { position: relative; padding-bottom: 22px; }
-    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; }
-    .header-stamp { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%) rotate(-6deg); text-align: center; }
-    .header-stamp .label { border-width: 2.5px; border-style: solid; font-weight: 800; font-size: 14px; padding: 3px 24px; border-radius: 6px; opacity: .85; background: #fff; }
-    .header-stamp .date { font-size: 8.5px; font-weight: 700; margin-top: 2px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 19px; font-weight: 800; color: #0d3b2e; }
     .co-sub { font-size: 10.5px; color:#333; letter-spacing: .5px; }
     .co-meta { font-size: 10.5px; color:#333; margin-top: 6px; line-height: 1.6; }
@@ -23309,8 +23301,6 @@ function printSaleInvoice(s, paymentHistory = []) {
     .box h3 { font-size: 11.5px; color: #0d3b2e; margin: 0 0 10px; }
     .box .kv { font-size: 11px; color:#333; margin-bottom: 7px; }
     .box .kv b { display: block; font-size: 12.5px; color: #223; font-weight: 700; }
-    .box .kv2 { font-size: 11px; color:#333; margin-bottom: 7px; }
-    .box .kv2 b { font-size: 12.5px; color: #223; font-weight: 700; }
     table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
@@ -23333,41 +23323,31 @@ function printSaleInvoice(s, paymentHistory = []) {
       <button onclick="window.print()" style="padding:8px 20px;background:#0d3b2e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button>
       <button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer;background:#fff">Close</button>
     </div>
-    <div class="head-wrap">
-      <div class="head">
-        <div style="display:flex;gap:12px;align-items:flex-start">
-          ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
-          <div>
-            <div class="co-name">${escHtml(co.name)}</div>
-            <div class="co-meta">
-              ${co.address?escHtml(co.address)+'<br>':''}
-              ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
-              ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
-            </div>
+    <div class="head">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${co.logo ? `<img src="${co.logo}" alt="Logo" style="width:102px;height:102px;object-fit:contain;border-radius:6px">` : ''}
+        <div>
+          <div class="co-name">${escHtml(co.name)}</div>
+          <div class="co-meta">
+            ${co.address?escHtml(co.address)+'<br>':''}
+            ${pneStatutoryLine(co)?`<strong>${pneStatutoryLine(co)}</strong><br>`:''}
+            ${co.iec?`IEC: ${escHtml(co.iec)}<br>`:''}${co.phone?'Mobile: '+escHtml(co.phone):''}${co.email?(co.phone?' &nbsp;|&nbsp; ':'')+'Email: '+escHtml(co.email):''}
           </div>
         </div>
-        <div>
-          <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
-          <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
-        </div>
       </div>
-      ${(() => {
-        const cfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
-        if (!cfg) return '';
-        const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
-        return `<div class="header-stamp">
-          <div class="label" style="border-color:${cfg.c};color:${cfg.t}">${escHtml(s.payment_status.toUpperCase())}</div>
-          <div class="date" style="color:${cfg.t}">${stampDate}</div>
-        </div>`;
-      })()}
+      <div>
+        <div class="badge-inv">TAX INVOICE<small>SALE ENTRY</small></div>
+        <div class="inv-meta">Invoice No: ${escHtml(s.invoice_no)}<br>Invoice Date: ${fmt_date_disp(s.sale_date)}<br>${s.sales_type?escHtml(s.sales_type):''}</div>
+      </div>
     </div>
+    ${pnePaymentStamp(s.payment_status)}
 
-    <div class="row2" style="margin-top:16px">
+    <div class="row2">
       <div class="box">
         <h3>👤 BILL TO</h3>
-        <div class="kv2">Name : <b>${escHtml(s.customer_name||'—')}</b></div>
-        <div class="kv2" style="line-height:1.6">Add: <b>${escHtml(s.customer_address||'—')}</b>${(s.customer_city||s.customer_state||s.customer_pincode) ? `<br><b style="margin-left:28px;display:inline-block">${escHtml([s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', '))}</b>` : ''}</div>
-        <div class="kv2">Contact : <b>${escHtml(s.customer_phone||'—')}</b></div>
+        <div class="kv">Name<b>${escHtml(s.customer_name||'—')}</b></div>
+        <div class="kv">Add<b>${escHtml([s.customer_address, s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', ') || '—')}</b></div>
+        <div class="kv">Contact<b>${escHtml(s.customer_phone||'—')}</b></div>
       </div>
       <div class="box">
         <h3>🚚 LOGISTICS</h3>
@@ -23376,9 +23356,9 @@ function printSaleInvoice(s, paymentHistory = []) {
              dedicated columns for these) — showing "—" honestly rather
              than fabricating values. See chat: these fields would need
              to be added to the Sale Entry form + sales table first. -->
-        <div class="kv2">Vehicle No. : <b>${escHtml(s.vehicle_no||'—')}</b></div>
-        <div class="kv2">Driver Name : <b>${escHtml(s.driver_name||'—')}</b></div>
-        <div class="kv2">Mobile Number : <b>${escHtml(s.driver_mobile||'—')}</b></div>
+        <div class="kv">Vehicle No.<b>${escHtml(s.vehicle_no||'—')}</b></div>
+        <div class="kv">Driver Name<b>${escHtml(s.driver_name||'—')}</b></div>
+        <div class="kv">Mobile Number<b>${escHtml(s.driver_mobile||'—')}</b></div>
       </div>
     </div>
 
@@ -23417,30 +23397,18 @@ function printSaleInvoice(s, paymentHistory = []) {
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccc">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d3b2e">Payment Mode : <span>${escHtml(s.payment_method||'—')}</span></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">
-          <span style="font-size:11.5px;font-weight:700;color:#0d7a3f">Total Paid : ${fmt_money(s.amount_received)}</span>
-          ${outstanding > 0.004 ? `<span style="font-size:11.5px;font-weight:700;color:#c0392b">Remaining Balance : ${fmt_money(outstanding)}</span>` : ''}
+          <div style="font-size:11.5px;font-weight:700;margin-top:4px;color:${{Paid:'#0d7a3f',Partial:'#9A6700',Pending:'#c0392b'}[s.payment_status]||'#333'}">
+            ✓ Status : ${escHtml(s.payment_status||'—')}
+          </div>
         </div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
-    ${pnePaymentHistoryTableHTML(paymentHistory, s.total)}
-
-    <div class="row2" style="margin-top:12px">
-      <div class="box">
-        <h3>DEDUCTION DETAILS</h3>
-        ${deductions.length ? deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('') : `<div style="font-size:11px;color:#333">—</div>`}
-      </div>
-      <div class="box">
-        <h3>⚖️ WT. INFO</h3>
-        <div class="tax-row"><span>Gross Wt.</span><b>${parseFloat(s.kanta_gross_weight||0).toFixed(2)} Kg</b></div>
-        <div class="tax-row"><span>Tare Wt.</span><b>${parseFloat(s.kanta_tare_weight||0).toFixed(2)} Kg</b></div>
-        <div class="tax-row"><span>Net Wt.</span><b>${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)).toFixed(2)} Kg</b></div>
-        <div class="tax-row"><span>Dhalta</span><b>${parseFloat(s.kanta_dhalta_kg||0).toFixed(2)} Kg</b></div>
-        <div class="tax-row" style="border-top:1px solid #eee;margin-top:4px;padding-top:6px;color:#0d3b2e"><span><b>Billable Wt.</b></span><b>${Math.max(0,(parseFloat(s.kanta_gross_weight)||0)-(parseFloat(s.kanta_tare_weight)||0)-(parseFloat(s.kanta_dhalta_kg)||0)).toFixed(2)} Kg</b></div>
-      </div>
-    </div>
+    ${deductions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>DEDUCTION DETAILS</h3>
+      ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
 
     <div class="row2" style="margin-top:12px">
       <div class="box">
