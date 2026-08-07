@@ -23334,7 +23334,7 @@ function printSaleInvoice(s, paymentHistory = []) {
     .ded-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
     .ded-item { display: flex; justify-content: space-between; font-size: 10.5px; color:#333; padding: 3px 0; border-bottom: 1px dashed #eee; }
     .sum-row { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; color:#333; }
-    .grand { border: 1px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
+    .grand { border: 2px solid #0d3b2e; color: #0d3b2e; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: #fff; }
     .grand span { font-size: 11px; text-transform: uppercase; font-weight: 700; } .grand b { font-size: 20px; color: #0d3b2e; }
     .words { font-style: italic; color:#333; font-size: 11px; margin-top: 10px; }
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
@@ -23421,7 +23421,7 @@ function printSaleInvoice(s, paymentHistory = []) {
         </div>
         <div class="box">
           <h3>DEDUCTION DETAILS</h3>
-          ${deductions.length ? `<ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${deductions.map(d => `<li style="display:flex;justify-content:space-between;padding-right:4px"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></li>`).join('')}</ol>` : `<div style="font-size:11px;color:#333">—</div>`}
+          ${deductions.length ? `<div class="ded-grid">${deductions.map(d => `<div class="ded-item"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></div>`).join('')}</div>` : `<div style="font-size:11px;color:#333">—</div>`}
         </div>
       </div>
       <div class="box">
