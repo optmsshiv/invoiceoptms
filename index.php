@@ -20909,6 +20909,11 @@ async function printPurchaseEntry(id) {
 // ref/txn id, paid amount, paid by, remarks, balance after — plus a
 // footer row with payment count, total paid, and remaining balance.
 function pnePaymentHistoryTableHTML(paymentHistory, grandTotal) {
+  // Only worth showing when there's an actual installment trail — one
+  // payment (or zero) is already fully represented in the main Payments
+  // summary above, so a "history" table there would just be redundant.
+  if (paymentHistory.length <= 1) return '';
+
   const totalPaid = paymentHistory.reduce((s,h) => s + (parseFloat(h.amount)||0), 0);
   const remaining = Math.max(0, (parseFloat(grandTotal)||0) - totalPaid);
   const rows = paymentHistory.map(h => {
