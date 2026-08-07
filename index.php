@@ -5638,11 +5638,11 @@ const SERVER = {
         <div style="overflow-x:auto">
           <table class="data-table ps-stock-table" style="min-width:1150px;table-layout:fixed">
             <colgroup>
-              <col style="width:30px"><col style="width:90px"><col style="width:100px"><col style="width:130px"><col style="width:85px">
+              <col style="width:30px"><col style="width:100px"><col style="width:100px"><col style="width:160px">
               <col style="width:160px"><col style="width:95px"><col style="width:90px"><col style="width:70px"><col style="width:75px">
             </colgroup>
             <thead><tr>
-              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th><th>Party Type</th>
+              <th>#</th><th>Payment Date</th><th>Reference No.</th><th>Party Name</th>
               <th>Payment For</th><th>Payment Mode</th><th>Amount (₹)</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody id="paymentsTbody"></tbody>
@@ -25761,7 +25761,9 @@ function _renderPmtPage(){
   const modeColors = { Cash:['#2E7D32','#E8F5E9'], UPI:['#6A4C93','#F3E8FF'], NEFT:['#1976D2','#E3F2FD'], RTGS:['#E65100','#FFF3E0'], Cheque:['#455A64','#ECEFF1'] };
 
   tbody.innerHTML=pg.map((p,i)=>{
-    const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}):p.date;
+    const dObj = p.date ? new Date(p.date) : null;
+    const df = dObj ? dObj.toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short',year:'numeric'}) : (p.date||'—');
+    const tf = dObj ? dObj.toLocaleTimeString(_moneyLocale(),{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
     const isDeleted = p._invoiceDeleted || p.invoice_deleted;
     const [ptColor, ptBg] = partyTypeColors[p.party_type] || partyTypeColors.Other;
     const modeShort = (p.method||'').startsWith('Split:') ? 'Split' : (p.method||'—').split(' (')[0];
@@ -25769,10 +25771,9 @@ function _renderPmtPage(){
     const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
       <td>${s+i+1}</td>
-      <td style="font-size:12px">${df}</td>
+      <td style="font-size:12px">${df}${tf ? `<br><span style="font-size:10px;color:var(--muted)">${tf}</span>` : ''}</td>
       <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
-      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong></td>
-      <td><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:2px 7px;border-radius:9px">${escHtml(p.party_type||'—')}</span></td>
+      <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong><br><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:1px 6px;border-radius:9px;display:inline-block;margin-top:2px">${escHtml(p.party_type||'—')}</span></td>
       <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
       <td><span style="font-size:10px;font-weight:700;color:${mColor};background:${mBg};padding:2px 7px;border-radius:9px">${escHtml(modeShort)}</span></td>
       <td><strong style="color:${isDeleted?'var(--muted)':(p.direction==='in'?'#2E7D32':'#223')}${isDeleted?';text-decoration:line-through':''}">${fmt_money(p.amount)}</strong></td>
@@ -25782,7 +25783,7 @@ function _renderPmtPage(){
         ${isDeleted ? `<button class="act-btn" title="Revert deleted flag" onclick="revertPaymentDelete(${s+i})" style="color:var(--teal);border-color:var(--teal-l)"><i class="fas fa-undo"></i></button>` : (p.source==='voucher' ? `<button class="act-btn" title="Delete" onclick="deletePaymentVoucher(${String(p.id).replace('pv-','')})"><i class="fas fa-trash"></i></button>` : '')}
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">No payments recorded</td></tr>';
   const tot=Math.ceil(PMT.list.length/PMT.per);
   const pg2=document.getElementById('pmtPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="pmtPage(${PMT.page-1})" ${PMT.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PMT.page?'active':''}" onclick="pmtPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="pmtPage(${PMT.page+1})" ${PMT.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
