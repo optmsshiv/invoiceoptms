@@ -9600,12 +9600,6 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(livePreview, 100);
   STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
-  // Remember whichever sidebar page the user is on, so a refresh can
-  // restore it below instead of always landing back on Dashboard.
-  document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
-    const item = e.target.closest('.nav-item[data-page]');
-    if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
-  });
 });
 
 function setTodayDates() {
@@ -28121,21 +28115,6 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       setTimeout(livePreview, 100);
       document.addEventListener('click', closeAllDropdowns);
-      // Restore whichever sidebar page the user was on before the page
-      // reloaded, instead of always dropping back to Dashboard. Re-clicking
-      // the nav item (rather than calling showPage directly) reuses whatever
-      // handler it's wired to — showPage, showPaymentsPage, goToProductsPage,
-      // etc. — so business-type-specific routing still resolves correctly.
-      // Pages not reachable from the sidebar (edit/detail screens, "-new"
-      // forms) were never stored here, so this only ever restores top-level
-      // list/report pages and safely falls back to Dashboard otherwise.
-      try {
-        const _lastPage = localStorage.getItem('optms_lastPage');
-        if (_lastPage && _lastPage !== 'dashboard') {
-          const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
-          if (_navEl) _navEl.click();
-        }
-      } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
