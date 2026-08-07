@@ -3086,75 +3086,6 @@ const SERVER = {
       </div>
     </div>
 
-    <!-- Record Payment Modal (Sales) — mirrors the Purchases one exactly,
-         same reasoning: every payment is its own history row. -->
-    <div class="modal-overlay" id="modal-record-sale-payment">
-      <div class="modal" style="max-width:440px">
-        <div class="modal-header">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:32px;height:32px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center">
-              <i class="fas fa-money-bill-wave" style="color:var(--teal);font-size:14px"></i>
-            </div>
-            <div>
-              <div style="font-size:14px;font-weight:700;color:var(--text)">Record Payment</div>
-              <div id="rsp-subtitle" style="font-size:11px;color:var(--muted);font-weight:400;margin-top:1px"></div>
-            </div>
-          </div>
-          <button class="modal-close" onclick="closeModal('modal-record-sale-payment')"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:75vh;overflow-y:auto">
-
-          <div style="background:linear-gradient(135deg,var(--teal),#00695C);border-radius:10px;padding:12px 16px;color:#fff">
-            <div style="display:flex;justify-content:space-between;align-items:baseline">
-              <span style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.8px">Grand Total</span>
-              <strong id="rsp-total" style="font-size:16px;font-family:var(--mono)"></strong>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25)">
-              <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,152,0,.28);border:1px solid rgba(255,152,0,.55);border-radius:20px;padding:3px 10px">
-                <span style="font-size:11px;font-weight:600;color:#FFE082">Already Received</span>
-                <strong id="rsp-already" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-              </div>
-              <div style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(229,57,53,.28);border:1px solid rgba(229,57,53,.5);border-radius:20px;padding:3px 10px">
-                <span style="font-size:11px;font-weight:600;color:#FFCDD2">Remaining</span>
-                <strong id="rsp-remaining" style="font-family:var(--mono);font-size:11px;color:#fff"></strong>
-              </div>
-            </div>
-          </div>
-
-          <div id="rsp-history-wrap" style="display:none">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment History</div>
-            <div id="rsp-history-list" style="display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto"></div>
-          </div>
-
-          <div class="field">
-            <label>Amount</label>
-            <input type="number" id="rsp-amount" step="0.01" min="0" oninput="updateRSPNotice()">
-          </div>
-
-          <div id="rsp-notice" style="display:none;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px">
-            <i class="fas fa-circle-info" style="font-size:14px;margin-top:1px"></i>
-            <span id="rsp-notice-text" style="font-size:12px"></span>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Payment Date</label><input type="date" id="rsp-date"></div>
-            <div class="field">
-              <label>Method</label>
-              <select id="rsp-method">
-                <option>UPI</option><option>Bank Transfer</option><option>Cash</option><option>Cheque</option>
-              </select>
-            </div>
-          </div>
-          <div class="field"><label>Transaction Ref (optional)</label><input id="rsp-txn" placeholder="UTR / reference number"></div>
-          <div class="field"><label>Notes (optional)</label><input id="rsp-notes" placeholder="Any additional notes"></div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal('modal-record-sale-payment')">Cancel</button>
-          <button class="btn btn-primary" id="rsp-save-btn" onclick="saveRecordSalePayment()"><i class="fas fa-check"></i> Record Payment</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ─────────── PURCHASES ─────────── -->
     <div id="page-purchases" class="page">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -4091,7 +4022,7 @@ const SERVER = {
               <div class="pne-charge-total"><span>Total Additional Charges</span><strong id="sn-addcharges-total">₹0.00</strong></div>
             </div>
 
-            <div class="pne-card" id="sn-payment-info-card">
+            <div class="pne-card">
               <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-credit-card"></i></span> Payment Information</div>
               <div class="field"><label>Payment Status *</label>
                 <select id="sn-paystatus" onchange="calcSaleNewTotals()"><option>Pending</option><option>Partial</option><option>Paid</option></select>
@@ -18789,14 +18720,10 @@ async function viewSaleDetails(id) {
   document.getElementById('sd-body').innerHTML = '';
   document.getElementById('sd-foot').innerHTML = '';
 
-  let s, paymentHistory = [];
+  let s;
   try {
-    const [sr, hr] = await Promise.all([
-      api('api/sales.php?id=' + id),
-      api('api/sale_payments.php?sale_id=' + id).catch(() => ({ data: [] })),
-    ]);
-    s = sr.data;
-    paymentHistory = Array.isArray(hr.data) ? hr.data : [];
+    const r = await api('api/sales.php?id=' + id);
+    s = r.data;
   } catch(e) {
     document.getElementById('sd-head').innerHTML = `<div style="color:#fff;font-size:13px">Could not load sale</div>`;
     return;
@@ -18874,25 +18801,6 @@ async function viewSaleDetails(id) {
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(s.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-calendar-check"></i><div><div class="sp-label">Due Date</div><div class="sp-val">${s.due_date ? fmt_date_disp(s.due_date) : '—'}</div></div></div>
       </div>
-    </div>
-
-    <div class="sp-section">
-      <div class="sp-section-title"><i class="fas fa-clock-rotate-left"></i> Payment History (${paymentHistory.length})</div>
-      ${paymentHistory.length ? `<div style="display:flex;flex-direction:column;gap:8px;max-height:140px;overflow-y:auto;padding-right:4px">
-        ${paymentHistory.map((h, i) => {
-          const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
-          const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-          const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
-          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border-radius:9px">
-            <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700">#${paymentHistory.length - i}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12.5px;font-weight:600">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
-              <div style="font-size:11px;color:var(--muted)">${escHtml(h.method||'—')}${h.transaction_id ? ' · Ref: ' + escHtml(h.transaction_id) : ''}${h.notes ? ' · ' + escHtml(h.notes) : ''}</div>
-            </div>
-            <strong style="font-family:var(--mono);font-size:13px;color:var(--teal)">${fmt_money(h.amount)}</strong>
-          </div>`;
-        }).join('')}
-      </div>` : `<div class="sp-empty"><i class="fas fa-receipt"></i><div class="sp-empty-title">No payments recorded yet</div></div>`}
     </div>
 
     <div class="sp-section">
@@ -20408,43 +20316,6 @@ function getPNESplitLabel() {
 // HTML, so those genuinely need `disabled` — but the browser's default
 // grayed-out disabled look is stripped off below so they still read as
 // normal info, not as broken controls.
-// Sales equivalent of setPurchasePaymentInfoLocked below — same reasoning:
-// once a sale exists, payment info can only change via "Record Payment"
-// (sale_payments.php), never by editing the sale itself. Locks every
-// real control inside the card in one pass, not a hand-picked field list.
-function setSalePaymentInfoLocked(locked) {
-  const card = document.getElementById('sn-payment-info-card');
-  if (!card) return;
-  card.querySelectorAll('input, textarea').forEach(el => {
-    if (el.type === 'checkbox' || el.type === 'radio') {
-      el.disabled = locked;
-    } else {
-      el.readOnly = locked;
-      el.style.background = locked ? 'var(--bg)' : '';
-      el.style.cursor = locked ? 'default' : '';
-    }
-  });
-  card.querySelectorAll('select, button').forEach(el => {
-    el.disabled = locked;
-    el.style.opacity = locked ? '1' : '';
-    el.style.color = locked ? 'var(--text)' : '';
-    el.style.cursor = locked ? 'default' : '';
-  });
-  let note = document.getElementById('sn-pay-editnote');
-  if (locked) {
-    if (!note) {
-      note = document.createElement('div');
-      note.id = 'sn-pay-editnote';
-      note.style.cssText = 'font-size:11.5px;color:var(--muted);margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:8px';
-      note.innerHTML = '<i class="fas fa-circle-info"></i> To record another payment, use "Record Payment" from the sales list instead of editing this.';
-      card.appendChild(note);
-    }
-    note.style.display = 'block';
-  } else if (note) {
-    note.style.display = 'none';
-  }
-}
-
 function setPurchasePaymentInfoLocked(locked) {
   const card = document.getElementById('pn-payment-info-card');
   if (!card) return;
@@ -22146,7 +22017,6 @@ function goToNewSale() {
   document.getElementById('sn-amountreceived').value = 0;
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
-  setSalePaymentInfoLocked(false);
   document.getElementById('sn-customernotes').value = '';
   document.getElementById('sn-internalnotes').value = '';
   document.getElementById('sn-deliveryinstructions').value = '';
@@ -22939,11 +22809,6 @@ async function editSale(id) {
     document.getElementById('sn-transactionno').value = s.transaction_no || '';
     document.getElementById('sn-paydate').value = s.payment_date || '';
     if (s.payment_date) syncSNInvoiceDateToPayment();
-    // Locks the WHOLE Payment Information card — status, amount, method,
-    // split rows, transaction ref, date — not just a couple of fields.
-    // Called after the fields above are populated, so the split-payment
-    // rows also get correctly caught by this pass.
-    setSalePaymentInfoLocked(true);
     document.getElementById('sn-customernotes').value = s.customer_notes || '';
     document.getElementById('sn-internalnotes').value = s.internal_notes || '';
     document.getElementById('sn-deliveryinstructions').value = s.delivery_instructions || '';
@@ -23119,15 +22984,7 @@ function renderSales() {
       <td><div>${fmt_date_disp(s.sale_date)}</div>${s.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(s.created_at)}</div>` : ''}</td>
       <td>${escHtml(s.customer_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-      <td style="text-align:right">
-        <div style="font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        ${s.payment_status === 'Partial' ? (() => {
-          const tot = parseFloat(s.total)||0, rec = parseFloat(s.amount_received)||0;
-          const remain = Math.max(0, tot - rec);
-          const pct = tot > 0 ? Math.round((remain/tot)*100) : 0;
-          return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
-        })() : ''}
-      </td>
+      <td style="text-align:right;font-weight:600">${(parseFloat(s.total)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
       <td>${escHtml(s.sales_executive||'—')}</td>
@@ -23140,9 +22997,6 @@ function renderSales() {
             <button class="act-btn" title="More" onclick="toggleActMenu(event, this)"><i class="fas fa-ellipsis"></i></button>
             <div class="act-menu">
               <button onclick="editWithApproval('sale',${s.id},'Invoice ${escHtml((s.invoice_no||'#'+s.id).replace(/'/g,"\\'"))}',()=>editSale(${s.id}))"><i class="fas fa-pen" style="color:#1976D2"></i> Edit</button>
-              ${s.payment_status === 'Paid'
-                ? `<button disabled style="opacity:.45;cursor:not-allowed" title="Already fully received"><i class="fas fa-money-bill-wave" style="color:#9CA3AF"></i> Record Payment</button>`
-                : `<button onclick="openRecordSalePayment(${s.id})"><i class="fas fa-money-bill-wave" style="color:#2E7D32"></i> Record Payment</button>`}
               ${_delItem("deleteSale("+s.id+")")}
             </div>
           </span>
@@ -24792,112 +24646,6 @@ async function saveRecordPurchasePayment() {
     const r = await api('api/purchases.php');
     STATE.purchases = Array.isArray(r.data) ? r.data : STATE.purchases;
     renderPurchases();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
-}
-
-// ── Record Payment (Sales) — direct mirror of the Purchases version ──
-let RSP_ACTIVE_SALE = null;
-
-async function openRecordSalePayment(saleId) {
-  try {
-    const r = await api('api/sales.php?id=' + saleId);
-    const s = r.data;
-    RSP_ACTIVE_SALE = s;
-
-    const total = parseFloat(s.total) || 0;
-    const alreadyReceived = parseFloat(s.amount_received) || 0;
-    const remaining = Math.max(0, total - alreadyReceived);
-
-    document.getElementById('rsp-subtitle').textContent = `${s.invoice_no} · ${escHtml(s.customer_name || '')}`;
-    document.getElementById('rsp-total').textContent = fmt_money(total);
-    document.getElementById('rsp-already').textContent = fmt_money(alreadyReceived);
-    document.getElementById('rsp-remaining').textContent = fmt_money(remaining);
-    document.getElementById('rsp-amount').value = remaining.toFixed(2);
-    document.getElementById('rsp-date').value = fmt_date(new Date());
-    document.getElementById('rsp-method').value = 'UPI';
-    document.getElementById('rsp-txn').value = '';
-    document.getElementById('rsp-notes').value = '';
-
-    const hist = await api('api/sale_payments.php?sale_id=' + saleId);
-    const rows = Array.isArray(hist.data) ? hist.data : [];
-    const wrap = document.getElementById('rsp-history-wrap');
-    const list = document.getElementById('rsp-history-list');
-    if (rows.length) {
-      wrap.style.display = 'block';
-      list.innerHTML = rows.map((h, i) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12px">
-          <div>
-            <span style="font-weight:700">#${rows.length - i}</span>
-            <span style="color:var(--muted);margin-left:6px">${fmt_date_disp(h.payment_date)}${h.payment_date ? ' · ' + fmt_time_ampm(h.payment_date) : ''} · ${escHtml(h.method||'—')}</span>
-          </div>
-          <strong style="font-family:var(--mono)">${fmt_money(h.amount)}</strong>
-        </div>`).join('');
-    } else {
-      wrap.style.display = 'none';
-      list.innerHTML = '';
-    }
-
-    updateRSPNotice();
-    openModal('modal-record-sale-payment');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-function updateRSPNotice() {
-  if (!RSP_ACTIVE_SALE) return;
-  const total = parseFloat(RSP_ACTIVE_SALE.total) || 0;
-  const alreadyReceived = parseFloat(RSP_ACTIVE_SALE.amount_received) || 0;
-  const remaining = Math.max(0, total - alreadyReceived);
-  const amt = parseFloat(document.getElementById('rsp-amount').value) || 0;
-
-  const notice = document.getElementById('rsp-notice');
-  const noticeText = document.getElementById('rsp-notice-text');
-  const saveBtn = document.getElementById('rsp-save-btn');
-  const stillDue = Math.max(0, remaining - amt);
-
-  if (amt > 0 && amt < remaining - 0.004) {
-    notice.style.display = 'flex';
-    notice.style.background = '#FFF3E0';
-    notice.style.color = '#7B3F00';
-    noticeText.textContent = `This leaves ${fmt_money(stillDue)} still due. Status stays Partial after this payment.`;
-    saveBtn.innerHTML = '<i class="fas fa-check"></i> Record Partial Payment';
-    saveBtn.style.background = '#E65100';
-  } else {
-    notice.style.display = 'none';
-    saveBtn.innerHTML = '<i class="fas fa-check"></i> Record Payment';
-    saveBtn.style.background = '';
-  }
-}
-
-async function saveRecordSalePayment() {
-  if (!RSP_ACTIVE_SALE) return;
-  const amount = parseFloat(document.getElementById('rsp-amount').value) || 0;
-  if (amount <= 0) { toast('⚠️ Enter an amount greater than 0', 'warning'); return; }
-
-  const btn = document.getElementById('rsp-save-btn');
-  if (btn) { btn.disabled = true; }
-
-  const _now = new Date();
-  const _timeStr = String(_now.getHours()).padStart(2,'0') + ':' + String(_now.getMinutes()).padStart(2,'0') + ':' + String(_now.getSeconds()).padStart(2,'0');
-  const selectedDate = document.getElementById('rsp-date').value;
-
-  const payload = {
-    sale_id: RSP_ACTIVE_SALE.id,
-    customer_name: RSP_ACTIVE_SALE.customer_name || '',
-    amount: amount,
-    payment_date: selectedDate ? selectedDate + ' ' + _timeStr : null,
-    method: document.getElementById('rsp-method').value,
-    transaction_id: document.getElementById('rsp-txn').value.trim(),
-    notes: document.getElementById('rsp-notes').value.trim(),
-  };
-
-  try {
-    await api('api/sale_payments.php', 'POST', payload);
-    closeModal('modal-record-sale-payment');
-    toast('✅ Payment recorded!', 'success');
-    const r = await api('api/sales.php');
-    STATE.sales = Array.isArray(r.data) ? r.data : STATE.sales;
-    renderSales();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
   finally { if (btn) btn.disabled = false; }
 }

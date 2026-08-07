@@ -117,27 +117,6 @@ try {
 // serial-tracked products (one unit sold = one specific serial consumed).
 try { $db->exec("ALTER TABLE sale_items ADD COLUMN serial_no VARCHAR(80) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
 
-// Same table sale_payments.php creates — needed here too since this file
-// also writes to it directly (the "first payment at creation" row).
-$db->exec("CREATE TABLE IF NOT EXISTS `sale_payments` (
-    `id`              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    `sale_id`         INT UNSIGNED  NOT NULL,
-    `invoice_no`      VARCHAR(60)   NULL,
-    `customer_name`   VARCHAR(200)  NULL,
-    `amount`          DECIMAL(12,2) NOT NULL DEFAULT 0,
-    `remaining_amt`   DECIMAL(12,2) NOT NULL DEFAULT 0,
-    `payment_date`    DATETIME      NULL,
-    `method`          VARCHAR(60)   NULL,
-    `transaction_id`  VARCHAR(100)  NULL,
-    `notes`           VARCHAR(500)  NULL,
-    `sale_deleted`    TINYINT(1)    NOT NULL DEFAULT 0,
-    `created_by`      INT UNSIGNED  NULL,
-    `created_at`      DATETIME      NOT NULL,
-    PRIMARY KEY (`id`),
-    INDEX `idx_sp_sale` (`sale_id`),
-    INDEX `idx_sp_date` (`payment_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -277,27 +256,6 @@ switch ($method) {
       fn($it) => cleanProductId($it['product_id'] ?? null), $items
     )));
     if (!empty($affectedProds)) rebalanceStockLedger($db, $affectedProds);
-    // First payment-history row, if anything was received at creation
-    // time — keeps the payment-history table complete from day one. See
-    // sale_payments.php for how every payment after this one is recorded.
-    $initialReceived = (float)($d['amount_received'] ?? 0);
-    if ($initialReceived > 0) {
-      $custNameStmt = $db->prepare('SELECT name FROM customers WHERE id = ?');
-      $custNameStmt->execute([(int)$d['customer_id']]);
-      $remainingAtCreate = max(0, round($total - $initialReceived, 2));
-      $db->prepare(
-        'INSERT INTO sale_payments
-           (sale_id, invoice_no, customer_name, amount, remaining_amt,
-            payment_date, method, transaction_id, notes, created_by, created_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-      )->execute([
-        $saleId, $invoiceNo, $custNameStmt->fetchColumn() ?: '',
-        $initialReceived, $remainingAtCreate,
-        $d['payment_date'] ?? date('Y-m-d H:i:s'), $d['payment_method'] ?? '', $d['transaction_no'] ?? '',
-        'Initial payment at sale creation',
-        (int)$_SESSION['user_id'], date('Y-m-d H:i:s'),
-      ]);
-    }
     jsonResponse(['success' => true, 'id' => $saleId, 'invoice_no' => $invoiceNo]);
     break;
 
@@ -350,17 +308,12 @@ switch ($method) {
       return (is_string($a) && str_starts_with($a, 'data:')) ? saveAttachment($a) : $a;
     }, $d['attachments'] ?? [])));
 
-    // payment_status and amount_received are DELIBERATELY not in this
-    // UPDATE anymore — same fix as purchases.php: editing a sale can no
-    // longer touch payment info at all. Payment method/transaction/date
-    // stay editable since they're metadata, not the actual received-
-    // amount tracking, which only ever changes via sale_payments.php now.
     $db->prepare('UPDATE sales SET
       customer_id=?, sale_date=?, due_date=?, sales_executive=?, payment_terms=?, sales_type=?, place_of_supply=?, currency=?,
       subtotal=?, transport_charge=?, loading_charge=?, packing_charge=?, insurance_charge=?, other_charges=?, round_off=?, discount_amount=?, discount_remarks=?,
       deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       taxable_amount=?, cgst_amount=?, sgst_amount=?, igst_amount=?, total_tax=?, total=?,
-      payment_method=?, transaction_no=?, payment_date=?,
+      payment_status=?, payment_method=?, amount_received=?, transaction_no=?, payment_date=?,
       customer_notes=?, internal_notes=?, delivery_instructions=?, attachments=?,
       prepared_by=?, checked_by=?, approved_by=?, status=?,
       weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?, kanta_operator_name=?,
@@ -371,7 +324,7 @@ switch ($method) {
       $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
-      $d['payment_method'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
+      $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
       $d['prepared_by'] ?? '', $d['checked_by'] ?? '', $d['approved_by'] ?? '', $d['status'] ?? 'Confirmed',
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null, $d['kanta_operator_name'] ?? '',
