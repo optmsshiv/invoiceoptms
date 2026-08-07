@@ -35,8 +35,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS `credit_entries` (
     `purpose`             VARCHAR(255)  NOT NULL,
     `paid_to`             VARCHAR(200)  NULL,
     `payment_method`      VARCHAR(60)   NULL,
-    `status`              ENUM('pending','partial','converted') NOT NULL DEFAULT 'pending',
-    `converted_amount`    DECIMAL(12,2) NOT NULL DEFAULT 0,
+    `status`              ENUM('pending','converted') NOT NULL DEFAULT 'pending',
     `converted_expense_id` INT UNSIGNED NULL,
     `converted_at`        DATETIME      NULL,
     `created_by`          INT UNSIGNED  NULL,
@@ -45,31 +44,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS `credit_entries` (
     INDEX `idx_credit_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// One row per conversion event — a single credit entry can now be
-// converted in more than one part (e.g. ₹30 of a ₹100 entry today,
-// the remaining ₹70 later), so "which expense(s) did this become" is
-// a one-to-many relationship, not the single converted_expense_id
-// column above (kept only for backward-compat display of the most
-// recent conversion).
-$db->exec("CREATE TABLE IF NOT EXISTS `credit_entry_conversions` (
-    `id`               INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-    `credit_entry_id`  INT UNSIGNED  NOT NULL,
-    `expense_id`       INT UNSIGNED  NOT NULL,
-    `amount`           DECIMAL(12,2) NOT NULL DEFAULT 0,
-    `created_by`       INT UNSIGNED  NULL,
-    `created_at`       DATETIME      NOT NULL,
-    PRIMARY KEY (`id`),
-    INDEX `idx_cec_entry` (`credit_entry_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-// Migration guards — for installs where credit_entries already existed
-// before these columns/statuses were added.
+// Migration guard — for installs where credit_entries already existed
+// before payment_method was added to the schema above.
 try { $db->exec("ALTER TABLE credit_entries ADD COLUMN payment_method VARCHAR(60) NULL AFTER paid_to"); }
 catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE credit_entries ADD COLUMN converted_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER status"); }
-catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE credit_entries MODIFY COLUMN status ENUM('pending','partial','converted') NOT NULL DEFAULT 'pending'"); }
-catch (Throwable $e) { /* already correct */ }
 
 // Same schema/logic as expenses.php's own version — kept separate (not
 // shared) since expenses.php defines this locally, not in a shared
@@ -123,10 +101,7 @@ try {
         $body = json_decode($raw, true) ?: [];
     }
 
-    // ── CONVERT: create a real Expense row for PART OR ALL of this
-    // entry's amount. Only flips to fully "converted" once the running
-    // total of all conversions reaches the original amount — before
-    // that, it's "partial" and stays convertible for whatever remains.
+    // ── CONVERT: create a real Expense row, lock this entry as done ──
     if ($method === 'POST' && $action === 'convert') {
         $id = (int)($_GET['id'] ?? $body['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Missing id'], 400);
@@ -135,16 +110,13 @@ try {
         $stmt->execute([$id]);
         $entry = $stmt->fetch();
         if (!$entry) jsonResponse(['error' => 'Not found'], 404);
-        if ($entry['status'] === 'converted') jsonResponse(['error' => 'This entry has already been fully converted.'], 400);
-
-        $alreadyConverted = (float)$entry['converted_amount'];
-        $remaining = round((float)$entry['amount'] - $alreadyConverted, 2);
+        if ($entry['status'] === 'converted') jsonResponse(['error' => 'This entry has already been converted.'], 400);
 
         // Values can be adjusted here at conversion time (this is the
-        // "correction" step, since the entry itself is locked) — amount
-        // defaults to whatever's still remaining, not the full original.
+        // "correction" step, since the entry itself is locked) — falls
+        // back to the original entry's values if not overridden.
         $date     = trim($body['date']     ?? '') ?: $entry['entry_date'];
-        $amount   = isset($body['amount']) && $body['amount'] !== '' ? (float)$body['amount'] : $remaining;
+        $amount   = isset($body['amount']) && $body['amount'] !== '' ? (float)$body['amount'] : (float)$entry['amount'];
         $vendor   = trim($body['vendor']   ?? '') ?: ($entry['paid_to'] ?: $entry['purpose']);
         $category = trim($body['category'] ?? 'Other');
         $method_  = trim($body['method']   ?? '') ?: ($entry['payment_method'] ?: 'Cash');
@@ -152,12 +124,6 @@ try {
 
         if (!$date || !$vendor || $amount <= 0) {
             jsonResponse(['error' => 'date, vendor, and amount are required'], 422);
-        }
-        // Can't convert more than what's actually left — this is the
-        // core of the bug fix: previously any amount here silently
-        // marked the WHOLE entry as converted, even a partial one.
-        if ($amount > $remaining + 0.004) {
-            jsonResponse(['error' => "Only ₹" . number_format($remaining, 2) . " remains on this entry — can't convert ₹" . number_format($amount, 2) . "."], 422);
         }
 
         $now = date('Y-m-d H:i:s');
@@ -174,23 +140,13 @@ try {
         }
 
         $db->prepare(
-            'INSERT INTO credit_entry_conversions (credit_entry_id, expense_id, amount, created_by, created_at)
-             VALUES (?,?,?,?,?)'
-        )->execute([$id, $expenseId, $amount, (int)($_SESSION['user_id'] ?? 0), $now]);
-
-        $newConverted = round($alreadyConverted + $amount, 2);
-        $newStatus = ($newConverted >= (float)$entry['amount'] - 0.004) ? 'converted' : 'partial';
-
-        $db->prepare(
-            'UPDATE credit_entries SET status=?, converted_amount=?, converted_expense_id=?, converted_at=? WHERE id=?'
-        )->execute([$newStatus, $newConverted, $expenseId, $now, $id]);
+            'UPDATE credit_entries SET status="converted", converted_expense_id=?, converted_at=? WHERE id=?'
+        )->execute([$expenseId, $now, $id]);
 
         logActivity((int)($_SESSION['user_id'] ?? 0), 'convert', 'credit_entry', $id,
-            "Converted ₹" . number_format($amount, 2) . " of credit entry to expense #{$expenseId}: {$vendor}" .
-            ($newStatus === 'partial' ? " (₹" . number_format((float)$entry['amount'] - $newConverted, 2) . " still remaining)" : ' (fully converted)'));
+            "Converted credit entry to expense #{$expenseId}: {$vendor} — ₹" . number_format($amount, 2));
 
-        jsonResponse(['success' => true, 'expense_id' => $expenseId, 'status' => $newStatus,
-            'remaining' => round((float)$entry['amount'] - $newConverted, 2)]);
+        jsonResponse(['success' => true, 'expense_id' => $expenseId]);
     }
 
     // ── POST — create (locked forever after; no PUT/DELETE at all) ──

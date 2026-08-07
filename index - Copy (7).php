@@ -9030,7 +9030,6 @@ View Invoice: {{6}}</pre></details>
       <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
         This creates a real entry in your Expense Tracker. You can adjust any of the values below before confirming — this is your one chance to fix a typo from the original entry.
       </div>
-      <div id="cc-remaining-note" style="font-size:12px;font-weight:600;color:#7B3F00;background:#FFF3E0;border-radius:8px;padding:8px 10px;display:none"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field" style="margin:0"><label>Date *</label><input type="date" id="cc-date" style="width:100%"></div>
         <div class="field" style="margin:0"><label>Amount (₹) *</label><input type="number" id="cc-amount" placeholder="0.00" style="width:100%"></div>
@@ -30551,12 +30550,7 @@ function _renderCreditSummary() {
   if (!el) return;
   const list = CREDIT_ENTRIES || [];
   const given = list.reduce((s,c) => s + parseFloat(c.amount||0), 0);
-  // Uses converted_amount (a running total), not a binary status check —
-  // a "partial" entry has SOME of its amount used and some still
-  // available, so checking status==='converted' alone would either
-  // undercount (miss partials entirely) or overcount (count the whole
-  // amount for an entry that's only partly converted).
-  const used  = list.reduce((s,c) => s + parseFloat(c.converted_amount||0), 0);
+  const used  = list.filter(c => c.status === 'converted').reduce((s,c) => s + parseFloat(c.amount||0), 0);
   const available = given - used;
   const cards = [
     {l:'Total Credit Given', v:fmt_money(given),      ic:'fa-hand-holding-hand', col:'#1976D2', bg:'#e3f2fd'},
@@ -30591,27 +30585,19 @@ function renderCreditTable() {
   }
   tbody.innerHTML = CREDIT_ENTRIES.map(c => {
     const isConverted = c.status === 'converted';
-    const isPartial = c.status === 'partial';
-    const converted = parseFloat(c.converted_amount || 0);
-    const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
     return `<tr>
       <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
       <td>${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
       <td>${escHtml(c.payment_method || '—')}</td>
-      <td style="text-align:right">
-        <div style="font-weight:600">${fmt_money(c.amount)}</div>
-        ${isPartial ? `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">${fmt_money(remaining)} left</span></div>` : ''}
-      </td>
+      <td style="text-align:right;font-weight:600">${fmt_money(c.amount)}</td>
       <td>${isConverted
         ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
-        : isPartial
-        ? `<span class="badge" style="background:#FFF3E0;color:#9A6700">Partial</span>`
-        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}</td>
+        : `<span class="badge" style="background:#FFF3E0;color:#9A6700">Pending</span>`}</td>
       <td style="text-align:right">
         ${isConverted
           ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
-          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
+          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> Convert to Expense</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -30649,17 +30635,9 @@ async function saveCreditEntry() {
 function openConvertCreditEntry(id) {
   const c = CREDIT_ENTRIES.find(x => x.id === id);
   if (!c) return;
-  const remaining = Math.max(0, parseFloat(c.amount||0) - parseFloat(c.converted_amount||0));
   document.getElementById('cc-credit-id').value = id;
   document.getElementById('cc-date').value = (c.entry_date || '').slice(0,10);
-  document.getElementById('cc-amount').value = remaining.toFixed(2);
-  const ccNote = document.getElementById('cc-remaining-note');
-  if (parseFloat(c.converted_amount||0) > 0.004) {
-    ccNote.style.display = 'block';
-    ccNote.textContent = `₹${fmt_money(c.converted_amount).replace('₹','')} of ₹${fmt_money(c.amount).replace('₹','')} already converted — ${fmt_money(remaining)} remains.`;
-  } else {
-    ccNote.style.display = 'none';
-  }
+  document.getElementById('cc-amount').value = c.amount;
   document.getElementById('cc-vendor').value = c.paid_to || c.purpose;
   document.getElementById('cc-notes').value = c.purpose;
   document.getElementById('cc-method').value = c.payment_method || 'Cash';
