@@ -23305,6 +23305,7 @@ function printSaleInvoice(s) {
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
+    table.items tfoot td { border: 2px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; margin-bottom: 16px; }
     .tax-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; color:#333; }
@@ -23343,23 +23344,36 @@ function printSaleInvoice(s) {
 
     <div class="row2">
       <div class="box">
-        <h3>BILL TO</h3>
-        <div class="kv"><b>${escHtml(s.customer_name||'')}</b></div>
-        <div class="kv">GSTIN<b>${escHtml(s.customer_gstin||'—')}</b></div>
-        <div class="kv">Place of Supply<b>${escHtml(s.place_of_supply||'—')}</b></div>
+        <h3>👤 BILL TO</h3>
+        <div class="kv">Name<b>${escHtml(s.customer_name||'—')}</b></div>
+        <div class="kv">Add<b>${escHtml([s.customer_address, s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', ') || '—')}</b></div>
+        <div class="kv">Contact<b>${escHtml(s.customer_phone||'—')}</b></div>
       </div>
       <div class="box">
-        <h3>PAYMENT</h3>
-        <div class="kv">Status<b>${escHtml(s.payment_status||'—')}</b></div>
-        <div class="kv">Method<b>${escHtml(s.payment_method||'—')}</b></div>
-        ${s.payment_date ? `<div class="kv">Payment Date<b>${fmt_date_disp(s.payment_date)}</b></div>` : ''}
-        <div class="kv">Balance Due<b style="color:${(s.total-s.amount_received)>0?'#c0392b':'#0d7a3f'}">${fmt_money((s.total||0)-(s.amount_received||0))}</b></div>
+        <h3>🚚 LOGISTICS</h3>
+        <!-- Vehicle No. / Driver Name / driver mobile: this data isn't
+             captured anywhere in Sales yet (unlike Purchases, which has
+             dedicated columns for these) — showing "—" honestly rather
+             than fabricating values. See chat: these fields would need
+             to be added to the Sale Entry form + sales table first. -->
+        <div class="kv">Vehicle No.<b>${escHtml(s.vehicle_no||'—')}</b></div>
+        <div class="kv">Driver Name<b>${escHtml(s.driver_name||'—')}</b></div>
+        <div class="kv">Mobile Number<b>${escHtml(s.driver_mobile||'—')}</b></div>
       </div>
     </div>
 
     <table class="items">
       <thead><tr><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f5faf7;font-weight:800">
+        <td colspan="2">GRAND TOTAL</td>
+        <td class="r">${items.reduce((sum,it)=>sum+parseFloat(it.qty||0),0).toFixed(2)}</td>
+        <td></td><td></td>
+        <td class="r">${fmt_money(items.reduce((sum,it)=>sum+(it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100),0))}</td>
+        <td></td>
+        <td class="r">${fmt_money(s.total_tax)}</td>
+        <td class="r" style="color:#0d3b2e">${fmt_money(s.total)}</td>
+      </tr></tfoot>
     </table>
 
     <div class="row3">
@@ -23381,6 +23395,12 @@ function printSaleInvoice(s) {
         <div class="sum-row"><span>Total Tax</span><span>${fmt_money(s.total_tax)}</span></div>
         <div class="sum-row"><span>Round-off</span><span>${fmt_money(s.round_off)}</span></div>
         <div class="grand"><span>GRAND TOTAL</span><b>${fmt_money(s.total)}</b></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccc">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d3b2e">Payment Mode : <span>${escHtml(s.payment_method||'—')}</span></div>
+          <div style="font-size:11.5px;font-weight:700;margin-top:4px;color:${{Paid:'#0d7a3f',Partial:'#9A6700',Pending:'#c0392b'}[s.payment_status]||'#333'}">
+            ✓ Status : ${escHtml(s.payment_status||'—')}
+          </div>
+        </div>
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(s.total)}</strong></div>
@@ -23390,10 +23410,25 @@ function printSaleInvoice(s) {
       ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
     </div>` : ''}
 
+    <div class="row2" style="margin-top:12px">
+      <div class="box">
+        <h3>NOTES</h3>
+        <div style="font-size:11px;color:#333;line-height:1.6">${escHtml(s.customer_notes||'—')}</div>
+      </div>
+      <div class="box">
+        <h3>TERMS &amp; CONDITIONS</h3>
+        <div style="font-size:10.5px;color:#333;line-height:1.6;white-space:pre-line">${escHtml((STATE.settings||{}).default_tnc||'—')}</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:#0d3b2e;font-weight:700;letter-spacing:.5px;margin:18px 0">
+      — — — — — — — — — — Thank you for your business — — — — — — — — — —
+    </div>
+
     <div class="sig-row">
-      <div class="sig">Customer Signature</div>
-      <div class="sig">${escHtml(s.prepared_by||'Prepared By')}</div>
-      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700">Authorized Signatory</div>
+      <div class="sig"><span style="font-size:22px;display:block;margin-bottom:6px">✍️</span>Customer Signature</div>
+      <div class="sig"><span style="font-size:22px;display:block;margin-bottom:6px">📝</span>${escHtml(s.prepared_by||'Prepared By')}</div>
+      <div class="sig" style="border-top-color:#0d3b2e;color:#0d3b2e;font-weight:700"><span style="font-size:22px;display:block;margin-bottom:6px">🖋️</span>Authorized Signatory</div>
     </div>
     <div class="footer">
       <span>${escHtml(s.invoice_no)} — This is a system generated document</span>
