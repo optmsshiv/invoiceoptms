@@ -20893,64 +20893,11 @@ function pnePaymentStamp(status) {
 
 async function printPurchaseEntry(id) {
   try {
-    const [pr, hr] = await Promise.all([
-      api('api/purchases.php?id=' + id),
-      api('api/purchase_payments.php?purchase_id=' + id).catch(() => ({ data: [] })),
-    ]);
-    const p = pr.data;
-    const paymentHistory = Array.isArray(hr.data) ? hr.data : [];
+    const r = await api('api/purchases.php?id=' + id);
+    const p = r.data;
     const isFarmerVoucher = !parseInt(p.gst_applicable) || p.supplier_type === 'Farmer';
-    if (isFarmerVoucher) printLocalPurchaseVoucher(p, paymentHistory); else printTaxInvoicePurchase(p, paymentHistory);
+    if (isFarmerVoucher) printLocalPurchaseVoucher(p); else printTaxInvoicePurchase(p);
   } catch(e) { toast('❌ Could not open print view: ' + e.message, 'error'); }
-}
-
-// Shared Payment History table + footer summary, used by both print
-// templates below. Columns exactly as requested: date/time, method,
-// ref/txn id, paid amount, paid by, remarks, balance after — plus a
-// footer row with payment count, total paid, and remaining balance.
-function pnePaymentHistoryTableHTML(paymentHistory, grandTotal) {
-  const totalPaid = paymentHistory.reduce((s,h) => s + (parseFloat(h.amount)||0), 0);
-  const remaining = Math.max(0, (parseFloat(grandTotal)||0) - totalPaid);
-  const rows = paymentHistory.map(h => {
-    const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
-    const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
-    return `<tr>
-      <td>${dateStr}${timeStr ? ' ' + timeStr : ''}</td>
-      <td>${escHtml(h.method||'—')}</td>
-      <td>${escHtml(h.transaction_id||'—')}</td>
-      <td style="text-align:right">${fmt_money(h.amount)}</td>
-      <td>${escHtml(h.paid_by_name||'—')}</td>
-      <td>${escHtml(h.notes||'—')}</td>
-      <td style="text-align:right">${fmt_money(h.remaining_amt)}</td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <div class="box" style="margin-bottom:16px">
-      <h3>💳 PAYMENT HISTORY</h3>
-      ${paymentHistory.length ? `
-      <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-top:8px">
-        <thead>
-          <tr style="background:#f5f5f5">
-            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Payment Date/Time</th>
-            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Method</th>
-            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Ref/Txn ID</th>
-            <th style="text-align:right;padding:6px 8px;border-bottom:1.5px solid #ccc">Paid Amount</th>
-            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Paid By</th>
-            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Remarks</th>
-            <th style="text-align:right;padding:6px 8px;border-bottom:1.5px solid #ccc">Balance After</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <div style="display:flex;justify-content:flex-end;gap:22px;margin-top:10px;padding-top:8px;border-top:1px solid #ddd;font-size:11px">
-        <span>Total Payments: <b>${paymentHistory.length}</b></span>
-        <span>Total Paid: <b style="color:#0d7a3f">${fmt_money(totalPaid)}</b></span>
-        <span>Remaining Balance: <b style="color:${remaining>0.004?'#c0392b':'#0d7a3f'}">${fmt_money(remaining)}</b></span>
-      </div>
-      ` : `<div style="font-size:11px;color:#888;padding:8px 0">No payments recorded yet.</div>`}
-    </div>`;
 }
 
 function pneCompanyInfo() {
@@ -20974,7 +20921,7 @@ function pneStatutoryLine(co) {
 }
 
 // ── Template 1: Local Purchase Voucher (Farmer / GST-exempt purchases) ──
-function printLocalPurchaseVoucher(p, paymentHistory = []) {
+function printLocalPurchaseVoucher(p) {
   const co = pneCompanyInfo();
   const items = p.items || [];
   const rows = items.map(it => `
@@ -21112,7 +21059,6 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
         Total paid amount in words : <b style="display:inline">${numToWordsINR(amountPaid)}</b>
       </div>
     </div>
-    ${pnePaymentHistoryTableHTML(paymentHistory, p.total)}
     ${deductions.length ? `
     <div class="box" style="margin-top:12px">
       <h3>DEDUCTION DETAILS</h3>
@@ -21136,7 +21082,7 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
 }
 
 // ── Template 2: Tax Invoice — Purchase Entry (regular / GST-applicable purchases) ──
-function printTaxInvoicePurchase(p, paymentHistory = []) {
+function printTaxInvoicePurchase(p) {
   const co = pneCompanyInfo();
   const items = p.items || [];
   const rows = items.map(it => `
@@ -21276,7 +21222,6 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
       </div>
     </div>
     <div class="words">Amount in Words: <strong>${numToWordsINR(p.total)}</strong></div>
-    ${pnePaymentHistoryTableHTML(paymentHistory, p.total)}
     ${deductions.length ? `
     <div class="box" style="margin-top:12px">
       <h3>DEDUCTION DETAILS</h3>
