@@ -20917,15 +20917,9 @@ function pnePaymentHistoryTableHTML(paymentHistory, grandTotal) {
   // summary above, so a "history" table there would just be redundant.
   if (paymentHistory.length <= 1) return '';
 
-  // API returns newest-first (correct for the in-app modals — most
-  // recent activity at the top). A printed record should read like a
-  // ledger though: first payment, then second, then third — so sort
-  // chronologically here rather than relying on the API's own order.
-  const sorted = [...paymentHistory].sort((a,b) => new Date(a.payment_date) - new Date(b.payment_date));
-
-  const totalPaid = sorted.reduce((s,h) => s + (parseFloat(h.amount)||0), 0);
+  const totalPaid = paymentHistory.reduce((s,h) => s + (parseFloat(h.amount)||0), 0);
   const remaining = Math.max(0, (parseFloat(grandTotal)||0) - totalPaid);
-  const rows = sorted.map(h => {
+  const rows = paymentHistory.map(h => {
     const dt = h.payment_date ? new Date(String(h.payment_date).replace(' ','T') + '+05:30') : null;
     const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
     const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
@@ -23427,7 +23421,7 @@ function _printSalePartyCopy(s, paymentHistory = []) {
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>Sale Invoice — ${escHtml(s.invoice_no)}</title><meta charset="utf-8"><style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; color: #1a1a2e; padding: 28px 36px; font-size: 12px; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0d3b2e; padding-bottom: 14px; margin-bottom: 16px; }
     .co-name { font-size: 20px; font-weight: 900; color: #0d3b2e; }
@@ -23490,11 +23484,9 @@ function _printSalePartyCopy(s, paymentHistory = []) {
 
     <div class="parties">
       <div class="party-box">
-        <h3>👤 Bill To</h3>
-        <div class="meta"><b>Name :</b> ${escHtml(s.customer_name||'—')}</div>
-        <div class="meta"><b>Add :</b> ${escHtml([s.customer_address, s.customer_city, s.customer_state, s.customer_pincode].filter(Boolean).join(', ') || '—')}</div>
-        <div class="meta"><b>GST :</b> ${escHtml(s.customer_gstin || '—')}</div>
-        <div class="meta"><b>Contact :</b> ${escHtml(s.customer_phone || '—')}</div>
+        <h3>Bill To</h3>
+        <div class="name">${escHtml(s.customer_name||'')}</div>
+        <div class="meta">${s.customer_gstin ? 'GSTIN: '+escHtml(s.customer_gstin)+'<br>' : ''}${s.customer_phone ? 'Tel: '+escHtml(s.customer_phone) : ''}</div>
       </div>
       <div class="party-box">
         <h3>Vehicle &amp; Delivery</h3>
@@ -23531,7 +23523,6 @@ function _printSalePartyCopy(s, paymentHistory = []) {
         ${(parseFloat(s.transport_charge)||0) > 0 ? `<div class="pay-row"><span>Transport</span><span>${fmt_money(s.transport_charge)}</span></div>` : ''}
         ${(parseFloat(s.gst_amount)||0) > 0 ? `<div class="pay-row"><span>GST (${parseFloat(s.gst_pct||0).toFixed(0)}%)</span><span>${fmt_money(s.gst_amount)}</span></div>` : ''}
         <div class="pay-grand"><span>GRAND TOTAL</span><span>${fmt_money(s.total)}</span></div>
-        <div class="pay-row" style="font-weight:700;margin-top:6px"><span>Total Paid :</span><span style="color:#0d7a3f">${fmt_money(s.amount_received)}</span></div>
         ${outstanding > 0 ? `<div class="outstanding"><span class="lbl">Outstanding Balance</span><span class="val">${fmt_money(outstanding)}</span></div>` : ''}
       </div>
     </div>

@@ -142,11 +142,7 @@ switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
       $id = (int)$_GET['id'];
-      $stmt = $db->prepare('SELECT s.*, c.name AS customer_name,
-        c.mobile AS customer_phone, c.gstin AS customer_gstin,
-        c.billing_address AS customer_address, c.district AS customer_city,
-        c.state AS customer_state, c.billing_pincode AS customer_pincode
-        FROM sales s JOIN customers c ON c.id = s.customer_id WHERE s.id = ?');
+      $stmt = $db->prepare('SELECT s.*, c.name AS customer_name FROM sales s JOIN customers c ON c.id = s.customer_id WHERE s.id = ?');
       $stmt->execute([$id]);
       $sale = $stmt->fetch();
       if (!$sale) jsonResponse(['error' => 'Not found'], 404);
