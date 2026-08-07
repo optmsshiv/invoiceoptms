@@ -89,6 +89,23 @@ try {
             $rows = $stmt->fetchAll();
             foreach ($rows as &$r) { $r['amount'] = (float)$r['amount']; $r['remaining_amt'] = (float)$r['remaining_amt']; }
             unset($r);
+
+            // "Paid By" name resolution — users live in the MASTER DB,
+            // purchase_payments lives in the TENANT DB (this app is
+            // multi-tenant), so this can never be a plain SQL JOIN across
+            // the two. Look up the distinct user IDs actually needed,
+            // once, against the master DB instead.
+            $userIds = array_values(array_unique(array_filter(array_column($rows, 'created_by'))));
+            $names = [];
+            if ($userIds) {
+                $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+                $uStmt = getMasterDB()->prepare("SELECT id, name FROM users WHERE id IN ($placeholders)");
+                $uStmt->execute($userIds);
+                foreach ($uStmt->fetchAll() as $u) { $names[$u['id']] = $u['name']; }
+            }
+            foreach ($rows as &$r) { $r['paid_by_name'] = $names[$r['created_by']] ?? null; }
+            unset($r);
+
             jsonResponse(['data' => $rows]);
             break;
 
