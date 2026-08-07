@@ -25368,7 +25368,7 @@ function buildMergedPaymentsList() {
     source: 'purchase', party_type: 'Supplier', payment_for: 'Purchase Bill ' + (p.purchase_no||''), direction: 'out',
   }));
   const salePmts = (STATE.sales||[]).filter(s => (parseFloat(s.amount_received)||0) > 0).map(s => ({
-    id: 'sale-' + s.id, date: s.sale_date, inv: s.invoice_no, client: s.customer_name || '—',
+    id: 'sale-' + s.id, date: s.sale_date, _createdAt: s.created_at, inv: s.invoice_no, client: s.customer_name || '—',
     method: s.payment_method || '—', txn: s.transaction_no || '', amount: s.amount_received, status: s.payment_status || 'Pending',
     source: 'sale', party_type: 'Customer', payment_for: 'Invoice ' + (s.invoice_no||''), direction: 'in',
   }));
@@ -25768,7 +25768,11 @@ function _renderPmtPage(){
     const statusColor = p.status === 'Paid' ? ['#00897B','#E8F5E9'] : ['#E65100','#FFF3E0'];
     return `<tr style="${isDeleted ? 'background:#FFF5F5;opacity:.85;' : ''}">
       <td>${s+i+1}</td>
-      <td style="font-size:12px">${fmt_datetime_stacked(p.date)}</td>
+      <td style="font-size:12px">${(function(){
+        const dateStr = fmt_date_disp(p.date);
+        const timeStr = fmt_time_ampm(p._createdAt || p.date);
+        return `<div>${dateStr}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
+      })()}</td>
       <td><code style="font-size:11px;color:var(--muted)">${escHtml(p.inv||'—')}</code></td>
       <td style="text-align:left"><strong>${escHtml(p.client||'—')}</strong><br><span style="font-size:10px;font-weight:700;color:${ptColor};background:${ptBg};padding:1px 6px;border-radius:9px;display:inline-block;margin-top:2px">${escHtml(p.party_type||'—')}</span></td>
       <td style="font-size:11.5px">${escHtml(p.payment_for||'—')}</td>
