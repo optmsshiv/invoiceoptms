@@ -9040,10 +9040,13 @@ View Invoice: {{6}}</pre></details>
           <select id="cc-category" style="width:100%"><option value="">— Select —</option></select>
         </div>
         <div class="field" style="margin:0"><label>Payment Method</label>
-          <div style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:7px">
-            <i class="fas fa-wallet" style="color:var(--teal);font-size:12px"></i> Cash in Hand
-          </div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Every credit conversion is paid back from the shared fund.</div>
+          <!-- Cash in Hand deliberately excluded — this money was paid
+               personally, never drawn from the shared fund, so it must
+               never appear as an option here. -->
+          <select id="cc-method" style="width:100%">
+            <option>Cash</option><option>UPI</option><option>Bank Transfer</option>
+            <option>Credit Card</option><option>Cheque</option>
+          </select>
         </div>
       </div>
       <div class="field" style="margin:0"><label>Vendor / Description *</label>
@@ -30726,8 +30729,10 @@ function openConvertCreditEntry(id) {
   }
   document.getElementById('cc-vendor').value = c.paid_to || c.purpose;
   document.getElementById('cc-notes').value = c.purpose;
-  // Payment Method is fixed to Cash in Hand (shown as static info in the
-  // modal, not a field) — nothing to set here anymore.
+  // Cash in Hand isn't a valid conversion method — fall back to Cash if
+  // that's what was picked at entry creation (a separate, still-valid
+  // choice there, just not here).
+  document.getElementById('cc-method').value = (c.payment_method && c.payment_method !== 'Cash in Hand') ? c.payment_method : 'Cash';
   // Reuse the same category list already maintained for Expenses
   const cats = STATE.expenseCategories || [];
   document.getElementById('cc-category').innerHTML =
@@ -30741,6 +30746,7 @@ async function saveCreditConversion() {
   const amount = parseFloat(document.getElementById('cc-amount').value) || 0;
   const category = document.getElementById('cc-category').value;
   const vendor = document.getElementById('cc-vendor').value.trim();
+  const method = document.getElementById('cc-method').value;
   const notes = document.getElementById('cc-notes').value.trim();
 
   if (!date || !vendor || !category || amount <= 0) {
@@ -30749,10 +30755,8 @@ async function saveCreditConversion() {
   }
 
   try {
-    // method is deliberately not sent — the backend always uses
-    // Cash in Hand for a credit conversion, this isn't a real choice.
     await api('api/credit_entries.php?action=convert&id=' + id, 'POST', {
-      date, amount, category, vendor, notes,
+      date, amount, category, vendor, method, notes,
     });
     closeModal('modal-credit-convert');
     toast('✅ Converted to Expense!', 'success');

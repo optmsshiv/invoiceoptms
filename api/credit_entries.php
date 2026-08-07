@@ -71,39 +71,12 @@ catch (Throwable $e) { /* already exists */ }
 try { $db->exec("ALTER TABLE credit_entries MODIFY COLUMN status ENUM('pending','partial','converted') NOT NULL DEFAULT 'pending'"); }
 catch (Throwable $e) { /* already correct */ }
 
-// Same schema/logic as expenses.php's own version — kept separate (not
-// shared) since expenses.php defines this locally, not in a shared
-// includes file. Records money leaving the shared Cash in Hand fund when
-// a converted expense's payment method is "Cash in Hand" — without this,
-// the expense record itself would be correct, but the CIH balance
-// wouldn't reflect that money actually left the fund.
-function creditCihBalance($db) {
-    $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
-    return $row ? (float)$row['balance_after'] : 0.0;
-}
-function creditRecordCashInHandMovement($db, $direction, $amount, $refType, $refId, $note, $userId) {
-    if ($amount <= 0) return;
-    try {
-        $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
-            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-            `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup',
-            `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
-            `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
-            `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
-            `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `source_end_date` DATE NULL, PRIMARY KEY (`id`),
-            INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $newBal = $direction === 'in' ? creditCihBalance($db) + $amount : creditCihBalance($db) - $amount;
-        $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-            (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by, created_at)
-            VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute(['expense', $direction, $amount, $newBal, $refType, $refId, $note, $userId, date('Y-m-d H:i:s')]);
-    } catch (Throwable $e) {
-        error_log('creditRecordCashInHandMovement failed: ' . $e->getMessage());
-    }
-}
+// NOTE: Cash in Hand is deliberately NOT integrated with this flow.
+// A credit entry represents money already paid personally (by the
+// owner or permitted staff), not money drawn from the shared Cash in
+// Hand fund — so converting one to an Expense never touches that
+// ledger. "Cash in Hand" is explicitly rejected as a payment method
+// in the convert action below.
 
 try {
     if ($method === 'GET') {
@@ -140,19 +113,19 @@ try {
         $alreadyConverted = (float)$entry['converted_amount'];
         $remaining = round((float)$entry['amount'] - $alreadyConverted, 2);
 
-        // Values can be adjusted here at conversion time (this is the
-        // "correction" step, since the entry itself is locked) — amount
-        // defaults to whatever's still remaining, not the full original.
         $date     = trim($body['date']     ?? '') ?: $entry['entry_date'];
         $amount   = isset($body['amount']) && $body['amount'] !== '' ? (float)$body['amount'] : $remaining;
         $vendor   = trim($body['vendor']   ?? '') ?: ($entry['paid_to'] ?: $entry['purpose']);
         $category = trim($body['category'] ?? 'Other');
-        // Payment method is ALWAYS "Cash in Hand" for a credit conversion
-        // now — not a choice. This is a deliberate client decision: every
-        // credit-converted expense is paid back from the shared Cash in
-        // Hand fund, so the ledger movement below always fires, on
-        // purpose, not conditionally on what the user picked.
-        $method_  = 'Cash in Hand';
+        // Cash in Hand is deliberately NOT allowed here — a credit entry
+        // represents money the owner/staff already paid personally, not
+        // money drawn from the shared fund, so this conversion must never
+        // touch that ledger. Rejected explicitly (not just excluded from
+        // the UI dropdown) in case a request is ever crafted directly.
+        $method_ = trim($body['method'] ?? '') ?: ($entry['payment_method'] ?: 'Cash');
+        if ($method_ === 'Cash in Hand') {
+            jsonResponse(['error' => 'Cash in Hand is not a valid payment method for a credit conversion — this money was paid personally, not drawn from the shared fund.'], 422);
+        }
         $notes    = trim($body['notes']    ?? $entry['purpose']);
 
         if (!$date || !$vendor || $amount <= 0) {
@@ -179,10 +152,9 @@ try {
         $exp->execute([$date, $category, $vendor, $amount, $method_, 'credit', $notes, $now, $now]);
         $expenseId = (int)$db->lastInsertId();
 
-        // Method is always Cash in Hand now, so this always fires —
-        // deliberately unconditional, not "if selected".
-        creditRecordCashInHandMovement($db, 'out', $amount, 'expense', $expenseId,
-            "Credit converted: {$vendor}", (int)($_SESSION['user_id'] ?? 0));
+        // No Cash in Hand ledger movement here at all — this money never
+        // came from the shared fund, so nothing about it should ever
+        // touch that ledger's balance.
 
         $db->prepare(
             'INSERT INTO credit_entry_conversions (credit_entry_id, expense_id, amount, created_by, created_at)
