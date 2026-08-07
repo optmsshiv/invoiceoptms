@@ -20916,13 +20916,13 @@ function pnePaymentHistoryTableHTML(paymentHistory, grandTotal) {
     const dateStr = dt && !isNaN(dt) ? dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
     const timeStr = dt && !isNaN(dt) ? dt.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
     return `<tr>
-      <td style="padding:6px 8px;border:1px solid #ccc;white-space:nowrap">${dateStr}${timeStr ? ' ' + timeStr : ''}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc">${escHtml(h.method||'—')}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc">${escHtml(h.transaction_id||'—')}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc;text-align:right;white-space:nowrap">${fmt_money(h.amount)}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc">${escHtml(h.paid_by_name||'—')}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc">${escHtml(h.notes||'—')}</td>
-      <td style="padding:6px 8px;border:1px solid #ccc;text-align:right;white-space:nowrap">${fmt_money(h.remaining_amt)}</td>
+      <td>${dateStr}${timeStr ? ' ' + timeStr : ''}</td>
+      <td>${escHtml(h.method||'—')}</td>
+      <td>${escHtml(h.transaction_id||'—')}</td>
+      <td style="text-align:right">${fmt_money(h.amount)}</td>
+      <td>${escHtml(h.paid_by_name||'—')}</td>
+      <td>${escHtml(h.notes||'—')}</td>
+      <td style="text-align:right">${fmt_money(h.remaining_amt)}</td>
     </tr>`;
   }).join('');
 
@@ -20930,20 +20930,16 @@ function pnePaymentHistoryTableHTML(paymentHistory, grandTotal) {
     <div class="box" style="margin-bottom:16px">
       <h3>💳 PAYMENT HISTORY</h3>
       ${paymentHistory.length ? `
-      <table style="width:100%;border-collapse:collapse;border:1px solid #ccc;font-size:10.5px;margin-top:8px;table-layout:fixed">
-        <colgroup>
-          <col style="width:15%"><col style="width:10%"><col style="width:13%">
-          <col style="width:14%"><col style="width:14%"><col style="width:20%"><col style="width:14%">
-        </colgroup>
+      <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-top:8px">
         <thead>
           <tr style="background:#f5f5f5">
-            <th style="text-align:left;padding:6px 8px;border:1px solid #ccc">Payment Date/Time</th>
-            <th style="text-align:left;padding:6px 8px;border:1px solid #ccc">Method</th>
-            <th style="text-align:left;padding:6px 8px;border:1px solid #ccc">Ref/Txn ID</th>
-            <th style="text-align:right;padding:6px 8px;border:1px solid #ccc">Paid Amount</th>
-            <th style="text-align:left;padding:6px 8px;border:1px solid #ccc">Paid By</th>
-            <th style="text-align:left;padding:6px 8px;border:1px solid #ccc">Remarks</th>
-            <th style="text-align:right;padding:6px 8px;border:1px solid #ccc">Balance After</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Payment Date/Time</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Method</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Ref/Txn ID</th>
+            <th style="text-align:right;padding:6px 8px;border-bottom:1.5px solid #ccc">Paid Amount</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Paid By</th>
+            <th style="text-align:left;padding:6px 8px;border-bottom:1.5px solid #ccc">Remarks</th>
+            <th style="text-align:right;padding:6px 8px;border-bottom:1.5px solid #ccc">Balance After</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
