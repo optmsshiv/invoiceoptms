@@ -1951,15 +1951,15 @@ const SERVER = {
   <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="page-breadcrumb" id="breadcrumb">Dashboard</div>
-      <!-- Moved out of centered absolute positioning — it used to float
-           independently at the topbar's midpoint and collided with the
-           search bar once that was widened. Sitting in normal flex flow
-           next to the breadcrumb, it can never overlap anything again. -->
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">
       <div id="gdr-topbar-badge" onclick="showPage('settings',null)" title="Click to change in Settings → Company Info"
-            style="display:none;align-items:center;gap:7px;padding:5px 12px;border-radius:9px;background:#E0F2F1;border:1px solid #80CBC4;cursor:pointer;white-space:nowrap">
-        <i class="fas fa-calendar-days" style="font-size:12px;color:#00695C"></i>
-        <span style="font-size:12px;font-weight:700;color:#00695C" id="gdr-topbar-badge-name"></span>
-        <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.75" id="gdr-topbar-badge-dates"></span>
+            style="display:none;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#E0F2F1;border:1px solid #80CBC4;cursor:pointer;white-space:nowrap">
+        <i class="fas fa-calendar-days" style="font-size:13px;color:#00695C"></i>
+        <div style="display:flex;flex-direction:column;line-height:1.35">
+          <span style="font-size:12.5px;font-weight:700;color:#00695C" id="gdr-topbar-badge-name"></span>
+          <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.8" id="gdr-topbar-badge-dates"></span>
+        </div>
       </div>
     </div>
     <div class="topbar-right">
