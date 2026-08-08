@@ -25938,31 +25938,10 @@ function viewReceipt(i, list){
   const refLabel = p.source === 'purchase' ? 'Purchase Bill #' : (p.source === 'sale' || p.source === 'invoice') ? 'Invoice #' : 'Reference #';
   const partyLabel = isOut ? 'Paid To' : 'Received From';
   const words = (typeof numToWordsINR === 'function') ? numToWordsINR(parseFloat(p.amount)||0) : '';
-  // Referenceable receipt number — previously there was nothing on this
-  // document to cite later ("as per receipt #...").
-  const receiptNo = 'RCPT-' + String(p.id).toUpperCase();
-  const gst = sc.gst || (typeof SERVER !== 'undefined' && SERVER.settings?.company_gst) || '';
-  const logo = sc.logo || (typeof SERVER !== 'undefined' && SERVER.settings?.company_logo) || '';
-  const authSigName = sc.sig_authorized_name || (typeof SERVER !== 'undefined' && SERVER.settings?.sig_authorized_name) || '';
-  const receivedByName = !isOut ? (SERVER.user?.name || '') : '';
-
-  // Payment Details rows — settlement_discount, remaining_amt and notes
-  // already exist on the payments table but were never actually shown
-  // here before; only added when the record actually has them, since
-  // sale/purchase-derived rows in this merged list don't carry them.
-  const detailRows = [['Date',df],['Method',p.method],['Txn ID',p.txn||'—']];
-  if (p.status) detailRows.push(['Status', p.status]);
-  if (parseFloat(p.settlement_discount) > 0) detailRows.push(['Settlement Discount', fmt_money(p.settlement_discount)]);
-  if (p.remaining_amt !== undefined && p.remaining_amt !== null && p.remaining_amt !== '') detailRows.push(['Balance Remaining', fmt_money(p.remaining_amt)]);
-  if (p.notes) detailRows.push(['Notes', p.notes]);
-
   document.getElementById('receiptBody').innerHTML=`
     <div style="text-align:center;margin-bottom:18px">
-      ${logo ? `<img src="${logo}" style="height:44px;max-width:180px;object-fit:contain;display:block;margin:0 auto 8px" onerror="this.style.display='none'">` : ''}
       <div style="font-size:20px;font-weight:800;color:var(--teal)">${sc.company}</div>
       <div style="font-size:11px;color:var(--muted)">${sc.address} · ${sc.phone}</div>
-      ${gst ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">GSTIN: ${escHtml(gst)}</div>` : ''}
-      <div style="font-size:10.5px;color:var(--muted2);margin-top:4px;font-family:var(--mono)">${receiptNo}</div>
     </div>
     <div style="border:2px dashed ${accent};border-radius:10px;padding:18px;margin-bottom:16px;text-align:center">
       <div style="font-size:36px;color:${accent}">${isOut ? '↗' : '✓'}</div>
@@ -25979,18 +25958,12 @@ function viewReceipt(i, list){
     <div style="border:1px solid #000;border-radius:8px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
       <table style="width:100%;border-collapse:collapse">
-        ${detailRows.map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
+        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—'],['Status',p.status]].map(([k,v])=>`<tr><td style="padding:5px 0;color:var(--muted);font-size:12.5px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12.5px">${escHtml(String(v))}</td></tr>`).join('')}
       </table>
     </div>
     <div style="margin-top:26px;display:flex;justify-content:space-between;padding:0 6px">
-      <div style="text-align:center;font-size:10.5px;color:var(--muted)">
-        ${receivedByName ? `<div style="font-weight:600;color:var(--text);margin-bottom:1px">${escHtml(receivedByName)}</div>` : ''}
-        <div style="border-top:1px solid #999;width:130px;margin-top:${receivedByName?2:34}px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div>
-      </div>
-      <div style="text-align:center;font-size:10.5px;color:var(--muted)">
-        ${authSigName ? `<div style="font-weight:600;color:var(--text);margin-bottom:1px">${escHtml(authSigName)}</div>` : ''}
-        <div style="border-top:1px solid #999;width:130px;margin-top:${authSigName?2:34}px;padding-top:4px">Authorised Signatory</div>
-      </div>
+      <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
+      <div style="text-align:center;font-size:10.5px;color:var(--muted)"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
     </div>
     <div style="margin-top:14px;text-align:center;font-size:10px;color:var(--muted)">Computer-generated receipt · ${STATE.settings.company || 'Invoice Manager'}</div>`;
   STATE._rcptIdx=i;
@@ -26006,18 +25979,10 @@ function printReceiptModal(){
   const words = (typeof numToWordsINR === 'function') ? numToWordsINR(parseFloat(p.amount)||0) : '';
   const w=window.open('','_blank','width=600,height=760');
   const df=p.date?new Date(p.date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'long',year:'numeric'}):p.date;
-  const receiptNo = 'RCPT-' + String(p.id).toUpperCase();
-  const gst = sc.gst || (typeof SERVER !== 'undefined' && SERVER.settings?.company_gst) || '';
-  const authSigName = sc.sig_authorized_name || (typeof SERVER !== 'undefined' && SERVER.settings?.sig_authorized_name) || '';
-  const receivedByName = !isOut ? (SERVER.user?.name || '') : '';
-  const detailRows = [['Date',df],['Method',p.method],['Txn ID',p.txn||'—']];
-  if (parseFloat(p.settlement_discount) > 0) detailRows.push(['Settlement Discount', fmt_money(p.settlement_discount)]);
-  if (p.remaining_amt !== undefined && p.remaining_amt !== null && p.remaining_amt !== '') detailRows.push(['Balance Remaining', fmt_money(p.remaining_amt)]);
-  if (p.notes) detailRows.push(['Notes', p.notes]);
-  w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${receiptNo}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:40px}.no-print{display:flex;gap:10px;margin-bottom:20px;padding:10px;background:#f5f5f5;border-radius:8px}@media print{.no-print{display:none!important}}</style></head><body>
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:40px}.no-print{display:flex;gap:10px;margin-bottom:20px;padding:10px;background:#f5f5f5;border-radius:8px}@media print{.no-print{display:none!important}}</style></head><body>
   <div class="no-print"><button onclick="window.print()" style="padding:8px 20px;background:${accent};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:bold">Print</button><button onclick="window.close()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;cursor:pointer">Close</button></div>
   <div style="max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden">
-    <div style="background:${accent};color:#fff;padding:20px;text-align:center"><h2>${sc.company}</h2><p style="font-size:12px;opacity:.8">${sc.address}</p>${gst?`<p style="font-size:11px;opacity:.8;margin-top:2px">GSTIN: ${escHtml(gst)}</p>`:''}<p style="font-size:10px;opacity:.7;margin-top:4px;font-family:monospace">${receiptNo}</p></div>
+    <div style="background:${accent};color:#fff;padding:20px;text-align:center"><h2>${sc.company}</h2><p style="font-size:12px;opacity:.8">${sc.address}</p></div>
     <div style="padding:24px;text-align:center">
       <div style="font-size:40px;color:${isOut?'#FFF3E0':'#C8E6C9'}">${isOut ? '↗' : '✓'}</div>
       <div style="font-weight:700">${isOut ? 'Payment Made' : 'Payment Received'}</div>
@@ -26033,18 +25998,12 @@ function printReceiptModal(){
     <div style="margin:0 24px 20px;border:1px solid #000;border-radius:8px;padding:12px 16px">
       <div style="font-size:11px;font-weight:700;color:${accent};margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px">Payment Details</div>
       <table style="width:100%;border-collapse:collapse">
-        ${detailRows.map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
+        ${[['Date',df],['Method',p.method],['Txn ID',p.txn||'—']].map(([k,v])=>`<tr><td style="padding:5px 0;color:#777;font-size:12px;width:42%">${escHtml(k)}</td><td style="padding:5px 0;font-weight:600;font-size:12px">${escHtml(String(v||'—'))}</td></tr>`).join('')}
       </table>
     </div>
     <div style="padding:20px 24px 24px;display:flex;justify-content:space-between">
-      <div style="text-align:center;font-size:10.5px;color:#888">
-        ${receivedByName ? `<div style="font-weight:600;color:#333;margin-bottom:1px">${escHtml(receivedByName)}</div>` : ''}
-        <div style="border-top:1px solid #999;width:130px;margin-top:${receivedByName?2:34}px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div>
-      </div>
-      <div style="text-align:center;font-size:10.5px;color:#888">
-        ${authSigName ? `<div style="font-weight:600;color:#333;margin-bottom:1px">${escHtml(authSigName)}</div>` : ''}
-        <div style="border-top:1px solid #999;width:130px;margin-top:${authSigName?2:34}px;padding-top:4px">Authorised Signatory</div>
-      </div>
+      <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">${isOut ? 'Received By (Payee)' : 'Received By (Us)'}</div></div>
+      <div style="text-align:center;font-size:10.5px;color:#888"><div style="border-top:1px solid #999;width:130px;margin-top:34px;padding-top:4px">Authorised Signatory</div></div>
     </div>
   </div></body></html>`);
   w.document.close();
