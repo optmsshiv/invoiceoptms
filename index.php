@@ -23346,7 +23346,7 @@ function printSaleInvoice(s, paymentHistory = []) {
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
-    table.items tfoot td { border: 2px solid #0d3b2e; }
+    table.items tfoot td { border: 1px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
     .row3-left { flex: 1; display: flex; flex-direction: column; gap: 12px; }
