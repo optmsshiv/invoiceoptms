@@ -3270,7 +3270,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -19561,8 +19561,6 @@ function renderPurchases() {
     Received:{ color:'#7B1FA2', bg:'#F3E8FF' },
   };
   tbody.innerHTML = pageRows.map((p, i) => {
-    const doc = plDocStatus(p);
-    const docColor = doc === 'Completed' ? '#00897B' : '#1976D2';
     const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
     const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
     return `
@@ -19583,7 +19581,7 @@ function renderPurchases() {
         })() : ''}
       </td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
-      <td><span style="font-size:11px;font-weight:700;color:${docColor};background:${docColor}18;padding:2px 9px;border-radius:10px">${doc}</span></td>
+      <td>${p.payment_date ? `<span style="white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10.5px;color:var(--muted);margin-right:4px"></i>${fmt_date_disp(p.payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
@@ -19616,13 +19614,13 @@ function plPage(p) {
 function exportPurchasesExcel() {
   const list = plFilteredPurchases();
   if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Status','Payment Type','Warehouse']];
+  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Payment Date','Payment Type','Warehouse']];
   list.forEach((p, i) => {
     const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
     rows.push([
       i+1, p.purchase_no||'', p.purchase_date||'', p.supplier_name||'',
       (parseFloat(p.total_qty)||0).toFixed(2), total.toFixed(2), paid.toFixed(2), Math.max(0, total-paid).toFixed(2),
-      p.status === 'Received' ? 'Pending' : (p.status||''), plDocStatus(p), p.payment_type||'', p.warehouse||'Main Warehouse'
+      p.status === 'Received' ? 'Pending' : (p.status||''), p.payment_date ? fmt_date_disp(p.payment_date) : '', p.payment_type||'', p.warehouse||'Main Warehouse'
     ]);
   });
   _downloadCSV(rows, 'purchase_list.csv');
