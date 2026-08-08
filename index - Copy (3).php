@@ -240,33 +240,8 @@ canvas { max-width: 100% !important; }
 .sidebar.collapsed .nav-badge,
 .sidebar.collapsed .nav-dot,
 .sidebar.collapsed .user-info { display: none; }
-.sidebar.collapsed .nav-item { justify-content: center; padding: 11px; position: relative; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 11px; }
 .sidebar.collapsed .brand-logo { margin: 0 auto; }
-
-/* Hover tooltip for collapsed nav items — with only icons visible there's
-   no way to tell what a menu item is until you click it. #sidebarTooltip is
-   a single shared element positioned via JS on hover (see DOMContentLoaded
-   init) — it has to live outside .sidebar-nav since that has overflow-y:auto,
-   which browsers also clip horizontally, so an ::after anchored inside a
-   nav-item would get cut off at the sidebar's edge instead of floating over
-   the page content. */
-#sidebarTooltip {
-  position: fixed;
-  background: #1f2937;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 11px;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 4px 14px rgba(0,0,0,.28);
-  z-index: 300;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity .12s ease;
-}
-#sidebarTooltip.show { opacity: 1; visibility: visible; }
 
 .sidebar-brand {
   display: flex;
@@ -1422,28 +1397,26 @@ select { cursor: pointer; }
 ══════════════════════════════════════════ */
 /* Used only in print window — defined in JS */
 
-/* Sidebar external toggle button — floating circle straddling the
-   sidebar/content border, positioned below the topbar rather than
-   inside it, so it doesn't compete for space with topbar controls. */
+/* Sidebar external toggle button */
 .sidebar-toggle-btn {
   position: fixed;
-  left: calc(var(--sidebar-w) - 14px);
-  top: calc(var(--topbar-h) + 22px);
-  width: 30px; height: 30px;
-  background: var(--blue);
-  border: 3px solid #fff;
-  color: #fff;
-  border-radius: 50%;
+  left: calc(var(--sidebar-w) - 1px);
+  top: 16px;
+  width: 28px; height: 28px;
+  background: var(--sidebar-bg);
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-left: none;
+  color: rgba(255,255,255,.6);
+  border-radius: 0 7px 7px 0;
   cursor: pointer;
   z-index: 101;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,.22);
-  transition: left .25s cubic-bezier(.4,0,.2,1), background .2s, transform .15s;
+  transition: left .25s cubic-bezier(.4,0,.2,1), background .2s;
 }
-.sidebar-toggle-btn:hover { background: var(--blue-l); transform: scale(1.08); }
+.sidebar-toggle-btn:hover { background: var(--teal); color: #fff; }
 .sidebar.collapsed ~ * .sidebar-toggle-btn,
-.sidebar-toggle-btn.collapsed-pos { left: 50px; }
+.sidebar-toggle-btn.collapsed-pos { left: 63px; }
 
 /* PDF opts grid */
 .pdf-opts-grid {
@@ -1704,7 +1677,7 @@ const SERVER = {
   </div>
   <!-- Sidebar toggle OUTSIDE brand so always visible -->
   <button class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
-    <i class="fas fa-chevron-left" id="toggleIcon"></i>
+    <i class="fas fa-bars" id="toggleIcon"></i>
   </button>
 
   <nav class="sidebar-nav">
@@ -9639,28 +9612,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const item = e.target.closest('.nav-item[data-page]');
     if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
   });
-  // Hover tooltip for collapsed-sidebar nav items — a single shared
-  // element, positioned via getBoundingClientRect() on each hover, since
-  // .sidebar-nav's overflow-y:auto would clip a per-item CSS tooltip.
-  (function() {
-    const tip = document.createElement('div');
-    tip.id = 'sidebarTooltip';
-    document.body.appendChild(tip);
-    document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(item => {
-      const label = item.querySelector('span')?.textContent?.trim();
-      if (!label) return;
-      item.addEventListener('mouseenter', () => {
-        if (!document.getElementById('sidebar')?.classList.contains('collapsed')) return;
-        const r = item.getBoundingClientRect();
-        tip.textContent = label;
-        tip.style.left = (r.right + 10) + 'px';
-        tip.style.top  = (r.top + r.height / 2) + 'px';
-        tip.style.transform = 'translateY(-50%)';
-        tip.classList.add('show');
-      });
-      item.addEventListener('mouseleave', () => tip.classList.remove('show'));
-    });
-  })();
 });
 
 function setTodayDates() {
@@ -9764,8 +9715,8 @@ function toggleSidebar() {
   const btn = document.getElementById('sidebarToggle');
   sb.classList.toggle('collapsed');
   const collapsed = sb.classList.contains('collapsed');
-  btn.style.left = collapsed ? '50px' : ((parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'))||240) - 14) + 'px';
-  btn.querySelector('i').className = collapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+  btn.style.left = collapsed ? '63px' : (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'))||240) - 1 + 'px';
+  btn.querySelector('i').className = collapsed ? 'fas fa-chevron-right' : 'fas fa-bars';
 }
 
 const breadcrumbs = {
