@@ -240,8 +240,33 @@ canvas { max-width: 100% !important; }
 .sidebar.collapsed .nav-badge,
 .sidebar.collapsed .nav-dot,
 .sidebar.collapsed .user-info { display: none; }
-.sidebar.collapsed .nav-item { justify-content: center; padding: 11px; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 11px; position: relative; }
 .sidebar.collapsed .brand-logo { margin: 0 auto; }
+
+/* Hover tooltip for collapsed nav items — with only icons visible there's
+   no way to tell what a menu item is until you click it. #sidebarTooltip is
+   a single shared element positioned via JS on hover (see DOMContentLoaded
+   init) — it has to live outside .sidebar-nav since that has overflow-y:auto,
+   which browsers also clip horizontally, so an ::after anchored inside a
+   nav-item would get cut off at the sidebar's edge instead of floating over
+   the page content. */
+#sidebarTooltip {
+  position: fixed;
+  background: #1f2937;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  z-index: 300;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+}
+#sidebarTooltip.show { opacity: 1; visibility: visible; }
 
 .sidebar-brand {
   display: flex;
@@ -1397,26 +1422,28 @@ select { cursor: pointer; }
 ══════════════════════════════════════════ */
 /* Used only in print window — defined in JS */
 
-/* Sidebar external toggle button */
+/* Sidebar external toggle button — floating circle straddling the
+   sidebar/content border, positioned below the topbar rather than
+   inside it, so it doesn't compete for space with topbar controls. */
 .sidebar-toggle-btn {
   position: fixed;
-  left: calc(var(--sidebar-w) - 1px);
-  top: 16px;
-  width: 28px; height: 28px;
-  background: var(--sidebar-bg);
-  border: 1.5px solid rgba(255,255,255,.15);
-  border-left: none;
-  color: rgba(255,255,255,.6);
-  border-radius: 0 7px 7px 0;
+  left: calc(var(--sidebar-w) - 14px);
+  top: calc(var(--topbar-h) + 22px);
+  width: 30px; height: 30px;
+  background: var(--blue);
+  border: 3px solid #fff;
+  color: #fff;
+  border-radius: 50%;
   cursor: pointer;
   z-index: 101;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px;
-  transition: left .25s cubic-bezier(.4,0,.2,1), background .2s;
+  box-shadow: 0 3px 10px rgba(0,0,0,.22);
+  transition: left .25s cubic-bezier(.4,0,.2,1), background .2s, transform .15s;
 }
-.sidebar-toggle-btn:hover { background: var(--teal); color: #fff; }
+.sidebar-toggle-btn:hover { background: var(--blue-l); transform: scale(1.08); }
 .sidebar.collapsed ~ * .sidebar-toggle-btn,
-.sidebar-toggle-btn.collapsed-pos { left: 63px; }
+.sidebar-toggle-btn.collapsed-pos { left: 50px; }
 
 /* PDF opts grid */
 .pdf-opts-grid {
@@ -1677,7 +1704,7 @@ const SERVER = {
   </div>
   <!-- Sidebar toggle OUTSIDE brand so always visible -->
   <button class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
-    <i class="fas fa-bars" id="toggleIcon"></i>
+    <i class="fas fa-chevron-left" id="toggleIcon"></i>
   </button>
 
   <nav class="sidebar-nav">
@@ -6992,6 +7019,11 @@ View Invoice: {{6}}</pre></details>
               <button type="button" class="profile-upload-btn" onclick="document.getElementById('profile-photo-input').click()">
                 <i class="fas fa-upload"></i> Upload Photo
               </button>
+              <?php if(!empty($user['avatar'])): ?>
+              <button type="button" class="profile-upload-btn" id="profile-remove-photo-btn" onclick="removeProfilePhoto()" style="color:#E53935">
+                <i class="fas fa-trash"></i> Remove
+              </button>
+              <?php endif; ?>
             </div>
             <div style="margin:16px 0 18px">
               <div id="profile-display-name" style="font-size:18px;font-weight:800;color:var(--text);line-height:1.2"><?= htmlspecialchars($user['name']) ?></div>
@@ -7108,7 +7140,7 @@ View Invoice: {{6}}</pre></details>
               <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
             </div>
             <div class="pcard-field-row">
-              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
               <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
             </div>
             <div class="field readonly"><label>User ID</label><input id="profile-user-id" value="<?= htmlspecialchars($user['id']) ?>" readonly disabled title="Your account ID (read-only)"></div>
@@ -7126,6 +7158,7 @@ View Invoice: {{6}}</pre></details>
             <span class="pcard-title">Change Password</span>
           </div>
           <div class="pcard-body">
+            <div class="field"><label>Current Password</label><input type="password" id="profile-pass-current" placeholder="Enter your current password" autocomplete="current-password"></div>
             <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
             <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
           </div>
@@ -9606,6 +9639,28 @@ window.addEventListener('DOMContentLoaded', () => {
     const item = e.target.closest('.nav-item[data-page]');
     if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
   });
+  // Hover tooltip for collapsed-sidebar nav items — a single shared
+  // element, positioned via getBoundingClientRect() on each hover, since
+  // .sidebar-nav's overflow-y:auto would clip a per-item CSS tooltip.
+  (function() {
+    const tip = document.createElement('div');
+    tip.id = 'sidebarTooltip';
+    document.body.appendChild(tip);
+    document.querySelectorAll('.sidebar-nav .nav-item[data-page]').forEach(item => {
+      const label = item.querySelector('span')?.textContent?.trim();
+      if (!label) return;
+      item.addEventListener('mouseenter', () => {
+        if (!document.getElementById('sidebar')?.classList.contains('collapsed')) return;
+        const r = item.getBoundingClientRect();
+        tip.textContent = label;
+        tip.style.left = (r.right + 10) + 'px';
+        tip.style.top  = (r.top + r.height / 2) + 'px';
+        tip.style.transform = 'translateY(-50%)';
+        tip.classList.add('show');
+      });
+      item.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    });
+  })();
 });
 
 function setTodayDates() {
@@ -9709,8 +9764,8 @@ function toggleSidebar() {
   const btn = document.getElementById('sidebarToggle');
   sb.classList.toggle('collapsed');
   const collapsed = sb.classList.contains('collapsed');
-  btn.style.left = collapsed ? '63px' : (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'))||240) - 1 + 'px';
-  btn.querySelector('i').className = collapsed ? 'fas fa-chevron-right' : 'fas fa-bars';
+  btn.style.left = collapsed ? '50px' : ((parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'))||240) - 14) + 'px';
+  btn.querySelector('i').className = collapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
 }
 
 const breadcrumbs = {
@@ -23340,7 +23395,7 @@ function printSaleInvoice(s, paymentHistory = []) {
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
-    table.items tfoot td { border: 2px solid #0d3b2e; }
+    table.items tfoot td { border: 1px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
     .row3-left { flex: 1; display: flex; flex-direction: column; gap: 12px; }
@@ -28624,20 +28679,27 @@ window.saveProfileInfo = async function() {
   const address   = document.getElementById('profile-address')?.value.trim() || '';
   if (!name || !email) { toast('Name and email are required','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone, address });
+    // NOTE: sent as `phone` — matches the actual users.phone column
+    // (currentUser() in auth.php selects it as `phone`, never `mobile`).
+    // Sending `mobile` here used to silently vanish since profile.php only
+    // checked isset($d['phone']), so this number was never actually saved.
+    await api('api/profile.php','POST',{ name, email, phone: mobile, alt_phone: altPhone, address });
     _syncProfileUI(name, null);
     toast('✅ Profile updated!','success');
   } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }
 };
 
 window.saveProfilePassword = async function() {
+  const curPass = document.getElementById('profile-pass-current')?.value;
   const pass  = document.getElementById('profile-pass')?.value;
   const pass2 = document.getElementById('profile-pass2')?.value;
+  if (!curPass) { toast('Enter your current password','warning'); return; }
   if (!pass) { toast('Enter a new password','warning'); return; }
   if (pass.length < 6) { toast('Password must be at least 6 characters','warning'); return; }
   if (pass !== pass2) { toast('Passwords do not match','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ password: pass });
+    await api('api/profile.php','POST',{ password: pass, current_password: curPass });
+    document.getElementById('profile-pass-current').value = '';
     document.getElementById('profile-pass').value  = '';
     document.getElementById('profile-pass2').value = '';
     toast('✅ Password updated!','success');
@@ -28739,21 +28801,20 @@ window.uploadProfilePhoto = async function(input) {
   }
 };
 
-window.saveProfile = async function() {
-  const name  = document.getElementById('profile-name')?.value?.trim();
-  const email = document.getElementById('profile-email')?.value?.trim();
-  const pass  = document.getElementById('profile-pass')?.value  || '';
-  const pass2 = document.getElementById('profile-pass2')?.value || '';
-  if (!name || !email) { toast('⚠️ Name and email required', 'warning'); return; }
-  if (pass && pass.length < 6) { toast('⚠️ Password min 6 characters', 'warning'); return; }
-  if (pass && pass !== pass2)  { toast('⚠️ Passwords do not match', 'warning'); return; }
-  const payload = { name, email, password: pass || null, avatar: SERVER.user?._avatarUrl || null };
+window.removeProfilePhoto = async function() {
   try {
-    const res = await api('api/profile.php', 'POST', payload);
-    _syncProfileUI(name, payload.avatar || null);
-    if (pass) { document.getElementById('profile-pass').value = ''; document.getElementById('profile-pass2').value = ''; }
-    toast('✅ Profile updated!', 'success');
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
+    await api('api/profile.php', 'POST', { avatar: '' });
+    const initials = (STATE.user?.name || document.getElementById('profile-name')?.value || '??').trim().substring(0,2).toUpperCase();
+    ['#chipAvatar','#dropdownAvatar','#profile-avatar-preview','.user-avatar'].forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.innerHTML = initials);
+    });
+    document.getElementById('profile-remove-photo-btn')?.remove();
+    SERVER.user = SERVER.user || {};
+    SERVER.user._avatarUrl = '';
+    toast('✅ Photo removed', 'success');
+  } catch(e) {
+    toast('❌ Failed to remove photo: ' + e.message, 'error');
+  }
 };
 
 

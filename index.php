@@ -355,18 +355,27 @@ canvas { max-width: 100% !important; }
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 .page-breadcrumb { font-weight: 700; font-size: 16px; color: var(--text); }
+.breadcrumb-link { color: var(--muted); cursor: pointer; font-weight: 600; }
+.breadcrumb-link:hover { color: var(--teal); text-decoration: underline; }
+.breadcrumb-sep { color: var(--muted2); font-weight: 400; margin: 0 7px; }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .search-bar {
   position: relative; display: flex; align-items: center;
   background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px;
-  padding: 7px 12px; gap: 8px; width: 260px;
+  padding: 7px 12px; gap: 8px; width: 360px;
 }
 .search-bar i { color: var(--muted2); font-size: 13px; }
 .search-bar input { border: none; background: transparent; font-family: var(--font); font-size: 13px; width: 100%; outline: none; color: var(--text); }
+.search-kbd-hint {
+  font-size: 10px; font-weight: 700; color: var(--muted2); background: var(--card);
+  border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
+  font-family: var(--font); flex-shrink: 0; white-space: nowrap;
+}
+.search-bar:focus-within .search-kbd-hint { display: none; }
 .search-results {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0;
   background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-  box-shadow: var(--shadow-md); z-index: 200; max-height: 280px; overflow-y: auto;
+  box-shadow: var(--shadow-md); z-index: 200; max-height: 400px; overflow-y: auto;
   display: none;
 }
 .search-results.open { display: block; }
@@ -376,6 +385,15 @@ canvas { max-width: 100% !important; }
 }
 .sr-item:last-child { border: none; }
 .sr-item:hover { background: var(--bg); }
+.sr-cat-label {
+  padding: 7px 14px 3px; font-size: 10px; font-weight: 700; color: var(--muted2);
+  text-transform: uppercase; letter-spacing: .5px; background: var(--bg);
+}
+.sr-more-hint {
+  padding: 9px 14px; font-size: 11.5px; font-weight: 600; color: var(--teal);
+  text-align: center; cursor: pointer; background: var(--teal-bg);
+}
+.sr-more-hint:hover { text-decoration: underline; }
 
 .topbar-btn {
   width: 36px; height: 36px; border-radius: 8px;
@@ -1943,13 +1961,6 @@ const SERVER = {
           <span style="font-size:11px;font-weight:500;color:#00695C;opacity:.8" id="gdr-topbar-badge-dates"></span>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:9px;padding:6px 15px;border-radius:9px;background:#F3E8FF;border:1px solid #CE93D8;white-space:nowrap" title="<?= htmlspecialchars($firmName) ?>">
-        <i class="fas fa-building" style="font-size:13px;color:#6A1B9A"></i>
-        <div style="display:flex;flex-direction:column;line-height:1.35">
-          <span style="font-size:9px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.4px">Entity:</span>
-          <span style="font-size:12.5px;font-weight:700;color:#6A1B9A;max-width:200px;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($firmName) ?></span>
-        </div>
-      </div>
     </div>
     <div class="topbar-right">
       <?php /* Role badge removed from topbar — already shown in the user dropdown header */ ?>
@@ -1968,10 +1979,12 @@ const SERVER = {
       <?php endif; ?>
       <div class="search-bar">
         <i class="fas fa-search"></i>
-        <input type="text" placeholder="Search invoices, clients…" id="globalSearch" oninput="globalSearchFn(this.value)">
+        <input type="text" placeholder="Search invoices, sales, customers…" id="globalSearch" oninput="globalSearchFn(this.value)" onkeydown="if(event.key==='Enter') globalSearchGoAll(this.value)">
+        <kbd class="search-kbd-hint" id="searchKbdHint">Ctrl K</kbd>
         <div class="search-results" id="searchResults"></div>
       </div>
       <button class="topbar-btn" id="topbar-newinvoice-btn" onclick="showPage('create',null)" title="New Invoice"><i class="fas fa-plus"></i></button>
+      <button class="topbar-btn" id="topbar-newsale-btn" onclick="goToNewSale()" title="New Sale" style="display:none"><i class="fas fa-plus"></i></button>
       <button class="wa-queued-pill" id="waQueuedPill" style="display:none" onclick="showPage('reminders',null)" title="WA reminders queued">
         <i class="fab fa-telegram"></i>
         <span id="waQueuedCount">0</span> WA reminders queued
@@ -9661,6 +9674,14 @@ window.addEventListener('DOMContentLoaded', () => {
       item.addEventListener('mouseleave', () => tip.classList.remove('show'));
     });
   })();
+  // Ctrl/Cmd+K jumps straight into global search from anywhere in the app.
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const input = document.getElementById('globalSearch');
+      if (input) { input.focus(); input.select(); }
+    }
+  });
 });
 
 function setTodayDates() {
@@ -9784,6 +9805,23 @@ const breadcrumbs = {
   'purchase-new':'New Purchase', purchases:'Purchases',
   'stock':'Stock', 'stock-history':'Stock History', 'stock-in-new':'Stock In',
   suppliers:'Suppliers', customers:'Customers', 'customers-list':'Customers',
+  'products-list':'Products', 'product-new':'New Product',
+};
+
+// Sub-pages reachable from a parent list page render as a real two-level
+// path ("Sales › New Sale") instead of a flat label. This matters most
+// once the sidebar is collapsed or on a narrow screen — the breadcrumb
+// becomes the only thing telling you where you actually are, and a flat
+// "New Sale" label alone doesn't say which section that belongs to.
+const breadcrumbParents = {
+  'create': 'invoices',
+  'sale-new': 'sales-list',
+  'purchase-new': 'purchases',
+  'proforma-new': 'proforma-list',
+  'stock-history': 'stock',
+  'stock-txn-details': 'stock',
+  'stock-in-new': 'stock',
+  'product-new': 'products-list',
 };
 
 // Payments has two distinct experiences: a simple Invoice-payments list for
@@ -9806,7 +9844,14 @@ function showPage(name, el) {
     const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
     if (nav) nav.classList.add('active');
   }
-  document.getElementById('breadcrumb').textContent = breadcrumbs[name] || name;
+  const _bcParent = breadcrumbParents[name];
+  const _bcLabel  = breadcrumbs[name] || name;
+  const _bcEl = document.getElementById('breadcrumb');
+  if (_bcParent && breadcrumbs[_bcParent]) {
+    _bcEl.innerHTML = `<span class="breadcrumb-link" onclick="document.querySelector('.nav-item[data-page=&quot;${_bcParent}&quot;]')?.click()">${breadcrumbs[_bcParent]}</span><span class="breadcrumb-sep">›</span>${_bcLabel}`;
+  } else {
+    _bcEl.textContent = _bcLabel;
+  }
   if (name === 'reports') renderReports();
   if (name === 'create') { if (!STATE._editingNext) { STATE.editingInvoiceId = null; resetCreateForm(); setTimeout(livePreview,50); } STATE._editingNext = false; updateServiceDropdown(); }
   if (name === 'payments') renderPayments();
@@ -17603,6 +17648,11 @@ function applyBusinessTypeLabels(type) {
   const custNav = document.getElementById('nav-customers-item'); if (custNav) custNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const ofrNav = document.getElementById('nav-proforma-item'); if (ofrNav) ofrNav.style.display = STATE.settings.businessType === 'product' ? 'flex' : 'none';
   const newInvBtn = document.getElementById('topbar-newinvoice-btn'); if (newInvBtn) newInvBtn.style.display = STATE.settings.businessType === 'service' ? '' : 'none';
+  // "both" tenants keep Invoice as the primary quick-add; product-type
+  // tenants had NO topbar quick-add at all once newInvBtn hid itself —
+  // this gives them the equivalent one-click shortcut for their actual
+  // primary workflow (New Sale) instead of just an empty gap.
+  const newSaleBtn = document.getElementById('topbar-newsale-btn'); if (newSaleBtn) newSaleBtn.style.display = STATE.settings.businessType === 'product' ? '' : 'none';
 }
 
 // ══════════════════════════════════════════
@@ -27388,23 +27438,148 @@ function downloadFile(name, content, type) {
 // ══════════════════════════════════════════
 // GLOBAL SEARCH
 // ══════════════════════════════════════════
+// Collects raw (uncapped) matches across every searchable entity —
+// shared by the dropdown preview (globalSearchFn) and "see all" routing
+// on Enter (globalSearchGoAll), so both stay in sync with one query logic.
+function _globalSearchCollect(val) {
+  const v = (val || '').toLowerCase();
+  if (v.length < 2) return null;
+
+  const invoices = STATE.invoices.filter(i => {
+    const c = STATE.clients.find(x => x.id === i.client);
+    return (i.num||'').toLowerCase().includes(v) || (c && c.name.toLowerCase().includes(v)) || (i.service||'').toLowerCase().includes(v);
+  });
+
+  const sales = (STATE.sales || []).filter(s =>
+    (s.invoice_no||'').toLowerCase().includes(v) ||
+    (s.customer_name||'').toLowerCase().includes(v) ||
+    (s.sales_executive||'').toLowerCase().includes(v)
+  );
+
+  const purchases = (STATE.purchases || []).filter(p =>
+    (p.purchase_no||'').toLowerCase().includes(v) ||
+    (p.supplier_name||'').toLowerCase().includes(v)
+  );
+
+  const customers = (STATE.customers || []).filter(c =>
+    (c.name||'').toLowerCase().includes(v) ||
+    (c.customer_code||'').toLowerCase().includes(v) ||
+    (c.mobile||'').toLowerCase().includes(v) ||
+    (c.email||'').toLowerCase().includes(v)
+  );
+
+  const suppliers = (STATE.suppliers || []).filter(s =>
+    (s.name||'').toLowerCase().includes(v) ||
+    (s.contact_person||'').toLowerCase().includes(v) ||
+    (s.phone||'').toLowerCase().includes(v) ||
+    (s.gst_number||'').toLowerCase().includes(v)
+  );
+
+  const products = (STATE.products || []).filter(p =>
+    (p.name||'').toLowerCase().includes(v) ||
+    (p.category||'').toLowerCase().includes(v) ||
+    (p.hsn||'').toLowerCase().includes(v)
+  );
+
+  return { invoices, sales, purchases, customers, suppliers, products };
+}
+
+const GLOBAL_SEARCH_CATEGORIES = [
+  { key:'invoices',  icon:'fa-file-invoice',   color:'var(--teal)', label:'Invoices' },
+  { key:'sales',     icon:'fa-cart-shopping',  color:'var(--blue)', label:'Sales' },
+  { key:'purchases', icon:'fa-truck-ramp-box', color:'#8E24AA',     label:'Purchases' },
+  { key:'customers', icon:'fa-user',           color:'#00897B',     label:'Customers' },
+  { key:'suppliers', icon:'fa-industry',       color:'#EF6C00',     label:'Suppliers' },
+  { key:'products',  icon:'fa-box',            color:'#3949AB',     label:'Products' },
+];
+
 function globalSearchFn(val) {
   const el = document.getElementById('searchResults');
-  if (!val || val.length < 2) { el.classList.remove('open'); return; }
-  const v = val.toLowerCase();
-  const results = STATE.invoices.filter(i => {
-    const c = STATE.clients.find(x=>x.id===i.client);
-    return i.num.toLowerCase().includes(v) || (c&&c.name.toLowerCase().includes(v)) || i.service.toLowerCase().includes(v);
-  }).slice(0,6);
-  if (!results.length) { el.classList.remove('open'); return; }
-  el.innerHTML = results.map(inv => {
-    const c = STATE.clients.find(x=>x.id===inv.client);
-    return `<div class="sr-item" onclick="openPreviewModal('${inv.id}');document.getElementById('globalSearch').value='';document.getElementById('searchResults').classList.remove('open')">
-      <i class="fas fa-file-invoice" style="color:var(--teal)"></i>
-      <div><strong>${inv.num}</strong> – ${c?.name||inv.client_name||inv.clientName||'One-Time'}<br><small style="color:var(--muted)">${inv.service} · ${fmt_money(inv.amount)} · ${inv.status}</small></div>
-    </div>`;
-  }).join('');
+  const buckets = _globalSearchCollect(val);
+  if (!buckets) { el.classList.remove('open'); return; }
+
+  const PER_CAT = 3, TOTAL_CAP = 10;
+  let shown = 0, totalMatches = 0, html = '';
+  const closeAndClear = `document.getElementById('globalSearch').value='';document.getElementById('searchResults').classList.remove('open')`;
+
+  GLOBAL_SEARCH_CATEGORIES.forEach(cat => {
+    const items = buckets[cat.key] || [];
+    totalMatches += items.length;
+    if (!items.length || shown >= TOTAL_CAP) return;
+    const slice = items.slice(0, Math.min(PER_CAT, TOTAL_CAP - shown));
+    shown += slice.length;
+    html += `<div class="sr-cat-label">${cat.label}</div>`;
+    html += slice.map(item => {
+      if (cat.key === 'invoices') {
+        const c = STATE.clients.find(x => x.id === item.client);
+        return `<div class="sr-item" onclick="openPreviewModal('${item.id}');${closeAndClear}">
+          <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+          <div><strong>${escHtml(item.num)}</strong> – ${escHtml(c?.name||item.client_name||item.clientName||'One-Time')}<br><small style="color:var(--muted)">${escHtml(item.service||'')} · ${fmt_money(item.amount)} · ${escHtml(item.status||'')}</small></div>
+        </div>`;
+      }
+      if (cat.key === 'sales') {
+        return `<div class="sr-item" onclick="editSale(${item.id});${closeAndClear}">
+          <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+          <div><strong>${escHtml(item.invoice_no||'—')}</strong> – ${escHtml(item.customer_name||'—')}<br><small style="color:var(--muted)">${fmt_money(item.total||0)} · ${escHtml(item.payment_status||'')}</small></div>
+        </div>`;
+      }
+      if (cat.key === 'purchases') {
+        return `<div class="sr-item" onclick="editPurchase(${item.id});${closeAndClear}">
+          <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+          <div><strong>${escHtml(item.purchase_no||'—')}</strong> – ${escHtml(item.supplier_name||'—')}<br><small style="color:var(--muted)">${fmt_money(item.total||0)}</small></div>
+        </div>`;
+      }
+      if (cat.key === 'customers') {
+        return `<div class="sr-item" onclick="viewCustomerProfile(${item.id});${closeAndClear}">
+          <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+          <div><strong>${escHtml(item.name||'—')}</strong><br><small style="color:var(--muted)">${escHtml(item.mobile||item.email||'')}</small></div>
+        </div>`;
+      }
+      if (cat.key === 'suppliers') {
+        return `<div class="sr-item" onclick="viewSupplierProfile(${item.id});${closeAndClear}">
+          <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+          <div><strong>${escHtml(item.name||'—')}</strong><br><small style="color:var(--muted)">${escHtml(item.contact_person||item.phone||'')}</small></div>
+        </div>`;
+      }
+      // products
+      const editFn = STATE.settings.businessType === 'product' ? 'editProductRich' : 'editProduct';
+      return `<div class="sr-item" onclick="${editFn}('${item.id}');${closeAndClear}">
+        <i class="fas ${cat.icon}" style="color:${cat.color}"></i>
+        <div><strong>${escHtml(item.name||'—')}</strong><br><small style="color:var(--muted)">${escHtml(item.category||'')}</small></div>
+      </div>`;
+    }).join('');
+  });
+
+  if (!shown) { el.classList.remove('open'); return; }
+  if (totalMatches > shown) {
+    html += `<div class="sr-more-hint" onclick="globalSearchGoAll(document.getElementById('globalSearch').value)">+${totalMatches - shown} more — press Enter to see all</div>`;
+  }
+  el.innerHTML = html;
   el.classList.add('open');
+}
+
+// Enter key (or the "+N more" footer) — routes to the category with the
+// most matches and applies the same query as that page's own filter, so
+// the person lands on a full filtered list instead of the capped preview.
+function globalSearchGoAll(val) {
+  const buckets = _globalSearchCollect(val);
+  if (!buckets) return;
+  const order = ['sales','purchases','invoices','customers','suppliers','products'];
+  let bestKey = null, bestCount = 0;
+  order.forEach(k => { if ((buckets[k]||[]).length > bestCount) { bestCount = buckets[k].length; bestKey = k; } });
+  if (!bestKey) { toast('No results found', 'info'); return; }
+
+  document.getElementById('searchResults').classList.remove('open');
+  const goTo = (navSel, filterFn) => {
+    document.querySelector(navSel)?.click();
+    setTimeout(() => filterFn && filterFn(val), 60);
+  };
+  if (bestKey === 'sales')     goTo('.nav-item[data-page="sales-list"]',    () => filterSales(val));
+  if (bestKey === 'purchases') goTo('.nav-item[data-page="purchases"]',     () => filterPurchases(val));
+  if (bestKey === 'customers') goTo('.nav-item[data-page="customers-list"]',() => filterCustomersList(val));
+  if (bestKey === 'suppliers') goTo('.nav-item[data-page="suppliers"]',     () => filterSuppliers(val));
+  if (bestKey === 'products')  goTo('.nav-item[data-page="products"]',      () => { const inp=document.getElementById('productSearch'); if(inp){inp.value=val;} filterProducts(val); });
+  if (bestKey === 'invoices')  { showPage('invoices', null); setTimeout(() => { const inp=document.getElementById('invSearch'); if (inp) inp.value = val; filterInvoices(val); }, 60); }
 }
 
 // ══════════════════════════════════════════
@@ -27421,9 +27596,17 @@ function toggleNotifPanel(e) {
   if (t) t.textContent = new Date().toLocaleTimeString();
 }
 
+let NOTIF_CURRENT_KEYS = []; // populated by renderNotifications() each render — see clearNotifs()
+
 function clearNotifs() {
-  const bc = document.getElementById('bellCount');
-  if (bc) bc.style.display = 'none';
+  // Actually persist the dismissal (previously this only hid the panel in
+  // the moment — the exact same notifications reappeared on the next
+  // render since nothing was ever saved). Approvals are excluded from
+  // NOTIF_CURRENT_KEYS already, so they still require a real action.
+  const dismissed = _notifDismissedKeys();
+  NOTIF_CURRENT_KEYS.forEach(k => dismissed.add(k));
+  _notifSaveDismissed(dismissed);
+  renderNotifications();
   document.getElementById('notifPanel').classList.remove('open');
   toast('✓ All notifications marked as read', 'success');
 }
@@ -28216,13 +28399,28 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 // ── Populate notification bell from live data ──────────────────
+// Persisted "read" state for the notification bell — plain informational
+// items (overdue/due-soon/payments/purchases summary) get a stable key so
+// dismissing them actually sticks across renders and reloads. Approval
+// requests are deliberately excluded — they need a real action (approve/
+// reject), so "mark all read" never hides those.
+function _notifDismissedKeys() {
+  try { return new Set(JSON.parse(localStorage.getItem('optms_notifDismissed') || '[]')); }
+  catch(e) { return new Set(); }
+}
+function _notifSaveDismissed(set) {
+  try { localStorage.setItem('optms_notifDismissed', JSON.stringify([...set])); } catch(e) {}
+}
+
 function renderNotifications() {
   const today  = new Date();
   const items  = [];
+  const dismissed = _notifDismissedKeys();
 
   // ── Pending edit approval requests (admin/owner only) ─────────
   // Shown at the top of the bell panel so they're impossible to miss
-  // regardless of which page the admin is currently on.
+  // regardless of which page the admin is currently on. Never dismissible
+  // via "mark all read" — they need an actual Approve/Reject action.
   if (SERVER.canApproveEdits && EAR_ADMIN_PENDING.length) {
     EAR_ADMIN_PENDING.forEach(req => {
       items.push({
@@ -28237,10 +28435,10 @@ function renderNotifications() {
   // Overdue invoices
   STATE.invoices.filter(i => i.status === 'Overdue').slice(0,3).forEach(inv => {
     const c = STATE.clients.find(x => x.id === inv.client) || {};
-    items.push({ type:'warn', text:`<b>${c.name || inv.clientName || inv.client}</b> invoice ${inv.num} is overdue` });
+    items.push({ type:'warn', key:`inv-overdue-${inv.id}`, text:`<b>${c.name || inv.clientName || inv.client}</b> invoice ${inv.num} is overdue` });
   });
 
-  // Due in next 3 days
+  // Invoices due in next 3 days
   STATE.invoices.filter(i => {
     if (i.status !== 'Pending' || !i.due) return false;
     const diff = (new Date(i.due) - today) / 86400000;
@@ -28248,20 +28446,52 @@ function renderNotifications() {
   }).slice(0,3).forEach(inv => {
     const c = STATE.clients.find(x => x.id === inv.client) || {};
     const dueDate = new Date(inv.due).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short'});
-    items.push({ type:'info', text:`<b>${c.name || inv.clientName || inv.client}</b> — ${inv.num} due ${dueDate}` });
+    items.push({ type:'info', key:`inv-due-${inv.id}`, text:`<b>${c.name || inv.clientName || inv.client}</b> — ${inv.num} due ${dueDate}` });
   });
 
   // Recent payments (last 2)
-  STATE.payments.slice(0,2).forEach(p => {
-    items.push({ type:'info', text:`Payment received from <b>${p.client}</b> — ${fmt_money(p.amount)}` });
+  STATE.payments.slice(0,2).forEach((p,idx) => {
+    items.push({ type:'info', key:`pmt-${p.id||idx}`, text:`Payment received from <b>${p.client}</b> — ${fmt_money(p.amount)}` });
   });
+
+  // Overdue Sales — same blind spot invoices already had: product-type
+  // tenants' actual daily transactions are Sales, not Invoices, so this
+  // mirrors the invoice overdue/due-soon logic above for STATE.sales.
+  (STATE.sales || []).filter(s => {
+    if (s.status === 'Cancelled' || (s.payment_status||'Pending') === 'Paid' || !s.due_date) return false;
+    return new Date(s.due_date) < today;
+  }).slice(0,3).forEach(s => {
+    items.push({ type:'warn', key:`sale-overdue-${s.id}`, text:`<b>${escHtml(s.customer_name||'—')}</b> sale ${escHtml(s.invoice_no||'')} is overdue` });
+  });
+
+  // Sales due in next 3 days
+  (STATE.sales || []).filter(s => {
+    if (s.status === 'Cancelled' || (s.payment_status||'Pending') === 'Paid' || !s.due_date) return false;
+    const diff = (new Date(s.due_date) - today) / 86400000;
+    return diff >= 0 && diff <= 3;
+  }).slice(0,3).forEach(s => {
+    const dueDate = new Date(s.due_date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short'});
+    items.push({ type:'info', key:`sale-due-${s.id}`, text:`<b>${escHtml(s.customer_name||'—')}</b> — ${escHtml(s.invoice_no||'')} due ${dueDate}` });
+  });
+
+  // Purchases with outstanding payment — purchases have no due_date column
+  // in the schema, so unlike invoices/sales this is a single count-based
+  // summary rather than one line per record, to avoid flooding the panel.
+  const pendingPurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid');
+  if (pendingPurchases.length) {
+    const total = pendingPurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
+    items.push({ type:'info', key:'purchases-pending-summary', text:`<b>${pendingPurchases.length}</b> purchase${pendingPurchases.length>1?'s':''} with pending payment — ${fmt_money(total)} outstanding` });
+  }
+
+  // Drop anything the person already marked as read — approvals are exempt.
+  const visibleItems = items.filter(n => n.type === 'approval' || !dismissed.has(n.key));
 
   const el = document.getElementById('notifItems');
   if (el) {
-    if (!items.length) {
+    if (!visibleItems.length) {
       el.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;text-align:center">No new notifications</div>';
     } else {
-      el.innerHTML = items.map(n => {
+      el.innerHTML = visibleItems.map(n => {
         if (n.type === 'approval') {
           return `<div class="np-item" style="background:var(--amber-bg);border-left:3px solid var(--amber);flex-direction:column;align-items:flex-start;gap:6px">
             <div style="display:flex;gap:8px;align-items:flex-start">
@@ -28288,10 +28518,14 @@ function renderNotifications() {
   // Update bell count — includes approvals
   const bell = document.getElementById('bellCount');
   if (bell) {
-    const count = items.length;
+    const count = visibleItems.length;
     bell.textContent = count;
     bell.style.display = count > 0 ? 'flex' : 'none';
   }
+
+  // Stash the current dismissible keys so clearNotifs() can persist exactly
+  // what was actually on screen when the person clicked "Mark all read".
+  NOTIF_CURRENT_KEYS = items.filter(n => n.type !== 'approval' && n.key).map(n => n.key);
 }
 
 
