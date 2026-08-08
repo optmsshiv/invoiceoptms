@@ -51,34 +51,6 @@ try {
 
     // ── LIST this tenant's users ────────────────────────────────────
     if ($method === 'GET' && $action === 'list') {
-        // Self-healing resync: the tenant-DB mirror on user creation
-        // (below, in the ADD handler) is wrapped in a silent try/catch —
-        // if it ever failed, or a user was added before that code existed,
-        // nobody would know until an unrelated page (e.g. Invoices) throws
-        // a foreign-key crash days later on created_by. Catch it here
-        // instead, every time the Team page is actually opened. INSERT
-        // IGNORE makes this a no-op for users already mirrored correctly.
-        try {
-            $tStmt = $master->prepare('SELECT db_name FROM tenants WHERE id=?');
-            $tStmt->execute([$tenantId]);
-            $dbName = $tStmt->fetchColumn();
-            if ($dbName) {
-                $activeUsers = $master->prepare(
-                    'SELECT id, name, email, password, role FROM users WHERE tenant_id=? AND status != "removed"'
-                );
-                $activeUsers->execute([$tenantId]);
-                $tenantDb = getDBByName($dbName);
-                $mirrorIns = $tenantDb->prepare(
-                    'INSERT IGNORE INTO users (id, name, email, password, role, is_active) VALUES (?,?,?,?,?,1)'
-                );
-                foreach ($activeUsers->fetchAll() as $u) {
-                    $mirrorIns->execute([$u['id'], $u['name'], $u['email'], $u['password'], $u['role']]);
-                }
-            }
-        } catch (Exception $e) {
-            error_log('team.php list-time resync error: ' . $e->getMessage());
-        }
-
         $stmt = $master->prepare(
             'SELECT id, name, email, phone, address, role, status, avatar, tags, last_login, created_at
              FROM users WHERE tenant_id = ? AND status != "removed" ORDER BY role, name'

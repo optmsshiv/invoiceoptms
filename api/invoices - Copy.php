@@ -118,21 +118,6 @@ case 'POST':
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) { jsonResponse(['error'=>'Invalid JSON'], 400); }
 $userId = $_SESSION['user_id'];
-// invoices.created_by has a FK against a TENANT-local `users` table
-// (invoices lives in the tenant DB, and MySQL FKs can't cross databases —
-// so this can't be the master `users` table that login actually reads
-// from). team.php only ever writes new team members to the master DB, so
-// any team member added after this tenant's local `users` mirror was last
-// populated has a valid session but no matching row here — and the INSERT
-// below would throw a hard FK violation instead of just saving the
-// invoice. Fall back to NULL, which the schema already explicitly
-// supports (ON DELETE SET NULL), rather than crashing invoice creation.
-$dbUserId = $userId;
-try {
-    $uChk = $db->prepare('SELECT 1 FROM users WHERE id = ?');
-    $uChk->execute([$userId]);
-    if (!$uChk->fetch()) $dbUserId = null;
-} catch (\Exception $e) { $dbUserId = null; } // mirror table missing entirely — fail safe to NULL
 // Validate status against allowed values (guards against DB ENUM not yet migrated)
 $allowedStatuses = ['Draft','Pending','Paid','Overdue','Partial','Cancelled','Estimate'];
 $inputStatus = $input['status'] ?? 'Draft';
@@ -220,7 +205,7 @@ isset($input['pdf_options']) ? json_encode($input['pdf_options']) : null,
 $input['client_person']??'', $input['client_wa']??'',
 $input['client_email']??'', $input['client_gst']??'',
 $input['client_addr']??'',
-$dbUserId
+(int)$userId
 ]);
 } catch (\PDOException $e) {
 error_log('Invoice INSERT error: ' . $e->getMessage());

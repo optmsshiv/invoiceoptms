@@ -110,23 +110,6 @@ try {
         INDEX `idx_expenses_cat`  (`category`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    // credit_entry_conversions is normally created by credit_entries.php —
-    // but this endpoint's new LEFT JOIN below needs it to exist regardless
-    // of whether that page has ever actually been used yet on this tenant.
-    // Without this guard, a fresh install hitting Expenses first (before
-    // ever touching Credit) would throw "table doesn't exist" here and take
-    // down the whole Expense list, not just the missing credit-link feature.
-    $db->exec("CREATE TABLE IF NOT EXISTS `credit_entry_conversions` (
-        `id`               INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-        `credit_entry_id`  INT UNSIGNED  NOT NULL,
-        `expense_id`       INT UNSIGNED  NOT NULL,
-        `amount`           DECIMAL(12,2) NOT NULL DEFAULT 0,
-        `created_by`       INT UNSIGNED  NULL,
-        `created_at`       DATETIME      NOT NULL,
-        PRIMARY KEY (`id`),
-        INDEX `idx_cec_entry` (`credit_entry_id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
         // Summary by category
@@ -150,15 +133,7 @@ try {
             exit;
         }
         if ($id) {
-            // LEFT JOIN — a credit-sourced expense has exactly one row here
-            // (each conversion creates a brand-new expense, 1:1), so this is
-            // safe without risking duplicate/multiplied rows. NULL for a
-            // directly-entered expense.
-            $stmt = $db->prepare(
-                'SELECT e.*, cec.credit_entry_id FROM expenses e
-                 LEFT JOIN credit_entry_conversions cec ON cec.expense_id = e.id
-                 WHERE e.id = :id'
-            );
+            $stmt = $db->prepare('SELECT * FROM expenses WHERE id = :id');
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             echo json_encode($row
@@ -183,13 +158,8 @@ try {
                 $where[]           = '`date` <= :to';
                 $params[':to']     = $_GET['to'];
             }
-            // Same LEFT JOIN as the single-row fetch above, so the Expense
-            // Tracker table can link a "Via Credit" badge straight back to
-            // the credit entry it came from instead of just labelling it.
-            $sql  = 'SELECT e.*, cec.credit_entry_id FROM expenses e
-                     LEFT JOIN credit_entry_conversions cec ON cec.expense_id = e.id
-                     WHERE '.implode(' AND ',$where)
-                  . ' ORDER BY e.`date` DESC, e.id DESC';
+            $sql  = 'SELECT * FROM expenses WHERE '.implode(' AND ',$where)
+                  . ' ORDER BY `date` DESC, id DESC';
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

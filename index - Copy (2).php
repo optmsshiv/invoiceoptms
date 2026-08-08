@@ -1826,7 +1826,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.credit'] ?? false): ?>
     <a class="nav-item" data-page="credit" onclick="showPage('credit',this)">
-      <i class="fas fa-hand-holding-dollar"></i><span>Credit</span>
+      <i class="fas fa-hand-holding-hand"></i><span>Credit</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.cash_in_hand'] ?? true): ?>
@@ -5594,7 +5594,7 @@ const SERVER = {
       <!-- ── 6 KPI cards: IN vs OUT clearly separated ── -->
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0" class="ps-stats-row">
         <div class="pne-card" style="padding:14px 16px;border-top:3px solid #00897B">
-          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:32px;height:32px"><i class="fas fa-rupee-sign"></i></span>
+          <span class="sa-chip-icon" style="background:#E8F5E9;color:#00897B;width:32px;height:32px"><i class="fas fa-arrow-down-to-bracket"></i></span>
           <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL COLLECTED</div>
           <div style="font-size:15px;font-weight:800;color:#00897B" id="pmt-stat-collected">₹0.00</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px">From customers</div>
@@ -7842,11 +7842,6 @@ View Invoice: {{6}}</pre></details>
           <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
             <option value="">All Time</option>
           </select>
-          <select class="table-filter" onchange="filterExpensesSource(this.value)" id="exp-source-filter">
-            <option value="">All Sources</option>
-            <option value="credit">Via Credit</option>
-            <option value="direct">Direct Entry</option>
-          </select>
           <span id="exp-gdr-note" style="display:none;font-size:10px;color:#9A6700"><i class="fas fa-lock" style="font-size:9px"></i> Scoped to Global Date Range — change in Settings</span>
         </div>
         <div class="toolbar-right">
@@ -7855,7 +7850,7 @@ View Invoice: {{6}}</pre></details>
         </div>
       </div>
       <!-- Summary cards -->
-      <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px"></div>
+      <div id="exp-summary-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px"></div>
       <!-- Mixed chart: bars = monthly total, stacked per category -->
       <div class="pne-card" style="margin-bottom:18px" id="exp-charts-row">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -9030,7 +9025,7 @@ View Invoice: {{6}}</pre></details>
     <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:9px">
         <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="fas fa-hand-holding-dollar" style="color:var(--teal);font-size:13px"></i>
+          <i class="fas fa-hand-holding-hand" style="color:var(--teal);font-size:13px"></i>
         </div>
         <div style="font-size:14px;font-weight:700;color:var(--text)">Add Credit Entry</div>
       </div>
@@ -19586,7 +19581,7 @@ function renderPurchases() {
         })() : ''}
       </td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
-      <td>${p.payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${p.payment_date ? `<span style="white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10.5px;color:var(--muted);margin-right:4px"></i>${fmt_date_disp(p.payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
@@ -30906,18 +30901,15 @@ function _renderExpSummary() {
   const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
   const revenue = sumActualPaid(STATE.invoices.filter(i=>i.status==='Paid'));
   const expRatio = revenue > 0 ? Math.round(total/revenue*100) : 0;
-  const creditSourced = list.filter(e => e.source === 'credit');
-  const creditTotal = creditSourced.reduce((s,e) => s + parseFloat(e.amount||0), 0);
   const cards = [
     {l:'Total Expenses',    v:fmt_money(total),         ic:'fa-wallet',         col:'#E65100', bg:'#fbe9e7'},
     {l:'This Month',        v:fmt_money(monthTotal),    ic:'fa-calendar-day',   col:'#1976D2', bg:'#e3f2fd'},
     {l:'Top Category',      v:topCat?topCat[0]:'—',     ic:'fa-tag',            col:'#7B1FA2', bg:'#f3e5f5'},
     {l:'Expense / Revenue', v:expRatio+'%',             ic:'fa-chart-pie',      col:'#388E3C', bg:'#e8f5e9'},
-    {l:'Via Credit',        v:fmt_money(creditTotal),   ic:'fa-hand-holding-dollar', col:'#7B1FA2', bg:'#f3e5f5', sub:`${creditSourced.length} entr${creditSourced.length===1?'y':'ies'}`},
   ];
   el.innerHTML = cards.map(c => `<div class="stat-card">
     <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
-    <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div>${c.sub ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${c.sub}</div>` : ''}</div>
+    <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div></div>
   </div>`).join('');
 
   // ── Expense mixed chart: stacked bars per category + total line ──
@@ -31025,7 +31017,7 @@ function _renderExpTable() {
     return `<tr>
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
-      <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span onclick="viewCreditEntrySource(${exp.credit_entry_id})" style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px;cursor:pointer" title="Click to see the originating credit entry"><i class="fas fa-hand-holding-dollar" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
+      <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px"><i class="fas fa-hand-holding-hand" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
       <td style="color:var(--muted)">${exp.method||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
@@ -31076,16 +31068,6 @@ function filterExpensesMonth(val) {
   EXP.list = (val ? _expBaseList().filter(e=>(e.date||'').startsWith(val)) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
   EXP.page=1; _renderExpTable();
 }
-// "Via Credit" — a real usage-history view: isolates expenses that
-// started life as an owner Credit Entry and were later converted here,
-// instead of that only being visible as a small per-row badge.
-function filterExpensesSource(val) {
-  EXP.list = (val
-    ? _expBaseList().filter(e => val === 'credit' ? e.source === 'credit' : e.source !== 'credit')
-    : _expBaseList()
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  EXP.page=1; _renderExpTable();
-}
 
 // ── Credit (Owner Personal Expenses) ────────────────────────────────
 let CREDIT_ENTRIES = [];
@@ -31110,7 +31092,7 @@ function _renderCreditSummary() {
   const used  = list.reduce((s,c) => s + parseFloat(c.converted_amount||0), 0);
   const available = given - used;
   const cards = [
-    {l:'Total Credit Given', v:fmt_money(given),      ic:'fa-hand-holding-dollar', col:'#1976D2', bg:'#e3f2fd'},
+    {l:'Total Credit Given', v:fmt_money(given),      ic:'fa-hand-holding-hand', col:'#1976D2', bg:'#e3f2fd'},
     {l:'Total Credit Used',  v:fmt_money(used),        ic:'fa-right-left',       col:'#E65100', bg:'#fff3e0'},
     {l:'Available Credit',   v:fmt_money(available),   ic:'fa-wallet',           col:'#388E3C', bg:'#e8f5e9'},
     {l:'Total Transactions', v:list.length,             ic:'fa-list',             col:'#7B1FA2', bg:'#f3e5f5'},
@@ -31194,40 +31176,6 @@ async function saveCreditEntry() {
     closeModal('modal-credit-add');
     toast('✅ Credit entry saved!', 'success');
     loadCreditEntries();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// Click-through from an expense's "Via Credit" badge to the actual credit
-// entry it came from — fetches fresh rather than trusting CREDIT_ENTRIES
-// (which may be empty/stale if the Credit page was never opened this
-// session), and shows it inline rather than navigating away from Expenses.
-async function viewCreditEntrySource(creditEntryId) {
-  if (!creditEntryId) { toast('⚠️ No linked credit entry found for this expense', 'warning'); return; }
-  try {
-    const r = await api('api/credit_entries.php?id=' + creditEntryId);
-    const c = r.data;
-    if (!c) { toast('❌ That credit entry could not be found — it may have been removed', 'error'); return; }
-    const statusLabel = { pending:'Pending', partial:'Partially Converted', converted:'Fully Converted' }[c.status] || c.status;
-    Swal.fire({
-      title: 'Source Credit Entry',
-      html: `
-        <div style="text-align:left;font-size:13px;line-height:1.9">
-          <div><strong>Date:</strong> ${fmt_date_disp(c.entry_date)}</div>
-          <div><strong>Purpose:</strong> ${escHtml(c.purpose||'—')}</div>
-          <div><strong>Paid To:</strong> ${escHtml(c.paid_to||'—')}</div>
-          <div><strong>Payment Method:</strong> ${escHtml(c.payment_method||'—')}</div>
-          <div><strong>Original Amount:</strong> ${fmt_money(c.amount)}</div>
-          <div><strong>Converted So Far:</strong> ${fmt_money(c.converted_amount)}</div>
-          <div><strong>Status:</strong> ${statusLabel}</div>
-        </div>`,
-      icon: 'info',
-      confirmButtonText: 'Go to Credit Page',
-      showCancelButton: true,
-      cancelButtonText: 'Close',
-      customClass: { popup: 'swal-compact' },
-    }).then(res => {
-      if (res.isConfirmed) document.querySelector('.nav-item[data-page="credit"]')?.click();
-    });
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
