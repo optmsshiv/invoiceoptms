@@ -6992,11 +6992,6 @@ View Invoice: {{6}}</pre></details>
               <button type="button" class="profile-upload-btn" onclick="document.getElementById('profile-photo-input').click()">
                 <i class="fas fa-upload"></i> Upload Photo
               </button>
-              <?php if(!empty($user['avatar'])): ?>
-              <button type="button" class="profile-upload-btn" id="profile-remove-photo-btn" onclick="removeProfilePhoto()" style="color:#E53935">
-                <i class="fas fa-trash"></i> Remove
-              </button>
-              <?php endif; ?>
             </div>
             <div style="margin:16px 0 18px">
               <div id="profile-display-name" style="font-size:18px;font-weight:800;color:var(--text);line-height:1.2"><?= htmlspecialchars($user['name']) ?></div>
@@ -7113,7 +7108,7 @@ View Invoice: {{6}}</pre></details>
               <div class="field"><label>Full Name</label><input id="profile-name" value="<?= htmlspecialchars($user['name']) ?>" placeholder="Your full name"></div>
             </div>
             <div class="pcard-field-row">
-              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
+              <div class="field"><label>Mobile Number</label><input type="tel" id="profile-mobile" value="<?= htmlspecialchars($user['mobile'] ?? '') ?>" placeholder="+91 98765 43210"></div>
               <div class="field"><label>Alt Phone <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="tel" id="profile-alt-phone" value="<?= htmlspecialchars($user['alt_phone'] ?? '') ?>" placeholder="+91 98765 43210"></div>
             </div>
             <div class="field readonly"><label>User ID</label><input id="profile-user-id" value="<?= htmlspecialchars($user['id']) ?>" readonly disabled title="Your account ID (read-only)"></div>
@@ -7131,7 +7126,6 @@ View Invoice: {{6}}</pre></details>
             <span class="pcard-title">Change Password</span>
           </div>
           <div class="pcard-body">
-            <div class="field"><label>Current Password</label><input type="password" id="profile-pass-current" placeholder="Enter your current password" autocomplete="current-password"></div>
             <div class="field"><label>New Password</label><input type="password" id="profile-pass" placeholder="Minimum 6 characters" autocomplete="new-password"></div>
             <div class="field"><label>Confirm New Password</label><input type="password" id="profile-pass2" placeholder="Repeat new password" autocomplete="new-password"></div>
           </div>
@@ -22233,10 +22227,7 @@ function goToNewSale() {
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
   setSalePaymentInfoLocked(false);
-  // Pre-fill from Settings → Invoice Defaults, same as the Service
-  // Invoice's Notes field already does — this was previously always
-  // blanked out here, so the Settings default never reached new sales.
-  document.getElementById('sn-customernotes').value = STATE.settings.defaultNotes || '';
+  document.getElementById('sn-customernotes').value = '';
   document.getElementById('sn-internalnotes').value = '';
   document.getElementById('sn-deliveryinstructions').value = '';
   document.getElementById('sn-preparedby').value = STATE.user?.name || '';
@@ -23306,12 +23297,7 @@ function printSaleInvoice(s, paymentHistory = []) {
   const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
   const stampCfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
   const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
-  // NOTE: was reading STATE.settings.default_tnc (snake_case), which is
-  // never set — the client-side settings object only has defaultTnC
-  // (camelCase, see loadAllData()). That meant the Terms & Conditions
-  // default from Settings never actually appeared on a printed Sale
-  // Invoice, regardless of what was configured.
-  const tncList = ((STATE.settings||{}).defaultTnC || '').split('\n').map(t => t.trim()).filter(Boolean);
+  const tncList = ((STATE.settings||{}).default_tnc || '').split('\n').map(t => t.trim()).filter(Boolean);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(s.invoice_no)}</title>
@@ -28630,27 +28616,20 @@ window.saveProfileInfo = async function() {
   const address   = document.getElementById('profile-address')?.value.trim() || '';
   if (!name || !email) { toast('Name and email are required','warning'); return; }
   try {
-    // NOTE: sent as `phone` — matches the actual users.phone column
-    // (currentUser() in auth.php selects it as `phone`, never `mobile`).
-    // Sending `mobile` here used to silently vanish since profile.php only
-    // checked isset($d['phone']), so this number was never actually saved.
-    await api('api/profile.php','POST',{ name, email, phone: mobile, alt_phone: altPhone, address });
+    await api('api/profile.php','POST',{ name, email, mobile, alt_phone: altPhone, address });
     _syncProfileUI(name, null);
     toast('✅ Profile updated!','success');
   } catch(e) { toast('❌ Failed to save: '+e.message,'error'); }
 };
 
 window.saveProfilePassword = async function() {
-  const curPass = document.getElementById('profile-pass-current')?.value;
   const pass  = document.getElementById('profile-pass')?.value;
   const pass2 = document.getElementById('profile-pass2')?.value;
-  if (!curPass) { toast('Enter your current password','warning'); return; }
   if (!pass) { toast('Enter a new password','warning'); return; }
   if (pass.length < 6) { toast('Password must be at least 6 characters','warning'); return; }
   if (pass !== pass2) { toast('Passwords do not match','warning'); return; }
   try {
-    await api('api/profile.php','POST',{ password: pass, current_password: curPass });
-    document.getElementById('profile-pass-current').value = '';
+    await api('api/profile.php','POST',{ password: pass });
     document.getElementById('profile-pass').value  = '';
     document.getElementById('profile-pass2').value = '';
     toast('✅ Password updated!','success');
@@ -28752,20 +28731,21 @@ window.uploadProfilePhoto = async function(input) {
   }
 };
 
-window.removeProfilePhoto = async function() {
+window.saveProfile = async function() {
+  const name  = document.getElementById('profile-name')?.value?.trim();
+  const email = document.getElementById('profile-email')?.value?.trim();
+  const pass  = document.getElementById('profile-pass')?.value  || '';
+  const pass2 = document.getElementById('profile-pass2')?.value || '';
+  if (!name || !email) { toast('⚠️ Name and email required', 'warning'); return; }
+  if (pass && pass.length < 6) { toast('⚠️ Password min 6 characters', 'warning'); return; }
+  if (pass && pass !== pass2)  { toast('⚠️ Passwords do not match', 'warning'); return; }
+  const payload = { name, email, password: pass || null, avatar: SERVER.user?._avatarUrl || null };
   try {
-    await api('api/profile.php', 'POST', { avatar: '' });
-    const initials = (STATE.user?.name || document.getElementById('profile-name')?.value || '??').trim().substring(0,2).toUpperCase();
-    ['#chipAvatar','#dropdownAvatar','#profile-avatar-preview','.user-avatar'].forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.innerHTML = initials);
-    });
-    document.getElementById('profile-remove-photo-btn')?.remove();
-    SERVER.user = SERVER.user || {};
-    SERVER.user._avatarUrl = '';
-    toast('✅ Photo removed', 'success');
-  } catch(e) {
-    toast('❌ Failed to remove photo: ' + e.message, 'error');
-  }
+    const res = await api('api/profile.php', 'POST', payload);
+    _syncProfileUI(name, payload.avatar || null);
+    if (pass) { document.getElementById('profile-pass').value = ''; document.getElementById('profile-pass2').value = ''; }
+    toast('✅ Profile updated!', 'success');
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 };
 
 
