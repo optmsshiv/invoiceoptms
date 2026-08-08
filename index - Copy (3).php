@@ -2068,11 +2068,7 @@ const SERVER = {
         </div>
         <!-- Date range filter + refresh -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <!-- Hidden whenever Global Date Range is active (see renderDashboard) —
-               these inputs get force-synced and disabled in that state anyway,
-               and the topbar's Period badge already shows the exact same
-               range, so leaving two dead, greyed-out boxes here adds nothing. -->
-          <div id="db-daterange-wrap" style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px">
+          <div style="display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:7px 12px;font-size:12px">
             <i class="fas fa-calendar" style="color:var(--teal)"></i>
             <input type="date" id="db-from" style="border:none;background:transparent;font-size:12px;color:var(--text);outline:none" onchange="renderDashboard()">
             <span style="color:var(--muted)">–</span>
@@ -11362,8 +11358,6 @@ function renderDashboard() {
   // Initialise date range on first call — Global Date Range takes over if active
   const fromEl = document.getElementById('db-from'), toEl = document.getElementById('db-to');
   _gdrApplyToFilter('db-from', 'db-to');
-  const drWrap = document.getElementById('db-daterange-wrap');
-  if (drWrap) drWrap.style.display = GLOBAL_DATE_ACTIVE ? 'none' : 'flex';
   if (fromEl && toEl && !fromEl.value) {
     fromEl.value = BIZ_FROM_DATE;
     toEl.value = fmt_date(new Date());
