@@ -66,15 +66,6 @@ try {
     $ensurePermissionKey('action.settings.session_pricing', 'Session-wise Product Pricing (Settings)', 'action.settings.global_date_range', 'Settings');
     $ensurePermissionKey('action.settings.cih_restrict_toggle', 'Cash in Hand Balance-Lock Toggle (Settings)', 'action.settings.session_pricing', 'Settings');
 
-    // Finance Report currently has no separate gate for sharing/exporting
-    // it externally — anyone who can see menu.finance_report can also
-    // share it. Split out the same way Compare Sessions was split from
-    // Finance Report: own key, chained after the last Actions entry so it
-    // lands in the Actions category (not Menu). Defaults closed for every
-    // staff role until the owner turns it on (see getEffectivePermissions()
-    // in auth.php) — same owner-only-by-default posture as the two above.
-    $ensurePermissionKey('action.reports.finance_share', 'Share Finance Report', 'action.settings.cih_restrict_toggle', 'Actions');
-
     $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
     $tStmt->execute([$tenantId]);
     $plan = $tStmt->fetchColumn() ?: 'trial';
