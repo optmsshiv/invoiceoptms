@@ -26,7 +26,6 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/mailer.php';
 requireSuperAdmin();
 
 header('Content-Type: application/json');
@@ -582,20 +581,6 @@ try {
             jsonResponse(['error' => 'license_expiry must be YYYY-MM-DD'], 400);
         }
 
-        // Fetch the previous values first — so the audit trail actually
-        // shows what changed, not just that "something" changed. Without
-        // this there was no way to answer "who renewed this and from what
-        // date" after the fact. Also pulls what's needed to email the
-        // user if this turns out to be a real renewal (name, email,
-        // tenant's company name).
-        $prevStmt = $master->prepare(
-            'SELECT u.is_verified, u.license_no, u.license_expiry, u.name, u.email, t.company_name
-             FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
-             WHERE u.id = ?'
-        );
-        $prevStmt->execute([$userId]);
-        $prev = $prevStmt->fetch();
-
         $master->prepare(
             'UPDATE users SET is_verified=?, license_no=?, license_expiry=? WHERE id=?'
         )->execute([$isVerified, $licenseNo ?: null, $licenseExp ?: null, $userId]);
@@ -610,32 +595,8 @@ try {
              WHERE user_id=? AND scope='user' AND status='pending'"
         )->execute([date('Y-m-d H:i:s'), $_SESSION['user_id'], $userId]);
 
-        $changes = [];
-        $expiryChanged = false;
-        if ($prev) {
-            if ((string)$prev['license_no'] !== (string)$licenseNo) {
-                $changes[] = "license no. " . ($prev['license_no'] ?: '(none)') . ' → ' . ($licenseNo ?: '(none)');
-            }
-            if ((string)($prev['license_expiry'] ?? '') !== (string)$licenseExp) {
-                $changes[] = "expiry " . ($prev['license_expiry'] ?: '(none)') . ' → ' . ($licenseExp ?: '(none)');
-                $expiryChanged = true;
-            }
-            if ((int)$prev['is_verified'] !== $isVerified) {
-                $changes[] = 'verified ' . ($prev['is_verified'] ? 'yes' : 'no') . ' → ' . ($isVerified ? 'yes' : 'no');
-            }
-        }
-        $changeSummary = $changes ? implode('; ', $changes) : 'no field values actually changed';
         masterAuditLog($_SESSION['user_id'], null, 'user_verification_updated',
-            "Updated verification/license for user #{$userId}: {$changeSummary}");
-
-        // Only email on an actual renewal — a real expiry date that's
-        // genuinely different from before. Editing the license number or
-        // toggling verified without touching the date shouldn't notify
-        // anyone. A failed send is logged inside sendAppEmail() and never
-        // blocks this response — the renewal itself already succeeded.
-        if ($licenseExp && $expiryChanged && $prev && $prev['email']) {
-            sendLicenseRenewedEmail($prev['email'], $prev['name'], $prev['company_name'] ?: (defined('APP_NAME') ? APP_NAME : 'OPTMS Tech'), $licenseExp, false);
-        }
+            "Updated verification/license for user #{$userId}");
 
         jsonResponse(['success' => true]);
     }
@@ -725,15 +686,6 @@ try {
         $expiry = trim((string)($body['license_expiry'] ?? ''));
         $expiry = $expiry !== '' ? $expiry : null;
 
-        // Same as update_verification above — capture the previous value
-        // so the audit entry shows the actual before/after, not just the
-        // new date in isolation. Also pulls what's needed to email the
-        // owner if this turns out to be a real renewal.
-        $prevStmt = $master->prepare('SELECT license_expiry, company_name, owner_email, owner_name FROM tenants WHERE id = ?');
-        $prevStmt->execute([$tenantId]);
-        $prevRow    = $prevStmt->fetch();
-        $prevExpiry = $prevRow['license_expiry'] ?? null;
-
         $master->prepare('UPDATE tenants SET license_expiry=? WHERE id=?')
                ->execute([$expiry, $tenantId]);
 
@@ -745,15 +697,7 @@ try {
         )->execute([date('Y-m-d H:i:s'), $_SESSION['user_id'], $tenantId]);
 
         masterAuditLog($_SESSION['user_id'], $tenantId, 'tenant_license_updated',
-            'Subscription expiry: ' . ($prevExpiry ?: '(none)') . ' → ' . ($expiry ?: '(none)'));
-
-        // Only email on an actual renewal — a real expiry date genuinely
-        // different from before (not a clear-to-none edit, and not a
-        // no-op resave of the same date). Goes to the tenant owner, since
-        // this is a whole-team subscription, not one person's license.
-        if ($expiry && $expiry !== $prevExpiry && $prevRow && $prevRow['owner_email']) {
-            sendLicenseRenewedEmail($prevRow['owner_email'], $prevRow['owner_name'] ?: 'there', $prevRow['company_name'] ?: (defined('APP_NAME') ? APP_NAME : 'OPTMS Tech'), $expiry, true);
-        }
+            'Set subscription expiry to ' . ($expiry ?: 'none'));
 
         jsonResponse(['success' => true]);
     }

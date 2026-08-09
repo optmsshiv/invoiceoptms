@@ -28398,7 +28398,7 @@ async function loadAllData() {
         populateTemplateForm();
       }
     }
-    console.log('Loaded:', STATE.invoices.length,'invoices,', STATE.clients.length,'clients');
+     // console.log('Loaded:', STATE.invoices.length,'invoices,', STATE.clients.length,'clients');
     // Load new feature data
     await loadFeatureData();
   } catch(e) {
