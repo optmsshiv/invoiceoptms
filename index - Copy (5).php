@@ -29133,12 +29133,7 @@ window.uploadProfilePhoto = async function(input) {
   const fd = new FormData(); fd.append('file', file); fd.append('type', 'avatar');
   const avatarEl = document.getElementById('profile-avatar-preview');
   const prevHtml = avatarEl ? avatarEl.innerHTML : '';
-  const spin = (label) => {
-    if (!avatarEl) return;
-    avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:var(--teal)"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
-    avatarEl.title = label;
-  };
-  spin('Uploading photo…');
+  if (avatarEl) avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:var(--teal)"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
   try {
     const res  = await fetch('api/upload.php', { method:'POST', body:fd });
     const data = await res.json();
@@ -29146,7 +29141,6 @@ window.uploadProfilePhoto = async function(input) {
 
     // Persist the URL to the DB immediately — without this the photo
     // reverts on refresh since currentUser() re-reads from the DB.
-    spin('Saving…');
     await api('api/profile.php', 'POST', { avatar: data.url });
 
     _syncProfileUI(null, data.url);

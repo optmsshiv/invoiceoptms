@@ -11,37 +11,26 @@ $db = getDB(); $method = $_SERVER['REQUEST_METHOD'];
 // It was missing 'Estimate', so every page load rebuilt the ENUM
 // without it, blanking the status of all Estimate invoices in the DB.
 // The ENUM is now correct in the DB — no migration needed here.
-//
-// Everything below now checks the schema first (via SHOW COLUMNS /
-// INFORMATION_SCHEMA — cheap, read-only, no lock) before altering.
-// This file runs on every method including GET, so the old blind
-// ALTER/MODIFY calls were re-locking `payments` on every page load —
-// worst offender was MODIFY COLUMN payment_date, which never throws
-// once it's already DATETIME, so its "catch and skip" never triggered
-// and it silently re-ran the same schema change on every single request.
-$existingCols = $db->query("SHOW COLUMNS FROM payments")->fetchAll(PDO::FETCH_COLUMN);
+try {
+  $db->exec("ALTER TABLE payments ADD COLUMN settlement_discount DECIMAL(10,2) NOT NULL DEFAULT 0");
+} catch(Exception $e) { /* already exists */ }
 
-if (!in_array('settlement_discount', $existingCols, true)) {
-  try { $db->exec("ALTER TABLE payments ADD COLUMN settlement_discount DECIMAL(10,2) NOT NULL DEFAULT 0"); } catch(Exception $e) {}
-}
-if (!in_array('remaining_amt', $existingCols, true)) {
-  try { $db->exec("ALTER TABLE payments ADD COLUMN remaining_amt DECIMAL(10,2) NOT NULL DEFAULT 0"); } catch(Exception $e) {}
-}
-if (!in_array('invoice_deleted', $existingCols, true)) {
-  try { $db->exec("ALTER TABLE payments ADD COLUMN invoice_deleted TINYINT(1) NOT NULL DEFAULT 0"); } catch(Exception $e) {}
-}
+try {
+  $db->exec("ALTER TABLE payments ADD COLUMN remaining_amt DECIMAL(10,2) NOT NULL DEFAULT 0");
+} catch(Exception $e) { /* already exists */ }
+
+// Soft-delete: keeps payment row visible with "Invoice Deleted" status
+try {
+  $db->exec("ALTER TABLE payments ADD COLUMN invoice_deleted TINYINT(1) NOT NULL DEFAULT 0");
+} catch(Exception $e) { /* already exists */ }
 
 // Ensure payment_date can actually store a time component.
 // If this column is currently DATE-typed, any time we send gets silently
 // dropped by MySQL. MODIFY to DATETIME is safe — existing DATE values
 // simply become midnight (which is what they already display as).
-$dateType = $db->query("
-  SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'payment_date'
-")->fetchColumn();
-if ($dateType !== 'datetime') {
-  try { $db->exec("ALTER TABLE payments MODIFY COLUMN payment_date DATETIME NULL"); } catch(Exception $e) { /* non-fatal */ }
-}
+try {
+  $db->exec("ALTER TABLE payments MODIFY COLUMN payment_date DATETIME NULL");
+} catch(Exception $e) { /* already DATETIME, or column differs — non-fatal */ }
 
 function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 

@@ -19,17 +19,8 @@ $d = json_decode(file_get_contents('php://input'), true) ?: [];
 // wrapped in try/catch and just returns null), so the whole Profile page
 // would appear broken, not just Address. Self-healing, matches the
 // ALTER-TABLE-in-try/catch pattern already used elsewhere (payments.php etc).
-// Only touch the schema if the columns are actually missing — avoids an
-// ALTER TABLE metadata-lock on every single save (avatar-only saves too),
-// which was adding latency to a hot table (`users` is read on every login,
-// and this is the DB the profile-photo spinner is waiting on).
-$existing = $db->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
-if (!in_array('address', $existing, true)) {
-    try { $db->exec("ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL"); } catch (Exception $e) {}
-}
-if (!in_array('alt_phone', $existing, true)) {
-    try { $db->exec("ALTER TABLE users ADD COLUMN alt_phone VARCHAR(30) NULL"); } catch (Exception $e) {}
-}
+try { $db->exec("ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL"); } catch (Exception $e) { /* already exists */ }
+try { $db->exec("ALTER TABLE users ADD COLUMN alt_phone VARCHAR(30) NULL"); } catch (Exception $e) { /* already exists */ }
 
 $sets   = [];
 $params = [];

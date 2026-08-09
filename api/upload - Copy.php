@@ -28,20 +28,9 @@ if (!in_array($mimeType, $allowed)) {
 $uploadDir = UPLOAD_PATH;
 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-// Generate unique filename — extension comes from the VERIFIED mime type,
-// never from the client-supplied filename. Deriving it from $file['name']
-// let an attacker upload a valid-image-bytes/PHP-polyglot file named
-// "x.php" and have it saved as "..._x....php" into a public, PHP-executing
-// upload directory — RCE via avatar/logo upload.
-$mimeToExt = [
-    'image/jpeg'    => 'jpg',
-    'image/png'     => 'png',
-    'image/gif'     => 'gif',
-    'image/webp'    => 'webp',
-    'image/svg+xml' => 'svg',
-];
-$ext      = $mimeToExt[$mimeType];
-$filename = $type . '_' . $_SESSION['user_id'] . '_' . time() . '.' . $ext;
+// Generate unique filename
+$ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
+$filename = $type . '_' . $_SESSION['user_id'] . '_' . time() . '.' . strtolower($ext);
 $destPath = $uploadDir . $filename;
 
 if (!move_uploaded_file($file['tmp_name'], $destPath)) {
