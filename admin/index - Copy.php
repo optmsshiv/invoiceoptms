@@ -1444,16 +1444,14 @@ async function saveVerification() {
   const data = await r.json();
   if (data.success) {
     closeModal('modal-edit-license');
-    // Unconditional refresh — previously this only refreshed whichever
-    // view the admin happened to already be on (Team/Users page, or a
-    // specific tenant's Users modal), so renewing from the License
-    // Requests page — the normal way an admin actually handles a pending
-    // request — never refreshed ALL_TEAM_USERS at all. The Team/Users
-    // table kept showing the stale pre-renewal date indefinitely, even
-    // after navigating there later, since nothing had ever re-fetched it.
-    // Matches the pattern saveTenantSubscription() already uses correctly.
-    if (typeof loadTeamPage === 'function') loadTeamPage();
-    if (ACTIVE_TENANT_ID && typeof loadUsers === 'function') loadUsers();
+    // Refresh whichever view this edit was actually opened from — the
+    // per-tenant Users modal (needs ACTIVE_TENANT_ID) or the cross-tenant
+    // Team page (its own loader, no tenant context needed).
+    if (document.getElementById('page-team')?.classList.contains('active')) {
+      loadTeamPage();
+    } else if (ACTIVE_TENANT_ID) {
+      loadUsers();
+    }
     // update_verification auto-resolves any pending renewal request for
     // this user server-side — refresh the queue/badge to reflect that.
     if (typeof loadLicenseRequests === 'function') loadLicenseRequests();
