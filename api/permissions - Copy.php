@@ -28,40 +28,8 @@ if (in_array($method, ['POST','PATCH','PUT'])) {
 
 $VALID_PLANS = ['trial','basic','pro','enterprise'];
 
-// Same self-healing catalog helper as api/role_permissions.php — that
-// file's copy only runs when a tenant owner opens their own Team > Role
-// Permissions screen, so a permission added after the fact stays
-// invisible here (Tenant Permissions / Plan Defaults) until some owner,
-// somewhere, happens to trigger it first. Duplicating the ensure-calls
-// here means the super admin's own screens self-heal independently,
-// without depending on tenant-side action.
-function _ensurePermissionKey(PDO $master, string $key, string $label, string $afterKey, string $fallbackCategory): void {
-    try {
-        $exists = $master->prepare('SELECT id FROM permissions WHERE `key` = ?');
-        $exists->execute([$key]);
-        if ($exists->fetch()) return;
-        $afterStmt = $master->prepare('SELECT category, sort_order FROM permissions WHERE `key` = ?');
-        $afterStmt->execute([$afterKey]);
-        $after     = $afterStmt->fetch();
-        $category  = $after['category'] ?? $fallbackCategory;
-        $sortOrder = $after ? ((int)$after['sort_order'] + 1) : 999;
-        $master->prepare('UPDATE permissions SET sort_order = sort_order + 1 WHERE sort_order >= ?')
-               ->execute([$sortOrder]);
-        $master->prepare('INSERT INTO permissions (`key`, label, category, sort_order) VALUES (?,?,?,?)')
-               ->execute([$key, $label, $category, $sortOrder]);
-    } catch (Exception $e) { error_log("permissions.php _ensurePermissionKey($key): " . $e->getMessage()); }
-}
-
 try {
     $master = getMasterDB();
-
-    // Keep the master catalog in sync with everything role_permissions.php
-    // self-heals on the tenant side, so these show up here even if no
-    // tenant owner has opened their Role Permissions screen yet.
-    _ensurePermissionKey($master, 'menu.compare_sessions', 'Compare Sessions', 'menu.finance_report', 'Menu');
-    _ensurePermissionKey($master, 'action.settings.session_pricing', 'Session-wise Product Pricing (Settings)', 'action.settings.global_date_range', 'Settings');
-    _ensurePermissionKey($master, 'action.settings.cih_restrict_toggle', 'Cash in Hand Balance-Lock Toggle (Settings)', 'action.settings.session_pricing', 'Settings');
-    _ensurePermissionKey($master, 'action.reports.finance_share', 'Share Finance Report', 'action.settings.cih_restrict_toggle', 'Actions');
 
     // ── Full catalog (every controllable permission) ────────────────
     if ($method === 'GET' && $action === 'catalog') {
