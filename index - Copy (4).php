@@ -80,16 +80,6 @@ $isSuperAdmin  = $userRole === 'super_admin';
 $canEditGlobalDateRange = in_array($userRole, ['owner','super_admin'], true)
     ? true
     : (bool)($perms['action.settings.global_date_range'] ?? false);
-// Same owner-only-by-default pattern as Global Date Range above — both of
-// these live in Settings → Company Info with no gate at all previously,
-// meaning any role that could reach Settings could also flip off the
-// safety toggle that blocks editing a carried-forward session's balance.
-$canEditSessionPricing = in_array($userRole, ['owner','super_admin'], true)
-    ? true
-    : (bool)($perms['action.settings.session_pricing'] ?? false);
-$canEditCihRestrictToggle = in_array($userRole, ['owner','super_admin'], true)
-    ? true
-    : (bool)($perms['action.settings.cih_restrict_toggle'] ?? false);
 $roleBadgeCol  = $ROLE_BADGE_COLORS[$userRole] ?? ['bg' => '#F5F5F5', 'text' => '#616161'];
 // Super admin's ad-hoc database connection (set via api/tenant.php?action=connect_db)
 $connectedDb    = $_SESSION['tenant_db'] ?? null;
@@ -1663,8 +1653,6 @@ const SERVER = {
   // Global Date Range Filter — see $canEditGlobalDateRange above (same
   // value, just also needed here for the JS-rendered presets list).
   canEditGlobalDateRange: <?= json_encode($canEditGlobalDateRange) ?>,
-  canEditSessionPricing: <?= json_encode($canEditSessionPricing) ?>,
-  canEditCihRestrictToggle: <?= json_encode($canEditCihRestrictToggle) ?>,
   // WA settings pre-loaded from DB for instant toggle restore
   wa: {
     token:         <?= json_encode($settings['wa_token']        ?? '') ?>,
@@ -7384,22 +7372,16 @@ View Invoice: {{6}}</pre></details>
           </div>
           <?php endif; ?>
 
-          <?php if ($canEditCihRestrictToggle): ?>
+          <!-- Not part of the Global Date Range Filter — a separate Cash in
+               Hand setting that lives here for proximity, but stays visible
+               to everyone regardless of the date-range permission above. -->
           <div class="settings-block">
             <div style="display:flex;align-items:center;gap:10px">
               <label class="tog" id="cih-restrict-tog" onclick="this.classList.toggle('on');toggleCihRestriction()"></label>
               <span style="font-size:12.5px">Block editing a session's balance after it's been carried forward elsewhere <span style="color:var(--muted);font-weight:400">(recommended — turn off only if a genuine correction is needed on a carried-forward session)</span></span>
             </div>
           </div>
-          <?php else: ?>
-          <div class="settings-block">
-            <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
-              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can view and change the Cash in Hand balance-lock setting — ask them, or have them grant you this permission in Team Permissions.
-            </div>
-          </div>
-          <?php endif; ?>
 
-          <?php if ($canEditSessionPricing): ?>
           <div class="settings-block">
             <div class="sb-title"><i class="fas fa-tags" style="color:var(--teal)"></i> Session-wise Product Pricing</div>
             <p style="font-size:11.5px;color:var(--muted);margin:-4px 0 12px">Set a different price per product for each saved session — useful when crop/product rates genuinely change season to season. A product only follows session pricing if you turn it on for that specific product (Product page → Pricing & Tax Information); everything else keeps using its normal fixed rate.</p>
@@ -7428,14 +7410,6 @@ View Invoice: {{6}}</pre></details>
               </div>
             </div>
           </div>
-          <?php else: ?>
-          <div class="settings-block">
-            <div class="sb-title"><i class="fas fa-tags" style="color:var(--teal)"></i> Session-wise Product Pricing</div>
-            <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted)">
-              <i class="fas fa-lock" style="color:#9A6700"></i> Only the owner can view and change this — ask them, or have them grant you this permission in Team Permissions.
-            </div>
-          </div>
-          <?php endif; ?>
 
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
@@ -9513,7 +9487,6 @@ function _sspApplyEnabledState() {
 }
 
 async function toggleCihRestriction() {
-  if (!SERVER.canEditCihRestrictToggle) return; // defense in depth — button that calls this is hidden entirely for non-owners
   const on = document.getElementById('cih-restrict-tog')?.classList.contains('on');
   try {
     await api('api/settings.php', 'POST', { cih_restrict_carried_sessions: on ? '1' : '0' });
@@ -9523,7 +9496,6 @@ async function toggleCihRestriction() {
 }
 
 async function toggleSessionPricingEnabled() {
-  if (!SERVER.canEditSessionPricing) return; // defense in depth — button that calls this is hidden entirely for non-owners
   SESSION_PRICING_ENABLED = document.getElementById('ssp-enabled-tog')?.classList.contains('on');
   _sspApplyEnabledState();
   try {
@@ -28032,17 +28004,6 @@ async function handleLogoUpload(input, targetId, previewId) {
     'sc-sign-prepared-img':'signature','sc-sign-verified-img':'signature',
     'f-client-logo':'client_logo','f-qr':'qr'
   };
-  // Loading state — shown right in the same preview slot each call site
-  // already has, so every use of this shared function (company logo,
-  // signatures, client logo, QR) gets it for free with no per-site HTML.
-  // Without this the upload just silently sat there with no feedback at
-  // all until it finished, which read as broken rather than working.
-  const previewEl = previewId ? document.getElementById(previewId) : null;
-  if (previewEl) {
-    previewEl.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border:1px dashed var(--border);border-radius:8px;margin-top:4px;color:var(--muted);font-size:11.5px">
-      <i class="fas fa-spinner fa-spin" style="color:var(--teal)"></i> Uploading ${escHtml(file.name)}…
-    </div>`;
-  }
   const fd = new FormData();
   fd.append('file', file);
   fd.append('type', typeMap[targetId] || 'logo');
@@ -28065,24 +28026,16 @@ async function handleLogoUpload(input, targetId, previewId) {
     if (previewId) {
       const prev = document.getElementById(previewId);
       if (prev) {
-        // The company logo preview gets its own larger, dashed-border
-        // treatment (see _companyLogoPreviewHtml) — everything else
-        // (signatures, client logo, QR) keeps the original compact pill.
-        if (previewId === 'sc-logo-preview') {
-          prev.innerHTML = _companyLogoPreviewHtml(data.url, file.name, targetId, previewId);
-        } else {
-          const isSign = previewId.includes('sign');
-          prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
-            <img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px">
-            <span style="font-size:11px;color:var(--muted)">${file.name}</span>
-            <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
-          </div>`;
-        }
+        const isSign = previewId.includes('sign');
+        prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:${isSign?'#1a1a2e':'var(--teal-bg)'};border-radius:8px;border:1px solid var(--border)">
+          <img src="${data.url}" style="height:${isSign?'36':'32'}px;max-width:120px;object-fit:contain;border-radius:4px">
+          <span style="font-size:11px;color:var(--muted)">${file.name}</span>
+          <button onclick="clearLogoField('${targetId}','${previewId}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:13px"><i class="fas fa-times"></i></button>
+        </div>`;
       }
     }
     toast('✅ Uploaded!', 'success');
   } catch(e) {
-    if (previewEl) previewEl.innerHTML = '';
     // Fallback: use base64
     const reader = new FileReader();
     reader.onload = ev => {
@@ -28093,21 +28046,6 @@ async function handleLogoUpload(input, targetId, previewId) {
     reader.readAsDataURL(file);
     console.warn('Server upload failed, using base64:', e.message);
   }
-}
-
-// Bigger preview specifically for the Company Logo field in Settings →
-// Company Info — the old compact pill (32px) was easy to miss and hard to
-// actually judge; this is large enough to check crop/legibility at a
-// glance, with a dashed border marking it clearly as a preview/dropzone
-// rather than part of the surrounding form.
-function _companyLogoPreviewHtml(url, filename, targetId, previewId) {
-  return `<div style="display:inline-flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border:2px dashed var(--border);border-radius:12px;margin-top:6px">
-    <img src="${url}" style="height:72px;max-width:220px;object-fit:contain;border-radius:6px;background:#fff;padding:4px">
-    <div style="display:flex;flex-direction:column;gap:4px">
-      <span style="font-size:11.5px;color:var(--muted)">${escHtml(filename || 'Current logo')}</span>
-      <button onclick="clearLogoField('${targetId}','${previewId}')" style="align-self:flex-start;border:none;background:none;cursor:pointer;color:var(--red);font-size:11px;font-weight:600;padding:0"><i class="fas fa-times"></i> Remove</button>
-    </div>
-  </div>`;
 }
 
 function clearLogoField(targetId, previewId) {
@@ -28917,7 +28855,7 @@ function populateSettingsForm() {
   if (s.logo || STATE.settings.logo) {
     const logoUrl = s.logo || STATE.settings.logo;
     const prev = document.getElementById('sc-logo-preview');
-    if (prev) prev.innerHTML = _companyLogoPreviewHtml(logoUrl, 'Current logo', 'sc-logo', 'sc-logo-preview');
+    if (prev) prev.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:var(--teal-bg);border-radius:8px;border:1px solid var(--border);margin-top:4px"><img src="${logoUrl}" style="height:32px;max-width:120px;object-fit:contain;border-radius:4px"><span style="font-size:11px;color:var(--muted)">Current logo</span></div>`;
     const scLogoEl = document.getElementById('sc-logo'); if(scLogoEl&&!scLogoEl.value) scLogoEl.value = logoUrl;
   }
   // Show sign preview
@@ -29131,9 +29069,6 @@ window.uploadProfilePhoto = async function(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 2*1024*1024) { toast('⚠️ Max 2MB', 'warning'); return; }
   const fd = new FormData(); fd.append('file', file); fd.append('type', 'avatar');
-  const avatarEl = document.getElementById('profile-avatar-preview');
-  const prevHtml = avatarEl ? avatarEl.innerHTML : '';
-  if (avatarEl) avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:var(--teal)"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
   try {
     const res  = await fetch('api/upload.php', { method:'POST', body:fd });
     const data = await res.json();
@@ -29148,7 +29083,6 @@ window.uploadProfilePhoto = async function(input) {
     SERVER.user._avatarUrl = data.url;
     toast('✅ Photo uploaded!', 'success');
   } catch(e) {
-    if (avatarEl) avatarEl.innerHTML = prevHtml;
     toast('❌ Photo upload failed: ' + e.message, 'error');
   }
 };

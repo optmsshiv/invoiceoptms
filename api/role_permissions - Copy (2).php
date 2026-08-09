@@ -28,43 +28,28 @@ try {
     $tenantId = $_SESSION['tenant_id'] ?? null;
     if (!$tenantId) jsonResponse(['error' => 'No tenant context'], 400);
 
-    // Auto-migrate: adds a catalog row for `key`, placed right after
-    // `afterKey` (falls back to end of category if afterKey isn't found
-    // yet either). Self-healing — a no-op once the row exists. Used for
-    // every permission added after the initial catalog was seeded, so
-    // each one only needs its key/label/afterKey/category here instead of
-    // a hand-written migration block.
-    $ensurePermissionKey = function(string $key, string $label, string $afterKey, string $fallbackCategory) use ($master) {
-        try {
-            $exists = $master->prepare('SELECT id FROM permissions WHERE `key` = ?');
-            $exists->execute([$key]);
-            if ($exists->fetch()) return;
-            $afterStmt = $master->prepare('SELECT category, sort_order FROM permissions WHERE `key` = ?');
-            $afterStmt->execute([$afterKey]);
-            $after     = $afterStmt->fetch();
-            $category  = $after['category'] ?? $fallbackCategory;
-            $sortOrder = $after ? ((int)$after['sort_order'] + 1) : 999;
+    // Auto-migrate: "Compare Sessions" used to piggyback on the
+    // menu.finance_report permission key (see index.php sidebar), so there
+    // was no way to grant/restrict it independently in the Team permissions
+    // UI. Give it its own catalog row, placed right after Finance Report,
+    // the first time this endpoint runs after the update. Self-healing —
+    // once the row exists this block is a no-op on every later request.
+    try {
+        $csExists = $master->prepare('SELECT id FROM permissions WHERE `key` = ?');
+        $csExists->execute(['menu.compare_sessions']);
+        if (!$csExists->fetch()) {
+            $frStmt = $master->prepare('SELECT category, sort_order FROM permissions WHERE `key` = ?');
+            $frStmt->execute(['menu.finance_report']);
+            $fr = $frStmt->fetch();
+            $category  = $fr['category'] ?? 'Menu';
+            $sortOrder = $fr ? ((int)$fr['sort_order'] + 1) : 999;
+            // Make room so it lands directly after Finance Report instead of at the end
             $master->prepare('UPDATE permissions SET sort_order = sort_order + 1 WHERE sort_order >= ?')
                    ->execute([$sortOrder]);
             $master->prepare('INSERT INTO permissions (`key`, label, category, sort_order) VALUES (?,?,?,?)')
-                   ->execute([$key, $label, $category, $sortOrder]);
-        } catch (Exception $e) { error_log("role_permissions.php ensurePermissionKey($key): " . $e->getMessage()); }
-    };
-
-    // "Compare Sessions" used to piggyback on the menu.finance_report
-    // permission key (see index.php sidebar), so there was no way to
-    // grant/restrict it independently in the Team permissions UI.
-    $ensurePermissionKey('menu.compare_sessions', 'Compare Sessions', 'menu.finance_report', 'Menu');
-
-    // Session-wise Product Pricing and the "block editing a session's
-    // balance" safety toggle both live in Settings → Company Info with no
-    // permission gate at all — any role that can reach Settings could see
-    // and change them, including flipping off the safety toggle that's
-    // meant to stop historical session balances from being edited. Owner-
-    // only by default (see $canEditSessionPricing / $canEditCihRestrictToggle
-    // in index.php), same fallback pattern as Global Date Range.
-    $ensurePermissionKey('action.settings.session_pricing', 'Session-wise Product Pricing (Settings)', 'action.settings.global_date_range', 'Settings');
-    $ensurePermissionKey('action.settings.cih_restrict_toggle', 'Cash in Hand Balance-Lock Toggle (Settings)', 'action.settings.session_pricing', 'Settings');
+                   ->execute(['menu.compare_sessions', 'Compare Sessions', $category, $sortOrder]);
+        }
+    } catch (Exception $e) { error_log('role_permissions.php compare_sessions migrate: ' . $e->getMessage()); }
 
     $tStmt = $master->prepare('SELECT plan FROM tenants WHERE id=?');
     $tStmt->execute([$tenantId]);
