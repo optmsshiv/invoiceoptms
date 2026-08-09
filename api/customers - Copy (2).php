@@ -46,7 +46,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `customers` (
   `country` VARCHAR(100) DEFAULT '',
   `documents` TEXT NULL,
   `client_request_id` VARCHAR(64) NULL,
-  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `idx_cust_status` (`status`),
@@ -58,11 +57,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `customers` (
 $custCols = $db->query("SHOW COLUMNS FROM customers")->fetchAll(PDO::FETCH_COLUMN);
 if (!in_array('client_request_id', $custCols, true)) {
     try { $db->exec("ALTER TABLE customers ADD COLUMN client_request_id VARCHAR(64) NULL, ADD UNIQUE INDEX idx_customers_client_request_id (client_request_id)"); } catch (Throwable $e) { /* already exists */ }
-}
-// Who created this customer — for the "Added by X" byline in the detail
-// view (not a table column — see chat).
-if (!in_array('created_by', $custCols, true)) {
-    try { $db->exec("ALTER TABLE customers ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) { /* already exists */ }
 }
 
 function saveCustomerDoc($dataUrl) {
@@ -126,8 +120,7 @@ switch ($method) {
     }
 
     $status = $_GET['status'] ?? 'active';
-    $stmt = $db->prepare('SELECT c.*, u.name AS created_by_name FROM customers c
-      LEFT JOIN users u ON u.id = c.created_by WHERE c.status = ? ORDER BY c.name ASC');
+    $stmt = $db->prepare('SELECT * FROM customers WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) { $r['documents'] = $r['documents'] ? json_decode($r['documents'], true) : []; }
@@ -170,11 +163,10 @@ switch ($method) {
 
     $docs = processCustomerDocArray($d['documents'] ?? []);
     $d['customer_code'] = $custCode;
-    $cols = array_merge($FIELDS, ['documents', 'client_request_id', 'created_by']);
+    $cols = array_merge($FIELDS, ['documents', 'client_request_id']);
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     $vals[] = json_encode($docs);
     $vals[] = $clientRequestId !== '' ? $clientRequestId : null;
-    $vals[] = (int)$_SESSION['user_id'];
 
     $placeholders = implode(',', array_fill(0, count($cols), '?'));
     $colList = implode(',', array_map(fn($c) => "`$c`", $cols));

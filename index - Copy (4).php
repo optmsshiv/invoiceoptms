@@ -9024,10 +9024,7 @@ View Invoice: {{6}}</pre></details>
         <div style="width:30px;height:30px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas fa-wallet" style="color:#E65100;font-size:13px"></i>
         </div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
-          <div style="font-size:11px;color:var(--muted)" id="exp-modal-byline"></div>
-        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-expense')"><i class="fas fa-times"></i></button>
     </div>
@@ -18492,7 +18489,7 @@ async function restoreProduct(id) {
 // ══════════════════════════════════════════
 // SUPPLIERS  (buy-side "clients")
 // ══════════════════════════════════════════
-const SUP = { archived: false, archivedList: [], search: '', editingId: null, idempotencyKey: crypto.randomUUID() };
+const SUP = { archived: false, archivedList: [], search: '', editingId: null };
 
 function activeSupSource() {
   const list = SUP.archived ? (SUP.archivedList || []) : STATE.suppliers;
@@ -18703,10 +18700,6 @@ let ADD_SUPPLIER_CONTEXT = 'page'; // 'page' (Suppliers page) | 'purchase' (Purc
 function openAddSupplierModal(context = 'page') {
   ADD_SUPPLIER_CONTEXT = context;
   SUP.editingId = null;
-  // Fresh key per "add" attempt — same duplicate-save protection pattern
-  // as PNE/SN. Only rotated here and on a successful save (below), so a
-  // retry after a network failure reuses the same key.
-  SUP.idempotencyKey = crypto.randomUUID();
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
   ['supq-name','supq-type','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
@@ -18751,7 +18744,6 @@ async function saveSupplier() {
     payment_terms:   document.getElementById('supq-terms').value.trim(),
     opening_balance: parseFloat(document.getElementById('supq-opening').value) || 0,
     notes:           document.getElementById('supq-notes').value.trim(),
-    client_request_id: SUP.idempotencyKey,
   };
   const isEdit = !!SUP.editingId;
   try {
@@ -18762,7 +18754,6 @@ async function saveSupplier() {
     } else {
       const res = await api('api/suppliers.php', 'POST', payload);
       newId = res?.id;
-      SUP.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added!', 'success');
     }
     const r = await api('api/suppliers.php');
@@ -18890,7 +18881,7 @@ function viewCustomerProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}${c.created_by_name ? ' · Added by ' + escHtml(c.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19008,7 +18999,7 @@ async function viewSaleDetails(id) {
       <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19151,7 +19142,7 @@ async function viewPurchaseDetails(id) {
       <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}${p.created_by_name ? ' · Added by ' + escHtml(p.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19241,7 +19232,7 @@ function viewSupplierProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19937,7 +19928,7 @@ function fmt_datetime_stacked(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [], idempotencyKey: crypto.randomUUID() };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [] };
 let pnDeductionSeq = 1;
 
 // ── Deductions (Purchase Entry sidebar — compact card list) ──
@@ -19978,12 +19969,6 @@ function goToStockIn() {
 
 function goToNewPurchase() {
   PNE.editingId = null;
-  // A fresh UUID per "New Purchase" session — sent as client_request_id
-  // on save. If Save is retried after a network timeout (see api()'s 30s
-  // timeout), the SAME key is reused (not regenerated here — only on a
-  // successful save, below), so the backend can tell a retry apart from
-  // a genuinely new purchase and avoid inserting a duplicate.
-  PNE.idempotencyKey = crypto.randomUUID();
   PNE.items = [pneEmptyItem()];
   PNE.deductions = [];
   PNE.attachmentDataUrl = null;
@@ -21038,7 +21023,6 @@ async function savePurchaseEntry(mode) {
     notes: document.getElementById('pn-notes').value.trim(),
     attachment: attachment || undefined,
     session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,
-    client_request_id: PNE.idempotencyKey,
     items: PNE.items.map(it => ({
       product_id: it.product_id || null, description: it.description, hsn: '',
       variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
@@ -21057,12 +21041,6 @@ async function savePurchaseEntry(mode) {
     } else {
       const res = await api('api/purchases.php', 'POST', payload);
       savedId = res.id;
-      // Save succeeded (whether newly inserted, or the backend recognized
-      // a retry via client_request_id and returned the original record) —
-      // this attempt is done, so rotate the key. If we *didn't* rotate
-      // here and the user started an unrelated new purchase reusing the
-      // same tab state, it would incorrectly look like a retry of this one.
-      PNE.idempotencyKey = crypto.randomUUID();
       consumeEditApproval(); toast('✅ Purchase saved!', 'success');
     }
     const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
@@ -22316,7 +22294,7 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null, idempotencyKey: crypto.randomUUID() };
+const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null };
 // Batch options per product, fetched from product_batches.php on demand —
 // only products with actual received batches will have entries here;
 // everything else just falls back to "No batch" (same as today, harmless).
@@ -22376,9 +22354,6 @@ function renderSNDeductionsTable() {
 
 function goToNewSale() {
   SN.editingId = null;
-  // Fresh UUID per "New Sale" session — same duplicate-save protection
-  // pattern as PNE.idempotencyKey in goToNewPurchase() above.
-  SN.idempotencyKey = crypto.randomUUID();
   SN.items = [snEmptyItem()];
   SN.activeRowId = SN.items[0].id; // auto-link kanta to row 1 immediately
   SN.attachments = [];
@@ -22543,13 +22518,9 @@ async function onCustomerPicked() {
 }
 
 let ADD_CUSTOMER_CONTEXT = 'sale'; // 'sale' | 'proforma' — which dropdown to update after saving
-// Duplicate-save protection for this quick-add modal — same pattern as
-// SUP/PNE/SN. Rotated in openAddCustomerModal() and on a successful save.
-let ADD_CUSTOMER_KEY = crypto.randomUUID();
 
 function openAddCustomerModal(context = 'sale') {
   ADD_CUSTOMER_CONTEXT = context;
-  ADD_CUSTOMER_KEY = crypto.randomUUID();
   ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
@@ -22569,11 +22540,9 @@ async function saveCustomer() {
     shipping_address: document.getElementById('cus-shipping').value.trim(),
     credit_limit: parseFloat(document.getElementById('cus-creditlimit').value) || 0,
     payment_terms: document.getElementById('cus-paymentterms').value.trim(), sales_executive: document.getElementById('cus-salesexec').value.trim(),
-    client_request_id: ADD_CUSTOMER_KEY,
   };
   try {
     const res = await api('api/customers.php', 'POST', payload);
-    ADD_CUSTOMER_KEY = crypto.randomUUID();
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
     closeModal('modal-addcustomer');
@@ -23136,7 +23105,6 @@ async function saveSaleEntry(mode) {
     approved_by: document.getElementById('sn-approvedby').value.trim(),
     status: mode === 'draft' ? 'Draft' : 'Confirmed',
     attachments: SN.attachments.map(a => a.url),
-    client_request_id: SN.idempotencyKey,
     items: SN.items.map(it => ({
       product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
       batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
@@ -23156,10 +23124,6 @@ async function saveSaleEntry(mode) {
     } else {
       const res = await api('api/sales.php', 'POST', payload);
       savedId = res.id;
-      // Rotate the key only after success — see the matching comment in
-      // savePurchaseEntry(). A failed/timed-out attempt keeps the same
-      // key so a retry is recognized as the same attempt, not a new sale.
-      SN.idempotencyKey = crypto.randomUUID();
       consumeEditApproval(); toast('✅ Sale saved!', 'success');
     }
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
@@ -24111,7 +24075,7 @@ async function renderSARecentAdjustments() {
 // ══════════════════════════════════════════
 // ADD SUPPLIER / FARMER (full page)
 // ══════════════════════════════════════════
-const SUPN = { editingId: null, docs: [], idempotencyKey: crypto.randomUUID() };
+const SUPN = { editingId: null, docs: [] };
 const INDIA_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana',
   'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
   'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand',
@@ -24138,8 +24102,6 @@ function onSupplierTypeChangeRich() {
 function goToNewSupplierPage() {
   SUPN.editingId = null;
   SUPN.docs = [];
-  // Same duplicate-save protection pattern as SUP above.
-  SUPN.idempotencyKey = crypto.randomUUID();
   document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
   document.getElementById('supn-crumb').textContent = 'Add New';
   document.getElementById('sup-type').value = '';
@@ -24249,7 +24211,6 @@ async function saveSupplierEntry() {
     notes: document.getElementById('sup-notes').value.trim(),
     status: document.getElementById('sup-status').classList.contains('on') ? 'active' : 'archived',
     documents: SUPN.docs.map(d => d.url || d),
-    client_request_id: SUPN.idempotencyKey,
   };
 
   const btn = event?.target?.closest('button');
@@ -24260,7 +24221,6 @@ async function saveSupplierEntry() {
       consumeEditApproval(); toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
-      SUPN.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added!', 'success');
     }
     const r = await api('api/suppliers.php');
@@ -24274,7 +24234,7 @@ async function saveSupplierEntry() {
 // ══════════════════════════════════════════
 // ADD NEW CUSTOMER (full page)
 // ══════════════════════════════════════════
-const CUSN = { editingId: null, docs: [], returnToSale: false, idempotencyKey: crypto.randomUUID() };
+const CUSN = { editingId: null, docs: [], returnToSale: false };
 
 // Opened from Sale Entry's "+" button next to the customer picker. Since this
 // is a single-page app, the in-progress sale form (SN.items etc.) stays intact
@@ -24326,8 +24286,6 @@ function goToNewCustomerPage() {
   CUSN.editingId = null;
   CUSN.docs = [];
   CUSN.returnToSale = false;
-  // Same duplicate-save protection pattern as SUPN above.
-  CUSN.idempotencyKey = crypto.randomUUID();
   document.getElementById('cusn-title').textContent = 'Add New Customer';
   document.getElementById('cusn-crumb').textContent = 'Add New Customer';
   document.getElementById('cusn-type').value = '';
@@ -24471,7 +24429,6 @@ async function saveCustomerEntry(mode) {
     opening_balance: parseFloat(document.getElementById('cusn-openingbal').value) || 0, opening_balance_type: document.getElementById('cusn-openingbaltype').value,
     sales_executive: document.getElementById('cusn-salesperson').value, notes: document.getElementById('cusn-notes-inline').value.trim(),
     documents: CUSN.docs.map(d => d.url || d),
-    client_request_id: CUSN.idempotencyKey,
   };
 
   const btn = event?.target?.closest('button');
@@ -24484,7 +24441,6 @@ async function saveCustomerEntry(mode) {
     } else {
       const res = await api('api/customers.php', 'POST', payload);
       newId = res.id;
-      CUSN.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added as ' + res.customer_code + '!', 'success');
     }
     const r = await api('api/customers.php');
@@ -31443,7 +31399,6 @@ async function saveCreditConversion() {
 function openAddExpenseModal() {
   document.getElementById('exp-edit-id').value = '';
   document.getElementById('exp-modal-title').textContent = 'Add Expense';
-  document.getElementById('exp-modal-byline').textContent = ''; // no creator yet — this is a new record
   document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-category').value = '';
@@ -31459,7 +31414,6 @@ function editExpense(id) {
   if (!exp) return;
   document.getElementById('exp-edit-id').value = id;
   document.getElementById('exp-modal-title').textContent = 'Edit Expense';
-  document.getElementById('exp-modal-byline').textContent = exp.created_by_name ? ('Added by ' + exp.created_by_name) : '';
   document.getElementById('exp-date').value     = exp.date||'';
   document.getElementById('exp-amount').value   = exp.amount||'';
   document.getElementById('exp-category').value = exp.category||'';

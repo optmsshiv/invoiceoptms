@@ -45,7 +45,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `suppliers` (
   `status` VARCHAR(20) NOT NULL DEFAULT 'active',
   `documents` TEXT NULL,
   `client_request_id` VARCHAR(64) NULL,
-  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `idx_sup_status` (`status`),
@@ -57,11 +56,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `suppliers` (
 $supCols = $db->query("SHOW COLUMNS FROM suppliers")->fetchAll(PDO::FETCH_COLUMN);
 if (!in_array('client_request_id', $supCols, true)) {
     try { $db->exec("ALTER TABLE suppliers ADD COLUMN client_request_id VARCHAR(64) NULL, ADD UNIQUE INDEX idx_suppliers_client_request_id (client_request_id)"); } catch (Throwable $e) { /* already exists */ }
-}
-// Who created this supplier — for the "Added by X" byline in the detail
-// view (not a table column — see chat).
-if (!in_array('created_by', $supCols, true)) {
-    try { $db->exec("ALTER TABLE suppliers ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) { /* already exists */ }
 }
 
 function saveSupplierDoc($dataUrl) {
@@ -111,8 +105,7 @@ switch ($method) {
     }
 
     $status = $_GET['status'] ?? 'active';
-    $stmt = $db->prepare('SELECT s.*, u.name AS created_by_name FROM suppliers s
-      LEFT JOIN users u ON u.id = s.created_by WHERE s.status = ? ORDER BY s.name ASC');
+    $stmt = $db->prepare('SELECT * FROM suppliers WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) { $r['documents'] = $r['documents'] ? json_decode($r['documents'], true) : []; }
@@ -149,11 +142,10 @@ switch ($method) {
     if (empty($d['status'])) $d['status'] = 'active'; // default when the caller doesn't send one explicitly
 
     $docs = processDocArray($d['documents'] ?? []);
-    $cols = array_merge($FIELDS, ['documents', 'client_request_id', 'created_by']);
+    $cols = array_merge($FIELDS, ['documents', 'client_request_id']);
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     $vals[] = json_encode($docs);
     $vals[] = $clientRequestId !== '' ? $clientRequestId : null;
-    $vals[] = (int)$_SESSION['user_id'];
 
     $placeholders = implode(',', array_fill(0, count($cols), '?'));
     $colList = implode(',', array_map(fn($c) => "`$c`", $cols));

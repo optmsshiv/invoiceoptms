@@ -16,16 +16,17 @@ header('Content-Type: application/json');
 $method = $_SERVER['REQUEST_METHOD'];
 $id     = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-// NOTE: this file previously had its own local logAct() helper that wrote
-// to activity_log with different column names (type,label,detail,
-// invoice_id,user_id,ip) than the shared logActivity() in auth.php
-// (user_id,action,entity_type,entity_id,details,ip_address,created_at) —
-// which every other file (purchases.php, sales.php, suppliers.php,
-// customers.php) actually uses. Since activity_log's real schema is the
-// one logActivity() expects, every logAct() call here was almost
-// certainly throwing and getting silently swallowed by its own catch —
-// Expense create/edit/delete were likely never reaching Activity Log at
-// all. Removed in favor of the shared logActivity(), used below.
+function logAct(PDO $db, string $type, string $label, string $detail = '', ?int $invoiceId = null): void {
+    try {
+        $user = currentUser();
+        $uid  = $user['id'] ?? null;
+        $ip   = $_SERVER['REMOTE_ADDR'] ?? null;
+        $db->prepare(
+            'INSERT INTO activity_log (type,label,detail,invoice_id,user_id,ip)
+             VALUES (:t,:l,:d,:i,:u,:ip)'
+        )->execute([':t'=>$type,':l'=>$label,':d'=>$detail,':i'=>$invoiceId,':u'=>$uid,':ip'=>$ip]);
+    } catch (Exception $e) { /* activity_log may not exist yet — silent */ }
+}
 
 // ── Cash in Hand ledger — shared fund pool, drawn from when an expense's
 // method is "Cash in Hand". Best-effort: wrapped in try/catch so a ledger
@@ -154,9 +155,8 @@ try {
             // safe without risking duplicate/multiplied rows. NULL for a
             // directly-entered expense.
             $stmt = $db->prepare(
-                'SELECT e.*, cec.credit_entry_id, u.name AS created_by_name FROM expenses e
+                'SELECT e.*, cec.credit_entry_id FROM expenses e
                  LEFT JOIN credit_entry_conversions cec ON cec.expense_id = e.id
-                 LEFT JOIN users u ON u.id = e.created_by
                  WHERE e.id = :id'
             );
             $stmt->execute([':id' => $id]);
@@ -186,9 +186,8 @@ try {
             // Same LEFT JOIN as the single-row fetch above, so the Expense
             // Tracker table can link a "Via Credit" badge straight back to
             // the credit entry it came from instead of just labelling it.
-            $sql  = 'SELECT e.*, cec.credit_entry_id, u.name AS created_by_name FROM expenses e
+            $sql  = 'SELECT e.*, cec.credit_entry_id FROM expenses e
                      LEFT JOIN credit_entry_conversions cec ON cec.expense_id = e.id
-                     LEFT JOIN users u ON u.id = e.created_by
                      WHERE '.implode(' AND ',$where)
                   . ' ORDER BY e.`date` DESC, e.id DESC';
             $stmt = $db->prepare($sql);
@@ -225,8 +224,8 @@ try {
             expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? '')); // checked BEFORE insert — never leaves an orphaned expense if blocked
         }
         $stmt = $db->prepare(
-            'INSERT INTO expenses (`date`,category,vendor,amount,method,notes,created_by,created_at,updated_at)
-             VALUES (:date,:cat,:vendor,:amount,:method,:notes,:created_by,:created_at,:updated_at)'
+            'INSERT INTO expenses (`date`,category,vendor,amount,method,notes,created_at,updated_at)
+             VALUES (:date,:cat,:vendor,:amount,:method,:notes,:created_at,:updated_at)'
         );
         // Explicit PHP timestamp (Asia/Kolkata, set in includes/auth.php)
         // instead of the column's own DEFAULT CURRENT_TIMESTAMP — that
@@ -235,11 +234,9 @@ try {
         $now = date('Y-m-d H:i:s');
         $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
             ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
-            ':created_by'=>$_SESSION['user_id'] ?? null,
             ':created_at'=>$now,':updated_at'=>$now]);
         $newId = $db->lastInsertId();
-        logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'expense', (int)$newId,
-            "Expense added: $vendor (₹".number_format($amount,2).")");
+        logAct($db, 'expense_added', "Expense added: $vendor", '₹'.number_format($amount,2));
         if ($meth === 'Cash in Hand') {
             $user = currentUser();
             recordCashInHandMovement($db, 'out', $amount, 'expense', (int)$newId, "Expense: {$vendor}", (int)($user['id'] ?? 0));
@@ -283,8 +280,7 @@ try {
         $diffLabel = ($oldAmt !== null && abs($oldAmt - $amount) > 0.004)
             ? '₹'.number_format($oldAmt,2).' → ₹'.number_format($amount,2)
             : '₹'.number_format($amount,2).' (amount unchanged)';
-        logActivity((int)($_SESSION['user_id'] ?? 0), 'update', 'expense', (int)$id,
-            "Expense edited: $vendor ($diffLabel)");
+        logAct($db, 'expense_edited', "Expense edited: $vendor", $diffLabel);
         $user = currentUser(); $uid = $user['id'] ?? null;
         if ($oldExp && $oldExp['method'] === 'Cash in Hand' && (float)$oldExp['amount'] > 0) {
             recordCashInHandMovement($db, 'in', (float)$oldExp['amount'], 'adjustment', $id,
@@ -310,8 +306,7 @@ try {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $db->prepare('DELETE FROM expenses WHERE id=:id')->execute([':id'=>$id]);
         if ($row) {
-            logActivity((int)($_SESSION['user_id'] ?? 0), 'delete', 'expense', (int)$id,
-                "Expense deleted: {$row['vendor']} (₹".number_format($row['amount'],2).")");
+            logAct($db,'expense_deleted',"Expense deleted: {$row['vendor']}",'₹'.number_format($row['amount'],2));
             if ($row['method'] === 'Cash in Hand' && (float)$row['amount'] > 0) {
                 $user = currentUser();
                 recordCashInHandMovement($db, 'in', (float)$row['amount'], 'adjustment', $id,

@@ -242,7 +242,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
   `header_dhalta_pct` DECIMAL(5,2) NULL,
   `header_dhalta_kg` DECIMAL(12,3) NULL,
   `header_billable_weight` DECIMAL(12,3) NULL,
-  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_pur_supplier` (`supplier_id`),
@@ -300,22 +299,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `stock_ledger` (
 // stock_ledger already did (used by Sales), this brings Purchases in sync.
 try { $db->exec("ALTER TABLE purchase_items ADD COLUMN batch_no VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }
 
-// Idempotency key for duplicate-save protection — see the POST handler
-// below. Nullable + unique: multiple NULLs are allowed by MySQL's unique
-// index, so this stays backward-compatible with any caller that doesn't
-// send one.
-$purCols = $db->query("SHOW COLUMNS FROM purchases")->fetchAll(PDO::FETCH_COLUMN);
-if (!in_array('client_request_id', $purCols, true)) {
-    try { $db->exec("ALTER TABLE purchases ADD COLUMN client_request_id VARCHAR(64) NULL, ADD UNIQUE INDEX idx_purchases_client_request_id (client_request_id)"); } catch (Throwable $e) { /* already exists */ }
-}
-// Who created this purchase — for the "Added by X" byline in the detail
-// view. Not shown as a table column (would just add clutter to an
-// already-dense list); resolved via the users JOIN in the GET queries
-// below and surfaced only where the record is actually opened.
-if (!in_array('created_by', $purCols, true)) {
-    try { $db->exec("ALTER TABLE purchases ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) { /* already exists */ }
-}
-
 // Same table purchase_payments.php creates — needed here too since this
 // file also writes to it directly (the "first payment at creation" row).
 // Without this, a brand-new install's very first paid purchase would hit
@@ -346,10 +329,8 @@ switch ($method) {
       $id = (int)$_GET['id'];
       $stmt = $db->prepare('SELECT p.*, s.name AS supplier_name, s.supplier_type,
         s.phone AS supplier_phone, s.address AS supplier_address, s.city AS supplier_city,
-        s.state AS supplier_state, s.pincode AS supplier_pincode,
-        u.name AS created_by_name
-        FROM purchases p JOIN suppliers s ON s.id = p.supplier_id
-        LEFT JOIN users u ON u.id = p.created_by WHERE p.id = ?');
+        s.state AS supplier_state, s.pincode AS supplier_pincode
+        FROM purchases p JOIN suppliers s ON s.id = p.supplier_id WHERE p.id = ?');
       $stmt->execute([$id]);
       $purchase = $stmt->fetch();
       if (!$purchase) jsonResponse(['error' => 'Not found'], 404);
@@ -373,24 +354,6 @@ switch ($method) {
   case 'POST':
     $d = json_decode(file_get_contents('php://input'), true);
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
-
-    // Duplicate-save protection — the frontend generates one UUID per
-    // "New Purchase" session (see PNE.idempotencyKey in index.php) and
-    // resends the SAME id on every retry of that same save attempt (e.g.
-    // after a network timeout where the user doesn't know if the first
-    // request actually landed). If a purchase already exists with this
-    // id, this attempt already succeeded once — return that existing
-    // record instead of inserting a second Purchase. A retry becomes
-    // safe instead of creating a duplicate.
-    $clientRequestId = trim($d['client_request_id'] ?? '');
-    if ($clientRequestId !== '') {
-        $dupStmt = $db->prepare('SELECT id, purchase_no FROM purchases WHERE client_request_id = ?');
-        $dupStmt->execute([$clientRequestId]);
-        if ($dup = $dupStmt->fetch()) {
-            jsonResponse(['success' => true, 'id' => (int)$dup['id'], 'purchase_no' => $dup['purchase_no'], 'duplicate_prevented' => true]);
-        }
-    }
-
     if (empty($d['supplier_id']))   jsonResponse(['error' => 'Supplier is required'], 400);
     if (empty($d['purchase_date'])) jsonResponse(['error' => 'Purchase date is required'], 400);
     $items = $d['items'] ?? [];
@@ -453,8 +416,8 @@ switch ($method) {
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
        kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
        header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight,
-       client_request_id, created_by, created_at)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)');
+       created_at)
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -470,7 +433,7 @@ switch ($method) {
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '', $kantaSlipPath,
       $d['header_moisture_pct'] ?? null, $d['header_impurity_pct'] ?? null, $d['header_dhalta_pct'] ?? null,
       $d['header_dhalta_kg'] ?? null, $d['header_billable_weight'] ?? null,
-      $clientRequestId !== '' ? $clientRequestId : null, (int)$_SESSION['user_id'], $now,
+      $now,
     ]);
     $purchaseId = (int)$db->lastInsertId();
 

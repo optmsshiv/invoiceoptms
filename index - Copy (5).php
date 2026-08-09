@@ -9024,10 +9024,7 @@ View Invoice: {{6}}</pre></details>
         <div style="width:30px;height:30px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas fa-wallet" style="color:#E65100;font-size:13px"></i>
         </div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
-          <div style="font-size:11px;color:var(--muted)" id="exp-modal-byline"></div>
-        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-expense')"><i class="fas fa-times"></i></button>
     </div>
@@ -18890,7 +18887,7 @@ function viewCustomerProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}${c.created_by_name ? ' · Added by ' + escHtml(c.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19008,7 +19005,7 @@ async function viewSaleDetails(id) {
       <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19151,7 +19148,7 @@ async function viewPurchaseDetails(id) {
       <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}${p.created_by_name ? ' · Added by ' + escHtml(p.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19241,7 +19238,7 @@ function viewSupplierProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -31443,7 +31440,6 @@ async function saveCreditConversion() {
 function openAddExpenseModal() {
   document.getElementById('exp-edit-id').value = '';
   document.getElementById('exp-modal-title').textContent = 'Add Expense';
-  document.getElementById('exp-modal-byline').textContent = ''; // no creator yet — this is a new record
   document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-category').value = '';
@@ -31459,7 +31455,6 @@ function editExpense(id) {
   if (!exp) return;
   document.getElementById('exp-edit-id').value = id;
   document.getElementById('exp-modal-title').textContent = 'Edit Expense';
-  document.getElementById('exp-modal-byline').textContent = exp.created_by_name ? ('Added by ' + exp.created_by_name) : '';
   document.getElementById('exp-date').value     = exp.date||'';
   document.getElementById('exp-amount').value   = exp.amount||'';
   document.getElementById('exp-category').value = exp.category||'';

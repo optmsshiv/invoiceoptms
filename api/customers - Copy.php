@@ -45,25 +45,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS `customers` (
   `status` VARCHAR(20) NOT NULL DEFAULT 'active',
   `country` VARCHAR(100) DEFAULT '',
   `documents` TEXT NULL,
-  `client_request_id` VARCHAR(64) NULL,
-  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  INDEX `idx_cust_status` (`status`),
-  UNIQUE INDEX `idx_customers_client_request_id` (`client_request_id`)
+  INDEX `idx_cust_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-// Self-heal for tenants whose customers table predates client_request_id
-// above (duplicate-save protection — see the POST handler below).
-$custCols = $db->query("SHOW COLUMNS FROM customers")->fetchAll(PDO::FETCH_COLUMN);
-if (!in_array('client_request_id', $custCols, true)) {
-    try { $db->exec("ALTER TABLE customers ADD COLUMN client_request_id VARCHAR(64) NULL, ADD UNIQUE INDEX idx_customers_client_request_id (client_request_id)"); } catch (Throwable $e) { /* already exists */ }
-}
-// Who created this customer — for the "Added by X" byline in the detail
-// view (not a table column — see chat).
-if (!in_array('created_by', $custCols, true)) {
-    try { $db->exec("ALTER TABLE customers ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) { /* already exists */ }
-}
 
 function saveCustomerDoc($dataUrl) {
   if (!$dataUrl || !preg_match('/^data:(image\/(png|jpe?g|webp)|application\/pdf);base64,(.+)$/', $dataUrl, $m)) return null;
@@ -126,8 +111,7 @@ switch ($method) {
     }
 
     $status = $_GET['status'] ?? 'active';
-    $stmt = $db->prepare('SELECT c.*, u.name AS created_by_name FROM customers c
-      LEFT JOIN users u ON u.id = c.created_by WHERE c.status = ? ORDER BY c.name ASC');
+    $stmt = $db->prepare('SELECT * FROM customers WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) { $r['documents'] = $r['documents'] ? json_decode($r['documents'], true) : []; }
@@ -147,19 +131,6 @@ switch ($method) {
       break;
     }
 
-    // Duplicate-save protection — same pattern as suppliers.php. The
-    // frontend sends the same client_request_id on every retry of the
-    // same "add customer" attempt (network timeout, etc). If a customer
-    // already exists with this id, return it instead of inserting again.
-    $clientRequestId = trim($d['client_request_id'] ?? '');
-    if ($clientRequestId !== '') {
-        $dupStmt = $db->prepare('SELECT id, customer_code FROM customers WHERE client_request_id = ?');
-        $dupStmt->execute([$clientRequestId]);
-        if ($dup = $dupStmt->fetch()) {
-            jsonResponse(['success' => true, 'id' => (int)$dup['id'], 'customer_code' => $dup['customer_code'], 'duplicate_prevented' => true]);
-        }
-    }
-
     if (empty($d['name'])) jsonResponse(['error' => 'Customer name is required'], 400);
 
     $custCode = trim($d['customer_code'] ?? '');
@@ -170,11 +141,9 @@ switch ($method) {
 
     $docs = processCustomerDocArray($d['documents'] ?? []);
     $d['customer_code'] = $custCode;
-    $cols = array_merge($FIELDS, ['documents', 'client_request_id', 'created_by']);
+    $cols = array_merge($FIELDS, ['documents']);
     $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     $vals[] = json_encode($docs);
-    $vals[] = $clientRequestId !== '' ? $clientRequestId : null;
-    $vals[] = (int)$_SESSION['user_id'];
 
     $placeholders = implode(',', array_fill(0, count($cols), '?'));
     $colList = implode(',', array_map(fn($c) => "`$c`", $cols));
