@@ -113,6 +113,113 @@ function restoreSerial($db, $productId, $serialNo) {
 }
 
 try {
+// Self-heal: sales, sale_items, and stock_ledger were never created for
+// some tenants — this file assumed they already existed while
+// defensively creating sale_payments below. Columns mirror the INSERT
+// statements in this file.
+$db->exec("CREATE TABLE IF NOT EXISTS `sales` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `invoice_no` VARCHAR(60) DEFAULT '',
+  `customer_id` INT UNSIGNED NOT NULL,
+  `sale_date` DATE NOT NULL,
+  `due_date` DATE NULL,
+  `sales_executive` VARCHAR(150) DEFAULT '',
+  `payment_terms` VARCHAR(100) DEFAULT '',
+  `sales_type` VARCHAR(30) DEFAULT 'Local Sales',
+  `place_of_supply` VARCHAR(100) DEFAULT '',
+  `currency` VARCHAR(10) DEFAULT 'INR',
+  `subtotal` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `transport_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `loading_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `packing_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `insurance_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `other_charges` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `round_off` DECIMAL(10,2) NOT NULL DEFAULT 0,
+  `discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `discount_remarks` VARCHAR(255) DEFAULT '',
+  `deductions` TEXT NULL,
+  `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
+  `trade_discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `cash_discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `taxable_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `cgst_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `sgst_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `igst_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `total_tax` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `total` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `payment_status` VARCHAR(30) NOT NULL DEFAULT 'Pending',
+  `payment_method` VARCHAR(60) DEFAULT '',
+  `amount_received` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `transaction_no` VARCHAR(100) DEFAULT '',
+  `payment_date` DATETIME NULL,
+  `customer_notes` TEXT NULL,
+  `internal_notes` TEXT NULL,
+  `delivery_instructions` TEXT NULL,
+  `attachments` TEXT NULL,
+  `prepared_by` VARCHAR(150) DEFAULT '',
+  `checked_by` VARCHAR(150) DEFAULT '',
+  `approved_by` VARCHAR(150) DEFAULT '',
+  `status` VARCHAR(30) NOT NULL DEFAULT 'Confirmed',
+  `weighing_type` VARCHAR(30) DEFAULT 'Dharam Kanta',
+  `kanta_name` VARCHAR(150) DEFAULT '',
+  `weighbridge_slip_no` VARCHAR(100) DEFAULT '',
+  `weight_datetime` DATETIME NULL,
+  `kanta_operator_name` VARCHAR(150) DEFAULT '',
+  `kanta_gross_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `kanta_tare_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `kanta_moisture_pct` DECIMAL(5,2) NULL,
+  `kanta_dhalta_kg` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_sales_customer` (`customer_id`),
+  INDEX `idx_sales_date` (`sale_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+$db->exec("CREATE TABLE IF NOT EXISTS `sale_items` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `sale_id` INT UNSIGNED NOT NULL,
+  `product_id` INT UNSIGNED NULL,
+  `description` VARCHAR(255) DEFAULT '',
+  `variety_grade` VARCHAR(100) DEFAULT '',
+  `batch_no` VARCHAR(60) DEFAULT '',
+  `serial_no` VARCHAR(80) DEFAULT '',
+  `moisture_pct` DECIMAL(5,2) NULL,
+  `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
+  `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `unit` VARCHAR(20) DEFAULT 'Kg',
+  `rate` DECIMAL(12,4) NOT NULL DEFAULT 0,
+  `discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `gst_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `tax_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `line_total` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `kanta_data` TEXT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_si_sale` (`sale_id`),
+  INDEX `idx_si_product` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+$db->exec("CREATE TABLE IF NOT EXISTS `stock_ledger` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `product_id` INT UNSIGNED NOT NULL,
+  `ref_type` VARCHAR(30) NOT NULL DEFAULT 'adjustment',
+  `ref_id` INT UNSIGNED NULL,
+  `direction` ENUM('in','out') NOT NULL,
+  `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `rate` DECIMAL(12,4) NOT NULL DEFAULT 0,
+  `balance_after` DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `movement_date` DATE NOT NULL,
+  `notes` VARCHAR(255) DEFAULT '',
+  `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
+  `batch_no` VARCHAR(60) DEFAULT '',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_sl_product` (`product_id`),
+  INDEX `idx_sl_ref` (`ref_type`,`ref_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 // Auto-migrate: sale_items already had batch_no, adding serial_no for
 // serial-tracked products (one unit sold = one specific serial consumed).
 try { $db->exec("ALTER TABLE sale_items ADD COLUMN serial_no VARCHAR(80) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }

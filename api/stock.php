@@ -15,6 +15,27 @@ function cleanProductId($v) {
 }
 
 try {
+// Self-heal: stock_ledger was never created for some tenants. Same
+// definition as in purchases.php/sales.php (all three write here).
+$db->exec("CREATE TABLE IF NOT EXISTS `stock_ledger` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `product_id` INT UNSIGNED NOT NULL,
+  `ref_type` VARCHAR(30) NOT NULL DEFAULT 'adjustment',
+  `ref_id` INT UNSIGNED NULL,
+  `direction` ENUM('in','out') NOT NULL,
+  `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `rate` DECIMAL(12,4) NOT NULL DEFAULT 0,
+  `balance_after` DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `movement_date` DATE NOT NULL,
+  `notes` VARCHAR(255) DEFAULT '',
+  `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
+  `batch_no` VARCHAR(60) DEFAULT '',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_sl_product` (`product_id`),
+  INDEX `idx_sl_ref` (`ref_type`,`ref_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 switch ($method) {
   case 'GET':
     // Per-product movement history (chronological, with running balance recomputed live

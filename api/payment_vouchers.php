@@ -7,6 +7,26 @@ $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
+// Self-heal: payment_vouchers was never created for some tenants.
+// Columns mirror the INSERT statement below.
+$db->exec("CREATE TABLE IF NOT EXISTS `payment_vouchers` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `reference_no` VARCHAR(60) DEFAULT '',
+  `payment_date` DATETIME NOT NULL,
+  `direction` VARCHAR(10) NOT NULL DEFAULT 'out',
+  `party_type` VARCHAR(30) DEFAULT 'Vendor',
+  `party_name` VARCHAR(200) NOT NULL,
+  `payment_for` VARCHAR(200) DEFAULT '',
+  `payment_mode` VARCHAR(60) DEFAULT 'Cash',
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'Paid',
+  `notes` VARCHAR(500) DEFAULT '',
+  `created_by` INT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_pv_date` (`payment_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 switch ($method) {
   case 'GET':
     $limit = (int)($_GET['limit'] ?? 0);

@@ -181,6 +181,120 @@ function reverseBatchReceive($db, $productId, $batchCode, $qty) {
 }
 
 try {
+// Self-heal: purchases, purchase_items, and stock_ledger were never
+// created for some tenants — this file assumed they already existed
+// while defensively creating purchase_payments/product_batches/
+// cash_in_hand_ledger below. Columns mirror the INSERT statements in
+// this file (and stock.php for stock_ledger).
+$db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `purchase_no` VARCHAR(60) DEFAULT '',
+  `supplier_id` INT UNSIGNED NOT NULL,
+  `supplier_invoice_ref` VARCHAR(100) DEFAULT '',
+  `purchase_date` DATE NOT NULL,
+  `currency` VARCHAR(10) DEFAULT 'INR',
+  `exchange_rate` DECIMAL(10,4) NOT NULL DEFAULT 1,
+  `subtotal` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `gst_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `gst_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `total` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `amount_paid` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `status` VARCHAR(30) NOT NULL DEFAULT 'Pending',
+  `notes` TEXT NULL,
+  `reference_po_no` VARCHAR(100) DEFAULT '',
+  `supplier_type` VARCHAR(60) DEFAULT '',
+  `gst_applicable` TINYINT(1) NOT NULL DEFAULT 0,
+  `supply_type` VARCHAR(30) DEFAULT 'Intra-State',
+  `transport_mode` VARCHAR(60) DEFAULT '',
+  `vehicle_no` VARCHAR(30) DEFAULT '',
+  `driver_name` VARCHAR(150) DEFAULT '',
+  `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
+  `payment_terms` VARCHAR(100) DEFAULT '',
+  `payment_type` VARCHAR(60) DEFAULT '',
+  `remarks` TEXT NULL,
+  `transport_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `loading_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `packing_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `other_charges` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `discount_remarks` VARCHAR(255) DEFAULT '',
+  `deductions` TEXT NULL,
+  `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
+  `trade_discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `cash_discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `attachment_path` VARCHAR(255) DEFAULT '',
+  `payment_mode` VARCHAR(60) DEFAULT '',
+  `transaction_no` VARCHAR(100) DEFAULT '',
+  `payment_date` DATETIME NULL,
+  `weighing_type` VARCHAR(30) DEFAULT 'Dharam Kanta',
+  `kanta_name` VARCHAR(150) DEFAULT '',
+  `weighbridge_slip_no` VARCHAR(100) DEFAULT '',
+  `weight_datetime` DATETIME NULL,
+  `kanta_gross_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `kanta_tare_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `kanta_operator_name` VARCHAR(150) DEFAULT '',
+  `kanta_slip_path` VARCHAR(255) DEFAULT '',
+  `header_moisture_pct` DECIMAL(5,2) NULL,
+  `header_impurity_pct` DECIMAL(5,2) NULL,
+  `header_dhalta_pct` DECIMAL(5,2) NULL,
+  `header_dhalta_kg` DECIMAL(12,3) NULL,
+  `header_billable_weight` DECIMAL(12,3) NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_pur_supplier` (`supplier_id`),
+  INDEX `idx_pur_date` (`purchase_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+$db->exec("CREATE TABLE IF NOT EXISTS `purchase_items` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `purchase_id` INT UNSIGNED NOT NULL,
+  `product_id` INT UNSIGNED NULL,
+  `description` VARCHAR(255) DEFAULT '',
+  `hsn` VARCHAR(20) DEFAULT '',
+  `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `unit` VARCHAR(20) DEFAULT 'kg',
+  `entered_qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `entered_unit` VARCHAR(20) DEFAULT 'kg',
+  `rate` DECIMAL(12,4) NOT NULL DEFAULT 0,
+  `gst_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `variety_grade` VARCHAR(100) DEFAULT '',
+  `moisture_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `quality_grade` VARCHAR(100) DEFAULT '',
+  `gross_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `tare_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `dhalta_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `dhalta_kg` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `billable_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
+  `batch_no` VARCHAR(60) DEFAULT '',
+  PRIMARY KEY (`id`),
+  INDEX `idx_pi_purchase` (`purchase_id`),
+  INDEX `idx_pi_product` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+$db->exec("CREATE TABLE IF NOT EXISTS `stock_ledger` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `product_id` INT UNSIGNED NOT NULL,
+  `ref_type` VARCHAR(30) NOT NULL DEFAULT 'adjustment',
+  `ref_id` INT UNSIGNED NULL,
+  `direction` ENUM('in','out') NOT NULL,
+  `qty` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `rate` DECIMAL(12,4) NOT NULL DEFAULT 0,
+  `balance_after` DECIMAL(14,3) NOT NULL DEFAULT 0,
+  `movement_date` DATE NOT NULL,
+  `notes` VARCHAR(255) DEFAULT '',
+  `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
+  `batch_no` VARCHAR(60) DEFAULT '',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_sl_product` (`product_id`),
+  INDEX `idx_sl_ref` (`ref_type`,`ref_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 // Auto-migrate: purchase_items didn't have a batch_no column before —
 // stock_ledger already did (used by Sales), this brings Purchases in sync.
 try { $db->exec("ALTER TABLE purchase_items ADD COLUMN batch_no VARCHAR(60) DEFAULT ''"); } catch (Throwable $e) { /* already exists */ }

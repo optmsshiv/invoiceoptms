@@ -6,6 +6,50 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Self-heal: same missing-table issue as suppliers.php. Columns mirror
+// $FIELDS + the INSERT/UPDATE statements below.
+$db->exec("CREATE TABLE IF NOT EXISTS `customers` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(200) NOT NULL,
+  `customer_type` VARCHAR(60) DEFAULT '',
+  `mobile` VARCHAR(30) DEFAULT '',
+  `email` VARCHAR(150) DEFAULT '',
+  `gstin` VARCHAR(30) DEFAULT '',
+  `state` VARCHAR(100) DEFAULT '',
+  `district` VARCHAR(100) DEFAULT '',
+  `billing_address` VARCHAR(255) DEFAULT '',
+  `shipping_address` VARCHAR(255) DEFAULT '',
+  `credit_limit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `payment_terms` VARCHAR(100) DEFAULT '',
+  `sales_executive` VARCHAR(150) DEFAULT '',
+  `notes` TEXT NULL,
+  `customer_code` VARCHAR(40) DEFAULT '',
+  `business_name` VARCHAR(200) DEFAULT '',
+  `display_name` VARCHAR(200) DEFAULT '',
+  `group_name` VARCHAR(100) DEFAULT '',
+  `alternate_phone` VARCHAR(30) DEFAULT '',
+  `whatsapp_no` VARCHAR(30) DEFAULT '',
+  `billing_city` VARCHAR(100) DEFAULT '',
+  `billing_pincode` VARCHAR(20) DEFAULT '',
+  `shipping_city` VARCHAR(100) DEFAULT '',
+  `shipping_state` VARCHAR(100) DEFAULT '',
+  `shipping_pincode` VARCHAR(20) DEFAULT '',
+  `pan_no` VARCHAR(20) DEFAULT '',
+  `business_type` VARCHAR(60) DEFAULT '',
+  `tan_no` VARCHAR(20) DEFAULT '',
+  `iec_no` VARCHAR(30) DEFAULT '',
+  `trade_license_no` VARCHAR(40) DEFAULT '',
+  `currency` VARCHAR(10) DEFAULT 'INR',
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `opening_balance_type` VARCHAR(20) DEFAULT '',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+  `country` VARCHAR(100) DEFAULT '',
+  `documents` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_cust_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 function saveCustomerDoc($dataUrl) {
   if (!$dataUrl || !preg_match('/^data:(image\/(png|jpe?g|webp)|application\/pdf);base64,(.+)$/', $dataUrl, $m)) return null;
   $ext  = str_contains($m[1], 'pdf') ? 'pdf' : ($m[2] === 'jpeg' ? 'jpg' : $m[2]);

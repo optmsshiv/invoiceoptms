@@ -6,6 +6,49 @@ requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Self-heal: this table was never created for some tenants (the module's
+// GET/POST paths assumed it already existed, unlike other files in this
+// codebase that CREATE TABLE IF NOT EXISTS defensively). Columns mirror
+// exactly what $FIELDS + the INSERT/UPDATE statements below actually use.
+$db->exec("CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(200) NOT NULL,
+  `contact_person` VARCHAR(150) DEFAULT '',
+  `phone` VARCHAR(30) DEFAULT '',
+  `email` VARCHAR(150) DEFAULT '',
+  `gst_number` VARCHAR(30) DEFAULT '',
+  `country` VARCHAR(100) DEFAULT '',
+  `address` VARCHAR(255) DEFAULT '',
+  `payment_terms` VARCHAR(100) DEFAULT '',
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `notes` TEXT NULL,
+  `supplier_type` VARCHAR(60) DEFAULT '',
+  `state` VARCHAR(100) DEFAULT '',
+  `district` VARCHAR(100) DEFAULT '',
+  `date_of_registration` VARCHAR(20) DEFAULT '',
+  `business_nature` VARCHAR(150) DEFAULT '',
+  `website` VARCHAR(150) DEFAULT '',
+  `city` VARCHAR(100) DEFAULT '',
+  `pincode` VARCHAR(20) DEFAULT '',
+  `pan_no` VARCHAR(20) DEFAULT '',
+  `aadhaar_no` VARCHAR(20) DEFAULT '',
+  `state_code` VARCHAR(10) DEFAULT '',
+  `tan_no` VARCHAR(20) DEFAULT '',
+  `msme_no` VARCHAR(30) DEFAULT '',
+  `fssai_no` VARCHAR(30) DEFAULT '',
+  `bank_name` VARCHAR(150) DEFAULT '',
+  `bank_account_no` VARCHAR(40) DEFAULT '',
+  `ifsc_code` VARCHAR(20) DEFAULT '',
+  `account_holder_name` VARCHAR(150) DEFAULT '',
+  `credit_limit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `default_price_list` VARCHAR(100) DEFAULT '',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+  `documents` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_sup_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
 function saveSupplierDoc($dataUrl) {
   if (!$dataUrl || !preg_match('/^data:(image\/(png|jpe?g|webp)|application\/pdf);base64,(.+)$/', $dataUrl, $m)) return null;
   $ext  = str_contains($m[1], 'pdf') ? 'pdf' : ($m[2] === 'jpeg' ? 'jpg' : $m[2]);
