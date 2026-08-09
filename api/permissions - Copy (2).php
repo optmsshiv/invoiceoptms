@@ -58,9 +58,6 @@ try {
     // Keep the master catalog in sync with everything role_permissions.php
     // self-heals on the tenant side, so these show up here even if no
     // tenant owner has opened their Role Permissions screen yet.
-    // menu.finance_report goes first — menu.compare_sessions anchors off
-    // it (afterKey), same as in role_permissions.php.
-    _ensurePermissionKey($master, 'menu.finance_report', 'Finance Report', 'menu.reports', 'Menu');
     _ensurePermissionKey($master, 'menu.compare_sessions', 'Compare Sessions', 'menu.finance_report', 'Menu');
     _ensurePermissionKey($master, 'action.settings.session_pricing', 'Session-wise Product Pricing (Settings)', 'action.settings.global_date_range', 'Settings');
     _ensurePermissionKey($master, 'action.settings.cih_restrict_toggle', 'Cash in Hand Balance-Lock Toggle (Settings)', 'action.settings.session_pricing', 'Settings');

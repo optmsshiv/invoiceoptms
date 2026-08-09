@@ -54,14 +54,6 @@ try {
     // "Compare Sessions" used to piggyback on the menu.finance_report
     // permission key (see index.php sidebar), so there was no way to
     // grant/restrict it independently in the Team permissions UI.
-    //
-    // menu.finance_report itself was never actually seeded into the
-    // catalog — index.php's `$perms['menu.finance_report'] ?? true` and
-    // this file's own afterKey lookup below both just assumed it existed.
-    // That's why it worked fine in the app (defaults open via ?? true)
-    // but had no real row to toggle in either permissions screen. Must
-    // run before the compare_sessions call below, which anchors off it.
-    $ensurePermissionKey('menu.finance_report', 'Finance Report', 'menu.reports', 'Menu');
     $ensurePermissionKey('menu.compare_sessions', 'Compare Sessions', 'menu.finance_report', 'Menu');
 
     // Session-wise Product Pricing and the "block editing a session's
