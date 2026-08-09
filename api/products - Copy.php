@@ -99,24 +99,6 @@ $colStmt = $db->query("SHOW COLUMNS FROM products");
 $existingCols = array_column($colStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
 $existingColsSet = array_flip($existingCols);
 
-// Duplicate-save protection (client_request_id) and "Added by X" byline
-// (created_by) — same pattern as purchases.php/sales.php/suppliers.php/
-// customers.php. Checked against the column list just fetched above
-// rather than a blind ALTER on every request — this file's GET runs on
-// every page load (bulk product fetch), so re-attempting the ALTER every
-// time would repeat the same needless-lock issue already fixed elsewhere
-// in this codebase (see profile.php/payments.php). Neither column is
-// part of $FIELDS since they're metadata, not product data — appended to
-// the INSERT separately below instead.
-if (!isset($existingColsSet['client_request_id'])) {
-    try { $db->exec("ALTER TABLE products ADD COLUMN client_request_id VARCHAR(64) NULL, ADD UNIQUE INDEX idx_products_client_request_id (client_request_id)"); } catch (Throwable $e) {}
-    $existingColsSet['client_request_id'] = true;
-}
-if (!isset($existingColsSet['created_by'])) {
-    try { $db->exec("ALTER TABLE products ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) {}
-    $existingColsSet['created_by'] = true;
-}
-
 // Column name aliases: new_name => old_name (for legacy service DBs)
 $COL_ALIASES = ['hsn' => 'hsn_code', 'gst' => 'gst_rate'];
 
@@ -127,8 +109,7 @@ $FIELDS = array_values(array_filter($FIELDS, fn($f) => isset($existingColsSet[$f
 switch ($method) {
   case 'GET':
     $status = $_GET['status'] ?? 'active';
-    $stmt = $db->prepare('SELECT p.*, u.name AS created_by_name FROM products p
-      LEFT JOIN users u ON u.id = p.created_by WHERE p.status = ? ORDER BY p.name ASC');
+    $stmt = $db->prepare('SELECT * FROM products WHERE status = ? ORDER BY name ASC');
     $stmt->execute([$status]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$r) {
@@ -158,20 +139,6 @@ switch ($method) {
 
     if (empty($d['name'])) jsonResponse(['error' => 'Product name is required'], 400);
 
-    // Duplicate-save protection — same pattern as purchases.php/sales.php/
-    // suppliers.php/customers.php. The frontend sends the same
-    // client_request_id on every retry of the same "add product" attempt
-    // (network timeout, etc). If a product already exists with this id,
-    // return it instead of inserting again.
-    $clientRequestId = trim($d['client_request_id'] ?? '');
-    if ($clientRequestId !== '' && isset($existingColsSet['client_request_id'])) {
-        $dupStmt = $db->prepare('SELECT id, name FROM products WHERE client_request_id = ?');
-        $dupStmt->execute([$clientRequestId]);
-        if ($dup = $dupStmt->fetch()) {
-            jsonResponse(['success' => true, 'id' => 'p' . $dup['id'], 'duplicate_prevented' => true]);
-        }
-    }
-
     $images      = processFileArray($d['images'] ?? [], 'products');
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
@@ -182,8 +149,6 @@ switch ($method) {
     if (isset($existingColsSet['tags']))        { $cols[] = 'tags';        $vals[] = json_encode($tags); }
     if (isset($existingColsSet['images']))      { $cols[] = 'images';      $vals[] = json_encode($images); }
     if (isset($existingColsSet['attachments'])) { $cols[] = 'attachments'; $vals[] = json_encode($attachments); }
-    if (isset($existingColsSet['client_request_id'])) { $cols[] = 'client_request_id'; $vals[] = $clientRequestId !== '' ? $clientRequestId : null; }
-    if (isset($existingColsSet['created_by']))        { $cols[] = 'created_by';        $vals[] = (int)$_SESSION['user_id']; }
     $cols[] = 'status'; $vals[] = 'active';
 
     $placeholders = implode(',', array_fill(0, count($cols), '?'));

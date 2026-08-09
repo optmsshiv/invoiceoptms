@@ -3774,7 +3774,6 @@ const SERVER = {
         <div>
           <div class="pne-title" id="pnp-title">New Product</div>
           <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
-          <div style="font-size:11px;color:var(--muted)" id="pnp-byline"></div>
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
@@ -17737,11 +17736,7 @@ function applyBusinessTypeLabels(type) {
 // NEW PRODUCT ENTRY (full page) — only used when Settings → Business Type
 // is "product". Service/Both tenants keep the original inline add-row.
 // ══════════════════════════════════════════
-const PNP = { editingId: null, images: [], attachments: [], tags: [], idempotencyKey: crypto.randomUUID() };
-// Duplicate-save protection for the quick inline "add product row" —
-// same pattern as ADD_CUSTOMER_KEY. Rotated in _showAddProductRow() and
-// on a successful save in saveNewProduct().
-let QUICK_PRODUCT_KEY = crypto.randomUUID();
+const PNP = { editingId: null, images: [], attachments: [], tags: [] };
 
 function populateProductCategoryDropdown() {
   const sel = document.getElementById('pp-category');
@@ -18108,8 +18103,6 @@ async function deleteProductSerial(id) {
 function goToNewProductPage() {
   applyProductFormToPage();
   PNP.editingId = null;
-  // Same duplicate-save protection pattern as PNE/SN/SUPN/CUSN.
-  PNP.idempotencyKey = crypto.randomUUID();
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
   PP_SKU_AUTO = true; // fresh form — SKU suggestion is live until the user types their own
   PP_OPENING_BATCH_AUTO = true;
@@ -18117,7 +18110,6 @@ function goToNewProductPage() {
   _ppToggleBatchSerialButtons();
   document.getElementById('pnp-title').textContent = 'New Product';
   document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
-  document.getElementById('pnp-byline').textContent = ''; // no creator yet — this is a new record
   ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
    'pp-manufacturer','pp-fssai','pp-iec','pp-shortdesc','pp-detaildesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('pp-unit').value = 'Kg'; pnpSyncUnits();
@@ -18182,7 +18174,6 @@ function editProductRich(id) {
   PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
   document.getElementById('pnp-title').textContent = 'Edit Product';
   document.getElementById('pnp-subtitle').textContent = p.name;
-  document.getElementById('pnp-byline').textContent = p.created_by_name ? ('Added by ' + p.created_by_name) : '';
   populateProductCategoryDropdown();
   const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
   set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
@@ -18299,7 +18290,6 @@ async function saveProductEntry(mode) {
     unit_family: 'weight', // AgriTrade-style products are always weight-tracked (Kg base) for Stock Ledger purposes
     status: document.getElementById('pp-status').classList.contains('on') ? 'active' : 'inactive',
     tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
-    client_request_id: PNP.idempotencyKey,
   };
 
   // Loading state — product payloads can be large (base64 images/attachments),
@@ -18324,10 +18314,6 @@ async function saveProductEntry(mode) {
       const createRes = await api('api/products.php', 'POST', payload);
       consumeEditApproval(); toast('✅ Product saved!', 'success');
       newProductId = createRes?.id || null;
-      // Rotate only after success — same pattern as PNE/SN/SUPN/CUSN. A
-      // failed/timed-out attempt keeps the same key so a retry is
-      // recognized as the same attempt, not a new product.
-      PNP.idempotencyKey = crypto.randomUUID();
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
@@ -18361,7 +18347,6 @@ async function saveProductEntry(mode) {
 function _showAddProductRow(prefill) {
   const tbody = document.getElementById('productsTbody');
   document.getElementById('add-product-row')?.remove();
-  QUICK_PRODUCT_KEY = crypto.randomUUID();
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
@@ -18422,11 +18407,9 @@ async function saveNewProduct() {
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
     gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
-    unit_family: document.getElementById('np-unitfam')?.value || 'count',
-    client_request_id: QUICK_PRODUCT_KEY };
+    unit_family: document.getElementById('np-unitfam')?.value || 'count' };
   try {
     await api('api/products.php', 'POST', payload);
-    QUICK_PRODUCT_KEY = crypto.randomUUID();
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     document.getElementById('add-product-row')?.remove();
