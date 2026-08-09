@@ -29135,10 +29135,7 @@ window.uploadProfilePhoto = async function(input) {
   const prevHtml = avatarEl ? avatarEl.innerHTML : '';
   const spin = (label) => {
     if (!avatarEl) return;
-    // Icon color was the same teal as the avatar box's own background
-    // (`.profile-av-lg { background:var(--teal) }`), so the spinner was
-    // rendering invisibly on top of itself — nothing ever appeared to show.
-    avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:#fff"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
+    avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:var(--teal)"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
     avatarEl.title = label;
   };
   spin('Uploading photo…');
