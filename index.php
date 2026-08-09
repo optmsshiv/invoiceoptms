@@ -9539,7 +9539,8 @@ function initSessionPricingSettings() {
     sel.innerHTML = '<option value="">— Select a saved session —</option>' +
       GLOBAL_DATE_PRESETS.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
   }
-  document.getElementById('ssp-table-body').innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
+  const sspTbody = document.getElementById('ssp-table-body');
+  if (sspTbody) sspTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
 }
 
 function _sspApplyEnabledState() {
@@ -9575,6 +9576,7 @@ function loadSessionPricingTable() { renderSessionPricingTable(); }
 function renderSessionPricingTable() {
   const presetId = document.getElementById('ssp-preset-select')?.value;
   const tbody = document.getElementById('ssp-table-body');
+  if (!tbody) return; // hidden entirely for service-type tenants — see chat
   if (!presetId) {
     tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
     return;
