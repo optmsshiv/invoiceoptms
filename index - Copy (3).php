@@ -9200,32 +9200,7 @@ async function api(endpoint, method, body) {
   method = method || 'GET';
   const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
   if (body) opts.body = JSON.stringify(body);
-
-  // Without a timeout, a slow/flaky connection just hangs forever with no
-  // feedback — the Save button stays disabled (see callers' `finally`
-  // blocks) and the user has no way to tell "still working" from "stuck".
-  // 30s covers slow mobile connections without making a genuinely-down
-  // network feel unresponsive for too long.
-  const controller = new AbortController();
-  const timeoutId  = setTimeout(() => controller.abort(), 30000);
-
-  let res;
-  try {
-    res = await fetch(endpoint, { ...opts, signal: controller.signal });
-  } catch (e) {
-    // fetch() itself throws for "no network" (raw browser message like
-    // "Failed to fetch" / "NetworkError..." / "Load failed" depending on
-    // browser — meaningless to a non-technical user) and for our own
-    // timeout abort above. Replace both with one clear, actionable message
-    // rather than passing the raw browser error through to the toast.
-    if (e.name === 'AbortError') {
-      throw new Error('Request timed out — check your internet connection and try again.');
-    }
-    throw new Error('Network error — check your internet connection and try again.');
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
+  const res = await fetch(endpoint, opts);
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); }

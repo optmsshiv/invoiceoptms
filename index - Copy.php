@@ -7217,10 +7217,8 @@ View Invoice: {{6}}</pre></details>
           <button class="stab-btn active" onclick="settingsTab('company',this)"><i class="fas fa-building"></i> Company</button>
           <button class="stab-btn" onclick="settingsTab('invoice',this)"><i class="fas fa-file-invoice"></i> Invoice</button>
           <button class="stab-btn" onclick="settingsTab('catalog',this)"><i class="fas fa-tags"></i> Catalog</button>
-          <?php if ($businessType !== 'service'): ?>
           <button class="stab-btn" onclick="settingsTab('productform',this)"><i class="fas fa-table-columns"></i> Product Form</button>
           <button class="stab-btn" onclick="settingsTab('proformaprint',this)"><i class="fas fa-file-contract"></i> Proforma Print</button>
-          <?php endif; ?>
           <button class="stab-btn" onclick="settingsTab('backup',this)"><i class="fas fa-database"></i> Backup</button>
         </div>
 
@@ -7249,8 +7247,8 @@ View Invoice: {{6}}</pre></details>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
               <div class="field">
-                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(set by your platform administrator)</span></label>
-                <select id="sc-business-type" disabled title="This is set by your platform administrator and controls which features (Product Form, Proforma Print, Session-wise Pricing, etc.) are available on your plan. Contact your administrator to change it.">
+                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page)</span></label>
+                <select id="sc-business-type" onchange="applyBusinessTypeLabels(this.value)">
                   <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
                   <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
                   <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
@@ -7386,7 +7384,6 @@ View Invoice: {{6}}</pre></details>
           </div>
           <?php endif; ?>
 
-          <?php if ($businessType !== 'service'): ?>
           <?php if ($canEditCihRestrictToggle): ?>
           <div class="settings-block">
             <div style="display:flex;align-items:center;gap:10px">
@@ -7439,7 +7436,6 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
           <?php endif; ?>
-          <?php endif; // businessType !== 'service' ?>
 
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
@@ -7522,7 +7518,6 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-        <?php if ($businessType !== 'service'): ?>
         <!-- ══ TAB: PRODUCT FORM ══ -->
         <div id="stab-productform" class="stab-pane">
           <div class="settings-block">
@@ -7576,9 +7571,7 @@ View Invoice: {{6}}</pre></details>
             <div id="st-types-editor" style="max-width:420px"></div>
           </div>
         </div>
-        <?php endif; // businessType !== 'service' (Product Form tab) ?>
 
-        <?php if ($businessType !== 'service'): ?>
                 <!-- ══ TAB: PROFORMA PRINT ══ -->
         <div id="stab-proformaprint" class="stab-pane">
           <div class="settings-block">
@@ -7652,7 +7645,6 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
         </div>
-        <?php endif; // businessType !== 'service' (Proforma Print tab) ?>
 
                 <!-- ══ TAB: BACKUP ══ -->
         <div id="stab-backup" class="stab-pane">
@@ -9200,32 +9192,7 @@ async function api(endpoint, method, body) {
   method = method || 'GET';
   const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
   if (body) opts.body = JSON.stringify(body);
-
-  // Without a timeout, a slow/flaky connection just hangs forever with no
-  // feedback — the Save button stays disabled (see callers' `finally`
-  // blocks) and the user has no way to tell "still working" from "stuck".
-  // 30s covers slow mobile connections without making a genuinely-down
-  // network feel unresponsive for too long.
-  const controller = new AbortController();
-  const timeoutId  = setTimeout(() => controller.abort(), 30000);
-
-  let res;
-  try {
-    res = await fetch(endpoint, { ...opts, signal: controller.signal });
-  } catch (e) {
-    // fetch() itself throws for "no network" (raw browser message like
-    // "Failed to fetch" / "NetworkError..." / "Load failed" depending on
-    // browser — meaningless to a non-technical user) and for our own
-    // timeout abort above. Replace both with one clear, actionable message
-    // rather than passing the raw browser error through to the toast.
-    if (e.name === 'AbortError') {
-      throw new Error('Request timed out — check your internet connection and try again.');
-    }
-    throw new Error('Network error — check your internet connection and try again.');
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
+  const res = await fetch(endpoint, opts);
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); }
