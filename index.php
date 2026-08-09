@@ -1660,10 +1660,6 @@ const SERVER = {
   // independently in Team Permissions.
   canProformaDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.proforma.delete'] ?? false)) ?>,
   canExpenseDelete: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.expense.delete'] ?? false)) ?>,
-  // Finance Report Export/Share — same owner-only-by-default fallback as
-  // Cash in Hand above (not the generic ?? true) since it's exposing
-  // financial data outside the app, not a normal record edit.
-  canShareFinanceReport: <?= json_encode(in_array($userRole, ['owner','super_admin']) ? true : (bool)($perms['action.reports.finance_share'] ?? false)) ?>,
   // Global Date Range Filter — see $canEditGlobalDateRange above (same
   // value, just also needed here for the JS-rendered presets list).
   canEditGlobalDateRange: <?= json_encode($canEditGlobalDateRange) ?>,
@@ -1801,7 +1797,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.sales'] ?? true): ?>
     <a class="nav-item" data-page="customers-list" id="nav-customers-item" onclick="showPage('customers-list',this); renderCustomersList();" style="display:none">
-      <i class="fas fa-users"></i><span>Customers</span>
+      <i class="fas fa-address-book"></i><span>Customers</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
@@ -1842,7 +1838,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.credit'] ?? false): ?>
     <a class="nav-item" data-page="credit" onclick="showPage('credit',this)">
-      <i class="fas fa-hand-holding-dollar"></i><span>Credit</span>
+      <i class="fas fa-coins"></i><span>Credit</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.cash_in_hand'] ?? true): ?>
@@ -5297,9 +5293,7 @@ const SERVER = {
           <div style="font-size:12px;color:var(--muted);margin-top:2px">Dashboard &gt; Reports &gt; Finance Report</div>
         </div>
         <div style="display:flex;gap:8px">
-          <?php if (in_array($userRole, ['owner','super_admin'], true) || ($perms['action.reports.finance_share'] ?? false)): ?>
           <button class="btn btn-outline" onclick="toast('📤 Export — coming soon','info')"><i class="fas fa-download"></i> Export</button>
-          <?php endif; ?>
         </div>
       </div>
 
