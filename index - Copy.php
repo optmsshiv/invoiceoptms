@@ -3561,26 +3561,24 @@ const SERVER = {
                 </div>
               </div>
 
-              <div id="pn-paidfields-wrap">
-                <div class="field"><label>Payment Mode</label>
-                  <select id="pn-paymode" onchange="togglePNESplitPayment();checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner')"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
-                  <div id="pn-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
-                </div>
-                <div id="pne-split-panel" style="display:none">
-                  <div class="pne-split-card">
-                    <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                    <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                    <div class="pne-split-actions">
-                      <button type="button" class="pne-split-addbtn" onclick="addPNESplitRow(); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                      <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
-                    </div>
-                    <div id="pne-split-footer" class="pne-split-footer"></div>
-                    <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                  </div>
-                </div>
-                <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
-                <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
+              <div class="field"><label>Payment Mode</label>
+                <select id="pn-paymode" onchange="togglePNESplitPayment();checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner')"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
+                <div id="pn-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
               </div>
+              <div id="pne-split-panel" style="display:none">
+                <div class="pne-split-card">
+                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                  <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                  <div class="pne-split-actions">
+                    <button type="button" class="pne-split-addbtn" onclick="addPNESplitRow(); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                    <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
+                  </div>
+                  <div id="pne-split-footer" class="pne-split-footer"></div>
+                  <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                </div>
+              </div>
+              <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
             </div>
           </div>
         </div>
@@ -19684,7 +19682,7 @@ function renderPurchases() {
       </td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
       <td>${(p.status === 'Paid' || p.status === 'Partial') && p.last_payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.last_payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
-      <td>${p.status === 'Pending' ? `<span style="color:var(--muted2)">—</span>` : escHtml(p.payment_type||'—')}</td>
+      <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View" onclick="viewPurchaseDetails(${p.id})"><i class="fas fa-eye"></i></button>
@@ -20057,7 +20055,6 @@ function goToNewPurchase() {
   setPurchasePaymentInfoLocked(false);
   setPNEKantaFieldsLocked(false);
   document.getElementById('pn-paymode').value = 'Cash';
-  updatePNEPaymentModeVisibility('Pending'); // fresh form — nothing paid yet
   checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
   document.getElementById('pne-split-rows').innerHTML = '';
@@ -20455,19 +20452,6 @@ function calcPurchaseNewTotals() {
 
   updatePNEPartialCard(grand, payStatus);
   updatePNESplitMismatch();
-  updatePNEPaymentModeVisibility(payStatus);
-}
-
-// Payment Mode / Transaction No. / Payment Date only mean something once
-// money has actually moved — while Payment Status is Pending, nothing's
-// been paid yet, so these fields are irrelevant noise (and Payment Mode
-// showing "Cash" by default while nothing was paid was actively
-// misleading on a Pending purchase). Same "only meaningful once payment
-// exists" logic as the ledger's Payment Date column fix.
-function updatePNEPaymentModeVisibility(payStatus) {
-  const wrap = document.getElementById('pn-paidfields-wrap');
-  if (!wrap) return;
-  wrap.style.display = (payStatus === 'Pending') ? 'none' : '';
 }
 
 function updatePNEPartialCard(grand, payStatus) {
@@ -20779,7 +20763,6 @@ async function editPurchase(id) {
     renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
-    updatePNEPaymentModeVisibility(p.status || 'Pending'); // reflect this record's actual status, not the fresh-form default
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
     document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
     checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner');
