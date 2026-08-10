@@ -19681,7 +19681,7 @@ function renderPurchases() {
         })() : ''}
       </td>
       <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
-      <td>${p.payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${(p.status === 'Paid' || p.status === 'Partial') && p.last_payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.last_payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
@@ -28318,6 +28318,17 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
+    // Sales and Customers are the only two of these that are actually
+    // unreachable for a service-type business — their nav items are the
+    // only ones gated by businessType === 'product' (see
+    // nav-sales-item/nav-customers-item toggling elsewhere). Suppliers,
+    // Purchases, Stock, and Products stay visible in the sidebar for every
+    // business type, so their fetches must always run — skipping those
+    // would leave those pages showing empty data if a service-type
+    // tenant actually visits them. STATE.settings.businessType is safe to
+    // read here: it's inlined from PHP at page load (see the STATE
+    // object literal), not dependent on this same fetch completing.
+    const isService = STATE.settings.businessType === 'service';
     const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal, stk] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
@@ -28327,8 +28338,8 @@ async function loadAllData() {
       api('api/credit_notes.php').catch(() => ({ data: [] })),
       api('api/suppliers.php').catch(() => ({ data: [] })),
       api('api/purchases.php').catch(() => ({ data: [] })),
-      api('api/customers.php').catch(() => ({ data: [] })),
-      api('api/sales.php').catch(() => ({ data: [] })),
+      isService ? Promise.resolve({ data: [] }) : api('api/customers.php').catch(() => ({ data: [] })),
+      isService ? Promise.resolve({ data: [] }) : api('api/sales.php').catch(() => ({ data: [] })),
       api('api/stock.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
