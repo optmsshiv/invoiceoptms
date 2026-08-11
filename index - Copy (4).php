@@ -9068,7 +9068,7 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
-<!-- Add Credit Entry Modal -->
+<!-- Add/Edit Credit Entry Modal -->
 <div class="modal-overlay" id="modal-credit-add">
   <div class="modal" style="max-width:420px">
     <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
@@ -9076,13 +9076,14 @@ View Invoice: {{6}}</pre></details>
         <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas fa-hand-holding-dollar" style="color:var(--teal);font-size:13px"></i>
         </div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)">Add Credit Entry</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)" id="credit-modal-title">Add Credit Entry</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-credit-add')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
-      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
-        <i class="fas fa-circle-info"></i> Once saved, this entry is locked — there's no edit or delete. If something's wrong, you can still fix it when converting to an Expense later.
+      <input type="hidden" id="credit-edit-id">
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px" id="credit-modal-notice">
+        <i class="fas fa-circle-info"></i> You can edit this entry any time before it's fully converted to an Expense. Once fully converted, it's locked.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field" style="margin:0"><label>Date *</label><input type="date" id="credit-date" style="width:100%"></div>
@@ -31367,13 +31368,17 @@ function renderCreditTable() {
       <td style="text-align:right">
         ${isConverted
           ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
-          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
+          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
+             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
       </td>
     </tr>`;
   }).join('');
 }
 
 function openAddCreditModal() {
+  document.getElementById('credit-edit-id').value = '';
+  document.getElementById('credit-modal-title').textContent = 'Add Credit Entry';
+  document.getElementById('credit-modal-notice').innerHTML = '<i class="fas fa-circle-info"></i> You can edit this entry any time before it\'s fully converted to an Expense. Once fully converted, it\'s locked.';
   document.getElementById('credit-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('credit-amount').value = '';
   document.getElementById('credit-purpose').value = '';
@@ -31382,7 +31387,28 @@ function openAddCreditModal() {
   openModal('modal-credit-add');
 }
 
+// Edit is only reachable from the ledger's Edit button, which itself is
+// only rendered for non-converted rows (see renderCreditTable) — but the
+// backend re-checks status === 'converted' independently on PUT, so a
+// stale/cached button click can't bypass the lock either.
+function openEditCreditEntry(id) {
+  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
+  if (!c) return;
+  document.getElementById('credit-edit-id').value = c.id;
+  document.getElementById('credit-modal-title').textContent = 'Edit Credit Entry';
+  document.getElementById('credit-modal-notice').innerHTML = c.status === 'partial'
+    ? `<i class="fas fa-circle-info"></i> ₹${fmt_money(c.converted_amount)} of this entry has already been converted — the amount can't be reduced below that.`
+    : '<i class="fas fa-circle-info"></i> You can edit this entry any time before it\'s fully converted to an Expense.';
+  document.getElementById('credit-date').value = c.entry_date || '';
+  document.getElementById('credit-amount').value = c.amount || '';
+  document.getElementById('credit-purpose').value = c.purpose || '';
+  document.getElementById('credit-paidto').value = c.paid_to || '';
+  document.getElementById('credit-method').value = c.payment_method || 'Cash';
+  openModal('modal-credit-add');
+}
+
 async function saveCreditEntry() {
+  const editId = document.getElementById('credit-edit-id').value;
   const date = document.getElementById('credit-date').value;
   const amount = parseFloat(document.getElementById('credit-amount').value) || 0;
   const purpose = document.getElementById('credit-purpose').value.trim();
@@ -31395,9 +31421,14 @@ async function saveCreditEntry() {
   }
 
   try {
-    await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
+    if (editId) {
+      await api('api/credit_entries.php?id=' + editId, 'PUT', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
+      toast('✅ Credit entry updated!', 'success');
+    } else {
+      await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
+      toast('✅ Credit entry saved!', 'success');
+    }
     closeModal('modal-credit-add');
-    toast('✅ Credit entry saved!', 'success');
     loadCreditEntries();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }

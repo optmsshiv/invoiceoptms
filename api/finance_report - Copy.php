@@ -13,54 +13,6 @@ try {
   $dateTo   = $_GET['date_to']   ?? date('Y-m-d');
   $warehouse = $_GET['warehouse'] ?? '';
 
-  // ── Drill-down: the actual transactions behind one payment-mode total
-  // on the Finance Report (e.g. "Bank Transfer — ₹7,34,550.75" under
-  // Received/Paid Out/Expenses). Exits early — this isn't part of the
-  // main report payload, it's fetched on-demand when a mode row is
-  // clicked, using whatever date range/warehouse the report is currently
-  // showing so the drill-down total always matches the summary figure.
-  // Computes its own warehouse clauses rather than reusing $whWhereSales/
-  // $whWherePur below, since those aren't defined yet at this point in
-  // the file and this block exits before reaching them.
-  if (($_GET['action'] ?? '') === 'paymode_detail') {
-    $type = $_GET['type'] ?? '';
-    $mode = $_GET['mode'] ?? '';
-    if (!in_array($type, ['sales', 'purchases', 'expenses'], true) || $mode === '') {
-      jsonResponse(['error' => 'type and mode are required'], 400);
-    }
-    $ddWhWhereSales = $warehouse ? " AND EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.warehouse = " . $db->quote($warehouse) . ")" : '';
-    $ddWhWherePur   = $warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : '';
-    // "Split Payment" is a synthetic bucket (see modeBreakdown() below) —
-    // any row whose raw mode starts with "Split:" was folded into it, so
-    // the drill-down needs the same LIKE match, not an exact-string one.
-    $isSplit = ($mode === 'Split Payment');
-
-    if ($type === 'sales') {
-      $modeClause = $isSplit ? "s.payment_method LIKE 'Split:%'" : 's.payment_method = ?';
-      $sql = "SELECT s.id, s.sale_date AS `date`, c.name AS party, s.invoice_no AS reference, s.amount_received AS amount
-              FROM sales s JOIN customers c ON c.id = s.customer_id
-              WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND $modeClause"
-              . $ddWhWhereSales . " ORDER BY s.sale_date DESC, s.id DESC";
-      $params = $isSplit ? [$dateFrom, $dateTo] : [$dateFrom, $dateTo, $mode];
-    } elseif ($type === 'purchases') {
-      $modeClause = $isSplit ? "p.payment_mode LIKE 'Split:%'" : 'p.payment_mode = ?';
-      $sql = "SELECT p.id, p.purchase_date AS `date`, s.name AS party, p.purchase_no AS reference, p.amount_paid AS amount
-              FROM purchases p JOIN suppliers s ON s.id = p.supplier_id
-              WHERE p.purchase_date BETWEEN ? AND ? AND $modeClause"
-              . $ddWhWherePur . " ORDER BY p.purchase_date DESC, p.id DESC";
-      $params = $isSplit ? [$dateFrom, $dateTo] : [$dateFrom, $dateTo, $mode];
-    } else { // expenses — no split-payment concept, always an exact match
-      $sql = "SELECT id, `date`, vendor AS party, category AS reference, amount
-              FROM expenses WHERE `date` BETWEEN ? AND ? AND method = ?
-              ORDER BY `date` DESC, id DESC";
-      $params = [$dateFrom, $dateTo, $mode];
-    }
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
-  }
-
   // Previous period of equal length, for the vs-Previous-Period comparison
   $days = (strtotime($dateTo) - strtotime($dateFrom)) / 86400 + 1;
   $prevFrom = date('Y-m-d', strtotime($dateFrom . " -{$days} days"));
