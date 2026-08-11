@@ -20462,9 +20462,20 @@ function calcPurchaseNewTotals() {
   const grand = +(taxable + gstAmt).toFixed(2);
   document.getElementById('pn-sum-grand').textContent = fmt_money(grand);
 
-  // Keep Amount Paid sane if Payment Status is set to Paid
+  // Keep Amount Paid in sync with Payment Status — Paid always mirrors
+  // the grand total; Pending is forced back to 0 (previously only Paid
+  // was handled here, so switching Paid → Pending left the old grand-
+  // total amount silently sitting in the field, hidden but still
+  // included in the save payload — Finance Report's Paid Out list
+  // correctly shows 0 for a Pending purchase, so the form needs to
+  // actually match that, not just visually hide the stale number).
+  // Partial is left alone — that's a genuine manual entry.
   const payStatus = document.getElementById('pn-paystatus').value;
-  if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
+  if (payStatus === 'Paid') {
+    document.getElementById('pn-amountpaid').value = grand.toFixed(2);
+  } else if (payStatus === 'Pending') {
+    document.getElementById('pn-amountpaid').value = 0;
+  }
 
   updatePNEPartialCard(grand, payStatus);
   updatePNESplitMismatch();
@@ -21068,7 +21079,13 @@ async function savePurchaseEntry(mode) {
     driver_name: document.getElementById('pn-drivername').value.trim(),
     warehouse: document.getElementById('pn-warehouse').value,
     payment_terms: document.getElementById('pn-paymentterms').value,
-    payment_type: document.getElementById('pn-paymenttype').value,
+    // Blank, not the leftover default, when nothing's been decided yet —
+    // otherwise a Pending purchase still reports "Cash" (its default
+    // value) with ₹0 paid, which Finance Report's Paid Out list would
+    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
+    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
+    // existing total, but an all-zero group still renders as a row).
+    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
@@ -21081,9 +21098,11 @@ async function savePurchaseEntry(mode) {
     cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
-    payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
-    transaction_no: document.getElementById('pn-transactionno').value.trim(),
-    payment_date: document.getElementById('pn-paydate').value || null,
+    // Same rationale as payment_type above.
+    payment_mode: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
+      (document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value),
+    transaction_no: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-transactionno').value.trim(),
+    payment_date: document.getElementById('pn-paystatus').value === 'Pending' ? null : (document.getElementById('pn-paydate').value || null),
     notes: document.getElementById('pn-notes').value.trim(),
     attachment: attachment || undefined,
     session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,

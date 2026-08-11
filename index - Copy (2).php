@@ -9190,6 +9190,18 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
+<!-- Payment-mode drill-down (Finance Report) — the actual transactions
+     behind one summary row, e.g. "Bank Transfer — ₹7,34,550.75" -->
+<div class="modal-overlay" id="modal-paymode-detail">
+  <div class="modal modal-md">
+    <div class="modal-header"><span id="pmd-title">Transactions</span><button class="modal-close" onclick="closeModal('modal-paymode-detail')"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body" id="pmd-body" style="padding:16px 20px;max-height:65vh;overflow-y:auto"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-paymode-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -21730,6 +21742,58 @@ async function runSessionComparison() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
+// Payment-mode drill-down — "who" behind one summary row on the Finance
+// Report. Reuses whatever date range/warehouse the report last rendered
+// with (see window._FR_LAST_RANGE, set at the end of renderFinanceReport),
+// so the drill-down always matches the total the user actually clicked,
+// even if Global Date Range or the warehouse filter is in play.
+const PMD_LABELS = {
+  sales:     { title: 'Received — Sales',     party: 'Customer', ref: 'Invoice No.' },
+  purchases: { title: 'Paid Out — Purchases', party: 'Supplier', ref: 'Purchase No.' },
+  expenses:  { title: 'Expense Payments',     party: 'Vendor',   ref: 'Category' },
+};
+async function openPaymodeDetail(type, mode) {
+  const range = window._FR_LAST_RANGE || {};
+  const labels = PMD_LABELS[type];
+  if (!labels) return;
+  document.getElementById('pmd-title').textContent = `${escHtml(mode)} — ${labels.title}`;
+  const body = document.getElementById('pmd-body');
+  body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
+  openModal('modal-paymode-detail');
+  try {
+    const params = new URLSearchParams({ action: 'paymode_detail', type, mode, date_from: range.from || '', date_to: range.to || '' });
+    if (range.wh) params.set('warehouse', range.wh);
+    const r = await api('api/finance_report.php?' + params.toString());
+    const rows = r.data || [];
+    if (!rows.length) {
+      body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)">No transactions found for this mode in the selected period.</div>`;
+      return;
+    }
+    const total = rows.reduce((s, x) => s + parseFloat(x.amount || 0), 0);
+    // Expenses have no detail modal to link through to (unlike Sales/
+    // Purchases) — those rows render as plain text instead of a link.
+    const linkFn = type === 'sales' ? 'viewSaleDetails' : (type === 'purchases' ? 'viewPurchaseDetails' : null);
+    body.innerHTML = `
+      <table class="data-table" style="font-size:12.5px;width:100%">
+        <thead><tr><th>Date</th><th>${labels.party}</th><th>${labels.ref}</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+          ${rows.map(x => `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
+            <td>${fmt_date_disp(x.date)}</td>
+            <td>${escHtml(x.party || '—')}</td>
+            <td>${escHtml(x.reference || '—')}</td>
+            <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr style="font-weight:700;border-top:1.5px solid var(--border)">
+          <td colspan="3">Total (${rows.length} transaction${rows.length===1?'':'s'})</td>
+          <td style="text-align:right">${fmt_money(total)}</td>
+        </tr></tfoot>
+      </table>`;
+  } catch(e) {
+    body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--red)">Couldn't load this — ${escHtml(e.message)}</div>`;
+  }
+}
+
 async function renderFinanceReport() {
   const frFromEl = document.getElementById('fr-from'), frToEl = document.getElementById('fr-to');
   const frAllTimeBtn = document.getElementById('fr-alltime-btn');
@@ -21805,21 +21869,26 @@ async function renderFinanceReport() {
     // fully separate now (previously merged into one confusing total that
     // silently added money received to money paid out).
     const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64','Cash in Hand':'#00897B','NEFT':'#1565C0','RTGS':'#1565C0','Credit Card':'#6A4C93' };
-    function renderPaymodeCard(elId, modes, emptyMsg) {
+    function renderPaymodeCard(elId, modes, emptyMsg, type) {
       const el = document.getElementById(elId);
       if (!el) return;
       const total = modes.reduce((s,m)=>s+m.amount, 0);
       el.innerHTML = modes.length ? modes.map(m => `
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="Click to see who — the transactions behind this total">
           <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
           <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
         </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
           <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
         : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
     }
-    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period');
-    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period');
-    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period');
+    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period', 'sales');
+    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period', 'purchases');
+    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period', 'expenses');
+
+    // Re-check on every render — a mode click from a previous render
+    // shouldn't leave the modal referencing a now-stale date range.
+    window._FR_LAST_RANGE = { from, to, wh };
+
 
     renderFRCharts(r);
 
