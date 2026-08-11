@@ -31439,7 +31439,7 @@ function renderCreditTable() {
     const isPartial = c.status === 'partial';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
-    return `<tr id="credit-row-${c.id}">
+    return `<tr>
       <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
       <td>${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
@@ -31461,23 +31461,6 @@ function renderCreditTable() {
       </td>
     </tr>`;
   }).join('');
-
-  // One-time highlight for a row we were sent here to find — set by
-  // viewCreditEntrySource()'s "Go to Credit Page" button (Expense page's
-  // "Via Credit" badge). Checked here rather than right after the nav
-  // click, since loadCreditEntries() fetches asynchronously — the row
-  // doesn't exist in the DOM until this render actually runs.
-  if (window.CREDIT_HIGHLIGHT_ID) {
-    const targetId = window.CREDIT_HIGHLIGHT_ID;
-    window.CREDIT_HIGHLIGHT_ID = null; // consume — don't re-highlight on a later, unrelated visit to this page
-    const row = document.getElementById('credit-row-' + targetId);
-    if (row) {
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      row.style.transition = 'background-color 1.6s ease';
-      row.style.backgroundColor = '#FFF3CD';
-      setTimeout(() => { row.style.backgroundColor = ''; }, 2400);
-    }
-  }
 }
 
 function openAddCreditModal() {
@@ -31567,10 +31550,7 @@ async function viewCreditEntrySource(creditEntryId) {
       cancelButtonText: 'Close',
       customClass: { popup: 'swal-compact' },
     }).then(res => {
-      if (res.isConfirmed) {
-        window.CREDIT_HIGHLIGHT_ID = creditEntryId; // consumed by renderCreditTable() once the list actually loads
-        document.querySelector('.nav-item[data-page="credit"]')?.click();
-      }
+      if (res.isConfirmed) document.querySelector('.nav-item[data-page="credit"]')?.click();
     });
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
