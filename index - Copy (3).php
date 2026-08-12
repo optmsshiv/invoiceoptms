@@ -4187,25 +4187,23 @@ const SERVER = {
                 </div>
               </div>
 
-              <div id="sn-paidfields-wrap">
-                <div class="field"><label>Payment Method *</label>
-                  <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
-                </div>
-                <div id="sn-split-panel" style="display:none">
-                  <div class="pne-split-card">
-                    <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                    <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                    <div class="pne-split-actions">
-                      <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                      <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
-                    </div>
-                    <div id="sn-split-footer" class="pne-split-footer"></div>
-                    <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                  </div>
-                </div>
-                <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-                <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
+              <div class="field"><label>Payment Method *</label>
+                <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
+              <div id="sn-split-panel" style="display:none">
+                <div class="pne-split-card">
+                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                  <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                  <div class="pne-split-actions">
+                    <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                    <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
+                  </div>
+                  <div id="sn-split-footer" class="pne-split-footer"></div>
+                  <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                </div>
+              </div>
+              <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
             </div>
 
@@ -22555,7 +22553,6 @@ function goToNewSale() {
   document.getElementById('sn-amountreceived').value = 0;
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
-  updateSNPaymentModeVisibility('Pending'); // fresh form — nothing received yet
   setSalePaymentInfoLocked(false);
   // Pre-fill from Settings → Invoice Defaults, same as the Service
   // Invoice's Notes field already does — this was previously always
@@ -22965,15 +22962,6 @@ function calcSNWeightSummary() {
   calcSaleNewTotals();
 }
 
-// Payment Method / Transaction No. / Payment Date only mean something
-// once money has actually been received — same rationale as Purchase
-// Entry's updatePNEPaymentModeVisibility(). While Payment Status is
-// Pending, nothing's been received yet, so these are irrelevant noise.
-function updateSNPaymentModeVisibility(payStatus) {
-  const wrap = document.getElementById('sn-paidfields-wrap');
-  if (wrap) wrap.style.display = (payStatus === 'Pending') ? 'none' : '';
-}
-
 function calcSaleNewTotals() {
   let totalQty = 0, subtotal = 0, itemsTax = 0;
   SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
@@ -23032,17 +23020,7 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-grand').textContent = fmt_money(grand);
 
   const payStatus = document.getElementById('sn-paystatus').value;
-  // Same fix as Purchase Entry: Paid mirrors the grand total, Pending is
-  // forced back to 0 (previously only Paid was handled, so switching
-  // Paid → Pending left the old grand-total amount stuck in the field —
-  // hidden once sn-paidfields-wrap is hidden below, but still silently
-  // included in the save payload). Partial is left alone for manual entry.
-  if (payStatus === 'Paid') {
-    document.getElementById('sn-amountreceived').value = grand.toFixed(2);
-  } else if (payStatus === 'Pending') {
-    document.getElementById('sn-amountreceived').value = 0;
-  }
-  updateSNPaymentModeVisibility(payStatus);
+  if (payStatus === 'Paid') document.getElementById('sn-amountreceived').value = grand.toFixed(2);
   const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
   const balance = Math.max(0, grand - received);
   document.getElementById('sn-sum-received').textContent = fmt_money(received);
@@ -23271,17 +23249,10 @@ async function saveSaleEntry(mode) {
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
     cd_applicable_within: document.getElementById('sn-cdwithin').value,
     payment_status: document.getElementById('sn-paystatus').value,
-    // Blank, not the leftover default, when nothing's been received yet —
-    // same rationale as Purchase Entry's payment_mode fix: otherwise a
-    // Pending sale still reports "Cash" (its default) with ₹0 received,
-    // which Finance Report's Received — Sales list would include as a
-    // spurious "Cash — ₹0.00" row if it were the only Cash-mode sale in
-    // the period.
-    payment_method: document.getElementById('sn-paystatus').value === 'Pending' ? '' :
-      (document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value),
+    payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
-    transaction_no: document.getElementById('sn-paystatus').value === 'Pending' ? '' : document.getElementById('sn-transactionno').value.trim(),
-    payment_date: document.getElementById('sn-paystatus').value === 'Pending' ? null : (document.getElementById('sn-paydate').value || null),
+    transaction_no: document.getElementById('sn-transactionno').value.trim(),
+    payment_date: document.getElementById('sn-paydate').value || null,
     customer_notes: document.getElementById('sn-customernotes').value.trim(),
     internal_notes: document.getElementById('sn-internalnotes').value.trim(),
     delivery_instructions: document.getElementById('sn-deliveryinstructions').value.trim(),
@@ -23380,7 +23351,6 @@ async function editSale(id) {
     document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
     document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
-    updateSNPaymentModeVisibility(s.payment_status || 'Pending'); // reflect this record's actual status, not the fresh-form default
     const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
     document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
     document.getElementById('sn-split-panel').style.display = isSNSplitSaved ? 'block' : 'none';
