@@ -22512,11 +22512,12 @@ function goToNewSale() {
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
+  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
   document.getElementById('sn-shipping').value = '';
-  populateSalesExecDropdown(SERVER.user?.name || ''); // auto-selects the logged-in user — must run AFTER any sn-salesexec reset, not before (see chat: this used to be immediately undone by a redundant clear that ran right after it)
+  document.getElementById('sn-salesexec').value = '';
   document.getElementById('sn-invno').value = '';
   document.getElementById('sn-invdate').value = fmt_date(new Date());
   document.getElementById('sn-duedate').value = '';
