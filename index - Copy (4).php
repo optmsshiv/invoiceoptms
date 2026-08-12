@@ -25242,14 +25242,8 @@ async function deleteStockInEntry(id) {
 let RPP_ACTIVE_PURCHASE = null;
 
 async function openRecordPurchasePayment(purchaseId) {
-  const btn = event?.target?.closest('button');
-  const btnOrigHtml = btn ? btn.innerHTML : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…'; }
   try {
-    const [r, hist] = await Promise.all([
-      api('api/purchases.php?id=' + purchaseId),
-      api('api/purchase_payments.php?purchase_id=' + purchaseId),
-    ]);
+    const r = await api('api/purchases.php?id=' + purchaseId);
     const p = r.data;
     RPP_ACTIVE_PURCHASE = p;
 
@@ -25267,6 +25261,8 @@ async function openRecordPurchasePayment(purchaseId) {
     document.getElementById('rpp-txn').value = '';
     document.getElementById('rpp-notes').value = '';
 
+    // Payment history
+    const hist = await api('api/purchase_payments.php?purchase_id=' + purchaseId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rpp-history-wrap');
     const list = document.getElementById('rpp-history-list');
@@ -25288,7 +25284,6 @@ async function openRecordPurchasePayment(purchaseId) {
     updateRPPNotice();
     openModal('modal-record-purchase-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = btnOrigHtml; } }
 }
 
 // Live "this will still leave X due / status stays Partial" notice —
@@ -25362,19 +25357,8 @@ async function saveRecordPurchasePayment() {
 let RSP_ACTIVE_SALE = null;
 
 async function openRecordSalePayment(saleId) {
-  // Give immediate feedback on click — previously there was zero visual
-  // response for however long the two fetches below took (sequential
-  // awaits made it worse), which reads as "did my click even register?"
-  const btn = event?.target?.closest('button');
-  const btnOrigHtml = btn ? btn.innerHTML : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…'; }
   try {
-    // These two don't depend on each other — running them in parallel
-    // instead of sequential awaits cuts the wait roughly in half.
-    const [r, hist] = await Promise.all([
-      api('api/sales.php?id=' + saleId),
-      api('api/sale_payments.php?sale_id=' + saleId),
-    ]);
+    const r = await api('api/sales.php?id=' + saleId);
     const s = r.data;
     RSP_ACTIVE_SALE = s;
 
@@ -25392,6 +25376,7 @@ async function openRecordSalePayment(saleId) {
     document.getElementById('rsp-txn').value = '';
     document.getElementById('rsp-notes').value = '';
 
+    const hist = await api('api/sale_payments.php?sale_id=' + saleId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rsp-history-wrap');
     const list = document.getElementById('rsp-history-list');
@@ -25413,7 +25398,6 @@ async function openRecordSalePayment(saleId) {
     updateRSPNotice();
     openModal('modal-record-sale-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) { btn.disabled = false; btn.innerHTML = btnOrigHtml; } }
 }
 
 function updateRSPNotice() {
