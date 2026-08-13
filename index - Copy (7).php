@@ -19697,7 +19697,7 @@ function renderPurchases() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td><span id="pur-paystatus-badge-${p.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
       <td>${(p.status === 'Paid' || p.status === 'Partial') && p.last_payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.last_payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${p.status === 'Pending' ? `<span style="color:var(--muted2)">—</span>` : escHtml(p.payment_type||'—')}</td>
       <td>
@@ -22512,12 +22512,11 @@ function goToNewSale() {
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
-  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
   document.getElementById('sn-shipping').value = '';
-  document.getElementById('sn-salesexec').value = '';
+  populateSalesExecDropdown(SERVER.user?.name || ''); // auto-selects the logged-in user — must run AFTER any sn-salesexec reset, not before (see chat: this used to be immediately undone by a redundant clear that ran right after it)
   document.getElementById('sn-invno').value = '';
   document.getElementById('sn-invdate').value = fmt_date(new Date());
   document.getElementById('sn-duedate').value = '';
@@ -23579,7 +23578,7 @@ function renderSales() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span id="sale-paystatus-badge-${s.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
       <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
@@ -25242,8 +25241,18 @@ async function deleteStockInEntry(id) {
 let RPP_ACTIVE_PURCHASE = null;
 
 async function openRecordPurchasePayment(purchaseId) {
+  // Same fix as openRecordSalePayment — the triggering button lives
+  // inside the "⋯ More" dropdown, which closes itself on the same click
+  // that opened it (see the document click listener near toggleActMenu),
+  // so a spinner there is invisible. Payment Status badge stays visible.
+  const badge = document.getElementById('pur-paystatus-badge-' + purchaseId);
+  const badgeOrigHtml = badge ? badge.innerHTML : null;
+  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    const r = await api('api/purchases.php?id=' + purchaseId);
+    const [r, hist] = await Promise.all([
+      api('api/purchases.php?id=' + purchaseId),
+      api('api/purchase_payments.php?purchase_id=' + purchaseId),
+    ]);
     const p = r.data;
     RPP_ACTIVE_PURCHASE = p;
 
@@ -25261,8 +25270,6 @@ async function openRecordPurchasePayment(purchaseId) {
     document.getElementById('rpp-txn').value = '';
     document.getElementById('rpp-notes').value = '';
 
-    // Payment history
-    const hist = await api('api/purchase_payments.php?purchase_id=' + purchaseId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rpp-history-wrap');
     const list = document.getElementById('rpp-history-list');
@@ -25284,6 +25291,7 @@ async function openRecordPurchasePayment(purchaseId) {
     updateRPPNotice();
     openModal('modal-record-purchase-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 // Live "this will still leave X due / status stays Partial" notice —
@@ -25357,8 +25365,22 @@ async function saveRecordPurchasePayment() {
 let RSP_ACTIVE_SALE = null;
 
 async function openRecordSalePayment(saleId) {
+  // The button that triggered this lives inside the "⋯ More" dropdown
+  // (.act-menu), which closes itself the instant any click happens
+  // anywhere in the document (see the document click listener near
+  // toggleActMenu) — so a spinner on that button is invisible before the
+  // user ever sees it. The Payment Status badge in the same row stays on
+  // screen regardless, so that's where the loading feedback goes instead.
+  const badge = document.getElementById('sale-paystatus-badge-' + saleId);
+  const badgeOrigHtml = badge ? badge.innerHTML : null;
+  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    const r = await api('api/sales.php?id=' + saleId);
+    // These two don't depend on each other — running them in parallel
+    // instead of sequential awaits cuts the wait roughly in half.
+    const [r, hist] = await Promise.all([
+      api('api/sales.php?id=' + saleId),
+      api('api/sale_payments.php?sale_id=' + saleId),
+    ]);
     const s = r.data;
     RSP_ACTIVE_SALE = s;
 
@@ -25376,7 +25398,6 @@ async function openRecordSalePayment(saleId) {
     document.getElementById('rsp-txn').value = '';
     document.getElementById('rsp-notes').value = '';
 
-    const hist = await api('api/sale_payments.php?sale_id=' + saleId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rsp-history-wrap');
     const list = document.getElementById('rsp-history-list');
@@ -25398,6 +25419,7 @@ async function openRecordSalePayment(saleId) {
     updateRSPNotice();
     openModal('modal-record-sale-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 function updateRSPNotice() {
