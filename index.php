@@ -621,15 +621,7 @@ canvas { max-width: 100% !important; }
 .pne-topbar {
   display: flex; justify-content: space-between; align-items: flex-start;
   padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border);
-  /* Was `top: 0` — but .topbar (the app header) is ALSO sticky at top:0
-     with a higher z-index, so this ended up sticking directly behind/
-     under the app header instead of just below it — visually swallowed
-     the moment you scrolled far enough, even though it was technically
-     "stuck". Offsetting by the header's own height fixes that: this now
-     sticks right underneath the app header instead of competing for the
-     same spot. Affects every entry page sharing this class (Purchase,
-     Sale, Product, etc.), not just one. */
-  position: sticky; top: var(--topbar-h); z-index: 20;
+  position: sticky; top: 0; z-index: 20;
 }
 .pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
