@@ -631,6 +631,15 @@ canvas { max-width: 100% !important; }
      Sale, Product, etc.), not just one. */
   position: sticky; top: var(--topbar-h); z-index: 20;
 }
+/* position:sticky above wasn't actually engaging in practice (see the
+   JS-driven fallback near the end of the file) — this is the "stuck"
+   state that fallback switches to manually via position:fixed. */
+.pne-topbar.js-stuck {
+  position: fixed !important;
+  top: var(--topbar-h);
+  z-index: 30;
+  box-shadow: 0 3px 10px rgba(0,0,0,.10);
+}
 .pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .pne-actions { display: flex; gap: 8px; }
@@ -35964,6 +35973,82 @@ async function exportMsgLog() {
     toast('✗ Export failed: ' + e.message, 'error');
   }
 }
+
+// ── JS-driven sticky action bar (Cancel/Save/etc. on entry pages) ──
+// position:sticky on .pne-topbar wasn't engaging at all in practice —
+// it scrolled away with the page instead of pinning, for reasons that
+// held up even after ruling out overflow-clipping ancestors, undefined
+// CSS variables, and display:none→block reflow timing. Rather than keep
+// guessing at the CSS cause, this manually switches the topbar to
+// position:fixed once its natural position scrolls past the app header,
+// with a placeholder to prevent the page content jumping when it leaves
+// normal flow. Applies to every page using .pne-topbar (Purchase, Sale,
+// Product, etc.) via the shared class, not just one page.
+(function() {
+  function topbarHeightPx() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 60;
+  }
+
+  function syncStuckRect(topbar) {
+    const container = document.querySelector('.pages-container');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    topbar.style.left = rect.left + 'px';
+    topbar.style.width = rect.width + 'px';
+  }
+
+  function unstick(topbar) {
+    topbar.classList.remove('js-stuck');
+    topbar.style.left = '';
+    topbar.style.width = '';
+    if (topbar._pneStuckPlaceholder) { topbar._pneStuckPlaceholder.remove(); topbar._pneStuckPlaceholder = null; }
+  }
+
+  function handleScroll() {
+    const container = document.querySelector('.pages-container');
+    const activePage = document.querySelector('.page.active');
+    if (!container || !activePage) return;
+    const topbar = activePage.querySelector(':scope > .pne-topbar');
+    if (!topbar) return;
+
+    const isStuck = topbar.classList.contains('js-stuck');
+    const threshold = topbarHeightPx();
+
+    if (!isStuck) {
+      const top = topbar.getBoundingClientRect().top;
+      if (top <= threshold) {
+        const placeholder = document.createElement('div');
+        placeholder.style.height = topbar.offsetHeight + 'px';
+        topbar.parentNode.insertBefore(placeholder, topbar);
+        topbar._pneStuckPlaceholder = placeholder;
+        topbar._pneStickScrollTop = container.scrollTop;
+        topbar.classList.add('js-stuck');
+        syncStuckRect(topbar);
+      }
+    } else {
+      if (container.scrollTop <= (topbar._pneStickScrollTop || 0)) {
+        unstick(topbar);
+      } else {
+        syncStuckRect(topbar); // keep width/left correct if the window/sidebar resizes while stuck
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.querySelector('.pages-container');
+    if (container) container.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+  });
+
+  // Clean slate whenever navigating — a freshly-entered page should
+  // always start with its topbar in normal (non-stuck) position, and
+  // any stray placeholder from a previous visit shouldn't linger.
+  const _origShowPage = window.showPage;
+  window.showPage = function(name, el) {
+    document.querySelectorAll('.pne-topbar.js-stuck').forEach(unstick);
+    return _origShowPage.apply(this, arguments);
+  };
+})();
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
