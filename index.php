@@ -35984,6 +35984,14 @@ async function exportMsgLog() {
 // with a placeholder to prevent the page content jumping when it leaves
 // normal flow. Applies to every page using .pne-topbar (Purchase, Sale,
 // Product, etc.) via the shared class, not just one page.
+//
+// NOTE: .pages-container declares overflow-y:auto, but body/.main-wrap
+// only constrain themselves with min-height (not height), so that
+// overflow never actually engages in practice — the real scroll happens
+// on the window/document, not inside .pages-container. The first version
+// of this fix listened for 'scroll' on .pages-container and so never
+// fired at all. Listening on window (and reading window.scrollY) instead
+// is what actually matches where scrolling really happens.
 (function() {
   function topbarHeightPx() {
     return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 60;
@@ -36005,9 +36013,8 @@ async function exportMsgLog() {
   }
 
   function handleScroll() {
-    const container = document.querySelector('.pages-container');
     const activePage = document.querySelector('.page.active');
-    if (!container || !activePage) return;
+    if (!activePage) return;
     const topbar = activePage.querySelector(':scope > .pne-topbar');
     if (!topbar) return;
 
@@ -36021,12 +36028,16 @@ async function exportMsgLog() {
         placeholder.style.height = topbar.offsetHeight + 'px';
         topbar.parentNode.insertBefore(placeholder, topbar);
         topbar._pneStuckPlaceholder = placeholder;
-        topbar._pneStickScrollTop = container.scrollTop;
         topbar.classList.add('js-stuck');
         syncStuckRect(topbar);
       }
     } else {
-      if (container.scrollTop <= (topbar._pneStickScrollTop || 0)) {
+      // Un-stick based on where the placeholder (marking the topbar's
+      // natural position) currently sits, not a remembered scroll
+      // number — this stays correct no matter which ancestor actually
+      // owns the scrolling.
+      const ph = topbar._pneStuckPlaceholder;
+      if (ph && ph.getBoundingClientRect().top >= threshold) {
         unstick(topbar);
       } else {
         syncStuckRect(topbar); // keep width/left correct if the window/sidebar resizes while stuck
@@ -36034,9 +36045,13 @@ async function exportMsgLog() {
     }
   }
 
+  // Capture-phase listener on document catches scroll events from ANY
+  // scrollable descendant (they don't bubble, but capturing on an
+  // ancestor still sees them), plus the window/document scroll itself —
+  // this way the fix works correctly regardless of which element turns
+  // out to actually be the one scrolling.
   document.addEventListener('DOMContentLoaded', () => {
-    const container = document.querySelector('.pages-container');
-    if (container) container.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     window.addEventListener('resize', handleScroll);
   });
 
