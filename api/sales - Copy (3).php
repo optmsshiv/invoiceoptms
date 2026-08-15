@@ -13,50 +13,6 @@ function cleanProductId($v) {
   return $n > 0 ? $n : null;
 }
 
-// Same fix as purchases.php's recalcPurchasePaymentBalances(): if a
-// Sale's total changes after payments were already recorded against it,
-// every existing sale_payments row's stored remaining_amt is a snapshot
-// taken against the OLD total and never recalculates on its own. The
-// live "Remaining Amount" on the Sale stays correct (computed fresh from
-// the current total every time), but Payment History's "Balance After"
-// column silently goes stale by exactly the size of the total change on
-// every row from that point on. Called only when total actually changed
-// (see the caller) — walks payments chronologically and recomputes each
-// one's remaining balance against the new total.
-function recalcSalePaymentBalances(PDO $db, int $saleId, float $newTotal): void {
-  try {
-    $rows = $db->prepare('SELECT id, amount FROM sale_payments WHERE sale_id = ? AND sale_deleted = 0 ORDER BY payment_date ASC, id ASC');
-    $rows->execute([$saleId]);
-    $running = 0.0;
-    $upd = $db->prepare('UPDATE sale_payments SET remaining_amt = ? WHERE id = ?');
-    foreach ($rows->fetchAll() as $r) {
-      $running += (float)$r['amount'];
-      $upd->execute([max(0, round($newTotal - $running, 2)), $r['id']]);
-    }
-  } catch (Throwable $e) { /* sale_payments table may not exist for this tenant yet — non-fatal */ }
-}
-
-// Same fix as purchases.php's buildPurchaseEditDiff(): a real "what
-// changed" description for the activity log instead of a flat
-// "Sale updated" with no detail.
-function buildSaleEditDiff($db, $oldSale, $newTotal, $newCustomerId) {
-  $parts = [];
-  if ($oldSale && abs((float)$oldSale['total'] - $newTotal) > 0.004) {
-    $parts[] = 'Total ₹' . number_format((float)$oldSale['total'], 2) . ' → ₹' . number_format($newTotal, 2);
-  }
-  if ($oldSale && (int)$oldSale['customer_id'] !== $newCustomerId) {
-    $names = $db->prepare('SELECT id, name FROM customers WHERE id IN (?,?)');
-    $names->execute([(int)$oldSale['customer_id'], $newCustomerId]);
-    $map = [];
-    foreach ($names->fetchAll() as $r) $map[(int)$r['id']] = $r['name'];
-    $oldName = $map[(int)$oldSale['customer_id']] ?? ('#' . $oldSale['customer_id']);
-    $newName = $map[$newCustomerId] ?? ('#' . $newCustomerId);
-    $parts[] = "Customer {$oldName} → {$newName}";
-  }
-  if (empty($parts)) return 'Sale updated (items or other details changed)';
-  return 'Sale updated: ' . implode(' · ', $parts);
-}
-
 function currentStock($db, $productId) {
   $stmt = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) AS bal FROM stock_ledger WHERE product_id = ?');
   $stmt->execute([$productId]);
@@ -504,22 +460,6 @@ switch ($method) {
     $oldItemsStmt->execute([$id]);
     $oldItems = $oldItemsStmt->fetchAll();
 
-    // Old total + customer — so sale_payments' stored remaining_amt
-    // snapshots can be recalculated below if total changes (see
-    // recalcSalePaymentBalances), AND so the activity log can say what
-    // actually changed instead of a flat "Sale updated" — same
-    // pre-edit-capture + diff pattern as purchases.php's
-    // buildPurchaseEditDiff(). Scoped to Total/Customer only: those are
-    // the two fields here with real financial/identity significance —
-    // amount_received/payment_status are structurally excluded from this
-    // UPDATE entirely (see the comment above it), so there's nothing to
-    // diff there; they only ever change via sale_payments.php, which
-    // already logs its own separate, correctly-worded entries.
-    $oldSaleStmt = $db->prepare('SELECT total, customer_id FROM sales WHERE id = ?');
-    $oldSaleStmt->execute([$id]);
-    $oldSale = $oldSaleStmt->fetch();
-    $oldTotal = $oldSale ? (float)$oldSale['total'] : 0.0;
-
     $computed = array_map('computeSaleItem', $items);
     $subtotal = array_sum(array_column($computed, 'lineSubtotal'));
     $itemsTax = array_sum(array_column($computed, 'taxAmount'));
@@ -614,10 +554,7 @@ switch ($method) {
       }
     }
 
-    logActivity((int)$_SESSION['user_id'], 'update', 'sale', $id, buildSaleEditDiff($db, $oldSale, $total, (int)$d['customer_id']));
-    if (abs($oldTotal - $total) > 0.004) {
-      recalcSalePaymentBalances($db, $id, $total);
-    }
+    logActivity((int)$_SESSION['user_id'], 'update', 'sale', $id, 'Sale updated');
     $affectedProducts = array_filter(array_map(
         fn($it) => cleanProductId($it['product_id'] ?? null), $items
     ));
