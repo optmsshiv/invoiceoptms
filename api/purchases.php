@@ -14,6 +14,32 @@ function cleanProductId($v) {
   return $n > 0 ? $n : null;
 }
 
+// Builds a real "what changed" description for the activity log instead
+// of a flat "Purchase updated" with no detail — same pre-edit-capture +
+// diff pattern used in expenses.php. Scoped to Total and Supplier only:
+// those are the two fields on this PUT that actually carry financial/
+// identity significance. amount_paid and status are deliberately NOT
+// diffed here since this endpoint never touches them at all (see the
+// comment above the UPDATE statement below) — they can only change via
+// purchase_payments.php, which logs its own activity entries separately.
+function buildPurchaseEditDiff($db, $oldPay, $newTotal, $newSupplierId) {
+  $parts = [];
+  if ($oldPay && abs((float)$oldPay['total'] - $newTotal) > 0.004) {
+    $parts[] = 'Total ₹' . number_format((float)$oldPay['total'], 2) . ' → ₹' . number_format($newTotal, 2);
+  }
+  if ($oldPay && (int)$oldPay['supplier_id'] !== $newSupplierId) {
+    $names = $db->prepare('SELECT id, name FROM suppliers WHERE id IN (?,?)');
+    $names->execute([(int)$oldPay['supplier_id'], $newSupplierId]);
+    $map = [];
+    foreach ($names->fetchAll() as $r) $map[(int)$r['id']] = $r['name'];
+    $oldName = $map[(int)$oldPay['supplier_id']] ?? ('#' . $oldPay['supplier_id']);
+    $newName = $map[$newSupplierId] ?? ('#' . $newSupplierId);
+    $parts[] = "Supplier {$oldName} → {$newName}";
+  }
+  if (empty($parts)) return 'Purchase updated (items or other details changed)';
+  return 'Purchase updated: ' . implode(' · ', $parts);
+}
+
 // Current stock for a product = sum of all ins minus all outs in the ledger
 function currentStock($db, $productId) {
   $stmt = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) AS bal FROM stock_ledger WHERE product_id = ?');
@@ -542,9 +568,12 @@ switch ($method) {
       pnCheckCarriedRestriction($db, trim($d['session_to_date'] ?? ''));
     }
 
-    // Capture the pre-edit payment state so we can reverse its Cash in Hand
-    // impact below if it changes (or stays the same but the amount changed).
-    $oldPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
+    // Capture the pre-edit state so we can reverse its Cash in Hand
+    // impact below if it changes (or stays the same but the amount
+    // changed), AND so the activity log can say what actually changed
+    // instead of just "Purchase updated" with no detail — the same
+    // pre-edit-capture + diff pattern already used in expenses.php.
+    $oldPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no, total, status, supplier_id FROM purchases WHERE id = ?');
     $oldPayStmt->execute([$id]);
     $oldPay = $oldPayStmt->fetch();
 
@@ -655,7 +684,7 @@ switch ($method) {
       }
     }
 
-    logActivity((int)$_SESSION['user_id'], 'update', 'purchase', $id, 'Purchase updated');
+    logActivity((int)$_SESSION['user_id'], 'update', 'purchase', $id, buildPurchaseEditDiff($db, $oldPay, $total, (int)$d['supplier_id']));
     // Correct balance_after for every affected product in the full ledger
     $affectedProducts = array_filter(array_map(
         fn($it) => cleanProductId($it['product_id'] ?? null), $items

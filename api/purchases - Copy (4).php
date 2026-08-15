@@ -365,7 +365,11 @@ switch ($method) {
       (SELECT COUNT(*) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS item_count,
       (SELECT COALESCE(SUM(pi.qty),0) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS total_qty,
       (SELECT GROUP_CONCAT(DISTINCT pi.product_id) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS product_ids,
-      (SELECT GROUP_CONCAT(DISTINCT pi.description ORDER BY pi.id SEPARATOR \'|~|\') FROM purchase_items pi WHERE pi.purchase_id = p.id) AS product_names
+      (SELECT GROUP_CONCAT(DISTINCT pi.description ORDER BY pi.id SEPARATOR \'|~|\') FROM purchase_items pi WHERE pi.purchase_id = p.id) AS product_names,
+      COALESCE(
+        (SELECT MAX(pp.payment_date) FROM purchase_payments pp WHERE pp.purchase_id = p.id AND pp.purchase_deleted = 0),
+        p.payment_date
+      ) AS last_payment_date
       FROM purchases p JOIN suppliers s ON s.id = p.supplier_id ORDER BY p.purchase_date DESC, p.id DESC');
     jsonResponse(['data' => $stmt->fetchAll()]);
     break;
