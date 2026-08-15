@@ -40,29 +40,6 @@ function buildPurchaseEditDiff($db, $oldPay, $newTotal, $newSupplierId) {
   return 'Purchase updated: ' . implode(' · ', $parts);
 }
 
-// If a Purchase's total changes after payments were already recorded
-// against it, every existing purchase_payments row's stored
-// remaining_amt is a snapshot taken against the OLD total — nothing
-// recalculates it automatically. The live "Remaining Amount" on the
-// Purchase itself stays correct (computed fresh from the current total
-// every time), but the Payment History table's "Balance After" column
-// silently goes stale, off by exactly the size of the total change, on
-// every row from that point on. Called only when total actually changed
-// (see the caller) — walks payments chronologically and recomputes each
-// one's remaining balance against the new total.
-function recalcPurchasePaymentBalances(PDO $db, int $purchaseId, float $newTotal): void {
-  try {
-    $rows = $db->prepare('SELECT id, amount FROM purchase_payments WHERE purchase_id = ? AND purchase_deleted = 0 ORDER BY payment_date ASC, id ASC');
-    $rows->execute([$purchaseId]);
-    $running = 0.0;
-    $upd = $db->prepare('UPDATE purchase_payments SET remaining_amt = ? WHERE id = ?');
-    foreach ($rows->fetchAll() as $r) {
-      $running += (float)$r['amount'];
-      $upd->execute([max(0, round($newTotal - $running, 2)), $r['id']]);
-    }
-  } catch (Throwable $e) { /* purchase_payments table may not exist for this tenant yet — non-fatal */ }
-}
-
 // Current stock for a product = sum of all ins minus all outs in the ledger
 function currentStock($db, $productId) {
   $stmt = $db->prepare('SELECT COALESCE(SUM(CASE WHEN direction="in" THEN qty ELSE -qty END),0) AS bal FROM stock_ledger WHERE product_id = ?');
@@ -708,9 +685,6 @@ switch ($method) {
     }
 
     logActivity((int)$_SESSION['user_id'], 'update', 'purchase', $id, buildPurchaseEditDiff($db, $oldPay, $total, (int)$d['supplier_id']));
-    if ($oldPay && abs((float)$oldPay['total'] - $total) > 0.004) {
-      recalcPurchasePaymentBalances($db, $id, $total);
-    }
     // Correct balance_after for every affected product in the full ledger
     $affectedProducts = array_filter(array_map(
         fn($it) => cleanProductId($it['product_id'] ?? null), $items
