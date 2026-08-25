@@ -621,24 +621,7 @@ canvas { max-width: 100% !important; }
 .pne-topbar {
   display: flex; justify-content: space-between; align-items: flex-start;
   padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border);
-  /* Was `top: 0` — but .topbar (the app header) is ALSO sticky at top:0
-     with a higher z-index, so this ended up sticking directly behind/
-     under the app header instead of just below it — visually swallowed
-     the moment you scrolled far enough, even though it was technically
-     "stuck". Offsetting by the header's own height fixes that: this now
-     sticks right underneath the app header instead of competing for the
-     same spot. Affects every entry page sharing this class (Purchase,
-     Sale, Product, etc.), not just one. */
-  position: sticky; top: var(--topbar-h); z-index: 20;
-}
-/* position:sticky above wasn't actually engaging in practice (see the
-   JS-driven fallback near the end of the file) — this is the "stuck"
-   state that fallback switches to manually via position:fixed. */
-.pne-topbar.js-stuck {
-  position: fixed !important;
-  top: var(--topbar-h);
-  z-index: 30;
-  box-shadow: 0 3px 10px rgba(0,0,0,.10);
+  position: sticky; top: 0; z-index: 20;
 }
 .pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
@@ -648,7 +631,7 @@ canvas { max-width: 100% !important; }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 55px 4px 60px; align-items: start; }
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
 /* Local customer type: hide every USD-only column/field/button on the offer page */
@@ -1814,7 +1797,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.sales'] ?? true): ?>
     <a class="nav-item" data-page="customers-list" id="nav-customers-item" onclick="showPage('customers-list',this); renderCustomersList();" style="display:none">
-      <i class="fas fa-address-book"></i><span>Customers</span>
+      <i class="fas fa-users"></i><span>Customers</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.payments'] ?? true): ?>
@@ -1855,7 +1838,7 @@ const SERVER = {
     <?php endif; ?>
     <?php if ($perms['menu.credit'] ?? false): ?>
     <a class="nav-item" data-page="credit" onclick="showPage('credit',this)">
-      <i class="fas fa-coins"></i><span>Credit</span>
+      <i class="fas fa-hand-holding-dollar"></i><span>Credit</span>
     </a>
     <?php endif; ?>
     <?php if ($perms['menu.cash_in_hand'] ?? true): ?>
@@ -3578,26 +3561,24 @@ const SERVER = {
                 </div>
               </div>
 
-              <div id="pn-paidfields-wrap">
-                <div class="field"><label>Payment Mode</label>
-                  <select id="pn-paymode" onchange="togglePNESplitPayment();checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner')"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
-                  <div id="pn-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
-                </div>
-                <div id="pne-split-panel" style="display:none">
-                  <div class="pne-split-card">
-                    <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                    <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                    <div class="pne-split-actions">
-                      <button type="button" class="pne-split-addbtn" onclick="addPNESplitRow(); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                      <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
-                    </div>
-                    <div id="pne-split-footer" class="pne-split-footer"></div>
-                    <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                  </div>
-                </div>
-                <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
-                <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
+              <div class="field"><label>Payment Mode</label>
+                <select id="pn-paymode" onchange="togglePNESplitPayment();checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner')"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Cash in Hand">Cash in Hand</option><option value="Split Payment">Split Payment</option></select>
+                <div id="pn-cih-banner" style="display:none;font-size:11.5px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
               </div>
+              <div id="pne-split-panel" style="display:none">
+                <div class="pne-split-card">
+                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                  <div id="pne-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                  <div class="pne-split-actions">
+                    <button type="button" class="pne-split-addbtn" onclick="addPNESplitRow(); syncPNESplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                    <span class="pne-split-totallabel">Split Total: <strong id="pne-split-total-amt">₹0.00</strong></span>
+                  </div>
+                  <div id="pne-split-footer" class="pne-split-footer"></div>
+                  <div id="pne-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                </div>
+              </div>
+              <div class="field"><label>Transaction No.</label><input id="pn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date</label><input type="date" id="pn-paydate"></div>
             </div>
           </div>
         </div>
@@ -3793,7 +3774,6 @@ const SERVER = {
         <div>
           <div class="pne-title" id="pnp-title">New Product</div>
           <div class="pne-subtitle" id="pnp-subtitle">Add a product to your catalog</div>
-          <div style="font-size:11px;color:var(--muted)" id="pnp-byline"></div>
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
@@ -4204,25 +4184,23 @@ const SERVER = {
                 </div>
               </div>
 
-              <div id="sn-paidfields-wrap">
-                <div class="field"><label>Payment Method *</label>
-                  <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
-                </div>
-                <div id="sn-split-panel" style="display:none">
-                  <div class="pne-split-card">
-                    <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                    <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                    <div class="pne-split-actions">
-                      <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                      <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
-                    </div>
-                    <div id="sn-split-footer" class="pne-split-footer"></div>
-                    <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
-                  </div>
-                </div>
-                <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-                <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
+              <div class="field"><label>Payment Method *</label>
+                <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
               </div>
+              <div id="sn-split-panel" style="display:none">
+                <div class="pne-split-card">
+                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                  <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                  <div class="pne-split-actions">
+                    <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                    <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
+                  </div>
+                  <div id="sn-split-footer" class="pne-split-footer"></div>
+                  <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                </div>
+              </div>
+              <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
+              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
             </div>
 
@@ -7239,10 +7217,8 @@ View Invoice: {{6}}</pre></details>
           <button class="stab-btn active" onclick="settingsTab('company',this)"><i class="fas fa-building"></i> Company</button>
           <button class="stab-btn" onclick="settingsTab('invoice',this)"><i class="fas fa-file-invoice"></i> Invoice</button>
           <button class="stab-btn" onclick="settingsTab('catalog',this)"><i class="fas fa-tags"></i> Catalog</button>
-          <?php if ($businessType !== 'service'): ?>
           <button class="stab-btn" onclick="settingsTab('productform',this)"><i class="fas fa-table-columns"></i> Product Form</button>
           <button class="stab-btn" onclick="settingsTab('proformaprint',this)"><i class="fas fa-file-contract"></i> Proforma Print</button>
-          <?php endif; ?>
           <button class="stab-btn" onclick="settingsTab('backup',this)"><i class="fas fa-database"></i> Backup</button>
         </div>
 
@@ -7271,8 +7247,8 @@ View Invoice: {{6}}</pre></details>
               <div class="field"><label>Invoice Prefix</label><input id="sc-prefix" value="<?= htmlspecialchars($prefix) ?>"></div>
               <div class="field"><label>Estimate / Quote Prefix</label><input id="sc-estimate-prefix" placeholder="QT-<?= date('Y') ?>-" value="<?= htmlspecialchars($estPrefix) ?>"></div>
               <div class="field">
-                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(set by your platform administrator)</span></label>
-                <select id="sc-business-type" disabled title="This is set by your platform administrator and controls which features (Product Form, Proforma Print, Session-wise Pricing, etc.) are available on your plan. Contact your administrator to change it.">
+                <label>Business Type <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(controls wording on the catalog page)</span></label>
+                <select id="sc-business-type" onchange="applyBusinessTypeLabels(this.value)">
                   <option value="service" <?= $businessType==='service'?'selected':'' ?>>Services (consulting, web dev, ERP…)</option>
                   <option value="product" <?= $businessType==='product'?'selected':'' ?>>Products (trading, import/export, retail…)</option>
                   <option value="both" <?= $businessType==='both'?'selected':'' ?>>Both / Mixed</option>
@@ -7408,7 +7384,6 @@ View Invoice: {{6}}</pre></details>
           </div>
           <?php endif; ?>
 
-          <?php if ($businessType !== 'service'): ?>
           <?php if ($canEditCihRestrictToggle): ?>
           <div class="settings-block">
             <div style="display:flex;align-items:center;gap:10px">
@@ -7461,7 +7436,6 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
           <?php endif; ?>
-          <?php endif; // businessType !== 'service' ?>
 
           <div class="stab-footer">
             <button class="btn btn-primary" onclick="saveCompanySettings()"><i class="fas fa-save"></i> Save Company Settings</button>
@@ -7544,7 +7518,6 @@ View Invoice: {{6}}</pre></details>
           </div>
         </div>
 
-        <?php if ($businessType !== 'service'): ?>
         <!-- ══ TAB: PRODUCT FORM ══ -->
         <div id="stab-productform" class="stab-pane">
           <div class="settings-block">
@@ -7598,9 +7571,7 @@ View Invoice: {{6}}</pre></details>
             <div id="st-types-editor" style="max-width:420px"></div>
           </div>
         </div>
-        <?php endif; // businessType !== 'service' (Product Form tab) ?>
 
-        <?php if ($businessType !== 'service'): ?>
                 <!-- ══ TAB: PROFORMA PRINT ══ -->
         <div id="stab-proformaprint" class="stab-pane">
           <div class="settings-block">
@@ -7674,7 +7645,6 @@ View Invoice: {{6}}</pre></details>
             </div>
           </div>
         </div>
-        <?php endif; // businessType !== 'service' (Proforma Print tab) ?>
 
                 <!-- ══ TAB: BACKUP ══ -->
         <div id="stab-backup" class="stab-pane">
@@ -7937,9 +7907,10 @@ View Invoice: {{6}}</pre></details>
     <div id="page-credit" class="page">
       <div class="page-toolbar">
         <div class="toolbar-left">
-          <span style="font-size:13px;color:var(--muted)">Quick-capture log for personal spending the owner will formally categorize as an Expense later. Once added, an entry is locked — corrections happen at the conversion step.</span>
+          <span style="font-size:13px;color:var(--muted)">Quick-capture log for personal spending the owner will formally categorize as an Expense later. Once added, an entry is locked — corrections happen at the conversion step, or void it if it was entered by mistake.</span>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-outline" id="credit-show-voided-btn" onclick="toggleShowVoidedCredit()"><i class="fas fa-ban"></i> Show Voided</button>
           <button class="btn btn-primary" onclick="openAddCreditModal()"><i class="fas fa-plus"></i> Add Credit Entry</button>
         </div>
       </div>
@@ -9046,10 +9017,7 @@ View Invoice: {{6}}</pre></details>
         <div style="width:30px;height:30px;border-radius:8px;background:#fff3e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas fa-wallet" style="color:#E65100;font-size:13px"></i>
         </div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
-          <div style="font-size:11px;color:var(--muted)" id="exp-modal-byline"></div>
-        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)" id="exp-modal-title">Add Expense</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-expense')"><i class="fas fa-times"></i></button>
     </div>
@@ -9087,7 +9055,7 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
-<!-- Add/Edit Credit Entry Modal -->
+<!-- Add Credit Entry Modal -->
 <div class="modal-overlay" id="modal-credit-add">
   <div class="modal" style="max-width:420px">
     <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
@@ -9095,14 +9063,13 @@ View Invoice: {{6}}</pre></details>
         <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas fa-hand-holding-dollar" style="color:var(--teal);font-size:13px"></i>
         </div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)" id="credit-modal-title">Add Credit Entry</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Add Credit Entry</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-credit-add')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
-      <input type="hidden" id="credit-edit-id">
-      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px" id="credit-modal-notice">
-        <i class="fas fa-circle-info"></i> You can edit this entry any time before it's fully converted to an Expense. Once fully converted, it's locked.
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+        <i class="fas fa-circle-info"></i> Once saved, this entry is locked — there's no edit or delete. If something's wrong, you can still fix it when converting to an Expense later.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field" style="margin:0"><label>Date *</label><input type="date" id="credit-date" style="width:100%"></div>
@@ -9209,18 +9176,6 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
-<!-- Payment-mode drill-down (Finance Report) — the actual transactions
-     behind one summary row, e.g. "Bank Transfer — ₹7,34,550.75" -->
-<div class="modal-overlay" id="modal-paymode-detail">
-  <div class="modal modal-md">
-    <div class="modal-header"><span id="pmd-title">Transactions</span><button class="modal-close" onclick="closeModal('modal-paymode-detail')"><i class="fas fa-times"></i></button></div>
-    <div class="modal-body" id="pmd-body" style="padding:16px 20px;max-height:65vh;overflow-y:auto"></div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal('modal-paymode-detail')">Close</button>
-    </div>
-  </div>
-</div>
-
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -9238,32 +9193,7 @@ async function api(endpoint, method, body) {
   method = method || 'GET';
   const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
   if (body) opts.body = JSON.stringify(body);
-
-  // Without a timeout, a slow/flaky connection just hangs forever with no
-  // feedback — the Save button stays disabled (see callers' `finally`
-  // blocks) and the user has no way to tell "still working" from "stuck".
-  // 30s covers slow mobile connections without making a genuinely-down
-  // network feel unresponsive for too long.
-  const controller = new AbortController();
-  const timeoutId  = setTimeout(() => controller.abort(), 30000);
-
-  let res;
-  try {
-    res = await fetch(endpoint, { ...opts, signal: controller.signal });
-  } catch (e) {
-    // fetch() itself throws for "no network" (raw browser message like
-    // "Failed to fetch" / "NetworkError..." / "Load failed" depending on
-    // browser — meaningless to a non-technical user) and for our own
-    // timeout abort above. Replace both with one clear, actionable message
-    // rather than passing the raw browser error through to the toast.
-    if (e.name === 'AbortError') {
-      throw new Error('Request timed out — check your internet connection and try again.');
-    }
-    throw new Error('Network error — check your internet connection and try again.');
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
+  const res = await fetch(endpoint, opts);
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); }
@@ -9573,8 +9503,7 @@ function initSessionPricingSettings() {
     sel.innerHTML = '<option value="">— Select a saved session —</option>' +
       GLOBAL_DATE_PRESETS.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
   }
-  const sspTbody = document.getElementById('ssp-table-body');
-  if (sspTbody) sspTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
+  document.getElementById('ssp-table-body').innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
 }
 
 function _sspApplyEnabledState() {
@@ -9610,7 +9539,6 @@ function loadSessionPricingTable() { renderSessionPricingTable(); }
 function renderSessionPricingTable() {
   const presetId = document.getElementById('ssp-preset-select')?.value;
   const tbody = document.getElementById('ssp-table-body');
-  if (!tbody) return; // hidden entirely for service-type tenants — see chat
   if (!presetId) {
     tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Select a session above to manage its prices</td></tr>';
     return;
@@ -9950,18 +9878,7 @@ function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-' + name);
-  if (page) {
-    page.classList.add('active');
-    // Force a layout recalculation right after display:none → block.
-    // Without this, position:sticky on .pne-topbar (and anything else
-    // sticky inside a freshly-shown page) can fail to engage at all in
-    // some browsers — it just scrolls with the page as if sticky wasn't
-    // applied, rather than merely being mispositioned. Reading
-    // offsetHeight forces the browser to flush the pending layout
-    // change before any scrolling happens, so sticky gets computed
-    // against the page's real, final geometry from the start.
-    void page.offsetHeight;
-  }
+  if (page) page.classList.add('active');
   if (el) el.classList.add('active');
   else {
     const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
@@ -17784,11 +17701,7 @@ function applyBusinessTypeLabels(type) {
 // NEW PRODUCT ENTRY (full page) — only used when Settings → Business Type
 // is "product". Service/Both tenants keep the original inline add-row.
 // ══════════════════════════════════════════
-const PNP = { editingId: null, images: [], attachments: [], tags: [], idempotencyKey: crypto.randomUUID() };
-// Duplicate-save protection for the quick inline "add product row" —
-// same pattern as ADD_CUSTOMER_KEY. Rotated in _showAddProductRow() and
-// on a successful save in saveNewProduct().
-let QUICK_PRODUCT_KEY = crypto.randomUUID();
+const PNP = { editingId: null, images: [], attachments: [], tags: [] };
 
 function populateProductCategoryDropdown() {
   const sel = document.getElementById('pp-category');
@@ -18155,8 +18068,6 @@ async function deleteProductSerial(id) {
 function goToNewProductPage() {
   applyProductFormToPage();
   PNP.editingId = null;
-  // Same duplicate-save protection pattern as PNE/SN/SUPN/CUSN.
-  PNP.idempotencyKey = crypto.randomUUID();
   PNP.images = []; PNP.attachments = []; PNP.tags = [];
   PP_SKU_AUTO = true; // fresh form — SKU suggestion is live until the user types their own
   PP_OPENING_BATCH_AUTO = true;
@@ -18164,7 +18075,6 @@ function goToNewProductPage() {
   _ppToggleBatchSerialButtons();
   document.getElementById('pnp-title').textContent = 'New Product';
   document.getElementById('pnp-subtitle').textContent = 'Add a product to your catalog';
-  document.getElementById('pnp-byline').textContent = ''; // no creator yet — this is a new record
   ['pp-name','pp-sku','pp-brand','pp-hsn','pp-variety','pp-barcode','pp-color','pp-aroma','pp-shapesize','pp-packingsize',
    'pp-manufacturer','pp-fssai','pp-iec','pp-shortdesc','pp-detaildesc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('pp-unit').value = 'Kg'; pnpSyncUnits();
@@ -18229,7 +18139,6 @@ function editProductRich(id) {
   PNP.tags = Array.isArray(p.tags) ? [...p.tags] : [];
   document.getElementById('pnp-title').textContent = 'Edit Product';
   document.getElementById('pnp-subtitle').textContent = p.name;
-  document.getElementById('pnp-byline').textContent = p.created_by_name ? ('Added by ' + p.created_by_name) : '';
   populateProductCategoryDropdown();
   const set = (id2, val) => { const el = document.getElementById(id2); if (el) el.value = val ?? ''; };
   set('pp-name', p.name); set('pp-sku', p.sku); set('pp-unit', p.unit || 'Kg'); set('pp-brand', p.brand);
@@ -18346,7 +18255,6 @@ async function saveProductEntry(mode) {
     unit_family: 'weight', // AgriTrade-style products are always weight-tracked (Kg base) for Stock Ledger purposes
     status: document.getElementById('pp-status').classList.contains('on') ? 'active' : 'inactive',
     tags: PNP.tags, images: PNP.images, attachments: PNP.attachments.map(a => a.url),
-    client_request_id: PNP.idempotencyKey,
   };
 
   // Loading state — product payloads can be large (base64 images/attachments),
@@ -18371,10 +18279,6 @@ async function saveProductEntry(mode) {
       const createRes = await api('api/products.php', 'POST', payload);
       consumeEditApproval(); toast('✅ Product saved!', 'success');
       newProductId = createRes?.id || null;
-      // Rotate only after success — same pattern as PNE/SN/SUPN/CUSN. A
-      // failed/timed-out attempt keeps the same key so a retry is
-      // recognized as the same attempt, not a new product.
-      PNP.idempotencyKey = crypto.randomUUID();
     }
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
@@ -18408,7 +18312,6 @@ async function saveProductEntry(mode) {
 function _showAddProductRow(prefill) {
   const tbody = document.getElementById('productsTbody');
   document.getElementById('add-product-row')?.remove();
-  QUICK_PRODUCT_KEY = crypto.randomUUID();
   const row = document.createElement('tr');
   row.id = 'add-product-row';
   row.style.background = '#f0fdf4';
@@ -18469,11 +18372,9 @@ async function saveNewProduct() {
     rate:parseFloat(document.getElementById('np-rate')?.value)||0,
     hsn:document.getElementById('np-hsn')?.value||'998314',
     gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
-    unit_family: document.getElementById('np-unitfam')?.value || 'count',
-    client_request_id: QUICK_PRODUCT_KEY };
+    unit_family: document.getElementById('np-unitfam')?.value || 'count' };
   try {
     await api('api/products.php', 'POST', payload);
-    QUICK_PRODUCT_KEY = crypto.randomUUID();
     const r = await api('api/products.php');
     STATE.products = Array.isArray(r.data) ? r.data : STATE.products;
     document.getElementById('add-product-row')?.remove();
@@ -18556,7 +18457,7 @@ async function restoreProduct(id) {
 // ══════════════════════════════════════════
 // SUPPLIERS  (buy-side "clients")
 // ══════════════════════════════════════════
-const SUP = { archived: false, archivedList: [], search: '', editingId: null, idempotencyKey: crypto.randomUUID() };
+const SUP = { archived: false, archivedList: [], search: '', editingId: null };
 
 function activeSupSource() {
   const list = SUP.archived ? (SUP.archivedList || []) : STATE.suppliers;
@@ -18767,10 +18668,6 @@ let ADD_SUPPLIER_CONTEXT = 'page'; // 'page' (Suppliers page) | 'purchase' (Purc
 function openAddSupplierModal(context = 'page') {
   ADD_SUPPLIER_CONTEXT = context;
   SUP.editingId = null;
-  // Fresh key per "add" attempt — same duplicate-save protection pattern
-  // as PNE/SN. Only rotated here and on a successful save (below), so a
-  // retry after a network failure reuses the same key.
-  SUP.idempotencyKey = crypto.randomUUID();
   document.querySelector('#modal-addsupplier .modal-header span').textContent = 'Add New Supplier';
   ['supq-name','supq-type','supq-person','supq-phone','supq-email','supq-gst','supq-address','supq-terms','supq-notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
@@ -18815,7 +18712,6 @@ async function saveSupplier() {
     payment_terms:   document.getElementById('supq-terms').value.trim(),
     opening_balance: parseFloat(document.getElementById('supq-opening').value) || 0,
     notes:           document.getElementById('supq-notes').value.trim(),
-    client_request_id: SUP.idempotencyKey,
   };
   const isEdit = !!SUP.editingId;
   try {
@@ -18826,7 +18722,6 @@ async function saveSupplier() {
     } else {
       const res = await api('api/suppliers.php', 'POST', payload);
       newId = res?.id;
-      SUP.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added!', 'success');
     }
     const r = await api('api/suppliers.php');
@@ -18954,7 +18849,7 @@ function viewCustomerProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(c.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}${c.created_by_name ? ' · Added by ' + escHtml(c.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(c.customer_type || 'Customer')}${c.billing_city ? ' · ' + escHtml(c.billing_city) : ''}${c.state ? ', ' + escHtml(c.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19072,7 +18967,7 @@ async function viewSaleDetails(id) {
       <div class="sp-avatar"><i class="fas fa-file-invoice-dollar"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.invoice_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.customer_name||'—')} · ${fmt_date_disp(s.sale_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19215,7 +19110,7 @@ async function viewPurchaseDetails(id) {
       <div class="sp-avatar"><i class="fas fa-cart-shopping"></i></div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(p.purchase_no)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}${p.created_by_name ? ' · Added by ' + escHtml(p.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(p.supplier_name||'—')} · ${fmt_date_disp(p.purchase_date)}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19305,7 +19200,7 @@ function viewSupplierProfile(id) {
       <div class="sp-avatar">${escHtml(initials)}</div>
       <div style="min-width:0">
         <div style="font-size:17px;font-weight:800;color:#fff;overflow-wrap:break-word">${escHtml(s.name)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}${s.created_by_name ? ' · Added by ' + escHtml(s.created_by_name) : ''}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">${escHtml(s.supplier_type || 'Supplier')}${s.city ? ' · ' + escHtml(s.city) : ''}${s.state ? ', ' + escHtml(s.state) : ''}</div>
       </div>
     </div>
     <span style="position:absolute;top:26px;right:52px;font-size:10.5px;font-weight:700;color:#fff;background:${active?'rgba(255,255,255,.22)':'rgba(0,0,0,.25)'};padding:3px 10px;border-radius:20px;letter-spacing:.3px">
@@ -19725,9 +19620,9 @@ function renderPurchases() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span id="pur-paystatus-badge-${p.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
-      <td>${(p.status === 'Paid' || p.status === 'Partial') && p.last_payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.last_payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
-      <td>${p.status === 'Pending' ? `<span style="color:var(--muted2)">—</span>` : escHtml(p.payment_type||'—')}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td>${p.payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
+      <td>${escHtml(p.payment_type||'—')}</td>
       <td>
         <div class="action-cell" style="display:flex;gap:2px;align-items:center">
           <button class="act-btn" title="View" onclick="viewPurchaseDetails(${p.id})"><i class="fas fa-eye"></i></button>
@@ -20001,7 +19896,7 @@ function fmt_datetime_stacked(d) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [], idempotencyKey: crypto.randomUUID() };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [] };
 let pnDeductionSeq = 1;
 
 // ── Deductions (Purchase Entry sidebar — compact card list) ──
@@ -20042,12 +19937,6 @@ function goToStockIn() {
 
 function goToNewPurchase() {
   PNE.editingId = null;
-  // A fresh UUID per "New Purchase" session — sent as client_request_id
-  // on save. If Save is retried after a network timeout (see api()'s 30s
-  // timeout), the SAME key is reused (not regenerated here — only on a
-  // successful save, below), so the backend can tell a retry apart from
-  // a genuinely new purchase and avoid inserting a duplicate.
-  PNE.idempotencyKey = crypto.randomUUID();
   PNE.items = [pneEmptyItem()];
   PNE.deductions = [];
   PNE.attachmentDataUrl = null;
@@ -20100,7 +19989,6 @@ function goToNewPurchase() {
   setPurchasePaymentInfoLocked(false);
   setPNEKantaFieldsLocked(false);
   document.getElementById('pn-paymode').value = 'Cash';
-  updatePNEPaymentModeVisibility('Pending'); // fresh form — nothing paid yet
   checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner'); // was never reset here — could stay stuck visible from a prior interaction
   document.getElementById('pne-split-panel').style.display = 'none';
   document.getElementById('pne-split-rows').innerHTML = '';
@@ -20492,36 +20380,12 @@ function calcPurchaseNewTotals() {
   const grand = +(taxable + gstAmt).toFixed(2);
   document.getElementById('pn-sum-grand').textContent = fmt_money(grand);
 
-  // Keep Amount Paid in sync with Payment Status — Paid always mirrors
-  // the grand total; Pending is forced back to 0 (previously only Paid
-  // was handled here, so switching Paid → Pending left the old grand-
-  // total amount silently sitting in the field, hidden but still
-  // included in the save payload — Finance Report's Paid Out list
-  // correctly shows 0 for a Pending purchase, so the form needs to
-  // actually match that, not just visually hide the stale number).
-  // Partial is left alone — that's a genuine manual entry.
+  // Keep Amount Paid sane if Payment Status is set to Paid
   const payStatus = document.getElementById('pn-paystatus').value;
-  if (payStatus === 'Paid') {
-    document.getElementById('pn-amountpaid').value = grand.toFixed(2);
-  } else if (payStatus === 'Pending') {
-    document.getElementById('pn-amountpaid').value = 0;
-  }
+  if (payStatus === 'Paid') document.getElementById('pn-amountpaid').value = grand.toFixed(2);
 
   updatePNEPartialCard(grand, payStatus);
   updatePNESplitMismatch();
-  updatePNEPaymentModeVisibility(payStatus);
-}
-
-// Payment Mode / Transaction No. / Payment Date only mean something once
-// money has actually moved — while Payment Status is Pending, nothing's
-// been paid yet, so these fields are irrelevant noise (and Payment Mode
-// showing "Cash" by default while nothing was paid was actively
-// misleading on a Pending purchase). Same "only meaningful once payment
-// exists" logic as the ledger's Payment Date column fix.
-function updatePNEPaymentModeVisibility(payStatus) {
-  const wrap = document.getElementById('pn-paidfields-wrap');
-  if (!wrap) return;
-  wrap.style.display = (payStatus === 'Pending') ? 'none' : '';
 }
 
 function updatePNEPartialCard(grand, payStatus) {
@@ -20833,7 +20697,6 @@ async function editPurchase(id) {
     renderPNDeductions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
-    updatePNEPaymentModeVisibility(p.status || 'Pending'); // reflect this record's actual status, not the fresh-form default
     const isSplitSaved = (p.payment_mode || '').startsWith('Split:');
     document.getElementById('pn-paymode').value = isSplitSaved ? 'Split Payment' : (p.payment_mode || 'Cash');
     checkCihRestrictionBanner('pn-paymode', 'pn-cih-banner');
@@ -21109,13 +20972,7 @@ async function savePurchaseEntry(mode) {
     driver_name: document.getElementById('pn-drivername').value.trim(),
     warehouse: document.getElementById('pn-warehouse').value,
     payment_terms: document.getElementById('pn-paymentterms').value,
-    // Blank, not the leftover default, when nothing's been decided yet —
-    // otherwise a Pending purchase still reports "Cash" (its default
-    // value) with ₹0 paid, which Finance Report's Paid Out list would
-    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
-    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
-    // existing total, but an all-zero group still renders as a row).
-    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
+    payment_type: document.getElementById('pn-paymenttype').value,
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
@@ -21128,15 +20985,12 @@ async function savePurchaseEntry(mode) {
     cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
-    // Same rationale as payment_type above.
-    payment_mode: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
-      (document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value),
-    transaction_no: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-transactionno').value.trim(),
-    payment_date: document.getElementById('pn-paystatus').value === 'Pending' ? null : (document.getElementById('pn-paydate').value || null),
+    payment_mode: document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value,
+    transaction_no: document.getElementById('pn-transactionno').value.trim(),
+    payment_date: document.getElementById('pn-paydate').value || null,
     notes: document.getElementById('pn-notes').value.trim(),
     attachment: attachment || undefined,
     session_to_date: GLOBAL_DATE_ACTIVE ? GLOBAL_DATE_TO : null,
-    client_request_id: PNE.idempotencyKey,
     items: PNE.items.map(it => ({
       product_id: it.product_id || null, description: it.description, hsn: '',
       variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
@@ -21155,12 +21009,6 @@ async function savePurchaseEntry(mode) {
     } else {
       const res = await api('api/purchases.php', 'POST', payload);
       savedId = res.id;
-      // Save succeeded (whether newly inserted, or the backend recognized
-      // a retry via client_request_id and returned the original record) —
-      // this attempt is done, so rotate the key. If we *didn't* rotate
-      // here and the user started an unrelated new purchase reusing the
-      // same tab state, it would incorrectly look like a retry of this one.
-      PNE.idempotencyKey = crypto.randomUUID();
       consumeEditApproval(); toast('✅ Purchase saved!', 'success');
     }
     const [r, prd, stk] = await Promise.all([api('api/purchases.php'), api('api/products.php'), api('api/stock.php')]);
@@ -21791,58 +21639,6 @@ async function runSessionComparison() {
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
-// Payment-mode drill-down — "who" behind one summary row on the Finance
-// Report. Reuses whatever date range/warehouse the report last rendered
-// with (see window._FR_LAST_RANGE, set at the end of renderFinanceReport),
-// so the drill-down always matches the total the user actually clicked,
-// even if Global Date Range or the warehouse filter is in play.
-const PMD_LABELS = {
-  sales:     { title: 'Received — Sales',     party: 'Customer', ref: 'Invoice No.' },
-  purchases: { title: 'Paid Out — Purchases', party: 'Supplier', ref: 'Purchase No.' },
-  expenses:  { title: 'Expense Payments',     party: 'Vendor',   ref: 'Category' },
-};
-async function openPaymodeDetail(type, mode) {
-  const range = window._FR_LAST_RANGE || {};
-  const labels = PMD_LABELS[type];
-  if (!labels) return;
-  document.getElementById('pmd-title').textContent = `${escHtml(mode)} — ${labels.title}`;
-  const body = document.getElementById('pmd-body');
-  body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Loading…</div>`;
-  openModal('modal-paymode-detail');
-  try {
-    const params = new URLSearchParams({ action: 'paymode_detail', type, mode, date_from: range.from || '', date_to: range.to || '' });
-    if (range.wh) params.set('warehouse', range.wh);
-    const r = await api('api/finance_report.php?' + params.toString());
-    const rows = r.data || [];
-    if (!rows.length) {
-      body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted)">No transactions found for this mode in the selected period.</div>`;
-      return;
-    }
-    const total = rows.reduce((s, x) => s + parseFloat(x.amount || 0), 0);
-    // Expenses have no detail modal to link through to (unlike Sales/
-    // Purchases) — those rows render as plain text instead of a link.
-    const linkFn = type === 'sales' ? 'viewSaleDetails' : (type === 'purchases' ? 'viewPurchaseDetails' : null);
-    body.innerHTML = `
-      <table class="data-table" style="font-size:12.5px;width:100%">
-        <thead><tr><th>Date</th><th>${labels.party}</th><th>${labels.ref}</th><th style="text-align:right">Amount</th></tr></thead>
-        <tbody>
-          ${rows.map(x => `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
-            <td>${fmt_date_disp(x.date)}</td>
-            <td>${escHtml(x.party || '—')}</td>
-            <td>${escHtml(x.reference || '—')}</td>
-            <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
-          </tr>`).join('')}
-        </tbody>
-        <tfoot><tr style="font-weight:700;border-top:1.5px solid var(--border)">
-          <td colspan="3">Total (${rows.length} transaction${rows.length===1?'':'s'})</td>
-          <td style="text-align:right">${fmt_money(total)}</td>
-        </tr></tfoot>
-      </table>`;
-  } catch(e) {
-    body.innerHTML = `<div style="text-align:center;padding:30px;color:var(--red)">Couldn't load this — ${escHtml(e.message)}</div>`;
-  }
-}
-
 async function renderFinanceReport() {
   const frFromEl = document.getElementById('fr-from'), frToEl = document.getElementById('fr-to');
   const frAllTimeBtn = document.getElementById('fr-alltime-btn');
@@ -21918,26 +21714,21 @@ async function renderFinanceReport() {
     // fully separate now (previously merged into one confusing total that
     // silently added money received to money paid out).
     const pmColors = { 'Cash':'#2E7D32','Bank Transfer':'#1565C0','UPI':'#6A4C93','Cheque':'#E65100','Split Payment':'#455A64','Cash in Hand':'#00897B','NEFT':'#1565C0','RTGS':'#1565C0','Credit Card':'#6A4C93' };
-    function renderPaymodeCard(elId, modes, emptyMsg, type) {
+    function renderPaymodeCard(elId, modes, emptyMsg) {
       const el = document.getElementById(elId);
       if (!el) return;
       const total = modes.reduce((s,m)=>s+m.amount, 0);
       el.innerHTML = modes.length ? modes.map(m => `
-        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="Click to see who — the transactions behind this total">
+        <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
           <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
         </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
           <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
         : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
     }
-    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period', 'sales');
-    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period', 'purchases');
-    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period', 'expenses');
-
-    // Re-check on every render — a mode click from a previous render
-    // shouldn't leave the modal referencing a now-stale date range.
-    window._FR_LAST_RANGE = { from, to, wh };
-
+    renderPaymodeCard('fr-paymode-sales-list',     r.payment_modes_sales     || [], 'No sales payments recorded in this period');
+    renderPaymodeCard('fr-paymode-purchases-list', r.payment_modes_purchases || [], 'No purchase payments recorded in this period');
+    renderPaymodeCard('fr-paymode-expenses-list',  r.payment_modes_expenses  || [], 'No expenses recorded in this period');
 
     renderFRCharts(r);
 
@@ -22471,7 +22262,7 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null, idempotencyKey: crypto.randomUUID() };
+const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null };
 // Batch options per product, fetched from product_batches.php on demand —
 // only products with actual received batches will have entries here;
 // everything else just falls back to "No batch" (same as today, harmless).
@@ -22531,20 +22322,18 @@ function renderSNDeductionsTable() {
 
 function goToNewSale() {
   SN.editingId = null;
-  // Fresh UUID per "New Sale" session — same duplicate-save protection
-  // pattern as PNE.idempotencyKey in goToNewPurchase() above.
-  SN.idempotencyKey = crypto.randomUUID();
   SN.items = [snEmptyItem()];
   SN.activeRowId = SN.items[0].id; // auto-link kanta to row 1 immediately
   SN.attachments = [];
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
+  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
   document.getElementById('sn-shipping').value = '';
-  populateSalesExecDropdown(SERVER.user?.name || ''); // auto-selects the logged-in user — must run AFTER any sn-salesexec reset, not before (see chat: this used to be immediately undone by a redundant clear that ran right after it)
+  document.getElementById('sn-salesexec').value = '';
   document.getElementById('sn-invno').value = '';
   document.getElementById('sn-invdate').value = fmt_date(new Date());
   document.getElementById('sn-duedate').value = '';
@@ -22582,7 +22371,6 @@ function goToNewSale() {
   document.getElementById('sn-amountreceived').value = 0;
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
-  updateSNPaymentModeVisibility('Pending'); // fresh form — nothing received yet
   setSalePaymentInfoLocked(false);
   // Pre-fill from Settings → Invoice Defaults, same as the Service
   // Invoice's Notes field already does — this was previously always
@@ -22698,13 +22486,9 @@ async function onCustomerPicked() {
 }
 
 let ADD_CUSTOMER_CONTEXT = 'sale'; // 'sale' | 'proforma' — which dropdown to update after saving
-// Duplicate-save protection for this quick-add modal — same pattern as
-// SUP/PNE/SN. Rotated in openAddCustomerModal() and on a successful save.
-let ADD_CUSTOMER_KEY = crypto.randomUUID();
 
 function openAddCustomerModal(context = 'sale') {
   ADD_CUSTOMER_CONTEXT = context;
-  ADD_CUSTOMER_KEY = crypto.randomUUID();
   ['cus-name','cus-mobile','cus-email','cus-gstin','cus-state','cus-district','cus-billing','cus-shipping','cus-paymentterms']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('cus-type').value = 'Domestic';
@@ -22724,11 +22508,9 @@ async function saveCustomer() {
     shipping_address: document.getElementById('cus-shipping').value.trim(),
     credit_limit: parseFloat(document.getElementById('cus-creditlimit').value) || 0,
     payment_terms: document.getElementById('cus-paymentterms').value.trim(), sales_executive: document.getElementById('cus-salesexec').value.trim(),
-    client_request_id: ADD_CUSTOMER_KEY,
   };
   try {
     const res = await api('api/customers.php', 'POST', payload);
-    ADD_CUSTOMER_KEY = crypto.randomUUID();
     const r = await api('api/customers.php');
     STATE.customers = Array.isArray(r.data) ? r.data : STATE.customers;
     closeModal('modal-addcustomer');
@@ -22992,15 +22774,6 @@ function calcSNWeightSummary() {
   calcSaleNewTotals();
 }
 
-// Payment Method / Transaction No. / Payment Date only mean something
-// once money has actually been received — same rationale as Purchase
-// Entry's updatePNEPaymentModeVisibility(). While Payment Status is
-// Pending, nothing's been received yet, so these are irrelevant noise.
-function updateSNPaymentModeVisibility(payStatus) {
-  const wrap = document.getElementById('sn-paidfields-wrap');
-  if (wrap) wrap.style.display = (payStatus === 'Pending') ? 'none' : '';
-}
-
 function calcSaleNewTotals() {
   let totalQty = 0, subtotal = 0, itemsTax = 0;
   SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
@@ -23059,17 +22832,7 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-grand').textContent = fmt_money(grand);
 
   const payStatus = document.getElementById('sn-paystatus').value;
-  // Same fix as Purchase Entry: Paid mirrors the grand total, Pending is
-  // forced back to 0 (previously only Paid was handled, so switching
-  // Paid → Pending left the old grand-total amount stuck in the field —
-  // hidden once sn-paidfields-wrap is hidden below, but still silently
-  // included in the save payload). Partial is left alone for manual entry.
-  if (payStatus === 'Paid') {
-    document.getElementById('sn-amountreceived').value = grand.toFixed(2);
-  } else if (payStatus === 'Pending') {
-    document.getElementById('sn-amountreceived').value = 0;
-  }
-  updateSNPaymentModeVisibility(payStatus);
+  if (payStatus === 'Paid') document.getElementById('sn-amountreceived').value = grand.toFixed(2);
   const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
   const balance = Math.max(0, grand - received);
   document.getElementById('sn-sum-received').textContent = fmt_money(received);
@@ -23298,17 +23061,10 @@ async function saveSaleEntry(mode) {
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
     cd_applicable_within: document.getElementById('sn-cdwithin').value,
     payment_status: document.getElementById('sn-paystatus').value,
-    // Blank, not the leftover default, when nothing's been received yet —
-    // same rationale as Purchase Entry's payment_mode fix: otherwise a
-    // Pending sale still reports "Cash" (its default) with ₹0 received,
-    // which Finance Report's Received — Sales list would include as a
-    // spurious "Cash — ₹0.00" row if it were the only Cash-mode sale in
-    // the period.
-    payment_method: document.getElementById('sn-paystatus').value === 'Pending' ? '' :
-      (document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value),
+    payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
-    transaction_no: document.getElementById('sn-paystatus').value === 'Pending' ? '' : document.getElementById('sn-transactionno').value.trim(),
-    payment_date: document.getElementById('sn-paystatus').value === 'Pending' ? null : (document.getElementById('sn-paydate').value || null),
+    transaction_no: document.getElementById('sn-transactionno').value.trim(),
+    payment_date: document.getElementById('sn-paydate').value || null,
     customer_notes: document.getElementById('sn-customernotes').value.trim(),
     internal_notes: document.getElementById('sn-internalnotes').value.trim(),
     delivery_instructions: document.getElementById('sn-deliveryinstructions').value.trim(),
@@ -23317,7 +23073,6 @@ async function saveSaleEntry(mode) {
     approved_by: document.getElementById('sn-approvedby').value.trim(),
     status: mode === 'draft' ? 'Draft' : 'Confirmed',
     attachments: SN.attachments.map(a => a.url),
-    client_request_id: SN.idempotencyKey,
     items: SN.items.map(it => ({
       product_id: it.product_id || null, description: it.description, variety_grade: it.variety_grade,
       batch_no: it.batch_no, moisture_pct: (it.moisture_pct === '' || it.moisture_pct === null || it.moisture_pct === undefined) ? null : parseFloat(it.moisture_pct),
@@ -23337,10 +23092,6 @@ async function saveSaleEntry(mode) {
     } else {
       const res = await api('api/sales.php', 'POST', payload);
       savedId = res.id;
-      // Rotate the key only after success — see the matching comment in
-      // savePurchaseEntry(). A failed/timed-out attempt keeps the same
-      // key so a retry is recognized as the same attempt, not a new sale.
-      SN.idempotencyKey = crypto.randomUUID();
       consumeEditApproval(); toast('✅ Sale saved!', 'success');
     }
     const [r, stk] = await Promise.all([api('api/sales.php'), api('api/stock.php')]);
@@ -23407,7 +23158,6 @@ async function editSale(id) {
     document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
     document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
-    updateSNPaymentModeVisibility(s.payment_status || 'Pending'); // reflect this record's actual status, not the fresh-form default
     const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
     document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
     document.getElementById('sn-split-panel').style.display = isSNSplitSaved ? 'block' : 'none';
@@ -23606,7 +23356,7 @@ function renderSales() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span id="sale-paystatus-badge-${s.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
       <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
@@ -23735,7 +23485,7 @@ function printSaleInvoice(s, paymentHistory = []) {
     table.items th { background: #f3f5f7; color:#333; padding: 8px 7px; font-size: 10px; text-transform: uppercase; text-align: left; border: 1px solid #000; }
     table.items td { padding: 8px 7px; border: 1px solid #000; vertical-align: top; }
     table.items td.r, table.items th.r { text-align: right; }
-    table.items tfoot td { border: 1px solid #0d3b2e; }
+    table.items tfoot td { border: 2px solid #0d3b2e; }
     .muted { color:#333; font-size: 10px; }
     .row3 { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
     .row3-left { flex: 1; display: flex; flex-direction: column; gap: 12px; }
@@ -24293,7 +24043,7 @@ async function renderSARecentAdjustments() {
 // ══════════════════════════════════════════
 // ADD SUPPLIER / FARMER (full page)
 // ══════════════════════════════════════════
-const SUPN = { editingId: null, docs: [], idempotencyKey: crypto.randomUUID() };
+const SUPN = { editingId: null, docs: [] };
 const INDIA_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana',
   'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
   'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand',
@@ -24320,8 +24070,6 @@ function onSupplierTypeChangeRich() {
 function goToNewSupplierPage() {
   SUPN.editingId = null;
   SUPN.docs = [];
-  // Same duplicate-save protection pattern as SUP above.
-  SUPN.idempotencyKey = crypto.randomUUID();
   document.getElementById('supn-title').textContent = 'Add Supplier / Farmer';
   document.getElementById('supn-crumb').textContent = 'Add New';
   document.getElementById('sup-type').value = '';
@@ -24431,7 +24179,6 @@ async function saveSupplierEntry() {
     notes: document.getElementById('sup-notes').value.trim(),
     status: document.getElementById('sup-status').classList.contains('on') ? 'active' : 'archived',
     documents: SUPN.docs.map(d => d.url || d),
-    client_request_id: SUPN.idempotencyKey,
   };
 
   const btn = event?.target?.closest('button');
@@ -24442,7 +24189,6 @@ async function saveSupplierEntry() {
       consumeEditApproval(); toast('✅ Supplier updated!', 'success');
     } else {
       await api('api/suppliers.php', 'POST', payload);
-      SUPN.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added!', 'success');
     }
     const r = await api('api/suppliers.php');
@@ -24456,7 +24202,7 @@ async function saveSupplierEntry() {
 // ══════════════════════════════════════════
 // ADD NEW CUSTOMER (full page)
 // ══════════════════════════════════════════
-const CUSN = { editingId: null, docs: [], returnToSale: false, idempotencyKey: crypto.randomUUID() };
+const CUSN = { editingId: null, docs: [], returnToSale: false };
 
 // Opened from Sale Entry's "+" button next to the customer picker. Since this
 // is a single-page app, the in-progress sale form (SN.items etc.) stays intact
@@ -24508,8 +24254,6 @@ function goToNewCustomerPage() {
   CUSN.editingId = null;
   CUSN.docs = [];
   CUSN.returnToSale = false;
-  // Same duplicate-save protection pattern as SUPN above.
-  CUSN.idempotencyKey = crypto.randomUUID();
   document.getElementById('cusn-title').textContent = 'Add New Customer';
   document.getElementById('cusn-crumb').textContent = 'Add New Customer';
   document.getElementById('cusn-type').value = '';
@@ -24653,7 +24397,6 @@ async function saveCustomerEntry(mode) {
     opening_balance: parseFloat(document.getElementById('cusn-openingbal').value) || 0, opening_balance_type: document.getElementById('cusn-openingbaltype').value,
     sales_executive: document.getElementById('cusn-salesperson').value, notes: document.getElementById('cusn-notes-inline').value.trim(),
     documents: CUSN.docs.map(d => d.url || d),
-    client_request_id: CUSN.idempotencyKey,
   };
 
   const btn = event?.target?.closest('button');
@@ -24666,7 +24409,6 @@ async function saveCustomerEntry(mode) {
     } else {
       const res = await api('api/customers.php', 'POST', payload);
       newId = res.id;
-      CUSN.idempotencyKey = crypto.randomUUID();
       toast('✅ "' + name + '" added as ' + res.customer_code + '!', 'success');
     }
     const r = await api('api/customers.php');
@@ -25269,18 +25011,8 @@ async function deleteStockInEntry(id) {
 let RPP_ACTIVE_PURCHASE = null;
 
 async function openRecordPurchasePayment(purchaseId) {
-  // Same fix as openRecordSalePayment — the triggering button lives
-  // inside the "⋯ More" dropdown, which closes itself on the same click
-  // that opened it (see the document click listener near toggleActMenu),
-  // so a spinner there is invisible. Payment Status badge stays visible.
-  const badge = document.getElementById('pur-paystatus-badge-' + purchaseId);
-  const badgeOrigHtml = badge ? badge.innerHTML : null;
-  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    const [r, hist] = await Promise.all([
-      api('api/purchases.php?id=' + purchaseId),
-      api('api/purchase_payments.php?purchase_id=' + purchaseId),
-    ]);
+    const r = await api('api/purchases.php?id=' + purchaseId);
     const p = r.data;
     RPP_ACTIVE_PURCHASE = p;
 
@@ -25298,6 +25030,8 @@ async function openRecordPurchasePayment(purchaseId) {
     document.getElementById('rpp-txn').value = '';
     document.getElementById('rpp-notes').value = '';
 
+    // Payment history
+    const hist = await api('api/purchase_payments.php?purchase_id=' + purchaseId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rpp-history-wrap');
     const list = document.getElementById('rpp-history-list');
@@ -25319,7 +25053,6 @@ async function openRecordPurchasePayment(purchaseId) {
     updateRPPNotice();
     openModal('modal-record-purchase-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 // Live "this will still leave X due / status stays Partial" notice —
@@ -25393,22 +25126,8 @@ async function saveRecordPurchasePayment() {
 let RSP_ACTIVE_SALE = null;
 
 async function openRecordSalePayment(saleId) {
-  // The button that triggered this lives inside the "⋯ More" dropdown
-  // (.act-menu), which closes itself the instant any click happens
-  // anywhere in the document (see the document click listener near
-  // toggleActMenu) — so a spinner on that button is invisible before the
-  // user ever sees it. The Payment Status badge in the same row stays on
-  // screen regardless, so that's where the loading feedback goes instead.
-  const badge = document.getElementById('sale-paystatus-badge-' + saleId);
-  const badgeOrigHtml = badge ? badge.innerHTML : null;
-  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    // These two don't depend on each other — running them in parallel
-    // instead of sequential awaits cuts the wait roughly in half.
-    const [r, hist] = await Promise.all([
-      api('api/sales.php?id=' + saleId),
-      api('api/sale_payments.php?sale_id=' + saleId),
-    ]);
+    const r = await api('api/sales.php?id=' + saleId);
     const s = r.data;
     RSP_ACTIVE_SALE = s;
 
@@ -25426,6 +25145,7 @@ async function openRecordSalePayment(saleId) {
     document.getElementById('rsp-txn').value = '';
     document.getElementById('rsp-notes').value = '';
 
+    const hist = await api('api/sale_payments.php?sale_id=' + saleId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rsp-history-wrap');
     const list = document.getElementById('rsp-history-list');
@@ -25447,7 +25167,6 @@ async function openRecordSalePayment(saleId) {
     updateRSPNotice();
     openModal('modal-record-sale-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 function updateRSPNotice() {
@@ -28504,17 +28223,6 @@ async function syncOverdueToDb(invoices) {
 // ── Load all data from API on page load ────────────────────────
 async function loadAllData() {
   try {
-    // Sales and Customers are the only two of these that are actually
-    // unreachable for a service-type business — their nav items are the
-    // only ones gated by businessType === 'product' (see
-    // nav-sales-item/nav-customers-item toggling elsewhere). Suppliers,
-    // Purchases, Stock, and Products stay visible in the sidebar for every
-    // business type, so their fetches must always run — skipping those
-    // would leave those pages showing empty data if a service-type
-    // tenant actually visits them. STATE.settings.businessType is safe to
-    // read here: it's inlined from PHP at page load (see the STATE
-    // object literal), not dependent on this same fetch completing.
-    const isService = STATE.settings.businessType === 'service';
     const [inv, cls, prd, pmt, cfg, cn, sup, pur, cus, sal, stk] = await Promise.all([
       api('api/invoices.php'),
       api('api/clients.php'),
@@ -28524,8 +28232,8 @@ async function loadAllData() {
       api('api/credit_notes.php').catch(() => ({ data: [] })),
       api('api/suppliers.php').catch(() => ({ data: [] })),
       api('api/purchases.php').catch(() => ({ data: [] })),
-      isService ? Promise.resolve({ data: [] }) : api('api/customers.php').catch(() => ({ data: [] })),
-      isService ? Promise.resolve({ data: [] }) : api('api/sales.php').catch(() => ({ data: [] })),
+      api('api/customers.php').catch(() => ({ data: [] })),
+      api('api/sales.php').catch(() => ({ data: [] })),
       api('api/stock.php').catch(() => ({ data: [] })),
     ]);
     STATE.invoices    = Array.isArray(inv.data)  ? inv.data.map(normalizeInvoice)  : [];
@@ -28691,7 +28399,7 @@ async function loadAllData() {
         populateTemplateForm();
       }
     }
-     // console.log('Loaded:', STATE.invoices.length,'invoices,', STATE.clients.length,'clients');
+    console.log('Loaded:', STATE.invoices.length,'invoices,', STATE.clients.length,'clients');
     // Load new feature data
     await loadFeatureData();
   } catch(e) {
@@ -29426,15 +29134,7 @@ window.uploadProfilePhoto = async function(input) {
   const fd = new FormData(); fd.append('file', file); fd.append('type', 'avatar');
   const avatarEl = document.getElementById('profile-avatar-preview');
   const prevHtml = avatarEl ? avatarEl.innerHTML : '';
-  const spin = (label) => {
-    if (!avatarEl) return;
-    // Icon color was the same teal as the avatar box's own background
-    // (`.profile-av-lg { background:var(--teal) }`), so the spinner was
-    // rendering invisibly on top of itself — nothing ever appeared to show.
-    avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:#fff"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
-    avatarEl.title = label;
-  };
-  spin('Uploading photo…');
+  if (avatarEl) avatarEl.innerHTML = `<i class="fas fa-spinner fa-spin" style="font-size:20px;color:var(--teal)"></i><div class="pav-overlay"><i class="fas fa-camera"></i></div>`;
   try {
     const res  = await fetch('api/upload.php', { method:'POST', body:fd });
     const data = await res.json();
@@ -29442,7 +29142,6 @@ window.uploadProfilePhoto = async function(input) {
 
     // Persist the URL to the DB immediately — without this the photo
     // reverts on refresh since currentUser() re-reads from the DB.
-    spin('Saving…');
     await api('api/profile.php', 'POST', { avatar: data.url });
 
     _syncProfileUI(null, data.url);
@@ -31474,6 +31173,10 @@ let CREDIT_ENTRIES = [];
 function _renderCreditSummary() {
   const el = document.getElementById('credit-summary-cards');
   if (!el) return;
+  if (SHOW_VOIDED_CREDIT) {
+    el.innerHTML = `<div style="grid-column:1/-1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12.5px;color:var(--muted)"><i class="fas fa-circle-info"></i> Summary totals reflect active entries only — switch back to see them.</div>`;
+    return;
+  }
   const list = CREDIT_ENTRIES || [];
   const given = list.reduce((s,c) => s + parseFloat(c.amount||0), 0);
   // Uses converted_amount (a running total), not a binary status check —
@@ -31495,11 +31198,13 @@ function _renderCreditSummary() {
   </div>`).join('');
 }
 
+let SHOW_VOIDED_CREDIT = false;
+
 async function loadCreditEntries() {
   const tbody = document.getElementById('credit-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">Loading…</td></tr>';
   try {
-    const r = await api('api/credit_entries.php');
+    const r = await api('api/credit_entries.php' + (SHOW_VOIDED_CREDIT ? '?status=voided' : ''));
     CREDIT_ENTRIES = Array.isArray(r.data) ? r.data : [];
     renderCreditTable();
   } catch(e) {
@@ -31507,63 +31212,105 @@ async function loadCreditEntries() {
   }
 }
 
+function toggleShowVoidedCredit() {
+  SHOW_VOIDED_CREDIT = !SHOW_VOIDED_CREDIT;
+  const btn = document.getElementById('credit-show-voided-btn');
+  if (btn) btn.innerHTML = SHOW_VOIDED_CREDIT
+    ? '<i class="fas fa-arrow-left"></i> Back to Active Entries'
+    : '<i class="fas fa-ban"></i> Show Voided';
+  loadCreditEntries();
+}
+
 function renderCreditTable() {
   _renderCreditSummary();
   const tbody = document.getElementById('credit-tbody');
   if (!CREDIT_ENTRIES.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${SHOW_VOIDED_CREDIT ? 'No voided entries' : 'No credit entries yet — click "Add Credit Entry" to log one'}</td></tr>`;
     return;
   }
   tbody.innerHTML = CREDIT_ENTRIES.map(c => {
     const isConverted = c.status === 'converted';
     const isPartial = c.status === 'partial';
+    const isVoided = c.status === 'voided';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
-    return `<tr id="credit-row-${c.id}">
-      <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
-      <td>${escHtml(c.purpose)}</td>
+    return `<tr style="${isVoided ? 'opacity:.55' : ''}">
+      <td><div style="${isVoided ? 'text-decoration:line-through' : ''}">${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
+      <td style="${isVoided ? 'text-decoration:line-through' : ''}">${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
       <td>${escHtml(c.payment_method || '—')}</td>
       <td style="text-align:right">
-        <div style="font-weight:600">${fmt_money(c.amount)}</div>
+        <div style="font-weight:600;${isVoided ? 'text-decoration:line-through' : ''}">${fmt_money(c.amount)}</div>
         ${isPartial ? `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">${fmt_money(remaining)} left</span></div>` : ''}
       </td>
-      <td>${isConverted
+      <td>${isVoided
+        ? `<span class="badge" style="background:#FBE9E7;color:#B71C1C">Voided</span>`
+        : isConverted
         ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
         : isPartial
         ? `<span class="badge" style="background:#FFF3E0;color:#9A6700">Partial</span>`
-        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}</td>
+        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}
+        ${isVoided && c.void_reason ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;max-width:160px">"${escHtml(c.void_reason)}"</div>` : ''}</td>
       <td style="text-align:right">
-        ${isConverted
+        ${isVoided
+          ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="unvoidCreditEntry(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`
+          : isConverted
           ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
-          : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
-             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
+          : `<div style="display:flex;gap:6px;justify-content:flex-end">
+               <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert'}</button>
+               ${!isPartial ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 9px;color:var(--red);border-color:var(--red)" onclick="voidCreditEntry(${c.id})" title="Void this entry — for a wrong/duplicate entry that should never be converted"><i class="fas fa-ban"></i></button>` : ''}
+             </div>`}
       </td>
     </tr>`;
   }).join('');
+}
 
-  // One-time highlight for a row we were sent here to find — set by
-  // viewCreditEntrySource()'s "Go to Credit Page" button (Expense page's
-  // "Via Credit" badge). Checked here rather than right after the nav
-  // click, since loadCreditEntries() fetches asynchronously — the row
-  // doesn't exist in the DOM until this render actually runs.
-  if (window.CREDIT_HIGHLIGHT_ID) {
-    const targetId = window.CREDIT_HIGHLIGHT_ID;
-    window.CREDIT_HIGHLIGHT_ID = null; // consume — don't re-highlight on a later, unrelated visit to this page
-    const row = document.getElementById('credit-row-' + targetId);
-    if (row) {
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      row.style.transition = 'background-color 1.6s ease';
-      row.style.backgroundColor = '#FFF3CD';
-      setTimeout(() => { row.style.backgroundColor = ''; }, 2400);
-    }
-  }
+// Void — only ever possible while status='pending' (enforced again
+// server-side as the real guard). A partially-converted entry can't be
+// voided at all: real money already became a real Expense record, and
+// hiding the source here would orphan that expense's provenance. Soft
+// and reversible — see unvoidCreditEntry — the row is never deleted,
+// just excluded from the default (non-voided) list view.
+async function voidCreditEntry(id) {
+  const entry = CREDIT_ENTRIES.find(c => c.id === id);
+  const { value: reason, isConfirmed } = await Swal.fire({
+    title: 'Void this credit entry?',
+    html: `
+      <div style="text-align:left;margin-bottom:8px;font-size:13px;color:var(--text2)">
+        ${entry ? `<b>${escHtml(entry.purpose)}</b> — ${fmt_money(entry.amount)}<br>` : ''}
+        This removes it from the active list — it's not deleted, and can be restored later from "Show Voided."
+        <span style="font-size:12px;color:var(--muted)">Reason is saved for your records (optional).</span>
+      </div>
+      <textarea id="swal-void-reason" placeholder="e.g. Duplicate entry, entered by mistake…"
+        style="width:100%;min-height:70px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;
+               font-family:var(--font);font-size:13px;resize:vertical;margin-top:4px;box-sizing:border-box"
+      ></textarea>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Void Entry',
+    cancelButtonText: 'Go Back',
+    confirmButtonColor: '#E53935',
+    customClass: { popup: 'swal-compact' },
+    didOpen: () => document.getElementById('swal-void-reason').focus(),
+    preConfirm: () => document.getElementById('swal-void-reason').value.trim(),
+  });
+  if (!isConfirmed) return;
+  try {
+    await api('api/credit_entries.php?action=void&id=' + id, 'POST', { reason });
+    toast('✅ Entry voided', 'success');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function unvoidCreditEntry(id) {
+  try {
+    await api('api/credit_entries.php?action=unvoid&id=' + id, 'POST', {});
+    toast('✅ Entry restored to Pending', 'success');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
 
 function openAddCreditModal() {
-  document.getElementById('credit-edit-id').value = '';
-  document.getElementById('credit-modal-title').textContent = 'Add Credit Entry';
-  document.getElementById('credit-modal-notice').innerHTML = '<i class="fas fa-circle-info"></i> You can edit this entry any time before it\'s fully converted to an Expense. Once fully converted, it\'s locked.';
   document.getElementById('credit-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('credit-amount').value = '';
   document.getElementById('credit-purpose').value = '';
@@ -31572,28 +31319,7 @@ function openAddCreditModal() {
   openModal('modal-credit-add');
 }
 
-// Edit is only reachable from the ledger's Edit button, which itself is
-// only rendered for non-converted rows (see renderCreditTable) — but the
-// backend re-checks status === 'converted' independently on PUT, so a
-// stale/cached button click can't bypass the lock either.
-function openEditCreditEntry(id) {
-  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
-  if (!c) return;
-  document.getElementById('credit-edit-id').value = c.id;
-  document.getElementById('credit-modal-title').textContent = 'Edit Credit Entry';
-  document.getElementById('credit-modal-notice').innerHTML = c.status === 'partial'
-    ? `<i class="fas fa-circle-info"></i> ₹${fmt_money(c.converted_amount)} of this entry has already been converted — the amount can't be reduced below that.`
-    : '<i class="fas fa-circle-info"></i> You can edit this entry any time before it\'s fully converted to an Expense.';
-  document.getElementById('credit-date').value = c.entry_date || '';
-  document.getElementById('credit-amount').value = c.amount || '';
-  document.getElementById('credit-purpose').value = c.purpose || '';
-  document.getElementById('credit-paidto').value = c.paid_to || '';
-  document.getElementById('credit-method').value = c.payment_method || 'Cash';
-  openModal('modal-credit-add');
-}
-
 async function saveCreditEntry() {
-  const editId = document.getElementById('credit-edit-id').value;
   const date = document.getElementById('credit-date').value;
   const amount = parseFloat(document.getElementById('credit-amount').value) || 0;
   const purpose = document.getElementById('credit-purpose').value.trim();
@@ -31606,14 +31332,9 @@ async function saveCreditEntry() {
   }
 
   try {
-    if (editId) {
-      await api('api/credit_entries.php?id=' + editId, 'PUT', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
-      toast('✅ Credit entry updated!', 'success');
-    } else {
-      await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
-      toast('✅ Credit entry saved!', 'success');
-    }
+    await api('api/credit_entries.php', 'POST', { date, amount, purpose, paid_to: paidTo, payment_method: paymentMethod });
     closeModal('modal-credit-add');
+    toast('✅ Credit entry saved!', 'success');
     loadCreditEntries();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -31647,10 +31368,7 @@ async function viewCreditEntrySource(creditEntryId) {
       cancelButtonText: 'Close',
       customClass: { popup: 'swal-compact' },
     }).then(res => {
-      if (res.isConfirmed) {
-        window.CREDIT_HIGHLIGHT_ID = creditEntryId; // consumed by renderCreditTable() once the list actually loads
-        document.querySelector('.nav-item[data-page="credit"]')?.click();
-      }
+      if (res.isConfirmed) document.querySelector('.nav-item[data-page="credit"]')?.click();
     });
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -31709,7 +31427,6 @@ async function saveCreditConversion() {
 function openAddExpenseModal() {
   document.getElementById('exp-edit-id').value = '';
   document.getElementById('exp-modal-title').textContent = 'Add Expense';
-  document.getElementById('exp-modal-byline').textContent = ''; // no creator yet — this is a new record
   document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-category').value = '';
@@ -31725,7 +31442,6 @@ function editExpense(id) {
   if (!exp) return;
   document.getElementById('exp-edit-id').value = id;
   document.getElementById('exp-modal-title').textContent = 'Edit Expense';
-  document.getElementById('exp-modal-byline').textContent = exp.created_by_name ? ('Added by ' + exp.created_by_name) : '';
   document.getElementById('exp-date').value     = exp.date||'';
   document.getElementById('exp-amount').value   = exp.amount||'';
   document.getElementById('exp-category').value = exp.category||'';
@@ -35973,97 +35689,6 @@ async function exportMsgLog() {
     toast('✗ Export failed: ' + e.message, 'error');
   }
 }
-
-// ── JS-driven sticky action bar (Cancel/Save/etc. on entry pages) ──
-// position:sticky on .pne-topbar wasn't engaging at all in practice —
-// it scrolled away with the page instead of pinning, for reasons that
-// held up even after ruling out overflow-clipping ancestors, undefined
-// CSS variables, and display:none→block reflow timing. Rather than keep
-// guessing at the CSS cause, this manually switches the topbar to
-// position:fixed once its natural position scrolls past the app header,
-// with a placeholder to prevent the page content jumping when it leaves
-// normal flow. Applies to every page using .pne-topbar (Purchase, Sale,
-// Product, etc.) via the shared class, not just one page.
-//
-// NOTE: .pages-container declares overflow-y:auto, but body/.main-wrap
-// only constrain themselves with min-height (not height), so that
-// overflow never actually engages in practice — the real scroll happens
-// on the window/document, not inside .pages-container. The first version
-// of this fix listened for 'scroll' on .pages-container and so never
-// fired at all. Listening on window (and reading window.scrollY) instead
-// is what actually matches where scrolling really happens.
-(function() {
-  function topbarHeightPx() {
-    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 60;
-  }
-
-  function syncStuckRect(topbar) {
-    const container = document.querySelector('.pages-container');
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    topbar.style.left = rect.left + 'px';
-    topbar.style.width = rect.width + 'px';
-  }
-
-  function unstick(topbar) {
-    topbar.classList.remove('js-stuck');
-    topbar.style.left = '';
-    topbar.style.width = '';
-    if (topbar._pneStuckPlaceholder) { topbar._pneStuckPlaceholder.remove(); topbar._pneStuckPlaceholder = null; }
-  }
-
-  function handleScroll() {
-    const activePage = document.querySelector('.page.active');
-    if (!activePage) return;
-    const topbar = activePage.querySelector(':scope > .pne-topbar');
-    if (!topbar) return;
-
-    const isStuck = topbar.classList.contains('js-stuck');
-    const threshold = topbarHeightPx();
-
-    if (!isStuck) {
-      const top = topbar.getBoundingClientRect().top;
-      if (top <= threshold) {
-        const placeholder = document.createElement('div');
-        placeholder.style.height = topbar.offsetHeight + 'px';
-        topbar.parentNode.insertBefore(placeholder, topbar);
-        topbar._pneStuckPlaceholder = placeholder;
-        topbar.classList.add('js-stuck');
-        syncStuckRect(topbar);
-      }
-    } else {
-      // Un-stick based on where the placeholder (marking the topbar's
-      // natural position) currently sits, not a remembered scroll
-      // number — this stays correct no matter which ancestor actually
-      // owns the scrolling.
-      const ph = topbar._pneStuckPlaceholder;
-      if (ph && ph.getBoundingClientRect().top >= threshold) {
-        unstick(topbar);
-      } else {
-        syncStuckRect(topbar); // keep width/left correct if the window/sidebar resizes while stuck
-      }
-    }
-  }
-
-  // Capture-phase listener on document catches scroll events from ANY
-  // scrollable descendant (they don't bubble, but capturing on an
-  // ancestor still sees them), plus the window/document scroll itself —
-  // this way the fix works correctly regardless of which element turns
-  // out to actually be the one scrolling.
-  document.addEventListener('DOMContentLoaded', () => {
-    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
-    window.addEventListener('resize', handleScroll);
-  });
-
-  // Clean slate whenever navigating — a freshly-entered page should
-  // always start with its topbar in normal (non-stuck) position, and
-  // any stray placeholder from a previous visit shouldn't linger.
-  const _origShowPage = window.showPage;
-  window.showPage = function(name, el) {
-    document.querySelectorAll('.pne-topbar.js-stuck').forEach(unstick);
-    return _origShowPage.apply(this, arguments);
-  };
-})();
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {

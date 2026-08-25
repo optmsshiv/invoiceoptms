@@ -3,16 +3,19 @@
 //  api/credit_entries.php — Owner's personal-expense staging area
 //
 //  Quick-capture log for money the owner (or permitted staff) spent
-//  personally, before it becomes a formal categorized Expense. Once
-//  created, an entry is LOCKED — no edit, no delete. The only way to
-//  change anything is the Convert step, which is also where the
-//  fields a real expense needs (category, payment method) get filled
-//  in — that's also where a typo in amount/date/purpose gets fixed,
-//  since editing isn't allowed before that point.
+//  personally, before it becomes a formal categorized Expense. An
+//  entry can be edited (date/amount/purpose/paid_to/payment_method)
+//  right up until it's FULLY converted — the Convert step still lets
+//  you fix a typo at that moment too, but that only corrects the
+//  resulting Expense row, not this source record, so a real edit
+//  path matters. Once status reaches 'converted', it's locked: no
+//  more edit, no delete — the paper trail to the Expense it became
+//  must stay trustworthy from that point on.
 //
 //  GET    ?action=list              → all entries, newest first
 //  GET    ?id=X                     → single entry
-//  POST                             → create a new (locked) entry
+//  POST                             → create a new entry
+//  PUT    ?id=X                     → edit an entry (pending/partial only)
 //  POST   ?action=convert&id=X      → convert to a real Expense row
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
@@ -176,7 +179,51 @@ try {
             'remaining' => round((float)$entry['amount'] - $newConverted, 2)]);
     }
 
-    // ── POST — create (locked forever after; no PUT/DELETE at all) ──
+    // ── EDIT — allowed while pending or partial, locked once fully
+    // converted. Amount can't be reduced below what's already been
+    // converted out of a partial entry, or the remaining/"X left"
+    // math would go negative.
+    if ($method === 'PUT') {
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+
+        $stmt = $db->prepare('SELECT * FROM credit_entries WHERE id = ?');
+        $stmt->execute([$id]);
+        $entry = $stmt->fetch();
+        if (!$entry) jsonResponse(['error' => 'Not found'], 404);
+        if ($entry['status'] === 'converted') {
+            jsonResponse(['error' => 'This entry has already been fully converted and can no longer be edited.'], 400);
+        }
+
+        $raw  = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+
+        $date    = trim($body['date']    ?? '');
+        $amount  = (float)($body['amount'] ?? 0);
+        $purpose = trim($body['purpose'] ?? '');
+        $paidTo  = trim($body['paid_to'] ?? '');
+        $payMethod = trim($body['payment_method'] ?? '');
+
+        if (!$date || !$purpose || $amount <= 0) {
+            jsonResponse(['error' => 'date, purpose, and amount are required'], 422);
+        }
+
+        $alreadyConverted = (float)$entry['converted_amount'];
+        if ($amount < $alreadyConverted - 0.004) {
+            jsonResponse(['error' => "Amount can't be less than ₹" . number_format($alreadyConverted, 2) . " — that much has already been converted to an expense from this entry."], 422);
+        }
+
+        $db->prepare(
+            'UPDATE credit_entries SET entry_date=?, amount=?, purpose=?, paid_to=?, payment_method=? WHERE id=?'
+        )->execute([$date, $amount, $purpose, $paidTo ?: null, $payMethod ?: null, $id]);
+
+        logActivity((int)($_SESSION['user_id'] ?? 0), 'update', 'credit_entry', $id,
+            "Credit entry edited: {$purpose} — ₹" . number_format($amount, 2));
+
+        jsonResponse(['success' => true]);
+    }
+
+    // ── POST — create ──
     if ($method === 'POST') {
         $date    = trim($body['date']    ?? '');
         $amount  = (float)($body['amount'] ?? 0);

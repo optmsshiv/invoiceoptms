@@ -3,20 +3,25 @@
 //  api/credit_entries.php — Owner's personal-expense staging area
 //
 //  Quick-capture log for money the owner (or permitted staff) spent
-//  personally, before it becomes a formal categorized Expense. An
-//  entry can be edited (date/amount/purpose/paid_to/payment_method)
-//  right up until it's FULLY converted — the Convert step still lets
-//  you fix a typo at that moment too, but that only corrects the
-//  resulting Expense row, not this source record, so a real edit
-//  path matters. Once status reaches 'converted', it's locked: no
-//  more edit, no delete — the paper trail to the Expense it became
-//  must stay trustworthy from that point on.
+//  personally, before it becomes a formal categorized Expense. Once
+//  created, an entry is LOCKED — no edit, no delete. The only way to
+//  change anything is the Convert step, which is also where the
+//  fields a real expense needs (category, payment method) get filled
+//  in — that's also where a typo in amount/date/purpose gets fixed,
+//  since editing isn't allowed before that point.
+//
+//  A pending entry that should never be converted at all (duplicate,
+//  entered by mistake, wrong context) can be voided instead — see the
+//  `void` action below. Voiding is only allowed while status='pending'
+//  (nothing converted yet); once even part of an entry has become a
+//  real Expense record, hiding the source would orphan that expense's
+//  provenance, so voiding is blocked at that point on purpose.
 //
 //  GET    ?action=list              → all entries, newest first
 //  GET    ?id=X                     → single entry
-//  POST                             → create a new entry
-//  PUT    ?id=X                     → edit an entry (pending/partial only)
+//  POST                             → create a new (locked) entry
 //  POST   ?action=convert&id=X      → convert to a real Expense row
+//  POST   ?action=void&id=X         → void a still-pending entry (soft, reversible)
 // ================================================================
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -38,10 +43,13 @@ $db->exec("CREATE TABLE IF NOT EXISTS `credit_entries` (
     `purpose`             VARCHAR(255)  NOT NULL,
     `paid_to`             VARCHAR(200)  NULL,
     `payment_method`      VARCHAR(60)   NULL,
-    `status`              ENUM('pending','partial','converted') NOT NULL DEFAULT 'pending',
+    `status`              ENUM('pending','partial','converted','voided') NOT NULL DEFAULT 'pending',
     `converted_amount`    DECIMAL(12,2) NOT NULL DEFAULT 0,
     `converted_expense_id` INT UNSIGNED NULL,
     `converted_at`        DATETIME      NULL,
+    `voided_at`           DATETIME      NULL,
+    `voided_by`           INT UNSIGNED  NULL,
+    `void_reason`         VARCHAR(255)  NULL,
     `created_by`          INT UNSIGNED  NULL,
     `created_at`          DATETIME      NOT NULL,
     PRIMARY KEY (`id`),
@@ -71,8 +79,14 @@ try { $db->exec("ALTER TABLE credit_entries ADD COLUMN payment_method VARCHAR(60
 catch (Throwable $e) { /* already exists */ }
 try { $db->exec("ALTER TABLE credit_entries ADD COLUMN converted_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER status"); }
 catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE credit_entries MODIFY COLUMN status ENUM('pending','partial','converted') NOT NULL DEFAULT 'pending'"); }
+try { $db->exec("ALTER TABLE credit_entries MODIFY COLUMN status ENUM('pending','partial','converted','voided') NOT NULL DEFAULT 'pending'"); }
 catch (Throwable $e) { /* already correct */ }
+try { $db->exec("ALTER TABLE credit_entries ADD COLUMN voided_at DATETIME NULL AFTER converted_at"); }
+catch (Throwable $e) { /* already exists */ }
+try { $db->exec("ALTER TABLE credit_entries ADD COLUMN voided_by INT UNSIGNED NULL AFTER voided_at"); }
+catch (Throwable $e) { /* already exists */ }
+try { $db->exec("ALTER TABLE credit_entries ADD COLUMN void_reason VARCHAR(255) NULL AFTER voided_by"); }
+catch (Throwable $e) { /* already exists */ }
 
 // NOTE: Cash in Hand is deliberately NOT integrated with this flow.
 // A credit entry represents money already paid personally (by the
@@ -89,7 +103,16 @@ try {
             $row = $stmt->fetch();
             jsonResponse($row ? ['success' => true, 'data' => $row] : ['success' => false, 'error' => 'Not found']);
         }
-        $stmt = $db->query('SELECT * FROM credit_entries ORDER BY entry_date DESC, id DESC');
+        // Voided entries are excluded from the default list by design —
+        // that's the whole point of voiding one (get it out of the way),
+        // but the row itself is never deleted, so it's still reachable
+        // via ?status=voided for anyone who needs to review what was
+        // voided and why.
+        if (($_GET['status'] ?? '') === 'voided') {
+            $stmt = $db->query("SELECT * FROM credit_entries WHERE status='voided' ORDER BY voided_at DESC, id DESC");
+        } else {
+            $stmt = $db->query("SELECT * FROM credit_entries WHERE status != 'voided' ORDER BY entry_date DESC, id DESC");
+        }
         jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
     }
 
@@ -97,6 +120,53 @@ try {
     if ($method === 'POST') {
         $raw  = file_get_contents('php://input');
         $body = json_decode($raw, true) ?: [];
+    }
+
+    // ── VOID: only while still fully 'pending' — nothing converted yet.
+    // Soft, reversible (see ?action=unvoid below), never deletes the row.
+    if ($method === 'POST' && $action === 'void') {
+        $id = (int)($_GET['id'] ?? $body['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+
+        $stmt = $db->prepare('SELECT * FROM credit_entries WHERE id = ?');
+        $stmt->execute([$id]);
+        $entry = $stmt->fetch();
+        if (!$entry) jsonResponse(['error' => 'Not found'], 404);
+        if ($entry['status'] === 'voided') jsonResponse(['error' => 'Already voided'], 400);
+        if ($entry['status'] !== 'pending') {
+            jsonResponse(['error' => "Can't void this — part of it (" . number_format((float)$entry['converted_amount'], 2) . ") has already been converted to a real Expense record, so voiding would hide that expense's source. Nothing left to void."], 422);
+        }
+
+        $reason = trim($body['reason'] ?? '');
+        $now = date('Y-m-d H:i:s');
+        $db->prepare('UPDATE credit_entries SET status=?, voided_at=?, voided_by=?, void_reason=? WHERE id=?')
+           ->execute(['voided', $now, (int)($_SESSION['user_id'] ?? 0), $reason ?: null, $id]);
+
+        logActivity((int)($_SESSION['user_id'] ?? 0), 'void', 'credit_entry', $id,
+            "Voided credit entry: {$entry['purpose']} — ₹" . number_format((float)$entry['amount'], 2) .
+            ($reason ? " (reason: {$reason})" : ''));
+
+        jsonResponse(['success' => true]);
+    }
+
+    // ── UNVOID: undo a mistaken void — brings it back to 'pending'. ──
+    if ($method === 'POST' && $action === 'unvoid') {
+        $id = (int)($_GET['id'] ?? $body['id'] ?? 0);
+        if (!$id) jsonResponse(['error' => 'Missing id'], 400);
+
+        $stmt = $db->prepare('SELECT * FROM credit_entries WHERE id = ?');
+        $stmt->execute([$id]);
+        $entry = $stmt->fetch();
+        if (!$entry) jsonResponse(['error' => 'Not found'], 404);
+        if ($entry['status'] !== 'voided') jsonResponse(['error' => 'This entry is not voided'], 400);
+
+        $db->prepare('UPDATE credit_entries SET status=?, voided_at=NULL, voided_by=NULL, void_reason=NULL WHERE id=?')
+           ->execute(['pending', $id]);
+
+        logActivity((int)($_SESSION['user_id'] ?? 0), 'unvoid', 'credit_entry', $id,
+            "Restored voided credit entry: {$entry['purpose']} — ₹" . number_format((float)$entry['amount'], 2));
+
+        jsonResponse(['success' => true]);
     }
 
     // ── CONVERT: create a real Expense row for PART OR ALL of this
@@ -112,6 +182,7 @@ try {
         $entry = $stmt->fetch();
         if (!$entry) jsonResponse(['error' => 'Not found'], 404);
         if ($entry['status'] === 'converted') jsonResponse(['error' => 'This entry has already been fully converted.'], 400);
+        if ($entry['status'] === 'voided') jsonResponse(['error' => 'This entry has been voided and cannot be converted.'], 400);
 
         $alreadyConverted = (float)$entry['converted_amount'];
         $remaining = round((float)$entry['amount'] - $alreadyConverted, 2);
@@ -179,51 +250,7 @@ try {
             'remaining' => round((float)$entry['amount'] - $newConverted, 2)]);
     }
 
-    // ── EDIT — allowed while pending or partial, locked once fully
-    // converted. Amount can't be reduced below what's already been
-    // converted out of a partial entry, or the remaining/"X left"
-    // math would go negative.
-    if ($method === 'PUT') {
-        $id = (int)($_GET['id'] ?? 0);
-        if (!$id) jsonResponse(['error' => 'Missing id'], 400);
-
-        $stmt = $db->prepare('SELECT * FROM credit_entries WHERE id = ?');
-        $stmt->execute([$id]);
-        $entry = $stmt->fetch();
-        if (!$entry) jsonResponse(['error' => 'Not found'], 404);
-        if ($entry['status'] === 'converted') {
-            jsonResponse(['error' => 'This entry has already been fully converted and can no longer be edited.'], 400);
-        }
-
-        $raw  = file_get_contents('php://input');
-        $body = json_decode($raw, true) ?: [];
-
-        $date    = trim($body['date']    ?? '');
-        $amount  = (float)($body['amount'] ?? 0);
-        $purpose = trim($body['purpose'] ?? '');
-        $paidTo  = trim($body['paid_to'] ?? '');
-        $payMethod = trim($body['payment_method'] ?? '');
-
-        if (!$date || !$purpose || $amount <= 0) {
-            jsonResponse(['error' => 'date, purpose, and amount are required'], 422);
-        }
-
-        $alreadyConverted = (float)$entry['converted_amount'];
-        if ($amount < $alreadyConverted - 0.004) {
-            jsonResponse(['error' => "Amount can't be less than ₹" . number_format($alreadyConverted, 2) . " — that much has already been converted to an expense from this entry."], 422);
-        }
-
-        $db->prepare(
-            'UPDATE credit_entries SET entry_date=?, amount=?, purpose=?, paid_to=?, payment_method=? WHERE id=?'
-        )->execute([$date, $amount, $purpose, $paidTo ?: null, $payMethod ?: null, $id]);
-
-        logActivity((int)($_SESSION['user_id'] ?? 0), 'update', 'credit_entry', $id,
-            "Credit entry edited: {$purpose} — ₹" . number_format($amount, 2));
-
-        jsonResponse(['success' => true]);
-    }
-
-    // ── POST — create ──
+    // ── POST — create (locked forever after; no PUT/DELETE at all) ──
     if ($method === 'POST') {
         $date    = trim($body['date']    ?? '');
         $amount  = (float)($body['amount'] ?? 0);

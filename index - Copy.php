@@ -621,7 +621,24 @@ canvas { max-width: 100% !important; }
 .pne-topbar {
   display: flex; justify-content: space-between; align-items: flex-start;
   padding: 18px 24px; background: var(--card); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 20;
+  /* Was `top: 0` — but .topbar (the app header) is ALSO sticky at top:0
+     with a higher z-index, so this ended up sticking directly behind/
+     under the app header instead of just below it — visually swallowed
+     the moment you scrolled far enough, even though it was technically
+     "stuck". Offsetting by the header's own height fixes that: this now
+     sticks right underneath the app header instead of competing for the
+     same spot. Affects every entry page sharing this class (Purchase,
+     Sale, Product, etc.), not just one. */
+  position: sticky; top: var(--topbar-h); z-index: 20;
+}
+/* position:sticky above wasn't actually engaging in practice (see the
+   JS-driven fallback near the end of the file) — this is the "stuck"
+   state that fallback switches to manually via position:fixed. */
+.pne-topbar.js-stuck {
+  position: fixed !important;
+  top: var(--topbar-h);
+  z-index: 30;
+  box-shadow: 0 3px 10px rgba(0,0,0,.10);
 }
 .pne-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .pne-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
@@ -631,7 +648,7 @@ canvas { max-width: 100% !important; }
 .pne-btn-save:hover, .pne-btn-savenew:hover, .pne-btn-print:hover { background: var(--teal-dark, #00695C); }
 .pne-split { display: flex; }
 
-.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 20px 4px 60px; align-items: start; }
+.pne-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; padding: 55px 4px 60px; align-items: start; }
 .pne-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pne-sidebar { display: flex; flex-direction: column; gap: 16px; }
 /* Local customer type: hide every USD-only column/field/button on the offer page */
@@ -4187,23 +4204,25 @@ const SERVER = {
                 </div>
               </div>
 
-              <div class="field"><label>Payment Method *</label>
-                <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
-              </div>
-              <div id="sn-split-panel" style="display:none">
-                <div class="pne-split-card">
-                  <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
-                  <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
-                  <div class="pne-split-actions">
-                    <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
-                    <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
-                  </div>
-                  <div id="sn-split-footer" class="pne-split-footer"></div>
-                  <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+              <div id="sn-paidfields-wrap">
+                <div class="field"><label>Payment Method *</label>
+                  <select id="sn-paymethod" onchange="toggleSNSplitPayment()"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split Payment">Split Payment</option></select>
                 </div>
+                <div id="sn-split-panel" style="display:none">
+                  <div class="pne-split-card">
+                    <div class="pne-split-card-head"><i class="fas fa-bolt"></i> Split Payment — Enter amount per method</div>
+                    <div id="sn-split-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+                    <div class="pne-split-actions">
+                      <button type="button" class="pne-split-addbtn" onclick="addSNSplitRow(); syncSNSplitAutoRow();"><i class="fas fa-plus"></i> Add Method</button>
+                      <span class="pne-split-totallabel">Split Total: <strong id="sn-split-total-amt">₹0.00</strong></span>
+                    </div>
+                    <div id="sn-split-footer" class="pne-split-footer"></div>
+                    <div id="sn-split-mismatch" style="display:none;font-size:11px;font-weight:600;color:#E65100;background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:7px 10px;margin-top:8px"></div>
+                  </div>
+                </div>
+                <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
+                <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               </div>
-              <div class="field"><label>Transaction No.</label><input id="sn-transactionno" placeholder="—"></div>
-              <div class="field"><label>Payment Date *</label><input type="date" id="sn-paydate" onchange="syncSNInvoiceDateToPayment()"></div>
               <div class="pne-charge-total"><span>Outstanding Amount</span><strong id="sn-outstanding-amount" style="color:#E53935">₹0.00</strong></div>
             </div>
 
@@ -9931,7 +9950,18 @@ function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-' + name);
-  if (page) page.classList.add('active');
+  if (page) {
+    page.classList.add('active');
+    // Force a layout recalculation right after display:none → block.
+    // Without this, position:sticky on .pne-topbar (and anything else
+    // sticky inside a freshly-shown page) can fail to engage at all in
+    // some browsers — it just scrolls with the page as if sticky wasn't
+    // applied, rather than merely being mispositioned. Reading
+    // offsetHeight forces the browser to flush the pending layout
+    // change before any scrolling happens, so sticky gets computed
+    // against the page's real, final geometry from the start.
+    void page.offsetHeight;
+  }
   if (el) el.classList.add('active');
   else {
     const nav = document.querySelector(`.nav-item[data-page="${name}"]`);
@@ -19695,7 +19725,7 @@ function renderPurchases() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
+      <td><span id="pur-paystatus-badge-${p.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(payLabel)}</span></td>
       <td>${(p.status === 'Paid' || p.status === 'Partial') && p.last_payment_date ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);background:var(--blue-bg);padding:2px 9px;border-radius:10px;white-space:nowrap"><i class="fas fa-calendar-days" style="font-size:10px"></i>${fmt_date_disp(p.last_payment_date)}</span>` : `<span style="color:var(--muted2)">—</span>`}</td>
       <td>${p.status === 'Pending' ? `<span style="color:var(--muted2)">—</span>` : escHtml(p.payment_type||'—')}</td>
       <td>
@@ -22510,12 +22540,11 @@ function goToNewSale() {
   document.getElementById('psn-title').textContent = 'New Sale Entry';
   document.getElementById('psn-subtitle').textContent = 'Create an export / local sale invoice';
   populateSaleCustomerDropdown();
-  populateSalesExecDropdown(SERVER.user?.name || '');
   document.getElementById('sn-customer').value = '';
   clearCustomerAutofill();
   document.getElementById('sn-customertype').value = 'Domestic';
   document.getElementById('sn-shipping').value = '';
-  document.getElementById('sn-salesexec').value = '';
+  populateSalesExecDropdown(SERVER.user?.name || ''); // auto-selects the logged-in user — must run AFTER any sn-salesexec reset, not before (see chat: this used to be immediately undone by a redundant clear that ran right after it)
   document.getElementById('sn-invno').value = '';
   document.getElementById('sn-invdate').value = fmt_date(new Date());
   document.getElementById('sn-duedate').value = '';
@@ -22553,6 +22582,7 @@ function goToNewSale() {
   document.getElementById('sn-amountreceived').value = 0;
   document.getElementById('sn-transactionno').value = '';
   document.getElementById('sn-paydate').value = fmt_date(new Date());
+  updateSNPaymentModeVisibility('Pending'); // fresh form — nothing received yet
   setSalePaymentInfoLocked(false);
   // Pre-fill from Settings → Invoice Defaults, same as the Service
   // Invoice's Notes field already does — this was previously always
@@ -22962,6 +22992,15 @@ function calcSNWeightSummary() {
   calcSaleNewTotals();
 }
 
+// Payment Method / Transaction No. / Payment Date only mean something
+// once money has actually been received — same rationale as Purchase
+// Entry's updatePNEPaymentModeVisibility(). While Payment Status is
+// Pending, nothing's been received yet, so these are irrelevant noise.
+function updateSNPaymentModeVisibility(payStatus) {
+  const wrap = document.getElementById('sn-paidfields-wrap');
+  if (wrap) wrap.style.display = (payStatus === 'Pending') ? 'none' : '';
+}
+
 function calcSaleNewTotals() {
   let totalQty = 0, subtotal = 0, itemsTax = 0;
   SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
@@ -23020,7 +23059,17 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-grand').textContent = fmt_money(grand);
 
   const payStatus = document.getElementById('sn-paystatus').value;
-  if (payStatus === 'Paid') document.getElementById('sn-amountreceived').value = grand.toFixed(2);
+  // Same fix as Purchase Entry: Paid mirrors the grand total, Pending is
+  // forced back to 0 (previously only Paid was handled, so switching
+  // Paid → Pending left the old grand-total amount stuck in the field —
+  // hidden once sn-paidfields-wrap is hidden below, but still silently
+  // included in the save payload). Partial is left alone for manual entry.
+  if (payStatus === 'Paid') {
+    document.getElementById('sn-amountreceived').value = grand.toFixed(2);
+  } else if (payStatus === 'Pending') {
+    document.getElementById('sn-amountreceived').value = 0;
+  }
+  updateSNPaymentModeVisibility(payStatus);
   const received = parseFloat(document.getElementById('sn-amountreceived').value) || 0;
   const balance = Math.max(0, grand - received);
   document.getElementById('sn-sum-received').textContent = fmt_money(received);
@@ -23249,10 +23298,17 @@ async function saveSaleEntry(mode) {
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
     cd_applicable_within: document.getElementById('sn-cdwithin').value,
     payment_status: document.getElementById('sn-paystatus').value,
-    payment_method: document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value,
+    // Blank, not the leftover default, when nothing's been received yet —
+    // same rationale as Purchase Entry's payment_mode fix: otherwise a
+    // Pending sale still reports "Cash" (its default) with ₹0 received,
+    // which Finance Report's Received — Sales list would include as a
+    // spurious "Cash — ₹0.00" row if it were the only Cash-mode sale in
+    // the period.
+    payment_method: document.getElementById('sn-paystatus').value === 'Pending' ? '' :
+      (document.getElementById('sn-paymethod').value === 'Split Payment' ? getSNSplitLabel() : document.getElementById('sn-paymethod').value),
     amount_received: parseFloat(document.getElementById('sn-amountreceived').value) || 0,
-    transaction_no: document.getElementById('sn-transactionno').value.trim(),
-    payment_date: document.getElementById('sn-paydate').value || null,
+    transaction_no: document.getElementById('sn-paystatus').value === 'Pending' ? '' : document.getElementById('sn-transactionno').value.trim(),
+    payment_date: document.getElementById('sn-paystatus').value === 'Pending' ? null : (document.getElementById('sn-paydate').value || null),
     customer_notes: document.getElementById('sn-customernotes').value.trim(),
     internal_notes: document.getElementById('sn-internalnotes').value.trim(),
     delivery_instructions: document.getElementById('sn-deliveryinstructions').value.trim(),
@@ -23351,6 +23407,7 @@ async function editSale(id) {
     document.getElementById('sn-cashdiscpct').value = s.cash_discount_pct || 0;
     document.getElementById('sn-cdwithin').value = s.cd_applicable_within || 'Same Day';
     document.getElementById('sn-paystatus').value = s.payment_status || 'Pending';
+    updateSNPaymentModeVisibility(s.payment_status || 'Pending'); // reflect this record's actual status, not the fresh-form default
     const isSNSplitSaved = (s.payment_method || '').startsWith('Split:');
     document.getElementById('sn-paymethod').value = isSNSplitSaved ? 'Split Payment' : (s.payment_method || 'Cash');
     document.getElementById('sn-split-panel').style.display = isSNSplitSaved ? 'block' : 'none';
@@ -23549,7 +23606,7 @@ function renderSales() {
           return `<div style="margin-top:2px"><span style="display:inline-block;font-size:10px;font-weight:700;color:#7B3F00;background:#FFF3E0;padding:2px 8px;border-radius:9px;white-space:nowrap">₹${remain.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})} left (${pct}%)</span></div>`;
         })() : ''}
       </td>
-      <td><span style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
+      <td><span id="sale-paystatus-badge-${s.id}" style="font-size:11px;font-weight:700;color:${pc.color};background:${pc.bg};padding:2px 9px;border-radius:10px">${escHtml(s.payment_status||'—')}</span></td>
       <td><span style="font-size:11px;font-weight:700;color:${st.color};background:${st.color}18;padding:2px 9px;border-radius:10px">${escHtml(st.label)}</span></td>
       <td>${escHtml(s.sales_executive||'—')}</td>
       <td>
@@ -25212,8 +25269,18 @@ async function deleteStockInEntry(id) {
 let RPP_ACTIVE_PURCHASE = null;
 
 async function openRecordPurchasePayment(purchaseId) {
+  // Same fix as openRecordSalePayment — the triggering button lives
+  // inside the "⋯ More" dropdown, which closes itself on the same click
+  // that opened it (see the document click listener near toggleActMenu),
+  // so a spinner there is invisible. Payment Status badge stays visible.
+  const badge = document.getElementById('pur-paystatus-badge-' + purchaseId);
+  const badgeOrigHtml = badge ? badge.innerHTML : null;
+  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    const r = await api('api/purchases.php?id=' + purchaseId);
+    const [r, hist] = await Promise.all([
+      api('api/purchases.php?id=' + purchaseId),
+      api('api/purchase_payments.php?purchase_id=' + purchaseId),
+    ]);
     const p = r.data;
     RPP_ACTIVE_PURCHASE = p;
 
@@ -25231,8 +25298,6 @@ async function openRecordPurchasePayment(purchaseId) {
     document.getElementById('rpp-txn').value = '';
     document.getElementById('rpp-notes').value = '';
 
-    // Payment history
-    const hist = await api('api/purchase_payments.php?purchase_id=' + purchaseId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rpp-history-wrap');
     const list = document.getElementById('rpp-history-list');
@@ -25254,6 +25319,7 @@ async function openRecordPurchasePayment(purchaseId) {
     updateRPPNotice();
     openModal('modal-record-purchase-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 // Live "this will still leave X due / status stays Partial" notice —
@@ -25327,8 +25393,22 @@ async function saveRecordPurchasePayment() {
 let RSP_ACTIVE_SALE = null;
 
 async function openRecordSalePayment(saleId) {
+  // The button that triggered this lives inside the "⋯ More" dropdown
+  // (.act-menu), which closes itself the instant any click happens
+  // anywhere in the document (see the document click listener near
+  // toggleActMenu) — so a spinner on that button is invisible before the
+  // user ever sees it. The Payment Status badge in the same row stays on
+  // screen regardless, so that's where the loading feedback goes instead.
+  const badge = document.getElementById('sale-paystatus-badge-' + saleId);
+  const badgeOrigHtml = badge ? badge.innerHTML : null;
+  if (badge) badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
   try {
-    const r = await api('api/sales.php?id=' + saleId);
+    // These two don't depend on each other — running them in parallel
+    // instead of sequential awaits cuts the wait roughly in half.
+    const [r, hist] = await Promise.all([
+      api('api/sales.php?id=' + saleId),
+      api('api/sale_payments.php?sale_id=' + saleId),
+    ]);
     const s = r.data;
     RSP_ACTIVE_SALE = s;
 
@@ -25346,7 +25426,6 @@ async function openRecordSalePayment(saleId) {
     document.getElementById('rsp-txn').value = '';
     document.getElementById('rsp-notes').value = '';
 
-    const hist = await api('api/sale_payments.php?sale_id=' + saleId);
     const rows = Array.isArray(hist.data) ? hist.data : [];
     const wrap = document.getElementById('rsp-history-wrap');
     const list = document.getElementById('rsp-history-list');
@@ -25368,6 +25447,7 @@ async function openRecordSalePayment(saleId) {
     updateRSPNotice();
     openModal('modal-record-sale-payment');
   } catch(e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (badge) badge.innerHTML = badgeOrigHtml; }
 }
 
 function updateRSPNotice() {
@@ -31439,7 +31519,7 @@ function renderCreditTable() {
     const isPartial = c.status === 'partial';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
-    return `<tr>
+    return `<tr id="credit-row-${c.id}">
       <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
       <td>${escHtml(c.purpose)}</td>
       <td>${escHtml(c.paid_to || '—')}</td>
@@ -31461,6 +31541,23 @@ function renderCreditTable() {
       </td>
     </tr>`;
   }).join('');
+
+  // One-time highlight for a row we were sent here to find — set by
+  // viewCreditEntrySource()'s "Go to Credit Page" button (Expense page's
+  // "Via Credit" badge). Checked here rather than right after the nav
+  // click, since loadCreditEntries() fetches asynchronously — the row
+  // doesn't exist in the DOM until this render actually runs.
+  if (window.CREDIT_HIGHLIGHT_ID) {
+    const targetId = window.CREDIT_HIGHLIGHT_ID;
+    window.CREDIT_HIGHLIGHT_ID = null; // consume — don't re-highlight on a later, unrelated visit to this page
+    const row = document.getElementById('credit-row-' + targetId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.style.transition = 'background-color 1.6s ease';
+      row.style.backgroundColor = '#FFF3CD';
+      setTimeout(() => { row.style.backgroundColor = ''; }, 2400);
+    }
+  }
 }
 
 function openAddCreditModal() {
@@ -31550,7 +31647,10 @@ async function viewCreditEntrySource(creditEntryId) {
       cancelButtonText: 'Close',
       customClass: { popup: 'swal-compact' },
     }).then(res => {
-      if (res.isConfirmed) document.querySelector('.nav-item[data-page="credit"]')?.click();
+      if (res.isConfirmed) {
+        window.CREDIT_HIGHLIGHT_ID = creditEntryId; // consumed by renderCreditTable() once the list actually loads
+        document.querySelector('.nav-item[data-page="credit"]')?.click();
+      }
     });
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
@@ -35873,6 +35973,97 @@ async function exportMsgLog() {
     toast('✗ Export failed: ' + e.message, 'error');
   }
 }
+
+// ── JS-driven sticky action bar (Cancel/Save/etc. on entry pages) ──
+// position:sticky on .pne-topbar wasn't engaging at all in practice —
+// it scrolled away with the page instead of pinning, for reasons that
+// held up even after ruling out overflow-clipping ancestors, undefined
+// CSS variables, and display:none→block reflow timing. Rather than keep
+// guessing at the CSS cause, this manually switches the topbar to
+// position:fixed once its natural position scrolls past the app header,
+// with a placeholder to prevent the page content jumping when it leaves
+// normal flow. Applies to every page using .pne-topbar (Purchase, Sale,
+// Product, etc.) via the shared class, not just one page.
+//
+// NOTE: .pages-container declares overflow-y:auto, but body/.main-wrap
+// only constrain themselves with min-height (not height), so that
+// overflow never actually engages in practice — the real scroll happens
+// on the window/document, not inside .pages-container. The first version
+// of this fix listened for 'scroll' on .pages-container and so never
+// fired at all. Listening on window (and reading window.scrollY) instead
+// is what actually matches where scrolling really happens.
+(function() {
+  function topbarHeightPx() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 60;
+  }
+
+  function syncStuckRect(topbar) {
+    const container = document.querySelector('.pages-container');
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    topbar.style.left = rect.left + 'px';
+    topbar.style.width = rect.width + 'px';
+  }
+
+  function unstick(topbar) {
+    topbar.classList.remove('js-stuck');
+    topbar.style.left = '';
+    topbar.style.width = '';
+    if (topbar._pneStuckPlaceholder) { topbar._pneStuckPlaceholder.remove(); topbar._pneStuckPlaceholder = null; }
+  }
+
+  function handleScroll() {
+    const activePage = document.querySelector('.page.active');
+    if (!activePage) return;
+    const topbar = activePage.querySelector(':scope > .pne-topbar');
+    if (!topbar) return;
+
+    const isStuck = topbar.classList.contains('js-stuck');
+    const threshold = topbarHeightPx();
+
+    if (!isStuck) {
+      const top = topbar.getBoundingClientRect().top;
+      if (top <= threshold) {
+        const placeholder = document.createElement('div');
+        placeholder.style.height = topbar.offsetHeight + 'px';
+        topbar.parentNode.insertBefore(placeholder, topbar);
+        topbar._pneStuckPlaceholder = placeholder;
+        topbar.classList.add('js-stuck');
+        syncStuckRect(topbar);
+      }
+    } else {
+      // Un-stick based on where the placeholder (marking the topbar's
+      // natural position) currently sits, not a remembered scroll
+      // number — this stays correct no matter which ancestor actually
+      // owns the scrolling.
+      const ph = topbar._pneStuckPlaceholder;
+      if (ph && ph.getBoundingClientRect().top >= threshold) {
+        unstick(topbar);
+      } else {
+        syncStuckRect(topbar); // keep width/left correct if the window/sidebar resizes while stuck
+      }
+    }
+  }
+
+  // Capture-phase listener on document catches scroll events from ANY
+  // scrollable descendant (they don't bubble, but capturing on an
+  // ancestor still sees them), plus the window/document scroll itself —
+  // this way the fix works correctly regardless of which element turns
+  // out to actually be the one scrolling.
+  document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('resize', handleScroll);
+  });
+
+  // Clean slate whenever navigating — a freshly-entered page should
+  // always start with its topbar in normal (non-stuck) position, and
+  // any stray placeholder from a previous visit shouldn't linger.
+  const _origShowPage = window.showPage;
+  window.showPage = function(name, el) {
+    document.querySelectorAll('.pne-topbar.js-stuck').forEach(unstick);
+    return _origShowPage.apply(this, arguments);
+  };
+})();
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
