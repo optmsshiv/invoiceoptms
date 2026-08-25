@@ -260,7 +260,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
   `warehouse` VARCHAR(100) DEFAULT 'Main Warehouse',
   `payment_terms` VARCHAR(100) DEFAULT '',
   `payment_type` VARCHAR(60) DEFAULT '',
-  `expected_payment_date` DATE NULL,
   `remarks` TEXT NULL,
   `transport_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `loading_charge` DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -296,21 +295,8 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   INDEX `idx_pur_supplier` (`supplier_id`),
-  INDEX `idx_pur_date` (`purchase_date`),
-  INDEX `idx_pur_expected_pay` (`expected_payment_date`)
+  INDEX `idx_pur_date` (`purchase_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-// Migration guard — for installs where `purchases` already existed
-// before expected_payment_date was added. This is the field the client
-// asked for: "when do we plan/intend to pay this supplier" — kept as
-// its own explicit date rather than derived from payment_terms (Net 7/
-// Net 15/...) because payment_terms is just a category, and the actual
-// planned date can shift (supplier agrees to wait, cash flow changes)
-// independent of what category was picked at purchase time.
-try { $db->exec("ALTER TABLE purchases ADD COLUMN expected_payment_date DATE NULL AFTER payment_type"); }
-catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE purchases ADD INDEX idx_pur_expected_pay (expected_payment_date)"); }
-catch (Throwable $e) { /* already exists */ }
 
 $db->exec("CREATE TABLE IF NOT EXISTS `purchase_items` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -513,7 +499,7 @@ switch ($method) {
       (purchase_no, supplier_id, supplier_invoice_ref, purchase_date, currency, exchange_rate,
        subtotal, gst_amount, gst_pct, total, amount_paid, status, notes,
        reference_po_no, supplier_type, gst_applicable, supply_type,
-       transport_mode, vehicle_no, driver_name, warehouse, payment_terms, payment_type, expected_payment_date, remarks,
+       transport_mode, vehicle_no, driver_name, warehouse, payment_terms, payment_type, remarks,
        transport_charge, loading_charge, packing_charge, other_charges, discount_amount, discount_remarks,
        deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        attachment_path, payment_mode, transaction_no, payment_date,
@@ -521,7 +507,7 @@ switch ($method) {
        kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
        header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight,
        client_request_id, created_by, created_at)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)');
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -529,7 +515,7 @@ switch ($method) {
       $d['payment_status'] ?? 'Pending', $d['notes'] ?? '',
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
-      $d['payment_terms'] ?? '', $d['payment_type'] ?? '', ($d['expected_payment_date'] ?? '') ?: null, $d['remarks'] ?? '',
+      $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $attachmentPath, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
@@ -656,7 +642,7 @@ switch ($method) {
       supplier_id=?, supplier_invoice_ref=?, purchase_date=?, currency=?, exchange_rate=?,
       subtotal=?, gst_amount=?, gst_pct=?, total=?, notes=?,
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
-      transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, expected_payment_date=?, remarks=?,
+      transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, remarks=?,
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?, discount_remarks=?,
       deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       payment_mode=?, transaction_no=?, payment_date=?,
@@ -671,7 +657,7 @@ switch ($method) {
       $subtotal, $gstAmount, $gstPct, $total, $d['notes'] ?? '',
       $d['reference_po_no'] ?? '', $d['supplier_type'] ?? '', $gstApplicable ? 1 : 0, $d['supply_type'] ?? 'Intra-State',
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
-      $d['payment_terms'] ?? '', $d['payment_type'] ?? '', ($d['expected_payment_date'] ?? '') ?: null, $d['remarks'] ?? '',
+      $d['payment_terms'] ?? '', $d['payment_type'] ?? '', $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
       json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,

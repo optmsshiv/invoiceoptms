@@ -3398,12 +3398,6 @@ const SERVER = {
               </div>
               <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
             </div>
-            <div class="pne-grid4">
-              <div class="field">
-                <label>Expected Payment Date <i class="fas fa-info-circle" title="When you plan to pay the supplier — used for the payment-due reminder" style="color:var(--muted)"></i></label>
-                <input type="date" id="pn-expectedpaydate">
-              </div>
-            </div>
           </div>
 
           <!-- Items Details -->
@@ -19277,7 +19271,6 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
-        ${p.expected_payment_date ? `<div class="sp-info-item"><i class="fas fa-calendar-check" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}"></i><div><div class="sp-label">Expected Payment Date</div><div class="sp-val" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}">${fmt_date_disp(p.expected_payment_date)}${outstanding>0 && new Date(p.expected_payment_date) < new Date() ? ' (overdue)' : ''}</div></div></div>` : ''}
       </div>
     </div>
 
@@ -20120,7 +20113,6 @@ function goToNewPurchase() {
   document.getElementById('pn-warehouse').value = 'Main Warehouse';
   document.getElementById('pn-paymentterms').value = 'Immediate';
   document.getElementById('pn-paymenttype').value = 'Cash';
-  document.getElementById('pn-expectedpaydate').value = '';
   document.getElementById('pn-remarks').value = '';
   setGstApplicable(false);
   document.getElementById('pn-transportcharge').value = 0;
@@ -20855,7 +20847,6 @@ async function editPurchase(id) {
     document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
     document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
     document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
-    document.getElementById('pn-expectedpaydate').value = p.expected_payment_date ? String(p.expected_payment_date).slice(0,10) : '';
     document.getElementById('pn-remarks').value = p.remarks || '';
     setGstApplicable(!!parseInt(p.gst_applicable));
     document.getElementById('pn-supplytype').value = p.supply_type || 'Intra-State';
@@ -21155,7 +21146,6 @@ async function savePurchaseEntry(mode) {
     // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
     // existing total, but an all-zero group still renders as a row).
     payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
-    expected_payment_date: document.getElementById('pn-expectedpaydate').value || '',
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
@@ -28921,38 +28911,13 @@ function renderNotifications() {
     items.push({ type:'info', key:`sale-due-${s.id}`, text:`<b>${escHtml(s.customer_name||'—')}</b> — ${escHtml(s.invoice_no||'')} due ${dueDate}` });
   });
 
-  // Supplier payments overdue — the date the client asked to be reminded
-  // about: expected_payment_date is the planned pay-supplier date set on
-  // the purchase (independent of payment_terms, which is just a category).
-  // Mirrors the invoice/sale overdue+due-soon pattern above, one line per
-  // record (capped at 3) instead of a summary, since a date makes each
-  // one individually actionable.
-  (STATE.purchases || []).filter(p => {
-    if ((p.status||'Pending') === 'Paid' || !p.expected_payment_date) return false;
-    return new Date(p.expected_payment_date) < today;
-  }).slice(0,3).forEach(p => {
-    items.push({ type:'warn', key:`pur-overdue-${p.id}`, text:`Payment to <b>${escHtml(p.supplier_name||'—')}</b> for ${escHtml(p.purchase_no||'')} is overdue` });
-  });
-
-  // Supplier payments due in next 3 days
-  (STATE.purchases || []).filter(p => {
-    if ((p.status||'Pending') === 'Paid' || !p.expected_payment_date) return false;
-    const diff = (new Date(p.expected_payment_date) - today) / 86400000;
-    return diff >= 0 && diff <= 3;
-  }).slice(0,3).forEach(p => {
-    const dueDate = new Date(p.expected_payment_date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short'});
-    items.push({ type:'info', key:`pur-due-${p.id}`, text:`Payment to <b>${escHtml(p.supplier_name||'—')}</b> — ${escHtml(p.purchase_no||'')} due ${dueDate}` });
-  });
-
-  // Purchases with outstanding payment but no expected payment date set —
-  // kept as a count-based summary (not one line per record) since these
-  // have nothing date-specific to say, same reasoning as the original
-  // purchases-pending-summary this replaces. Purchases already covered by
-  // the two date-aware blocks above are excluded so they aren't counted twice.
-  const pendingNoDatePurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid' && !p.expected_payment_date);
-  if (pendingNoDatePurchases.length) {
-    const total = pendingNoDatePurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
-    items.push({ type:'info', key:'purchases-pending-summary', text:`<b>${pendingNoDatePurchases.length}</b> purchase${pendingNoDatePurchases.length>1?'s':''} with pending payment (no date set) — ${fmt_money(total)} outstanding` });
+  // Purchases with outstanding payment — purchases have no due_date column
+  // in the schema, so unlike invoices/sales this is a single count-based
+  // summary rather than one line per record, to avoid flooding the panel.
+  const pendingPurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid');
+  if (pendingPurchases.length) {
+    const total = pendingPurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
+    items.push({ type:'info', key:'purchases-pending-summary', text:`<b>${pendingPurchases.length}</b> purchase${pendingPurchases.length>1?'s':''} with pending payment — ${fmt_money(total)} outstanding` });
   }
 
   // Drop anything the person already marked as read — approvals are exempt.
