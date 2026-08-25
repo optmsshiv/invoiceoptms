@@ -7940,7 +7940,6 @@ View Invoice: {{6}}</pre></details>
           <span style="font-size:13px;color:var(--muted)">Quick-capture log for personal spending the owner will formally categorize as an Expense later. Once added, an entry is locked — corrections happen at the conversion step.</span>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-outline" id="credit-toggle-cancelled-btn" onclick="toggleShowCancelledCredits()"><i class="fas fa-ban"></i> Show Cancelled</button>
           <button class="btn btn-primary" onclick="openAddCreditModal()"><i class="fas fa-plus"></i> Add Credit Entry</button>
         </div>
       </div>
@@ -9177,35 +9176,6 @@ View Invoice: {{6}}</pre></details>
     <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
       <button class="btn btn-success" onclick="saveCreditConversion()" style="flex:1"><i class="fas fa-check"></i> Confirm &amp; Create Expense</button>
       <button class="btn btn-outline" onclick="closeModal('modal-credit-convert')">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Cancel Credit Entry Modal -->
-<div class="modal-overlay" id="modal-credit-cancel">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:9px">
-        <div style="width:30px;height:30px;border-radius:8px;background:#FDECEA;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="fas fa-ban" style="color:#C0392B;font-size:13px"></i>
-        </div>
-        <div style="font-size:14px;font-weight:700;color:var(--text)">Cancel Credit Entry</div>
-      </div>
-      <button class="modal-close" onclick="closeModal('modal-credit-cancel')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
-      <input type="hidden" id="ccl-credit-id">
-      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
-        Cancelling keeps this entry on record — hidden from the main list — instead of deleting it outright. It stays visible under "Show Cancelled" along with your reason. You can restore it later if needed.
-      </div>
-      <div id="ccl-entry-summary" style="font-size:12.5px;font-weight:600;color:var(--text)"></div>
-      <div class="field" style="margin:0"><label>Reason for cancelling *</label>
-        <textarea id="ccl-reason" rows="3" placeholder="e.g. Entered by mistake — duplicate of the fuel entry from the same day" style="width:100%;resize:vertical"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
-      <button class="btn btn-danger" onclick="saveCreditCancel()" style="flex:1"><i class="fas fa-ban"></i> Confirm Cancel</button>
-      <button class="btn btn-outline" onclick="closeModal('modal-credit-cancel')">Back</button>
     </div>
   </div>
 </div>
@@ -31504,9 +31474,7 @@ let CREDIT_ENTRIES = [];
 function _renderCreditSummary() {
   const el = document.getElementById('credit-summary-cards');
   if (!el) return;
-  // Cancelled entries never happened as far as the numbers are concerned —
-  // excluded here so a cancelled entry doesn't inflate "Given"/"Available".
-  const list = (CREDIT_ENTRIES || []).filter(c => c.status !== 'cancelled');
+  const list = CREDIT_ENTRIES || [];
   const given = list.reduce((s,c) => s + parseFloat(c.amount||0), 0);
   // Uses converted_amount (a running total), not a binary status check —
   // a "partial" entry has SOME of its amount used and some still
@@ -31539,37 +31507,16 @@ async function loadCreditEntries() {
   }
 }
 
-// Toggle state for the Credit table: false = normal active-entries view
-// (cancelled hidden), true = showing only cancelled entries. Kept as a
-// simple module-level flag rather than a filter dropdown since it's a
-// binary view, not a multi-value filter.
-window.CREDIT_SHOW_CANCELLED = false;
-
-function toggleShowCancelledCredits() {
-  window.CREDIT_SHOW_CANCELLED = !window.CREDIT_SHOW_CANCELLED;
-  const btn = document.getElementById('credit-toggle-cancelled-btn');
-  if (btn) {
-    btn.innerHTML = window.CREDIT_SHOW_CANCELLED
-      ? '<i class="fas fa-list"></i> Back to Active'
-      : '<i class="fas fa-ban"></i> Show Cancelled';
-  }
-  renderCreditTable();
-}
-
 function renderCreditTable() {
   _renderCreditSummary();
   const tbody = document.getElementById('credit-tbody');
-  const showCancelled = !!window.CREDIT_SHOW_CANCELLED;
-  const rows = CREDIT_ENTRIES.filter(c => showCancelled ? c.status === 'cancelled' : c.status !== 'cancelled');
-
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${showCancelled ? 'No cancelled entries' : 'No credit entries yet — click "Add Credit Entry" to log one'}</td></tr>`;
+  if (!CREDIT_ENTRIES.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(c => {
+  tbody.innerHTML = CREDIT_ENTRIES.map(c => {
     const isConverted = c.status === 'converted';
     const isPartial = c.status === 'partial';
-    const isCancelled = c.status === 'cancelled';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
     return `<tr id="credit-row-${c.id}">
@@ -31585,19 +31532,12 @@ function renderCreditTable() {
         ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
         : isPartial
         ? `<span class="badge" style="background:#FFF3E0;color:#9A6700">Partial</span>`
-        : isCancelled
-        ? `<span class="badge" style="background:#FDECEA;color:#C0392B">Cancelled</span>`
-        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}
-        ${isCancelled && c.cancel_reason ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;max-width:200px">${escHtml(c.cancel_reason)}</div>` : ''}
-      </td>
+        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}</td>
       <td style="text-align:right">
         ${isConverted
           ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
-          : isCancelled
-          ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="restoreCreditEntry(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`
           : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
-             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>
-             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}`}
+             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -31674,53 +31614,6 @@ async function saveCreditEntry() {
       toast('✅ Credit entry saved!', 'success');
     }
     closeModal('modal-credit-add');
-    loadCreditEntries();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// Cancel is the "delete" for a mistaken entry — a reasoned status change
-// instead of a hard delete, kept visible under "Show Cancelled". Only
-// reachable for pending entries (see renderCreditTable), and the backend
-// re-checks status === 'pending' independently, same lock pattern as edit.
-function openCancelCreditModal(id) {
-  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
-  if (!c) return;
-  document.getElementById('ccl-credit-id').value = c.id;
-  document.getElementById('ccl-entry-summary').textContent = `${c.purpose} — ${fmt_money(c.amount)} on ${fmt_date_disp(c.entry_date)}`;
-  document.getElementById('ccl-reason').value = '';
-  openModal('modal-credit-cancel');
-}
-
-async function saveCreditCancel() {
-  const id = document.getElementById('ccl-credit-id').value;
-  const reason = document.getElementById('ccl-reason').value.trim();
-  if (!reason) {
-    toast('⚠️ A reason is required to cancel this entry', 'warning');
-    return;
-  }
-  try {
-    await api('api/credit_entries.php?action=cancel&id=' + id, 'POST', { reason });
-    toast('✅ Credit entry cancelled', 'success');
-    closeModal('modal-credit-cancel');
-    loadCreditEntries();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-async function restoreCreditEntry(id) {
-  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
-  const result = await Swal.fire({
-    title: 'Restore this entry?',
-    html: c ? `<div style="font-size:13px">${escHtml(c.purpose)} — ${fmt_money(c.amount)} will go back to <strong>Pending</strong>.</div>` : 'This entry will go back to Pending.',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Restore',
-    cancelButtonText: 'Cancel',
-    customClass: { popup: 'swal-compact' },
-  });
-  if (!result.isConfirmed) return;
-  try {
-    await api('api/credit_entries.php?action=restore&id=' + id, 'POST', {});
-    toast('✅ Credit entry restored to Pending', 'success');
     loadCreditEntries();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }
