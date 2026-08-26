@@ -19714,17 +19714,12 @@ function renderPaymentsDueWidget(containerId) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  // Every pending/partial purchase with a date set shows here, no matter
-  // how far out — a date the client deliberately entered shouldn't just
-  // vanish from view until it happens to fall inside a fixed window.
-  // (The banner below stays windowed to overdue/next-7-days — that one's
-  // about urgency, this one's about "everything I've scheduled".)
   const withDiff = (STATE.purchases || [])
     .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
-    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
-    .sort((a,b) => a.diff - b.diff);
-  const overdue = withDiff.filter(x => x.diff < 0);
-  const combined = withDiff;
+    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
+  const overdue = withDiff.filter(x => x.diff < 0).sort((a,b) => a.diff - b.diff);
+  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7).sort((a,b) => a.diff - b.diff);
+  const combined = [...overdue, ...dueSoon];
 
   if (!combined.length) {
     el.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
@@ -19733,7 +19728,7 @@ function renderPaymentsDueWidget(containerId) {
       </div>
       <div style="padding:18px 16px;text-align:center;color:var(--muted);font-size:12px">
         <i class="fas fa-check-circle" style="font-size:20px;opacity:.3;display:block;margin-bottom:6px"></i>
-        No upcoming supplier payments
+        No supplier payments due in the next 7 days
       </div>
     </div>`;
     return;
@@ -21360,12 +21355,6 @@ async function savePurchaseEntry(mode) {
     if (document.getElementById('page-stock')?.classList.contains('active')) {
       renderProductStock();
     }
-    // Keep the banner/bell in sync immediately — renderPurchases() alone
-    // only refreshes the Payments Due widget (Purchases/Dashboard pages),
-    // and the banner+bell wouldn't otherwise pick up a just-changed
-    // expected_payment_date until the next unrelated renderNotifications()
-    // call (e.g. next full reload).
-    renderNotifications();
 
     if (mode === 'print') {
       printPurchaseEntry(savedId);
