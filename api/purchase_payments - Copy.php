@@ -50,20 +50,6 @@ function nullIfEmpty($v) { return ($v === '' || $v === null) ? null : $v; }
 // Recompute total paid from real payment rows, then cache it back onto
 // the purchase — this is what keeps every existing page (stats, CSV
 // export, filters) correct without needing to touch them.
-//
-// Also recomputes payment_type/payment_mode from the same real rows.
-// Without this, a purchase created Pending (payment_type/mode left
-// blank on purpose) that later gets paid off through THIS ledger —
-// rather than by editing the purchase itself — would flip to
-// Partial/Paid with amount_paid updated, but payment_type/mode would
-// stay blank forever, since nothing else ever writes to those two
-// columns. That showed up as the Purchases table's Payment Mode
-// column stuck on "—" even though the purchase was clearly no longer
-// Pending. One method across all real payments → that method; more
-// than one distinct method → "Split", same convention the New/Edit
-// Purchase form already uses for a split payment. No real payments
-// left (all soft-deleted, or none yet) → blank, matching the "nothing
-// decided yet" rule used everywhere else for a Pending purchase.
 function recachePurchasePaid(PDO $db, int $purchaseId): void {
     $sumStmt = $db->prepare(
         'SELECT COALESCE(SUM(amount),0) AS paid FROM purchase_payments
@@ -84,16 +70,8 @@ function recachePurchasePaid(PDO $db, int $purchaseId): void {
         $status = 'Pending';
     }
 
-    $methodStmt = $db->prepare(
-        'SELECT DISTINCT method FROM purchase_payments
-          WHERE purchase_id = ? AND purchase_deleted = 0 AND method IS NOT NULL AND method <> \'\''
-    );
-    $methodStmt->execute([$purchaseId]);
-    $methods = $methodStmt->fetchAll(PDO::FETCH_COLUMN);
-    $paymentMode = count($methods) === 1 ? $methods[0] : (count($methods) > 1 ? 'Split' : '');
-
-    $db->prepare('UPDATE purchases SET amount_paid = ?, status = ?, payment_type = ?, payment_mode = ? WHERE id = ?')
-       ->execute([$paid, $status, $paymentMode, $paymentMode, $purchaseId]);
+    $db->prepare('UPDATE purchases SET amount_paid = ?, status = ? WHERE id = ?')
+       ->execute([$paid, $status, $purchaseId]);
 }
 
 try {
