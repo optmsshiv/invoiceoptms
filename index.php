@@ -21,6 +21,20 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
+// ── Fresh-login detection (drives "always land on Dashboard on login,
+// but a plain refresh keeps the current page") ────────────────────
+// No dedicated login event to hook (login.php isn't part of this file
+// set), so this piggybacks on the PHP session lifecycle instead: the
+// first index.php load after requireLogin() succeeds — i.e. right
+// after login.php authenticates and redirects here — this marker
+// won't exist in $_SESSION yet. Every load after that (including a
+// plain browser refresh) is the same PHP session, so the marker is
+// already set and this is NOT treated as a fresh login. Logging out
+// clears the session (and therefore this marker) via doLogout(), so
+// the next login is correctly detected as fresh again.
+$freshLogin = empty($_SESSION['optms_session_active']);
+$_SESSION['optms_session_active'] = true;
+
 // ── Tenant-level (subscription) gate ─────────────────────────────
 // Checked first — if the whole organization's subscription is
 // inactive, that supersedes any individual per-user license state.
@@ -1651,6 +1665,7 @@ select { cursor: pointer; }
 const SERVER = {
   user:     <?= json_encode(['id'=>(int)$user['id'],'name'=>$user['name'],'email'=>$user['email'],'role'=>$user['role'],'avatar'=>$user['avatar']??'']) ?>,
   settings: <?= json_encode($settings) ?>,
+  freshLogin: <?= json_encode($freshLogin) ?>,
   prefix:   <?= json_encode($prefix) ?>,
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
@@ -9806,6 +9821,13 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(livePreview, 100);
   STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
+  // Remember whichever sidebar page the user is on, so a plain refresh
+  // can restore it (see the fresh-login-gated restore below) instead of
+  // always landing back on Dashboard.
+  document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.nav-item[data-page]');
+    if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
+  });
   // Hover tooltip for collapsed-sidebar nav items — a single shared
   // element, positioned via getBoundingClientRect() on each hover, since
   // .sidebar-nav's overflow-y:auto would clip a per-item CSS tooltip.
@@ -29018,11 +29040,22 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       setTimeout(livePreview, 100);
       document.addEventListener('click', closeAllDropdowns);
-      // Deliberately always lands on Dashboard on every load — the app
-      // previously restored whichever page the user was last on
-      // (localStorage 'optms_lastPage'), including right after login,
-      // which meant login didn't reliably land on Dashboard. Removed per
-      // client request so Dashboard is always the first thing seen.
+      // Dashboard on a fresh login, but a plain refresh keeps whatever
+      // page the user was on. SERVER.freshLogin (see index.php's
+      // $freshLogin / $_SESSION['optms_session_active']) is only true on
+      // the first load of a PHP session — i.e. right after login.php
+      // redirects here — and false on every reload after that, which is
+      // what actually distinguishes the two cases; localStorage alone
+      // can't tell them apart since both are full page loads.
+      if (!SERVER.freshLogin) {
+        try {
+          const _lastPage = localStorage.getItem('optms_lastPage');
+          if (_lastPage && _lastPage !== 'dashboard') {
+            const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
+            if (_navEl) _navEl.click();
+          }
+        } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
+      }
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
