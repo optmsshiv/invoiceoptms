@@ -21,6 +21,20 @@ requireLogin();
 $user = currentUser();
 if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 
+// ── Fresh-login detection (drives "always land on Dashboard on login,
+// but a plain refresh keeps the current page") ────────────────────
+// No dedicated login event to hook (login.php isn't part of this file
+// set), so this piggybacks on the PHP session lifecycle instead: the
+// first index.php load after requireLogin() succeeds — i.e. right
+// after login.php authenticates and redirects here — this marker
+// won't exist in $_SESSION yet. Every load after that (including a
+// plain browser refresh) is the same PHP session, so the marker is
+// already set and this is NOT treated as a fresh login. Logging out
+// clears the session (and therefore this marker) via doLogout(), so
+// the next login is correctly detected as fresh again.
+$freshLogin = empty($_SESSION['optms_session_active']);
+$_SESSION['optms_session_active'] = true;
+
 // ── Tenant-level (subscription) gate ─────────────────────────────
 // Checked first — if the whole organization's subscription is
 // inactive, that supersedes any individual per-user license state.
@@ -1651,6 +1665,7 @@ select { cursor: pointer; }
 const SERVER = {
   user:     <?= json_encode(['id'=>(int)$user['id'],'name'=>$user['name'],'email'=>$user['email'],'role'=>$user['role'],'avatar'=>$user['avatar']??'']) ?>,
   settings: <?= json_encode($settings) ?>,
+  freshLogin: <?= json_encode($freshLogin) ?>,
   prefix:   <?= json_encode($prefix) ?>,
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
@@ -2033,6 +2048,7 @@ const SERVER = {
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
+          <div id="notif-payments-due-section"></div>
           <div id="notifItems"><div style="padding:12px 16px;color:var(--muted);font-size:13px;text-align:center">Loading notifications…</div></div>
           <div style="padding:10px 16px;text-align:center"><button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearNotifs()">Mark all read</button></div>
         </div>
@@ -2079,6 +2095,11 @@ const SERVER = {
       </div>
     </div>
   </header>
+
+  <!-- Payments Due banner — dismissible for the day, visible on every
+       page regardless of which one the user is currently on. See
+       renderPaymentsDueBanner(); refreshed by renderNotifications(). -->
+  <div id="paymentsDueBanner" style="display:none"></div>
 
   <!-- PAGES -->
   <div class="pages-container">
@@ -2315,6 +2336,9 @@ const SERVER = {
             <div id="db-alerts-list"></div>
           </div>
         </div>
+
+        <!-- Payments Due widget -->
+        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
 
         <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
@@ -3298,12 +3322,15 @@ const SERVER = {
         </div>
       </div>
 
+      <!-- Payments Due widget -->
+      <div id="purPaymentsDueCard" style="margin-bottom:16px"></div>
+
       <!-- Table -->
       <div class="pne-card">
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -3397,6 +3424,12 @@ const SERVER = {
                 <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">Split</option></select>
               </div>
               <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
+            </div>
+            <div class="pne-grid4">
+              <div class="field">
+                <label>Expected Payment Date <i class="fas fa-info-circle" title="When you plan to pay the supplier — used for the payment-due reminder" style="color:var(--muted)"></i></label>
+                <input type="date" id="pn-expectedpaydate">
+              </div>
             </div>
           </div>
 
@@ -4569,7 +4602,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Sales Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
             <tbody id="salesTbody"></tbody>
           </table>
         </div>
@@ -7940,6 +7973,7 @@ View Invoice: {{6}}</pre></details>
           <span style="font-size:13px;color:var(--muted)">Quick-capture log for personal spending the owner will formally categorize as an Expense later. Once added, an entry is locked — corrections happen at the conversion step.</span>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-outline" id="credit-toggle-cancelled-btn" onclick="toggleShowCancelledCredits()"><i class="fas fa-ban"></i> Show Cancelled</button>
           <button class="btn btn-primary" onclick="openAddCreditModal()"><i class="fas fa-plus"></i> Add Credit Entry</button>
         </div>
       </div>
@@ -9180,6 +9214,35 @@ View Invoice: {{6}}</pre></details>
   </div>
 </div>
 
+<!-- Cancel Credit Entry Modal -->
+<div class="modal-overlay" id="modal-credit-cancel">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="padding:14px 20px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:8px;background:#FDECEA;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-ban" style="color:#C0392B;font-size:13px"></i>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--text)">Cancel Credit Entry</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-credit-cancel')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <input type="hidden" id="ccl-credit-id">
+      <div style="font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+        Cancelling keeps this entry on record — hidden from the main list — instead of deleting it outright. It stays visible under "Show Cancelled" along with your reason. You can restore it later if needed.
+      </div>
+      <div id="ccl-entry-summary" style="font-size:12.5px;font-weight:600;color:var(--text)"></div>
+      <div class="field" style="margin:0"><label>Reason for cancelling *</label>
+        <textarea id="ccl-reason" rows="3" placeholder="e.g. Entered by mistake — duplicate of the fuel entry from the same day" style="width:100%;resize:vertical"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 20px;flex-shrink:0">
+      <button class="btn btn-danger" onclick="saveCreditCancel()" style="flex:1"><i class="fas fa-ban"></i> Confirm Cancel</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-credit-cancel')">Back</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete Confirm Modal -->
 <div class="modal-overlay" id="modal-delete">
   <div class="modal modal-sm">
@@ -9758,8 +9821,9 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(livePreview, 100);
   STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
-  // Remember whichever sidebar page the user is on, so a refresh can
-  // restore it below instead of always landing back on Dashboard.
+  // Remember whichever sidebar page the user is on, so a plain refresh
+  // can restore it (see the fresh-login-gated restore below) instead of
+  // always landing back on Dashboard.
   document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
     const item = e.target.closest('.nav-item[data-page]');
     if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
@@ -11622,6 +11686,9 @@ function renderProductDashboard() {
       </div>`).join('') ||
       '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
   }
+
+  // ── Payments Due widget ──────────────────────────────────────
+  renderPaymentsDueWidget('dashPaymentsDueCard');
 
   // ── Stock donut ────────────────────────────────────────────────
   const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
@@ -19241,6 +19308,7 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
+        ${p.expected_payment_date ? `<div class="sp-info-item"><i class="fas fa-calendar-check" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}"></i><div><div class="sp-label">Expected Payment Date</div><div class="sp-val" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}">${fmt_date_disp(p.expected_payment_date)}${outstanding>0 && new Date(p.expected_payment_date) < new Date() ? ' (overdue)' : ''}</div></div></div>` : ''}
       </div>
     </div>
 
@@ -19652,9 +19720,186 @@ function purchaseProductChipsHTML(raw) {
     : '');
 }
 
+// ── Payments Due widget (supplier payments) ──────────────────────
+// Dedicated, always-visible widget — unlike dashPartialCard above,
+// which hides itself when empty, this always renders (with a
+// friendly "all caught up" state) since the client wants a reliable
+// "check here" spot for upcoming supplier payments. Reused via
+// containerId so the same implementation drives both the Purchases
+// page and the Dashboard.
+function renderPaymentsDueWidget(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  // Every pending/partial purchase with a date set shows here, no matter
+  // how far out — a date the client deliberately entered shouldn't just
+  // vanish from view until it happens to fall inside a fixed window.
+  // (The banner below stays windowed to overdue/next-7-days — that one's
+  // about urgency, this one's about "everything I've scheduled".)
+  const withDiff = (STATE.purchases || [])
+    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
+    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
+    .sort((a,b) => a.diff - b.diff);
+  const overdue = withDiff.filter(x => x.diff < 0);
+  const combined = withDiff;
+
+  if (!combined.length) {
+    el.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
+      <div class="card-header" style="padding:12px 16px">
+        <span class="card-title">📅 Payments Due</span>
+      </div>
+      <div style="padding:18px 16px;text-align:center;color:var(--muted);font-size:12px">
+        <i class="fas fa-check-circle" style="font-size:20px;opacity:.3;display:block;margin-bottom:6px"></i>
+        No upcoming supplier payments
+      </div>
+    </div>`;
+    return;
+  }
+
+  const rows = combined.slice(0,6).map(({p,diff}) => {
+    const tot = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
+    const remain = Math.max(0, tot - paid);
+    const isOverdue = diff < 0;
+    const badge = isOverdue
+      ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue ${Math.abs(diff)}d</span>`
+      : diff === 0
+      ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Due today</span>`
+      : `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">Due in ${diff}d</span>`;
+    return `<div onclick="viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:13px">${escHtml(p.supplier_name||'—')}</span>
+          ${badge}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${escHtml(p.purchase_no||'')} · Due ${fmt_date_disp(p.expected_payment_date)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:12px;color:${isOverdue?'var(--red)':'#E65100'};font-weight:800">${fmt_money(remain)}</div>
+        <div style="font-size:10px;color:var(--muted)">outstanding</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
+    <div class="card-header" style="padding:12px 16px">
+      <span class="card-title">📅 Payments Due</span>
+      <span style="font-size:11px;color:${overdue.length?'var(--red)':'#E65100'};font-weight:700">${overdue.length ? overdue.length + ' overdue' : combined.length + ' upcoming'}</span>
+    </div>
+    ${rows}
+    ${combined.length > 6 ? `<div style="padding:8px 14px;text-align:center"><button class="btn btn-outline" style="font-size:11.5px;padding:5px 14px" onclick="showPage('purchases',null)">View all ${combined.length}</button></div>` : ''}
+  </div>`;
+}
+
+// ── Payments Due banner (dedicated, page-wide reminder) ──────────
+// Sits directly under the topbar, on every page — unlike the bell
+// badge (passive, needs a click) or the widget above (only seen on
+// Purchases/Dashboard), this shows itself automatically the moment
+// something's due, without the user going looking for it. Same
+// overdue/due-within-7-days data as the widget, just condensed to
+// one line. Dismissible for the day (see PD_BANNER_DISMISS_KEY) so
+// it doesn't nag on every navigation, but comes back next login if
+// the underlying payment is still unresolved.
+const PD_BANNER_DISMISS_KEY = 'optms_pdBannerDismissedDate';
+function renderPaymentsDueBanner() {
+  const el = document.getElementById('paymentsDueBanner');
+  if (!el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const withDiff = (STATE.purchases || [])
+    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
+    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
+  const overdue = withDiff.filter(x => x.diff < 0);
+  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7);
+  const combined = [...overdue, ...dueSoon];
+
+  if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+  const todayStr = today.toISOString().slice(0,10);
+  let dismissedDate = '';
+  try { dismissedDate = localStorage.getItem(PD_BANNER_DISMISS_KEY) || ''; } catch(e) { /* ignore */ }
+  if (dismissedDate === todayStr) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+  const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
+  const summary = overdue.length
+    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more due soon` : '')
+    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} due in the next 7 days`;
+
+  el.style.display = 'flex';
+  el.style.cssText = `display:flex;align-items:center;gap:12px;padding:9px 20px;background:${overdue.length?'#FDECEA':'#FFF3E0'};border-bottom:1.5px solid ${overdue.length?'#F5C6C0':'#FFE0B2'};font-size:12.5px;color:${overdue.length?'#8B2E22':'#7B3F00'}`;
+  el.innerHTML = `
+    <i class="fas ${overdue.length?'fa-triangle-exclamation':'fa-calendar-check'}" style="font-size:13px"></i>
+    <span style="flex:1">${summary}</span>
+    <button onclick="showPage('purchases',null)" style="padding:4px 12px;border-radius:7px;background:${overdue.length?'#C0392B':'#E65100'};color:#fff;border:none;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">View</button>
+    <button onclick="dismissPaymentsDueBanner()" title="Dismiss for today" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
+  `;
+}
+
+function dismissPaymentsDueBanner() {
+  const el = document.getElementById('paymentsDueBanner');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    localStorage.setItem(PD_BANNER_DISMISS_KEY, today.toISOString().slice(0,10));
+  } catch(e) { /* ignore — worst case it just shows again next render */ }
+}
+
+function closeNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (panel) panel.classList.remove('open');
+}
+
+// ── Payments Due section inside the bell dropdown ─────────────────
+// A compact version of the Payments Due card — supplier name, badge,
+// amount — instead of the plain sentence-per-line the rest of the
+// dropdown uses. Windowed to overdue + next 7 days, same as the
+// banner (not the full "everything scheduled" list the card shows) —
+// this is a glance-and-go dropdown, not the place for months-out
+// entries; the full list is one click away via "View all in Purchases".
+function renderBellPaymentsDueSection() {
+  const el = document.getElementById('notif-payments-due-section');
+  if (!el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const withDiff = (STATE.purchases || [])
+    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
+    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
+    .filter(x => x.diff <= 7)
+    .sort((a,b) => a.diff - b.diff);
+
+  if (!withDiff.length) { el.innerHTML = ''; return; }
+
+  const overdueCount = withDiff.filter(x => x.diff < 0).length;
+  const rows = withDiff.slice(0,4).map(({p,diff}) => {
+    const remain = Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0));
+    const isOverdue = diff < 0;
+    const badge = isOverdue
+      ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue</span>`
+      : diff === 0
+      ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
+      : `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
+    return `<div onclick="closeNotifPanel();viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
+          ${badge}
+        </div>
+      </div>
+      <div style="font-size:11.5px;font-weight:700;color:${isOverdue?'var(--red)':'#E65100'};flex-shrink:0">${fmt_money(remain)}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:${overdueCount?'var(--red)':'var(--muted)'};text-transform:uppercase;letter-spacing:.3px">
+      Payments Due${overdueCount ? ` — ${overdueCount} overdue` : ''}
+    </div>
+    ${rows}
+    ${withDiff.length > 4 ? `<div style="padding:5px 16px 8px;text-align:right"><a onclick="closeNotifPanel();showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${withDiff.length} →</a></div>` : ''}
+    <div style="border-bottom:1px solid var(--border);margin:2px 0"></div>
+  `;
+}
+
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
+  renderPaymentsDueWidget('purPaymentsDueCard');
   populatePurchaseListFilters();
   _gdrApplyToFilter('pl-f-from', 'pl-f-to');
   const list = plFilteredPurchases();
@@ -19695,7 +19940,7 @@ function renderPurchases() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
     return;
   }
 
@@ -19711,8 +19956,7 @@ function renderPurchases() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(p.purchase_no)}</strong></td>
-      <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
+      <td><strong>${escHtml(p.purchase_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(p.purchase_date, p.created_at)}</div></td>
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -19997,6 +20241,20 @@ function fmt_datetime_stacked(d) {
   return `<div>${fmt_date_disp(d)}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
 }
 
+// "25 Aug 2026 11:38 pm" — long date + time, lowercase am/pm, on one
+// line. Used where a row's date+time is shown as a second line under
+// a record number (e.g. Purchase Invoice No.) instead of its own
+// column. dateSrc supplies the day (usually the record's own date
+// field, e.g. purchase_date); timeSrc supplies the time (usually
+// created_at, since date-only fields carry no time of their own) —
+// same two-source split the old separate Date column used, just
+// combined into a single line instead of two.
+function fmt_date_time_combined(dateSrc, timeSrc) {
+  if (!dateSrc) return '';
+  const timeStr = fmt_time_ampm(timeSrc || dateSrc).toLowerCase();
+  return fmt_date_long_dmy(dateSrc) + (timeStr ? ' ' + timeStr : '');
+}
+
 
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
@@ -20083,6 +20341,7 @@ function goToNewPurchase() {
   document.getElementById('pn-warehouse').value = 'Main Warehouse';
   document.getElementById('pn-paymentterms').value = 'Immediate';
   document.getElementById('pn-paymenttype').value = 'Cash';
+  document.getElementById('pn-expectedpaydate').value = '';
   document.getElementById('pn-remarks').value = '';
   setGstApplicable(false);
   document.getElementById('pn-transportcharge').value = 0;
@@ -20817,6 +21076,7 @@ async function editPurchase(id) {
     document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
     document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
     document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
+    document.getElementById('pn-expectedpaydate').value = p.expected_payment_date ? String(p.expected_payment_date).slice(0,10) : '';
     document.getElementById('pn-remarks').value = p.remarks || '';
     setGstApplicable(!!parseInt(p.gst_applicable));
     document.getElementById('pn-supplytype').value = p.supply_type || 'Intra-State';
@@ -21116,6 +21376,7 @@ async function savePurchaseEntry(mode) {
     // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
     // existing total, but an all-zero group still renders as a row).
     payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
+    expected_payment_date: document.getElementById('pn-expectedpaydate').value || '',
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
     loading_charge: parseFloat(document.getElementById('pn-loadingcharge').value) || 0,
@@ -21170,6 +21431,12 @@ async function savePurchaseEntry(mode) {
     if (document.getElementById('page-stock')?.classList.contains('active')) {
       renderProductStock();
     }
+    // Keep the banner/bell in sync immediately — renderPurchases() alone
+    // only refreshes the Payments Due widget (Purchases/Dashboard pages),
+    // and the banner+bell wouldn't otherwise pick up a just-changed
+    // expected_payment_date until the next unrelated renderNotifications()
+    // call (e.g. next full reload).
+    renderNotifications();
 
     if (mode === 'print') {
       printPurchaseEntry(savedId);
@@ -23577,7 +23844,7 @@ function renderSales() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
     return;
   }
 
@@ -23593,8 +23860,7 @@ function renderSales() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(s.invoice_no)}</strong></td>
-      <td><div>${fmt_date_disp(s.sale_date)}</div>${s.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(s.created_at)}</div>` : ''}</td>
+      <td><strong>${escHtml(s.invoice_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(s.sale_date, s.created_at)}</div></td>
       <td>${escHtml(s.customer_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right">
@@ -28774,21 +29040,22 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       setTimeout(livePreview, 100);
       document.addEventListener('click', closeAllDropdowns);
-      // Restore whichever sidebar page the user was on before the page
-      // reloaded, instead of always dropping back to Dashboard. Re-clicking
-      // the nav item (rather than calling showPage directly) reuses whatever
-      // handler it's wired to — showPage, showPaymentsPage, goToProductsPage,
-      // etc. — so business-type-specific routing still resolves correctly.
-      // Pages not reachable from the sidebar (edit/detail screens, "-new"
-      // forms) were never stored here, so this only ever restores top-level
-      // list/report pages and safely falls back to Dashboard otherwise.
-      try {
-        const _lastPage = localStorage.getItem('optms_lastPage');
-        if (_lastPage && _lastPage !== 'dashboard') {
-          const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
-          if (_navEl) _navEl.click();
-        }
-      } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
+      // Dashboard on a fresh login, but a plain refresh keeps whatever
+      // page the user was on. SERVER.freshLogin (see index.php's
+      // $freshLogin / $_SESSION['optms_session_active']) is only true on
+      // the first load of a PHP session — i.e. right after login.php
+      // redirects here — and false on every reload after that, which is
+      // what actually distinguishes the two cases; localStorage alone
+      // can't tell them apart since both are full page loads.
+      if (!SERVER.freshLogin) {
+        try {
+          const _lastPage = localStorage.getItem('optms_lastPage');
+          if (_lastPage && _lastPage !== 'dashboard') {
+            const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
+            if (_navEl) _navEl.click();
+          }
+        } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
+      }
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
@@ -28881,13 +29148,16 @@ function renderNotifications() {
     items.push({ type:'info', key:`sale-due-${s.id}`, text:`<b>${escHtml(s.customer_name||'—')}</b> — ${escHtml(s.invoice_no||'')} due ${dueDate}` });
   });
 
-  // Purchases with outstanding payment — purchases have no due_date column
-  // in the schema, so unlike invoices/sales this is a single count-based
-  // summary rather than one line per record, to avoid flooding the panel.
-  const pendingPurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid');
-  if (pendingPurchases.length) {
-    const total = pendingPurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
-    items.push({ type:'info', key:'purchases-pending-summary', text:`<b>${pendingPurchases.length}</b> purchase${pendingPurchases.length>1?'s':''} with pending payment — ${fmt_money(total)} outstanding` });
+  // Supplier payments with a date set now render as their own compact
+  // section at the top of the bell dropdue (see
+  // renderBellPaymentsDueSection) with supplier name + amount, not as
+  // plain text lines mixed into this list — kept here only for the
+  // ones with NO date set, since those have nothing date-specific to
+  // show in that section and still need a way to surface at all.
+  const pendingNoDatePurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid' && !p.expected_payment_date);
+  if (pendingNoDatePurchases.length) {
+    const total = pendingNoDatePurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
+    items.push({ type:'info', key:'purchases-pending-summary', text:`<b>${pendingNoDatePurchases.length}</b> purchase${pendingNoDatePurchases.length>1?'s':''} with pending payment (no date set) — ${fmt_money(total)} outstanding` });
   }
 
   // Drop anything the person already marked as read — approvals are exempt.
@@ -28933,6 +29203,14 @@ function renderNotifications() {
   // Stash the current dismissible keys so clearNotifs() can persist exactly
   // what was actually on screen when the person clicked "Mark all read".
   NOTIF_CURRENT_KEYS = items.filter(n => n.type !== 'approval' && n.key).map(n => n.key);
+
+  // Keep the top-of-page Payments Due banner in sync with the same data —
+  // renderNotifications() is already the app's central "recompute alerts"
+  // call, fired on bootstrap, on every dashboard render, and after
+  // approval-polling ticks, so piggybacking here means the banner never
+  // needs its own separate refresh wiring.
+  renderPaymentsDueBanner();
+  renderBellPaymentsDueSection();
 }
 
 
@@ -31474,7 +31752,9 @@ let CREDIT_ENTRIES = [];
 function _renderCreditSummary() {
   const el = document.getElementById('credit-summary-cards');
   if (!el) return;
-  const list = CREDIT_ENTRIES || [];
+  // Cancelled entries never happened as far as the numbers are concerned —
+  // excluded here so a cancelled entry doesn't inflate "Given"/"Available".
+  const list = (CREDIT_ENTRIES || []).filter(c => c.status !== 'cancelled');
   const given = list.reduce((s,c) => s + parseFloat(c.amount||0), 0);
   // Uses converted_amount (a running total), not a binary status check —
   // a "partial" entry has SOME of its amount used and some still
@@ -31507,16 +31787,37 @@ async function loadCreditEntries() {
   }
 }
 
+// Toggle state for the Credit table: false = normal active-entries view
+// (cancelled hidden), true = showing only cancelled entries. Kept as a
+// simple module-level flag rather than a filter dropdown since it's a
+// binary view, not a multi-value filter.
+window.CREDIT_SHOW_CANCELLED = false;
+
+function toggleShowCancelledCredits() {
+  window.CREDIT_SHOW_CANCELLED = !window.CREDIT_SHOW_CANCELLED;
+  const btn = document.getElementById('credit-toggle-cancelled-btn');
+  if (btn) {
+    btn.innerHTML = window.CREDIT_SHOW_CANCELLED
+      ? '<i class="fas fa-list"></i> Back to Active'
+      : '<i class="fas fa-ban"></i> Show Cancelled';
+  }
+  renderCreditTable();
+}
+
 function renderCreditTable() {
   _renderCreditSummary();
   const tbody = document.getElementById('credit-tbody');
-  if (!CREDIT_ENTRIES.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No credit entries yet — click "Add Credit Entry" to log one</td></tr>';
+  const showCancelled = !!window.CREDIT_SHOW_CANCELLED;
+  const rows = CREDIT_ENTRIES.filter(c => showCancelled ? c.status === 'cancelled' : c.status !== 'cancelled');
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">${showCancelled ? 'No cancelled entries' : 'No credit entries yet — click "Add Credit Entry" to log one'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = CREDIT_ENTRIES.map(c => {
+  tbody.innerHTML = rows.map(c => {
     const isConverted = c.status === 'converted';
     const isPartial = c.status === 'partial';
+    const isCancelled = c.status === 'cancelled';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
     return `<tr id="credit-row-${c.id}">
@@ -31532,12 +31833,19 @@ function renderCreditTable() {
         ? `<span class="badge" style="background:#E4F7EC;color:#1D9E75">Converted</span>`
         : isPartial
         ? `<span class="badge" style="background:#FFF3E0;color:#9A6700">Partial</span>`
-        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}</td>
+        : isCancelled
+        ? `<span class="badge" style="background:#FDECEA;color:#C0392B">Cancelled</span>`
+        : `<span class="badge" style="background:#F1F2F4;color:#6B7280">Pending</span>`}
+        ${isCancelled && c.cancel_reason ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;max-width:200px">${escHtml(c.cancel_reason)}</div>` : ''}
+      </td>
       <td style="text-align:right">
         ${isConverted
           ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
+          : isCancelled
+          ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="restoreCreditEntry(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`
           : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
-             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>`}
+             <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>
+             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}`}
       </td>
     </tr>`;
   }).join('');
@@ -31614,6 +31922,53 @@ async function saveCreditEntry() {
       toast('✅ Credit entry saved!', 'success');
     }
     closeModal('modal-credit-add');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+// Cancel is the "delete" for a mistaken entry — a reasoned status change
+// instead of a hard delete, kept visible under "Show Cancelled". Only
+// reachable for pending entries (see renderCreditTable), and the backend
+// re-checks status === 'pending' independently, same lock pattern as edit.
+function openCancelCreditModal(id) {
+  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
+  if (!c) return;
+  document.getElementById('ccl-credit-id').value = c.id;
+  document.getElementById('ccl-entry-summary').textContent = `${c.purpose} — ${fmt_money(c.amount)} on ${fmt_date_disp(c.entry_date)}`;
+  document.getElementById('ccl-reason').value = '';
+  openModal('modal-credit-cancel');
+}
+
+async function saveCreditCancel() {
+  const id = document.getElementById('ccl-credit-id').value;
+  const reason = document.getElementById('ccl-reason').value.trim();
+  if (!reason) {
+    toast('⚠️ A reason is required to cancel this entry', 'warning');
+    return;
+  }
+  try {
+    await api('api/credit_entries.php?action=cancel&id=' + id, 'POST', { reason });
+    toast('✅ Credit entry cancelled', 'success');
+    closeModal('modal-credit-cancel');
+    loadCreditEntries();
+  } catch(e) { toast('❌ ' + e.message, 'error'); }
+}
+
+async function restoreCreditEntry(id) {
+  const c = CREDIT_ENTRIES.find(x => String(x.id) === String(id));
+  const result = await Swal.fire({
+    title: 'Restore this entry?',
+    html: c ? `<div style="font-size:13px">${escHtml(c.purpose)} — ${fmt_money(c.amount)} will go back to <strong>Pending</strong>.</div>` : 'This entry will go back to Pending.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Restore',
+    cancelButtonText: 'Cancel',
+    customClass: { popup: 'swal-compact' },
+  });
+  if (!result.isConfirmed) return;
+  try {
+    await api('api/credit_entries.php?action=restore&id=' + id, 'POST', {});
+    toast('✅ Credit entry restored to Pending', 'success');
     loadCreditEntries();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
 }

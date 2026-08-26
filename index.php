@@ -3420,16 +3420,11 @@ const SERVER = {
               <div class="field"><label>Payment Terms</label>
                 <select id="pn-paymentterms"><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
               </div>
-              <div class="field"><label>Payment Type</label>
-                <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">Split</option></select>
-              </div>
-              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
-            </div>
-            <div class="pne-grid4">
               <div class="field">
                 <label>Expected Payment Date <i class="fas fa-info-circle" title="When you plan to pay the supplier — used for the payment-due reminder" style="color:var(--muted)"></i></label>
                 <input type="date" id="pn-expectedpaydate">
               </div>
+              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
             </div>
           </div>
 
@@ -20340,7 +20335,6 @@ function goToNewPurchase() {
   document.getElementById('pn-drivername').value = '';
   document.getElementById('pn-warehouse').value = 'Main Warehouse';
   document.getElementById('pn-paymentterms').value = 'Immediate';
-  document.getElementById('pn-paymenttype').value = 'Cash';
   document.getElementById('pn-expectedpaydate').value = '';
   document.getElementById('pn-remarks').value = '';
   setGstApplicable(false);
@@ -21075,7 +21069,6 @@ async function editPurchase(id) {
     document.getElementById('pn-drivername').value = p.driver_name || '';
     document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
     document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
-    document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
     document.getElementById('pn-expectedpaydate').value = p.expected_payment_date ? String(p.expected_payment_date).slice(0,10) : '';
     document.getElementById('pn-remarks').value = p.remarks || '';
     setGstApplicable(!!parseInt(p.gst_applicable));
@@ -21369,13 +21362,6 @@ async function savePurchaseEntry(mode) {
     driver_name: document.getElementById('pn-drivername').value.trim(),
     warehouse: document.getElementById('pn-warehouse').value,
     payment_terms: document.getElementById('pn-paymentterms').value,
-    // Blank, not the leftover default, when nothing's been decided yet —
-    // otherwise a Pending purchase still reports "Cash" (its default
-    // value) with ₹0 paid, which Finance Report's Paid Out list would
-    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
-    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
-    // existing total, but an all-zero group still renders as a row).
-    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
     expected_payment_date: document.getElementById('pn-expectedpaydate').value || '',
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
@@ -21389,6 +21375,21 @@ async function savePurchaseEntry(mode) {
     cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
+    // Payment Type used to be its own separate dropdown (Purchase Info
+    // section) — merged into Payment Mode since the two were duplicate
+    // data entry for the same fact ("how was this paid"), and only
+    // Payment Mode actually drove any real logic (CIH restriction,
+    // split payments). payment_type is kept as its own saved column —
+    // the Purchases list column, filter, and CSV export all still read
+    // it — just auto-derived here instead of asked for twice. Blank,
+    // not the leftover default, when nothing's been decided yet —
+    // otherwise a Pending purchase still reports "Cash" (its default
+    // value) with ₹0 paid, which Finance Report's Paid Out list would
+    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
+    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
+    // existing total, but an all-zero group still renders as a row).
+    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
+      (document.getElementById('pn-paymode').value === 'Split Payment' ? 'Split' : document.getElementById('pn-paymode').value),
     // Same rationale as payment_type above.
     payment_mode: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
       (document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value),
