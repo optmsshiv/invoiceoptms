@@ -2080,11 +2080,6 @@ const SERVER = {
     </div>
   </header>
 
-  <!-- Payments Due banner — dismissible for the day, visible on every
-       page regardless of which one the user is currently on. See
-       renderPaymentsDueBanner(); refreshed by renderNotifications(). -->
-  <div id="paymentsDueBanner" style="display:none"></div>
-
   <!-- PAGES -->
   <div class="pages-container">
 
@@ -4586,7 +4581,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Sales Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Customer</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Status</th><th>Sales Executive</th><th>Action</th></tr></thead>
             <tbody id="salesTbody"></tbody>
           </table>
         </div>
@@ -19768,58 +19763,6 @@ function renderPaymentsDueWidget(containerId) {
   </div>`;
 }
 
-// ── Payments Due banner (dedicated, page-wide reminder) ──────────
-// Sits directly under the topbar, on every page — unlike the bell
-// badge (passive, needs a click) or the widget above (only seen on
-// Purchases/Dashboard), this shows itself automatically the moment
-// something's due, without the user going looking for it. Same
-// overdue/due-within-7-days data as the widget, just condensed to
-// one line. Dismissible for the day (see PD_BANNER_DISMISS_KEY) so
-// it doesn't nag on every navigation, but comes back next login if
-// the underlying payment is still unresolved.
-const PD_BANNER_DISMISS_KEY = 'optms_pdBannerDismissedDate';
-function renderPaymentsDueBanner() {
-  const el = document.getElementById('paymentsDueBanner');
-  if (!el) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const withDiff = (STATE.purchases || [])
-    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
-    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
-  const overdue = withDiff.filter(x => x.diff < 0);
-  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7);
-  const combined = [...overdue, ...dueSoon];
-
-  if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-
-  const todayStr = today.toISOString().slice(0,10);
-  let dismissedDate = '';
-  try { dismissedDate = localStorage.getItem(PD_BANNER_DISMISS_KEY) || ''; } catch(e) { /* ignore */ }
-  if (dismissedDate === todayStr) { el.style.display = 'none'; el.innerHTML = ''; return; }
-
-  const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
-  const summary = overdue.length
-    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more due soon` : '')
-    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} due in the next 7 days`;
-
-  el.style.display = 'flex';
-  el.style.cssText = `display:flex;align-items:center;gap:12px;padding:9px 20px;background:${overdue.length?'#FDECEA':'#FFF3E0'};border-bottom:1.5px solid ${overdue.length?'#F5C6C0':'#FFE0B2'};font-size:12.5px;color:${overdue.length?'#8B2E22':'#7B3F00'}`;
-  el.innerHTML = `
-    <i class="fas ${overdue.length?'fa-triangle-exclamation':'fa-calendar-check'}" style="font-size:13px"></i>
-    <span style="flex:1">${summary}</span>
-    <button onclick="showPage('purchases',null)" style="padding:4px 12px;border-radius:7px;background:${overdue.length?'#C0392B':'#E65100'};color:#fff;border:none;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">View</button>
-    <button onclick="dismissPaymentsDueBanner()" title="Dismiss for today" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
-  `;
-}
-
-function dismissPaymentsDueBanner() {
-  const el = document.getElementById('paymentsDueBanner');
-  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
-  try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    localStorage.setItem(PD_BANNER_DISMISS_KEY, today.toISOString().slice(0,10));
-  } catch(e) { /* ignore — worst case it just shows again next render */ }
-}
-
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
@@ -23762,7 +23705,7 @@ function renderSales() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No sales found for the selected filters</td></tr>`;
     return;
   }
 
@@ -23778,7 +23721,8 @@ function renderSales() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(s.invoice_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(s.sale_date, s.created_at)}</div></td>
+      <td><strong>${escHtml(s.invoice_no)}</strong></td>
+      <td><div>${fmt_date_disp(s.sale_date)}</div>${s.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(s.created_at)}</div>` : ''}</td>
       <td>${escHtml(s.customer_name||'—')}</td>
       <td style="text-align:right">${(parseFloat(s.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td style="text-align:right">
@@ -29142,13 +29086,6 @@ function renderNotifications() {
   // Stash the current dismissible keys so clearNotifs() can persist exactly
   // what was actually on screen when the person clicked "Mark all read".
   NOTIF_CURRENT_KEYS = items.filter(n => n.type !== 'approval' && n.key).map(n => n.key);
-
-  // Keep the top-of-page Payments Due banner in sync with the same data —
-  // renderNotifications() is already the app's central "recompute alerts"
-  // call, fired on bootstrap, on every dashboard render, and after
-  // approval-polling ticks, so piggybacking here means the banner never
-  // needs its own separate refresh wiring.
-  renderPaymentsDueBanner();
 }
 
 
