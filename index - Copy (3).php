@@ -2316,9 +2316,6 @@ const SERVER = {
           </div>
         </div>
 
-        <!-- Payments Due widget -->
-        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
-
         <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
           <!-- Stock Overview -->
@@ -3301,15 +3298,12 @@ const SERVER = {
         </div>
       </div>
 
-      <!-- Payments Due widget -->
-      <div id="purPaymentsDueCard" style="margin-bottom:16px"></div>
-
       <!-- Table -->
       <div class="pne-card">
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Invoice Date</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -11665,9 +11659,6 @@ function renderProductDashboard() {
       '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
   }
 
-  // ── Payments Due widget ──────────────────────────────────────
-  renderPaymentsDueWidget('dashPaymentsDueCard');
-
   // ── Stock donut ────────────────────────────────────────────────
   const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
   const others = totalStockKg - topStock.reduce((a,p) => a+p.qty, 0);
@@ -19698,75 +19689,9 @@ function purchaseProductChipsHTML(raw) {
     : '');
 }
 
-// ── Payments Due widget (supplier payments) ──────────────────────
-// Dedicated, always-visible widget — unlike dashPartialCard above,
-// which hides itself when empty, this always renders (with a
-// friendly "all caught up" state) since the client wants a reliable
-// "check here" spot for upcoming supplier payments. Reused via
-// containerId so the same implementation drives both the Purchases
-// page and the Dashboard.
-function renderPaymentsDueWidget(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const withDiff = (STATE.purchases || [])
-    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
-    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
-  const overdue = withDiff.filter(x => x.diff < 0).sort((a,b) => a.diff - b.diff);
-  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7).sort((a,b) => a.diff - b.diff);
-  const combined = [...overdue, ...dueSoon];
-
-  if (!combined.length) {
-    el.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
-      <div class="card-header" style="padding:12px 16px">
-        <span class="card-title">📅 Payments Due</span>
-      </div>
-      <div style="padding:18px 16px;text-align:center;color:var(--muted);font-size:12px">
-        <i class="fas fa-check-circle" style="font-size:20px;opacity:.3;display:block;margin-bottom:6px"></i>
-        No supplier payments due in the next 7 days
-      </div>
-    </div>`;
-    return;
-  }
-
-  const rows = combined.slice(0,6).map(({p,diff}) => {
-    const tot = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
-    const remain = Math.max(0, tot - paid);
-    const isOverdue = diff < 0;
-    const badge = isOverdue
-      ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue ${Math.abs(diff)}d</span>`
-      : diff === 0
-      ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Due today</span>`
-      : `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">Due in ${diff}d</span>`;
-    return `<div onclick="viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
-          <span style="font-weight:700;font-size:13px">${escHtml(p.supplier_name||'—')}</span>
-          ${badge}
-        </div>
-        <div style="font-size:11px;color:var(--muted)">${escHtml(p.purchase_no||'')} · Due ${fmt_date_disp(p.expected_payment_date)}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:12px;color:${isOverdue?'var(--red)':'#E65100'};font-weight:800">${fmt_money(remain)}</div>
-        <div style="font-size:10px;color:var(--muted)">outstanding</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `<div class="dash-card" style="padding:0;overflow:hidden">
-    <div class="card-header" style="padding:12px 16px">
-      <span class="card-title">📅 Payments Due</span>
-      <span style="font-size:11px;color:${overdue.length?'var(--red)':'#E65100'};font-weight:700">${overdue.length ? overdue.length + ' overdue' : combined.length + ' upcoming'}</span>
-    </div>
-    ${rows}
-    ${combined.length > 6 ? `<div style="padding:8px 14px;text-align:center"><button class="btn btn-outline" style="font-size:11.5px;padding:5px 14px" onclick="showPage('purchases',null)">View all ${combined.length}</button></div>` : ''}
-  </div>`;
-}
-
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
-  renderPaymentsDueWidget('purPaymentsDueCard');
   populatePurchaseListFilters();
   _gdrApplyToFilter('pl-f-from', 'pl-f-to');
   const list = plFilteredPurchases();
@@ -19807,7 +19732,7 @@ function renderPurchases() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No purchases found for the selected filters</td></tr>`;
     return;
   }
 
@@ -19823,7 +19748,8 @@ function renderPurchases() {
     return `
     <tr>
       <td>${start + i + 1}</td>
-      <td><strong>${escHtml(p.purchase_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(p.purchase_date, p.created_at)}</div></td>
+      <td><strong>${escHtml(p.purchase_no)}</strong></td>
+      <td><div>${fmt_date_disp(p.purchase_date)}</div>${p.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(p.created_at)}</div>` : ''}</td>
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
       <td>${purchaseProductChipsHTML(p.product_names)}</td>
       <td style="text-align:right">${(parseFloat(p.total_qty)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -20106,20 +20032,6 @@ function fmt_datetime_stacked(d) {
   if (isNaN(dt)) return escHtml(String(d));
   const timeStr = fmt_time_ampm(d);
   return `<div>${fmt_date_disp(d)}</div>${timeStr ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${timeStr}</div>` : ''}`;
-}
-
-// "25 Aug 2026 11:38 pm" — long date + time, lowercase am/pm, on one
-// line. Used where a row's date+time is shown as a second line under
-// a record number (e.g. Purchase Invoice No.) instead of its own
-// column. dateSrc supplies the day (usually the record's own date
-// field, e.g. purchase_date); timeSrc supplies the time (usually
-// created_at, since date-only fields carry no time of their own) —
-// same two-source split the old separate Date column used, just
-// combined into a single line instead of two.
-function fmt_date_time_combined(dateSrc, timeSrc) {
-  if (!dateSrc) return '';
-  const timeStr = fmt_time_ampm(timeSrc || dateSrc).toLowerCase();
-  return fmt_date_long_dmy(dateSrc) + (timeStr ? ' ' + timeStr : '');
 }
 
 
