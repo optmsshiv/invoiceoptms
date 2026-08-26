@@ -3280,7 +3280,7 @@ const SERVER = {
           <div class="field"><label>Payment Status</label><select id="pl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
           <div class="field"><label>Invoice No.</label><input id="pl-f-invno" placeholder="Enter Invoice No."></div>
           <div class="field"><label>Product</label><select id="pl-f-product"><option value="">All Products</option></select></div>
-          <div class="field"><label>Payment Mode</label><select id="pl-f-paytype"><option value="">All Payment Modes</option></select></div>
+          <div class="field"><label>Payment Type</label><select id="pl-f-paytype"><option value="">All Payment Types</option></select></div>
           <div class="field" style="display:flex;gap:8px">
             <button class="btn btn-primary" style="flex:1" onclick="PL_PAGE=1; renderPurchases()"><i class="fas fa-magnifying-glass"></i> Search</button>
             <button class="btn btn-outline" onclick="resetPurchasesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
@@ -3330,7 +3330,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Mode</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -19302,7 +19302,7 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(p.warehouse||'Main Warehouse')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Mode</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
         ${p.expected_payment_date ? `<div class="sp-info-item"><i class="fas fa-calendar-check" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}"></i><div><div class="sp-label">Expected Payment Date</div><div class="sp-val" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}">${fmt_date_disp(p.expected_payment_date)}${outstanding>0 && new Date(p.expected_payment_date) < new Date() ? ' (overdue)' : ''}</div></div></div>` : ''}
       </div>
     </div>
@@ -19618,7 +19618,7 @@ function populatePurchaseListFilters() {
   if (ptSel) {
     const cur = ptSel.value;
     const types = [...new Set((STATE.purchases||[]).map(p => (p.payment_type||'').trim()).filter(Boolean))].sort();
-    ptSel.innerHTML = '<option value="">All Payment Modes</option>' +
+    ptSel.innerHTML = '<option value="">All Payment Types</option>' +
       types.map(t => `<option ${t===cur?'selected':''}>${escHtml(t)}</option>`).join('');
   }
   const fromEl = document.getElementById('pl-f-from'), toEl = document.getElementById('pl-f-to');
@@ -19998,7 +19998,7 @@ function plPage(p) {
 function exportPurchasesExcel() {
   const list = plFilteredPurchases();
   if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Payment Date','Payment Mode','Warehouse']];
+  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Payment Date','Payment Type','Warehouse']];
   list.forEach((p, i) => {
     const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
     rows.push([
