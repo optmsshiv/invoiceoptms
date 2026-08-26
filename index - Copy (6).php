@@ -2033,7 +2033,6 @@ const SERVER = {
         </button>
         <div class="notif-panel" id="notifPanel">
           <div class="np-title">Notifications <span style="font-size:11px;font-weight:400;color:var(--muted)" id="notifTime"></span></div>
-          <div id="notif-payments-due-section"></div>
           <div id="notifItems"><div style="padding:12px 16px;color:var(--muted);font-size:13px;text-align:center">Loading notifications…</div></div>
           <div style="padding:10px 16px;text-align:center"><button class="btn btn-outline" style="font-size:11px;padding:5px 12px" onclick="clearNotifs()">Mark all read</button></div>
         </div>
@@ -9806,6 +9805,12 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(livePreview, 100);
   STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
+  // Remember whichever sidebar page the user is on, so a refresh can
+  // restore it below instead of always landing back on Dashboard.
+  document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.nav-item[data-page]');
+    if (item) { try { localStorage.setItem('optms_lastPage', item.dataset.page); } catch(e2) {} }
+  });
   // Hover tooltip for collapsed-sidebar nav items — a single shared
   // element, positioned via getBoundingClientRect() on each hover, since
   // .sidebar-nav's overflow-y:auto would clip a per-item CSS tooltip.
@@ -19820,60 +19825,6 @@ function dismissPaymentsDueBanner() {
   } catch(e) { /* ignore — worst case it just shows again next render */ }
 }
 
-function closeNotifPanel() {
-  const panel = document.getElementById('notifPanel');
-  if (panel) panel.classList.remove('open');
-}
-
-// ── Payments Due section inside the bell dropdown ─────────────────
-// A compact version of the Payments Due card — supplier name, badge,
-// amount — instead of the plain sentence-per-line the rest of the
-// dropdown uses. Windowed to overdue + next 7 days, same as the
-// banner (not the full "everything scheduled" list the card shows) —
-// this is a glance-and-go dropdown, not the place for months-out
-// entries; the full list is one click away via "View all in Purchases".
-function renderBellPaymentsDueSection() {
-  const el = document.getElementById('notif-payments-due-section');
-  if (!el) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const withDiff = (STATE.purchases || [])
-    .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
-    .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
-    .filter(x => x.diff <= 7)
-    .sort((a,b) => a.diff - b.diff);
-
-  if (!withDiff.length) { el.innerHTML = ''; return; }
-
-  const overdueCount = withDiff.filter(x => x.diff < 0).length;
-  const rows = withDiff.slice(0,4).map(({p,diff}) => {
-    const remain = Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0));
-    const isOverdue = diff < 0;
-    const badge = isOverdue
-      ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue</span>`
-      : diff === 0
-      ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
-      : `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-    return `<div onclick="closeNotifPanel();viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;gap:6px;align-items:center">
-          <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
-          ${badge}
-        </div>
-      </div>
-      <div style="font-size:11.5px;font-weight:700;color:${isOverdue?'var(--red)':'#E65100'};flex-shrink:0">${fmt_money(remain)}</div>
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `
-    <div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:${overdueCount?'var(--red)':'var(--muted)'};text-transform:uppercase;letter-spacing:.3px">
-      Payments Due${overdueCount ? ` — ${overdueCount} overdue` : ''}
-    </div>
-    ${rows}
-    ${withDiff.length > 4 ? `<div style="padding:5px 16px 8px;text-align:right"><a onclick="closeNotifPanel();showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${withDiff.length} →</a></div>` : ''}
-    <div style="border-bottom:1px solid var(--border);margin:2px 0"></div>
-  `;
-}
-
 function renderPurchases() {
   const tbody = document.getElementById('purchasesTbody');
   if (!tbody) return;
@@ -29018,11 +28969,21 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       setTimeout(livePreview, 100);
       document.addEventListener('click', closeAllDropdowns);
-      // Deliberately always lands on Dashboard on every load — the app
-      // previously restored whichever page the user was last on
-      // (localStorage 'optms_lastPage'), including right after login,
-      // which meant login didn't reliably land on Dashboard. Removed per
-      // client request so Dashboard is always the first thing seen.
+      // Restore whichever sidebar page the user was on before the page
+      // reloaded, instead of always dropping back to Dashboard. Re-clicking
+      // the nav item (rather than calling showPage directly) reuses whatever
+      // handler it's wired to — showPage, showPaymentsPage, goToProductsPage,
+      // etc. — so business-type-specific routing still resolves correctly.
+      // Pages not reachable from the sidebar (edit/detail screens, "-new"
+      // forms) were never stored here, so this only ever restores top-level
+      // list/report pages and safely falls back to Dashboard otherwise.
+      try {
+        const _lastPage = localStorage.getItem('optms_lastPage');
+        if (_lastPage && _lastPage !== 'dashboard') {
+          const _navEl = document.querySelector(`.nav-item[data-page="${_lastPage}"]`);
+          if (_navEl) _navEl.click();
+        }
+      } catch(restoreErr) { /* ignore — worst case, stays on Dashboard */ }
     } catch(initErr) {
       console.error('App init error:', initErr);
     }
@@ -29115,12 +29076,34 @@ function renderNotifications() {
     items.push({ type:'info', key:`sale-due-${s.id}`, text:`<b>${escHtml(s.customer_name||'—')}</b> — ${escHtml(s.invoice_no||'')} due ${dueDate}` });
   });
 
-  // Supplier payments with a date set now render as their own compact
-  // section at the top of the bell dropdue (see
-  // renderBellPaymentsDueSection) with supplier name + amount, not as
-  // plain text lines mixed into this list — kept here only for the
-  // ones with NO date set, since those have nothing date-specific to
-  // show in that section and still need a way to surface at all.
+  // Supplier payments overdue — the date the client asked to be reminded
+  // about: expected_payment_date is the planned pay-supplier date set on
+  // the purchase (independent of payment_terms, which is just a category).
+  // Mirrors the invoice/sale overdue+due-soon pattern above, one line per
+  // record (capped at 3) instead of a summary, since a date makes each
+  // one individually actionable.
+  (STATE.purchases || []).filter(p => {
+    if ((p.status||'Pending') === 'Paid' || !p.expected_payment_date) return false;
+    return new Date(p.expected_payment_date) < today;
+  }).slice(0,3).forEach(p => {
+    items.push({ type:'warn', key:`pur-overdue-${p.id}`, text:`Payment to <b>${escHtml(p.supplier_name||'—')}</b> for ${escHtml(p.purchase_no||'')} is overdue` });
+  });
+
+  // Supplier payments due in next 3 days
+  (STATE.purchases || []).filter(p => {
+    if ((p.status||'Pending') === 'Paid' || !p.expected_payment_date) return false;
+    const diff = (new Date(p.expected_payment_date) - today) / 86400000;
+    return diff >= 0 && diff <= 3;
+  }).slice(0,3).forEach(p => {
+    const dueDate = new Date(p.expected_payment_date).toLocaleDateString(_moneyLocale(),{day:'2-digit',month:'short'});
+    items.push({ type:'info', key:`pur-due-${p.id}`, text:`Payment to <b>${escHtml(p.supplier_name||'—')}</b> — ${escHtml(p.purchase_no||'')} due ${dueDate}` });
+  });
+
+  // Purchases with outstanding payment but no expected payment date set —
+  // kept as a count-based summary (not one line per record) since these
+  // have nothing date-specific to say, same reasoning as the original
+  // purchases-pending-summary this replaces. Purchases already covered by
+  // the two date-aware blocks above are excluded so they aren't counted twice.
   const pendingNoDatePurchases = (STATE.purchases || []).filter(p => (p.status||'Pending') !== 'Paid' && !p.expected_payment_date);
   if (pendingNoDatePurchases.length) {
     const total = pendingNoDatePurchases.reduce((s,p) => s + (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0), 0);
@@ -29177,7 +29160,6 @@ function renderNotifications() {
   // approval-polling ticks, so piggybacking here means the banner never
   // needs its own separate refresh wiring.
   renderPaymentsDueBanner();
-  renderBellPaymentsDueSection();
 }
 
 
