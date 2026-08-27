@@ -117,9 +117,6 @@ try {
     if (!empty($_GET['to']))   { $where .= ' AND l.entry_date <= ?'; $params[] = $_GET['to']; }
 
     $sessionScoped = !empty($_GET['from']) && !empty($_GET['to']);
-    // Master toggle — ?include_expenses=1 shows expense-type rows again,
-    // for the person who explicitly wants to see them. Off by default.
-    $includeExpenses = !empty($_GET['include_expenses']);
 
     if ($sessionScoped) {
       // A session should show its OWN running balance — starting fresh at
@@ -148,25 +145,21 @@ try {
 
       // 'expense' rows still count fully toward the running balance above —
       // they genuinely drew down the fund — but aren't shown as their own
-      // line item by default, since that's a duplicate of what the Expense
-      // table's payment-method column already shows. Filtered AFTER the
-      // balance walk, never before, so hiding them can't change what any
-      // other row's balance reads as. Skipped entirely when the person has
-      // switched on "Show expense entries".
-      if (!$includeExpenses) {
-        $allRows = array_values(array_filter($allRows, fn($r) => $r['type'] !== 'expense'));
-      }
+      // line item, since that's a duplicate of what the Expense table's
+      // payment-method column already shows. Filtered AFTER the balance
+      // walk, never before, so hiding them can't change what any other
+      // row's balance reads as.
+      $allRows = array_values(array_filter($allRows, fn($r) => $r['type'] !== 'expense'));
 
       $total = count($allRows);
       $newestFirst = array_reverse($allRows);
       $rows = array_slice($newestFirst, $offset, $limit);
     } else {
       // Same reasoning as the session-scoped branch above: 'expense' rows
-      // are excluded from what's returned by default, but their already-
-      // committed effect on every other row's stored balance_after is
-      // untouched — that value was fixed at insert time, not recomputed
-      // here. Skipped entirely when "Show expense entries" is on.
-      $listWhere = $where . ($includeExpenses ? '' : " AND l.type <> 'expense'");
+      // are excluded from what's returned, but their already-committed
+      // effect on every other row's stored balance_after is untouched —
+      // that value was fixed at insert time, not recomputed here.
+      $listWhere = $where . " AND l.type <> 'expense'";
       $stmt = $db->prepare("SELECT l.*, u.name AS created_by_name
                              FROM cash_in_hand_ledger l
                              LEFT JOIN users u ON u.id = l.created_by

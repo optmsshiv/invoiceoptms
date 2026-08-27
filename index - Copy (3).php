@@ -8053,14 +8053,7 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Ledger -->
       <div class="table-card">
-        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--muted)" id="cih-ledger-subtitle"></span>
-          <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;user-select:none">
-            <input type="checkbox" id="cih-show-expenses" onchange="loadCihLedger(0)" style="cursor:pointer">
-            Show expense entries
-            <i class="fas fa-circle-info" title="Expenses paid via Cash in Hand still reduce the balance either way — this only shows/hides them as their own row here, since they're already listed in the Expense table." style="color:var(--muted);cursor:help"></i>
-          </label>
-        </div>
+        <div style="padding:12px 16px;font-size:12px;color:var(--muted)" id="cih-ledger-subtitle"></div>
         <table class="data-table"><thead><tr>
           <th>Date</th><th>Type</th><th>Description</th><th>By</th>
           <th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Balance After</th><th></th>
@@ -31128,8 +31121,7 @@ async function loadCihLedger(offset = 0) {
   if (offset === 0 && tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>';
 
   try {
-    const showExp = document.getElementById('cih-show-expenses')?.checked ? '1' : '0';
-    const qs = `limit=${CIH_PAGE_SIZE}&offset=${offset}` + (from ? `&from=${from}` : '') + (to ? `&to=${to}` : '') + `&include_expenses=${showExp}`;
+    const qs = `limit=${CIH_PAGE_SIZE}&offset=${offset}` + (from ? `&from=${from}` : '') + (to ? `&to=${to}` : '');
     const r = await api(`api/cash_in_hand.php?${qs}`);
     CIH_LATEST_ID = r.latest_id || 0;
     const rows = r.data || [];
@@ -31683,24 +31675,15 @@ function _renderExpTable() {
   }
   tbody.innerHTML = pg.map(exp => {
     const col = getExpCatColor(exp.category);
-    const isLocked = exp.method === 'Cash in Hand' || exp.source === 'credit';
-    // Same color mapping already used for the "Via Credit" pill (purple)
-    // and the Cash-in-Hand-specific teal used elsewhere for that fund —
-    // everything else gets a neutral gray pill, just for visual scanning,
-    // not meant to convey anything beyond "this is the method".
-    const methodColors = { 'Cash in Hand': '#00897B', 'Cash': '#6B7280', 'UPI': '#1976D2', 'Bank Transfer': '#7B1FA2', 'Cheque': '#B8860B' };
-    const methodCol = methodColors[exp.method] || '#6B7280';
     return `<tr>
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span onclick="viewCreditEntrySource(${exp.credit_entry_id})" style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px;cursor:pointer" title="Click to see the originating credit entry"><i class="fas fa-hand-holding-dollar" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
-      <td>${exp.method ? `<span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(methodCol)};color:${methodCol}">${escHtml(exp.method)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="color:var(--muted)">${exp.method||'—'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
       <td>
-        ${isLocked
-          ? `<button disabled title="${exp.source === 'credit' ? 'From a Credit entry' : 'Cash in Hand'} — delete and re-add to change this" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;margin-right:4px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`
-          : `<button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>`}
+        <button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
         ${SERVER.canExpenseDelete
           ? `<button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>`
           : `<button disabled title="Delete restricted by your role" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`}
@@ -32096,17 +32079,6 @@ function openAddExpenseModal() {
 function editExpense(id) {
   const exp = STATE.expenses.find(e=>String(e.id)===String(id));
   if (!exp) return;
-  // Editing a Cash-in-Hand or Credit-sourced expense can't be done safely —
-  // the amount is linked to a real fund balance / a credit entry's
-  // converted_amount, and there's no reliable way to edit-in-place without
-  // risking a wrong balance or a silently desynced credit entry. Delete
-  // (which correctly reverses both) and re-add instead. Checked here too,
-  // not just by disabling the button, since this function could otherwise
-  // still be called directly.
-  if (exp.method === 'Cash in Hand' || exp.source === 'credit') {
-    toast('⚠️ This expense is linked to ' + (exp.source === 'credit' ? 'a Credit entry' : 'Cash in Hand') + ' — delete and re-add it to change anything, so the linked balance stays correct.', 'warning', 6000);
-    return;
-  }
   document.getElementById('exp-edit-id').value = id;
   document.getElementById('exp-modal-title').textContent = 'Edit Expense';
   document.getElementById('exp-modal-byline').textContent = exp.created_by_name ? ('Added by ' + exp.created_by_name) : '';

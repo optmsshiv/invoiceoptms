@@ -257,29 +257,6 @@ try {
 
     // ── PUT — full replace ────────────────────────────────────────
     if ($method === 'PUT' && $id) {
-        // Capture the pre-edit state FIRST — needed both to decide whether
-        // editing is even allowed (see the lock below) and, if it is, to
-        // reverse its old Cash in Hand impact further down.
-        $oldStmt = $db->prepare('SELECT method, amount, vendor, source FROM expenses WHERE id=:id');
-        $oldStmt->execute([':id'=>$id]);
-        $oldExp = $oldStmt->fetch(PDO::FETCH_ASSOC);
-
-        // Cash-in-Hand and Credit-sourced expenses can't be edited safely —
-        // Cash in Hand's amount is tied to a real shared fund balance, and
-        // a Credit-sourced expense's amount is tied to a credit entry's
-        // converted_amount; neither gets kept in sync by a plain edit.
-        // Delete (which correctly reverses both — see recordCashInHandMovement
-        // and the credit_entry_conversions reversal in the DELETE handler
-        // below) and re-add instead. Checked here too, not just hidden in
-        // the UI, since this endpoint could otherwise be called directly.
-        if ($oldExp && ($oldExp['method'] === 'Cash in Hand' || ($oldExp['source'] ?? '') === 'credit')) {
-            http_response_code(400);
-            echo json_encode(['success'=>false,'error'=>'This expense is linked to ' .
-                (($oldExp['source'] ?? '') === 'credit' ? 'a Credit entry' : 'Cash in Hand') .
-                ' and can\'t be edited directly — delete and re-add it instead, so the linked balance stays correct.']);
-            exit;
-        }
-
         $date   = trim($body['date']     ?? '');
         $cat    = trim($body['category'] ?? 'Other');
         $vendor = trim($body['vendor']   ?? '');
@@ -295,6 +272,12 @@ try {
         if ($meth === 'Cash in Hand') {
             expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? ''));
         }
+
+        // Capture the pre-edit state so we can reverse its Cash in Hand
+        // impact below if it changes (or the amount changed).
+        $oldStmt = $db->prepare('SELECT method, amount, vendor FROM expenses WHERE id=:id');
+        $oldStmt->execute([':id'=>$id]);
+        $oldExp = $oldStmt->fetch(PDO::FETCH_ASSOC);
 
         $stmt = $db->prepare(
             'UPDATE expenses SET `date`=:date,category=:cat,vendor=:vendor,
