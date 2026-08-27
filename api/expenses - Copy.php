@@ -126,13 +126,6 @@ try {
         INDEX `idx_cec_entry` (`credit_entry_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-    // Same fresh-install concern as above — `source` is normally added by
-    // credit_entries.php's own migration guard (run only once someone has
-    // actually converted a Credit entry), so a tenant that hits Expenses
-    // first would 500 on the DELETE handler's SELECT below without this.
-    try { $db->exec("ALTER TABLE expenses ADD COLUMN source VARCHAR(20) NULL AFTER method"); }
-    catch (Throwable $e) { /* already exists */ }
-
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
         // Summary by category
@@ -312,69 +305,9 @@ try {
             echo json_encode(['success'=>false,'error'=>'You do not have permission to delete expenses. Ask the owner to grant this in Team Permissions.']);
             exit;
         }
-        $stmt = $db->prepare('SELECT vendor,amount,method,source FROM expenses WHERE id=:id');
+        $stmt = $db->prepare('SELECT vendor,amount,method FROM expenses WHERE id=:id');
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        // If this expense came from a Credit entry conversion, undo that
-        // portion of the conversion BEFORE the expense row itself is gone —
-        // otherwise the credit entry stays marked converted/partial forever,
-        // pointing at converted_expense_id/credit_entry_conversions rows
-        // that reference an expense which no longer exists. Mirrors the
-        // same "recompute from what's actually still real" pattern already
-        // used for purchase_payments.php → recachePurchasePaid().
-        if ($row && ($row['source'] ?? '') === 'credit') {
-            $convStmt = $db->prepare('SELECT * FROM credit_entry_conversions WHERE expense_id = :id');
-            $convStmt->execute([':id'=>$id]);
-            $conversions = $convStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($conversions as $conv) {
-                $creditEntryId = (int)$conv['credit_entry_id'];
-                $convAmount    = (float)$conv['amount'];
-
-                $ceStmt = $db->prepare('SELECT * FROM credit_entries WHERE id = :id');
-                $ceStmt->execute([':id'=>$creditEntryId]);
-                $creditEntry = $ceStmt->fetch(PDO::FETCH_ASSOC);
-                if ($creditEntry) {
-                    $newConverted = max(0, round((float)$creditEntry['converted_amount'] - $convAmount, 2));
-                    // Never back to 'converted' automatically — that only
-                    // happens through a real conversion. 'pending' once
-                    // nothing converted remains, 'partial' otherwise.
-                    $newStatus = $newConverted <= 0.004 ? 'pending' : 'partial';
-
-                    // The cached converted_expense_id/converted_at (used for
-                    // display) might have pointed at THIS expense — if so,
-                    // repoint to whichever conversion (if any) still remains
-                    // instead of leaving it referencing a deleted expense.
-                    $remStmt = $db->prepare(
-                        'SELECT expense_id, created_at FROM credit_entry_conversions
-                          WHERE credit_entry_id = :ceid AND expense_id <> :xid
-                          ORDER BY id DESC LIMIT 1'
-                    );
-                    $remStmt->execute([':ceid'=>$creditEntryId, ':xid'=>$id]);
-                    $remaining = $remStmt->fetch(PDO::FETCH_ASSOC);
-
-                    $db->prepare(
-                        'UPDATE credit_entries SET status=:status, converted_amount=:amt,
-                           converted_expense_id=:xid, converted_at=:at WHERE id=:id'
-                    )->execute([
-                        ':status'=>$newStatus, ':amt'=>$newConverted,
-                        ':xid'=>$remaining ? (int)$remaining['expense_id'] : null,
-                        ':at'=>$remaining ? $remaining['created_at'] : null,
-                        ':id'=>$creditEntryId,
-                    ]);
-
-                    logActivity((int)($_SESSION['user_id'] ?? 0), 'restore', 'credit_entry', $creditEntryId,
-                        "Credit entry conversion reversed — expense #{$id} deleted, ₹" . number_format($convAmount, 2) .
-                        " un-converted (now {$newStatus})");
-                }
-                // The conversion row itself now points at a deleted expense —
-                // remove it so credit_entry_conversions only ever reflects
-                // conversions that still actually exist.
-                $db->prepare('DELETE FROM credit_entry_conversions WHERE id = :cid')->execute([':cid'=>$conv['id']]);
-            }
-        }
-
         $db->prepare('DELETE FROM expenses WHERE id=:id')->execute([':id'=>$id]);
         if ($row) {
             logActivity((int)($_SESSION['user_id'] ?? 0), 'delete', 'expense', (int)$id,

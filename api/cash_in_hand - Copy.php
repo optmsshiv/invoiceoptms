@@ -143,32 +143,19 @@ try {
       }
       unset($row);
 
-      // 'expense' rows still count fully toward the running balance above —
-      // they genuinely drew down the fund — but aren't shown as their own
-      // line item, since that's a duplicate of what the Expense table's
-      // payment-method column already shows. Filtered AFTER the balance
-      // walk, never before, so hiding them can't change what any other
-      // row's balance reads as.
-      $allRows = array_values(array_filter($allRows, fn($r) => $r['type'] !== 'expense'));
-
       $total = count($allRows);
       $newestFirst = array_reverse($allRows);
       $rows = array_slice($newestFirst, $offset, $limit);
     } else {
-      // Same reasoning as the session-scoped branch above: 'expense' rows
-      // are excluded from what's returned, but their already-committed
-      // effect on every other row's stored balance_after is untouched —
-      // that value was fixed at insert time, not recomputed here.
-      $listWhere = $where . " AND l.type <> 'expense'";
       $stmt = $db->prepare("SELECT l.*, u.name AS created_by_name
                              FROM cash_in_hand_ledger l
                              LEFT JOIN users u ON u.id = l.created_by
-                             WHERE {$listWhere}
+                             WHERE {$where}
                              ORDER BY l.id DESC LIMIT {$limit} OFFSET {$offset}");
       $stmt->execute($params);
       $rows = $stmt->fetchAll();
 
-      $countStmt = $db->prepare("SELECT COUNT(*) FROM cash_in_hand_ledger l WHERE {$listWhere}");
+      $countStmt = $db->prepare("SELECT COUNT(*) FROM cash_in_hand_ledger l WHERE {$where}");
       $countStmt->execute($params);
       $total = (int)$countStmt->fetchColumn();
     }
