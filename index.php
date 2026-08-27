@@ -2314,9 +2314,8 @@ const SERVER = {
           </div>
         </div>
 
-        <!-- Payments Due widget — right after the KPI row so it's seen
-             before scrolling past the chart, not buried below it. -->
-        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
+        <!-- Payments Due now lives inside the Alerts & Notifications card
+             below, in its own section — see db-alerts-list rendering. -->
 
         <!-- Row 1: Sales vs Purchase chart + Alerts -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
@@ -11659,12 +11658,52 @@ function renderProductDashboard() {
     const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
     const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
 
-    // Update alerts card title with badge count
-    const totalAlerts = lowStock.length + outStock.length + pendPay.length + pendColl.length;
+    // Payments Due — merged into this card instead of its own separate
+    // card lower on the dashboard, since both are "things that need your
+    // attention" and splitting them across two cards just fragmented the
+    // same concern. Same overdue + next-7-days window as the banner/bell
+    // (not the full "everything scheduled" list — that's still the card
+    // on the Purchases page), kept short since this column is narrow.
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dueWithDiff = (STATE.purchases || [])
+      .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
+      .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
+      .filter(x => x.diff <= 7)
+      .sort((a,b) => a.diff - b.diff);
+    const dueOverdueCount = dueWithDiff.filter(x => x.diff < 0).length;
+
+    // Update alerts card title with badge count (payments due + everything else below)
+    const totalAlerts = dueWithDiff.length + lowStock.length + outStock.length + pendPay.length + pendColl.length;
     const alertsTitle = document.querySelector('#db-alerts-card > div:first-child');
     if (alertsTitle) alertsTitle.innerHTML = `Alerts &amp; Notifications ${totalAlerts > 0 ? `<span style="background:#E53935;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px">${totalAlerts}</span>` : ''}`;
 
-    alertsList.innerHTML = [
+    const paymentsDueHtml = `
+      <div style="font-size:11px;font-weight:700;color:${dueOverdueCount?'#E53935':'var(--muted)'};text-transform:uppercase;letter-spacing:.3px;padding:2px 0 6px">
+        Payments Due${dueOverdueCount ? ` — ${dueOverdueCount} overdue` : ''}
+      </div>
+      ${dueWithDiff.length ? dueWithDiff.slice(0,4).map(({p,diff}) => {
+        const remain = Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0));
+        const isOverdue = diff < 0;
+        const badge = isOverdue
+          ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue</span>`
+          : diff === 0
+          ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
+          : `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
+        return `<div onclick="showPage('purchases',null)" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
+              ${badge}
+            </div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${isOverdue?'var(--red)':'#E65100'};flex-shrink:0">${fmt_money(remain)}</span>
+        </div>`;
+      }).join('') : `<div style="padding:4px 0 10px;font-size:11.5px;color:var(--muted)">No supplier payments due in the next 7 days</div>`}
+      ${dueWithDiff.length > 4 ? `<div style="padding:6px 0 2px;text-align:right"><a onclick="showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${dueWithDiff.length} →</a></div>` : ''}
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px">Alerts</div>
+    `;
+
+    alertsList.innerHTML = paymentsDueHtml + ([
       ...(outStock.map(p => ({
         icon:'fa-ban', color:'#E53935', bg:'#FFEBEE',
         label: escHtml(p.name),
@@ -11687,11 +11726,8 @@ function renderProductDashboard() {
         <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${a.label}</div><div style="font-size:11px;color:var(--muted)">${a.sub}</div></div>
         <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
       </div>`).join('') ||
-      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
+      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>');
   }
-
-  // ── Payments Due widget ──────────────────────────────────────
-  renderPaymentsDueWidget('dashPaymentsDueCard');
 
   // ── Stock donut ────────────────────────────────────────────────
   const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
