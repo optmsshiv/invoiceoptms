@@ -2262,8 +2262,8 @@ const SERVER = {
           <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-receipt"></i> Payment Entry</button>
         </div>
 
-        <!-- 6 KPI cards -->
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
+        <!-- 8 KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
             <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
