@@ -34,6 +34,14 @@ if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 // the next login is correctly detected as fresh again.
 $freshLogin = empty($_SESSION['optms_session_active']);
 $_SESSION['optms_session_active'] = true;
+// Real login timestamp, set once and kept across every refresh in this
+// session — the Payments Due banner's "5 minutes per login" needs the
+// actual moment login happened, not whichever page load the browser
+// happens to render first (which could be seconds after login, or could
+// be a refresh minutes later that should NOT restart the 5-minute clock).
+if (empty($_SESSION['optms_session_started_at'])) {
+    $_SESSION['optms_session_started_at'] = time();
+}
 
 // ── Tenant-level (subscription) gate ─────────────────────────────
 // Checked first — if the whole organization's subscription is
@@ -1666,6 +1674,7 @@ const SERVER = {
   user:     <?= json_encode(['id'=>(int)$user['id'],'name'=>$user['name'],'email'=>$user['email'],'role'=>$user['role'],'avatar'=>$user['avatar']??'']) ?>,
   settings: <?= json_encode($settings) ?>,
   freshLogin: <?= json_encode($freshLogin) ?>,
+  sessionStartedAt: <?= json_encode((int)$_SESSION['optms_session_started_at']) ?>,
   prefix:   <?= json_encode($prefix) ?>,
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
@@ -11661,14 +11670,18 @@ function renderProductDashboard() {
     // Payments Due — merged into this card instead of its own separate
     // card lower on the dashboard, since both are "things that need your
     // attention" and splitting them across two cards just fragmented the
-    // same concern. Same overdue + next-7-days window as the banner/bell
-    // (not the full "everything scheduled" list — that's still the card
-    // on the Purchases page), kept short since this column is narrow.
+    // same concern. Every unpaid purchase with a date set shows here, no
+    // matter how far out — windowing this to a few days would silently
+    // hide anything scheduled further ahead (e.g. a 2-month-out payment),
+    // which defeats the point of setting the date at all. Urgency is
+    // still conveyed through the badge color/label per row, not by
+    // hiding rows — a far-out one just shows a quiet "60d" instead of a
+    // red "Overdue". (The banner/bell dropdown stay windowed to 7 days on
+    // purpose — those are urgency nudges, not the full schedule.)
     const today = new Date(); today.setHours(0,0,0,0);
     const dueWithDiff = (STATE.purchases || [])
       .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
       .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
-      .filter(x => x.diff <= 7)
       .sort((a,b) => a.diff - b.diff);
     const dueOverdueCount = dueWithDiff.filter(x => x.diff < 0).length;
 
@@ -11698,7 +11711,7 @@ function renderProductDashboard() {
           </div>
           <span style="font-size:11px;font-weight:700;color:${isOverdue?'var(--red)':'#E65100'};flex-shrink:0">${fmt_money(remain)}</span>
         </div>`;
-      }).join('') : `<div style="padding:4px 0 10px;font-size:11.5px;color:var(--muted)">No supplier payments due in the next 7 days</div>`}
+      }).join('') : `<div style="padding:4px 0 10px;font-size:11.5px;color:var(--muted)">No upcoming supplier payments</div>`}
       ${dueWithDiff.length > 4 ? `<div style="padding:6px 0 2px;text-align:right"><a onclick="showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${dueWithDiff.length} →</a></div>` : ''}
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px">Alerts</div>
     `;
@@ -19833,15 +19846,31 @@ function renderPaymentsDueWidget(containerId) {
 // Sits directly under the topbar, on every page — unlike the bell
 // badge (passive, needs a click) or the widget above (only seen on
 // Purchases/Dashboard), this shows itself automatically the moment
-// something's due, without the user going looking for it. Same
-// overdue/due-within-7-days data as the widget, just condensed to
-// one line. Dismissible for the day (see PD_BANNER_DISMISS_KEY) so
-// it doesn't nag on every navigation, but comes back next login if
-// the underlying payment is still unresolved.
-const PD_BANNER_DISMISS_KEY = 'optms_pdBannerDismissedDate';
+// something's due, without the user going looking for it.
+//
+// Shows for exactly 5 minutes from the moment of login, then auto-hides
+// itself — not dismiss-once-per-day. That guarantees it's seen on every
+// single login (not just the first login of the day, which a "dismissed
+// today" rule could skip on a second login), while still going away on
+// its own so it doesn't linger as a permanent fixture. The 5-minute
+// window is anchored to SERVER.sessionStartedAt (a real timestamp from
+// the backend, set once at login and unchanged by any refresh) rather
+// than to whichever page load happens to render the banner first — a
+// refresh 3 minutes after login only has 2 minutes left, not a fresh 5;
+// a refresh after the window has already closed shows nothing at all,
+// even though this render call still fires.
+const PD_BANNER_WINDOW_MS = 5 * 60 * 1000;
+let PD_BANNER_HIDE_TIMER = null;
+let PD_BANNER_MANUALLY_DISMISSED = false;
+
 function renderPaymentsDueBanner() {
   const el = document.getElementById('paymentsDueBanner');
   if (!el) return;
+
+  const elapsedMs = Date.now() - (SERVER.sessionStartedAt * 1000);
+  const remainingMs = PD_BANNER_WINDOW_MS - elapsedMs;
+  if (remainingMs <= 0 || PD_BANNER_MANUALLY_DISMISSED) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
   const today = new Date(); today.setHours(0,0,0,0);
   const withDiff = (STATE.purchases || [])
     .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
@@ -19851,11 +19880,6 @@ function renderPaymentsDueBanner() {
   const combined = [...overdue, ...dueSoon];
 
   if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-
-  const todayStr = today.toISOString().slice(0,10);
-  let dismissedDate = '';
-  try { dismissedDate = localStorage.getItem(PD_BANNER_DISMISS_KEY) || ''; } catch(e) { /* ignore */ }
-  if (dismissedDate === todayStr) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
   const summary = overdue.length
@@ -19868,17 +19892,25 @@ function renderPaymentsDueBanner() {
     <i class="fas ${overdue.length?'fa-triangle-exclamation':'fa-calendar-check'}" style="font-size:13px"></i>
     <span style="flex:1">${summary}</span>
     <button onclick="showPage('purchases',null)" style="padding:4px 12px;border-radius:7px;background:${overdue.length?'#C0392B':'#E65100'};color:#fff;border:none;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">View</button>
-    <button onclick="dismissPaymentsDueBanner()" title="Dismiss for today" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
+    <button onclick="dismissPaymentsDueBanner()" title="Dismiss" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
   `;
+
+  // Auto-hide right when the 5-minute window actually closes, without
+  // waiting for some other action to trigger a re-render. Re-scheduled
+  // on every render call rather than set-once, so an early render (e.g.
+  // bootstrap firing before data's fully loaded) doesn't lock in a stale
+  // countdown — each call re-anchors to the same fixed session start time.
+  if (PD_BANNER_HIDE_TIMER) clearTimeout(PD_BANNER_HIDE_TIMER);
+  PD_BANNER_HIDE_TIMER = setTimeout(() => {
+    el.style.display = 'none'; el.innerHTML = '';
+  }, remainingMs);
 }
 
 function dismissPaymentsDueBanner() {
+  PD_BANNER_MANUALLY_DISMISSED = true;
+  if (PD_BANNER_HIDE_TIMER) { clearTimeout(PD_BANNER_HIDE_TIMER); PD_BANNER_HIDE_TIMER = null; }
   const el = document.getElementById('paymentsDueBanner');
   if (el) { el.style.display = 'none'; el.innerHTML = ''; }
-  try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    localStorage.setItem(PD_BANNER_DISMISS_KEY, today.toISOString().slice(0,10));
-  } catch(e) { /* ignore — worst case it just shows again next render */ }
 }
 
 function closeNotifPanel() {
