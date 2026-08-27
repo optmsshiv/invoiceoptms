@@ -3280,7 +3280,7 @@ const SERVER = {
           <div class="field"><label>Payment Status</label><select id="pl-f-paystatus"><option value="">All Payment Status</option><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
           <div class="field"><label>Invoice No.</label><input id="pl-f-invno" placeholder="Enter Invoice No."></div>
           <div class="field"><label>Product</label><select id="pl-f-product"><option value="">All Products</option></select></div>
-          <div class="field"><label>Payment Type</label><select id="pl-f-paytype"><option value="">All Payment Types</option></select></div>
+          <div class="field"><label>Payment Mode</label><select id="pl-f-paytype"><option value="">All Payment Modes</option></select></div>
           <div class="field" style="display:flex;gap:8px">
             <button class="btn btn-primary" style="flex:1" onclick="PL_PAGE=1; renderPurchases()"><i class="fas fa-magnifying-glass"></i> Search</button>
             <button class="btn btn-outline" onclick="resetPurchasesFilter()"><i class="fas fa-rotate-left"></i> Reset</button>
@@ -3330,7 +3330,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-table-list"></i> Purchase Invoices</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:980px">
-            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Type</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Invoice No.</th><th>Supplier</th><th>Products</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Net Amount (₹)</th><th>Payment Status</th><th>Payment Date</th><th>Payment Mode</th><th>Action</th></tr></thead>
             <tbody id="purchasesTbody"></tbody>
           </table>
         </div>
@@ -3420,16 +3420,11 @@ const SERVER = {
               <div class="field"><label>Payment Terms</label>
                 <select id="pn-paymentterms"><option>Immediate</option><option>Net 7</option><option>Net 15</option><option>Net 30</option><option>Advance</option></select>
               </div>
-              <div class="field"><label>Payment Type</label>
-                <select id="pn-paymenttype"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option value="Split">Split</option></select>
-              </div>
-              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
-            </div>
-            <div class="pne-grid4">
               <div class="field">
                 <label>Expected Payment Date <i class="fas fa-info-circle" title="When you plan to pay the supplier — used for the payment-due reminder" style="color:var(--muted)"></i></label>
                 <input type="date" id="pn-expectedpaydate">
               </div>
+              <div class="field"><label>Remarks</label><input id="pn-remarks" placeholder="Optional"></div>
             </div>
           </div>
 
@@ -8058,7 +8053,14 @@ View Invoice: {{6}}</pre></details>
 
       <!-- Ledger -->
       <div class="table-card">
-        <div style="padding:12px 16px;font-size:12px;color:var(--muted)" id="cih-ledger-subtitle"></div>
+        <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--muted)" id="cih-ledger-subtitle"></span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;user-select:none">
+            <input type="checkbox" id="cih-show-expenses" onchange="loadCihLedger(0)" style="cursor:pointer">
+            Show expense entries
+            <i class="fas fa-circle-info" title="Expenses paid via Cash in Hand still reduce the balance either way — this only shows/hides them as their own row here, since they're already listed in the Expense table." style="color:var(--muted);cursor:help"></i>
+          </label>
+        </div>
         <table class="data-table"><thead><tr>
           <th>Date</th><th>Type</th><th>Description</th><th>By</th>
           <th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Balance After</th><th></th>
@@ -19307,7 +19309,7 @@ async function viewPurchaseDetails(id) {
         <div class="sp-info-item"><i class="fas fa-warehouse"></i><div><div class="sp-label">Warehouse</div><div class="sp-val">${escHtml(p.warehouse||'Main Warehouse')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-file-invoice"></i><div><div class="sp-label">Supplier Invoice Ref.</div><div class="sp-val">${escHtml(p.supplier_invoice_ref||'—')}</div></div></div>
         <div class="sp-info-item"><i class="fas fa-handshake"></i><div><div class="sp-label">Payment Terms</div><div class="sp-val">${escHtml(p.payment_terms||'—')}</div></div></div>
-        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Type</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
+        <div class="sp-info-item"><i class="fas fa-credit-card"></i><div><div class="sp-label">Payment Mode</div><div class="sp-val">${escHtml(p.payment_type||'—')}</div></div></div>
         ${p.expected_payment_date ? `<div class="sp-info-item"><i class="fas fa-calendar-check" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}"></i><div><div class="sp-label">Expected Payment Date</div><div class="sp-val" style="color:${outstanding>0 && new Date(p.expected_payment_date) < new Date()?'var(--red)':''}">${fmt_date_disp(p.expected_payment_date)}${outstanding>0 && new Date(p.expected_payment_date) < new Date() ? ' (overdue)' : ''}</div></div></div>` : ''}
       </div>
     </div>
@@ -19623,7 +19625,7 @@ function populatePurchaseListFilters() {
   if (ptSel) {
     const cur = ptSel.value;
     const types = [...new Set((STATE.purchases||[]).map(p => (p.payment_type||'').trim()).filter(Boolean))].sort();
-    ptSel.innerHTML = '<option value="">All Payment Types</option>' +
+    ptSel.innerHTML = '<option value="">All Payment Modes</option>' +
       types.map(t => `<option ${t===cur?'selected':''}>${escHtml(t)}</option>`).join('');
   }
   const fromEl = document.getElementById('pl-f-from'), toEl = document.getElementById('pl-f-to');
@@ -20003,7 +20005,7 @@ function plPage(p) {
 function exportPurchasesExcel() {
   const list = plFilteredPurchases();
   if (!list.length) { toast('⚠️ No purchases to export for the selected filters', 'warning'); return; }
-  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Payment Date','Payment Type','Warehouse']];
+  const rows = [['#','Invoice No.','Invoice Date','Supplier','Qty (Kg)','Net Amount','Amount Paid','Outstanding','Payment Status','Payment Date','Payment Mode','Warehouse']];
   list.forEach((p, i) => {
     const total = parseFloat(p.total)||0, paid = parseFloat(p.amount_paid)||0;
     rows.push([
@@ -20340,7 +20342,6 @@ function goToNewPurchase() {
   document.getElementById('pn-drivername').value = '';
   document.getElementById('pn-warehouse').value = 'Main Warehouse';
   document.getElementById('pn-paymentterms').value = 'Immediate';
-  document.getElementById('pn-paymenttype').value = 'Cash';
   document.getElementById('pn-expectedpaydate').value = '';
   document.getElementById('pn-remarks').value = '';
   setGstApplicable(false);
@@ -21075,7 +21076,6 @@ async function editPurchase(id) {
     document.getElementById('pn-drivername').value = p.driver_name || '';
     document.getElementById('pn-warehouse').value = p.warehouse || 'Main Warehouse';
     document.getElementById('pn-paymentterms').value = p.payment_terms || 'Immediate';
-    document.getElementById('pn-paymenttype').value = p.payment_type || 'Cash';
     document.getElementById('pn-expectedpaydate').value = p.expected_payment_date ? String(p.expected_payment_date).slice(0,10) : '';
     document.getElementById('pn-remarks').value = p.remarks || '';
     setGstApplicable(!!parseInt(p.gst_applicable));
@@ -21369,13 +21369,6 @@ async function savePurchaseEntry(mode) {
     driver_name: document.getElementById('pn-drivername').value.trim(),
     warehouse: document.getElementById('pn-warehouse').value,
     payment_terms: document.getElementById('pn-paymentterms').value,
-    // Blank, not the leftover default, when nothing's been decided yet —
-    // otherwise a Pending purchase still reports "Cash" (its default
-    // value) with ₹0 paid, which Finance Report's Paid Out list would
-    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
-    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
-    // existing total, but an all-zero group still renders as a row).
-    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' : document.getElementById('pn-paymenttype').value,
     expected_payment_date: document.getElementById('pn-expectedpaydate').value || '',
     remarks: document.getElementById('pn-remarks').value.trim(),
     transport_charge: parseFloat(document.getElementById('pn-transportcharge').value) || 0,
@@ -21389,6 +21382,21 @@ async function savePurchaseEntry(mode) {
     cd_applicable_within: document.getElementById('pn-cdwithin').value,
     payment_status: document.getElementById('pn-paystatus').value,
     amount_paid: parseFloat(document.getElementById('pn-amountpaid').value) || 0,
+    // Payment Type used to be its own separate dropdown (Purchase Info
+    // section) — merged into Payment Mode since the two were duplicate
+    // data entry for the same fact ("how was this paid"), and only
+    // Payment Mode actually drove any real logic (CIH restriction,
+    // split payments). payment_type is kept as its own saved column —
+    // the Purchases list column, filter, and CSV export all still read
+    // it — just auto-derived here instead of asked for twice. Blank,
+    // not the leftover default, when nothing's been decided yet —
+    // otherwise a Pending purchase still reports "Cash" (its default
+    // value) with ₹0 paid, which Finance Report's Paid Out list would
+    // include as a spurious "Cash — ₹0.00" row if it were the only Cash-
+    // mode purchase in the period (SUM(amount_paid)=0 doesn't skew an
+    // existing total, but an all-zero group still renders as a row).
+    payment_type: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
+      (document.getElementById('pn-paymode').value === 'Split Payment' ? 'Split' : document.getElementById('pn-paymode').value),
     // Same rationale as payment_type above.
     payment_mode: document.getElementById('pn-paystatus').value === 'Pending' ? '' :
       (document.getElementById('pn-paymode').value === 'Split Payment' ? getPNESplitLabel() : document.getElementById('pn-paymode').value),
@@ -31120,7 +31128,8 @@ async function loadCihLedger(offset = 0) {
   if (offset === 0 && tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Loading…</td></tr>';
 
   try {
-    const qs = `limit=${CIH_PAGE_SIZE}&offset=${offset}` + (from ? `&from=${from}` : '') + (to ? `&to=${to}` : '');
+    const showExp = document.getElementById('cih-show-expenses')?.checked ? '1' : '0';
+    const qs = `limit=${CIH_PAGE_SIZE}&offset=${offset}` + (from ? `&from=${from}` : '') + (to ? `&to=${to}` : '') + `&include_expenses=${showExp}`;
     const r = await api(`api/cash_in_hand.php?${qs}`);
     CIH_LATEST_ID = r.latest_id || 0;
     const rows = r.data || [];
@@ -31674,15 +31683,24 @@ function _renderExpTable() {
   }
   tbody.innerHTML = pg.map(exp => {
     const col = getExpCatColor(exp.category);
+    const isLocked = exp.method === 'Cash in Hand' || exp.source === 'credit';
+    // Same color mapping already used for the "Via Credit" pill (purple)
+    // and the Cash-in-Hand-specific teal used elsewhere for that fund —
+    // everything else gets a neutral gray pill, just for visual scanning,
+    // not meant to convey anything beyond "this is the method".
+    const methodColors = { 'Cash in Hand': '#00897B', 'Cash': '#6B7280', 'UPI': '#1976D2', 'Bank Transfer': '#7B1FA2', 'Cheque': '#B8860B' };
+    const methodCol = methodColors[exp.method] || '#6B7280';
     return `<tr>
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span onclick="viewCreditEntrySource(${exp.credit_entry_id})" style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px;cursor:pointer" title="Click to see the originating credit entry"><i class="fas fa-hand-holding-dollar" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
-      <td style="color:var(--muted)">${exp.method||'—'}</td>
+      <td>${exp.method ? `<span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(methodCol)};color:${methodCol}">${escHtml(exp.method)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="font-family:var(--mono);font-weight:700;color:#C62828">${fmt_money(exp.amount||0)}</td>
       <td style="color:var(--muted);font-size:12px">${exp.notes||'—'}</td>
       <td>
-        <button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>
+        ${isLocked
+          ? `<button disabled title="${exp.source === 'credit' ? 'From a Credit entry' : 'Cash in Hand'} — delete and re-add to change this" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;margin-right:4px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`
+          : `<button onclick="editWithApproval('expense','${exp.id}','Expense — ${escHtml((exp.vendor||'#'+exp.id).replace(/'/g,"\\'"))} (${fmt_money(exp.amount||0)})',()=>editExpense('${exp.id}'))" style="padding:4px 8px;background:var(--blue-bg);color:var(--blue);border:1px solid #90caf9;border-radius:6px;cursor:pointer;font-size:11px;margin-right:4px"><i class="fas fa-edit"></i></button>`}
         ${SERVER.canExpenseDelete
           ? `<button onclick="deleteExpense('${exp.id}')" style="padding:4px 8px;background:var(--red-bg);color:var(--red);border:1px solid #ffcdd2;border-radius:6px;cursor:pointer;font-size:11px"><i class="fas fa-trash"></i></button>`
           : `<button disabled title="Delete restricted by your role" style="padding:4px 8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:6px;font-size:11px;opacity:.55;cursor:not-allowed"><i class="fas fa-lock"></i></button>`}
@@ -32078,6 +32096,17 @@ function openAddExpenseModal() {
 function editExpense(id) {
   const exp = STATE.expenses.find(e=>String(e.id)===String(id));
   if (!exp) return;
+  // Editing a Cash-in-Hand or Credit-sourced expense can't be done safely —
+  // the amount is linked to a real fund balance / a credit entry's
+  // converted_amount, and there's no reliable way to edit-in-place without
+  // risking a wrong balance or a silently desynced credit entry. Delete
+  // (which correctly reverses both) and re-add instead. Checked here too,
+  // not just by disabling the button, since this function could otherwise
+  // still be called directly.
+  if (exp.method === 'Cash in Hand' || exp.source === 'credit') {
+    toast('⚠️ This expense is linked to ' + (exp.source === 'credit' ? 'a Credit entry' : 'Cash in Hand') + ' — delete and re-add it to change anything, so the linked balance stays correct.', 'warning', 6000);
+    return;
+  }
   document.getElementById('exp-edit-id').value = id;
   document.getElementById('exp-modal-title').textContent = 'Edit Expense';
   document.getElementById('exp-modal-byline').textContent = exp.created_by_name ? ('Added by ' + exp.created_by_name) : '';

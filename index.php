@@ -2314,6 +2314,10 @@ const SERVER = {
           </div>
         </div>
 
+        <!-- Payments Due widget — right after the KPI row so it's seen
+             before scrolling past the chart, not buried below it. -->
+        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
+
         <!-- Row 1: Sales vs Purchase chart + Alerts -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
           <div class="pne-card">
@@ -2336,9 +2340,6 @@ const SERVER = {
             <div id="db-alerts-list"></div>
           </div>
         </div>
-
-        <!-- Payments Due widget -->
-        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
 
         <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
