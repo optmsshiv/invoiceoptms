@@ -11702,7 +11702,7 @@ function renderProductDashboard() {
           : diff === 0
           ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
           : `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-        return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        return `<div onclick="showPage('purchases',null)" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
@@ -19817,7 +19817,7 @@ function renderPaymentsDueWidget(containerId) {
       : diff === 0
       ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Due today</span>`
       : `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">Due in ${diff}d</span>`;
-    return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
           <span style="font-weight:700;font-size:13px">${escHtml(p.supplier_name||'—')}</span>
@@ -19872,23 +19872,19 @@ function renderPaymentsDueBanner() {
   if (remainingMs <= 0 || PD_BANNER_MANUALLY_DISMISSED) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const today = new Date(); today.setHours(0,0,0,0);
-  // Every unpaid purchase with a date set counts, not just overdue/next-7-
-  // days — a payment scheduled 2 months out would otherwise never appear
-  // here at all, which defeats the point of setting the date. Matches the
-  // same widening already done for the Dashboard's Payments Due section.
   const withDiff = (STATE.purchases || [])
     .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
     .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
   const overdue = withDiff.filter(x => x.diff < 0);
-  const dueSoon = withDiff.filter(x => x.diff >= 0);
+  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7);
   const combined = [...overdue, ...dueSoon];
 
   if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
   const summary = overdue.length
-    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more upcoming` : '')
-    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} upcoming`;
+    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more due soon` : '')
+    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} due in the next 7 days`;
 
   el.style.display = 'flex';
   el.style.cssText = `display:flex;align-items:center;gap:12px;padding:9px 20px;background:${overdue.length?'#FDECEA':'#FFF3E0'};border-bottom:1.5px solid ${overdue.length?'#F5C6C0':'#FFE0B2'};font-size:12.5px;color:${overdue.length?'#8B2E22':'#7B3F00'}`;
@@ -19950,7 +19946,7 @@ function renderBellPaymentsDueSection() {
       : diff === 0
       ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
       : `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-    return `<div onclick="closeNotifPanel();highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="closeNotifPanel();viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
@@ -19969,48 +19965,6 @@ function renderBellPaymentsDueSection() {
     ${withDiff.length > 4 ? `<div style="padding:5px 16px 8px;text-align:right"><a onclick="closeNotifPanel();showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${withDiff.length} →</a></div>` : ''}
     <div style="border-bottom:1px solid var(--border);margin:2px 0"></div>
   `;
-}
-
-// Navigates to Purchases, clears any active filter (so the target row is
-// guaranteed visible regardless of whatever filter happened to be set),
-// jumps to whichever page it lands on, scrolls it into view, and flashes
-// a border around it — red if overdue, blue otherwise — instead of
-// jumping straight to the detail view. Used by every Payments Due click
-// point (the widget, the dashboard Alerts section, the bell dropdown)
-// so clicking a specific payment always lands you looking AT that row in
-// context, not just a generic detail popup.
-function highlightPurchaseRow(purchaseId) {
-  showPage('purchases', null);
-  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
-  document.getElementById('pl-f-to').value = fmt_date(new Date());
-  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(fid => {
-    const el = document.getElementById(fid); if (el) el.value = '';
-  });
-  const invEl = document.getElementById('pl-f-invno'); if (invEl) invEl.value = '';
-
-  const list = plFilteredPurchases();
-  const idx = list.findIndex(p => String(p.id) === String(purchaseId));
-  PL_PAGE = idx >= 0 ? Math.floor(idx / PL_PAGESIZE) + 1 : 1;
-  renderPurchases();
-
-  const p = (STATE.purchases||[]).find(x => String(x.id) === String(purchaseId));
-  let isOverdue = false;
-  if (p && p.expected_payment_date) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    isOverdue = new Date(p.expected_payment_date) < today;
-  }
-  const borderCol = isOverdue ? 'var(--red)' : 'var(--blue)';
-
-  setTimeout(() => {
-    const row = document.getElementById(`pur-row-${purchaseId}`);
-    if (!row) return;
-    row.scrollIntoView({behavior:'smooth', block:'center'});
-    row.style.outline = `2.5px solid ${borderCol}`;
-    row.style.outlineOffset = '-2px';
-    row.style.transition = 'outline-color 1.4s ease';
-    setTimeout(() => { row.style.outlineColor = 'transparent'; }, 2200);
-    setTimeout(() => { row.style.outline = ''; row.style.outlineOffset = ''; row.style.transition = ''; }, 3700);
-  }, 100);
 }
 
 function renderPurchases() {
@@ -20071,7 +20025,7 @@ function renderPurchases() {
     const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
     const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
     return `
-    <tr id="pur-row-${p.id}">
+    <tr>
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(p.purchase_date, p.created_at)}</div></td>
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
