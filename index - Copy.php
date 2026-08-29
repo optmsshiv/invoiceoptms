@@ -7932,7 +7932,7 @@ View Invoice: {{6}}</pre></details>
     <div id="page-expenses" class="page">
       <div class="page-toolbar">
         <div class="toolbar-left">
-          <input type="text" class="table-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
+          <input type="text" class="table-search" id="exp-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
           </select>
@@ -11702,7 +11702,7 @@ function renderProductDashboard() {
           : diff === 0
           ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
           : `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-        return `<div onclick="showPage('purchases',null)" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
@@ -19817,7 +19817,7 @@ function renderPaymentsDueWidget(containerId) {
       : diff === 0
       ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Due today</span>`
       : `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">Due in ${diff}d</span>`;
-    return `<div onclick="viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
           <span style="font-weight:700;font-size:13px">${escHtml(p.supplier_name||'—')}</span>
@@ -19872,19 +19872,23 @@ function renderPaymentsDueBanner() {
   if (remainingMs <= 0 || PD_BANNER_MANUALLY_DISMISSED) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const today = new Date(); today.setHours(0,0,0,0);
+  // Every unpaid purchase with a date set counts, not just overdue/next-7-
+  // days — a payment scheduled 2 months out would otherwise never appear
+  // here at all, which defeats the point of setting the date. Matches the
+  // same widening already done for the Dashboard's Payments Due section.
   const withDiff = (STATE.purchases || [])
     .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
     .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
   const overdue = withDiff.filter(x => x.diff < 0);
-  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7);
+  const dueSoon = withDiff.filter(x => x.diff >= 0);
   const combined = [...overdue, ...dueSoon];
 
   if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
   const summary = overdue.length
-    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more due soon` : '')
-    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} due in the next 7 days`;
+    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more upcoming` : '')
+    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} upcoming`;
 
   el.style.display = 'flex';
   el.style.cssText = `display:flex;align-items:center;gap:12px;padding:9px 20px;background:${overdue.length?'#FDECEA':'#FFF3E0'};border-bottom:1.5px solid ${overdue.length?'#F5C6C0':'#FFE0B2'};font-size:12.5px;color:${overdue.length?'#8B2E22':'#7B3F00'}`;
@@ -19946,7 +19950,7 @@ function renderBellPaymentsDueSection() {
       : diff === 0
       ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
       : `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-    return `<div onclick="closeNotifPanel();viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="closeNotifPanel();highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
@@ -19965,6 +19969,48 @@ function renderBellPaymentsDueSection() {
     ${withDiff.length > 4 ? `<div style="padding:5px 16px 8px;text-align:right"><a onclick="closeNotifPanel();showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${withDiff.length} →</a></div>` : ''}
     <div style="border-bottom:1px solid var(--border);margin:2px 0"></div>
   `;
+}
+
+// Navigates to Purchases, clears any active filter (so the target row is
+// guaranteed visible regardless of whatever filter happened to be set),
+// jumps to whichever page it lands on, scrolls it into view, and flashes
+// a border around it — red if overdue, blue otherwise — instead of
+// jumping straight to the detail view. Used by every Payments Due click
+// point (the widget, the dashboard Alerts section, the bell dropdown)
+// so clicking a specific payment always lands you looking AT that row in
+// context, not just a generic detail popup.
+function highlightPurchaseRow(purchaseId) {
+  showPage('purchases', null);
+  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('pl-f-to').value = fmt_date(new Date());
+  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(fid => {
+    const el = document.getElementById(fid); if (el) el.value = '';
+  });
+  const invEl = document.getElementById('pl-f-invno'); if (invEl) invEl.value = '';
+
+  const list = plFilteredPurchases();
+  const idx = list.findIndex(p => String(p.id) === String(purchaseId));
+  PL_PAGE = idx >= 0 ? Math.floor(idx / PL_PAGESIZE) + 1 : 1;
+  renderPurchases();
+
+  const p = (STATE.purchases||[]).find(x => String(x.id) === String(purchaseId));
+  let isOverdue = false;
+  if (p && p.expected_payment_date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    isOverdue = new Date(p.expected_payment_date) < today;
+  }
+  const borderCol = isOverdue ? 'var(--red)' : 'var(--blue)';
+
+  setTimeout(() => {
+    const row = document.getElementById(`pur-row-${purchaseId}`);
+    if (!row) return;
+    row.scrollIntoView({behavior:'smooth', block:'center'});
+    row.style.outline = `2.5px solid ${borderCol}`;
+    row.style.outlineOffset = '-2px';
+    row.style.transition = 'outline-color 1.4s ease';
+    setTimeout(() => { row.style.outlineColor = 'transparent'; }, 2200);
+    setTimeout(() => { row.style.outline = ''; row.style.outlineOffset = ''; row.style.transition = ''; }, 3700);
+  }, 100);
 }
 
 function renderPurchases() {
@@ -20025,7 +20071,7 @@ function renderPurchases() {
     const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
     const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
     return `
-    <tr>
+    <tr id="pur-row-${p.id}">
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(p.purchase_date, p.created_at)}</div></td>
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
@@ -31607,11 +31653,13 @@ function renderExpenses() {
     _populateExpenseMonthFilter();
     EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
+    _consumeExpenseHighlight();
   }).catch(()=>{
     // Fallback to cached STATE
     _populateExpenseMonthFilter();
     EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
+    _consumeExpenseHighlight();
   });
 }
 
@@ -31759,7 +31807,7 @@ function _renderExpTable() {
     // not meant to convey anything beyond "this is the method".
     const methodColors = { 'Cash in Hand': '#00897B', 'Cash': '#6B7280', 'UPI': '#1976D2', 'Bank Transfer': '#7B1FA2', 'Cheque': '#B8860B' };
     const methodCol = methodColors[exp.method] || '#6B7280';
-    return `<tr>
+    return `<tr id="exp-row-${exp.id}">
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span onclick="viewCreditEntrySource(${exp.credit_entry_id})" style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px;cursor:pointer" title="Click to see the originating credit entry"><i class="fas fa-hand-holding-dollar" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
@@ -31798,6 +31846,48 @@ function _expBaseList() {
   return GLOBAL_DATE_ACTIVE
     ? STATE.expenses.filter(e => gdrDateInRange(e.date))
     : [...STATE.expenses];
+}
+
+// Same pattern as highlightPurchaseRow, jumping to Expenses — but uses
+// a consume-after-render flag (mirroring CREDIT_HIGHLIGHT_ID below,
+// already used for the reverse Expense→Credit direction) instead of a
+// blind setTimeout, since renderExpenses() re-fetches from the API
+// asynchronously; a fixed timeout could fire before that fetch resolves
+// and the row actually exists in the DOM. Used by the Credit page's
+// "→ Expense #X" links so a converted entry's real expense record is
+// actually findable, not just referenced by a bare number.
+function highlightExpenseRow(expenseId) {
+  window.EXPENSE_HIGHLIGHT_ID = expenseId;
+  const searchEl = document.getElementById('exp-search'); if (searchEl) searchEl.value = '';
+  const catEl = document.getElementById('exp-cat-filter'); if (catEl) catEl.value = '';
+  const monthEl = document.getElementById('exp-month-filter'); if (monthEl) monthEl.value = '';
+  const srcEl = document.getElementById('exp-source-filter'); if (srcEl) srcEl.value = '';
+  showPage('expenses', null);
+}
+
+// Consumes window.EXPENSE_HIGHLIGHT_ID (set by highlightExpenseRow) once
+// EXP.list is actually populated — called from both branches of
+// renderExpenses() below, after data has genuinely loaded.
+function _consumeExpenseHighlight() {
+  if (!window.EXPENSE_HIGHLIGHT_ID) return;
+  const targetId = window.EXPENSE_HIGHLIGHT_ID;
+  window.EXPENSE_HIGHLIGHT_ID = null; // consume — don't re-highlight on a later, unrelated visit
+  const idx = EXP.list.findIndex(e => String(e.id) === String(targetId));
+  if (idx < 0) {
+    toast('⚠️ Expense #' + targetId + (GLOBAL_DATE_ACTIVE ? ' is outside the active Global Date Range — adjust it in Settings to find it' : ' could not be found — it may have been deleted'), 'warning', 6000);
+    return;
+  }
+  EXP.page = Math.floor(idx / EXP.per) + 1;
+  _renderExpTable();
+  setTimeout(() => {
+    const row = document.getElementById('exp-row-' + targetId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.style.transition = 'background-color 1.6s ease';
+      row.style.backgroundColor = '#FFF3CD';
+      setTimeout(() => { row.style.backgroundColor = ''; }, 2400);
+    }
+  }, 50);
 }
 
 function filterExpenses(val) {
@@ -31907,6 +31997,17 @@ function renderCreditTable() {
     const isCancelled = c.status === 'cancelled';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
+    // Every real expense this entry has ever been converted into — not
+    // just the most recent one. A partial conversion can span multiple
+    // separate Convert actions over time, each creating its own expense;
+    // linked_expense_ids (from the backend) is the full list, comma-
+    // separated, in the order they were created.
+    const linkedExpenseIds = (c.linked_expense_ids || '').split(',').map(x => x.trim()).filter(Boolean);
+    const expenseChipsHtml = linkedExpenseIds.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;${isPartial?'margin-top:6px':''}">
+          ${linkedExpenseIds.map(xid => `<span onclick="highlightExpenseRow(${xid})" style="font-size:10.5px;font-weight:600;color:var(--blue);background:var(--blue-bg);padding:2px 8px;border-radius:8px;cursor:pointer;white-space:nowrap" title="Click to find this expense"><i class="fas fa-arrow-right" style="font-size:8px;margin-right:3px"></i>Expense #${xid}</span>`).join('')}
+        </div>`
+      : '';
     return `<tr id="credit-row-${c.id}">
       <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
       <td>${escHtml(c.purpose)}</td>
@@ -31927,12 +32028,13 @@ function renderCreditTable() {
       </td>
       <td style="text-align:right">
         ${isConverted
-          ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
+          ? expenseChipsHtml
           : isCancelled
           ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="restoreCreditEntry(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`
           : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
              <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>
-             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}`}
+             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}
+             ${expenseChipsHtml}`}
       </td>
     </tr>`;
   }).join('');

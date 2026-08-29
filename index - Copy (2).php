@@ -7932,7 +7932,7 @@ View Invoice: {{6}}</pre></details>
     <div id="page-expenses" class="page">
       <div class="page-toolbar">
         <div class="toolbar-left">
-          <input type="text" class="table-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
+          <input type="text" class="table-search" id="exp-search" placeholder="Search expenses…" oninput="filterExpenses(this.value)">
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
           </select>
@@ -31653,11 +31653,13 @@ function renderExpenses() {
     _populateExpenseMonthFilter();
     EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
+    _consumeExpenseHighlight();
   }).catch(()=>{
     // Fallback to cached STATE
     _populateExpenseMonthFilter();
     EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
     EXP.page=1; _renderExpSummary(); _renderExpTable();
+    _consumeExpenseHighlight();
   });
 }
 
@@ -31805,7 +31807,7 @@ function _renderExpTable() {
     // not meant to convey anything beyond "this is the method".
     const methodColors = { 'Cash in Hand': '#00897B', 'Cash': '#6B7280', 'UPI': '#1976D2', 'Bank Transfer': '#7B1FA2', 'Cheque': '#B8860B' };
     const methodCol = methodColors[exp.method] || '#6B7280';
-    return `<tr>
+    return `<tr id="exp-row-${exp.id}">
       <td>${exp.date||'—'}${exp.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmtTimeOnly(exp.created_at)}</div>` : ''}</td>
       <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${pastelBg(col)};color:${col}">${exp.category||'—'}</span></td>
       <td style="font-weight:600">${exp.vendor||'—'}${exp.source === 'credit' ? `<div style="margin-top:2px"><span onclick="viewCreditEntrySource(${exp.credit_entry_id})" style="display:inline-block;font-size:9.5px;font-weight:700;color:#7B1FA2;background:#f3e5f5;padding:2px 7px;border-radius:8px;cursor:pointer" title="Click to see the originating credit entry"><i class="fas fa-hand-holding-dollar" style="font-size:8px;margin-right:3px"></i>Via Credit</span></div>` : ''}</td>
@@ -31844,6 +31846,48 @@ function _expBaseList() {
   return GLOBAL_DATE_ACTIVE
     ? STATE.expenses.filter(e => gdrDateInRange(e.date))
     : [...STATE.expenses];
+}
+
+// Same pattern as highlightPurchaseRow, jumping to Expenses — but uses
+// a consume-after-render flag (mirroring CREDIT_HIGHLIGHT_ID below,
+// already used for the reverse Expense→Credit direction) instead of a
+// blind setTimeout, since renderExpenses() re-fetches from the API
+// asynchronously; a fixed timeout could fire before that fetch resolves
+// and the row actually exists in the DOM. Used by the Credit page's
+// "→ Expense #X" links so a converted entry's real expense record is
+// actually findable, not just referenced by a bare number.
+function highlightExpenseRow(expenseId) {
+  window.EXPENSE_HIGHLIGHT_ID = expenseId;
+  const searchEl = document.getElementById('exp-search'); if (searchEl) searchEl.value = '';
+  const catEl = document.getElementById('exp-cat-filter'); if (catEl) catEl.value = '';
+  const monthEl = document.getElementById('exp-month-filter'); if (monthEl) monthEl.value = '';
+  const srcEl = document.getElementById('exp-source-filter'); if (srcEl) srcEl.value = '';
+  showPage('expenses', null);
+}
+
+// Consumes window.EXPENSE_HIGHLIGHT_ID (set by highlightExpenseRow) once
+// EXP.list is actually populated — called from both branches of
+// renderExpenses() below, after data has genuinely loaded.
+function _consumeExpenseHighlight() {
+  if (!window.EXPENSE_HIGHLIGHT_ID) return;
+  const targetId = window.EXPENSE_HIGHLIGHT_ID;
+  window.EXPENSE_HIGHLIGHT_ID = null; // consume — don't re-highlight on a later, unrelated visit
+  const idx = EXP.list.findIndex(e => String(e.id) === String(targetId));
+  if (idx < 0) {
+    toast('⚠️ Expense #' + targetId + (GLOBAL_DATE_ACTIVE ? ' is outside the active Global Date Range — adjust it in Settings to find it' : ' could not be found — it may have been deleted'), 'warning', 6000);
+    return;
+  }
+  EXP.page = Math.floor(idx / EXP.per) + 1;
+  _renderExpTable();
+  setTimeout(() => {
+    const row = document.getElementById('exp-row-' + targetId);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.style.transition = 'background-color 1.6s ease';
+      row.style.backgroundColor = '#FFF3CD';
+      setTimeout(() => { row.style.backgroundColor = ''; }, 2400);
+    }
+  }, 50);
 }
 
 function filterExpenses(val) {
@@ -31953,6 +31997,17 @@ function renderCreditTable() {
     const isCancelled = c.status === 'cancelled';
     const converted = parseFloat(c.converted_amount || 0);
     const remaining = Math.max(0, parseFloat(c.amount||0) - converted);
+    // Every real expense this entry has ever been converted into — not
+    // just the most recent one. A partial conversion can span multiple
+    // separate Convert actions over time, each creating its own expense;
+    // linked_expense_ids (from the backend) is the full list, comma-
+    // separated, in the order they were created.
+    const linkedExpenseIds = (c.linked_expense_ids || '').split(',').map(x => x.trim()).filter(Boolean);
+    const expenseChipsHtml = linkedExpenseIds.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;${isPartial?'margin-top:6px':''}">
+          ${linkedExpenseIds.map(xid => `<span onclick="highlightExpenseRow(${xid})" style="font-size:10.5px;font-weight:600;color:var(--blue);background:var(--blue-bg);padding:2px 8px;border-radius:8px;cursor:pointer;white-space:nowrap" title="Click to find this expense"><i class="fas fa-arrow-right" style="font-size:8px;margin-right:3px"></i>Expense #${xid}</span>`).join('')}
+        </div>`
+      : '';
     return `<tr id="credit-row-${c.id}">
       <td><div>${fmt_date_disp(c.entry_date)}</div>${c.created_at ? `<div style="font-size:10.5px;color:var(--muted);margin-top:1px">${fmt_time_ampm(c.created_at)}</div>` : ''}</td>
       <td>${escHtml(c.purpose)}</td>
@@ -31973,12 +32028,13 @@ function renderCreditTable() {
       </td>
       <td style="text-align:right">
         ${isConverted
-          ? `<span style="font-size:11px;color:var(--muted)">→ Expense #${c.converted_expense_id}</span>`
+          ? expenseChipsHtml
           : isCancelled
           ? `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px" onclick="restoreCreditEntry(${c.id})"><i class="fas fa-rotate-left"></i> Restore</button>`
           : `<button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openEditCreditEntry(${c.id})"><i class="fas fa-pen"></i> Edit</button>
              <button class="btn btn-outline" style="font-size:11.5px;padding:5px 12px;margin-right:6px" onclick="openConvertCreditEntry(${c.id})"><i class="fas fa-right-left"></i> ${isPartial ? 'Convert Remaining' : 'Convert to Expense'}</button>
-             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}`}
+             ${!isPartial ? `<button class="btn btn-danger" style="font-size:11.5px;padding:5px 12px" onclick="openCancelCreditModal(${c.id})"><i class="fas fa-ban"></i> Cancel</button>` : ''}
+             ${expenseChipsHtml}`}
       </td>
     </tr>`;
   }).join('');

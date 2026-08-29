@@ -183,8 +183,6 @@ $db->exec("CREATE TABLE IF NOT EXISTS `sales` (
   `discount_remarks` VARCHAR(255) DEFAULT '',
   `deductions` TEXT NULL,
   `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
-  `additions` TEXT NULL,
-  `addition_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
@@ -283,15 +281,6 @@ if (!in_array('client_request_id', $saleCols, true)) {
 if (!in_array('created_by', $saleCols, true)) {
     try { $db->exec("ALTER TABLE sales ADD COLUMN created_by INT UNSIGNED NULL"); } catch (Throwable $e) { /* already exists */ }
 }
-// Additions — mirror image of the existing Deductions feature. Same
-// {name, amount} JSON line-item shape, added to the taxable amount
-// instead of subtracted (e.g. a quality premium or bonus).
-if (!in_array('additions', $saleCols, true)) {
-    try { $db->exec("ALTER TABLE sales ADD COLUMN additions TEXT NULL AFTER deduction_amount"); } catch (Throwable $e) { /* already exists */ }
-}
-if (!in_array('addition_amount', $saleCols, true)) {
-    try { $db->exec("ALTER TABLE sales ADD COLUMN addition_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER additions"); } catch (Throwable $e) { /* already exists */ }
-}
 
 // Same table sale_payments.php creates — needed here too since this file
 // also writes to it directly (the "first payment at creation" row).
@@ -334,7 +323,6 @@ switch ($method) {
       $sale['items'] = $itemsStmt->fetchAll();
       $sale['attachments'] = $sale['attachments'] ? json_decode($sale['attachments'], true) : [];
       $sale['deductions'] = $sale['deductions'] ? json_decode($sale['deductions'], true) : [];
-      $sale['additions'] = $sale['additions'] ? json_decode($sale['additions'], true) : [];
       jsonResponse(['data' => $sale]);
       break;
     }
@@ -393,14 +381,12 @@ switch ($method) {
 
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
-    $additions       = is_array($d['additions'] ?? null) ? $d['additions'] : [];
-    $additionAmount  = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $additions));
     $tradeDiscPct = (float)($d['trade_discount_pct'] ?? 0);
     $cashDiscPct  = (float)($d['cash_discount_pct'] ?? 0);
     $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
     $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
 
-    $taxable = round($subtotal + $addCharges + $additionAmount - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
+    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
     // Item-level tax was computed against each line's own subtotal; scale it
     // proportionally if a header discount changed the taxable base, so total
     // tax stays consistent with the taxable amount actually being charged.
@@ -428,19 +414,19 @@ switch ($method) {
     $stmt = $db->prepare('INSERT INTO sales
       (invoice_no, customer_id, sale_date, due_date, sales_executive, payment_terms, sales_type, place_of_supply, currency,
        subtotal, transport_charge, loading_charge, packing_charge, insurance_charge, other_charges, round_off, discount_amount, discount_remarks,
-       deductions, deduction_amount, additions, addition_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
+       deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        taxable_amount, cgst_amount, sgst_amount, igst_amount, total_tax, total,
        payment_status, payment_method, amount_received, transaction_no, payment_date,
        customer_notes, internal_notes, delivery_instructions, attachments,
        prepared_by, checked_by, approved_by, status,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime, kanta_operator_name,
        kanta_gross_weight, kanta_tare_weight, kanta_moisture_pct, kanta_dhalta_kg, client_request_id, created_by, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?)');
+      VALUES (?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,?, ?,?,?)');
     $stmt->execute([
       $invoiceNo, (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
       $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
-      json_encode($deductions), $deductionAmount, json_encode($additions), $additionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
+      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_status'] ?? 'Pending', $d['payment_method'] ?? '', (float)($d['amount_received'] ?? 0), $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),
@@ -549,14 +535,12 @@ switch ($method) {
 
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
-    $additions       = is_array($d['additions'] ?? null) ? $d['additions'] : [];
-    $additionAmount  = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $additions));
     $tradeDiscPct = (float)($d['trade_discount_pct'] ?? 0);
     $cashDiscPct  = (float)($d['cash_discount_pct'] ?? 0);
     $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
     $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
 
-    $taxable = round($subtotal + $addCharges + $additionAmount - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
+    $taxable = round($subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount, 2);
     $totalTax = $subtotal > 0 ? round($itemsTax * ($taxable / $subtotal), 2) : 0;
 
     $isInterstate = !empty($d['is_interstate']);
@@ -577,7 +561,7 @@ switch ($method) {
     $db->prepare('UPDATE sales SET
       customer_id=?, sale_date=?, due_date=?, sales_executive=?, payment_terms=?, sales_type=?, place_of_supply=?, currency=?,
       subtotal=?, transport_charge=?, loading_charge=?, packing_charge=?, insurance_charge=?, other_charges=?, round_off=?, discount_amount=?, discount_remarks=?,
-      deductions=?, deduction_amount=?, additions=?, addition_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
+      deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       taxable_amount=?, cgst_amount=?, sgst_amount=?, igst_amount=?, total_tax=?, total=?,
       payment_method=?, transaction_no=?, payment_date=?,
       customer_notes=?, internal_notes=?, delivery_instructions=?, attachments=?,
@@ -588,7 +572,7 @@ switch ($method) {
       (int)$d['customer_id'], $d['sale_date'], $d['due_date'] ?? null,
       $d['sales_executive'] ?? '', $d['payment_terms'] ?? '', $d['sales_type'] ?? 'Local Sales', $d['place_of_supply'] ?? '', $d['currency'] ?? 'INR',
       $subtotal, $transportCharge, $loadingCharge, $packingCharge, $insuranceCharge, $otherCharges, $roundOff, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
-      json_encode($deductions), $deductionAmount, json_encode($additions), $additionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
+      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $taxable, $cgst, $sgst, $igst, $totalTax, $total,
       $d['payment_method'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['customer_notes'] ?? '', $d['internal_notes'] ?? '', $d['delivery_instructions'] ?? '', json_encode($attachments),

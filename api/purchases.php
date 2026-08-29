@@ -270,6 +270,8 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
   `discount_remarks` VARCHAR(255) DEFAULT '',
   `deductions` TEXT NULL,
   `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `additions` TEXT NULL,
+  `addition_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
@@ -310,6 +312,16 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
 try { $db->exec("ALTER TABLE purchases ADD COLUMN expected_payment_date DATE NULL AFTER payment_type"); }
 catch (Throwable $e) { /* already exists */ }
 try { $db->exec("ALTER TABLE purchases ADD INDEX idx_pur_expected_pay (expected_payment_date)"); }
+catch (Throwable $e) { /* already exists */ }
+
+// Migration guard — Additions: the mirror-image of the existing
+// Deductions feature. Same {name, amount} JSON line-item shape, same
+// idea, just added to the taxable amount instead of subtracted (e.g.
+// a quality premium or bonus, as opposed to a moisture/quality
+// deduction).
+try { $db->exec("ALTER TABLE purchases ADD COLUMN additions TEXT NULL AFTER deduction_amount"); }
+catch (Throwable $e) { /* already exists */ }
+try { $db->exec("ALTER TABLE purchases ADD COLUMN addition_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER additions"); }
 catch (Throwable $e) { /* already exists */ }
 
 $db->exec("CREATE TABLE IF NOT EXISTS `purchase_items` (
@@ -420,6 +432,7 @@ switch ($method) {
       $itemsStmt->execute([$id]);
       $purchase['items'] = $itemsStmt->fetchAll();
       $purchase['deductions'] = $purchase['deductions'] ? json_decode($purchase['deductions'], true) : [];
+      $purchase['additions'] = $purchase['additions'] ? json_decode($purchase['additions'], true) : [];
       jsonResponse(['data' => $purchase]);
       break;
     }
@@ -484,11 +497,15 @@ switch ($method) {
     $discountAmount  = (float)($d['discount_amount'] ?? 0);
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
+    // Additions — mirror image of Deductions, same {name, amount} shape,
+    // added to the taxable amount instead of subtracted.
+    $additions       = is_array($d['additions'] ?? null) ? $d['additions'] : [];
+    $additionAmount  = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $additions));
     $tradeDiscPct    = (float)($d['trade_discount_pct'] ?? 0);
     $cashDiscPct     = (float)($d['cash_discount_pct'] ?? 0);
     $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
     $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
-    $taxable         = $subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount;
+    $taxable         = $subtotal + $addCharges + $additionAmount - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount;
 
     $gstApplicable = !empty($d['gst_applicable']);
     $gstPct = $gstApplicable ? (float)($d['gst_pct'] ?? 0) : 0;
@@ -515,13 +532,13 @@ switch ($method) {
        reference_po_no, supplier_type, gst_applicable, supply_type,
        transport_mode, vehicle_no, driver_name, warehouse, payment_terms, payment_type, expected_payment_date, remarks,
        transport_charge, loading_charge, packing_charge, other_charges, discount_amount, discount_remarks,
-       deductions, deduction_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
+       deductions, deduction_amount, additions, addition_amount, trade_discount_pct, cash_discount_pct, cd_applicable_within, trade_discount_amount, cash_discount_amount,
        attachment_path, payment_mode, transaction_no, payment_date,
        weighing_type, kanta_name, weighbridge_slip_no, weight_datetime,
        kanta_gross_weight, kanta_tare_weight, kanta_operator_name, kanta_slip_path,
        header_moisture_pct, header_impurity_pct, header_dhalta_pct, header_dhalta_kg, header_billable_weight,
        client_request_id, created_by, created_at)
-      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)');
+      VALUES (?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?,?, ?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?)');
     $stmt->execute([
       $purchaseNo, (int)$d['supplier_id'], $d['invoice_bill_no'] ?? '', $d['purchase_date'],
       $d['currency'] ?? 'INR', (float)($d['exchange_rate'] ?? 1),
@@ -531,7 +548,7 @@ switch ($method) {
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', ($d['expected_payment_date'] ?? '') ?: null, $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
-      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
+      json_encode($deductions), $deductionAmount, json_encode($additions), $additionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $attachmentPath, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '', $kantaSlipPath,
@@ -632,11 +649,13 @@ switch ($method) {
     $discountAmount  = (float)($d['discount_amount'] ?? 0);
     $deductions      = is_array($d['deductions'] ?? null) ? $d['deductions'] : [];
     $deductionAmount = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $deductions));
+    $additions       = is_array($d['additions'] ?? null) ? $d['additions'] : [];
+    $additionAmount  = array_sum(array_map(fn($x) => (float)($x['amount'] ?? 0), $additions));
     $tradeDiscPct    = (float)($d['trade_discount_pct'] ?? 0);
     $cashDiscPct     = (float)($d['cash_discount_pct'] ?? 0);
     $tradeDiscAmount = round($subtotal * $tradeDiscPct / 100, 2);
     $cashDiscAmount  = round($subtotal * $cashDiscPct / 100, 2);
-    $taxable         = $subtotal + $addCharges - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount;
+    $taxable         = $subtotal + $addCharges + $additionAmount - $discountAmount - $deductionAmount - $tradeDiscAmount - $cashDiscAmount;
 
     $gstApplicable = !empty($d['gst_applicable']);
     $gstPct = $gstApplicable ? (float)($d['gst_pct'] ?? 0) : 0;
@@ -658,7 +677,7 @@ switch ($method) {
       reference_po_no=?, supplier_type=?, gst_applicable=?, supply_type=?,
       transport_mode=?, vehicle_no=?, driver_name=?, warehouse=?, payment_terms=?, payment_type=?, expected_payment_date=?, remarks=?,
       transport_charge=?, loading_charge=?, packing_charge=?, other_charges=?, discount_amount=?, discount_remarks=?,
-      deductions=?, deduction_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
+      deductions=?, deduction_amount=?, additions=?, addition_amount=?, trade_discount_pct=?, cash_discount_pct=?, cd_applicable_within=?, trade_discount_amount=?, cash_discount_amount=?,
       payment_mode=?, transaction_no=?, payment_date=?,
       weighing_type=?, kanta_name=?, weighbridge_slip_no=?, weight_datetime=?,
       kanta_gross_weight=?, kanta_tare_weight=?, kanta_operator_name=?,
@@ -673,7 +692,7 @@ switch ($method) {
       $d['transport_mode'] ?? '', $d['vehicle_no'] ?? '', $d['driver_name'] ?? '', $d['warehouse'] ?? 'Main Warehouse',
       $d['payment_terms'] ?? '', $d['payment_type'] ?? '', ($d['expected_payment_date'] ?? '') ?: null, $d['remarks'] ?? '',
       $transportCharge, $loadingCharge, $packingCharge, $otherCharges, $discountAmount, mb_substr($d['discount_remarks'] ?? '', 0, 255),
-      json_encode($deductions), $deductionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
+      json_encode($deductions), $deductionAmount, json_encode($additions), $additionAmount, $tradeDiscPct, $cashDiscPct, $d['cd_applicable_within'] ?? 'Same Day', $tradeDiscAmount, $cashDiscAmount,
       $d['payment_mode'] ?? '', $d['transaction_no'] ?? '', $d['payment_date'] ?? null,
       $d['weighing_type'] ?? 'Dharam Kanta', $d['kanta_name'] ?? '', $d['weighbridge_slip_no'] ?? '', $d['weight_datetime'] ?: null,
       (float)($d['kanta_gross_weight'] ?? 0), (float)($d['kanta_tare_weight'] ?? 0), $d['kanta_operator_name'] ?? '',
