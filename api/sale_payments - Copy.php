@@ -43,15 +43,6 @@ function nullIfEmptySP($v) { return ($v === '' || $v === null) ? null : $v; }
 // Recompute total received from real payment rows, then cache it back
 // onto the sale — keeps every existing page (stats, CSV export, filters)
 // correct without needing to touch them.
-//
-// Also recomputes payment_method from those same real rows — mirrors the
-// identical fix already applied to purchase_payments.php. Without this,
-// the unified Payments page (which reads sales.payment_method directly,
-// not the real sale_payments ledger) would keep showing whatever method
-// was set at sale creation forever, even after a real payment with a
-// different method gets recorded here. One method across all real
-// payments → that method; more than one distinct method → "Split"; no
-// real payments left → blank.
 function recacheSaleReceived(PDO $db, int $saleId): void {
     $sumStmt = $db->prepare(
         'SELECT COALESCE(SUM(amount),0) AS received FROM sale_payments
@@ -72,16 +63,8 @@ function recacheSaleReceived(PDO $db, int $saleId): void {
         $status = 'Pending';
     }
 
-    $methodStmt = $db->prepare(
-        'SELECT DISTINCT method FROM sale_payments
-          WHERE sale_id = ? AND sale_deleted = 0 AND method IS NOT NULL AND method <> \'\''
-    );
-    $methodStmt->execute([$saleId]);
-    $methods = $methodStmt->fetchAll(PDO::FETCH_COLUMN);
-    $paymentMethod = count($methods) === 1 ? $methods[0] : (count($methods) > 1 ? 'Split' : '');
-
-    $db->prepare('UPDATE sales SET amount_received = ?, payment_status = ?, payment_method = ? WHERE id = ?')
-       ->execute([$received, $status, $paymentMethod, $saleId]);
+    $db->prepare('UPDATE sales SET amount_received = ?, payment_status = ? WHERE id = ?')
+       ->execute([$received, $status, $saleId]);
 }
 
 try {
