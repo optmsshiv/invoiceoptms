@@ -94,21 +94,13 @@ catch (Throwable $e) { /* already exists */ }
 
 try {
     if ($method === 'GET') {
-        // linked_expense_ids: every real expense this entry has ever been
-        // converted into (could be more than one — a partial conversion
-        // can happen across multiple separate Convert actions over time),
-        // pulled live from credit_entry_conversions rather than relying on
-        // the single cached converted_expense_id column, which only ever
-        // tracks the MOST RECENT conversion and would silently hide any
-        // earlier ones on a multi-part conversion.
-        $expenseIdsSubquery = "(SELECT GROUP_CONCAT(expense_id ORDER BY id) FROM credit_entry_conversions cec WHERE cec.credit_entry_id = credit_entries.id) AS linked_expense_ids";
         if (!empty($_GET['id'])) {
-            $stmt = $db->prepare("SELECT credit_entries.*, {$expenseIdsSubquery} FROM credit_entries WHERE id = ?");
+            $stmt = $db->prepare('SELECT * FROM credit_entries WHERE id = ?');
             $stmt->execute([(int)$_GET['id']]);
             $row = $stmt->fetch();
             jsonResponse($row ? ['success' => true, 'data' => $row] : ['success' => false, 'error' => 'Not found']);
         }
-        $stmt = $db->query("SELECT credit_entries.*, {$expenseIdsSubquery} FROM credit_entries ORDER BY entry_date DESC, id DESC");
+        $stmt = $db->query('SELECT * FROM credit_entries ORDER BY entry_date DESC, id DESC');
         jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
     }
 

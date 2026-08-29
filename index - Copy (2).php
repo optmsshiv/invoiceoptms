@@ -34,6 +34,14 @@ if (!$user) { doLogout(); header('Location: /auth/login.php'); exit; }
 // the next login is correctly detected as fresh again.
 $freshLogin = empty($_SESSION['optms_session_active']);
 $_SESSION['optms_session_active'] = true;
+// Real login timestamp, set once and kept across every refresh in this
+// session — the Payments Due banner's "5 minutes per login" needs the
+// actual moment login happened, not whichever page load the browser
+// happens to render first (which could be seconds after login, or could
+// be a refresh minutes later that should NOT restart the 5-minute clock).
+if (empty($_SESSION['optms_session_started_at'])) {
+    $_SESSION['optms_session_started_at'] = time();
+}
 
 // ── Tenant-level (subscription) gate ─────────────────────────────
 // Checked first — if the whole organization's subscription is
@@ -1666,6 +1674,7 @@ const SERVER = {
   user:     <?= json_encode(['id'=>(int)$user['id'],'name'=>$user['name'],'email'=>$user['email'],'role'=>$user['role'],'avatar'=>$user['avatar']??'']) ?>,
   settings: <?= json_encode($settings) ?>,
   freshLogin: <?= json_encode($freshLogin) ?>,
+  sessionStartedAt: <?= json_encode((int)$_SESSION['optms_session_started_at']) ?>,
   prefix:   <?= json_encode($prefix) ?>,
   estPrefix: <?= json_encode($estPrefix) ?>,
   appUrl:   '<?= rtrim(APP_URL, '/') ?>',
@@ -2262,8 +2271,8 @@ const SERVER = {
           <button class="btn btn-outline" onclick="showPage('payments',null)"><i class="fas fa-receipt"></i> Payment Entry</button>
         </div>
 
-        <!-- 6 KPI cards -->
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
+        <!-- 8 KPI cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px" class="db-kpi-row">
           <div class="pne-card" style="padding:14px 16px" id="db-kpi-purchase">
             <span class="sa-chip-icon" style="background:#E3F2FD;color:#1976D2;width:34px;height:34px"><i class="fas fa-cart-shopping"></i></span>
             <div style="margin-top:8px;font-size:10.5px;color:var(--muted);font-weight:700">TOTAL PURCHASE</div>
@@ -2314,6 +2323,9 @@ const SERVER = {
           </div>
         </div>
 
+        <!-- Payments Due now lives inside the Alerts & Notifications card
+             below, in its own section — see db-alerts-list rendering. -->
+
         <!-- Row 1: Sales vs Purchase chart + Alerts -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:16px">
           <div class="pne-card">
@@ -2336,9 +2348,6 @@ const SERVER = {
             <div id="db-alerts-list"></div>
           </div>
         </div>
-
-        <!-- Payments Due widget -->
-        <div id="dashPaymentsDueCard" style="margin-bottom:16px"></div>
 
         <!-- Row 2: Stock Overview donut + Top Products + Recent Transactions -->
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1.4fr;gap:14px;margin-bottom:16px">
@@ -11658,12 +11667,56 @@ function renderProductDashboard() {
     const pendPay   = allPur.filter(p => p.status === 'Pending' || p.status === 'Partial');
     const pendColl  = allSales.filter(s => s.payment_status === 'Pending' || s.payment_status === 'Partial');
 
-    // Update alerts card title with badge count
-    const totalAlerts = lowStock.length + outStock.length + pendPay.length + pendColl.length;
+    // Payments Due — merged into this card instead of its own separate
+    // card lower on the dashboard, since both are "things that need your
+    // attention" and splitting them across two cards just fragmented the
+    // same concern. Every unpaid purchase with a date set shows here, no
+    // matter how far out — windowing this to a few days would silently
+    // hide anything scheduled further ahead (e.g. a 2-month-out payment),
+    // which defeats the point of setting the date at all. Urgency is
+    // still conveyed through the badge color/label per row, not by
+    // hiding rows — a far-out one just shows a quiet "60d" instead of a
+    // red "Overdue". (The banner/bell dropdown stay windowed to 7 days on
+    // purpose — those are urgency nudges, not the full schedule.)
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dueWithDiff = (STATE.purchases || [])
+      .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
+      .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }))
+      .sort((a,b) => a.diff - b.diff);
+    const dueOverdueCount = dueWithDiff.filter(x => x.diff < 0).length;
+
+    // Update alerts card title with badge count (payments due + everything else below)
+    const totalAlerts = dueWithDiff.length + lowStock.length + outStock.length + pendPay.length + pendColl.length;
     const alertsTitle = document.querySelector('#db-alerts-card > div:first-child');
     if (alertsTitle) alertsTitle.innerHTML = `Alerts &amp; Notifications ${totalAlerts > 0 ? `<span style="background:#E53935;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px">${totalAlerts}</span>` : ''}`;
 
-    alertsList.innerHTML = [
+    const paymentsDueHtml = `
+      <div style="font-size:11px;font-weight:700;color:${dueOverdueCount?'#E53935':'var(--muted)'};text-transform:uppercase;letter-spacing:.3px;padding:2px 0 6px">
+        Payments Due${dueOverdueCount ? ` — ${dueOverdueCount} overdue` : ''}
+      </div>
+      ${dueWithDiff.length ? dueWithDiff.slice(0,4).map(({p,diff}) => {
+        const remain = Math.max(0, (parseFloat(p.total)||0) - (parseFloat(p.amount_paid)||0));
+        const isOverdue = diff < 0;
+        const badge = isOverdue
+          ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--red-bg);color:var(--red);font-weight:700;white-space:nowrap">Overdue</span>`
+          : diff === 0
+          ? `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
+          : `<span style="font-size:9.5px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
+        return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
+              ${badge}
+            </div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${isOverdue?'var(--red)':'#E65100'};flex-shrink:0">${fmt_money(remain)}</span>
+        </div>`;
+      }).join('') : `<div style="padding:4px 0 10px;font-size:11.5px;color:var(--muted)">No upcoming supplier payments</div>`}
+      ${dueWithDiff.length > 4 ? `<div style="padding:6px 0 2px;text-align:right"><a onclick="showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${dueWithDiff.length} →</a></div>` : ''}
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px">Alerts</div>
+    `;
+
+    alertsList.innerHTML = paymentsDueHtml + ([
       ...(outStock.map(p => ({
         icon:'fa-ban', color:'#E53935', bg:'#FFEBEE',
         label: escHtml(p.name),
@@ -11686,11 +11739,8 @@ function renderProductDashboard() {
         <div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600">${a.label}</div><div style="font-size:11px;color:var(--muted)">${a.sub}</div></div>
         <span style="font-weight:800;font-size:13px;color:${a.color}">${a.n}</span>
       </div>`).join('') ||
-      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>';
+      '<div style="color:var(--muted);font-size:12.5px;text-align:center;padding:16px"><i class="fas fa-circle-check" style="color:var(--teal);display:block;font-size:22px;margin-bottom:8px"></i>All clear — no alerts</div>');
   }
-
-  // ── Payments Due widget ──────────────────────────────────────
-  renderPaymentsDueWidget('dashPaymentsDueCard');
 
   // ── Stock donut ────────────────────────────────────────────────
   const topStock = [...products].map(pr => ({ name: pr.name, qty: getQty(pr) })).filter(p => p.qty > 0).sort((a,b) => b.qty - a.qty).slice(0, 5);
@@ -19767,7 +19817,7 @@ function renderPaymentsDueWidget(containerId) {
       : diff === 0
       ? `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Due today</span>`
       : `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">Due in ${diff}d</span>`;
-    return `<div onclick="viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px;flex-wrap:wrap">
           <span style="font-weight:700;font-size:13px">${escHtml(p.supplier_name||'—')}</span>
@@ -19796,34 +19846,49 @@ function renderPaymentsDueWidget(containerId) {
 // Sits directly under the topbar, on every page — unlike the bell
 // badge (passive, needs a click) or the widget above (only seen on
 // Purchases/Dashboard), this shows itself automatically the moment
-// something's due, without the user going looking for it. Same
-// overdue/due-within-7-days data as the widget, just condensed to
-// one line. Dismissible for the day (see PD_BANNER_DISMISS_KEY) so
-// it doesn't nag on every navigation, but comes back next login if
-// the underlying payment is still unresolved.
-const PD_BANNER_DISMISS_KEY = 'optms_pdBannerDismissedDate';
+// something's due, without the user going looking for it.
+//
+// Shows for exactly 5 minutes from the moment of login, then auto-hides
+// itself — not dismiss-once-per-day. That guarantees it's seen on every
+// single login (not just the first login of the day, which a "dismissed
+// today" rule could skip on a second login), while still going away on
+// its own so it doesn't linger as a permanent fixture. The 5-minute
+// window is anchored to SERVER.sessionStartedAt (a real timestamp from
+// the backend, set once at login and unchanged by any refresh) rather
+// than to whichever page load happens to render the banner first — a
+// refresh 3 minutes after login only has 2 minutes left, not a fresh 5;
+// a refresh after the window has already closed shows nothing at all,
+// even though this render call still fires.
+const PD_BANNER_WINDOW_MS = 5 * 60 * 1000;
+let PD_BANNER_HIDE_TIMER = null;
+let PD_BANNER_MANUALLY_DISMISSED = false;
+
 function renderPaymentsDueBanner() {
   const el = document.getElementById('paymentsDueBanner');
   if (!el) return;
+
+  const elapsedMs = Date.now() - (SERVER.sessionStartedAt * 1000);
+  const remainingMs = PD_BANNER_WINDOW_MS - elapsedMs;
+  if (remainingMs <= 0 || PD_BANNER_MANUALLY_DISMISSED) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
   const today = new Date(); today.setHours(0,0,0,0);
+  // Every unpaid purchase with a date set counts, not just overdue/next-7-
+  // days — a payment scheduled 2 months out would otherwise never appear
+  // here at all, which defeats the point of setting the date. Matches the
+  // same widening already done for the Dashboard's Payments Due section.
   const withDiff = (STATE.purchases || [])
     .filter(p => (p.status||'Pending') !== 'Paid' && p.expected_payment_date)
     .map(p => ({ p, diff: Math.floor((new Date(p.expected_payment_date) - today) / 86400000) }));
   const overdue = withDiff.filter(x => x.diff < 0);
-  const dueSoon = withDiff.filter(x => x.diff >= 0 && x.diff <= 7);
+  const dueSoon = withDiff.filter(x => x.diff >= 0);
   const combined = [...overdue, ...dueSoon];
 
   if (!combined.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
-  const todayStr = today.toISOString().slice(0,10);
-  let dismissedDate = '';
-  try { dismissedDate = localStorage.getItem(PD_BANNER_DISMISS_KEY) || ''; } catch(e) { /* ignore */ }
-  if (dismissedDate === todayStr) { el.style.display = 'none'; el.innerHTML = ''; return; }
-
   const overdueAmt = overdue.reduce((s,x) => s + Math.max(0,(parseFloat(x.p.total)||0)-(parseFloat(x.p.amount_paid)||0)), 0);
   const summary = overdue.length
-    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more due soon` : '')
-    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} due in the next 7 days`;
+    ? `<b>${overdue.length}</b> supplier payment${overdue.length!==1?'s':''} overdue — ${fmt_money(overdueAmt)}` + (dueSoon.length ? `, <b>${dueSoon.length}</b> more upcoming` : '')
+    : `<b>${dueSoon.length}</b> supplier payment${dueSoon.length!==1?'s':''} upcoming`;
 
   el.style.display = 'flex';
   el.style.cssText = `display:flex;align-items:center;gap:12px;padding:9px 20px;background:${overdue.length?'#FDECEA':'#FFF3E0'};border-bottom:1.5px solid ${overdue.length?'#F5C6C0':'#FFE0B2'};font-size:12.5px;color:${overdue.length?'#8B2E22':'#7B3F00'}`;
@@ -19831,17 +19896,25 @@ function renderPaymentsDueBanner() {
     <i class="fas ${overdue.length?'fa-triangle-exclamation':'fa-calendar-check'}" style="font-size:13px"></i>
     <span style="flex:1">${summary}</span>
     <button onclick="showPage('purchases',null)" style="padding:4px 12px;border-radius:7px;background:${overdue.length?'#C0392B':'#E65100'};color:#fff;border:none;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">View</button>
-    <button onclick="dismissPaymentsDueBanner()" title="Dismiss for today" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
+    <button onclick="dismissPaymentsDueBanner()" title="Dismiss" style="background:none;border:none;cursor:pointer;color:inherit;font-size:16px;padding:0 2px;line-height:1;opacity:.6">×</button>
   `;
+
+  // Auto-hide right when the 5-minute window actually closes, without
+  // waiting for some other action to trigger a re-render. Re-scheduled
+  // on every render call rather than set-once, so an early render (e.g.
+  // bootstrap firing before data's fully loaded) doesn't lock in a stale
+  // countdown — each call re-anchors to the same fixed session start time.
+  if (PD_BANNER_HIDE_TIMER) clearTimeout(PD_BANNER_HIDE_TIMER);
+  PD_BANNER_HIDE_TIMER = setTimeout(() => {
+    el.style.display = 'none'; el.innerHTML = '';
+  }, remainingMs);
 }
 
 function dismissPaymentsDueBanner() {
+  PD_BANNER_MANUALLY_DISMISSED = true;
+  if (PD_BANNER_HIDE_TIMER) { clearTimeout(PD_BANNER_HIDE_TIMER); PD_BANNER_HIDE_TIMER = null; }
   const el = document.getElementById('paymentsDueBanner');
   if (el) { el.style.display = 'none'; el.innerHTML = ''; }
-  try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    localStorage.setItem(PD_BANNER_DISMISS_KEY, today.toISOString().slice(0,10));
-  } catch(e) { /* ignore — worst case it just shows again next render */ }
 }
 
 function closeNotifPanel() {
@@ -19877,7 +19950,7 @@ function renderBellPaymentsDueSection() {
       : diff === 0
       ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#FFF3E0;color:#E65100;font-weight:700;white-space:nowrap">Today</span>`
       : `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--blue-bg);color:var(--blue);font-weight:700;white-space:nowrap">${diff}d</span>`;
-    return `<div onclick="closeNotifPanel();viewPurchaseDetails(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    return `<div onclick="closeNotifPanel();highlightPurchaseRow(${p.id})" style="cursor:pointer;padding:7px 16px;display:flex;gap:8px;align-items:center" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.supplier_name||'—')}</span>
@@ -19896,6 +19969,48 @@ function renderBellPaymentsDueSection() {
     ${withDiff.length > 4 ? `<div style="padding:5px 16px 8px;text-align:right"><a onclick="closeNotifPanel();showPage('purchases',null)" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">View all ${withDiff.length} →</a></div>` : ''}
     <div style="border-bottom:1px solid var(--border);margin:2px 0"></div>
   `;
+}
+
+// Navigates to Purchases, clears any active filter (so the target row is
+// guaranteed visible regardless of whatever filter happened to be set),
+// jumps to whichever page it lands on, scrolls it into view, and flashes
+// a border around it — red if overdue, blue otherwise — instead of
+// jumping straight to the detail view. Used by every Payments Due click
+// point (the widget, the dashboard Alerts section, the bell dropdown)
+// so clicking a specific payment always lands you looking AT that row in
+// context, not just a generic detail popup.
+function highlightPurchaseRow(purchaseId) {
+  showPage('purchases', null);
+  document.getElementById('pl-f-from').value = BIZ_FROM_DATE;
+  document.getElementById('pl-f-to').value = fmt_date(new Date());
+  ['pl-f-supplier','pl-f-warehouse','pl-f-status','pl-f-paystatus','pl-f-product','pl-f-paytype'].forEach(fid => {
+    const el = document.getElementById(fid); if (el) el.value = '';
+  });
+  const invEl = document.getElementById('pl-f-invno'); if (invEl) invEl.value = '';
+
+  const list = plFilteredPurchases();
+  const idx = list.findIndex(p => String(p.id) === String(purchaseId));
+  PL_PAGE = idx >= 0 ? Math.floor(idx / PL_PAGESIZE) + 1 : 1;
+  renderPurchases();
+
+  const p = (STATE.purchases||[]).find(x => String(x.id) === String(purchaseId));
+  let isOverdue = false;
+  if (p && p.expected_payment_date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    isOverdue = new Date(p.expected_payment_date) < today;
+  }
+  const borderCol = isOverdue ? 'var(--red)' : 'var(--blue)';
+
+  setTimeout(() => {
+    const row = document.getElementById(`pur-row-${purchaseId}`);
+    if (!row) return;
+    row.scrollIntoView({behavior:'smooth', block:'center'});
+    row.style.outline = `2.5px solid ${borderCol}`;
+    row.style.outlineOffset = '-2px';
+    row.style.transition = 'outline-color 1.4s ease';
+    setTimeout(() => { row.style.outlineColor = 'transparent'; }, 2200);
+    setTimeout(() => { row.style.outline = ''; row.style.outlineOffset = ''; row.style.transition = ''; }, 3700);
+  }, 100);
 }
 
 function renderPurchases() {
@@ -19956,7 +20071,7 @@ function renderPurchases() {
     const payLabel = p.status === 'Received' ? 'Pending' : (p.status||'—');
     const pc = payColor[p.status] || { color:'#555', bg:'#F5F5F5' };
     return `
-    <tr>
+    <tr id="pur-row-${p.id}">
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(p.purchase_no)}</strong><div style="font-size:10.5px;color:var(--muted);margin-top:2px">${fmt_date_time_combined(p.purchase_date, p.created_at)}</div></td>
       <td>${escHtml(p.supplier_name||'—')}<div style="margin-top:3px">${supplierTypeBadgeHTML(p.supplier_type)}</div></td>
