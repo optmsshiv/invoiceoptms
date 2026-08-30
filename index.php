@@ -148,6 +148,7 @@ $companyMsme    = $settings['company_msme']     ?? '';
 $companyTagline = $settings['company_tagline']  ?? '';
 $companyIso     = $settings['company_iso']      ?? '';
 $showDhaltaPct  = $settings['show_dhalta_pct']  ?? '1';
+$showAdditions  = $settings['show_additions']   ?? '0'; // off by default — Additions is opt-in via Settings
 $companyPhone   = $settings['company_phone']    ?? '';
 $companyEmail   = $settings['company_email']    ?? '';
 $companyWebsite = $settings['company_website']  ?? '';
@@ -3455,6 +3456,7 @@ const SERVER = {
                 <colgroup>
                   <col style="width:30px"><col style="width:140px"><col style="width:90px">
                   <col style="width:70px"><col style="width:90px"><col style="width:90px">
+                  <col style="width:55px">
                   <col style="width:72px"><col style="width:72px"><col style="width:78px">
                   <col style="width:55px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:90px">
@@ -3464,6 +3466,7 @@ const SERVER = {
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety</th>
                     <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th><th rowspan="2">Batch Code</th>
+                    <th rowspan="2">Bags</th>
                     <th colspan="3">Weight (Kg)</th>
                     <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Wt</th>
@@ -3478,6 +3481,7 @@ const SERVER = {
               </table>
             </div>
             <div class="pne-items-footer">
+              <span>Total Bags <strong id="pne-total-bags">0</strong></span>
               <span>Total Net Weight <strong id="pne-total-net">0.00 Kg</strong></span>
               <span>Total Dhalta <strong id="pne-total-dhalta">0.00 Kg</strong></span>
               <span>Total Billable Weight <strong id="pne-total-billable">0.00 Kg</strong></span>
@@ -3553,7 +3557,7 @@ const SERVER = {
               <div class="pne-charge-total" style="margin-top:8px"><span>Total Deductions</span><strong id="pn-deductions-total" style="color:#E53935">₹0.00</strong></div>
             </div>
 
-            <div class="pne-card">
+            <div class="pne-card" id="pn-additions-card">
               <div class="pne-card-head pne-head-green" style="justify-content:space-between">
                 <span><span class="pne-num"><i class="fas fa-plus"></i></span> Additions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></span>
                 <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNAddition()"><i class="fas fa-plus"></i></button>
@@ -3666,6 +3670,7 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-box"></i> Product Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Selected Items)</span></div>
             <div class="pne-kv"><span>Total Items</span><strong id="pne-sb-items">0</strong></div>
+            <div class="pne-kv"><span>Total Bags</span><strong id="pne-sb-bags">0</strong></div>
             <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
@@ -4148,6 +4153,7 @@ const SERVER = {
                   <col style="width:90px"><!-- Variety -->
                   <col style="width:75px"><!-- Grade -->
                   <col style="width:90px"><!-- Batch -->
+                  <col style="width:60px"><!-- Bags -->
                   <col style="width:75px"><!-- Moisture -->
                   <col style="width:95px"><!-- Available -->
                   <col style="width:95px"><!-- Remaining -->
@@ -4160,7 +4166,7 @@ const SERVER = {
                   <col style="width:70px"><!-- Action -->
                 </colgroup>
                 <thead><tr>
-                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Moisture %</th>
+                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Bags</th><th>Moisture %</th>
                   <th>Available (Kg)</th><th>Remaining (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th>
                   <th>Rate (₹/Kg)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th style="text-align:center">Action</th>
                 </tr></thead>
@@ -4169,12 +4175,13 @@ const SERVER = {
             </div>
             <div class="pne-items-footer">
               <span>Total Items <strong id="sn-total-items">0</strong></span>
+              <span>Total Bags <strong id="sn-total-bags">0</strong></span>
               <span>Total Quantity <strong id="sn-total-qty">0.00 Kg</strong></span>
             </div>
           </div>
 
           <!-- 3b. Additions -->
-          <div class="pne-card">
+          <div class="pne-card" id="sn-additions-card">
             <div class="pne-card-head pne-head-green" style="justify-content:space-between">
               <span><span class="pne-num"><i class="fas fa-plus"></i></span> Additions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple addition lines)</span></span>
               <button class="btn btn-outline pne-small-btn" onclick="addSNAddition()"><i class="fas fa-plus"></i> Add Addition</button>
@@ -4294,7 +4301,7 @@ const SERVER = {
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
               <div class="pne-summary-row" id="sn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="sn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
-              <div class="pne-summary-row"><span>Additions</span><strong id="sn-sum-additions" style="color:#1D9E75">₹0.00</strong></div>
+              <div class="pne-summary-row" id="sn-sum-additions-row"><span>Additions</span><strong id="sn-sum-additions" style="color:#1D9E75">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
@@ -4341,9 +4348,10 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
             <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
+            <div class="pne-kv"><span>Total Bags</span><strong id="sn-sb-bags">0</strong></div>
             <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
-            <div class="pne-kv"><span>Total Additions</span><strong id="sn-sb-additions" style="color:#1D9E75">₹0.00</strong></div>
+            <div class="pne-kv" id="sn-sb-additions-row"><span>Total Additions</span><strong id="sn-sb-additions" style="color:#1D9E75">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Additional Charges</span><strong id="sn-sb-addcharges">₹0.00</strong></div>
             <div class="pne-kv"><span>Taxable Amount</span><strong id="sn-sb-taxable">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
@@ -7349,6 +7357,13 @@ View Invoice: {{6}}</pre></details>
                   <option value="0" <?= $showDhaltaPct==='0'?'selected':'' ?>>Hide Dhalta %</option>
                 </select>
               </div>
+              <div class="field">
+                <label>Additions <span style="font-size:10px;color:var(--muted);text-transform:none;font-weight:400">(Purchase &amp; Sale forms — mirror of Deductions)</span></label>
+                <select id="sc-show-additions">
+                  <option value="0" <?= $showAdditions!=='1'?'selected':'' ?>>Hide Additions</option>
+                  <option value="1" <?= $showAdditions==='1'?'selected':'' ?>>Show Additions</option>
+                </select>
+              </div>
               <div class="field g-full"><label>Address</label><textarea id="sc-addr"><?= htmlspecialchars($companyAddress) ?></textarea></div>
               <div class="field g-full"><label>Default Bank Account Details <span style="font-size:10px;color:var(--muted)">(pre-fills in new invoices)</span></label>
                 <textarea id="sc-bank" style="min-height:80px" placeholder="Bank: SBI | A/C: XXXXXXXXX | IFSC: SBIN0001234 | Name: Your Company | UPI: yourname@upi"><?= htmlspecialchars($companyBank) ?></textarea>
@@ -9427,6 +9442,7 @@ const STATE = {
     cin:             <?= json_encode($companyCin)     ?>,
     msme:            <?= json_encode($companyMsme)    ?>,
     showDhaltaPct:   <?= json_encode($showDhaltaPct)  ?>,
+    showAdditions:   <?= json_encode($showAdditions)  ?>,
     phone:           <?= json_encode($companyPhone)   ?>,
     email:           <?= json_encode($companyEmail)   ?>,
     website:         <?= json_encode($companyWebsite) ?>,
@@ -20473,6 +20489,24 @@ function goToStockIn() {
   if (typeof loadStockIn === 'function') loadStockIn();
 }
 
+// Additions is opt-in via Settings → Company (default hidden) — this
+// keeps the card out of the way for clients who don't need it, per the
+// client's own preference, while staying fully functional underneath
+// for whoever toggles it on. Applied on every form open (not just once
+// at bootstrap) so a Settings change while the form happens to already
+// be loaded still takes effect next time it's opened.
+function applyAdditionsVisibility() {
+  const on = STATE.settings.showAdditions === '1';
+  const ids = ['pn-additions-card', 'sn-additions-card', 'sn-sum-additions-row', 'sn-sb-additions-row'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; });
+  // pn-sum-additions-row is also independently toggled by calcPurchaseNewTotals()
+  // based on whether it's non-zero — hiding it here when the setting is off
+  // takes precedence over that, since an admin turning the feature off should
+  // hide it even if a value happens to still be sitting in a draft.
+  const pnRow = document.getElementById('pn-sum-additions-row');
+  if (pnRow && !on) pnRow.style.display = 'none';
+}
+
 function goToNewPurchase() {
   PNE.editingId = null;
   // A fresh UUID per "New Purchase" session — sent as client_request_id
@@ -20529,6 +20563,7 @@ function goToNewPurchase() {
   document.getElementById('pn-cdwithin').value = 'Same Day';
   renderPNDeductions();
   renderPNAdditions();
+  applyAdditionsVisibility();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
@@ -20616,7 +20651,7 @@ function setGstApplicable(applicable) {
 function pneEmptyItem() {
   const mode = document.getElementById('pne-entry-mode')?.value || 'catalog';
   return { id: pneItemSeq++, mode, product_id: '', description: '', variety_grade: '', moisture_pct: '', quality_grade: '', batch_no: '',
-    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, editing: true };
+    gross_weight: 0, tare_weight: 0, dhalta_kg: 0, rate: 0, discount_pct: 0, bags: 0, editing: true };
 }
 
 function addPurchaseNewItem() {
@@ -20725,6 +20760,7 @@ function renderPNEItemsTable() {
         <td class="pne-view-cell">${it.moisture_pct ? it.moisture_pct + '%' : '—'}</td>
         <td class="pne-view-cell">${escHtml(it.quality_grade || '—')}</td>
         <td class="pne-view-cell">${escHtml(it.batch_no || '—')}</td>
+        <td class="pne-view-cell">${it.bags ? parseInt(it.bags) : '—'}</td>
         <td class="pne-view-cell" id="pne-vgross-${it.id}">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell" id="pne-vtare-${it.id}">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</td>
         <td class="pne-view-cell">${c.net.toFixed(2)}</td>
@@ -20757,6 +20793,7 @@ function renderPNEItemsTable() {
       <td><input type="number" value="${it.moisture_pct}" min="0" max="100" step="0.1" oninput="updatePNEItem(${it.id},'moisture_pct',this.value)"></td>
       <td><input value="${escHtml(it.quality_grade)}" placeholder="e.g. A Grade" oninput="updatePNEItem(${it.id},'quality_grade',this.value,true)"></td>
       <td><input value="${escHtml(it.batch_no)}" placeholder="Optional — e.g. B0001" oninput="updatePNEItem(${it.id},'batch_no',this.value,true)"></td>
+      <td><input type="number" value="${it.bags||0}" min="0" step="1" oninput="updatePNEItem(${it.id},'bags',this.value)"></td>
       <td><span class="pne-computed" id="pne-gross-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.gross_weight ? parseFloat(it.gross_weight).toFixed(2) : '—'}</span></td>
       <td><span class="pne-computed" id="pne-tare-${it.id}" title="Set via the Kanta / Weighbridge section above, not typed here">${it.tare_weight ? parseFloat(it.tare_weight).toFixed(2) : '—'}</span></td>
       <td><span class="pne-computed" id="pne-net-${it.id}">${c.net.toFixed(2)}</span></td>
@@ -20856,21 +20893,24 @@ function updatePNEItem(id, field, val, isText) {
 
 
 function calcPurchaseNewTotals() {
-  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalItemDiscount = 0;
+  let totalNet = 0, totalDhalta = 0, totalBillable = 0, subtotal = 0, totalItemDiscount = 0, totalBags = 0;
   let sumGross = 0, sumTare = 0, moistureWeighted = 0, dhaltaPctWeighted = 0;
   PNE.items.forEach(it => {
     const c = pneCalcRow(it);
     totalNet += c.net; totalDhalta += c.dhaltaKg; totalBillable += c.billable; subtotal += c.amount; totalItemDiscount += c.discountAmt;
+    totalBags += parseInt(it.bags) || 0;
     sumGross += parseFloat(it.gross_weight) || 0;
     sumTare  += parseFloat(it.tare_weight)  || 0;
     moistureWeighted   += (parseFloat(it.moisture_pct) || 0) * c.net;
     dhaltaPctWeighted  += c.dhaltaPct * c.net;
   });
   document.getElementById('pne-total-net').textContent = totalNet.toFixed(2) + ' Kg';
+  document.getElementById('pne-total-bags').textContent = totalBags;
   document.getElementById('pne-total-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-total-billable').textContent = totalBillable.toFixed(2) + ' Kg';
   document.getElementById('pne-total-amount').textContent = fmt_money(subtotal);
   document.getElementById('pne-sb-items').textContent = PNE.items.length;
+  document.getElementById('pne-sb-bags').textContent = totalBags;
   document.getElementById('pne-sb-net').textContent = totalNet.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-dhalta').textContent = totalDhalta.toFixed(2) + ' Kg';
   document.getElementById('pne-sb-billable').textContent = totalBillable.toFixed(2) + ' Kg';
@@ -21223,7 +21263,7 @@ async function editPurchase(id) {
       id: pneItemSeq++, mode: it.product_id ? 'catalog' : 'freetext', product_id: it.product_id ? 'p' + it.product_id : '', description: it.description,
       variety_grade: it.variety_grade || '', moisture_pct: it.moisture_pct || 0, quality_grade: it.quality_grade || '', batch_no: it.batch_no || '',
       gross_weight: it.gross_weight || 0, tare_weight: it.tare_weight || 0, dhalta_kg: it.dhalta_kg || 0,
-      rate: it.rate || 0, discount_pct: it.discount_pct || 0, editing: false,
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0, bags: it.bags || 0, editing: false,
     }));
     document.getElementById('pne-title').textContent = 'Edit Purchase Entry';
     document.getElementById('pne-subtitle').textContent = p.purchase_no;
@@ -21276,6 +21316,12 @@ async function editPurchase(id) {
     renderPNDeductions();
     PNE.additions = (p.additions||[]).map(a => ({ id: pnAdditionSeq++, type: a.type||'', description: a.description||'', amount: parseFloat(a.amount)||0 }));
     renderPNAdditions();
+    applyAdditionsVisibility();
+    // If this purchase already has real Additions data (entered while the
+    // setting was on, since turned off), keep the card visible for editing
+    // anyway — hiding it here wouldn't delete the data, just make it
+    // impossible to see or fix without an admin re-enabling the setting.
+    if (PNE.additions.length) { const c = document.getElementById('pn-additions-card'); if (c) c.style.display = ''; }
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
     updatePNEPaymentModeVisibility(p.status || 'Pending'); // reflect this record's actual status, not the fresh-form default
@@ -21597,6 +21643,7 @@ async function savePurchaseEntry(mode) {
       variety_grade: it.variety_grade, moisture_pct: it.moisture_pct, quality_grade: it.quality_grade, batch_no: it.batch_no || '',
       gross_weight: parseFloat(it.gross_weight)||0, tare_weight: parseFloat(it.tare_weight)||0,
       dhalta_kg: parseFloat(it.dhalta_kg)||0, rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0,
+      bags: parseInt(it.bags)||0,
     })),
   };
 
@@ -21761,7 +21808,7 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
   const items = p.items || [];
   const rows = items.map(it => `
     <tr>
-      <td>${escHtml(it.description||'')}</td><td>${escHtml(it.variety_grade||'—')}</td><td>${escHtml(it.quality_grade||'—')}</td>
+      <td>${escHtml(it.description||'')}</td><td class="r">${it.bags ? parseInt(it.bags) : '—'}</td><td>${escHtml(it.variety_grade||'—')}</td><td>${escHtml(it.quality_grade||'—')}</td>
       <td class="r">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(1)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.gross_weight).toFixed(2)}</td><td class="r">${parseFloat(it.tare_weight).toFixed(2)}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)}</td><td class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? parseFloat(it.dhalta_pct||0).toFixed(1)+'%' : parseFloat(it.dhalta_kg||0).toFixed(2)}</td>
@@ -21858,9 +21905,9 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Product</th><th class="r">Bags</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td colspan="4">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
+      <tfoot><tr><td colspan="5">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
     </table>
 
     <div class="row3">
@@ -21932,6 +21979,7 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
   const rows = items.map(it => `
     <tr>
       <td><strong>${escHtml(it.description||'')}</strong><br><span class="muted">${escHtml(it.variety_grade||'')}</span></td>
+      <td class="r">${it.bags ? parseInt(it.bags) : '—'}</td>
       <td>${escHtml(it.hsn||'—')}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} Kg</td>
       <td class="r">${fmt_money(it.rate)}</td>
@@ -22043,7 +22091,7 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product &amp; Variety</th><th>HSN</th><th class="r">Weight</th><th class="r">Rate</th><th class="r">Value</th><th class="r">GST %</th><th class="r">Tax Amt</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th>Product &amp; Variety</th><th class="r">Bags</th><th>HSN</th><th class="r">Weight</th><th class="r">Rate</th><th class="r">Value</th><th class="r">GST %</th><th class="r">Tax Amt</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
@@ -22969,7 +23017,7 @@ let snItemSeq = 1;
 
 function snEmptyItem() {
   return { id: snItemSeq++, product_id: '', description: '', variety_grade: '', batch_no: '', moisture_pct: null,
-    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18,
+    warehouse: 'Main Warehouse', qty: 0, unit: 'Kg', rate: 0, discount_pct: 0, gst_pct: 18, bags: 0,
     kanta: { gross: 0, tare: 0, net: 0, dhalta: 0, billable: 0, slip: '' } };
 }
 
@@ -23110,7 +23158,7 @@ function goToNewSale() {
   SN.deductions = [];
   SN.additions = [];
   renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable(); renderSNAdditionsTable();
-  // Auto-link kanta indicator to row 1
+  applyAdditionsVisibility();
   snPopulateKanta(SN.items[0]);
   showPage('sale-new');
   document.querySelector('.nav-item[data-page="sales-list"]')?.classList.add('active');
@@ -23363,6 +23411,7 @@ function renderSNItemsTable() {
       <td>${escHtml(prod?.variety || it.variety_grade || '—')}</td>
       <td>${escHtml(prod?.grade || '—')}</td>
       <td>${_snBatchCellHtml(it)}</td>
+      <td><input type="number" value="${it.bags||0}" min="0" step="1" oninput="updateSNItem(${it.id},'bags',this.value)"></td>
       <td><input type="number" value="${it.moisture_pct ?? ''}" min="0" max="100" step="0.01" placeholder="—" oninput="updateSNItem(${it.id},'moisture_pct',this.value)"></td>
       <td><span class="pne-computed" style="color:${avail<=0?'#E53935':'#00897B'}">${avail > 0 ? avail.toFixed(2) : '<span style=\"color:#E53935\">Out</span>'}</span></td>
       <td><span class="pne-computed" id="sn-rem-${it.id}" style="color:${remColor};font-weight:700">${remaining.toFixed(2)}</span></td>
@@ -23515,12 +23564,14 @@ function updateSNPaymentModeVisibility(payStatus) {
 }
 
 function calcSaleNewTotals() {
-  let totalQty = 0, subtotal = 0, itemsTax = 0;
-  SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; });
+  let totalQty = 0, subtotal = 0, itemsTax = 0, totalBags = 0;
+  SN.items.forEach(it => { const c = snCalcRow(it); totalQty += parseFloat(it.qty)||0; subtotal += c.lineSubtotal; itemsTax += c.taxAmount; totalBags += parseInt(it.bags)||0; });
 
   document.getElementById('sn-total-items').textContent = SN.items.length;
+  document.getElementById('sn-total-bags').textContent = totalBags;
   document.getElementById('sn-total-qty').textContent = totalQty.toFixed(2) + ' Kg';
   document.getElementById('sn-sb-items').textContent = SN.items.length;
+  document.getElementById('sn-sb-bags').textContent = totalBags;
   document.getElementById('sn-sb-qty').textContent = totalQty.toFixed(2) + ' Kg';
 
   const addCharges = (parseFloat(document.getElementById('sn-transportcharge').value)||0)
@@ -23843,6 +23894,7 @@ async function saveSaleEntry(mode) {
       warehouse: it.warehouse, qty: parseFloat(it.qty)||0, unit: it.unit,
       rate: parseFloat(it.rate)||0, discount_pct: parseFloat(it.discount_pct)||0, gst_pct: parseFloat(it.gst_pct)||0,
       kanta_data: (it.kanta && it.kanta.billable > 0) ? JSON.stringify(it.kanta) : null,
+      bags: parseInt(it.bags)||0,
     })),
   };
 
@@ -23886,7 +23938,7 @@ async function editSale(id) {
     SN.items = (s.items||[]).map(it => ({
       id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
       batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
-      rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0,
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0, bags: it.bags || 0,
     }));
     SN.items.forEach(it => { if (it.product_id) _snLoadBatchesForProduct(it.product_id); });
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
@@ -23949,6 +24001,12 @@ async function editSale(id) {
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
     renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable(); renderSNAdditionsTable();
+    applyAdditionsVisibility();
+    if (SN.additions.length) {
+      const c = document.getElementById('sn-additions-card'); if (c) c.style.display = '';
+      const r1 = document.getElementById('sn-sum-additions-row'); if (r1) r1.style.display = '';
+      const r2 = document.getElementById('sn-sb-additions-row'); if (r2) r2.style.display = '';
+    }
     snClearKanta(); // neutral — operator clicks ⚖ on a row to link kanta
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
@@ -24529,16 +24587,17 @@ function _printSalePartyCopy(s, paymentHistory = []) {
     </div>` : ''}
 
     <table>
-      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">Bags</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
       <tbody>${items.map((it,i) => `<tr>
         <td>${i+1}</td>
         <td><strong>${escHtml(it.product_name||it.description||'')}</strong></td>
         <td>${escHtml(it.variety_grade||'—')}</td>
+        <td class="r">${it.bags ? parseInt(it.bags) : '—'}</td>
         <td class="r">${parseFloat(it.qty||0).toFixed(2)}</td>
         <td class="r">${fmt_money(it.rate)}</td>
         <td class="r"><strong>${fmt_money(it.line_total)}</strong></td>
       </tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3"><strong>TOTAL</strong></td><td class="r"><strong>${items.reduce((s,i)=>s+parseFloat(i.qty||0),0).toFixed(2)}</strong></td><td></td><td class="r"><strong>${fmt_money(s.subtotal||s.total)}</strong></td></tr></tfoot>
+      <tfoot><tr><td colspan="4"><strong>TOTAL</strong></td><td class="r"><strong>${items.reduce((s,i)=>s+parseFloat(i.qty||0),0).toFixed(2)}</strong></td><td></td><td class="r"><strong>${fmt_money(s.subtotal||s.total)}</strong></td></tr></tfoot>
     </table>
 
     <div class="summary">
@@ -27128,6 +27187,7 @@ async function saveCompanySettings() {
     default_currency:document.getElementById('sc-cur')?.value     || STATE.settings.currency     || '₹',
     business_type:   document.getElementById('sc-business-type')?.value || STATE.settings.businessType || 'both',
     show_dhalta_pct: document.getElementById('sc-show-dhaltapct')?.value || STATE.settings.showDhaltaPct || '1',
+    show_additions:  document.getElementById('sc-show-additions')?.value || STATE.settings.showAdditions || '0',
     sig_authorized_name: document.getElementById('sc-sig-authorized-name')?.value || '',
     sig_prepared_img:    document.getElementById('sc-sign-prepared-img')?.value  || '',
     sig_prepared_name:   document.getElementById('sc-sig-prepared-name')?.value  || '',
@@ -27154,6 +27214,7 @@ async function saveCompanySettings() {
     currency: payload.default_currency || STATE.settings.currency,
     businessType: payload.business_type,
     showDhaltaPct: payload.show_dhalta_pct,
+    showAdditions: payload.show_additions,
   });
   // Also refresh bank field in create form if open
   const bankEl = document.getElementById('f-bank');
@@ -28938,6 +28999,7 @@ document.addEventListener('click', e => closeAllDropdowns(e));
   STATE.settings.company   = s.company_name    || STATE.settings.company;
   STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
   STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+  STATE.settings.showAdditions = s.show_additions ?? STATE.settings.showAdditions;
   STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
   STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
   STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
@@ -29134,6 +29196,7 @@ async function loadAllData() {
       STATE.settings.company   = s.company_name    || STATE.settings.company;
       STATE.settings.gst       = s.company_gst     || STATE.settings.gst;
       STATE.settings.showDhaltaPct = s.show_dhalta_pct ?? STATE.settings.showDhaltaPct;
+      STATE.settings.showAdditions = s.show_additions ?? STATE.settings.showAdditions;
       STATE.settings.pan       = s.company_pan     ?? STATE.settings.pan;
       STATE.settings.iec       = s.company_iec     ?? STATE.settings.iec;
       STATE.settings.fssai     = s.company_fssai   ?? STATE.settings.fssai;
@@ -29664,6 +29727,7 @@ function populateSettingsForm() {
   set('sc-tagline', s.tagline);
   set('sc-iso',     s.iso);
   const dhSel = document.getElementById('sc-show-dhaltapct'); if (dhSel) dhSel.value = (s.showDhaltaPct === '0') ? '0' : '1';
+  const addSel = document.getElementById('sc-show-additions'); if (addSel) addSel.value = (s.showAdditions === '1') ? '1' : '0';
   set('sc-phone',   s.phone);
   set('sc-email',   s.email);
   set('sc-web',     s.website);

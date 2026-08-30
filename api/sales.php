@@ -185,6 +185,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS `sales` (
   `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `additions` TEXT NULL,
   `addition_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `total_bags` INT UNSIGNED NOT NULL DEFAULT 0,
   `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
@@ -243,6 +244,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS `sale_items` (
   `tax_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `line_total` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `kanta_data` TEXT NULL,
+  `bags` INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   INDEX `idx_si_sale` (`sale_id`),
   INDEX `idx_si_product` (`product_id`)
@@ -292,6 +294,14 @@ if (!in_array('additions', $saleCols, true)) {
 if (!in_array('addition_amount', $saleCols, true)) {
     try { $db->exec("ALTER TABLE sales ADD COLUMN addition_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER additions"); } catch (Throwable $e) { /* already exists */ }
 }
+
+// Number of Bags — per line item, like weight (different products in the
+// same sale naturally come in different bag counts), plus a cached
+// header-level total mirroring how other item-sum fields work.
+if (!in_array('total_bags', $saleCols, true)) {
+    try { $db->exec("ALTER TABLE sales ADD COLUMN total_bags INT UNSIGNED NOT NULL DEFAULT 0 AFTER addition_amount"); } catch (Throwable $e) { /* already exists */ }
+}
+try { $db->exec("ALTER TABLE sale_items ADD COLUMN bags INT UNSIGNED NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
 
 // Same table sale_payments.php creates — needed here too since this file
 // also writes to it directly (the "first payment at creation" row).
@@ -452,18 +462,21 @@ switch ($method) {
     $saleId = (int)$db->lastInsertId();
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data, bags)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $totalBags = 0;
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
       $batchNo = trim($it['batch_no'] ?? '');
       $serialNo = trim($it['serial_no'] ?? '');
+      $bags = max(0, (int)($it['bags'] ?? 0));
+      $totalBags += $bags;
       $itemStmt->execute([
         $saleId, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $batchNo, $serialNo, $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
-        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
+        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData, $bags,
       ]);
       if ($productId) {
         writeStockOut($db, $productId, $saleId, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . $invoiceNo, $it['warehouse'] ?? 'Main Warehouse', $batchNo);
@@ -471,6 +484,8 @@ switch ($method) {
         if ($serialNo !== '') consumeSerial($db, $productId, $serialNo, $saleId);
       }
     }
+
+    $db->prepare('UPDATE sales SET total_bags = ? WHERE id = ?')->execute([$totalBags, $saleId]);
 
     logActivity((int)$_SESSION['user_id'], 'create', 'sale', $saleId, 'Sale created: ' . $invoiceNo);
     // Rebalance running balances in stock_ledger
@@ -610,18 +625,21 @@ switch ($method) {
     }
 
     $itemStmt = $db->prepare('INSERT INTO sale_items
-      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+      (sale_id, product_id, description, variety_grade, batch_no, serial_no, moisture_pct, warehouse, qty, unit, rate, discount_pct, gst_pct, tax_amount, line_total, kanta_data, bags)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $totalBags = 0;
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $kantaData = isset($it['kanta_data']) && $it['kanta_data'] ? $it['kanta_data'] : null;
       $batchNo = trim($it['batch_no'] ?? '');
       $serialNo = trim($it['serial_no'] ?? '');
+      $bags = max(0, (int)($it['bags'] ?? 0));
+      $totalBags += $bags;
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['variety_grade'] ?? '', $batchNo, $serialNo, $it['moisture_pct'] ?? null,
         $it['warehouse'] ?? 'Main Warehouse', $c['qty'], $it['unit'] ?? 'Kg', $c['rate'],
-        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData,
+        (float)($it['discount_pct'] ?? 0), (float)($it['gst_pct'] ?? 0), $c['taxAmount'], $c['lineTotal'], $kantaData, $bags,
       ]);
       if ($productId) {
         writeStockOut($db, $productId, $id, $c['qty'], $c['rate'], $d['sale_date'], 'Sale ' . ($d['invoice_no'] ?? ('#' . $id)) . ' (edited)', $it['warehouse'] ?? 'Main Warehouse', $batchNo);
@@ -629,6 +647,8 @@ switch ($method) {
         if ($serialNo !== '') consumeSerial($db, $productId, $serialNo, $id);
       }
     }
+
+    $db->prepare('UPDATE sales SET total_bags = ? WHERE id = ?')->execute([$totalBags, $id]);
 
     logActivity((int)$_SESSION['user_id'], 'update', 'sale', $id, buildSaleEditDiff($db, $oldSale, $total, (int)$d['customer_id']));
     if (abs($oldTotal - $total) > 0.004) {

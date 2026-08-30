@@ -272,6 +272,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchases` (
   `deduction_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `additions` TEXT NULL,
   `addition_amount` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `total_bags` INT UNSIGNED NOT NULL DEFAULT 0,
   `trade_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cash_discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `cd_applicable_within` VARCHAR(30) DEFAULT 'Same Day',
@@ -324,6 +325,14 @@ catch (Throwable $e) { /* already exists */ }
 try { $db->exec("ALTER TABLE purchases ADD COLUMN addition_amount DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER additions"); }
 catch (Throwable $e) { /* already exists */ }
 
+// Number of Bags — per line item, like weight (different products in the
+// same purchase naturally come in different bag counts), plus a cached
+// header-level total mirroring how other item-sum fields work.
+try { $db->exec("ALTER TABLE purchase_items ADD COLUMN bags INT UNSIGNED NOT NULL DEFAULT 0"); }
+catch (Throwable $e) { /* already exists */ }
+try { $db->exec("ALTER TABLE purchases ADD COLUMN total_bags INT UNSIGNED NOT NULL DEFAULT 0 AFTER addition_amount"); }
+catch (Throwable $e) { /* already exists */ }
+
 $db->exec("CREATE TABLE IF NOT EXISTS `purchase_items` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `purchase_id` INT UNSIGNED NOT NULL,
@@ -347,6 +356,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchase_items` (
   `billable_weight` DECIMAL(12,3) NOT NULL DEFAULT 0,
   `discount_pct` DECIMAL(5,2) NOT NULL DEFAULT 0,
   `batch_no` VARCHAR(60) DEFAULT '',
+  `bags` INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   INDEX `idx_pi_purchase` (`purchase_id`),
   INDEX `idx_pi_product` (`product_id`)
@@ -560,17 +570,20 @@ switch ($method) {
 
     $itemStmt = $db->prepare('INSERT INTO purchase_items
       (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount,
-       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)');
+       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no, bags)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?)');
+    $totalBags = 0;
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $batchNo = trim($it['batch_no'] ?? '');
+      $bags = max(0, (int)($it['bags'] ?? 0));
+      $totalBags += $bags;
       $itemStmt->execute([
         $purchaseId, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
         $c['net'], 'kg', $c['net'], 'kg', $c['rate'], 0, $c['amount'],
         $it['variety_grade'] ?? '', $it['moisture_pct'] ?? 0, $it['quality_grade'] ?? '',
-        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo,
+        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo, $bags,
       ]);
       if ($productId) {
         writeStockIn($db, $productId, $purchaseId, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . $purchaseNo, $d['warehouse'] ?? 'Main Warehouse', $batchNo);
@@ -580,6 +593,8 @@ switch ($method) {
         }
       }
     }
+
+    $db->prepare('UPDATE purchases SET total_bags = ? WHERE id = ?')->execute([$totalBags, $purchaseId]);
 
     logActivity((int)$_SESSION['user_id'], 'create', 'purchase', $purchaseId, 'Purchase added: ' . $purchaseNo);
     if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
@@ -719,17 +734,20 @@ switch ($method) {
 
     $itemStmt = $db->prepare('INSERT INTO purchase_items
       (purchase_id, product_id, description, hsn, qty, unit, entered_qty, entered_unit, rate, gst_pct, amount,
-       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)');
+       variety_grade, moisture_pct, quality_grade, gross_weight, tare_weight, dhalta_pct, dhalta_kg, billable_weight, discount_pct, batch_no, bags)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?)');
+    $totalBags = 0;
     foreach ($items as $i => $it) {
       $c = $computed[$i];
       $productId = cleanProductId($it['product_id'] ?? null);
       $batchNo = trim($it['batch_no'] ?? '');
+      $bags = max(0, (int)($it['bags'] ?? 0));
+      $totalBags += $bags;
       $itemStmt->execute([
         $id, $productId, $it['description'] ?? '', $it['hsn'] ?? '',
         $c['net'], 'kg', $c['net'], 'kg', $c['rate'], 0, $c['amount'],
         $it['variety_grade'] ?? '', $it['moisture_pct'] ?? 0, $it['quality_grade'] ?? '',
-        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo,
+        $c['gross'], $c['tare'], $c['dhaltaPct'], $c['dhaltaKg'], $c['billable'], $c['discPct'], $batchNo, $bags,
       ]);
       if ($productId) {
         writeStockIn($db, $productId, $id, $c['net'], $c['effectiveRate'], $d['purchase_date'], 'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', $d['warehouse'] ?? 'Main Warehouse', $batchNo);
@@ -739,6 +757,8 @@ switch ($method) {
         }
       }
     }
+
+    $db->prepare('UPDATE purchases SET total_bags = ? WHERE id = ?')->execute([$totalBags, $id]);
 
     logActivity((int)$_SESSION['user_id'], 'update', 'purchase', $id, buildPurchaseEditDiff($db, $oldPay, $total, (int)$d['supplier_id']));
     if ($oldPay && abs((float)$oldPay['total'] - $total) > 0.004) {

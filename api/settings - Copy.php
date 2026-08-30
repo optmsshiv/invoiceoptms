@@ -45,7 +45,6 @@ switch ($method) {
       'product_active_preset' => '', // last applied preset name
       'ofr_print_settings'    => '', // JSON: proforma print toggle settings
       'show_dhalta_pct'   => '1', // '1' show / '0' hide Dhalta % in purchase items table & local voucher
-      'show_additions'    => '0', // '1' show / '0' hide Additions in Purchase & Sale forms — off by default, opt-in
       'company_tagline'   => '', // shown under company name on printed documents (blank = hidden)
       'company_iso'       => '', // ISO 22000 certificate number
       // ── Global Date Range filter — owner-set, tenant-wide, applies to
@@ -158,7 +157,6 @@ switch ($method) {
       'business_type' => 'Business Type', 'estimate_prefix' => 'Estimate Prefix',
       'invoice_prefix' => 'Invoice Prefix', 'company_tagline' => 'Tagline',
       'company_iso' => 'ISO Certificate No.', 'show_dhalta_pct' => 'Show Dhalta %',
-      'show_additions' => 'Additions (Purchase & Sale)',
       'supplier_types' => 'Supplier Types',
       'global_date_active' => 'Global Date Range (on/off)',
       'global_date_from' => 'Global Date Range — From',

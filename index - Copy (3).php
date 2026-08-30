@@ -3554,6 +3554,15 @@ const SERVER = {
             </div>
 
             <div class="pne-card">
+              <div class="pne-card-head pne-head-green" style="justify-content:space-between">
+                <span><span class="pne-num"><i class="fas fa-plus"></i></span> Additions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Optional)</span></span>
+                <button class="btn btn-outline pne-small-btn" style="padding:3px 8px;font-size:11px" onclick="addPNAddition()"><i class="fas fa-plus"></i></button>
+              </div>
+              <div id="pn-additions-list" style="display:flex;flex-direction:column;gap:8px"></div>
+              <div class="pne-charge-total" style="margin-top:8px"><span>Total Additions</span><strong id="pn-additions-total" style="color:#1D9E75">₹0.00</strong></div>
+            </div>
+
+            <div class="pne-card">
               <div class="pne-card-head pne-head-indigo"><span class="pne-num"><i class="fas fa-tags"></i></span> Discounts</div>
               <div class="field"><label>Trade Discount (%)</label><input type="number" id="pn-tradediscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
               <div class="field"><label>Cash Discount (CD %)</label><input type="number" id="pn-cashdiscpct" value="0" min="0" max="100" step="0.01" oninput="calcPurchaseNewTotals()"></div>
@@ -3570,6 +3579,7 @@ const SERVER = {
               <div class="pne-card-head pne-head-green"><span class="pne-num"><i class="fas fa-receipt"></i></span> Tax &amp; Amount Summary</div>
               <div class="pne-summary-row"><span>Sub Total (Items)</span><strong id="pn-sum-subtotal">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Add: Additional Charges</span><strong id="pn-sum-addcharges">₹0.00</strong></div>
+              <div class="pne-summary-row" id="pn-sum-additions-row" style="display:none"><span style="color:#1D9E75">Add: Additions</span><strong id="pn-sum-additions" style="color:#1D9E75">₹0.00</strong></div>
               <div class="pne-summary-row" id="pn-sum-deductions-row" style="display:none"><span style="color:#E53935">Less: Deductions</span><strong id="pn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="pn-sum-taxable">₹0.00</strong></div>
               <div class="pne-summary-row">
@@ -4163,6 +4173,21 @@ const SERVER = {
             </div>
           </div>
 
+          <!-- 3b. Additions -->
+          <div class="pne-card">
+            <div class="pne-card-head pne-head-green" style="justify-content:space-between">
+              <span><span class="pne-num"><i class="fas fa-plus"></i></span> Additions <span style="font-weight:400;font-size:11px;color:var(--muted)">(Add multiple addition lines)</span></span>
+              <button class="btn btn-outline pne-small-btn" onclick="addSNAddition()"><i class="fas fa-plus"></i> Add Addition</button>
+            </div>
+            <div class="table-card" style="overflow-x:auto">
+              <table class="data-table" style="min-width:420px">
+                <thead><tr><th style="width:30px">#</th><th>Addition Type</th><th>Description</th><th style="width:120px">Amount (₹)</th><th style="width:60px">Action</th></tr></thead>
+                <tbody id="sn-additions-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pne-charge-total" style="margin-top:10px"><span>Total Additions</span><strong id="sn-additions-total" style="color:#1D9E75">₹0.00</strong></div>
+          </div>
+
           <!-- 4. Deductions & Discounts -->
           <div class="pne-row2-eq">
             <div class="pne-card">
@@ -4269,6 +4294,7 @@ const SERVER = {
               <div class="pne-summary-row"><span>Discount</span><strong><input type="number" id="sn-discount" value="0" min="0" class="pne-inline-num" oninput="calcSaleNewTotals()"></strong></div>
               <div class="pne-summary-row" id="sn-discount-remarks-row"><span style="font-size:11px;color:var(--muted)">Discount Remarks</span><strong><input id="sn-discount-remarks" placeholder="Reason (shown on invoice)" maxlength="255" style="width:170px;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;text-align:right"></strong></div>
               <div class="pne-summary-row"><span>Deductions</span><strong id="sn-sum-deductions" style="color:#E53935">₹0.00</strong></div>
+              <div class="pne-summary-row"><span>Additions</span><strong id="sn-sum-additions" style="color:#1D9E75">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Trade Discount</span><strong id="sn-sum-tradedisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row"><span>Cash Discount</span><strong id="sn-sum-cashdisc" style="color:#E53935">₹0.00</strong></div>
               <div class="pne-summary-row pne-summary-strong"><span>Taxable Amount</span><strong id="sn-sum-taxable">₹0.00</strong></div>
@@ -4317,6 +4343,7 @@ const SERVER = {
             <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
             <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
+            <div class="pne-kv"><span>Total Additions</span><strong id="sn-sb-additions" style="color:#1D9E75">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Additional Charges</span><strong id="sn-sb-addcharges">₹0.00</strong></div>
             <div class="pne-kv"><span>Taxable Amount</span><strong id="sn-sb-taxable">₹0.00</strong></div>
             <div class="pne-kv"><span>Total Tax</span><strong id="sn-sb-tax">₹0.00</strong></div>
@@ -20376,8 +20403,9 @@ function fmt_date_time_combined(dateSrc, timeSrc) {
 // ══════════════════════════════════════════
 // NEW PURCHASE ENTRY (full page)
 // ══════════════════════════════════════════
-const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [], idempotencyKey: crypto.randomUUID() };
+const PNE = { editingId: null, items: [], attachmentDataUrl: null, attachmentExisting: null, deductions: [], additions: [], idempotencyKey: crypto.randomUUID() };
 let pnDeductionSeq = 1;
+let pnAdditionSeq = 1;
 
 // ── Deductions (Purchase Entry sidebar — compact card list) ──
 function addPNDeduction() {
@@ -20408,6 +20436,36 @@ function renderPNDeductions() {
   calcPurchaseNewTotals();
 }
 
+// ── Additions (mirror of Deductions above — same {type,description,amount}
+// shape, added to the taxable amount instead of subtracted) ──
+function addPNAddition() {
+  PNE.additions.push({ id: pnAdditionSeq++, type: '', description: '', amount: 0 });
+  renderPNAdditions();
+}
+function removePNAddition(id) {
+  PNE.additions = PNE.additions.filter(a => a.id !== id);
+  renderPNAdditions();
+}
+function updatePNAddition(id, field, val) {
+  const a = PNE.additions.find(x => x.id === id); if (!a) return;
+  a[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcPurchaseNewTotals();
+}
+function renderPNAdditions() {
+  const box = document.getElementById('pn-additions-list');
+  if (!box) return;
+  box.innerHTML = PNE.additions.length ? PNE.additions.map(a => `
+    <div style="background:var(--bg);border-radius:7px;padding:8px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input placeholder="Type" style="flex:1;font-size:11px;padding:5px 7px" value="${escHtml(a.type)}" oninput="updatePNAddition(${a.id},'type',this.value)">
+        <button class="item-del" style="width:24px;height:24px" onclick="removePNAddition(${a.id})" title="Remove"><i class="fas fa-times" style="font-size:10px"></i></button>
+      </div>
+      <input placeholder="Description" style="width:100%;font-size:11px;padding:5px 7px;margin-bottom:6px" value="${escHtml(a.description)}" oninput="updatePNAddition(${a.id},'description',this.value)">
+      <input type="number" placeholder="Amount (₹)" style="width:100%;font-size:11px;padding:5px 7px" min="0" step="0.01" value="${a.amount}" oninput="updatePNAddition(${a.id},'amount',this.value)">
+    </div>`).join('') : `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">No additions added</div>`;
+  calcPurchaseNewTotals();
+}
+
 let pneItemSeq = 1;
 
 function goToStockIn() {
@@ -20425,6 +20483,7 @@ function goToNewPurchase() {
   PNE.idempotencyKey = crypto.randomUUID();
   PNE.items = [pneEmptyItem()];
   PNE.deductions = [];
+  PNE.additions = [];
   PNE.attachmentDataUrl = null;
   PNE.attachmentExisting = null;
   document.getElementById('pne-title').textContent = 'New Purchase Entry';
@@ -20469,6 +20528,7 @@ function goToNewPurchase() {
   document.getElementById('pn-cashdiscpct').value = 0;
   document.getElementById('pn-cdwithin').value = 'Same Day';
   renderPNDeductions();
+  renderPNAdditions();
   document.getElementById('pn-gst-pct').value = 0;
   document.getElementById('pn-paystatus').value = 'Pending';
   document.getElementById('pn-amountpaid').value = 0;
@@ -20839,6 +20899,14 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-sum-addcharges').textContent = fmt_money(addCharges);
 
   const headerDiscount = 0; // Discount removed — use Deductions section instead
+  const totalAdditions = PNE.additions.reduce((s,a) => s + (parseFloat(a.amount)||0), 0);
+  document.getElementById('pn-additions-total').textContent = fmt_money(totalAdditions);
+  // Show in Tax & Amount Summary only when additions exist
+  const addRow = document.getElementById('pn-sum-additions-row');
+  const addVal = document.getElementById('pn-sum-additions');
+  if (addRow) addRow.style.display = totalAdditions > 0 ? '' : 'none';
+  if (addVal) addVal.textContent = fmt_money(totalAdditions);
+
   const totalDeductions = PNE.deductions.reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   document.getElementById('pn-deductions-total').textContent = fmt_money(totalDeductions);
   // Show in Tax & Amount Summary only when deductions exist
@@ -20854,7 +20922,7 @@ function calcPurchaseNewTotals() {
   document.getElementById('pn-cashdisc-amt').textContent = fmt_money(cashDiscAmt);
   document.getElementById('pn-cashdisc-note').textContent = `(${cashDiscPct}% of Total Gross Amount)`;
 
-  const taxable = Math.max(0, subtotal + addCharges - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
+  const taxable = Math.max(0, subtotal + addCharges + totalAdditions - headerDiscount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('pn-sum-taxable').textContent = fmt_money(taxable);
 
   document.getElementById('pne-sb-discount').textContent = fmt_money(totalItemDiscount);
@@ -21206,6 +21274,8 @@ async function editPurchase(id) {
     document.getElementById('pn-cdwithin').value = p.cd_applicable_within || 'Same Day';
     PNE.deductions = (p.deductions||[]).map(d => ({ id: pnDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     renderPNDeductions();
+    PNE.additions = (p.additions||[]).map(a => ({ id: pnAdditionSeq++, type: a.type||'', description: a.description||'', amount: parseFloat(a.amount)||0 }));
+    renderPNAdditions();
     document.getElementById('pn-paystatus').value = p.status || 'Pending';
     document.getElementById('pn-amountpaid').value = p.amount_paid || 0;
     updatePNEPaymentModeVisibility(p.status || 'Pending'); // reflect this record's actual status, not the fresh-form default
@@ -21492,6 +21562,7 @@ async function savePurchaseEntry(mode) {
     other_charges: parseFloat(document.getElementById('pn-othercharge').value) || 0,
     discount_amount: 0,
     deductions: PNE.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    additions: PNE.additions.filter(a => (parseFloat(a.amount)||0) > 0).map(a => ({ type: a.type, description: a.description, amount: parseFloat(a.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('pn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('pn-cashdiscpct').value) || 0,
     cd_applicable_within: document.getElementById('pn-cdwithin').value,
@@ -21704,6 +21775,8 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
   const addCharges = (parseFloat(p.transport_charge)||0)+(parseFloat(p.loading_charge)||0)+(parseFloat(p.packing_charge)||0)+(parseFloat(p.other_charges)||0);
   const deductions = Array.isArray(p.deductions) ? p.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
+  const additions = Array.isArray(p.additions) ? p.additions : [];
+  const additionTotal = additions.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
   const amountPaid = parseFloat(p.amount_paid) || 0;
   const remainingAmt = Math.max(0, (parseFloat(p.total)||0) - amountPaid);
 
@@ -21803,6 +21876,7 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
         <h3>PAYMENTS</h3>
         <div class="pay-row"><span>Subtotal Amount</span><span>${fmt_money(p.subtotal)}</span></div>
         <div class="pay-row" style="color:#0d7a3f"><span>Additional Charges</span><span>+ ${fmt_money(addCharges)}</span></div>
+        ${additionTotal > 0 ? `<div class="pay-row" style="color:#0d7a3f"><span>Additions</span><span>+ ${fmt_money(additionTotal)}</span></div>` : ''}
         ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${deductionTotal > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="pay-row" style="color:#c0392b"><span>Trade Discount</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
@@ -21828,6 +21902,11 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
     <div class="box" style="margin-top:12px">
       <h3>DEDUCTION DETAILS</h3>
       ${deductions.map(d => `<div class="ded-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
+    ${additions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>ADDITION DETAILS</h3>
+      ${additions.map(a => `<div class="ded-row"><span>${escHtml(a.type||'Addition')}${a.description?` — ${escHtml(a.description)}`:''}</span><span>${fmt_money(a.amount)}</span></div>`).join('')}
     </div>` : ''}
 
     ${p.remarks ? `<div class="box" style="margin-bottom:16px"><h3>OBSERVATIONS &amp; REMARKS</h3><div class="remark">${escHtml(p.remarks)}</div></div>` : ''}
@@ -21864,6 +21943,8 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
   const isInterstate = p.supply_type === 'Inter-State';
   const deductions = Array.isArray(p.deductions) ? p.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
+  const additions = Array.isArray(p.additions) ? p.additions : [];
+  const additionTotal = additions.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
 
   const win = window.open('', '_blank');
   win.document.write(`<html><head><title>${escHtml(p.purchase_no)}</title><style>
@@ -21977,6 +22058,7 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total Amount</span><span>${fmt_money(p.subtotal)}</span></div>
+        ${additionTotal > 0 ? `<div class="sum-row" style="color:#0d7a3f"><span>Additions</span><span>+ ${fmt_money(additionTotal)}</span></div>` : ''}
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         ${(parseFloat(p.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${p.discount_remarks?` (${escHtml(p.discount_remarks)})`:''}</span><span>- ${fmt_money(p.discount_amount)}</span></div>` : ''}
         ${(parseFloat(p.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(p.trade_discount_pct||0).toFixed(1)}%)</span><span>- ${fmt_money(p.trade_discount_amount)}</span></div>` : ''}
@@ -21992,6 +22074,11 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
     <div class="box" style="margin-top:12px">
       <h3>DEDUCTION DETAILS</h3>
       ${deductions.map(d => `<div class="tax-row"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''}</span><span>${fmt_money(d.amount)}</span></div>`).join('')}
+    </div>` : ''}
+    ${additions.length ? `
+    <div class="box" style="margin-top:12px">
+      <h3>ADDITION DETAILS</h3>
+      ${additions.map(a => `<div class="tax-row"><span>${escHtml(a.type||'Addition')}${a.description?` — ${escHtml(a.description)}`:''}</span><span>${fmt_money(a.amount)}</span></div>`).join('')}
     </div>` : ''}
 
     <div class="sig-row">
@@ -22861,7 +22948,7 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [], activeRowId: null, idempotencyKey: crypto.randomUUID() };
+const SN = { editingId: null, items: [], attachments: [], deductions: [], additions: [], activeRowId: null, idempotencyKey: crypto.randomUUID() };
 // Batch options per product, fetched from product_batches.php on demand —
 // only products with actual received batches will have entries here;
 // everything else just falls back to "No batch" (same as today, harmless).
@@ -22877,6 +22964,7 @@ async function _snLoadBatchesForProduct(productId) {
   renderSNItemsTable();
 }
 let snDeductionSeq = 1;
+let snAdditionSeq = 1;
 let snItemSeq = 1;
 
 function snEmptyItem() {
@@ -22914,6 +23002,40 @@ function renderSNDeductionsTable() {
         <td><input value="${escHtml(d.description)}" placeholder="Optional" oninput="updateSNDeduction(${d.id},'description',this.value)"></td>
         <td><input type="number" value="${d.amount}" min="0" step="0.01" oninput="updateSNDeduction(${d.id},'amount',this.value)"></td>
         <td><button class="item-del" onclick="removeSNDeduction(${d.id})" title="Remove"><i class="fas fa-times"></i></button></td>
+      </tr>`).join('');
+  }
+  calcSaleNewTotals();
+}
+
+// ── Additions (mirror of Deductions above — same {type,description,amount}
+// shape, added to the taxable amount instead of subtracted) ──
+function addSNAddition() {
+  SN.additions.push({ id: snAdditionSeq++, type: '', description: '', amount: 0 });
+  renderSNAdditionsTable();
+}
+function removeSNAddition(id) {
+  SN.additions = SN.additions.filter(a => a.id !== id);
+  renderSNAdditionsTable();
+}
+function updateSNAddition(id, field, val) {
+  const a = SN.additions.find(x => x.id === id); if (!a) return;
+  a[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  calcSaleNewTotals();
+  document.getElementById('sn-additions-total').textContent = fmt_money(SN.additions.reduce((s,x)=>s+(parseFloat(x.amount)||0),0));
+}
+function renderSNAdditionsTable() {
+  const tbody = document.getElementById('sn-additions-tbody');
+  if (!tbody) return;
+  if (!SN.additions.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No additions added</td></tr>`;
+  } else {
+    tbody.innerHTML = SN.additions.map((a, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><input value="${escHtml(a.type)}" placeholder="e.g. Quality Premium" oninput="updateSNAddition(${a.id},'type',this.value)"></td>
+        <td><input value="${escHtml(a.description)}" placeholder="Optional" oninput="updateSNAddition(${a.id},'description',this.value)"></td>
+        <td><input type="number" value="${a.amount}" min="0" step="0.01" oninput="updateSNAddition(${a.id},'amount',this.value)"></td>
+        <td><button class="item-del" onclick="removeSNAddition(${a.id})" title="Remove"><i class="fas fa-times"></i></button></td>
       </tr>`).join('');
   }
   calcSaleNewTotals();
@@ -22986,7 +23108,8 @@ function goToNewSale() {
   document.getElementById('sn-attachments-input').value = '';
   document.getElementById('sn-customer-summary').innerHTML = '<div class="pne-summary-empty">Select a customer to see their sales history.</div>';
   SN.deductions = [];
-  renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+  SN.additions = [];
+  renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable(); renderSNAdditionsTable();
   // Auto-link kanta indicator to row 1
   snPopulateKanta(SN.items[0]);
   showPage('sale-new');
@@ -23415,6 +23538,11 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-deductions').textContent = fmt_money(totalDeductions);
   document.getElementById('sn-sb-deductions').textContent = fmt_money(totalDeductions);
 
+  const totalAdditions = SN.additions.reduce((s,a) => s + (parseFloat(a.amount)||0), 0);
+  document.getElementById('sn-additions-total').textContent = fmt_money(totalAdditions);
+  document.getElementById('sn-sum-additions').textContent = fmt_money(totalAdditions);
+  document.getElementById('sn-sb-additions').textContent = fmt_money(totalAdditions);
+
   const tradeDiscPct = parseFloat(document.getElementById('sn-tradediscpct').value) || 0;
   const cashDiscPct = parseFloat(document.getElementById('sn-cashdiscpct').value) || 0;
   const tradeDiscAmt = +(subtotal * tradeDiscPct / 100).toFixed(2);
@@ -23425,7 +23553,7 @@ function calcSaleNewTotals() {
   document.getElementById('sn-sum-cashdisc').textContent = fmt_money(cashDiscAmt);
 
   const discount = parseFloat(document.getElementById('sn-discount').value) || 0;
-  const taxable = Math.max(0, subtotal + addCharges - discount - totalDeductions - tradeDiscAmt - cashDiscAmt);
+  const taxable = Math.max(0, subtotal + addCharges + totalAdditions - discount - totalDeductions - tradeDiscAmt - cashDiscAmt);
   document.getElementById('sn-sum-taxable').textContent = fmt_money(taxable);
   document.getElementById('sn-sb-taxable').textContent = fmt_money(taxable);
 
@@ -23684,6 +23812,7 @@ async function saveSaleEntry(mode) {
     discount_amount: parseFloat(document.getElementById('sn-discount').value) || 0,
     discount_remarks: document.getElementById('sn-discount-remarks').value.trim(),
     deductions: SN.deductions.filter(d => (parseFloat(d.amount)||0) > 0).map(d => ({ type: d.type, description: d.description, amount: parseFloat(d.amount)||0 })),
+    additions: SN.additions.filter(a => (parseFloat(a.amount)||0) > 0).map(a => ({ type: a.type, description: a.description, amount: parseFloat(a.amount)||0 })),
     trade_discount_pct: parseFloat(document.getElementById('sn-tradediscpct').value) || 0,
     cash_discount_pct: parseFloat(document.getElementById('sn-cashdiscpct').value) || 0,
     cd_applicable_within: document.getElementById('sn-cdwithin').value,
@@ -23761,6 +23890,7 @@ async function editSale(id) {
     }));
     SN.items.forEach(it => { if (it.product_id) _snLoadBatchesForProduct(it.product_id); });
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
+    SN.additions = (s.additions||[]).map(a => ({ id: snAdditionSeq++, type: a.type||'', description: a.description||'', amount: parseFloat(a.amount)||0 }));
     document.getElementById('psn-title').textContent = 'Edit Sale Entry';
     document.getElementById('psn-subtitle').textContent = s.invoice_no;
     populateSaleCustomerDropdown();
@@ -23818,7 +23948,7 @@ async function editSale(id) {
     document.getElementById('sn-preparedby').value = s.prepared_by || '';
     document.getElementById('sn-checkedby').value = s.checked_by || '';
     document.getElementById('sn-approvedby').value = s.approved_by || '';
-    renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable();
+    renderSNItemsTable(); renderSNAttachments(); renderSNDeductionsTable(); renderSNAdditionsTable();
     snClearKanta(); // neutral — operator clicks ⚖ on a row to link kanta
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
@@ -24081,6 +24211,8 @@ function printSaleInvoice(s, paymentHistory = []) {
   const addCharges = (parseFloat(s.transport_charge)||0)+(parseFloat(s.loading_charge)||0)+(parseFloat(s.packing_charge)||0)+(parseFloat(s.insurance_charge)||0)+(parseFloat(s.other_charges)||0);
   const deductions = Array.isArray(s.deductions) ? s.deductions : [];
   const deductionTotal = deductions.reduce((sum,d) => sum + (parseFloat(d.amount)||0), 0);
+  const additions = Array.isArray(s.additions) ? s.additions : [];
+  const additionTotal = additions.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
   const outstanding = Math.max(0, (parseFloat(s.total)||0) - (parseFloat(s.amount_received)||0));
   const stampCfg = {'Paid':{c:'#2E7D32',t:'#1B5E20'},'Partial':{c:'#E65100',t:'#7B3F00'},'Pending':{c:'#7B1FA2',t:'#4A148C'}}[s.payment_status];
   const stampDate = s.payment_status === 'Pending' ? fmt_date_disp(s.sale_date) : fmt_date_disp(s.payment_date || new Date());
@@ -24221,9 +24353,14 @@ function printSaleInvoice(s, paymentHistory = []) {
           <h3>DEDUCTION DETAILS</h3>
           ${deductions.length ? `<ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${deductions.map(d => `<li style="padding-right:4px"><span style="display:flex;justify-content:space-between"><span>${escHtml(d.type||'Deduction')}${d.description?` — ${escHtml(d.description)}`:''} :</span><span>${fmt_money(d.amount)}</span></span></li>`).join('')}</ol>` : `<div style="font-size:11px;color:#333">—</div>`}
         </div>
+        ${additions.length ? `<div class="box">
+          <h3>ADDITION DETAILS</h3>
+          <ol style="margin:0;padding-left:16px;font-size:10.5px;color:#333;line-height:1.8;list-style-position:outside">${additions.map(a => `<li style="padding-right:4px"><span style="display:flex;justify-content:space-between"><span>${escHtml(a.type||'Addition')}${a.description?` — ${escHtml(a.description)}`:''} :</span><span>${fmt_money(a.amount)}</span></span></li>`).join('')}</ol>
+        </div>` : ''}
       </div>
       <div class="box">
         <div class="sum-row"><span>Sub-Total (before tax) :</span><span>${fmt_money(s.subtotal)}</span></div>
+        ${additionTotal > 0 ? `<div class="sum-row" style="color:#0d7a3f"><span>Additions :</span><span>+ ${fmt_money(additionTotal)}</span></div>` : ''}
         ${deductionTotal > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Deductions :</span><span>- ${fmt_money(deductionTotal)}</span></div>` : ''}
         ${(parseFloat(s.discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Less: Discount${s.discount_remarks?` (${escHtml(s.discount_remarks)})`:''} :</span><span>- ${fmt_money(s.discount_amount)}</span></div>` : ''}
         ${(parseFloat(s.trade_discount_amount)||0) > 0 ? `<div class="sum-row" style="color:#c0392b"><span>Trade Discount (${parseFloat(s.trade_discount_pct||0).toFixed(1)}%) :</span><span>- ${fmt_money(s.trade_discount_amount)}</span></div>` : ''}
