@@ -4120,16 +4120,16 @@ const SERVER = {
               <div class="field"><label>Dharam Kanta Name</label><input id="sn-kantaname" placeholder="e.g. Shree Ganesh Dharam Kanta"></div>
               <div class="field"><label>Weighbridge Slip No. *</label><input id="sn-slipno" placeholder="e.g. DK-24581"></div>
               <div class="field"><label>Weight Date &amp; Time *</label><input type="datetime-local" id="sn-weightdatetime"></div>
+              <div class="field"><label>Operator Name</label><input id="sn-kantaoperator" placeholder="Optional"></div>
             </div>
             <div class="pne-grid4">
-              <div class="field"><label>Operator Name</label><input id="sn-kantaoperator" placeholder="Optional"></div>
               <div class="field"><label>Gross Weight (Kg) *</label><input type="number" id="sn-kanta-gross" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
               <div class="field"><label>Tare Weight (Kg) *</label><input type="number" id="sn-kanta-tare" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
               <div class="field"><label>Net Weight (Kg)</label><input id="sn-kanta-net" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"></div>
-            </div>
-            <div class="pne-grid3">
               <div class="field"><label>Moisture %</label><input type="number" id="sn-kanta-moisture" min="0" max="100" step="0.01" oninput="calcSNWeightSummary()"></div>
               <div class="field"><label>Dhalta (Kg)</label><input type="number" id="sn-kanta-dhaltakg" min="0" step="0.01" oninput="calcSNWeightSummary()"></div>
+            </div>
+            <div class="pne-grid4">
               <div class="field"><label>Billable Weight (Kg)</label><input id="sn-kanta-billable" readonly style="background:#E8F5E9;color:#00897B;font-weight:700"><span style="font-size:10px;color:#00897B;font-weight:600">Auto Calculated</span></div>
             </div>
           </div>
@@ -20533,7 +20533,7 @@ function goToNewPurchase() {
   document.getElementById('pn-kanta-gross').value = '';
   document.getElementById('pn-kanta-tare').value = '';
   document.getElementById('pn-kanta-net').value = '';
-  document.getElementById('pn-kanta-operator').value = SERVER.user?.name || '';
+  document.getElementById('pn-kanta-operator').value = '';
   document.getElementById('pn-kanta-slip-input').value = '';
   document.getElementById('pn-kanta-slip-label').innerHTML = '<i class="fas fa-cloud-upload-alt"></i><div style="text-align:left">Drag &amp; drop or click to upload<br><span style="font-size:10px">Supported: PDF, JPG, PNG (Max 5MB)</span></div>';
   PNE.kantaSlipDataUrl = null;
@@ -23116,7 +23116,7 @@ function goToNewSale() {
   document.getElementById('sn-kantaname').value = '';
   document.getElementById('sn-slipno').value = '';
   document.getElementById('sn-weightdatetime').value = '';
-  document.getElementById('sn-kantaoperator').value = SERVER.user?.name || '';
+  document.getElementById('sn-kantaoperator').value = '';
   document.getElementById('sn-kanta-gross').value = '';
   document.getElementById('sn-kanta-tare').value = '';
   document.getElementById('sn-kanta-net').value = '';
@@ -24256,7 +24256,6 @@ function printSaleInvoice(s, paymentHistory = []) {
     <tr>
       <td style="text-align:center">${i+1}</td>
       <td><strong>${escHtml(it.product_name||it.description||'')}</strong>${it.variety_grade?`<br><span class="muted">${escHtml(it.variety_grade)}</span>`:''}${it.batch_no?`<br><span class="muted">Batch: ${escHtml(it.batch_no)}</span>`:''}</td>
-      <td class="r">${it.bags ? parseInt(it.bags) : '—'}</td>
       <td class="r">${(it.moisture_pct!==null && it.moisture_pct!==undefined && it.moisture_pct!=='') ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
       <td class="r">${parseFloat(it.qty).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
       <td class="r">${fmt_money(it.rate)}</td>
@@ -24384,10 +24383,10 @@ function printSaleInvoice(s, paymentHistory = []) {
     </div>
 
     <table class="items">
-      <thead><tr><th style="width:28px;text-align:center">#</th><th>Product</th><th class="r">No. of Bags</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th style="width:28px;text-align:center">#</th><th>Product</th><th class="r">Moist%</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Disc %</th><th class="r">Amount</th><th class="r">GST %</th><th class="r">Tax</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr style="background:#f5faf7;font-weight:800">
-        <td colspan="4">GRAND TOTAL</td>
+        <td colspan="3">GRAND TOTAL</td>
         <td class="r">${items.reduce((sum,it)=>sum+parseFloat(it.qty||0),0).toFixed(2)}</td>
         <td></td><td></td>
         <td class="r">${fmt_money(items.reduce((sum,it)=>sum+(it.qty||0)*(it.rate||0)*(1-(it.discount_pct||0)/100),0))}</td>
