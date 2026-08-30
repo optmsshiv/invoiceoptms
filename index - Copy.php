@@ -3456,7 +3456,7 @@ const SERVER = {
                 <colgroup>
                   <col style="width:30px"><col style="width:140px"><col style="width:90px">
                   <col style="width:70px"><col style="width:90px"><col style="width:90px">
-                  <col style="width:85px">
+                  <col style="width:55px">
                   <col style="width:72px"><col style="width:72px"><col style="width:78px">
                   <col style="width:55px" id="pne-col-dhpct"><col style="width:65px" id="pne-col-dhkg">
                   <col style="width:90px">
@@ -3466,7 +3466,7 @@ const SERVER = {
                   <tr>
                     <th rowspan="2">#</th><th rowspan="2">Product Name</th><th rowspan="2">Variety</th>
                     <th rowspan="2">Moisture %</th><th rowspan="2">Quality Grade</th><th rowspan="2">Batch Code</th>
-                    <th rowspan="2">No. of Bags</th>
+                    <th rowspan="2">Bags</th>
                     <th colspan="3">Weight (Kg)</th>
                     <th colspan="2" id="pne-th-dhalta-group">Dhalta</th>
                     <th rowspan="2">Billable Wt</th>
@@ -3481,7 +3481,7 @@ const SERVER = {
               </table>
             </div>
             <div class="pne-items-footer">
-              <span>Total No. of Bags <strong id="pne-total-bags">0</strong></span>
+              <span>Total Bags <strong id="pne-total-bags">0</strong></span>
               <span>Total Net Weight <strong id="pne-total-net">0.00 Kg</strong></span>
               <span>Total Dhalta <strong id="pne-total-dhalta">0.00 Kg</strong></span>
               <span>Total Billable Weight <strong id="pne-total-billable">0.00 Kg</strong></span>
@@ -3670,7 +3670,7 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head"><i class="fas fa-box"></i> Product Summary <span style="font-weight:400;font-size:11px;color:var(--muted)">(Selected Items)</span></div>
             <div class="pne-kv"><span>Total Items</span><strong id="pne-sb-items">0</strong></div>
-            <div class="pne-kv"><span>Total No. of Bags</span><strong id="pne-sb-bags">0</strong></div>
+            <div class="pne-kv"><span>Total Bags</span><strong id="pne-sb-bags">0</strong></div>
             <div class="pne-kv"><span>Total Net Weight</span><strong id="pne-sb-net">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Dhalta</span><strong id="pne-sb-dhalta">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Billable Weight</span><strong id="pne-sb-billable">0.00 Kg</strong></div>
@@ -4153,7 +4153,7 @@ const SERVER = {
                   <col style="width:90px"><!-- Variety -->
                   <col style="width:75px"><!-- Grade -->
                   <col style="width:90px"><!-- Batch -->
-                  <col style="width:85px"><!-- Bags -->
+                  <col style="width:60px"><!-- Bags -->
                   <col style="width:75px"><!-- Moisture -->
                   <col style="width:95px"><!-- Available -->
                   <col style="width:95px"><!-- Remaining -->
@@ -4166,7 +4166,7 @@ const SERVER = {
                   <col style="width:70px"><!-- Action -->
                 </colgroup>
                 <thead><tr>
-                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>No. of Bags</th><th>Moisture %</th>
+                  <th>#</th><th>Product</th><th>Category</th><th>Variety</th><th>Grade</th><th>Batch No.</th><th>Bags</th><th>Moisture %</th>
                   <th>Available (Kg)</th><th>Remaining (Kg)</th><th>Warehouse</th><th>Quantity (Kg)</th>
                   <th>Rate (₹/Kg)</th><th>GST %</th><th>Tax Amount (₹)</th><th>Line Total (₹)</th><th style="text-align:center">Action</th>
                 </tr></thead>
@@ -4175,7 +4175,7 @@ const SERVER = {
             </div>
             <div class="pne-items-footer">
               <span>Total Items <strong id="sn-total-items">0</strong></span>
-              <span>Total No. of Bags <strong id="sn-total-bags">0</strong></span>
+              <span>Total Bags <strong id="sn-total-bags">0</strong></span>
               <span>Total Quantity <strong id="sn-total-qty">0.00 Kg</strong></span>
             </div>
           </div>
@@ -4348,7 +4348,7 @@ const SERVER = {
           <div class="pne-card">
             <div class="pne-card-head pne-head-purple"><i class="fas fa-chart-line"></i> Sales Summary</div>
             <div class="pne-kv"><span>Total Items</span><strong id="sn-sb-items">0</strong></div>
-            <div class="pne-kv"><span>Total No. of Bags</span><strong id="sn-sb-bags">0</strong></div>
+            <div class="pne-kv"><span>Total Bags</span><strong id="sn-sb-bags">0</strong></div>
             <div class="pne-kv"><span>Total Quantity</span><strong id="sn-sb-qty">0.00 Kg</strong></div>
             <div class="pne-kv"><span>Total Deductions</span><strong id="sn-sb-deductions" style="color:#E53935">₹0.00</strong></div>
             <div class="pne-kv" id="sn-sb-additions-row"><span>Total Additions</span><strong id="sn-sb-additions" style="color:#1D9E75">₹0.00</strong></div>
@@ -21905,7 +21905,7 @@ function printLocalPurchaseVoucher(p, paymentHistory = []) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product</th><th class="r">No. of Bags</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Product</th><th class="r">Bags</th><th>Variety</th><th>Grade</th><th class="r">Moist%</th><th class="r">Gross (Kg)</th><th class="r">Tare (Kg)</th><th class="r">Net (Kg)</th><th class="r">${(STATE.settings.showDhaltaPct ?? '1') !== '0' ? 'Dhalta%' : 'Dhalta (Kg)'}</th><th class="r">Billable (Kg)</th><th class="r">Rate/Kg</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td colspan="5">GRAND TOTALS:</td><td class="r">${gGross.toFixed(2)}</td><td class="r">${gTare.toFixed(2)}</td><td class="r">${gNet.toFixed(2)}</td><td class="r">—</td><td class="r">${gBill.toFixed(2)}</td><td class="r">—</td><td class="r">${fmt_money(gAmt)}</td></tr></tfoot>
     </table>
@@ -22091,7 +22091,7 @@ function printTaxInvoicePurchase(p, paymentHistory = []) {
     </div>
 
     <table class="items">
-      <thead><tr><th>Product &amp; Variety</th><th class="r">No. of Bags</th><th>HSN</th><th class="r">Weight</th><th class="r">Rate</th><th class="r">Value</th><th class="r">GST %</th><th class="r">Tax Amt</th><th class="r">Total</th></tr></thead>
+      <thead><tr><th>Product &amp; Variety</th><th class="r">Bags</th><th>HSN</th><th class="r">Weight</th><th class="r">Rate</th><th class="r">Value</th><th class="r">GST %</th><th class="r">Tax Amt</th><th class="r">Total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
@@ -24587,7 +24587,7 @@ function _printSalePartyCopy(s, paymentHistory = []) {
     </div>` : ''}
 
     <table>
-      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">No. of Bags</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>#</th><th>Product</th><th>Variety / Grade</th><th class="r">Bags</th><th class="r">Qty (Kg)</th><th class="r">Rate (₹/Kg)</th><th class="r">Amount</th></tr></thead>
       <tbody>${items.map((it,i) => `<tr>
         <td>${i+1}</td>
         <td><strong>${escHtml(it.product_name||it.description||'')}</strong></td>
