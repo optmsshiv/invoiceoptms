@@ -19181,6 +19181,7 @@ function viewCustomerProfile(id) {
             <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
+            <td style="font-size:11px">${escHtml(s.payment_method || '—')}</td>
             <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
             <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19188,9 +19189,9 @@ function viewCustomerProfile(id) {
           </tr>`;
         }).join('');
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th>Payment Method</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="4">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -19538,6 +19539,7 @@ function viewSupplierProfile(id) {
             <td style="font-size:11px">${fmt_date_disp(p.purchase_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
+            <td style="font-size:11px">${escHtml(p.payment_mode || '—')}</td>
             <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
             <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19547,9 +19549,9 @@ function viewSupplierProfile(id) {
         const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
         const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th>Payment Mode</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="4">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -22351,12 +22353,24 @@ async function openPaymodeDetail(type, mode) {
       <table class="data-table" style="font-size:12.5px;width:100%">
         <thead><tr><th>Date</th><th>${labels.party}</th><th>${labels.ref}</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>
-          ${rows.map(x => `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
-            <td>${fmt_date_disp(x.date)}</td>
-            <td>${escHtml(x.party || '—')}</td>
-            <td>${escHtml(x.reference || '—')}</td>
-            <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
-          </tr>`).join('')}
+          ${rows.map(x => {
+            // Split-derived row (either the aggregate "Split Payment" list,
+            // or a real method's list that includes a split transaction's
+            // portion) — show its full composition as chips so it's clear
+            // this amount is part of a larger split, not a pure payment.
+            const chips = (x.is_split && x.breakdown && x.breakdown.length)
+              ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${x.breakdown.map(b =>
+                  `<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 7px;border-radius:7px;font-weight:600">${escHtml(b.method)} ${fmt_money(b.amount)}</span>`
+                ).join('')}</div>`
+              : '';
+            const splitBadge = x.is_split ? `<span style="font-size:9.5px;font-weight:700;color:#455A64;background:#ECEFF1;padding:1px 6px;border-radius:7px;margin-left:6px;vertical-align:middle">SPLIT</span>` : '';
+            return `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
+              <td>${fmt_date_disp(x.date)}</td>
+              <td>${escHtml(x.party || '—')}${splitBadge}${chips}</td>
+              <td>${escHtml(x.reference || '—')}</td>
+              <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
+            </tr>`;
+          }).join('')}
         </tbody>
         <tfoot><tr style="font-weight:700;border-top:1.5px solid var(--border)">
           <td colspan="3">Total (${rows.length} transaction${rows.length===1?'':'s'})</td>
@@ -22446,12 +22460,28 @@ async function renderFinanceReport() {
     function renderPaymodeCard(elId, modes, emptyMsg, type) {
       const el = document.getElementById(elId);
       if (!el) return;
-      const total = modes.reduce((s,m)=>s+m.amount, 0);
-      el.innerHTML = modes.length ? modes.map(m => `
-        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="Click to see who — the transactions behind this total">
-          <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
-          <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
-        </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
+      // Split Payment is a duplicate view of money already counted under
+      // its real methods above (see the backend comment in
+      // modeBreakdownWithSplit) — excluded from the total here, or the
+      // period total would be inflated by however much got split.
+      const realModes = modes.filter(m => !m.is_split_summary);
+      const total = realModes.reduce((s,m)=>s+m.amount, 0);
+      el.innerHTML = modes.length ? modes.map(m => {
+        const isSplit = !!m.is_split_summary;
+        const pct = (!isSplit && total) ? ((m.amount/total)*100).toFixed(2) : null;
+        const chips = (isSplit && m.breakdown && m.breakdown.length)
+          ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;padding-left:17px">${m.breakdown.map(b =>
+              `<span style="font-size:10.5px;background:var(--bg);color:${pmColors[b.method]||'#555'};padding:2px 8px;border-radius:8px;font-weight:600">${escHtml(b.method)} ${fmt_money(b.amount)}</span>`
+            ).join('')}</div>`
+          : '';
+        return `<div style="${isSplit ? 'border-top:1px dashed var(--border);margin-top:6px;padding-top:10px' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="${isSplit ? 'Already counted inside its real methods above — click to see which transactions were split' : 'Click to see who — the transactions behind this total'}">
+            <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
+            <span><strong>${fmt_money(m.amount)}</strong> ${pct !== null ? `<span style="color:var(--muted);font-size:11px">(${pct}%)</span>` : ''}</span>
+          </div>
+          ${chips}
+        </div>`;
+      }).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
           <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
         : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
     }
