@@ -19325,7 +19325,7 @@ async function viewSaleDetails(id) {
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
       ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:600px">
         <thead><tr>
-          <th>Product</th><th>Variety</th><th style="text-align:right">No. of Bags</th><th>Moisture %</th>
+          <th>Product</th><th>Variety</th><th>Moisture %</th>
           <th style="text-align:right">Qty (Kg)</th>
           <th style="text-align:right">Rate (₹/Kg)</th>
           <th style="text-align:right">Disc %</th>
@@ -19334,7 +19334,6 @@ async function viewSaleDetails(id) {
         <tbody>${items.map(it => `<tr>
           <td><strong>${escHtml(it.product_name||it.description||'—')}</strong>${it.variety_grade ? `<div style="font-size:10.5px;color:var(--muted)">${escHtml(it.variety_grade)}</div>` : ''}</td>
           <td>${escHtml(it.variety_grade||'—')}</td>
-          <td style="text-align:right">${it.bags ? parseInt(it.bags) : '—'}</td>
           <td style="text-align:center">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
           <td style="text-align:right;font-weight:600">${parseFloat(it.qty||0).toFixed(2)}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
@@ -19432,10 +19431,9 @@ async function viewPurchaseDetails(id) {
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
       ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
-        <thead><tr><th>Product</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>${items.map(it => `<tr>
           <td>${escHtml(it.description||'—')}</td>
-          <td style="text-align:right">${it.bags ? parseInt(it.bags) : '—'}</td>
           <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
           <td style="text-align:right;font-weight:600">${fmt_money(it.amount)}</td>
