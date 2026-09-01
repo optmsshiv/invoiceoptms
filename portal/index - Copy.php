@@ -414,9 +414,6 @@ body{font-family:var(--font);color:var(--text);min-height:100vh;padding:20px 16p
 .info-item label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:3px}
 .info-item .val{font-size:13px;font-weight:600}
 
-.notes-terms-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}
-@media(max-width:600px){.notes-terms-grid{grid-template-columns:1fr}}
-
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--bg);border-bottom:2px solid var(--border);text-align:left}
 th.r,td.r{text-align:right}
@@ -1018,7 +1015,7 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
 // Total outstanding: only add $remaining if current invoice is a real due invoice
 $totalOutstanding = $dueTotal + ($currentIsDue ? $remaining : 0);
 ?>
-<?php if ($hasDues && !$isCancelled && !$isEstimate): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <div class="dues-banner" id="duesBanner">
   <div class="dues-banner-icon">
     <i class="fas fa-exclamation-circle"></i>
@@ -1660,14 +1657,20 @@ if (document.readyState === 'loading') {
     <?php endif; ?>
   </div>
 </div>
-<?php elseif (!empty($inv['notes']) || !empty($inv['terms'])): ?>
+<?php elseif (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-sticky-note"></i> <span data-t="Notes &amp; Terms">Notes &amp; Terms</span></div>
-  <div class="card-body notes-terms-grid">
+  <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
     <?php if (!empty($inv['notes'])): ?>
     <div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px" data-t="Notes">Notes</div>
       <div style="font-size:13px;line-height:1.6"><?= nl2br(htmlspecialchars($inv['notes'])) ?></div>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($inv['bank_details'])): ?>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px" data-t="Bank Details">Bank Details</div>
+      <div style="font-size:13px;line-height:1.6;font-family:var(--mono)"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
     </div>
     <?php endif; ?>
     <?php if (!empty($inv['terms'])): ?>
@@ -1680,7 +1683,7 @@ if (document.readyState === 'loading') {
 </div>
 <?php endif; ?>
 
-<?php if ($hasDues && !$isCancelled && !$isEstimate): ?>
+<?php if ($hasDues && !$isCancelled): ?>
 <!-- ── Other Outstanding Invoices ── -->
 <div class="card dues-card" id="otherDuesCard">
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
@@ -1785,11 +1788,8 @@ if (document.readyState === 'loading') {
 
 <!-- Company footer -->
 <div class="card">
-  <?php if (!$isEstimate): ?>
   <div class="card-head"><i class="fas fa-building"></i> <span data-t="Issued By">Issued By</span></div>
-  <?php endif; ?>
   <div class="card-body">
-    <?php if (!$isEstimate): ?>
     <div class="info-grid">
       <div class="info-item"><label data-t="Company">Company</label><span class="val"><?= htmlspecialchars($companyName) ?></span></div>
       <?php if ($companyGST): ?><div class="info-item"><label data-t="GSTIN">GSTIN</label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($companyGST) ?></span></div><?php endif; ?>
@@ -1797,7 +1797,6 @@ if (document.readyState === 'loading') {
       <?php if ($companyEmail): ?><div class="info-item"><label>Email</label><span class="val"><?= htmlspecialchars($companyEmail) ?></span></div><?php endif; ?>
       <?php if ($companyAddress): ?><div class="info-item" style="grid-column:1/-1"><label>Address</label><span class="val" style="font-weight:400"><?= nl2br(htmlspecialchars($companyAddress)) ?></span></div><?php endif; ?>
     </div>
-    <?php endif; ?>
 
 
     <?php if ($remaining > 0.01 && $companyPhone): ?>
