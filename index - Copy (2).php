@@ -19182,7 +19182,6 @@ function viewCustomerProfile(id) {
             <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
             <td style="font-size:11px">${escHtml(s.payment_method || '—')}</td>
-            <td style="text-align:right;font-size:11px">${s.total_bags ? parseInt(s.total_bags) : '—'}</td>
             <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
             <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19190,9 +19189,9 @@ function viewCustomerProfile(id) {
           </tr>`;
         }).join('');
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th>Payment Method</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th>Payment Method</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="5">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="4">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -19541,7 +19540,6 @@ function viewSupplierProfile(id) {
             <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
             <td style="font-size:11px">${escHtml(p.payment_mode || '—')}</td>
-            <td style="text-align:right;font-size:11px">${p.total_bags ? parseInt(p.total_bags) : '—'}</td>
             <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
             <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19551,9 +19549,9 @@ function viewSupplierProfile(id) {
         const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
         const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th>Payment Mode</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th>Payment Mode</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="5">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="4">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
