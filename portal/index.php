@@ -375,6 +375,7 @@ if ($isEstimate && !empty($inv['due_date'])) {
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -473,6 +474,14 @@ tr:last-child td{border:none}
   .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
   .portal-header{border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+/* Mirrors @media print rules so downloadPDF() can render a clean capture without opening the print dialog */
+body.generating-pdf .sticky-bar,body.generating-pdf .upi-pay-btns,body.generating-pdf .wa-contact-btn,
+body.generating-pdf .pdf-btn,body.generating-pdf .pdf-dl-btn,body.generating-pdf .copy-btn,
+body.generating-pdf .overdue-banner,body.generating-pdf .qr-hint,body.generating-pdf .estimate-actions,
+body.generating-pdf .btn-approve,body.generating-pdf .btn-reject{display:none!important}
+body.generating-pdf .qr-section,body.generating-pdf .receipt-card{display:block!important}
+body.generating-pdf .card{box-shadow:none!important;border:1px solid #ddd!important}
 
 /* UPI Pay buttons */
 .upi-pay-btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -1800,7 +1809,7 @@ if (document.readyState === 'loading') {
     <?php endif; ?>
 
 
-    <?php if ($remaining > 0.01 && $companyPhone): ?>
+    <?php if ($remaining > 0.01 && $companyPhone && !$isEstimate): ?>
     <?php
       $waNum2     = preg_replace('/\D/', '', $companyPhone);
       if (strlen($waNum2) === 10) $waNum2 = '91' . $waNum2;
@@ -1869,10 +1878,37 @@ function fallback(text,cb) {
 
 // ── Download PDF ───────────────────────────────────────────────
 function downloadPDF() {
-  const origTitle = document.title;
-  document.title = <?= json_encode(($isEstimate ? 'Estimate' : 'Invoice') . '-' . ($inv['invoice_number'] ?? 'doc')) ?>;
-  window.print();
-  setTimeout(() => { document.title = origTitle; }, 1000);
+  const btn      = document.querySelector('.pdf-dl-btn');
+  const filename = <?= json_encode(($isEstimate ? 'Estimate' : 'Invoice') . '-' . ($inv['invoice_number'] ?? 'doc') . '.pdf') ?>;
+  const element  = document.querySelector('.wrap');
+
+  if (btn) { btn.classList.add('loading'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…'; }
+  document.body.classList.add('generating-pdf');
+
+  const opt = {
+    margin:      [10, 10, 10, 10],
+    filename:    filename,
+    image:       { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak:   { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  function restoreBtn() {
+    document.body.classList.remove('generating-pdf');
+    if (btn) { btn.classList.remove('loading'); btn.innerHTML = '<i class="fas fa-file-pdf"></i> Download PDF'; }
+  }
+
+  if (typeof html2pdf === 'undefined') {
+    // Library failed to load — fall back to the browser's print dialog
+    restoreBtn();
+    window.print();
+    return;
+  }
+
+  html2pdf().set(opt).from(element).save()
+    .then(restoreBtn)
+    .catch(() => { restoreBtn(); window.print(); });
 }
 
 // QR rendering handled above
