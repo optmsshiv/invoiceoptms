@@ -3365,10 +3365,10 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelPurchaseEntry()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="savePurchaseEntry('stay')">Save</button>
-          <button class="btn pne-btn-savenew" onclick="savePurchaseEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save pn-save-btn" onclick="savePurchaseEntry('stay', this)">Save</button>
+          <button class="btn pne-btn-savenew pn-save-btn" onclick="savePurchaseEntry('new', this)">Save &amp; New</button>
           <div class="pne-split">
-            <button class="btn pne-btn-print" onclick="savePurchaseEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
+            <button class="btn pne-btn-print pn-save-btn" onclick="savePurchaseEntry('print', this)"><i class="fas fa-print"></i> Save &amp; Print</button>
           </div>
         </div>
       </div>
@@ -21560,7 +21560,7 @@ function pneReadAttachment() {
   });
 }
 
-async function savePurchaseEntry(mode) {
+async function savePurchaseEntry(mode, btnEl) {
   const supplierId = document.getElementById('pn-supplier').value;
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
   if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
@@ -21653,8 +21653,17 @@ async function savePurchaseEntry(mode) {
     })),
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) { btn.disabled = true; }
+  // Purchase, Purchase & New, Purchase & Print are three different
+  // buttons/actions — relying on the global `event` object to find which
+  // one was clicked is what caused the crash (event.target isn't always a
+  // clickable element, e.g. when this fires from something other than a
+  // direct mouse click), so the actual button is now passed in explicitly
+  // via `this` from each onclick instead. All three still get disabled
+  // together to prevent a second save firing while the first is still in
+  // flight, but only the one actually clicked shows the spinner.
+  const allBtns = document.querySelectorAll('.pn-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     let savedId = PNE.editingId;
     if (PNE.editingId) {
@@ -21698,7 +21707,7 @@ async function savePurchaseEntry(mode) {
       renderPurchases();
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 function pnePaymentStamp(status) {
