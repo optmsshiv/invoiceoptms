@@ -4751,8 +4751,8 @@ const SERVER = {
         <div><div class="pne-title" id="cusn-title">Add New Customer</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelCustomerEntry()">Cancel</button>
-          <button class="btn btn-outline cusn-save-btn" onclick="saveCustomerEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save cusn-save-btn" onclick="saveCustomerEntry('close')">Save Customer</button>
+          <button class="btn btn-outline" onclick="saveCustomerEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" onclick="saveCustomerEntry('close')">Save Customer</button>
         </div>
       </div>
 
@@ -5113,7 +5113,7 @@ const SERVER = {
         <div><div class="pne-title" id="supn-title">Add Supplier / Farmer</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-          <button class="btn pne-btn-save sup-save-btn" onclick="saveSupplierEntry()">Save</button>
+          <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
         </div>
       </div>
 
@@ -5229,7 +5229,7 @@ const SERVER = {
           <div style="font-size:11.5px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Fields marked with * are mandatory</div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-            <button class="btn pne-btn-save sup-save-btn" onclick="saveSupplierEntry()">Save</button>
+            <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
           </div>
         </div>
       </div>
@@ -25054,12 +25054,8 @@ async function saveSupplierEntry() {
     client_request_id: SUPN.idempotencyKey,
   };
 
-  // Both Save buttons (top and bottom of this long form) need to reflect
-  // the loading state together — event.target only catches whichever one
-  // was actually clicked, leaving the other looking clickable and giving
-  // no visual feedback that anything is happening at all.
-  const btns = document.querySelectorAll('.sup-save-btn');
-  btns.forEach(b => { b.disabled = true; b.dataset.origHtml = b.innerHTML; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; });
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
   try {
     if (SUPN.editingId) {
       await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
@@ -25074,7 +25070,7 @@ async function saveSupplierEntry() {
     cancelSupplierEntry();
     renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { btns.forEach(b => { b.disabled = false; b.innerHTML = b.dataset.origHtml || 'Save'; }); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 // ══════════════════════════════════════════
@@ -25280,15 +25276,8 @@ async function saveCustomerEntry(mode) {
     client_request_id: CUSN.idempotencyKey,
   };
 
-  // Both buttons ("Save & New" and "Save Customer") need to be disabled
-  // together — otherwise clicking one while the other's request is still
-  // in flight could fire a second save. But only the one actually clicked
-  // should show the spinner; the other just goes inert, since they're
-  // different actions, not two copies of the same button.
-  const allBtns = document.querySelectorAll('.cusn-save-btn');
   const btn = event?.target?.closest('button');
-  allBtns.forEach(b => { b.disabled = true; });
-  if (btn) { btn.dataset.origHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  if (btn) btn.disabled = true;
   try {
     let newId = CUSN.editingId;
     if (CUSN.editingId) {
@@ -25314,7 +25303,7 @@ async function saveCustomerEntry(mode) {
     }
     if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { allBtns.forEach(b => { b.disabled = false; }); if (btn && btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml; }
+  finally { if (btn) btn.disabled = false; }
 }
 
 let CUST_LIST_SEARCH = '';
