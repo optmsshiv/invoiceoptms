@@ -3849,8 +3849,8 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new', this)">Save &amp; New</button>
-          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay', this)"><i class="fas fa-check"></i> Save Product</button>
+          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
         </div>
       </div>
       <div id="pp-loading-bar" style="display:none;height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin:-6px 0 12px">
@@ -4055,9 +4055,9 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelSaleEntry()">Cancel</button>
-          <button class="btn btn-outline sn-save-btn" onclick="saveSaleEntry('draft', this)">Save Draft</button>
-          <button class="btn pne-btn-save sn-save-btn" onclick="saveSaleEntry('stay', this)">Save</button>
-          <button class="btn pne-btn-print sn-save-btn" onclick="saveSaleEntry('print', this)"><i class="fas fa-print"></i> Save &amp; Print</button>
+          <button class="btn btn-outline" onclick="saveSaleEntry('draft')">Save Draft</button>
+          <button class="btn pne-btn-save" onclick="saveSaleEntry('stay')">Save</button>
+          <button class="btn pne-btn-print" onclick="saveSaleEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
           <button class="btn pne-btn-savenew" onclick="toast('🚚 E-Way Bill generation needs GST-portal integration — coming soon','info')"><i class="fas fa-truck"></i> Generate E-Way Bill</button>
         </div>
       </div>
@@ -4751,8 +4751,8 @@ const SERVER = {
         <div><div class="pne-title" id="cusn-title">Add New Customer</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelCustomerEntry()">Cancel</button>
-          <button class="btn btn-outline cusn-save-btn" onclick="saveCustomerEntry('new', this)">Save &amp; New</button>
-          <button class="btn pne-btn-save cusn-save-btn" onclick="saveCustomerEntry('close', this)">Save Customer</button>
+          <button class="btn btn-outline cusn-save-btn" onclick="saveCustomerEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save cusn-save-btn" onclick="saveCustomerEntry('close')">Save Customer</button>
         </div>
       </div>
 
@@ -4975,7 +4975,7 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-          <button class="btn pne-btn-save stkadj-save-btn" onclick="saveStockAdjustmentEntry(this)"><i class="fas fa-check"></i> Save</button>
+          <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
         </div>
       </div>
 
@@ -5080,7 +5080,7 @@ const SERVER = {
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-            <button class="btn pne-btn-save stkadj-save-btn" onclick="saveStockAdjustmentEntry(this)"><i class="fas fa-check"></i> Save</button>
+            <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
           </div>
         </div>
 
@@ -5242,8 +5242,8 @@ const SERVER = {
         <div><div class="pne-title" id="sti-page-title">Add Product to Stock (Stock In)</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockIn()">Cancel</button>
-          <button class="btn pne-btn-savenew stkin-save-btn" onclick="saveStockInEntry('new', this)"><i class="fas fa-plus"></i> Save &amp; New</button>
-          <button class="btn pne-btn-save stkin-save-btn" onclick="saveStockInEntry('close', this)"><i class="fas fa-plus"></i> Save &amp; Close</button>
+          <button class="btn pne-btn-savenew" onclick="saveStockInEntry('new')"><i class="fas fa-plus"></i> Save &amp; New</button>
+          <button class="btn pne-btn-save" onclick="saveStockInEntry('close')"><i class="fas fa-plus"></i> Save &amp; Close</button>
         </div>
       </div>
 
@@ -18462,7 +18462,7 @@ function onPPVarietyChange() {
   }
 }
 
-async function saveProductEntry(mode, btnEl) {
+async function saveProductEntry(mode) {
   const name = document.getElementById('pp-name').value.trim();
   const sku  = document.getElementById('pp-sku').value.trim();
   if (!name) { toast('⚠️ Product name is required', 'warning'); return; }
@@ -18517,7 +18517,7 @@ async function saveProductEntry(mode, btnEl) {
   if (payloadSizeMB > 8) {
     toast(`⚠️ Attachments/images total ~${payloadSizeMB.toFixed(1)} MB — upload may take a while or be rejected by the server. Consider smaller images.`, 'warning');
   }
-  const btn = btnEl;
+  const btn = event?.target?.closest('button');
   const allBtns = ['pp-btn-cancel','pp-btn-savenew','pp-btn-save'].map(id => document.getElementById(id)).filter(Boolean);
   const origHtml = btn ? btn.innerHTML : '';
   allBtns.forEach(b => b.disabled = true);
@@ -23855,7 +23855,7 @@ function renderSNAttachments() {
     <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
-async function saveSaleEntry(mode, btnEl) {
+async function saveSaleEntry(mode) {
   const customerId = document.getElementById('sn-customer').value;
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
   if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
@@ -23941,9 +23941,8 @@ async function saveSaleEntry(mode, btnEl) {
     })),
   };
 
-  const allBtns = document.querySelectorAll('.sn-save-btn');
-  allBtns.forEach(b => { b.disabled = true; });
-  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
   try {
     let savedId = SN.editingId;
     if (SN.editingId) {
@@ -23970,7 +23969,7 @@ async function saveSaleEntry(mode, btnEl) {
     if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
     else { cancelSaleEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
+  finally { if (btn) btn.disabled = false; }
 }
 
 async function editSale(id) {
@@ -24836,7 +24835,7 @@ function saAttachmentChange(file) {
   reader.readAsDataURL(file);
 }
 
-async function saveStockAdjustmentEntry(btnEl) {
+async function saveStockAdjustmentEntry() {
   const productId = document.getElementById('sa-product').value;
   const dir = document.getElementById('sa-direction').value;
   const isAdjust = dir === 'adjust';
@@ -24884,9 +24883,8 @@ async function saveStockAdjustmentEntry(btnEl) {
     notes: document.getElementById('sa-notes').value.trim(),
   };
 
-  const allBtns = document.querySelectorAll('.stkadj-save-btn');
-  allBtns.forEach(b => { b.disabled = true; });
-  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
   try {
     await api('api/stock_adjustments.php', 'POST', payload);
     toast('✅ Stock adjustment saved!', 'success');
@@ -24895,7 +24893,7 @@ async function saveStockAdjustmentEntry(btnEl) {
     cancelStockAdjustment();
     renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
+  finally { if (btn) btn.disabled = false; }
 }
 
 async function renderSARecentAdjustments() {
@@ -25253,7 +25251,7 @@ function renderCusnDocs() {
   }).join('');
 }
 
-async function saveCustomerEntry(mode, btnEl) {
+async function saveCustomerEntry(mode) {
   const name = document.getElementById('cusn-name').value.trim();
   if (!document.getElementById('cusn-type').value) { toast('⚠️ Select a customer type', 'warning'); return; }
   if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
@@ -25297,8 +25295,9 @@ async function saveCustomerEntry(mode, btnEl) {
   // should show the spinner; the other just goes inert, since they're
   // different actions, not two copies of the same button.
   const allBtns = document.querySelectorAll('.cusn-save-btn');
+  const btn = event?.target?.closest('button');
   allBtns.forEach(b => { b.disabled = true; });
-  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  if (btn) { btn.dataset.origHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     let newId = CUSN.editingId;
     if (CUSN.editingId) {
@@ -25324,7 +25323,7 @@ async function saveCustomerEntry(mode, btnEl) {
     }
     if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btn && btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml; }
 }
 
 let CUST_LIST_SEARCH = '';
@@ -25752,7 +25751,7 @@ function renderSTIAttachments() {
     <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="stiRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
-async function saveStockInEntry(mode, btnEl) {
+async function saveStockInEntry(mode) {
   if (!document.getElementById('sti-refdate').value) { toast('⚠️ Reference date is required', 'warning'); return; }
   if (!STI.items.length) { toast('⚠️ Add at least one product', 'warning'); return; }
 
@@ -25782,9 +25781,8 @@ async function saveStockInEntry(mode, btnEl) {
     })),
   };
 
-  const allBtns = document.querySelectorAll('.stkin-save-btn');
-  allBtns.forEach(b => { b.disabled = true; });
-  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
+  const btn = event?.target?.closest('button');
+  if (btn) btn.disabled = true;
   try {
     if (STI.editingId) {
       await api('api/stock_in.php?id=' + STI.editingId, 'PUT', payload);
@@ -25797,7 +25795,7 @@ async function saveStockInEntry(mode, btnEl) {
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
     if (mode === 'new') { goToNewStockIn(); } else { cancelStockIn(); renderStock(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
+  finally { if (btn) btn.disabled = false; }
 }
 
 let STI_HISTORY_LIMIT = 5;
