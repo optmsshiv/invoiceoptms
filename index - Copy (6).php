@@ -3365,10 +3365,10 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelPurchaseEntry()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="savePurchaseEntry('stay')">Save</button>
-          <button class="btn pne-btn-savenew" onclick="savePurchaseEntry('new')">Save &amp; New</button>
+          <button class="btn pne-btn-save pn-save-btn" onclick="savePurchaseEntry('stay', this)">Save</button>
+          <button class="btn pne-btn-savenew pn-save-btn" onclick="savePurchaseEntry('new', this)">Save &amp; New</button>
           <div class="pne-split">
-            <button class="btn pne-btn-print" onclick="savePurchaseEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
+            <button class="btn pne-btn-print pn-save-btn" onclick="savePurchaseEntry('print', this)"><i class="fas fa-print"></i> Save &amp; Print</button>
           </div>
         </div>
       </div>
@@ -3849,8 +3849,8 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" id="pp-btn-cancel" onclick="cancelProductEntry()">Cancel</button>
-          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay')"><i class="fas fa-check"></i> Save Product</button>
+          <button class="btn pne-btn-savenew" id="pp-btn-savenew" onclick="saveProductEntry('new', this)">Save &amp; New</button>
+          <button class="btn pne-btn-save" id="pp-btn-save" onclick="saveProductEntry('stay', this)"><i class="fas fa-check"></i> Save Product</button>
         </div>
       </div>
       <div id="pp-loading-bar" style="display:none;height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin:-6px 0 12px">
@@ -4055,9 +4055,9 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelSaleEntry()">Cancel</button>
-          <button class="btn btn-outline" onclick="saveSaleEntry('draft')">Save Draft</button>
-          <button class="btn pne-btn-save" onclick="saveSaleEntry('stay')">Save</button>
-          <button class="btn pne-btn-print" onclick="saveSaleEntry('print')"><i class="fas fa-print"></i> Save &amp; Print</button>
+          <button class="btn btn-outline sn-save-btn" onclick="saveSaleEntry('draft', this)">Save Draft</button>
+          <button class="btn pne-btn-save sn-save-btn" onclick="saveSaleEntry('stay', this)">Save</button>
+          <button class="btn pne-btn-print sn-save-btn" onclick="saveSaleEntry('print', this)"><i class="fas fa-print"></i> Save &amp; Print</button>
           <button class="btn pne-btn-savenew" onclick="toast('🚚 E-Way Bill generation needs GST-portal integration — coming soon','info')"><i class="fas fa-truck"></i> Generate E-Way Bill</button>
         </div>
       </div>
@@ -4751,8 +4751,8 @@ const SERVER = {
         <div><div class="pne-title" id="cusn-title">Add New Customer</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelCustomerEntry()">Cancel</button>
-          <button class="btn btn-outline" onclick="saveCustomerEntry('new')">Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveCustomerEntry('close')">Save Customer</button>
+          <button class="btn btn-outline cusn-save-btn" onclick="saveCustomerEntry('new', this)">Save &amp; New</button>
+          <button class="btn pne-btn-save cusn-save-btn" onclick="saveCustomerEntry('close', this)">Save Customer</button>
         </div>
       </div>
 
@@ -4975,7 +4975,7 @@ const SERVER = {
         </div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
+          <button class="btn pne-btn-save stkadj-save-btn" onclick="saveStockAdjustmentEntry(this)"><i class="fas fa-check"></i> Save</button>
         </div>
       </div>
 
@@ -5080,7 +5080,7 @@ const SERVER = {
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-outline" onclick="cancelStockAdjustment()">Cancel</button>
-            <button class="btn pne-btn-save" onclick="saveStockAdjustmentEntry()"><i class="fas fa-check"></i> Save</button>
+            <button class="btn pne-btn-save stkadj-save-btn" onclick="saveStockAdjustmentEntry(this)"><i class="fas fa-check"></i> Save</button>
           </div>
         </div>
 
@@ -5113,7 +5113,7 @@ const SERVER = {
         <div><div class="pne-title" id="supn-title">Add Supplier / Farmer</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-          <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
+          <button class="btn pne-btn-save sup-save-btn" onclick="saveSupplierEntry()">Save</button>
         </div>
       </div>
 
@@ -5229,7 +5229,7 @@ const SERVER = {
           <div style="font-size:11.5px;color:var(--muted)"><strong style="color:var(--text)">Note:</strong> Fields marked with * are mandatory</div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-outline" onclick="cancelSupplierEntry()">Cancel</button>
-            <button class="btn pne-btn-save" onclick="saveSupplierEntry()">Save</button>
+            <button class="btn pne-btn-save sup-save-btn" onclick="saveSupplierEntry()">Save</button>
           </div>
         </div>
       </div>
@@ -5242,8 +5242,8 @@ const SERVER = {
         <div><div class="pne-title" id="sti-page-title">Add Product to Stock (Stock In)</div></div>
         <div class="pne-actions">
           <button class="btn btn-outline" onclick="cancelStockIn()">Cancel</button>
-          <button class="btn pne-btn-savenew" onclick="saveStockInEntry('new')"><i class="fas fa-plus"></i> Save &amp; New</button>
-          <button class="btn pne-btn-save" onclick="saveStockInEntry('close')"><i class="fas fa-plus"></i> Save &amp; Close</button>
+          <button class="btn pne-btn-savenew stkin-save-btn" onclick="saveStockInEntry('new', this)"><i class="fas fa-plus"></i> Save &amp; New</button>
+          <button class="btn pne-btn-save stkin-save-btn" onclick="saveStockInEntry('close', this)"><i class="fas fa-plus"></i> Save &amp; Close</button>
         </div>
       </div>
 
@@ -18462,7 +18462,7 @@ function onPPVarietyChange() {
   }
 }
 
-async function saveProductEntry(mode) {
+async function saveProductEntry(mode, btnEl) {
   const name = document.getElementById('pp-name').value.trim();
   const sku  = document.getElementById('pp-sku').value.trim();
   if (!name) { toast('⚠️ Product name is required', 'warning'); return; }
@@ -18517,7 +18517,7 @@ async function saveProductEntry(mode) {
   if (payloadSizeMB > 8) {
     toast(`⚠️ Attachments/images total ~${payloadSizeMB.toFixed(1)} MB — upload may take a while or be rejected by the server. Consider smaller images.`, 'warning');
   }
-  const btn = event?.target?.closest('button');
+  const btn = btnEl;
   const allBtns = ['pp-btn-cancel','pp-btn-savenew','pp-btn-save'].map(id => document.getElementById(id)).filter(Boolean);
   const origHtml = btn ? btn.innerHTML : '';
   allBtns.forEach(b => b.disabled = true);
@@ -19181,6 +19181,8 @@ function viewCustomerProfile(id) {
             <td style="font-size:11px">${fmt_date_disp(s.sale_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(s.invoice_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
+            <td style="font-size:11px">${escHtml(s.payment_method || '—')}</td>
+            <td style="text-align:right;font-size:11px">${s.total_bags ? parseInt(s.total_bags) : '—'}</td>
             <td style="text-align:right;color:var(--green)">${fmt_money(invoiced)}</td>
             <td style="text-align:right;color:#1976D2">${received > 0 ? fmt_money(received) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E53935' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19188,9 +19190,9 @@ function viewCustomerProfile(id) {
           </tr>`;
         }).join('');
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Invoice No.</th><th>Products</th><th>Payment Method</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Received</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="5">Total Outstanding</td><td style="text-align:right;color:var(--green)">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.total)||0),0))}</td><td style="text-align:right;color:#1976D2">${fmt_money(allCustSales.reduce((s,x)=>s+(parseFloat(x.amount_received)||0),0))}</td><td style="text-align:right;color:#E53935;font-size:13px">${fmt_money(outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -19323,7 +19325,7 @@ async function viewSaleDetails(id) {
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
       ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:600px">
         <thead><tr>
-          <th>Product</th><th>Variety</th><th>Moisture %</th>
+          <th>Product</th><th>Variety</th><th style="text-align:right">No. of Bags</th><th>Moisture %</th>
           <th style="text-align:right">Qty (Kg)</th>
           <th style="text-align:right">Rate (₹/Kg)</th>
           <th style="text-align:right">Disc %</th>
@@ -19332,6 +19334,7 @@ async function viewSaleDetails(id) {
         <tbody>${items.map(it => `<tr>
           <td><strong>${escHtml(it.product_name||it.description||'—')}</strong>${it.variety_grade ? `<div style="font-size:10.5px;color:var(--muted)">${escHtml(it.variety_grade)}</div>` : ''}</td>
           <td>${escHtml(it.variety_grade||'—')}</td>
+          <td style="text-align:right">${it.bags ? parseInt(it.bags) : '—'}</td>
           <td style="text-align:center">${it.moisture_pct ? parseFloat(it.moisture_pct).toFixed(2)+'%' : '—'}</td>
           <td style="text-align:right;font-weight:600">${parseFloat(it.qty||0).toFixed(2)}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
@@ -19429,9 +19432,10 @@ async function viewPurchaseDetails(id) {
     <div class="sp-section">
       <div class="sp-section-title"><i class="fas fa-boxes-stacked"></i> Items (${items.length})</div>
       ${items.length ? `<div style="overflow-x:auto"><table class="data-table" style="min-width:520px">
-        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
+        <thead><tr><th>Product</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>${items.map(it => `<tr>
           <td>${escHtml(it.description||'—')}</td>
+          <td style="text-align:right">${it.bags ? parseInt(it.bags) : '—'}</td>
           <td style="text-align:right">${parseFloat(it.qty||0).toFixed(2)} ${escHtml(it.unit||'Kg')}</td>
           <td style="text-align:right">${fmt_money(it.rate)}</td>
           <td style="text-align:right;font-weight:600">${fmt_money(it.amount)}</td>
@@ -19538,6 +19542,8 @@ function viewSupplierProfile(id) {
             <td style="font-size:11px">${fmt_date_disp(p.purchase_date)}</td>
             <td style="font-size:11.5px;font-weight:600">${escHtml(p.purchase_no)}</td>
             <td style="font-size:11px;color:var(--muted);max-width:180px">${escHtml(productNames || '—')}</td>
+            <td style="font-size:11px">${escHtml(p.payment_mode || '—')}</td>
+            <td style="text-align:right;font-size:11px">${p.total_bags ? parseInt(p.total_bags) : '—'}</td>
             <td style="text-align:right;color:#E53935">${fmt_money(billed)}</td>
             <td style="text-align:right;color:var(--green)">${paid2 > 0 ? fmt_money(paid2) : '—'}</td>
             <td style="text-align:right;font-weight:700;color:${balance > 0 ? '#E65100' : 'var(--green)'}">${fmt_money(balance)}</td>
@@ -19547,9 +19553,9 @@ function viewSupplierProfile(id) {
         const totalBilled = allSupPur.reduce((s,p)=>s+(parseFloat(p.total)||0),0);
         const totalPaid2  = allSupPur.reduce((s,p)=>s+(parseFloat(p.amount_paid||0)),0);
         return `<div style="overflow-x:auto"><table class="data-table" style="font-size:11.5px">
-          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Purchase No.</th><th>Products</th><th>Payment Mode</th><th style="text-align:right">No. of Bags</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
-          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="3">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
+          <tfoot><tr style="font-weight:700;background:var(--bg)"><td colspan="5">Total Payable</td><td style="text-align:right;color:#E53935">${fmt_money(totalBilled)}</td><td style="text-align:right;color:var(--green)">${fmt_money(totalPaid2)}</td><td style="text-align:right;color:#E65100;font-size:13px">${fmt_money(t.outstanding)}</td><td></td></tr></tfoot>
         </table></div>`;
       })()}
     </div>
@@ -21554,7 +21560,7 @@ function pneReadAttachment() {
   });
 }
 
-async function savePurchaseEntry(mode) {
+async function savePurchaseEntry(mode, btnEl) {
   const supplierId = document.getElementById('pn-supplier').value;
   if (!supplierId) { toast('⚠️ Select a supplier', 'warning'); return; }
   if (!document.getElementById('pn-date').value) { toast('⚠️ Purchase date is required', 'warning'); return; }
@@ -21647,8 +21653,17 @@ async function savePurchaseEntry(mode) {
     })),
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) { btn.disabled = true; }
+  // Purchase, Purchase & New, Purchase & Print are three different
+  // buttons/actions — relying on the global `event` object to find which
+  // one was clicked is what caused the crash (event.target isn't always a
+  // clickable element, e.g. when this fires from something other than a
+  // direct mouse click), so the actual button is now passed in explicitly
+  // via `this` from each onclick instead. All three still get disabled
+  // together to prevent a second save firing while the first is still in
+  // flight, but only the one actually clicked shows the spinner.
+  const allBtns = document.querySelectorAll('.pn-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     let savedId = PNE.editingId;
     if (PNE.editingId) {
@@ -21692,7 +21707,7 @@ async function savePurchaseEntry(mode) {
       renderPurchases();
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 function pnePaymentStamp(status) {
@@ -22351,12 +22366,24 @@ async function openPaymodeDetail(type, mode) {
       <table class="data-table" style="font-size:12.5px;width:100%">
         <thead><tr><th>Date</th><th>${labels.party}</th><th>${labels.ref}</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>
-          ${rows.map(x => `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
-            <td>${fmt_date_disp(x.date)}</td>
-            <td>${escHtml(x.party || '—')}</td>
-            <td>${escHtml(x.reference || '—')}</td>
-            <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
-          </tr>`).join('')}
+          ${rows.map(x => {
+            // Split-derived row (either the aggregate "Split Payment" list,
+            // or a real method's list that includes a split transaction's
+            // portion) — show its full composition as chips so it's clear
+            // this amount is part of a larger split, not a pure payment.
+            const chips = (x.is_split && x.breakdown && x.breakdown.length)
+              ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${x.breakdown.map(b =>
+                  `<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 7px;border-radius:7px;font-weight:600">${escHtml(b.method)} ${fmt_money(b.amount)}</span>`
+                ).join('')}</div>`
+              : '';
+            const splitBadge = x.is_split ? `<span style="font-size:9.5px;font-weight:700;color:#455A64;background:#ECEFF1;padding:1px 6px;border-radius:7px;margin-left:6px;vertical-align:middle">SPLIT</span>` : '';
+            return `<tr${linkFn ? ` style="cursor:pointer" onclick="closeModal('modal-paymode-detail');${linkFn}(${x.id})"` : ''}>
+              <td>${fmt_date_disp(x.date)}</td>
+              <td>${escHtml(x.party || '—')}${splitBadge}${chips}</td>
+              <td>${escHtml(x.reference || '—')}</td>
+              <td style="text-align:right;font-weight:600">${fmt_money(x.amount)}</td>
+            </tr>`;
+          }).join('')}
         </tbody>
         <tfoot><tr style="font-weight:700;border-top:1.5px solid var(--border)">
           <td colspan="3">Total (${rows.length} transaction${rows.length===1?'':'s'})</td>
@@ -22446,12 +22473,28 @@ async function renderFinanceReport() {
     function renderPaymodeCard(elId, modes, emptyMsg, type) {
       const el = document.getElementById(elId);
       if (!el) return;
-      const total = modes.reduce((s,m)=>s+m.amount, 0);
-      el.innerHTML = modes.length ? modes.map(m => `
-        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="Click to see who — the transactions behind this total">
-          <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
-          <span><strong>${fmt_money(m.amount)}</strong> <span style="color:var(--muted);font-size:11px">(${total?((m.amount/total)*100).toFixed(2):'0.00'}%)</span></span>
-        </div>`).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
+      // Split Payment is a duplicate view of money already counted under
+      // its real methods above (see the backend comment in
+      // modeBreakdownWithSplit) — excluded from the total here, or the
+      // period total would be inflated by however much got split.
+      const realModes = modes.filter(m => !m.is_split_summary);
+      const total = realModes.reduce((s,m)=>s+m.amount, 0);
+      el.innerHTML = modes.length ? modes.map(m => {
+        const isSplit = !!m.is_split_summary;
+        const pct = (!isSplit && total) ? ((m.amount/total)*100).toFixed(2) : null;
+        const chips = (isSplit && m.breakdown && m.breakdown.length)
+          ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;padding-left:17px">${m.breakdown.map(b =>
+              `<span style="font-size:10.5px;background:var(--bg);color:${pmColors[b.method]||'#555'};padding:2px 8px;border-radius:8px;font-weight:600">${escHtml(b.method)} ${fmt_money(b.amount)}</span>`
+            ).join('')}</div>`
+          : '';
+        return `<div style="${isSplit ? 'border-top:1px dashed var(--border);margin-top:6px;padding-top:10px' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-radius:6px;padding:3px 4px;margin:-3px -4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" onclick="openPaymodeDetail('${type}','${escHtml(m.mode)}')" title="${isSplit ? 'Already counted inside its real methods above — click to see which transactions were split' : 'Click to see who — the transactions behind this total'}">
+            <span style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:${pmColors[m.mode]||'#889'}"></span>${escHtml(m.mode)}</span>
+            <span><strong>${fmt_money(m.amount)}</strong> ${pct !== null ? `<span style="color:var(--muted);font-size:11px">(${pct}%)</span>` : ''}</span>
+          </div>
+          ${chips}
+        </div>`;
+      }).join('') + `<div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;font-weight:700">
           <span>Total</span><span>${fmt_money(total)} <span style="color:var(--muted);font-size:11px">(100%)</span></span></div>`
         : `<div style="color:var(--muted);font-size:12px">${emptyMsg}</div>`;
     }
@@ -23812,7 +23855,7 @@ function renderSNAttachments() {
     <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
-async function saveSaleEntry(mode) {
+async function saveSaleEntry(mode, btnEl) {
   const customerId = document.getElementById('sn-customer').value;
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
   if (!document.getElementById('sn-invdate').value) { toast('⚠️ Invoice date is required', 'warning'); return; }
@@ -23898,8 +23941,9 @@ async function saveSaleEntry(mode) {
     })),
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  const allBtns = document.querySelectorAll('.sn-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     let savedId = SN.editingId;
     if (SN.editingId) {
@@ -23926,7 +23970,7 @@ async function saveSaleEntry(mode) {
     if (mode === 'print') { printSaleEntry(savedId); cancelSaleEntry(); }
     else { cancelSaleEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 async function editSale(id) {
@@ -24792,7 +24836,7 @@ function saAttachmentChange(file) {
   reader.readAsDataURL(file);
 }
 
-async function saveStockAdjustmentEntry() {
+async function saveStockAdjustmentEntry(btnEl) {
   const productId = document.getElementById('sa-product').value;
   const dir = document.getElementById('sa-direction').value;
   const isAdjust = dir === 'adjust';
@@ -24840,8 +24884,9 @@ async function saveStockAdjustmentEntry() {
     notes: document.getElementById('sa-notes').value.trim(),
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  const allBtns = document.querySelectorAll('.stkadj-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     await api('api/stock_adjustments.php', 'POST', payload);
     toast('✅ Stock adjustment saved!', 'success');
@@ -24850,7 +24895,7 @@ async function saveStockAdjustmentEntry() {
     cancelStockAdjustment();
     renderStock();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 async function renderSARecentAdjustments() {
@@ -25020,8 +25065,12 @@ async function saveSupplierEntry() {
     client_request_id: SUPN.idempotencyKey,
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  // Both Save buttons (top and bottom of this long form) need to reflect
+  // the loading state together — event.target only catches whichever one
+  // was actually clicked, leaving the other looking clickable and giving
+  // no visual feedback that anything is happening at all.
+  const btns = document.querySelectorAll('.sup-save-btn');
+  btns.forEach(b => { b.disabled = true; b.dataset.origHtml = b.innerHTML; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; });
   try {
     if (SUPN.editingId) {
       await api('api/suppliers.php?id=' + SUPN.editingId, 'PUT', payload);
@@ -25036,7 +25085,7 @@ async function saveSupplierEntry() {
     cancelSupplierEntry();
     renderSuppliers();
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { btns.forEach(b => { b.disabled = false; b.innerHTML = b.dataset.origHtml || 'Save'; }); }
 }
 
 // ══════════════════════════════════════════
@@ -25204,7 +25253,7 @@ function renderCusnDocs() {
   }).join('');
 }
 
-async function saveCustomerEntry(mode) {
+async function saveCustomerEntry(mode, btnEl) {
   const name = document.getElementById('cusn-name').value.trim();
   if (!document.getElementById('cusn-type').value) { toast('⚠️ Select a customer type', 'warning'); return; }
   if (!name) { toast('⚠️ Customer name is required', 'warning'); return; }
@@ -25242,8 +25291,14 @@ async function saveCustomerEntry(mode) {
     client_request_id: CUSN.idempotencyKey,
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  // Both buttons ("Save & New" and "Save Customer") need to be disabled
+  // together — otherwise clicking one while the other's request is still
+  // in flight could fire a second save. But only the one actually clicked
+  // should show the spinner; the other just goes inert, since they're
+  // different actions, not two copies of the same button.
+  const allBtns = document.querySelectorAll('.cusn-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     let newId = CUSN.editingId;
     if (CUSN.editingId) {
@@ -25269,7 +25324,7 @@ async function saveCustomerEntry(mode) {
     }
     if (mode === 'new') { goToNewCustomerPage(); } else { cancelCustomerEntry(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 let CUST_LIST_SEARCH = '';
@@ -25697,7 +25752,7 @@ function renderSTIAttachments() {
     <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="stiRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
-async function saveStockInEntry(mode) {
+async function saveStockInEntry(mode, btnEl) {
   if (!document.getElementById('sti-refdate').value) { toast('⚠️ Reference date is required', 'warning'); return; }
   if (!STI.items.length) { toast('⚠️ Add at least one product', 'warning'); return; }
 
@@ -25727,8 +25782,9 @@ async function saveStockInEntry(mode) {
     })),
   };
 
-  const btn = event?.target?.closest('button');
-  if (btn) btn.disabled = true;
+  const allBtns = document.querySelectorAll('.stkin-save-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  if (btnEl) { btnEl.dataset.origHtml = btnEl.innerHTML; btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…'; }
   try {
     if (STI.editingId) {
       await api('api/stock_in.php?id=' + STI.editingId, 'PUT', payload);
@@ -25741,7 +25797,7 @@ async function saveStockInEntry(mode) {
     STATE.stock = Array.isArray(stk.data) ? stk.data : STATE.stock;
     if (mode === 'new') { goToNewStockIn(); } else { cancelStockIn(); renderStock(); }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-  finally { if (btn) btn.disabled = false; }
+  finally { allBtns.forEach(b => { b.disabled = false; }); if (btnEl && btnEl.dataset.origHtml) btnEl.innerHTML = btnEl.dataset.origHtml; }
 }
 
 let STI_HISTORY_LIMIT = 5;

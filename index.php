@@ -2984,7 +2984,7 @@ const SERVER = {
         <div class="pne-card-head pne-head-green" style="margin-bottom:12px"><i class="fas fa-users"></i> Suppliers</div>
         <div class="table-card" style="overflow-x:auto">
           <table class="data-table" style="min-width:1080px">
-            <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Mobile No.</th><th>Email</th><th>State</th><th>Payment Terms</th><th style="text-align:right">Total Purchases (₹)</th><th style="text-align:right">Outstanding (₹)</th><th>Status</th><th>Action</th></tr></thead>
+            <thead><tr><th>#</th><th>Supplier Name</th><th>Contact Person</th><th>Mobile No.</th><th>State</th><th>Payment Terms</th><th style="text-align:right">Total Purchases (₹)</th><th style="text-align:right">Outstanding (₹)</th><th>Status</th><th>Action</th></tr></thead>
             <tbody id="suppliersTbody"></tbody>
           </table>
         </div>
@@ -18862,7 +18862,7 @@ async function renderSuppliers() {
   }
 
   if (!pageRows.length) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">No suppliers found — click "Add New Supplier" to get started</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No suppliers found — click "Add New Supplier" to get started</td></tr>`;
     return;
   }
 
@@ -18873,9 +18873,8 @@ async function renderSuppliers() {
     <tr>
       <td>${start + i + 1}</td>
       <td><strong>${escHtml(s.name)}</strong><div style="margin-top:3px">${supplierTypeBadgeHTML(s.supplier_type)}</div></td>
-      <td>${escHtml(s.contact_person||'—')}</td>
+      <td>${escHtml(s.contact_person||'—')}${s.email ? `<div style="margin-top:2px;font-size:11px;color:var(--muted)">${escHtml(s.email)}</div>` : ''}</td>
       <td>${escHtml(s.phone||'—')}</td>
-      <td>${escHtml(s.email||'—')}</td>
       <td>${escHtml(s.state||'—')}</td>
       <td>${escHtml(s.payment_terms||'—')}</td>
       <td style="text-align:right">${t.total.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
