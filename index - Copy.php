@@ -14448,11 +14448,11 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   <!-- HEADER: full Slate Dark panel — logo box + company block (left), badges/number/dates (right) -->
   <div style="background:#1E293B;padding:26px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
     <div style="display:flex;gap:20px;align-items:flex-start;min-width:0">
-      <div style="width:124px;height:134px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+      <div style="width:124px;height:134px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
         ${sc.logo
-          ? `<img src="${sc.logo}" style="max-width:90%;max-height:90%;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-             <div style="display:none;width:60px;height:60px;color:#fff;font-size:22px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
-          : `<div style="width:60px;height:60px;color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
+          ? `<img src="${sc.logo}" style="max-width:80%;max-height:80%;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             <div style="display:none;width:60px;height:60px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
+          : `<div style="width:60px;height:60px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
       </div>
       <div style="min-width:0;padding-top:2px">
         <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:11px">${sc.company}</div>
@@ -14476,12 +14476,21 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
           <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94A3B8;margin-bottom:2px">Issue Date</div>
           <div style="font-size:13px;font-weight:800;color:#fff">${d.date||'—'}</div>
         </div>
-        ${d.status !== 'Paid' ? `<div>
+        <div>
           <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94A3B8;margin-bottom:2px">Due Date</div>
           <div style="font-size:13px;font-weight:800;color:#93C5FD">${d.due||'—'}</div>
-        </div>` : ''}
+        </div>
       </div>
     </div>
+  </div>
+
+  <!-- META STRIP -->
+  <div style="display:flex;background:${T.metabg};border-bottom:1.5px solid ${T.metabr}">
+    ${[['Issue Date',d.date],['Due Date',d.due],['Service',d.svc||'—'],['Grand Total',fmt_money(d.grand,d.sym)]].map((pair,i,arr)=>`
+    <div style="flex:1;padding:12px 24px;${i<arr.length-1?`border-right:1px solid ${T.metabr}`:''}">
+      <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${T.metalbl};margin-bottom:4px">${pair[0]}</div>
+      <div style="font-size:${pair[0]==='Grand Total'?'15':'13'}px;font-weight:${pair[0]==='Grand Total'?'800':'700'};color:${pair[0]==='Grand Total'?T.metalbl:T.metaval};font-family:monospace">${pair[1]||'—'}</div>
+    </div>`).join('')}
   </div>
 
   <!-- PARTIES -->

@@ -206,6 +206,7 @@ $companyAddress = $settings['company_address'] ?? '';
 $companyGST     = $settings['company_gst']     ?? '';
 $companyPhone   = $settings['company_phone']   ?? '';
 $companyEmail   = $settings['company_email']   ?? '';
+$companyWebsite = $settings['company_website'] ?? '';
 $companyLogo    = $inv['company_logo'] ?: ($settings['company_logo'] ?? '');
 $companySign    = $inv['signature']    ?: ($settings['company_sign'] ?? '');
 
@@ -256,23 +257,22 @@ ob_start();
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1A1A2E; background: #fff; }
 
-/* Header — dark logo sidebar + white content panel (canonical design) */
+/* Header — full Slate Dark panel (canonical design, matches in-app preview) */
 .hdr-accent { height: 5px; background: <?= $accentColor ?>; }
-.hdr-wrap { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-.hdr-logo-cell { background: #2A3580; width: 86px; text-align: center; vertical-align: middle; padding: 18px 8px; }
-.hdr-logo-mono { width: 40px; height: 40px; border-radius: 9px; background: rgba(255,255,255,0.15); color: #fff; font-size: 15px; font-weight: bold; text-align: center; line-height: 40px; }
-.hdr-content-cell { background: #fff; padding: 18px 26px; vertical-align: top; }
-.hdr-co-name { font-size: 16px; font-weight: bold; color: #1A1A2E; }
-.hdr-co-sub { font-size: 10px; color: #9CA3AF; margin-top: 2px; line-height: 1.6; }
-.hdr-inv-num { font-size: 18px; font-weight: bold; color: #1A1A2E; font-family: 'DejaVu Sans Mono', monospace; text-align: right; }
-.hdr-badges { text-align: right; margin-top: 6px; }
-.hdr-pill { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 8.5px; font-weight: bold; letter-spacing: .6px; margin-left: 5px; }
-.hdr-pill-outline { background: #F3F4F6; color: #4B5563; }
-.hdr-divider { height: 1px; background: #F0F1F3; margin: 13px 0 11px; }
-.hdr-contact-row { width: 100%; }
-.hdr-contact-row td { width: 33.33%; vertical-align: top; }
-.hdr-contact-lbl { font-size: 8px; font-weight: bold; text-transform: uppercase; letter-spacing: .7px; color: #9CA3AF; margin-bottom: 2px; }
-.hdr-contact-val { font-size: 11px; font-weight: 600; color: #1A1A2E; }
+.hdr-wrap { width: 100%; border-collapse: collapse; margin-bottom: 16px; background: #1E293B; }
+.hdr-cell { background: #1E293B; padding: 26px 32px; vertical-align: top; }
+.hdr-logo-cell { width: 124px; text-align: center; vertical-align: middle; padding-right: 20px; }
+.hdr-logo-img { max-width: 112px; max-height: 120px; }
+.hdr-logo-mono { width: 60px; height: 60px; color: #fff; font-size: 22px; font-weight: bold; text-align: center; line-height: 60px; margin: 0 auto; }
+.hdr-co-name { font-size: 21px; font-weight: bold; color: #fff; margin-bottom: 10px; }
+.hdr-contact-line { font-size: 11.5px; font-weight: 600; color: #CBD5E1; line-height: 1.9; }
+.hdr-inv-num { font-size: 21px; font-weight: bold; color: #fff; font-family: 'DejaVu Sans Mono', monospace; text-align: right; }
+.hdr-badges { text-align: right; margin-bottom: 13px; }
+.hdr-pill { display: inline-block; padding: 5px 11px; border-radius: 6px; font-size: 9px; font-weight: bold; letter-spacing: .7px; margin-left: 7px; }
+.hdr-pill-outline { border: 1.3px solid rgba(255,255,255,.4); color: #E2E8F0; }
+.hdr-date-lbl { font-size: 8.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.2px; color: #94A3B8; text-align: right; margin-bottom: 2px; }
+.hdr-date-val { font-size: 13px; font-weight: bold; color: #fff; text-align: right; margin-bottom: 9px; }
+.hdr-date-val-due { color: #93C5FD; }
 
 /* Cards
    NOTE: no `overflow:hidden` here on purpose — mPDF cannot paginate a block
@@ -294,13 +294,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .two-col { width: 100%; }
 .two-col td { vertical-align: top; width: 50%; padding: 0 8px 0 0; }
 .two-col td:last-child { padding-left: 16px; border-left: 1px solid #E5E7EB; }
-
-/* Amount strip */
-.amt-strip { width: 100%; border-top: 2px solid #00897B; margin-bottom: 12px; }
-.amt-strip td { text-align: center; padding: 12px 8px; border-right: 1px solid #E5E7EB; }
-.amt-strip td:last-child { border-right: none; }
-.amt-lbl { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; color: #9CA3AF; margin-bottom: 4px; }
-.amt-val { font-size: 15px; font-weight: bold; }
 
 /* Line items table */
 .items-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -602,47 +595,43 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </div>
 <?php else: ?>
 
-<!-- Header: accent strip + dark logo sidebar + white content panel -->
+<!-- Header: accent strip + full Slate Dark panel -->
 <div class="hdr-accent"></div>
 <table class="hdr-wrap" cellpadding="0" cellspacing="0">
   <tr>
-    <td class="hdr-logo-cell">
-      <?php if ($companyLogo): ?>
-        <img src="<?= htmlspecialchars($companyLogo) ?>" style="max-width:54px;max-height:44px;display:inline-block" alt="Logo">
-      <?php else: ?>
-        <div class="hdr-logo-mono"><?= htmlspecialchars(strtoupper(substr($companyName, 0, 2))) ?></div>
-      <?php endif; ?>
-    </td>
-    <td class="hdr-content-cell">
-      <table width="100%">
+    <td class="hdr-cell">
+      <table cellpadding="0" cellspacing="0">
         <tr>
+          <td class="hdr-logo-cell">
+            <?php if ($companyLogo): ?>
+              <img src="<?= htmlspecialchars($companyLogo) ?>" class="hdr-logo-img" alt="Logo">
+            <?php else: ?>
+              <div class="hdr-logo-mono"><?= htmlspecialchars(strtoupper(substr($companyName, 0, 2))) ?></div>
+            <?php endif; ?>
+          </td>
           <td style="vertical-align:top">
             <div class="hdr-co-name"><?= htmlspecialchars($companyName) ?></div>
-            <?php if ($companyAddress): ?><div class="hdr-co-sub"><?= htmlspecialchars(str_replace("\n", ', ', $companyAddress)) ?></div><?php endif; ?>
-          </td>
-          <td style="vertical-align:top;text-align:right;white-space:nowrap">
-            <div class="hdr-inv-num"><?= htmlspecialchars($inv['invoice_number']) ?></div>
-            <div class="hdr-badges">
-              <span class="hdr-pill hdr-pill-outline"><?= $isEstimate ? 'ESTIMATE' : 'TAX INVOICE' ?></span>
-              <span class="hdr-pill" style="background:<?= $stBg ?>;color:<?= $stFg ?>"><?= $stLabel ?></span>
-            </div>
+            <?php if ($companyPhone): ?><div class="hdr-contact-line"><?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
+            <?php if ($companyEmail): ?><div class="hdr-contact-line"><?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
+            <?php if ($companyGST): ?><div class="hdr-contact-line">GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
+            <?php if ($companyWebsite): ?><div class="hdr-contact-line"><?= htmlspecialchars($companyWebsite) ?></div><?php endif; ?>
+            <?php if ($companyAddress): ?><div class="hdr-contact-line"><?= htmlspecialchars(str_replace("\n", ', ', $companyAddress)) ?></div><?php endif; ?>
           </td>
         </tr>
       </table>
-      <div class="hdr-divider"></div>
-      <table class="hdr-contact-row">
-        <tr>
-          <?php if ($companyPhone): ?>
-          <td><div class="hdr-contact-lbl">Phone</div><div class="hdr-contact-val"><?= htmlspecialchars($companyPhone) ?></div></td>
-          <?php endif; ?>
-          <?php if ($companyEmail): ?>
-          <td><div class="hdr-contact-lbl">Email</div><div class="hdr-contact-val"><?= htmlspecialchars($companyEmail) ?></div></td>
-          <?php endif; ?>
-          <?php if ($companyGST): ?>
-          <td><div class="hdr-contact-lbl">GSTIN</div><div class="hdr-contact-val mono"><?= htmlspecialchars($companyGST) ?></div></td>
-          <?php endif; ?>
-        </tr>
-      </table>
+    </td>
+    <td class="hdr-cell" style="text-align:right;white-space:nowrap">
+      <div class="hdr-badges">
+        <span class="hdr-pill hdr-pill-outline"><?= $isEstimate ? 'ESTIMATE' : 'TAX INVOICE' ?></span>
+        <span class="hdr-pill" style="background:<?= $stBg ?>;color:<?= $stFg ?>"><?= $stLabel ?></span>
+      </div>
+      <div class="hdr-inv-num" style="margin-bottom:15px"><?= htmlspecialchars($inv['invoice_number']) ?></div>
+      <div class="hdr-date-lbl">Issue Date</div>
+      <div class="hdr-date-val"><?= pdf_fmt_date($inv['issue_date']) ?></div>
+      <?php if ($inv['status'] !== 'Paid'): ?>
+      <div class="hdr-date-lbl"><?= $isEstimate ? 'Valid Until' : 'Due Date' ?></div>
+      <div class="hdr-date-val hdr-date-val-due"><?= pdf_fmt_date($inv['due_date']) ?></div>
+      <?php endif; ?>
     </td>
   </tr>
 </table>
@@ -654,36 +643,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </div>
 <?php endif; ?>
 
-<!-- Amount Summary Strip -->
-<table class="amt-strip" width="100%">
-  <tr>
-    <td>
-      <div class="amt-lbl"><?= $isEstimate ? 'Estimated Total' : 'Invoice Total' ?></div>
-      <div class="amt-val" style="color:#00897B"><?= pdf_fmt_money($totalAmt, $sym) ?></div>
-    </td>
-    <?php if (!$isEstimate): ?>
-    <td>
-      <div class="amt-lbl">Amount Paid</div>
-      <div class="amt-val" style="color:#388E3C"><?= pdf_fmt_money($totalCovered, $sym) ?></div>
-    </td>
-    <td>
-      <div class="amt-lbl">Balance Due</div>
-      <div class="amt-val" style="color:<?= $remaining > 0 ? '#C62828' : '#388E3C' ?>"><?= pdf_fmt_money($remaining, $sym) ?></div>
-    </td>
-    <?php else: ?>
-    <td>
-      <div class="amt-lbl">Issue Date</div>
-      <div class="amt-val" style="font-size:12px;color:#374151"><?= pdf_fmt_date($inv['issue_date']) ?></div>
-    </td>
-    <td>
-      <div class="amt-lbl">Valid Until</div>
-      <div class="amt-val" style="font-size:12px;color:#374151"><?= pdf_fmt_date($inv['due_date']) ?></div>
-    </td>
-    <?php endif; ?>
-  </tr>
-</table>
-
-<!-- Billed To / Invoice Details -->
+<!-- Billed To / Issued By -->
 <div class="card">
   <table class="two-col" width="100%">
     <tr>
@@ -696,13 +656,12 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php if (!empty($client['gst_number'])): ?><div style="font-size:10px;color:#6B7280">GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
       </td>
       <td>
-        <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Invoice Details</div>
-        <table width="100%">
-          <tr><td class="info-lbl"><?= $isEstimate ? 'Quote #' : 'Invoice #' ?></td><td class="mono" style="font-size:11px;font-weight:600"><?= htmlspecialchars($inv['invoice_number']) ?></td></tr>
-          <tr><td class="info-lbl">Service</td><td><?= htmlspecialchars($inv['service_type'] ?? '—') ?></td></tr>
-          <tr><td class="info-lbl">Issue Date</td><td><?= pdf_fmt_date($inv['issue_date']) ?></td></tr>
-          <tr><td class="info-lbl"><?= $isEstimate ? 'Valid Until' : 'Due Date' ?></td><td><?= pdf_fmt_date($inv['due_date']) ?></td></tr>
-        </table>
+        <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Issued By</div>
+        <div class="info-val" style="font-size:13px"><?= htmlspecialchars($companyName) ?></div>
+        <?php if ($companyEmail): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
+        <?php if ($companyPhone): ?><div style="font-size:10px;color:#6B7280"><?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
+        <?php if ($companyAddress): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= nl2br(htmlspecialchars($companyAddress)) ?></div><?php endif; ?>
+        <?php if ($companyGST): ?><div style="font-size:10px;color:#6B7280">GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
       </td>
     </tr>
   </table>
