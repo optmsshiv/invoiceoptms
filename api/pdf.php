@@ -55,6 +55,23 @@ function pdf_fmt_date($d) {
 function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
+// Small prefix icons for Billed To / Issued By lines — inline SVG, same paths as the JS template.
+// Note: mPDF's inline-SVG support is more limited than a browser's — verify these render
+// correctly in an actual downloaded PDF; if glyphs look off, drop this helper's calls and
+// fall back to plain label text (the JS/browser-preview version is unaffected either way).
+function pdf_picon($type, $color = '#888', $alignTop = false) {
+    $paths = [
+        'building' => '<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+        'user'     => '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.58-7 8-7s8 3 8 7"/>',
+        'mail'     => '<path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/>',
+        'phone'    => '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+        'pin'      => '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+        'gst'      => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M6 15h4"/>',
+    ];
+    $p = $paths[$type] ?? $paths['user'];
+    $mt = $alignTop ? 'margin-top:2px;' : '';
+    return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="' . $color . '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="' . $mt . 'flex-shrink:0">' . $p . '</svg>';
+}
 
 // ── Resolve invoice from token OR from invoice_id (internal, authenticated) ──
 $rawToken        = $_GET['t'] ?? '';
@@ -185,6 +202,7 @@ $totalCovered = $totalCash + $totalSettle;
 
 if ($inv['status'] === 'Paid' && $totalCovered < 0.01) $totalCovered = $totalAmt;
 $remaining = max(0, $totalAmt - $totalCovered);
+$lastPaymentDate = $payments ? pdf_fmt_date(end($payments)['payment_date'] ?? '') : '';
 
 // Line item totals
 $calcSubtotal = 0; $calcGst = 0;
@@ -628,7 +646,10 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <div class="hdr-inv-num" style="margin-bottom:15px"><?= htmlspecialchars($inv['invoice_number']) ?></div>
       <div class="hdr-date-lbl">Issue Date</div>
       <div class="hdr-date-val"><?= pdf_fmt_date($inv['issue_date']) ?></div>
-      <?php if ($inv['status'] !== 'Paid'): ?>
+      <?php if ($inv['status'] === 'Paid'): ?>
+      <div class="hdr-date-lbl">Paid On</div>
+      <div class="hdr-date-val" style="color:#4ADE80"><?= $lastPaymentDate ?: '—' ?></div>
+      <?php else: ?>
       <div class="hdr-date-lbl"><?= $isEstimate ? 'Valid Until' : 'Due Date' ?></div>
       <div class="hdr-date-val hdr-date-val-due"><?= pdf_fmt_date($inv['due_date']) ?></div>
       <?php endif; ?>
@@ -649,19 +670,19 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     <tr>
       <td>
         <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Billed To</div>
-        <div class="info-val" style="font-size:13px"><?= htmlspecialchars($client['name'] ?? '—') ?></div>
-        <?php if (!empty($client['email'])): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= htmlspecialchars($client['email']) ?></div><?php endif; ?>
-        <?php if (!empty($client['phone'])): ?><div style="font-size:10px;color:#6B7280"><?= htmlspecialchars($client['phone']) ?></div><?php endif; ?>
-        <?php if (!empty($client['address'])): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= nl2br(htmlspecialchars($client['address'])) ?></div><?php endif; ?>
-        <?php if (!empty($client['gst_number'])): ?><div style="font-size:10px;color:#6B7280">GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
+        <div class="info-val" style="font-size:13px"><?= pdf_picon('building','#555') ?> <?= htmlspecialchars($client['name'] ?? '—') ?></div>
+        <?php if (!empty($client['email'])): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($client['email']) ?></div><?php endif; ?>
+        <?php if (!empty($client['phone'])): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('phone') ?> <?= htmlspecialchars($client['phone']) ?></div><?php endif; ?>
+        <?php if (!empty($client['address'])): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= pdf_picon('pin','#888',true) ?> <?= nl2br(htmlspecialchars($client['address'])) ?></div><?php endif; ?>
+        <?php if (!empty($client['gst_number'])): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('gst') ?> GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
       </td>
       <td>
         <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Issued By</div>
-        <div class="info-val" style="font-size:13px"><?= htmlspecialchars($companyName) ?></div>
-        <?php if ($companyEmail): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
-        <?php if ($companyPhone): ?><div style="font-size:10px;color:#6B7280"><?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
-        <?php if ($companyAddress): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= nl2br(htmlspecialchars($companyAddress)) ?></div><?php endif; ?>
-        <?php if ($companyGST): ?><div style="font-size:10px;color:#6B7280">GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
+        <div class="info-val" style="font-size:13px"><?= pdf_picon('building','#555') ?> <?= htmlspecialchars($companyName) ?></div>
+        <?php if ($companyEmail): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
+        <?php if ($companyPhone): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('phone') ?> <?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
+        <?php if ($companyAddress): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= pdf_picon('pin','#888',true) ?> <?= nl2br(htmlspecialchars($companyAddress)) ?></div><?php endif; ?>
+        <?php if ($companyGST): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('gst') ?> GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
       </td>
     </tr>
   </table>
