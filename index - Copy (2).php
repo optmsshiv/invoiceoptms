@@ -14657,7 +14657,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         const isPartial2   = d.status === 'Partial';
         const isPaid2      = d.status === 'Paid';
         const isCancelled2 = d.status === 'Cancelled';
-        if (!isPartial2 || !invId2 || invId2 === '0') return '';
+        if (!(isPartial2 || isCancelled2) || !invId2 || invId2 === '0') return '';
         const pays2 = (typeof STATE !== 'undefined' ? STATE.payments : []).filter(p => p.invoice_id && String(p.invoice_id) === invId2)
           .sort((a,b) => {
             const da = new Date(a.date||a.payment_date||0);
