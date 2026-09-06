@@ -2442,7 +2442,7 @@ const SERVER = {
           </select>
           <input type="date" class="table-filter" id="dateFrom" onchange="filterByDate()" placeholder="From">
           <input type="date" class="table-filter" id="dateTo" onchange="filterByDate()" placeholder="To">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
             <input type="checkbox" id="show-cancelled-inactive-toggle" onchange="_applyAllFilters()" style="cursor:pointer">
             Show Cancelled/Inactive
             <span id="cancelled-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
