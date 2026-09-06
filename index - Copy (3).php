@@ -13692,7 +13692,6 @@ function totalsRows(d, accentColor, borderColor) {
 // ── Previous Due Block — other outstanding invoices for same client ──────────
 function previousDueBlock(d, accentColor, bgColor, borderColor) {
   if (d.popt && d.popt.previousDue === false) return '';
-  if (d.status === 'Estimate') return ''; // a quotation shouldn't surface unrelated outstanding dues
   const clientId = d.clientId || d.client_id || '';
   const currentNum = String(d.num || '');
   if (!clientId || typeof STATE === 'undefined') return '';
