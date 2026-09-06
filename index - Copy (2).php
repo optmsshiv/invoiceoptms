@@ -2452,7 +2452,7 @@ const SERVER = {
       <div style="margin:-10px 0 14px">
         <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
           <input type="checkbox" id="show-cancelled-inactive-toggle" onchange="_applyAllFilters()" style="cursor:pointer">
-          View only Cancelled/Inactive
+          Show Cancelled/Inactive
           <span id="cancelled-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
         </label>
       </div>
@@ -12575,25 +12575,16 @@ function _applyAllFilters() {
   const df  = document.getElementById('dateFrom')?.value || '';
   const dt  = document.getElementById('dateTo')?.value || '';
 
-  // Default (unchecked): Cancelled + inactive-client invoices are excluded
-  // from the day-to-day ledger view. Checked: flips to isolation mode —
-  // show ONLY Cancelled/inactive-client invoices, so they're easy to spot
-  // and review as a group instead of being scattered in a long list.
-  const isolateMode = document.getElementById('show-cancelled-inactive-toggle')?.checked;
+  // Cancelled + inactive-client invoices are noise in the day-to-day
+  // ledger view, so they're hidden by default. The toggle reveals them;
+  // explicitly picking "Cancelled" in the Status dropdown always wins
+  // even with the toggle off, so that filter still does what it says.
+  const showHidden = document.getElementById('show-cancelled-inactive-toggle')?.checked;
   let hiddenCount = 0;
-  if (isolateMode) {
+  if (!showHidden) {
     list = list.filter(i => {
       const c = STATE.clients.find(x=>x.id===i.client);
       const isInactiveClient = !!(c && (parseInt(c.active) === 0 || c.status === 'inactive'));
-      const isCancelled = i.status === 'Cancelled';
-      return isCancelled || isInactiveClient;
-    });
-  } else {
-    list = list.filter(i => {
-      const c = STATE.clients.find(x=>x.id===i.client);
-      const isInactiveClient = !!(c && (parseInt(c.active) === 0 || c.status === 'inactive'));
-      // Explicitly picking "Cancelled" in the Status dropdown still works
-      // even with the toggle off — the dropdown selection always wins.
       const isCancelled = i.status === 'Cancelled' && stv !== 'Cancelled';
       if (isCancelled || isInactiveClient) { hiddenCount++; return false; }
       return true;
@@ -12601,7 +12592,7 @@ function _applyAllFilters() {
   }
   const hiddenBadge = document.getElementById('cancelled-inactive-count-badge');
   if (hiddenBadge) {
-    if (!isolateMode && hiddenCount > 0) { hiddenBadge.style.display = 'inline-block'; hiddenBadge.textContent = hiddenCount; }
+    if (!showHidden && hiddenCount > 0) { hiddenBadge.style.display = 'inline-block'; hiddenBadge.textContent = hiddenCount; }
     else hiddenBadge.style.display = 'none';
   }
 
