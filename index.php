@@ -2442,17 +2442,19 @@ const SERVER = {
           </select>
           <input type="date" class="table-filter" id="dateFrom" onchange="filterByDate()" placeholder="From">
           <input type="date" class="table-filter" id="dateTo" onchange="filterByDate()" placeholder="To">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap;flex-shrink:0">
-            <input type="checkbox" id="show-cancelled-inactive-toggle" onchange="_applyAllFilters()" style="cursor:pointer">
-            Show Cancelled/Inactive
-            <span id="cancelled-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
-          </label>
         </div>
         <div class="toolbar-right">
           <button class="btn btn-outline" id="inv-refresh-btn" onclick="refreshInvoices()" title="Refresh invoices"><i class="fas fa-sync-alt"></i> Refresh</button>
           <button class="btn btn-outline" onclick="exportCSV()"><i class="fas fa-download"></i> Export CSV</button>
           <button class="btn btn-primary" onclick="showPage('create',null)"><i class="fas fa-plus"></i> New Invoice</button>
         </div>
+      </div>
+      <div style="margin:-10px 0 14px">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
+          <input type="checkbox" id="show-cancelled-inactive-toggle" onchange="_applyAllFilters()" style="cursor:pointer">
+          Show Cancelled/Inactive
+          <span id="cancelled-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
+        </label>
       </div>
 
       <div class="table-card">
