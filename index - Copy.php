@@ -2442,11 +2442,6 @@ const SERVER = {
           </select>
           <input type="date" class="table-filter" id="dateFrom" onchange="filterByDate()" placeholder="From">
           <input type="date" class="table-filter" id="dateTo" onchange="filterByDate()" placeholder="To">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
-            <input type="checkbox" id="show-cancelled-inactive-toggle" onchange="_applyAllFilters()" style="cursor:pointer">
-            Show Cancelled/Inactive
-            <span id="cancelled-inactive-count-badge" style="display:none;background:#F9A825;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700"></span>
-          </label>
         </div>
         <div class="toolbar-right">
           <button class="btn btn-outline" id="inv-refresh-btn" onclick="refreshInvoices()" title="Refresh invoices"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -12380,11 +12375,12 @@ async function refreshInvoices() {
 }
 
 function renderInvoicesTable() {
+  STATE.filteredInvoices = [...STATE.invoices];
   // Always keep the sidebar invoice badge in sync
   const _badgeInv = document.getElementById('badge-invoices');
   if (_badgeInv) _badgeInv.textContent = STATE.invoices.length;
   populateClientFilter();
-  _applyAllFilters(); // re-applies existing filter selections + the Cancelled/Inactive hide-by-default, then paginates
+  applyFiltersAndRender();
 }
 
 function applyFiltersAndRender() {
@@ -12572,28 +12568,6 @@ function _applyAllFilters() {
   const clf = STATE._clientFilter || '';
   const df  = document.getElementById('dateFrom')?.value || '';
   const dt  = document.getElementById('dateTo')?.value || '';
-
-  // Cancelled + inactive-client invoices are noise in the day-to-day
-  // ledger view, so they're hidden by default. The toggle reveals them;
-  // explicitly picking "Cancelled" in the Status dropdown always wins
-  // even with the toggle off, so that filter still does what it says.
-  const showHidden = document.getElementById('show-cancelled-inactive-toggle')?.checked;
-  let hiddenCount = 0;
-  if (!showHidden) {
-    list = list.filter(i => {
-      const c = STATE.clients.find(x=>x.id===i.client);
-      const isInactiveClient = !!(c && (parseInt(c.active) === 0 || c.status === 'inactive'));
-      const isCancelled = i.status === 'Cancelled' && stv !== 'Cancelled';
-      if (isCancelled || isInactiveClient) { hiddenCount++; return false; }
-      return true;
-    });
-  }
-  const hiddenBadge = document.getElementById('cancelled-inactive-count-badge');
-  if (hiddenBadge) {
-    if (!showHidden && hiddenCount > 0) { hiddenBadge.style.display = 'inline-block'; hiddenBadge.textContent = hiddenCount; }
-    else hiddenBadge.style.display = 'none';
-  }
-
   if (sv)  list = list.filter(i => { const c = STATE.clients.find(x=>x.id===i.client); return i.num.toLowerCase().includes(sv)||(c&&c.name.toLowerCase().includes(sv))||i.service.toLowerCase().includes(sv)||i.status.toLowerCase().includes(sv); });
   if (stv) list = list.filter(i => i.status === stv);
   if (srv) list = list.filter(i => i.service === srv);
