@@ -1515,11 +1515,11 @@ select { cursor: pointer; }
 
 /* PDF opts grid */
 .pdf-opts-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+  display: flex; flex-wrap: wrap; gap: 10px;
 }
 .pdf-opt {
-  display: flex; align-items: center; gap: 7px;
-  padding: 8px 10px; border-radius: 7px; border: 1.5px solid var(--border);
+  display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
+  padding: 8px 12px; border-radius: 7px; border: 1.5px solid var(--border);
   background: var(--bg); cursor: pointer; font-size: 12px; font-weight: 500;
   transition: .2s; white-space: nowrap;
 }

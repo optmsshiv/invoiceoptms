@@ -14445,35 +14445,41 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   <!-- ACCENT STRIP -->
   <div style="height:5px;background:${accentStrip}"></div>
 
-  <!-- HEADER: dark logo sidebar + white content panel (canonical design — matches PDF download) -->
-  <div style="display:flex">
-    <div style="background:#2A3580;width:86px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:18px 8px">
-      ${sc.logo
-        ? `<img src="${sc.logo}" style="max-width:54px;max-height:44px;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-           <div style="display:none;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
-        : `<div style="width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
-    </div>
-    <div style="flex:1;background:#fff;padding:18px 26px;min-width:0">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
-        <div style="min-width:0">
-          <div style="font-size:16px;font-weight:800;color:#1A1A2E">${sc.company}</div>
-          ${sc.tagline?`<div style="font-size:9px;color:#9CA3AF;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px;font-weight:600">${sc.tagline}</div>`:''}
-          ${sc.address?`<div style="font-size:10px;color:#9CA3AF;margin-top:3px;line-height:1.6">${sc.address.replace(/\n/g,', ')}</div>`:''}
-        </div>
-        <div style="text-align:right;white-space:nowrap;flex-shrink:0">
-          <div style="font-size:18px;font-weight:800;color:#1A1A2E;font-family:monospace">#${d.num}</div>
-          <div style="margin-top:6px">
-            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:#F3F4F6;color:#4B5563">${d.status==='Estimate'?'ESTIMATE':'TAX INVOICE'}</span>
-            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:8.5px;font-weight:800;letter-spacing:.6px;background:${pbg};color:${ptxt};margin-left:5px">${d.status.toUpperCase()}</span>
-          </div>
+  <!-- HEADER: full Slate Dark panel — logo box + company block (left), badges/number/dates (right) -->
+  <div style="background:#1E293B;padding:26px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
+    <div style="display:flex;gap:20px;align-items:flex-start;min-width:0">
+      <div style="width:124px;height:134px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+        ${sc.logo
+          ? `<img src="${sc.logo}" style="max-width:80%;max-height:80%;object-fit:contain;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             <div style="display:none;width:60px;height:60px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;font-weight:800;align-items:center;justify-content:center">${initials}</div>`
+          : `<div style="width:60px;height:60px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
+      </div>
+      <div style="min-width:0;padding-top:2px">
+        <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:11px">${sc.company}</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          ${sc.phone?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${sc.phone}</div>`:''}
+          ${sc.email?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>${sc.email}</div>`:''}
+          ${sc.gst?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M6 15h4"/></svg>GSTIN: ${sc.gst}</div>`:''}
+          ${sc.website?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>${sc.website}</div>`:''}
+          ${sc.address?`<div style="display:flex;align-items:flex-start;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1;line-height:1.5"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>${sc.address.replace(/\n/g,', ')}</div>`:''}
         </div>
       </div>
-      <div style="height:1px;background:#F0F1F3;margin:13px 0 11px"></div>
-      <div style="display:flex;gap:28px;flex-wrap:wrap">
-        ${sc.phone?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Phone</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.phone}</div></div>`:''}
-        ${sc.email?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Email</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.email}</div></div>`:''}
-        ${sc.website?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">Website</div><div style="font-size:11px;font-weight:600;color:#1A1A2E">${sc.website}</div></div>`:''}
-        ${sc.gst?`<div><div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:2px">GSTIN</div><div style="font-size:11px;font-weight:600;color:#1A1A2E;font-family:monospace">${sc.gst}</div></div>`:''}
+    </div>
+    <div style="text-align:right;flex-shrink:0;white-space:nowrap">
+      <div style="display:flex;gap:7px;justify-content:flex-end;margin-bottom:13px">
+        <span style="display:inline-block;padding:5px 11px;border-radius:6px;font-size:9px;font-weight:800;letter-spacing:.7px;border:1.3px solid rgba(255,255,255,.35);color:#E2E8F0">${d.status==='Estimate'?'ESTIMATE':'TAX INVOICE'}</span>
+        <span style="display:inline-block;padding:5px 11px;border-radius:6px;font-size:9px;font-weight:800;letter-spacing:.7px;background:${pbg};color:${ptxt}">${d.status.toUpperCase()}</span>
+      </div>
+      <div style="font-size:21px;font-weight:800;color:#fff;font-family:monospace;margin-bottom:15px">#${d.num}</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div>
+          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94A3B8;margin-bottom:2px">Issue Date</div>
+          <div style="font-size:13px;font-weight:800;color:#fff">${d.date||'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94A3B8;margin-bottom:2px">Due Date</div>
+          <div style="font-size:13px;font-weight:800;color:#93C5FD">${d.due||'—'}</div>
+        </div>
       </div>
     </div>
   </div>
