@@ -14656,7 +14656,8 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         const invId2 = d.invId ? String(d.invId) : '';
         const isPartial2   = d.status === 'Partial';
         const isPaid2      = d.status === 'Paid';
-        if (!invId2 || invId2 === '0') return '';
+        const isCancelled2 = d.status === 'Cancelled';
+        if (!isPartial2 || !invId2 || invId2 === '0') return '';
         const pays2 = (typeof STATE !== 'undefined' ? STATE.payments : []).filter(p => p.invoice_id && String(p.invoice_id) === invId2)
           .sort((a,b) => {
             const da = new Date(a.date||a.payment_date||0);
@@ -14664,10 +14665,6 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
             if (da - db !== 0) return da - db;
             return (parseInt(a.id)||0) - (parseInt(b.id)||0);
           });
-        // Partial: always show the breakdown. Paid: only show it when the invoice was
-        // settled across multiple instalments — a single one-off full payment is already
-        // covered by the "Paid On" date in the header, so no need to repeat it here.
-        if (!(isPartial2 || (isPaid2 && pays2.length > 1))) return '';
         const totalPaid2   = pays2.reduce((s,p) => s + parseFloat(p.amount||0), 0);
         const totalSettle2 = pays2.reduce((s,p) => s + parseFloat(p.settlement_discount||0), 0);
         const remaining2   = Math.max(0, (d.grand||0) - totalPaid2 - totalSettle2);
@@ -14687,18 +14684,32 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
               <span style="font-family:monospace;font-weight:700;color:#E65100">-${fmt_money(totalSettle2,d.sym)}</span>
             </div>`
           : '';
-        const paidLabel = isPaid2 ? `✅ Paid in Full (${pays2.length} instalments)` : `💚 Total Paid${pays2.length>1?' ('+pays2.length+' instalments)':''}`;
+        const paidLabel = isPaid2 ? '✅ Paid in Full' : `💚 Total Paid${pays2.length>1?' ('+pays2.length+' instalments)':''}`;
+        // Show payment date for single full payment
+        const _singlePaidDate = (isPaid2 && pays2.length === 1)
+          ? (() => {
+              const dt = pays2[0].date || pays2[0].payment_date || '';
+              if (!dt) return '';
+              const dtF = new Date(dt).toLocaleDateString(_moneyLocale(), {day:'2-digit', month:'short', year:'numeric'});
+              const meth = pays2[0].method || '';
+              const txn  = pays2[0].txn || '';
+              return `<div style="font-size:10px;color:#4CAF50;margin-top:2px;font-weight:600">
+                ${dtF}${meth ? ' · ' + meth : ''}${txn ? ' · ' + txn : ''}
+              </div>`;
+            })()
+          : '';
         const paidRow2 = `<div style="padding:8px 22px;border-top:1px solid ${T.totbr}">
+          ${isCancelled2?`<div style="font-size:9.5px;font-weight:700;color:#B71C1C;text-transform:uppercase;letter-spacing:.8px;padding:4px 0 2px">⚠ Payment received before cancellation</div>`:''}
           ${settleRow2}
-          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:2px solid #A5D6A7">
-            <span style="color:#388E3C;font-weight:700">${paidLabel}</span>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;${pays2.length>1?'border-bottom:2px solid #A5D6A7':''}">
+            <div><span style="color:#388E3C;font-weight:700">${paidLabel}</span>${_singlePaidDate}</div>
             <span style="font-family:monospace;font-weight:800;color:#388E3C">-${fmt_money(totalPaid2,d.sym)}</span>
           </div>
-          <div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">${instalRows2}</div>
+          ${pays2.length>1?`<div style="background:#F1F8E9;border-radius:6px;padding:4px 8px;margin-top:4px">${instalRows2}</div>`:''}
         </div>`;
-        const remRow2 = (isPartial2 && remaining2 > 0.01)
-          ? `<div style="margin:6px 14px 10px;display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:8px 10px;background:#FFF8E1;border-radius:7px;border:2px solid #FFB300;color:#E65100">
-              <span>⚠ Remaining Due</span>
+        const remRow2 = ((isPartial2 || isCancelled2) && remaining2 > 0.01)
+          ? `<div style="margin:6px 14px 10px;display:flex;justify-content:space-between;font-size:13px;font-weight:800;padding:8px 10px;background:${isCancelled2?'#FFEBEE':'#FFF8E1'};border-radius:7px;border:2px solid ${isCancelled2?'#FFCDD2':'#FFB300'};color:${isCancelled2?'#B71C1C':'#E65100'}">
+              <span>${isCancelled2?'🚫 Unpaid at Cancellation':'⚠ Remaining Due'}</span>
               <span style="font-family:monospace">${fmt_money(remaining2,d.sym)}</span>
             </div>`
           : '';
