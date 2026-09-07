@@ -221,16 +221,10 @@ $calcGrand    = $calcSubtotal - $discountAmt + $calcGstFinal;
 // Company info
 $companyName    = $settings['company_name']    ?? 'OPTMS Tech';
 $companyAddress = $settings['company_address'] ?? '';
-// Notes & Terms & Conditions are no longer per-invoice customizable — always
-// resolved live from Settings (Default Notes / Default T&C), matching the
-// in-app JS template so both stay in sync with whatever Settings has right now.
-$liveNotes = str_replace('{due_days}', $settings['due_days'] ?? '15', $settings['default_notes'] ?? '');
-$liveTnc   = $settings['default_tnc'] ?? '';
 $companyGST     = $settings['company_gst']     ?? '';
 $companyPhone   = $settings['company_phone']   ?? '';
 $companyEmail   = $settings['company_email']   ?? '';
 $companyWebsite = $settings['company_website'] ?? '';
-$companyTagline = $settings['company_tagline'] ?? '';
 $companyLogo    = $inv['company_logo'] ?: ($settings['company_logo'] ?? '');
 $companySign    = $inv['signature']    ?: ($settings['company_sign'] ?? '');
 
@@ -288,8 +282,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .hdr-logo-cell { width: 124px; text-align: center; vertical-align: middle; padding-right: 20px; }
 .hdr-logo-img { max-width: 112px; max-height: 120px; }
 .hdr-logo-mono { width: 60px; height: 60px; color: #fff; font-size: 22px; font-weight: bold; text-align: center; line-height: 60px; margin: 0 auto; }
-.hdr-co-name { font-size: 21px; font-weight: bold; color: #fff; margin-bottom: 2px; }
-.hdr-co-tagline { font-size: 10.5px; font-weight: bold; color: #818CF8; letter-spacing: .3px; margin-bottom: 11px; }
+.hdr-co-name { font-size: 21px; font-weight: bold; color: #fff; margin-bottom: 10px; }
 .hdr-contact-line { font-size: 11.5px; font-weight: 600; color: #CBD5E1; line-height: 1.9; }
 .hdr-inv-num { font-size: 21px; font-weight: bold; color: #fff; font-family: 'DejaVu Sans Mono', monospace; text-align: right; }
 .hdr-badges { text-align: right; margin-bottom: 13px; }
@@ -583,13 +576,13 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php if (!empty($inv['bank_details'])): ?>
         <div class="flh-bank-box"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
         <?php endif; ?>
-        <?php if (!empty($liveNotes)): ?>
+        <?php if (!empty($inv['notes'])): ?>
         <div class="flh-notes-lbl">Notes</div>
-        <div style="font-size:10px;color:#555;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif;margin-bottom:10px"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
+        <div style="font-size:10px;color:#555;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif;margin-bottom:10px"><?= nl2br(htmlspecialchars($inv['notes'])) ?></div>
         <?php endif; ?>
-        <?php if (!empty($liveTnc)): ?>
+        <?php if (!empty($inv['terms'])): ?>
         <div class="flh-notes-lbl">Terms &amp; Conditions</div>
-        <div style="font-size:9.5px;color:#888;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+        <div style="font-size:9.5px;color:#888;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif"><?= nl2br(htmlspecialchars($inv['terms'])) ?></div>
         <?php endif; ?>
       </td>
       <td style="width:40%;vertical-align:bottom">
@@ -635,8 +628,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
             <?php endif; ?>
           </td>
           <td style="vertical-align:top">
-            <div class="hdr-co-name" style="<?= $companyTagline ? '' : 'margin-bottom:11px' ?>"><?= htmlspecialchars($companyName) ?></div>
-            <?php if ($companyTagline): ?><div class="hdr-co-tagline"><?= htmlspecialchars($companyTagline) ?></div><?php endif; ?>
+            <div class="hdr-co-name"><?= htmlspecialchars($companyName) ?></div>
             <?php if ($companyPhone): ?><div class="hdr-contact-line"><?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
             <?php if ($companyEmail): ?><div class="hdr-contact-line"><?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
             <?php if ($companyGST): ?><div class="hdr-contact-line">GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
@@ -801,20 +793,20 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 <?php endif; ?>
 
 <!-- Notes & Terms -->
-<?php if (!empty($liveNotes) || !empty($liveTnc)): ?>
+<?php if (!empty($inv['notes']) || !empty($inv['terms'])): ?>
 <div class="card">
   <div class="card-head">Notes &amp; Terms</div>
   <div class="card-body" style="display:flex;gap:16px">
-    <?php if (!empty($liveNotes)): ?>
+    <?php if (!empty($inv['notes'])): ?>
     <div style="flex:1">
       <div class="section-lbl">Notes</div>
-      <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
+      <div class="notes-box"><?= nl2br(htmlspecialchars($inv['notes'])) ?></div>
     </div>
     <?php endif; ?>
-    <?php if (!empty($liveTnc)): ?>
+    <?php if (!empty($inv['terms'])): ?>
     <div style="flex:1">
       <div class="section-lbl">Terms &amp; Conditions</div>
-      <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+      <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($inv['terms'])) ?></div>
     </div>
     <?php endif; ?>
   </div>
