@@ -748,6 +748,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td class="tfoot-lbl">Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td>
       <td class="tfoot-val r disc-val" style="text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
     </tr>
+    <tr class="tfoot-row">
+      <td></td>
+      <td class="tfoot-lbl">Taxable Amount</td>
+      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcSubtotal - $discountAmt, $sym) ?></td>
+    </tr>
     <?php endif; ?>
     <tr class="tfoot-row">
       <td></td>
