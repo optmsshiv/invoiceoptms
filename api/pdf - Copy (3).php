@@ -55,92 +55,6 @@ function pdf_fmt_date($d) {
 function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
-// Tax Summary section — groups items by HSN/SAC + GST rate, shows post-discount taxable
-// base with an even CGST/SGST split, plus a bold Total row. Mirrors buildTaxSummaryHTML()
-// in index.php exactly so the JS preview and the downloaded PDF always match.
-// $items: array of ['hsn'=>, 'item_type'=>, 'gst'=>, 'qty'=>, 'rate'=>]. $mono: true for
-// the monochrome/serif Formal Letterhead template, false for the colorful Template 2.
-function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
-    if (empty($items)) return '';
-    $font = $mono ? "'DejaVu Serif',Georgia,serif" : "'DejaVu Sans',Arial,sans-serif";
-    $buckets = [];
-    foreach ($items as $item) {
-        $rate = (float)($item['gst'] ?? 0);
-        $hsn  = $item['hsn'] ?: '—';
-        $type = $item['item_type'] ?: 'Service';
-        $key  = $hsn . '|' . $rate;
-        $base = ((float)($item['qty'] ?? 1)) * ((float)($item['rate'] ?? 0)) * $discFactor;
-        if (!isset($buckets[$key])) $buckets[$key] = ['hsn' => $hsn, 'type' => $type, 'rate' => $rate, 'taxable' => 0];
-        $buckets[$key]['taxable'] += $base;
-    }
-    usort($buckets, fn($a, $b) => $a['hsn'] === $b['hsn'] ? $a['rate'] <=> $b['rate'] : strcmp($a['hsn'], $b['hsn']));
-    $totTaxable = 0; $totCgst = 0; $totSgst = 0; $totGst = 0;
-    $rowsHtml = '';
-    foreach ($buckets as $r) {
-        $gstAmt = $r['taxable'] * $r['rate'] / 100;
-        $half   = $gstAmt / 2;
-        $totTaxable += $r['taxable']; $totCgst += $half; $totSgst += $half; $totGst += $gstAmt;
-        $rateLabel = $r['rate'] == 0 ? '0% Exempt' : $r['rate'] . '% (' . ($r['rate']/2) . '+' . ($r['rate']/2) . ')';
-        if ($mono) {
-            $rateCell = '<span style="font-size:9.5px;font-weight:bold">' . htmlspecialchars($rateLabel) . '</span>';
-            $gstColor = '#1a1a1a';
-        } else {
-            if ($r['rate'] == 0)      [$bg,$color,$border] = ['#F1F5F9','#475569','#CBD5E1'];
-            elseif ($r['rate'] <= 5)  [$bg,$color,$border] = ['#F0FDF4','#166534','#86EFAC'];
-            elseif ($r['rate'] <= 12) [$bg,$color,$border] = ['#EFF6FF','#1D4ED8','#BFDBFE'];
-            else                      [$bg,$color,$border] = ['#FEF3C7','#92400E','#FDE68A'];
-            $rateCell = '<span style="display:inline-block;padding:2px 7px;border-radius:9px;font-size:9.5px;font-weight:bold;background:' . $bg . ';color:' . $color . ';border:1px solid ' . $border . '">' . htmlspecialchars($rateLabel) . '</span>';
-            $gstColor = $r['rate'] > 0 ? '#166534' : '#9CA3AF';
-        }
-        $rowsHtml .= '<tr style="border-bottom:' . ($mono ? '0.5px solid #ddd' : '1px solid #E5E7EB') . '">
-          <td style="padding:7px 8px;font-family:' . $font . '">
-            <div style="font-family:\'DejaVu Sans Mono\',monospace;font-size:10px;font-weight:bold;color:' . ($mono?'#1a1a1a':'#111') . '">' . htmlspecialchars($r['hsn']) . '</div>
-            <div style="font-size:8.5px;color:' . ($mono?'#777':'#9CA3AF') . '">' . htmlspecialchars($r['type']) . '</div>
-          </td>
-          <td style="padding:7px 8px;text-align:center;font-family:' . $font . '">' . $rateCell . '</td>
-          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px">' . pdf_fmt_money($r['taxable'], $sym) . '</td>
-          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;color:' . $gstColor . '">' . pdf_fmt_money($half, $sym) . '</td>
-          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;color:' . $gstColor . '">' . pdf_fmt_money($half, $sym) . '</td>
-          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;font-weight:bold;color:' . $gstColor . '">' . pdf_fmt_money($gstAmt, $sym) . '</td>
-        </tr>';
-    }
-    $headBg   = $mono ? 'transparent' : '#F8F9FC';
-    $headBdr  = $mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
-    $wrapBdr  = $mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
-    $titleClr = $mono ? '#1a1a1a' : '#374151';
-    $accent   = $mono ? '' : '<span style="width:4px;height:12px;background:#4F46E5;display:inline-block;border-radius:2px"></span>';
-    $footTotClr = $mono ? '#1a1a1a' : '#166534';
-    return '
-    <div style="margin:14px 0;font-family:' . $font . '">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
-        ' . $accent . '
-        <span style="font-size:10px;font-weight:bold;letter-spacing:.5px;text-transform:uppercase;color:' . $titleClr . '">Tax Summary &mdash; Intra-State Supply</span>
-      </div>
-      <table style="width:100%;border-collapse:collapse;border:' . $wrapBdr . '">
-        <thead>
-          <tr style="background:' . $headBg . ';border-bottom:' . $headBdr . '">
-            <th style="padding:7px 8px;text-align:left;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">HSN/SAC</th>
-            <th style="padding:7px 8px;text-align:center;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">GST Rate</th>
-            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Taxable Amt</th>
-            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">CGST</th>
-            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">SGST</th>
-            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Total GST</th>
-          </tr>
-        </thead>
-        <tbody>' . $rowsHtml . '</tbody>
-        <tfoot>
-          <tr style="background:' . $headBg . ';' . ($mono ? 'border-top:1.5px solid #1a1a1a' : '') . '">
-            <td style="padding:7px 8px;font-weight:bold;font-size:11px;color:' . ($mono?'#1a1a1a':'#111') . '">Total</td>
-            <td></td>
-            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px">' . pdf_fmt_money($totTaxable, $sym) . '</td>
-            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totCgst, $sym) . '</td>
-            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totSgst, $sym) . '</td>
-            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totGst, $sym) . '</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>';
-}
 // Small prefix icons for Billed To / Issued By lines — inline SVG, same paths as the JS template.
 // Note: mPDF's inline-SVG support is more limited than a browser's — verify these render
 // correctly in an actual downloaded PDF; if glyphs look off, drop this helper's calls and
@@ -625,8 +539,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </tbody>
     </table>
 
-    <?= pdf_tax_summary_html($items, $discFactor, $sym, true) ?>
-
     <!-- TOTALS -->
     <table class="flh-tot-wrap">
       <tr><td style="width:65%"></td><td class="flh-tot-row" style="width:35%">
@@ -638,7 +550,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </td></tr>
       <?php endif; ?>
       <tr><td></td><td>
-        <table width="100%"><tr class="flh-tot-row"><td>Total GST<br><span style="font-size:7.5px;color:#888">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td><td class="r">+ <?= pdf_fmt_money($calcGstFinal, $sym) ?></td></tr></table>
+        <table width="100%"><tr class="flh-tot-row"><td>GST</td><td class="r">+ <?= pdf_fmt_money($calcGstFinal, $sym) ?></td></tr></table>
       </td></tr>
       <tr><td></td><td>
         <table width="100%" class="flh-tot-grand"><tr><td class="flh-grand-lbl">Total Due</td><td class="flh-grand-val"><?= pdf_fmt_money($calcGrand, $sym) ?></td></tr></table>
@@ -825,7 +737,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
         <?php if ($itemHsn): ?><div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">SAC: <?= htmlspecialchars($itemHsn) ?></div><?php endif; ?>
       </td>
-      <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
+      <td><span style="font-size:9px;font-weight:bold;background:#1E293B;color:#2DD4BF;padding:2px 6px;border-radius:4px"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
@@ -835,8 +747,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     <?php endforeach; ?>
     </tbody>
   </table>
-
-  <?= pdf_tax_summary_html($items, $discFactor, $sym, false) ?>
 
   <!-- Totals -->
   <table width="100%" style="border-top:1px solid #E5E7EB">
@@ -859,7 +769,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     <?php endif; ?>
     <tr class="tfoot-row">
       <td></td>
-      <td class="tfoot-lbl">Total GST<br><span style="font-size:8px;color:#9CA3AF;font-weight:normal">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td>
+      <td class="tfoot-lbl">GST</td>
       <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcGstFinal, $sym) ?></td>
     </tr>
     <tr class="tfoot-grand">

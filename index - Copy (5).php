@@ -13281,10 +13281,7 @@ function getFormData() {
   }
 
   const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
-  // Normalized per-item data for the Tax Summary (HSN/rate grouping) section — kept
-  // separate from the itemsHTML string so buildTpl2/buildTplF can compute it directly.
-  const taxItems = formItems.map(i => ({ hsn: i.hsn||'', itemType: i.itemType||'Service', gst: parseFloat(i.gst??0), qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0 }));
-  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId, taxItems };
+  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId };
 }
 
 function livePreview() {
@@ -13326,6 +13323,7 @@ function buildInvoiceHTML(d, forPrint) {
   d.popt = d.popt || {};  // safety guard — popt must always be an object
   // Build items HTML with GST column
   const showGstCol = d.popt ? d.popt.gstCol : true;
+  const isTpl2Row = String(d.tpl) === '2';
   const itemsHTML = formItems.length
     ? formItems.map((i, idx) => {
         const line    = (i.qty||1)*(i.rate||0);
@@ -13342,8 +13340,10 @@ function buildInvoiceHTML(d, forPrint) {
           : itemGst <= 12
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">${itemGst}%</span>`
           : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">${itemGst}%</span>`;
-        // Type — plain text, no background pill
-        const typeBadge = `<span style="font-size:11px;font-weight:600;color:#555">${itype}</span>`;
+        // Type badge — Slate Dark + cyan-teal only for Template 2 (Colorful Matte); other templates keep the neutral gray pill
+        const typeBadge = isTpl2Row
+          ? `<span style="font-size:10px;font-weight:700;background:#1E293B;color:#2DD4BF;padding:2px 8px;border-radius:4px">${itype}</span>`
+          : `<span style="font-size:10px;font-weight:700;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">${itype}</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-weight:700;color:#111">${i.desc||'—'}</td>
@@ -14195,7 +14195,7 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <div style="${trStyle}"><span>Subtotal</span><span style="${valStyle}">${fmt_money(sub,sym)}</span></div>
       ${discAmt > 0 ? `<div style="${trStyle}"><span>Discount${discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="${valStyle};color:#b91c1c">− ${fmt_money(discAmt,sym)}</span></div>
       <div style="${trStyle}"><span>After Discount</span><span style="${valStyle}">${fmt_money(afterDisc,sym)}</span></div>` : ''}
-      ${gstAmt > 0 ? `<div style="${trStyle}"><span>Total GST<br><span style="font-size:8px;color:#888">CGST ${fmt_money(gstAmt/2,sym)} + SGST ${fmt_money(gstAmt/2,sym)}</span></span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
+      ${gstAmt > 0 ? `<div style="${trStyle}"><span>GST</span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;border-top:1.5px solid #333;font-family:${sans}">
         <span style="font-size:12px;font-weight:700">Total Due</span>
         <span style="font-family:monospace;font-weight:800;font-size:14px">${fmt_money(grand,sym)}</span>
@@ -14287,8 +14287,6 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       </thead>
       <tbody>${ruledItems}</tbody>
     </table>
-
-    ${buildTaxSummaryHTML(d.taxItems||[], sub>0 ? 1-(discAmt/sub) : 1, sym, true)}
 
     ${totalsHTML}
   </div>
@@ -14410,85 +14408,6 @@ function _pIcon(type, color, alignTop) {
   };
   const p = paths[type] || paths.user;
   return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0${alignTop?';margin-top:2px':''}">${p}</svg>`;
-}
-
-// Tax Summary section (GST compliance breakdown) — groups line items by HSN/SAC + GST
-// rate, showing the post-discount taxable base and an even CGST/SGST split per group,
-// plus a bold Total row. Shared by buildTpl2 and buildTplF (JS) and mirrored in pdf.php.
-// Assumes intra-state supply (CGST+SGST) — there's currently no per-item or company/client
-// state field in this app to determine inter-state (IGST), so the title stays generic.
-function buildTaxSummaryHTML(items, discFactor, sym, mono) {
-  if (!items || !items.length) return '';
-  const font = mono ? "'Georgia','Times New Roman',serif" : "inherit";
-  const buckets = {};
-  items.forEach(item => {
-    const rate = parseFloat(item.gst ?? 0);
-    const hsn  = item.hsn || '—';
-    const type = item.itemType || 'Service';
-    const key  = hsn + '|' + rate;
-    const base = (item.qty||1) * (item.rate||0) * discFactor;
-    if (!buckets[key]) buckets[key] = { hsn, type, rate, taxable: 0 };
-    buckets[key].taxable += base;
-  });
-  const rows = Object.values(buckets).sort((a,b) => a.hsn.localeCompare(b.hsn) || a.rate - b.rate);
-  let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
-  const rowsHTML = rows.map(r => {
-    const gstAmt = r.taxable * r.rate / 100;
-    const half   = gstAmt / 2;
-    totTaxable += r.taxable; totCgst += half; totSgst += half; totGst += gstAmt;
-    const rateLabel = r.rate === 0 ? '0% Exempt' : `${r.rate}% (${r.rate/2}+${r.rate/2})`;
-    const rateCell = mono
-      ? `<span style="font-size:10.5px;font-weight:700">${rateLabel}</span>`
-      : (() => { const [bg,color,border] = r.rate===0 ? ['#F1F5F9','#475569','#CBD5E1'] : r.rate<=5 ? ['#F0FDF4','#166534','#86EFAC'] : r.rate<=12 ? ['#EFF6FF','#1D4ED8','#BFDBFE'] : ['#FEF3C7','#92400E','#FDE68A'];
-          return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border}">${rateLabel}</span>`; })();
-    const gstColor = mono ? '#1a1a1a' : (r.rate>0?'#166534':'#9CA3AF');
-    return `<tr style="border-bottom:${mono?'0.5px solid #ddd':'1px solid #E5E7EB'}">
-      <td style="padding:8px 10px;font-family:${font}">
-        <div style="font-family:monospace;font-size:11px;font-weight:700;color:${mono?'#1a1a1a':'#111'}">${r.hsn}</div>
-        <div style="font-size:9.5px;color:${mono?'#777':'#9CA3AF'}">${r.type}</div>
-      </td>
-      <td style="padding:8px 10px;text-align:center;font-family:${font}">${rateCell}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px">${fmt_money(r.taxable,sym)}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;color:${gstColor}">${fmt_money(half,sym)}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;color:${gstColor}">${fmt_money(half,sym)}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;font-weight:700;color:${gstColor}">${fmt_money(gstAmt,sym)}</td>
-    </tr>`;
-  }).join('');
-  const headBg  = mono ? 'transparent' : '#F8F9FC';
-  const headBdr = mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
-  const wrapBdr = mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
-  const titleColor = mono ? '#1a1a1a' : '#374151';
-  const accentBar = mono ? '' : `<span style="width:4px;height:14px;background:#4F46E5;display:inline-block;border-radius:2px"></span>`;
-  return `
-  <div style="margin:0 0 18px;font-family:${font}">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      ${accentBar}
-      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:${titleColor}">Tax Summary &mdash; Intra-State Supply</span>
-    </div>
-    <table style="width:100%;border-collapse:collapse;border:${wrapBdr};${mono?'':'border-radius:8px;overflow:hidden'}">
-      <thead>
-        <tr style="background:${headBg};border-bottom:${headBdr}">
-          <th style="padding:8px 10px;text-align:left;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">HSN/SAC</th>
-          <th style="padding:8px 10px;text-align:center;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">GST Rate</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Taxable Amt</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">CGST</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">SGST</th>
-          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Total GST</th>
-        </tr>
-      </thead>
-      <tbody>${rowsHTML}</tbody>
-      <tfoot>
-        <tr style="background:${headBg};border-top:${mono?'1.5px solid #1a1a1a':'none'}">
-          <td style="padding:8px 10px;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#111'};font-family:${font}">Total</td>
-          <td></td>
-          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px">${fmt_money(totTaxable,sym)}</td>
-          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totCgst,sym)}</td>
-          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totSgst,sym)}</td>
-          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totGst,sym)}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>`;
 }
 
 function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
@@ -14618,11 +14537,6 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </table>
   </div>
 
-  <!-- TAX SUMMARY -->
-  <div style="padding:18px 24px 0">
-    ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym)}
-  </div>
-
   <!-- BOTTOM: BANK → NOTES → TnC stacked, then TOTALS -->
   <div style="display:flex;border-top:1.5px solid ${T.metabr}">
 
@@ -14715,10 +14629,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       </div>`:''}
       <!-- GST -->
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span>
-          <span style="display:block;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Total GST</span>
-          <span style="display:block;font-size:9px;color:${T.totlbl};opacity:.75;margin-top:2px">CGST ${fmt_money(d.gstAmt/2,d.sym)} + SGST ${fmt_money(d.gstAmt/2,d.sym)}</span>
-        </span>
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
       </div>
       <!-- Grand Total -->
@@ -14827,7 +14738,7 @@ function openPrintWindow(d, items) {
         return `<tr>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(pidx+1).padStart(2,'0')}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;font-weight:600;color:#555">${itype}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
@@ -14918,7 +14829,7 @@ function printInvoiceById(inv) {
         return `<tr>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(pidx2+1).padStart(2,'0')}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||i.description||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;font-weight:600;color:#555">${itype}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,sym)}</td>
@@ -14947,7 +14858,6 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||(STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager'),
     showGeneratedBy:true,
-    taxItems: items.map(i => ({ hsn: i.hsn||i.hsn_code||'', itemType: i.itemType||i.item_type||'Service', gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), qty: parseFloat(i.qty||i.quantity||1), rate: parseFloat(i.rate)||0 })),
     popt:(function(){
       // Parse pdf_options from DB (may be JSON string or already an object)
       let saved = inv.pdf_options || inv.popt || null;
