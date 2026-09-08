@@ -1032,7 +1032,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1056,7 +1056,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1100,6 +1100,7 @@ select { cursor: pointer; }
 }
 .item-row select { cursor: pointer; font-size: 12px; }
 
+.item-sr    { border-right: 1px solid var(--border); min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--muted); }
 .item-desc  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-desc input { font-weight: 500; padding-left: 14px; }
 .item-hsn   { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
@@ -2493,7 +2494,7 @@ const SERVER = {
           <!-- Invoice Meta -->
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-hashtag"></i> Invoice Details</div>
-            <div class="form-grid g2">
+            <div class="form-grid g3">
               <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
               <div class="field"><label>Service Type</label>
                 <select id="f-service" onchange="onServiceSelect(this.value);livePreview()" style="margin-bottom:5px">
@@ -2564,6 +2565,7 @@ const SERVER = {
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
             <div class="items-head-row">
+              <span style="text-align:center">#</span>
               <span>Description</span>
               <span style="text-align:center">HSN/SAC</span>
               <span>Type</span>
@@ -12982,7 +12984,7 @@ function addItem() {
 function renderFormItems() {
   const el = document.getElementById('itemsList');
   if (!el) return;
-  el.innerHTML = formItems.map(item => {
+  el.innerHTML = formItems.map((item, idx) => {
     const base     = (item.qty||1)*(item.rate||0);
     const gstRate  = parseFloat(item.gst ?? 0);
     const gstAmt   = base * gstRate / 100;
@@ -12990,6 +12992,7 @@ function renderFormItems() {
     const itemType = item.itemType || 'Service';
     return `
     <div class="item-row" id="item-${item.id}">
+      <div class="item-sr">${idx + 1}</div>
       <div class="item-desc"><input value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)"></div>
       <div class="item-hsn"><input value="${item.hsn||''}" placeholder="HSN/SAC" oninput="updateItem(${item.id},'hsn',this.value)" style="font-family:var(--mono);font-size:12px"></div>
       <div class="item-type"><select onchange="updateItem(${item.id},'itemType',this.value)">
@@ -13050,21 +13053,30 @@ function removeItem(id) {
 function renderGstBreakdown(discFactor) {
   const el = document.getElementById('gst-breakdown-body');
   if (!el) return;
+  // Bucketed by HSN/SAC + rate together (GST-compliant HSN-wise summary) so items
+  // sharing a rate but different HSN/SAC codes are shown as separate rows.
   const buckets = {};
   formItems.forEach(item => {
     const rate = parseFloat(item.gst ?? 0);
+    const hsn  = (item.hsn || '').trim() || '—';
+    const key  = hsn + '|' + rate;
     const base = (item.qty||1)*(item.rate||0) * discFactor;
-    buckets[rate] = (buckets[rate]||0) + base;
+    if (!buckets[key]) buckets[key] = { hsn, rate, taxable: 0 };
+    buckets[key].taxable += base;
   });
-  const rates = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  const keys = Object.keys(buckets).sort((a,b) => {
+    const A = buckets[a], B = buckets[b];
+    return A.hsn === B.hsn ? A.rate - B.rate : A.hsn.localeCompare(B.hsn);
+  });
   let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
-  const rows = rates.map(rate => {
-    const taxable = buckets[rate];
+  const rows = keys.map(key => {
+    const { hsn, rate, taxable } = buckets[key];
     const gstAmt  = taxable * rate / 100;
     const half    = gstAmt / 2;
     totTaxable += taxable; totCgst += half; totSgst += half; totGst += gstAmt;
     const clr = rate > 0 ? 'var(--green)' : 'var(--muted)';
     return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px;font-size:12px;font-family:var(--mono)">${escHtml(hsn)}</td>
       <td style="padding:6px 4px;font-size:12px">${rate}%</td>
       <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono)">${fmt_money(taxable)}</td>
       <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);color:${clr}">${fmt_money(half)}</td>
@@ -13075,15 +13087,16 @@ function renderGstBreakdown(discFactor) {
   el.innerHTML = `
     <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
       <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">HSN/SAC</th>
         <th style="text-align:left;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Rate</th>
         <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Taxable Amt</th>
         <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">CGST</th>
         <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">SGST</th>
         <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total GST</th>
       </tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" style="padding:10px 4px;text-align:center;color:var(--muted);font-size:12px">No items yet</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" style="padding:10px 4px;text-align:center;color:var(--muted);font-size:12px">No items yet</td></tr>`}</tbody>
       <tfoot><tr>
-        <td style="padding:7px 4px;font-weight:800;font-size:12px;border-top:2px solid var(--border)">Total</td>
+        <td style="padding:7px 4px;font-weight:800;font-size:12px;border-top:2px solid var(--border)" colspan="2">Total</td>
         <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);border-top:2px solid var(--border)">${fmt_money(totTaxable)}</td>
         <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totCgst)}</td>
         <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totSgst)}</td>

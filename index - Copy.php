@@ -1032,7 +1032,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1056,7 +1056,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1102,6 +1102,8 @@ select { cursor: pointer; }
 
 .item-desc  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-desc input { font-weight: 500; padding-left: 14px; }
+.item-hsn   { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
+.item-hsn input { text-align: center; padding: 10px 6px; }
 .item-type  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-type select { padding: 10px 12px; width: 95%; }
 .item-qty   { border-right: 1px solid var(--border); }
@@ -1177,7 +1179,7 @@ select { cursor: pointer; }
   padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border);
 }
 .tp-row:last-child { border: none; }
-.tp-row.grand { font-size: 16px; font-weight: 800; color: var(--teal); padding-top: 10px; margin-top: 4px; }
+.tp-row.grand { font-size: 16px; font-weight: 800; color: #2DD4BF; padding: 12px 14px; margin-top: 4px; background: #1E293B; border-radius: 8px; border: none; }
 .tp-row code { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .tp-row.grand code { font-size: 17px; }
 .tp-row code.neg { color: var(--red); }
@@ -2563,6 +2565,7 @@ const SERVER = {
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
             <div class="items-head-row">
               <span>Description</span>
+              <span style="text-align:center">HSN/SAC</span>
               <span>Type</span>
               <span style="text-align:center">Qty</span>
               <span style="text-align:right">Rate</span>
@@ -2578,7 +2581,15 @@ const SERVER = {
             </div>
 
             <!-- Totals -->
-            <div class="totals-panel">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;align-items:start">
+              <!-- GST Breakdown (left) -->
+              <div style="background:var(--bg);border-radius:8px;padding:14px 16px;border:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">GST Breakdown</div>
+                <div id="gst-breakdown-body"></div>
+              </div>
+
+              <!-- Totals (right) -->
+              <div class="totals-panel" style="margin-top:0">
               <div class="tp-row">
                 <span>Subtotal</span>
                 <code id="tp-sub">₹0.00</code>
@@ -2616,20 +2627,25 @@ const SERVER = {
            </div>
                 <code class="neg" id="tp-disc">-₹0.00</code>
               </div>
-              <div class="tp-row">
-                <span style="font-weight:700">Amount</span>
+              <div class="tp-row" id="tp-amount-row" style="display:none">
+                <span style="font-weight:700">Taxable Amount</span>
                 <code id="tp-amount" style="font-weight:700">₹0.00</code>
               </div>
               <div class="tp-row">
                 <span style="display:flex;flex-direction:column;gap:2px">
                   <span style="font-size:11px;color:var(--muted);font-weight:600">Total GST</span>
-                  <span id="tp-gst-breakdown" style="font-size:10px;color:var(--muted)"></span>
+                  <span style="font-size:10px;color:var(--muted)">On Taxable Amount</span>
                 </span>
                 <code class="pos" id="tp-gst">+₹0.00</code>
               </div>
               <div class="tp-row grand">
                 <span>Grand Total</span>
                 <code id="tp-grand">₹0.00</code>
+              </div>
+              <div style="background:var(--bg);border-radius:6px;padding:8px 10px;margin-top:10px">
+                <span style="font-size:10px;color:var(--muted);font-weight:600">Amount in Words:</span>
+                <div id="tp-words" style="font-size:11px;color:var(--text2);font-style:italic;margin-top:2px">—</div>
+              </div>
               </div>
             </div>
           </div>
@@ -2638,9 +2654,10 @@ const SERVER = {
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-sticky-note"></i> Notes & Payment Info</div>
             <div class="form-grid g2">
-              <div class="field g-full"><label>Notes to Client</label><textarea id="f-notes" oninput="livePreview(); debounceSaveInvoiceDraft()"><?= htmlspecialchars($settings['default_notes'] ?? '') ?></textarea></div>
               <div class="field g-full"><label>Bank Account Details</label><textarea id="f-bank" oninput="livePreview(); debounceSaveInvoiceDraft()"style="min-height:90px" placeholder="Enter bank account details..."></textarea></div>
-              <div class="field g-full"><label>Terms & Conditions</label><textarea id="f-tnc" oninput="livePreview(); debounceSaveInvoiceDraft()" style="min-height:90px" placeholder="Enter terms and conditions..."></textarea></div>
+              <div class="field g-full" style="background:var(--bg);border-radius:8px;padding:10px 12px;border:1px dashed var(--border)">
+                <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-info-circle"></i> Notes to Client and Terms &amp; Conditions are now managed centrally in <a href="#" onclick="showPage('settings',null);return false" style="color:var(--teal);font-weight:600">Settings</a> and applied automatically to every invoice.</div>
+              </div>
               <div class="field g-full">
                 <label>Invoice Generated By <span style="font-size:10px;color:var(--muted)">(shown at bottom of invoice)</span></label>
                 <div style="display:flex;gap:8px;align-items:center">
@@ -2727,7 +2744,7 @@ const SERVER = {
               <label class="pdf-opt"><input type="checkbox" id="popt-tnc" checked onchange="savePoptPrefs();livePreview()"><span>Terms & Conditions</span></label>
               <label class="pdf-opt"><input type="checkbox" id="popt-gst-col" checked onchange="savePoptPrefs();livePreview()"><span>GST Column</span></label>
               <label class="pdf-opt"><input type="checkbox" id="popt-footer" checked onchange="savePoptPrefs();livePreview()"><span>Footer Bar</span></label>
-              <label class="pdf-opt"><input type="checkbox" id="popt-watermark" onchange="savePoptPrefs();livePreview()"><span>Paid Watermark</span></label>
+              <label class="pdf-opt"><input type="checkbox" id="popt-watermark" checked onchange="savePoptPrefs();livePreview()"><span>Paid Watermark</span></label>
               <label class="pdf-opt"><input type="checkbox" id="popt-payment-block" checked onchange="savePoptPrefs();livePreview()"><span>Payment Details</span></label>
               <label class="pdf-opt"><input type="checkbox" id="popt-previous-due" onchange="savePoptPrefs();livePreview()"><span>Previous Due</span></label>
             </div>
@@ -6115,100 +6132,6 @@ const SERVER = {
         </div>
       </div>
 
-      <!-- Template Customization -->
-      <div class="dash-card" style="margin-top:24px">
-        <div class="card-header">
-          <span class="card-title"><i class="fas fa-paint-brush" style="color:var(--teal)"></i> Customize Active Template</span>
-          <span style="font-size:12px;color:var(--muted)">Changes apply to new invoices</span>
-        </div>
-        <div style="padding:0 4px">
-          <!-- Theme selector — shown only when Template 2 is active -->
-          <div id="tpl2-theme-picker" style="display:none;margin-bottom:16px;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Color Theme (Template 2 — Colorful Matte)</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px">
-              ${[['1','Indigo','#2D3A8C'],['2','Emerald','#065F46'],['3','Rose','#881337'],['4','Amber','#78350F'],['5','Ocean','#0C4A6E'],['6','Violet','#4C1D95'],['7','Slate','#1E293B'],['8','Crimson','#7F1D1D']].map(([id,name,col])=>`
-              <button onclick="setMatteTheme(${id})" id="mtheme-btn-${id}" style="display:flex;align-items:center;gap:7px;padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);font-family:var(--font);transition:.15s">
-                <span style="width:14px;height:14px;border-radius:3px;background:${col};flex-shrink:0;display:inline-block"></span>${name}
-              </button>`).join('')}
-            </div>
-            <input type="hidden" id="tpl-color-theme" value="1">
-          </div>
-
-          <!-- Color pickers — hidden for Template 2 (uses its own themes) -->
-          <div id="tpl-color-pickers" class="form-grid g2" style="margin-bottom:16px">
-            <div class="field">
-              <label>Primary Color <span style="font-size:10px;color:var(--muted)">(header background)</span></label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="tpl-color1" value="#1A2332" style="width:44px;height:38px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:2px" oninput="setTplColor('tpl-color1',this.value);_tplMarkUnsaved()">
-                <input id="tpl-color1-hex" value="#1A2332" placeholder="#1A2332" style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:13px" oninput="document.getElementById('tpl-color1').value=this.value;TPL_CUSTOM.color1=this.value;livePreview()">
-                <div style="display:flex;gap:4px;flex-wrap:wrap">
-                  <span onclick="setTplColor('tpl-color1','#1A2332')" style="width:20px;height:20px;background:#1A2332;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#00897B')" style="width:20px;height:20px;background:#00897B;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#1565C0')" style="width:20px;height:20px;background:#1565C0;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#B71C1C')" style="width:20px;height:20px;background:#B71C1C;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#4A148C')" style="width:20px;height:20px;background:#4A148C;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#1B5E20')" style="width:20px;height:20px;background:#1B5E20;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#E64A19')" style="width:20px;height:20px;background:#E64A19;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color1','#0F172A')" style="width:20px;height:20px;background:#0F172A;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                </div>
-              </div>
-            </div>
-            <div class="field">
-              <label>Accent Color <span style="font-size:10px;color:var(--muted)">(invoice number, totals)</span></label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="tpl-color2" value="#4DB6AC" style="width:44px;height:38px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;padding:2px" oninput="setTplColor('tpl-color2',this.value);_tplMarkUnsaved()">
-                <input id="tpl-color2-hex" value="#4DB6AC" placeholder="#4DB6AC" style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:13px" oninput="document.getElementById('tpl-color2').value=this.value;TPL_CUSTOM.color2=this.value;livePreview()">
-                <div style="display:flex;gap:4px;flex-wrap:wrap">
-                  <span onclick="setTplColor('tpl-color2','#4DB6AC')" style="width:20px;height:20px;background:#4DB6AC;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#FFD54F')" style="width:20px;height:20px;background:#FFD54F;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#42A5F5')" style="width:20px;height:20px;background:#42A5F5;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#EF9A9A')" style="width:20px;height:20px;background:#EF9A9A;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#A5D6A7')" style="width:20px;height:20px;background:#A5D6A7;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#CE93D8')" style="width:20px;height:20px;background:#CE93D8;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#FF8A65')" style="width:20px;height:20px;background:#FF8A65;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                  <span onclick="setTplColor('tpl-color2','#ffffff')" style="width:20px;height:20px;background:#fff;border-radius:4px;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 1px #ddd"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Common controls — all templates -->
-          <div class="form-grid g2" style="margin-bottom:16px">
-            <div class="field">
-              <label>Font Family</label>
-              <select id="tpl-font" onchange="TPL_CUSTOM.font=this.value;livePreview();_tplMarkUnsaved()">
-                <option value="'Public Sans',sans-serif">Public Sans (Default)</option>
-                <option value="'Roboto',sans-serif">Roboto</option>
-                <option value="'Inter',sans-serif">Inter</option>
-                <option value="'Poppins',sans-serif">Poppins</option>
-                <option value="'Montserrat',sans-serif">Montserrat</option>
-                <option value="'Lato',sans-serif">Lato</option>
-                <option value="Arial,sans-serif">Arial</option>
-                <option value="Georgia,serif">Georgia (Serif)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Logo Position</label>
-              <select id="tpl-logo-pos" onchange="TPL_CUSTOM.logoPosition=this.value;livePreview();_tplMarkUnsaved()">
-                <option value="left">Left (Default)</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Watermark Text <span style="font-size:10px;color:var(--muted)">(shown on paid invoices)</span></label>
-              <input id="tpl-watermark-text" value="PAID" placeholder="PAID" oninput="TPL_CUSTOM.watermarkText=this.value;livePreview();_tplMarkUnsaved()">
-            </div>
-          </div>
-
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-primary" onclick="applyTplCustomization()"><i class="fas fa-magic"></i> Apply &amp; Preview</button>
-            <button class="btn btn-success" onclick="saveTplCustomization()"><i class="fas fa-save"></i> Save</button>
-            <button class="btn btn-outline" onclick="resetTplCustomization()"><i class="fas fa-undo"></i> Reset</button>
-            <span id="tpl-unsaved-badge" style="display:none;font-size:11px;font-weight:700;color:#E64A19;background:#FFF3E0;padding:3px 10px;border-radius:20px;border:1px solid #FFCCBC"><i class="fas fa-circle" style="font-size:7px;margin-right:4px"></i>Unsaved changes</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ─────────── WHATSAPP SETUP ─────────── -->
@@ -12970,7 +12893,7 @@ function closeAllDropdowns(e) {
 // ── PDF Options: persist checkbox state in localStorage ────────
 const POPT_STORAGE_KEY = 'optms_popt_prefs';
 const POPT_IDS = ['popt-bank','popt-qr','popt-sign','popt-logo','popt-client-logo','popt-notes','popt-tnc','popt-gst-col','popt-footer','popt-watermark','popt-payment-block','popt-previous-due'];
-const POPT_DEFAULTS = { 'popt-bank':true,'popt-qr':false,'popt-sign':true,'popt-logo':true,'popt-client-logo':false,'popt-notes':true,'popt-tnc':true,'popt-gst-col':true,'popt-footer':true,'popt-watermark':false,'popt-payment-block':true,'popt-previous-due':true };
+const POPT_DEFAULTS = { 'popt-bank':true,'popt-qr':true,'popt-sign':true,'popt-logo':true,'popt-client-logo':false,'popt-notes':true,'popt-tnc':true,'popt-gst-col':true,'popt-footer':true,'popt-watermark':true,'popt-payment-block':true,'popt-previous-due':true };
 
 function savePoptPrefs() {
   const prefs = {};
@@ -13018,8 +12941,6 @@ function resetCreateForm() {
   if (bankEl) bankEl.value = STATE.settings.defaultBank || '';
   const gstEl = document.getElementById('f-gst');
   if (gstEl) gstEl.value = String(STATE.settings.defaultGST ?? 18);
-  const tncEl = document.getElementById('f-tnc');
-  if (tncEl) tncEl.value = STATE.settings.defaultTnC || '1. All prices are inclusive of applicable taxes.\n2. Computer-generated invoice.';
   const genEl = document.getElementById('f-generated-by');
   if (genEl) genEl.value = STATE.settings.generatedBy || (STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager');
   setTodayDates();
@@ -13031,12 +12952,6 @@ function resetCreateForm() {
   _sv('f-disc', '0');
   const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
   const _gstEl2 = document.getElementById('f-gst'); if (_gstEl2) _gstEl2.value = String(STATE.settings.defaultGST ?? 18);
-  const DEFAULT_NOTES = STATE.settings.company ? `Thank you for choosing ${STATE.settings.company}. Payment is due within ${STATE.settings.dueDays || 15} days of invoice date.` : '';
-  const notesEl = document.getElementById('f-notes');
-  if (notesEl) {
-    const _rawNotes = STATE.settings.defaultNotes || DEFAULT_NOTES;
-    notesEl.value = _rawNotes.replace(/\{due_days\}/g, STATE.settings.dueDays || 15);
-  }
   const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
   const svcCustomEl = document.getElementById('f-service-custom'); if (svcCustomEl) svcCustomEl.value = '';
   const currEl = document.getElementById('f-currency'); if (currEl) currEl.value = STATE.settings.currency || '₹';
@@ -13060,7 +12975,7 @@ function addItem() {
   const fgst = document.getElementById('f-gst');
   const gstVal = fgst ? fgst.value : String(STATE.settings.defaultGST ?? 18);
   const defaultGst = (gstVal !== '' && gstVal !== null) ? parseInt(gstVal) : (STATE.settings.defaultGST ?? 18);
-  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0 });
+  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0, hsn: suggestHsnForCategory('Service') });
   renderFormItems();
 }
 
@@ -13076,6 +12991,7 @@ function renderFormItems() {
     return `
     <div class="item-row" id="item-${item.id}">
       <div class="item-desc"><input value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)"></div>
+      <div class="item-hsn"><input value="${item.hsn||''}" placeholder="HSN/SAC" oninput="updateItem(${item.id},'hsn',this.value)" style="font-family:var(--mono);font-size:12px"></div>
       <div class="item-type"><select onchange="updateItem(${item.id},'itemType',this.value)">
         ${(STATE.itemTypes||[{name:'Service'},{name:'Product'},{name:'Labour'},{name:'Other'}]).map(t=>`<option value="${t.name}" ${itemType===t.name?'selected':''}>${t.name}</option>`).join('')}
       </select></div>
@@ -13103,6 +13019,14 @@ function updateItem(id, field, val) {
     item.gst = (val !== '' && val !== null && val !== undefined) ? parseFloat(val) : 0;
   } else if (field === 'itemType') {
     item.itemType = val;
+    // Auto-suggest an HSN/SAC for the new type — but never overwrite something the user already typed
+    if (!item.hsn) {
+      item.hsn = suggestHsnForCategory(val);
+      const hsnInput = document.querySelector(`#item-${id} .item-hsn input`);
+      if (hsnInput) hsnInput.value = item.hsn;
+    }
+  } else if (field === 'hsn') {
+    item.hsn = val;
   } else {
     item[field] = field==='desc' ? val : (parseFloat(val)||0);
   }
@@ -13118,6 +13042,58 @@ function updateItem(id, field, val) {
 function removeItem(id) {
   formItems = formItems.filter(i=>i.id!==id);
   renderFormItems();
+}
+
+// Groups line items by GST rate and shows Taxable Amt / CGST / SGST / Total GST per rate,
+// with the post-discount taxable base (discFactor applied) — mirrors the create-invoice
+// sidebar summary; CGST/SGST assume an even intra-state split of each rate.
+function renderGstBreakdown(discFactor) {
+  const el = document.getElementById('gst-breakdown-body');
+  if (!el) return;
+  const buckets = {};
+  formItems.forEach(item => {
+    const rate = parseFloat(item.gst ?? 0);
+    const base = (item.qty||1)*(item.rate||0) * discFactor;
+    buckets[rate] = (buckets[rate]||0) + base;
+  });
+  const rates = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
+  const rows = rates.map(rate => {
+    const taxable = buckets[rate];
+    const gstAmt  = taxable * rate / 100;
+    const half    = gstAmt / 2;
+    totTaxable += taxable; totCgst += half; totSgst += half; totGst += gstAmt;
+    const clr = rate > 0 ? 'var(--green)' : 'var(--muted)';
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px;font-size:12px">${rate}%</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono)">${fmt_money(taxable)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);color:${clr}">${fmt_money(half)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);color:${clr}">${fmt_money(half)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);font-weight:700;color:${clr}">${fmt_money(gstAmt)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Rate</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Taxable Amt</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">CGST</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">SGST</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total GST</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" style="padding:10px 4px;text-align:center;color:var(--muted);font-size:12px">No items yet</td></tr>`}</tbody>
+      <tfoot><tr>
+        <td style="padding:7px 4px;font-weight:800;font-size:12px;border-top:2px solid var(--border)">Total</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);border-top:2px solid var(--border)">${fmt_money(totTaxable)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totCgst)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totSgst)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totGst)}</td>
+      </tr></tfoot>
+    </table>
+    <div style="background:#FEF9E7;border:1px solid #F5E1A4;border-radius:6px;padding:8px 10px;font-size:11px;color:#7A5C00;line-height:1.5">
+      <i class="fas fa-exclamation-triangle" style="margin-right:4px"></i>
+      GST is calculated on taxable amount <strong>after discount</strong> — per GST Act Sec 15(3)
+    </div>`;
 }
 
 function calcTotals() {
@@ -13142,19 +13118,11 @@ function calcTotals() {
   set('tp-sub',    fmt_money(sub));
   set('tp-disc',   '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
   set('tp-amount', fmt_money(sub - discAmt));
+  const amountRow = document.getElementById('tp-amount-row');
+  if (amountRow) amountRow.style.display = discAmt > 0.01 ? 'flex' : 'none';
   set('tp-gst',    '+'+fmt_money(gstAfterDisc));
-  // Show GST breakdown per item
-  const bd = document.getElementById('tp-gst-breakdown');
-  if (bd) {
-    const rates = [...new Set(formItems.filter(i=>parseFloat(i.gst??0)>0).map(i=>parseFloat(i.gst??0)))];
-    if (rates.length <= 1) {
-      bd.textContent = rates.length ? rates[0]+'% on subtotal' : '';
-    } else {
-      bd.textContent = formItems.filter(i=>parseFloat(i.gst??0)>0)
-        .map(i => { const b=(i.qty||1)*(i.rate||0); return parseFloat(i.gst)+'% on '+fmt_money(b); })
-        .join(' + ');
-    }
-  }
+  renderGstBreakdown(discFactor);
+  set('tp-words', numToWordsINR(grand));
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
@@ -13252,9 +13220,12 @@ function getFormData() {
   const caddr   = document.getElementById('f-caddr')?.value||'';
   const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
   const discType = document.getElementById('f-disc-type')?.value || 'pct';
-  const notes   = document.getElementById('f-notes')?.value||'';
+  // Notes & Terms & Conditions are no longer per-invoice editable fields —
+  // always pulled live from Settings (Default Notes / Default T&C) so every
+  // invoice reflects the current, centrally-managed text.
+  const notes   = (STATE.settings.defaultNotes || '').replace(/\{due_days\}/g, STATE.settings.dueDays || 15);
   const bank    = document.getElementById('f-bank')?.value||'';
-  const tnc     = document.getElementById('f-tnc')?.value||'';
+  const tnc     = STATE.settings.defaultTnC || '';
   const generatedBy = document.getElementById('f-generated-by')?.value || (STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager');
   const showGeneratedBy = document.getElementById('f-show-generated')?.checked !== false;
   const status  = document.querySelector('input[name="inv-status"]:checked')?.value||'Draft';
@@ -13310,7 +13281,10 @@ function getFormData() {
   }
 
   const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
-  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId };
+  // Normalized per-item data for the Tax Summary (HSN/rate grouping) section — kept
+  // separate from the itemsHTML string so buildTpl2/buildTplF can compute it directly.
+  const taxItems = formItems.map(i => ({ hsn: i.hsn||'', itemType: i.itemType||'Service', gst: parseFloat(i.gst??0), qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0 }));
+  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId, taxItems };
 }
 
 function livePreview() {
@@ -13359,6 +13333,7 @@ function buildInvoiceHTML(d, forPrint) {
         const gstAmt  = line * itemGst / 100;
         const lineInclGst = line + gstAmt;
         const itype = i.itemType||'Service';
+        const ihsn  = i.hsn || '—';
         // GST badge colors
         const gstBadge = itemGst === 0
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1">${itemGst}%</span>`
@@ -13367,18 +13342,22 @@ function buildInvoiceHTML(d, forPrint) {
           : itemGst <= 12
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">${itemGst}%</span>`
           : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">${itemGst}%</span>`;
+        // Type — plain text, no background pill
+        const typeBadge = `<span style="font-size:11px;font-weight:600;color:#555">${itype}</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-weight:700;color:#111">${i.desc||'—'}</td>
-          <td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee"><span style="font-size:10px;font-weight:700;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">${itype}</span></td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:10.5px;color:#666;font-family:monospace">${ihsn}</td>
+          <td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${typeBadge}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>` : ''}
+          ${showGstCol ? `<td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:#166534">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#111">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
+    : `<tr><td colspan="${showGstCol?10:8}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
 
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
@@ -13896,11 +13875,12 @@ function buildTplA(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px">#</th>
         <th style="${thS}">Description</th>
+        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thS};text-align:right">Qty</th>
         <th style="${thS};text-align:right">Rate</th>
         <th style="${thS};text-align:right">Line</th>
-        ${gstColHeader?`<th style="${thS};text-align:center">GST%</th>`:''}
+        ${gstColHeader?`<th style="${thS};text-align:center">GST%</th><th style="${thS};text-align:right">GST ₹</th>`:''}
         <th style="${thS};text-align:right">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:0.5px solid #F1F5F9').replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
@@ -14004,11 +13984,12 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px;border-radius:0">#</th>
         <th style="${thS}">Description</th>
+        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thR}">Qty</th>
         <th style="${thR}">Rate</th>
         <th style="${thR}">Line</th>
-        ${gstColHeader?`<th style="${thR}">GST%</th>`:''}
+        ${gstColHeader?`<th style="${thR}">GST%</th><th style="${thR}">GST ₹</th>`:''}
         <th style="${thR}">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:0.5px solid ${lightBdr}`).replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
@@ -14103,11 +14084,12 @@ function buildTplE(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px">#</th>
         <th style="${thS}">Description</th>
+        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thR}">Qty</th>
         <th style="${thR}">Rate</th>
         <th style="${thR}">Line</th>
-        ${gstColHeader?`<th style="${thR}">GST%</th>`:''}
+        ${gstColHeader?`<th style="${thR}">GST%</th><th style="${thR}">GST ₹</th>`:''}
         <th style="${thR}">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:0.5px solid #F1F5F9').replace(/padding:9px 8px/g,'padding:10px 12px')}</tbody>
@@ -14213,7 +14195,7 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <div style="${trStyle}"><span>Subtotal</span><span style="${valStyle}">${fmt_money(sub,sym)}</span></div>
       ${discAmt > 0 ? `<div style="${trStyle}"><span>Discount${discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="${valStyle};color:#b91c1c">− ${fmt_money(discAmt,sym)}</span></div>
       <div style="${trStyle}"><span>After Discount</span><span style="${valStyle}">${fmt_money(afterDisc,sym)}</span></div>` : ''}
-      ${gstAmt > 0 ? `<div style="${trStyle}"><span>GST</span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
+      ${gstAmt > 0 ? `<div style="${trStyle}"><span>Total GST<br><span style="font-size:8px;color:#888">CGST ${fmt_money(gstAmt/2,sym)} + SGST ${fmt_money(gstAmt/2,sym)}</span></span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;border-top:1.5px solid #333;font-family:${sans}">
         <span style="font-size:12px;font-weight:700">Total Due</span>
         <span style="font-family:monospace;font-weight:800;font-size:14px">${fmt_money(grand,sym)}</span>
@@ -14294,16 +14276,19 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         <tr style="border-top:1.5px solid #1a1a1a;border-bottom:1px solid #1a1a1a">
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left;width:24px">#</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left">Description</th>
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">HSN/SAC</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">Type</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Qty</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Rate</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Amount</th>
-          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th>` : ''}
+          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th><th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">GST ₹</th>` : ''}
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Total</th>
         </tr>
       </thead>
       <tbody>${ruledItems}</tbody>
     </table>
+
+    ${buildTaxSummaryHTML(d.taxItems||[], sub>0 ? 1-(discAmt/sub) : 1, sym, true)}
 
     ${totalsHTML}
   </div>
@@ -14427,6 +14412,85 @@ function _pIcon(type, color, alignTop) {
   return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0${alignTop?';margin-top:2px':''}">${p}</svg>`;
 }
 
+// Tax Summary section (GST compliance breakdown) — groups line items by HSN/SAC + GST
+// rate, showing the post-discount taxable base and an even CGST/SGST split per group,
+// plus a bold Total row. Shared by buildTpl2 and buildTplF (JS) and mirrored in pdf.php.
+// Assumes intra-state supply (CGST+SGST) — there's currently no per-item or company/client
+// state field in this app to determine inter-state (IGST), so the title stays generic.
+function buildTaxSummaryHTML(items, discFactor, sym, mono) {
+  if (!items || !items.length) return '';
+  const font = mono ? "'Georgia','Times New Roman',serif" : "inherit";
+  const buckets = {};
+  items.forEach(item => {
+    const rate = parseFloat(item.gst ?? 0);
+    const hsn  = item.hsn || '—';
+    const type = item.itemType || 'Service';
+    const key  = hsn + '|' + rate;
+    const base = (item.qty||1) * (item.rate||0) * discFactor;
+    if (!buckets[key]) buckets[key] = { hsn, type, rate, taxable: 0 };
+    buckets[key].taxable += base;
+  });
+  const rows = Object.values(buckets).sort((a,b) => a.hsn.localeCompare(b.hsn) || a.rate - b.rate);
+  let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
+  const rowsHTML = rows.map(r => {
+    const gstAmt = r.taxable * r.rate / 100;
+    const half   = gstAmt / 2;
+    totTaxable += r.taxable; totCgst += half; totSgst += half; totGst += gstAmt;
+    const rateLabel = r.rate === 0 ? '0% Exempt' : `${r.rate}% (${r.rate/2}+${r.rate/2})`;
+    const rateCell = mono
+      ? `<span style="font-size:10.5px;font-weight:700">${rateLabel}</span>`
+      : (() => { const [bg,color,border] = r.rate===0 ? ['#F1F5F9','#475569','#CBD5E1'] : r.rate<=5 ? ['#F0FDF4','#166534','#86EFAC'] : r.rate<=12 ? ['#EFF6FF','#1D4ED8','#BFDBFE'] : ['#FEF3C7','#92400E','#FDE68A'];
+          return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:${bg};color:${color};border:1px solid ${border}">${rateLabel}</span>`; })();
+    const gstColor = mono ? '#1a1a1a' : (r.rate>0?'#166534':'#9CA3AF');
+    return `<tr style="border-bottom:${mono?'0.5px solid #ddd':'1px solid #E5E7EB'}">
+      <td style="padding:8px 10px;font-family:${font}">
+        <div style="font-family:monospace;font-size:11px;font-weight:700;color:${mono?'#1a1a1a':'#111'}">${r.hsn}</div>
+        <div style="font-size:9.5px;color:${mono?'#777':'#9CA3AF'}">${r.type}</div>
+      </td>
+      <td style="padding:8px 10px;text-align:center;font-family:${font}">${rateCell}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px">${fmt_money(r.taxable,sym)}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;color:${gstColor}">${fmt_money(half,sym)}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;color:${gstColor}">${fmt_money(half,sym)}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px;font-weight:700;color:${gstColor}">${fmt_money(gstAmt,sym)}</td>
+    </tr>`;
+  }).join('');
+  const headBg  = mono ? 'transparent' : '#F8F9FC';
+  const headBdr = mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
+  const wrapBdr = mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
+  const titleColor = mono ? '#1a1a1a' : '#374151';
+  const accentBar = mono ? '' : `<span style="width:4px;height:14px;background:#4F46E5;display:inline-block;border-radius:2px"></span>`;
+  return `
+  <div style="margin:0 0 18px;font-family:${font}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      ${accentBar}
+      <span style="font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:${titleColor}">Tax Summary &mdash; Intra-State Supply</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;border:${wrapBdr};${mono?'':'border-radius:8px;overflow:hidden'}">
+      <thead>
+        <tr style="background:${headBg};border-bottom:${headBdr}">
+          <th style="padding:8px 10px;text-align:left;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">HSN/SAC</th>
+          <th style="padding:8px 10px;text-align:center;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">GST Rate</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Taxable Amt</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">CGST</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">SGST</th>
+          <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Total GST</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHTML}</tbody>
+      <tfoot>
+        <tr style="background:${headBg};border-top:${mono?'1.5px solid #1a1a1a':'none'}">
+          <td style="padding:8px 10px;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#111'};font-family:${font}">Total</td>
+          <td></td>
+          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px">${fmt_money(totTaxable,sym)}</td>
+          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totCgst,sym)}</td>
+          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totSgst,sym)}</td>
+          <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:800;font-size:12px;color:${mono?'#1a1a1a':'#166534'}">${fmt_money(totGst,sym)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
+
 function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   sc = resolveCompany(sc);
   const tid = (window.TPL_CUSTOM && TPL_CUSTOM.colorTheme) ? parseInt(TPL_CUSTOM.colorTheme)||1 : 1;
@@ -14481,7 +14545,8 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
           : `<div style="width:60px;height:60px;color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center">${initials}</div>`}
       </div>
       <div style="min-width:0;padding-top:2px">
-        <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:11px">${sc.company}</div>
+        <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:${sc.tagline?'2px':'11px'}">${sc.company}</div>
+        ${sc.tagline?`<div style="font-size:10.5px;font-weight:700;color:#818CF8;letter-spacing:.3px;margin-bottom:11px">${sc.tagline}</div>`:''}
         <div style="display:flex;flex-direction:column;gap:7px">
           ${sc.phone?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${sc.phone}</div>`:''}
           ${sc.email?`<div style="display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:600;color:#CBD5E1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>${sc.email}</div>`:''}
@@ -14541,15 +14606,21 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
         <th style="${thStyle}">Description</th>
+        <th style="${thStyle};text-align:center">HSN/SAC</th>
         <th style="${thStyle};text-align:center">Type</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
         <th style="${thr}">Amount</th>
-        ${gstColHeader?`<th style="${thr}">GST</th>`:''}
+        ${gstColHeader?`<th style="${thr}">GST</th><th style="${thr}">GST ₹</th>`:''}
         <th style="${thr}">Total</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:1px solid ${T.metabr}`)}</tbody>
     </table>
+  </div>
+
+  <!-- TAX SUMMARY -->
+  <div style="padding:18px 24px 0">
+    ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym)}
   </div>
 
   <!-- BOTTOM: BANK → NOTES → TnC stacked, then TOTALS -->
@@ -14636,20 +14707,24 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
         <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
       </div>`:''}
-      <!-- Amount (after discount, before GST) -->
+      <!-- Taxable Amount (after discount, before GST) — hidden when no discount, since it's identical to Subtotal -->
+      ${d.discAmt>0?`
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Amount</span>
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Taxable Amount</span>
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${fmt_money((d.sub||0)-(d.discAmt||0),d.sym)}</span>
-      </div>
+      </div>`:''}
       <!-- GST -->
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">GST</span>
+        <span>
+          <span style="display:block;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Total GST</span>
+          <span style="display:block;font-size:9px;color:${T.totlbl};opacity:.75;margin-top:2px">CGST ${fmt_money(d.gstAmt/2,d.sym)} + SGST ${fmt_money(d.gstAmt/2,d.sym)}</span>
+        </span>
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
       </div>
       <!-- Grand Total -->
-      <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-        <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
+      <div style="background:#1E293B;padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#2DD4BF;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
+        <span style="color:#2DD4BF;font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
       </div>
       <!-- Partial payment history + settlement discount (instalments + remaining due) -->
       ${(()=>{
@@ -14712,11 +14787,9 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   <div style="margin-top:24px"></div>
   <!-- FOOTER -->
   ${d.popt.footer!==false?`
-  <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
-      <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
-    </div>
+  <div style="padding:12px 24px;background:#1E293B;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+    <div style="font-size:10px;color:#fff;letter-spacing:.3px;font-weight:700">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}${sc.website?' · '+sc.website:''}</div>
+    <div style="font-size:9.5px;color:#94A3B8;letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
   </div>`:''}
   </div>`;
 }
@@ -14724,7 +14797,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -14754,7 +14827,7 @@ function openPrintWindow(d, items) {
         return `<tr>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(pidx+1).padStart(2,'0')}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;font-weight:600;color:#555">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
@@ -14845,7 +14918,7 @@ function printInvoiceById(inv) {
         return `<tr>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(pidx2+1).padStart(2,'0')}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||i.description||'—'}</td>
-          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;color:#888">${itype}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;font-weight:600;color:#555">${itype}</td>
           <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${qty}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(rate,sym)}</td>
           <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,sym)}</td>
@@ -14874,6 +14947,7 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||(STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager'),
     showGeneratedBy:true,
+    taxItems: items.map(i => ({ hsn: i.hsn||i.hsn_code||'', itemType: i.itemType||i.item_type||'Service', gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), qty: parseFloat(i.qty||i.quantity||1), rate: parseFloat(i.rate)||0 })),
     popt:(function(){
       // Parse pdf_options from DB (may be JSON string or already an object)
       let saved = inv.pdf_options || inv.popt || null;
@@ -14964,7 +15038,7 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'' }))
   };
   try {
     if (!isNewSave) {
@@ -15329,10 +15403,8 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-disc').value = _discRaw;
   const _discTypeEl = document.getElementById('f-disc-type');
   if (_discTypeEl) _discTypeEl.value = _discType;
-  document.getElementById('f-notes').value    = (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim();
+  // Notes/T&C are no longer per-invoice fields — always resolved live from Settings (see getFormData)
   const _bankEl = document.getElementById('f-bank'); if(_bankEl) _bankEl.value = inv.bank||inv.bank_details||STATE.settings.defaultBank||'';
-  const _tncEl  = document.getElementById('f-tnc');  if(_tncEl)  _tncEl.value  = inv.tnc||inv.terms||STATE.settings.defaultTnC||'';
-  // f-bank and f-tnc set above
   document.getElementById('f-template').value = String(inv.template || inv.template_id || STATE.settings.activeTemplate || '2');
   document.getElementById('f-currency').value = inv.currency||'₹';
   document.getElementById('f-cname').value    = c ? c.name   : (inv.clientName || inv.client_name || '');
@@ -15363,7 +15435,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
   renderFormItems();
   livePreview();
 }
@@ -31049,11 +31121,11 @@ window.clearFestivalCampaign = async function() {
 };
 
 
-// ── Auto-save invoice draft (tnc / notes / bank changes) ──────
+// ── Auto-save invoice draft (bank details changes; notes/tnc now come from Settings) ──
 let _draftSaveTimer = null;
 function debounceSaveInvoiceDraft() {
   // Show glow feedback immediately regardless of editing state
-  ['f-tnc','f-notes','f-bank'].forEach(id => {
+  ['f-bank'].forEach(id => {
     const el = document.getElementById(id);
     if (el && document.activeElement === el) {
       el.style.borderColor = 'var(--teal)';
@@ -31070,7 +31142,7 @@ function debounceSaveInvoiceDraft() {
     api('api/invoices.php?id=' + parseInt(STATE.editingInvoiceId), 'PATCH', payload)
       .then(() => {
         // Brief teal glow on the textarea
-        ['f-tnc','f-notes','f-bank'].forEach(id => {
+        ['f-bank'].forEach(id => {
           const el = document.getElementById(id);
           if (el && document.activeElement === el) {
             el.style.borderColor = 'var(--teal)';
