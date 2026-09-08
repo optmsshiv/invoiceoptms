@@ -154,15 +154,8 @@ try {
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Line items — hsn/item_type columns may not exist on every tenant's
-    // invoice_items table yet, so detect them first rather than assuming;
-    // an unconditional SELECT of missing columns would break PDF generation
-    // entirely for anyone who hasn't added them.
-    $iiCols   = $db->query("SHOW COLUMNS FROM invoice_items")->fetchAll(PDO::FETCH_COLUMN);
-    $hasHsn   = in_array('hsn', $iiCols, true);
-    $hasIType = in_array('item_type', $iiCols, true);
-    $extraCols = ($hasHsn ? ', hsn' : '') . ($hasIType ? ', item_type' : '');
-    $iStmt = $db->prepare("SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total$extraCols FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC");
+    // Line items
+    $iStmt = $db->prepare('SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
     $iStmt->execute([':id' => $inv['invoice_id']]);
     $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -342,11 +335,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .tfoot-row td { padding: 4px 10px; text-align: right; }
 .tfoot-lbl { font-size: 10px; color: #6B7280; }
 .tfoot-val { font-size: 11px; font-family: 'DejaVu Sans Mono', monospace; min-width: 90px; display: inline-block; }
-.tfoot-grand td { padding: 8px 10px; background: #1E293B; border-top: 2px solid #E5E7EB; }
+.tfoot-grand td { padding: 8px 10px; background: #F0FDF4; border-top: 2px solid #E5E7EB; }
 .tfoot-grand td:first-child { border-bottom-left-radius: 7px; }
 .tfoot-grand td:last-child { border-bottom-right-radius: 7px; }
-.tfoot-grand .tfoot-lbl { font-size: 12px; font-weight: bold; color: #2DD4BF; text-transform: uppercase; letter-spacing: .5px; }
-.tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #2DD4BF; }
+.tfoot-grand .tfoot-lbl { font-size: 12px; font-weight: bold; color: #1A1A2E; }
+.tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #00897B; }
 .disc-val { color: #C62828; }
 
 /* Payment history */
@@ -712,13 +705,10 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <tr>
         <th style="width:20px">#</th>
         <th>Description</th>
-        <th style="width:70px">HSN/SAC</th>
-        <th style="width:70px">Type</th>
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
         <th class="r" style="width:80px">Amount</th>
         <th class="r" style="width:50px">GST</th>
-        <th class="r" style="width:70px">GST ₹</th>
         <th class="r" style="width:85px">Total</th>
       </tr>
     </thead>
@@ -728,23 +718,17 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $r   = (float)$item['rate'];
         $g   = (float)$item['gst'];
         $amt = $q * $r;
-        $gstAmtLine = $amt * $g / 100;
-        $tot = $amt + $gstAmtLine;
-        $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '—')        : '—';
-        $itemType = $hasIType ? ($item['item_type'] ?: 'Service') : 'Service';
+        $tot = $amt + $amt * $g / 100;
     ?>
     <tr>
       <td style="color:#9CA3AF"><?= $idx + 1 ?></td>
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
       </td>
-      <td class="mono" style="font-size:10px;color:#666"><?= htmlspecialchars($itemHsn) ?></td>
-      <td><span style="font-size:9px;font-weight:bold;background:#1E293B;color:#2DD4BF;padding:2px 6px;border-radius:4px"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
       <td class="r"><?= number_format($g, 2) ?>%</td>
-      <td class="r mono" style="color:#166534"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
       <td class="r mono" style="font-weight:bold"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
@@ -856,16 +840,10 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 <?php endif; ?>
 
 <!-- Footer -->
-<table width="100%" style="background:#1E293B;margin-top:8px" cellpadding="0" cellspacing="0">
-  <tr>
-    <td style="padding:10px 16px;font-size:9px;color:#fff;font-weight:bold">
-      <?= htmlspecialchars($companyName) ?><?= $companyGST ? ' &middot; GSTIN: ' . htmlspecialchars($companyGST) : '' ?><?= $companyWebsite ? ' &middot; ' . htmlspecialchars($companyWebsite) : '' ?>
-    </td>
-    <td style="padding:10px 16px;font-size:8.5px;color:#94A3B8;text-align:right">
-      Computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> &middot; No physical signature required
-    </td>
-  </tr>
-</table>
+<div class="pdf-footer">
+  This is a computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> and is valid without a physical signature.<br>
+  Generated by <strong><?= htmlspecialchars($companyName) ?></strong> · OPTMS Invoice Manager · <?= date('d M Y') ?>
+</div>
 
 <?php endif; ?>
 

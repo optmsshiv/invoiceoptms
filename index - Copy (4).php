@@ -1032,7 +1032,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1056,7 +1056,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: minmax(140px,1fr) minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1102,8 +1102,6 @@ select { cursor: pointer; }
 
 .item-desc  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-desc input { font-weight: 500; padding-left: 14px; }
-.item-hsn   { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
-.item-hsn input { text-align: center; padding: 10px 6px; }
 .item-type  { border-right: 1px solid var(--border); min-width: 0; overflow: hidden; }
 .item-type select { padding: 10px 12px; width: 95%; }
 .item-qty   { border-right: 1px solid var(--border); }
@@ -2565,7 +2563,6 @@ const SERVER = {
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
             <div class="items-head-row">
               <span>Description</span>
-              <span style="text-align:center">HSN/SAC</span>
               <span>Type</span>
               <span style="text-align:center">Qty</span>
               <span style="text-align:right">Rate</span>
@@ -12962,7 +12959,7 @@ function addItem() {
   const fgst = document.getElementById('f-gst');
   const gstVal = fgst ? fgst.value : String(STATE.settings.defaultGST ?? 18);
   const defaultGst = (gstVal !== '' && gstVal !== null) ? parseInt(gstVal) : (STATE.settings.defaultGST ?? 18);
-  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0, hsn: suggestHsnForCategory('Service') });
+  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0 });
   renderFormItems();
 }
 
@@ -12978,7 +12975,6 @@ function renderFormItems() {
     return `
     <div class="item-row" id="item-${item.id}">
       <div class="item-desc"><input value="${item.desc}" placeholder="Service / item description" oninput="updateItem(${item.id},'desc',this.value)"></div>
-      <div class="item-hsn"><input value="${item.hsn||''}" placeholder="HSN/SAC" oninput="updateItem(${item.id},'hsn',this.value)" style="font-family:var(--mono);font-size:12px"></div>
       <div class="item-type"><select onchange="updateItem(${item.id},'itemType',this.value)">
         ${(STATE.itemTypes||[{name:'Service'},{name:'Product'},{name:'Labour'},{name:'Other'}]).map(t=>`<option value="${t.name}" ${itemType===t.name?'selected':''}>${t.name}</option>`).join('')}
       </select></div>
@@ -13006,14 +13002,6 @@ function updateItem(id, field, val) {
     item.gst = (val !== '' && val !== null && val !== undefined) ? parseFloat(val) : 0;
   } else if (field === 'itemType') {
     item.itemType = val;
-    // Auto-suggest an HSN/SAC for the new type — but never overwrite something the user already typed
-    if (!item.hsn) {
-      item.hsn = suggestHsnForCategory(val);
-      const hsnInput = document.querySelector(`#item-${id} .item-hsn input`);
-      if (hsnInput) hsnInput.value = item.hsn;
-    }
-  } else if (field === 'hsn') {
-    item.hsn = val;
   } else {
     item[field] = field==='desc' ? val : (parseFloat(val)||0);
   }
@@ -13266,7 +13254,6 @@ function buildInvoiceHTML(d, forPrint) {
   d.popt = d.popt || {};  // safety guard — popt must always be an object
   // Build items HTML with GST column
   const showGstCol = d.popt ? d.popt.gstCol : true;
-  const isTpl2Row = String(d.tpl) === '2';
   const itemsHTML = formItems.length
     ? formItems.map((i, idx) => {
         const line    = (i.qty||1)*(i.rate||0);
@@ -13274,7 +13261,6 @@ function buildInvoiceHTML(d, forPrint) {
         const gstAmt  = line * itemGst / 100;
         const lineInclGst = line + gstAmt;
         const itype = i.itemType||'Service';
-        const ihsn  = i.hsn || '—';
         // GST badge colors
         const gstBadge = itemGst === 0
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1">${itemGst}%</span>`
@@ -13283,24 +13269,18 @@ function buildInvoiceHTML(d, forPrint) {
           : itemGst <= 12
           ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">${itemGst}%</span>`
           : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">${itemGst}%</span>`;
-        // Type badge — Slate Dark + cyan-teal only for Template 2 (Colorful Matte); other templates keep the neutral gray pill
-        const typeBadge = isTpl2Row
-          ? `<span style="font-size:10px;font-weight:700;background:#1E293B;color:#2DD4BF;padding:2px 8px;border-radius:4px">${itype}</span>`
-          : `<span style="font-size:10px;font-weight:700;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">${itype}</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-weight:700;color:#111">${i.desc||'—'}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:10.5px;color:#666;font-family:monospace">${ihsn}</td>
-          <td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${typeBadge}</td>
+          <td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee"><span style="font-size:10px;font-weight:700;background:#F1F5F9;color:#475569;padding:2px 8px;border-radius:4px;border:1px solid #E2E8F0">${itype}</span></td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:#166534">${fmt_money(gstAmt,d.sym)}</td>` : ''}
+          ${showGstCol ? `<td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#111">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGstCol?10:8}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
+    : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
 
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
@@ -13818,12 +13798,11 @@ function buildTplA(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px">#</th>
         <th style="${thS}">Description</th>
-        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thS};text-align:right">Qty</th>
         <th style="${thS};text-align:right">Rate</th>
         <th style="${thS};text-align:right">Line</th>
-        ${gstColHeader?`<th style="${thS};text-align:center">GST%</th><th style="${thS};text-align:right">GST ₹</th>`:''}
+        ${gstColHeader?`<th style="${thS};text-align:center">GST%</th>`:''}
         <th style="${thS};text-align:right">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:0.5px solid #F1F5F9').replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
@@ -13927,12 +13906,11 @@ function buildTplB(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px;border-radius:0">#</th>
         <th style="${thS}">Description</th>
-        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thR}">Qty</th>
         <th style="${thR}">Rate</th>
         <th style="${thR}">Line</th>
-        ${gstColHeader?`<th style="${thR}">GST%</th><th style="${thR}">GST ₹</th>`:''}
+        ${gstColHeader?`<th style="${thR}">GST%</th>`:''}
         <th style="${thR}">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:0.5px solid ${lightBdr}`).replace(/padding:9px 8px/g,'padding:9px 12px')}</tbody>
@@ -14027,12 +14005,11 @@ function buildTplE(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr>
         <th style="${thS};width:28px">#</th>
         <th style="${thS}">Description</th>
-        <th style="${thS};text-align:center">HSN/SAC</th>
         <th style="${thS};text-align:center">Type</th>
         <th style="${thR}">Qty</th>
         <th style="${thR}">Rate</th>
         <th style="${thR}">Line</th>
-        ${gstColHeader?`<th style="${thR}">GST%</th><th style="${thR}">GST ₹</th>`:''}
+        ${gstColHeader?`<th style="${thR}">GST%</th>`:''}
         <th style="${thR}">Amount</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,'border-bottom:0.5px solid #F1F5F9').replace(/padding:9px 8px/g,'padding:10px 12px')}</tbody>
@@ -14219,12 +14196,11 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         <tr style="border-top:1.5px solid #1a1a1a;border-bottom:1px solid #1a1a1a">
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left;width:24px">#</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left">Description</th>
-          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">HSN/SAC</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">Type</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Qty</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Rate</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Amount</th>
-          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th><th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">GST ₹</th>` : ''}
+          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th>` : ''}
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Total</th>
         </tr>
       </thead>
@@ -14468,12 +14444,11 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
         <th style="${thStyle}">Description</th>
-        <th style="${thStyle};text-align:center">HSN/SAC</th>
         <th style="${thStyle};text-align:center">Type</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
         <th style="${thr}">Amount</th>
-        ${gstColHeader?`<th style="${thr}">GST</th><th style="${thr}">GST ₹</th>`:''}
+        ${gstColHeader?`<th style="${thr}">GST</th>`:''}
         <th style="${thr}">Total</th>
       </tr></thead>
       <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:1px solid ${T.metabr}`)}</tbody>
@@ -14576,9 +14551,9 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
         <span style="font-family:monospace;font-weight:700;color:${T.totval}">${d.gstAmt>0?'+'+fmt_money(d.gstAmt,d.sym):fmt_money(0,d.sym)}</span>
       </div>
       <!-- Grand Total -->
-      <div style="background:#1E293B;padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:#2DD4BF;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
-        <span style="color:#2DD4BF;font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
+      <div style="background:${T.grandbg};padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:${T.grandtext};font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
+        <span style="color:${T.grandtext};font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
       </div>
       <!-- Partial payment history + settlement discount (instalments + remaining due) -->
       ${(()=>{
@@ -14641,9 +14616,11 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   <div style="margin-top:24px"></div>
   <!-- FOOTER -->
   ${d.popt.footer!==false?`
-  <div style="padding:12px 24px;background:#1E293B;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-    <div style="font-size:10px;color:#fff;letter-spacing:.3px;font-weight:700">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}${sc.website?' · '+sc.website:''}</div>
-    <div style="font-size:9.5px;color:#94A3B8;letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
+  <div style="padding:12px 24px;background:${T.footbg};display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:10px;color:${T.foottext};letter-spacing:.5px;line-height:1.8;font-weight:600">${sc.company}${sc.gst?' · GSTIN: '+sc.gst:''}</div>
+      <div style="font-size:10px;color:${T.foottext};letter-spacing:.3px">Computer-generated invoice · No physical signature required</div>
+    </div>
   </div>`:''}
   </div>`;
 }
@@ -14651,7 +14628,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -14891,7 +14868,7 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'' }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18 }))
   };
   try {
     if (!isNewSave) {
@@ -15288,7 +15265,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0 }));
   renderFormItems();
   livePreview();
 }
