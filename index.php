@@ -2581,7 +2581,15 @@ const SERVER = {
             </div>
 
             <!-- Totals -->
-            <div class="totals-panel">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px;align-items:start">
+              <!-- GST Breakdown (left) -->
+              <div style="background:var(--bg);border-radius:8px;padding:14px 16px;border:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">GST Breakdown</div>
+                <div id="gst-breakdown-body"></div>
+              </div>
+
+              <!-- Totals (right) -->
+              <div class="totals-panel" style="margin-top:0">
               <div class="tp-row">
                 <span>Subtotal</span>
                 <code id="tp-sub">₹0.00</code>
@@ -2626,13 +2634,18 @@ const SERVER = {
               <div class="tp-row">
                 <span style="display:flex;flex-direction:column;gap:2px">
                   <span style="font-size:11px;color:var(--muted);font-weight:600">Total GST</span>
-                  <span id="tp-gst-breakdown" style="font-size:10px;color:var(--muted)"></span>
+                  <span style="font-size:10px;color:var(--muted)">On Taxable Amount</span>
                 </span>
                 <code class="pos" id="tp-gst">+₹0.00</code>
               </div>
               <div class="tp-row grand">
                 <span>Grand Total</span>
                 <code id="tp-grand">₹0.00</code>
+              </div>
+              <div style="background:var(--bg);border-radius:6px;padding:8px 10px;margin-top:10px">
+                <span style="font-size:10px;color:var(--muted);font-weight:600">Amount in Words:</span>
+                <div id="tp-words" style="font-size:11px;color:var(--text2);font-style:italic;margin-top:2px">—</div>
+              </div>
               </div>
             </div>
           </div>
@@ -13031,6 +13044,58 @@ function removeItem(id) {
   renderFormItems();
 }
 
+// Groups line items by GST rate and shows Taxable Amt / CGST / SGST / Total GST per rate,
+// with the post-discount taxable base (discFactor applied) — mirrors the create-invoice
+// sidebar summary; CGST/SGST assume an even intra-state split of each rate.
+function renderGstBreakdown(discFactor) {
+  const el = document.getElementById('gst-breakdown-body');
+  if (!el) return;
+  const buckets = {};
+  formItems.forEach(item => {
+    const rate = parseFloat(item.gst ?? 0);
+    const base = (item.qty||1)*(item.rate||0) * discFactor;
+    buckets[rate] = (buckets[rate]||0) + base;
+  });
+  const rates = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
+  const rows = rates.map(rate => {
+    const taxable = buckets[rate];
+    const gstAmt  = taxable * rate / 100;
+    const half    = gstAmt / 2;
+    totTaxable += taxable; totCgst += half; totSgst += half; totGst += gstAmt;
+    const clr = rate > 0 ? 'var(--green)' : 'var(--muted)';
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px;font-size:12px">${rate}%</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono)">${fmt_money(taxable)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);color:${clr}">${fmt_money(half)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);color:${clr}">${fmt_money(half)}</td>
+      <td style="padding:6px 4px;text-align:right;font-size:12px;font-family:var(--mono);font-weight:700;color:${clr}">${fmt_money(gstAmt)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Rate</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Taxable Amt</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">CGST</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">SGST</th>
+        <th style="text-align:right;padding:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total GST</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" style="padding:10px 4px;text-align:center;color:var(--muted);font-size:12px">No items yet</td></tr>`}</tbody>
+      <tfoot><tr>
+        <td style="padding:7px 4px;font-weight:800;font-size:12px;border-top:2px solid var(--border)">Total</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);border-top:2px solid var(--border)">${fmt_money(totTaxable)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totCgst)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totSgst)}</td>
+        <td style="padding:7px 4px;text-align:right;font-weight:800;font-size:12px;font-family:var(--mono);color:var(--green);border-top:2px solid var(--border)">${fmt_money(totGst)}</td>
+      </tr></tfoot>
+    </table>
+    <div style="background:#FEF9E7;border:1px solid #F5E1A4;border-radius:6px;padding:8px 10px;font-size:11px;color:#7A5C00;line-height:1.5">
+      <i class="fas fa-exclamation-triangle" style="margin-right:4px"></i>
+      GST is calculated on taxable amount <strong>after discount</strong> — per GST Act Sec 15(3)
+    </div>`;
+}
+
 function calcTotals() {
   // Per-item GST calculation
   let sub = 0, gstAmt = 0;
@@ -13056,18 +13121,8 @@ function calcTotals() {
   const amountRow = document.getElementById('tp-amount-row');
   if (amountRow) amountRow.style.display = discAmt > 0.01 ? 'flex' : 'none';
   set('tp-gst',    '+'+fmt_money(gstAfterDisc));
-  // Show GST breakdown per item
-  const bd = document.getElementById('tp-gst-breakdown');
-  if (bd) {
-    const rates = [...new Set(formItems.filter(i=>parseFloat(i.gst??0)>0).map(i=>parseFloat(i.gst??0)))];
-    if (rates.length <= 1) {
-      bd.textContent = rates.length ? rates[0]+'% on subtotal' : '';
-    } else {
-      bd.textContent = formItems.filter(i=>parseFloat(i.gst??0)>0)
-        .map(i => { const b=(i.qty||1)*(i.rate||0); return parseFloat(i.gst)+'% on '+fmt_money(b); })
-        .join(' + ');
-    }
-  }
+  renderGstBreakdown(discFactor);
+  set('tp-words', numToWordsINR(grand));
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
