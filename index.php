@@ -1179,7 +1179,7 @@ select { cursor: pointer; }
   padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border);
 }
 .tp-row:last-child { border: none; }
-.tp-row.grand { font-size: 16px; font-weight: 800; color: var(--teal); padding-top: 10px; margin-top: 4px; }
+.tp-row.grand { font-size: 16px; font-weight: 800; color: #2DD4BF; padding: 12px 14px; margin-top: 4px; background: #1E293B; border-radius: 8px; border: none; }
 .tp-row code { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .tp-row.grand code { font-size: 17px; }
 .tp-row code.neg { color: var(--red); }
@@ -2619,8 +2619,8 @@ const SERVER = {
            </div>
                 <code class="neg" id="tp-disc">-₹0.00</code>
               </div>
-              <div class="tp-row">
-                <span style="font-weight:700">Amount</span>
+              <div class="tp-row" id="tp-amount-row" style="display:none">
+                <span style="font-weight:700">Taxable Amount</span>
                 <code id="tp-amount" style="font-weight:700">₹0.00</code>
               </div>
               <div class="tp-row">
@@ -13053,6 +13053,8 @@ function calcTotals() {
   set('tp-sub',    fmt_money(sub));
   set('tp-disc',   '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
   set('tp-amount', fmt_money(sub - discAmt));
+  const amountRow = document.getElementById('tp-amount-row');
+  if (amountRow) amountRow.style.display = discAmt > 0.01 ? 'flex' : 'none';
   set('tp-gst',    '+'+fmt_money(gstAfterDisc));
   // Show GST breakdown per item
   const bd = document.getElementById('tp-gst-breakdown');
