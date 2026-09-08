@@ -2551,8 +2551,8 @@ const SERVER = {
               <strong>One-Time Client</strong> — details below are for this invoice only and will <strong>not</strong> be saved to your client list.
               <span onclick="switchToSaveClient()" style="margin-left:8px;color:#1976D2;cursor:pointer;font-weight:600;text-decoration:underline">Save this client instead →</span>
             </div>
-            <div class="form-grid g3">
-              <div class="field"><label>Organization / Client Name *</label><input id="f-cname" placeholder="Organization / Client Name" oninput="livePreview()"></div>
+            <div class="form-grid g2">
+              <div class="field g-full"><label>Organization / Client Name *</label><input id="f-cname" placeholder="Organization / Client Name" oninput="livePreview()"></div>
               <div class="field"><label>Contact Person</label><input id="f-cperson" placeholder="Full Name" oninput="livePreview()"></div>
               <div class="field"><label>WhatsApp Number</label><input id="f-cwa" placeholder="+91 9876543210" oninput="livePreview()"></div>
               <div class="field"><label>Email Address</label><input id="f-cemail" type="email" placeholder="client@domain.com" oninput="livePreview()"></div>
