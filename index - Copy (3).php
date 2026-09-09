@@ -13375,36 +13375,9 @@ function buildInvoiceHTML(d, forPrint) {
   const gstColHeader = showGstCol ? `<th style="padding:10px 8px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
 
-  // Redesigned item rows for Template 2: no separate Amount/HSN/GST% columns —
-  // HSN/SAC + GST% fold into a subtitle under the Description, and GST is a
-  // single rupee-only column (green when >0, muted when 0%).
-  const itemsHTML2 = formItems.length
-    ? formItems.map((i, idx) => {
-        const line    = (i.qty||1)*(i.rate||0);
-        const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
-        const lineInclGst = line + gstAmt;
-        const itype = i.itemType || 'Service';
-        const ihsn  = i.hsn || '—';
-        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        return `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee">
-            <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
-          </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="${showGstCol?7:6}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
-
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
-  return fn(d, sc, itemsHTML, gstColHeader, rowNumHeader, itemsHTML2);
+  return fn(d, sc, itemsHTML, gstColHeader, rowNumHeader);
 }
 
 
@@ -14531,7 +14504,7 @@ function buildTaxSummaryHTML(items, discFactor, sym, mono) {
   </div>`;
 }
 
-function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='') {
+function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
   sc = resolveCompany(sc);
   const tid = (window.TPL_CUSTOM && TPL_CUSTOM.colorTheme) ? parseInt(TPL_CUSTOM.colorTheme)||1 : 1;
   const T = _MATTE_THEMES[tid] || _MATTE_THEMES[1];
@@ -14646,29 +14619,28 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
         <th style="${thStyle}">Description</th>
-        <th style="${thStyle}">Type</th>
+        <th style="${thStyle};text-align:center">HSN/SAC</th>
+        <th style="${thStyle};text-align:center">Type</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
-        ${gstColHeader?`<th style="${thr}">GST</th>`:''}
-        <th style="${thr};color:#93C5FD">Total</th>
+        <th style="${thr}">Amount</th>
+        ${gstColHeader?`<th style="${thr}">GST</th><th style="${thr}">GST ₹</th>`:''}
+        <th style="${thr}">Total</th>
       </tr></thead>
-      <tbody>${itemsHTML2.replace(/border-bottom:1px solid #eee/g,`border-bottom:1px solid ${T.metabr}`)}</tbody>
+      <tbody>${itemsHTML.replace(/border-bottom:1px solid #eee/g,`border-bottom:1px solid ${T.metabr}`)}</tbody>
     </table>
   </div>
 
-  <!-- TAX SUMMARY + BOTTOM: merged — left stacks Tax Summary → Bank/UPI → Notes → T&C; right totals card matches full height -->
-  <div style="display:flex;align-items:stretch;border-top:1.5px solid ${T.metabr}">
+  <!-- TAX SUMMARY -->
+  <div style="padding:18px 24px 0">
+    ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym)}
+  </div>
 
-    <!-- LEFT: Tax Summary, then Bank Details+UPI, Notes, T&C stacked -->
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+  <!-- BOTTOM: BANK → NOTES → TnC stacked, then TOTALS -->
+  <div style="display:flex;border-top:1.5px solid ${T.metabr}">
 
-      <!-- TAX SUMMARY -->
-      <div style="padding:18px 24px">
-        ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym)}
-      </div>
-
-      <!-- BANK / UPI / NOTES / TNC -->
-      <div style="padding:18px 24px;border-top:1.5px solid #FDE68A;border-right:1.5px solid #FDE68A;background:#FFFBEB;display:flex;flex-direction:column;gap:0">
+    <!-- LEFT: stacked vertically — Bank Details, Notes, Terms & Conditions — warm amber bg -->
+    <div style="flex:1;padding:18px 24px;border-right:1.5px solid #FDE68A;background:#FFFBEB;display:flex;flex-direction:column;gap:0">
 
       <!-- BANK DETAILS -->
       ${(()=>{
@@ -14733,10 +14705,9 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
           <div style="font-size:10.5px;color:#92400E;line-height:1.7">${tnc.replace(/\n/g,'<br>')}</div>
         </div>`;
       })()}
-      </div>
     </div>
 
-    <!-- RIGHT: Totals (with correct order + partial history), full height via flex stretch -->
+    <!-- RIGHT: Totals (with correct order + partial history) -->
     <div style="width:260px;flex-shrink:0;display:flex;flex-direction:column;background:${T.totbg}">
       <!-- Subtotal -->
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
@@ -14767,11 +14738,6 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <div style="background:#1E293B;padding:14px 22px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:#2DD4BF;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Grand Total</span>
         <span style="color:#2DD4BF;font-family:monospace;font-size:19px;font-weight:800;letter-spacing:-1px">${fmt_money(d.grand,d.sym)}</span>
-      </div>
-      <!-- Amount in Words -->
-      <div style="padding:10px 22px;border-bottom:1px solid ${T.totbr}">
-        <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${T.totlbl};opacity:.75;margin-bottom:2px">Amount in Words</div>
-        <div style="font-size:10px;font-style:italic;color:${T.totval};line-height:1.4">${numToWordsINR(d.grand)}</div>
       </div>
       <!-- Partial payment history + settlement discount (instalments + remaining due) -->
       ${(()=>{
@@ -14826,7 +14792,6 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
           : '';
         return paidRow2 + remRow2;
       })()}
-      <div style="flex:1"></div>
       <!-- Signature -->
       ${d.popt.sign?(()=>{const sig=d.signature||STATE.settings.signature||'';return `<div style="padding:14px 22px;border-top:1px solid ${T.totbr};text-align:right">${sig?`<img src="${sig}" style="height:44px;max-width:160px;object-fit:contain;display:block;margin-left:auto" onerror="this.style.display='none'">`:'<div style="width:140px;border-bottom:1.5px solid #bbb;margin-left:auto;height:36px"></div>'}<div style="font-size:10px;color:#aaa;margin-top:5px;font-weight:600">Authorised Signatory</div><div style="font-size:10px;color:#bbb">${sc.company}</div></div>`;})():''}
     </div>
