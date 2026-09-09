@@ -13623,7 +13623,6 @@ function resolveCompany(sc) {
   const S = (typeof STATE !== 'undefined' ? STATE.settings : {});
   return {
     company: sc.company||S.company||'',
-    tagline: sc.tagline||S.tagline||'',
     phone:   sc.phone||S.phone||'',
     email:   sc.email||S.email||'',
     website: sc.website||S.website||'',
@@ -14477,7 +14476,7 @@ function buildTaxSummaryHTML(items, discFactor, sym, mono) {
     const gstAmt = r.taxable * r.rate / 100;
     const half   = gstAmt / 2;
     totTaxable += r.taxable; totCgst += half; totSgst += half; totGst += gstAmt;
-    const rateLabel = r.rate === 0 ? '0% Exempt' : `${r.rate}%`;
+    const rateLabel = r.rate === 0 ? '0% Exempt' : `${r.rate}% (${r.rate/2}+${r.rate/2})`;
     const rateCell = mono
       ? `<span style="font-size:10.5px;font-weight:700">${rateLabel}</span>`
       : (() => { const [bg,color,border] = r.rate===0 ? ['#F1F5F9','#475569','#CBD5E1'] : r.rate<=5 ? ['#F0FDF4','#166534','#86EFAC'] : r.rate<=12 ? ['#EFF6FF','#1D4ED8','#BFDBFE'] : ['#FEF3C7','#92400E','#FDE68A'];
@@ -14486,6 +14485,7 @@ function buildTaxSummaryHTML(items, discFactor, sym, mono) {
     return `<tr style="border-bottom:${mono?'0.5px solid #ddd':'1px solid #E5E7EB'}">
       <td style="padding:8px 10px;font-family:${font}">
         <div style="font-family:monospace;font-size:11px;font-weight:700;color:${mono?'#1a1a1a':'#111'}">${r.hsn}</div>
+        <div style="font-size:9.5px;color:${mono?'#777':'#9CA3AF'}">${r.type}</div>
       </td>
       <td style="padding:8px 10px;text-align:center;font-family:${font}">${rateCell}</td>
       <td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:12px">${fmt_money(r.taxable,sym)}</td>
@@ -14509,7 +14509,7 @@ function buildTaxSummaryHTML(items, discFactor, sym, mono) {
       <thead>
         <tr style="background:${headBg};border-bottom:${headBdr}">
           <th style="padding:8px 10px;text-align:left;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">HSN/SAC</th>
-          <th style="padding:8px 10px;text-align:center;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Tax Rate</th>
+          <th style="padding:8px 10px;text-align:center;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">GST Rate</th>
           <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">Taxable Amt</th>
           <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">CGST</th>
           <th style="padding:8px 10px;text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${mono?'#1a1a1a':'#6B7280'};font-family:${font}">SGST</th>
@@ -14576,7 +14576,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
   <div style="height:5px;background:${accentStrip}"></div>
 
   <!-- HEADER: full Slate Dark panel — logo box + company block (left), badges/number/dates (right) -->
-  <div style="background:#1E293B;padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
+  <div style="background:#1E293B;padding:26px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px">
     <div style="display:flex;gap:20px;align-items:flex-start;min-width:0">
       <div style="width:124px;height:134px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
         ${sc.logo

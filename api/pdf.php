@@ -106,7 +106,7 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
         $gstAmt = $r['taxable'] * $r['rate'] / 100;
         $half   = $gstAmt / 2;
         $totTaxable += $r['taxable']; $totCgst += $half; $totSgst += $half; $totGst += $gstAmt;
-        $rateLabel = $r['rate'] == 0 ? '0% Exempt' : $r['rate'] . '% (' . ($r['rate']/2) . '+' . ($r['rate']/2) . ')';
+        $rateLabel = $r['rate'] == 0 ? '0% Exempt' : $r['rate'] . '%';
         if ($mono) {
             $rateCell = '<span style="font-size:9.5px;font-weight:bold">' . htmlspecialchars($rateLabel) . '</span>';
             $gstColor = '#1a1a1a';
@@ -121,7 +121,6 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
         $rowsHtml .= '<tr style="border-bottom:' . ($mono ? '0.5px solid #ddd' : '1px solid #E5E7EB') . '">
           <td style="padding:7px 8px;font-family:' . $font . '">
             <div style="font-family:\'DejaVu Sans Mono\',monospace;font-size:10px;font-weight:bold;color:' . ($mono?'#1a1a1a':'#111') . '">' . htmlspecialchars($r['hsn']) . '</div>
-            <div style="font-size:8.5px;color:' . ($mono?'#777':'#9CA3AF') . '">' . htmlspecialchars($r['type']) . '</div>
           </td>
           <td style="padding:7px 8px;text-align:center;font-family:' . $font . '">' . $rateCell . '</td>
           <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px">' . pdf_fmt_money($r['taxable'], $sym) . '</td>
@@ -146,7 +145,7 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
         <thead>
           <tr style="background:' . $headBg . ';border-bottom:' . $headBdr . '">
             <th style="padding:7px 8px;text-align:left;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">HSN/SAC</th>
-            <th style="padding:7px 8px;text-align:center;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">GST Rate</th>
+            <th style="padding:7px 8px;text-align:center;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Tax Rate</th>
             <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Taxable Amt</th>
             <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">CGST</th>
             <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">SGST</th>
@@ -413,7 +412,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 /* Header — full Slate Dark panel (canonical design, matches in-app preview) */
 .hdr-accent { height: 5px; background: <?= $accentColor ?>; }
 .hdr-wrap { width: 100%; border-collapse: collapse; margin-bottom: 16px; background: #1E293B; }
-.hdr-cell { background: #1E293B; padding: 26px 32px; vertical-align: top; }
+.hdr-cell { background: #1E293B; padding: 16px 22px; vertical-align: top; }
 .hdr-logo-cell { width: 124px; text-align: center; vertical-align: middle; padding-right: 20px; }
 .hdr-logo-img { max-width: 112px; max-height: 120px; }
 .hdr-logo-mono { width: 60px; height: 60px; color: #fff; font-size: 22px; font-weight: bold; text-align: center; line-height: 60px; margin: 0 auto; }
