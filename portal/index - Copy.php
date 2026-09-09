@@ -375,6 +375,7 @@ if ($isEstimate && !empty($inv['due_date'])) {
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -413,6 +414,9 @@ body{font-family:var(--font);color:var(--text);min-height:100vh;padding:20px 16p
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .info-item label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:3px}
 .info-item .val{font-size:13px;font-weight:600}
+
+.notes-terms-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}
+@media(max-width:600px){.notes-terms-grid{grid-template-columns:1fr}}
 
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--bg);border-bottom:2px solid var(--border);text-align:left}
@@ -470,6 +474,14 @@ tr:last-child td{border:none}
   .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
   .portal-header{border-radius:0;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+/* Mirrors @media print rules so downloadPDF() can render a clean capture without opening the print dialog */
+body.generating-pdf .sticky-bar,body.generating-pdf .upi-pay-btns,body.generating-pdf .wa-contact-btn,
+body.generating-pdf .pdf-btn,body.generating-pdf .pdf-dl-btn,body.generating-pdf .copy-btn,
+body.generating-pdf .overdue-banner,body.generating-pdf .qr-hint,body.generating-pdf .estimate-actions,
+body.generating-pdf .btn-approve,body.generating-pdf .btn-reject{display:none!important}
+body.generating-pdf .qr-section,body.generating-pdf .receipt-card{display:block!important}
+body.generating-pdf .card{box-shadow:none!important;border:1px solid #ddd!important}
 
 /* UPI Pay buttons */
 .upi-pay-btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -1015,7 +1027,7 @@ $totalPendingCount = ($totalDueCount - $totalOverdueCount);
 // Total outstanding: only add $remaining if current invoice is a real due invoice
 $totalOutstanding = $dueTotal + ($currentIsDue ? $remaining : 0);
 ?>
-<?php if ($hasDues && !$isCancelled): ?>
+<?php if ($hasDues && !$isCancelled && !$isEstimate): ?>
 <div class="dues-banner" id="duesBanner">
   <div class="dues-banner-icon">
     <i class="fas fa-exclamation-circle"></i>
@@ -1657,20 +1669,14 @@ if (document.readyState === 'loading') {
     <?php endif; ?>
   </div>
 </div>
-<?php elseif (!empty($inv['notes']) || !empty($inv['terms']) || !empty($inv['bank_details'])): ?>
+<?php elseif (!empty($inv['notes']) || !empty($inv['terms'])): ?>
 <div class="card">
   <div class="card-head"><i class="fas fa-sticky-note"></i> <span data-t="Notes &amp; Terms">Notes &amp; Terms</span></div>
-  <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+  <div class="card-body notes-terms-grid">
     <?php if (!empty($inv['notes'])): ?>
     <div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px" data-t="Notes">Notes</div>
       <div style="font-size:13px;line-height:1.6"><?= nl2br(htmlspecialchars($inv['notes'])) ?></div>
-    </div>
-    <?php endif; ?>
-    <?php if (!empty($inv['bank_details'])): ?>
-    <div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px" data-t="Bank Details">Bank Details</div>
-      <div style="font-size:13px;line-height:1.6;font-family:var(--mono)"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
     </div>
     <?php endif; ?>
     <?php if (!empty($inv['terms'])): ?>
@@ -1683,7 +1689,7 @@ if (document.readyState === 'loading') {
 </div>
 <?php endif; ?>
 
-<?php if ($hasDues && !$isCancelled): ?>
+<?php if ($hasDues && !$isCancelled && !$isEstimate): ?>
 <!-- ── Other Outstanding Invoices ── -->
 <div class="card dues-card" id="otherDuesCard">
   <div class="card-head" style="background:linear-gradient(90deg,#FFF3E0,var(--card));border-bottom:1.5px solid #FFCC80">
@@ -1788,8 +1794,11 @@ if (document.readyState === 'loading') {
 
 <!-- Company footer -->
 <div class="card">
+  <?php if (!$isEstimate): ?>
   <div class="card-head"><i class="fas fa-building"></i> <span data-t="Issued By">Issued By</span></div>
+  <?php endif; ?>
   <div class="card-body">
+    <?php if (!$isEstimate): ?>
     <div class="info-grid">
       <div class="info-item"><label data-t="Company">Company</label><span class="val"><?= htmlspecialchars($companyName) ?></span></div>
       <?php if ($companyGST): ?><div class="info-item"><label data-t="GSTIN">GSTIN</label><span class="val" style="font-family:var(--mono)"><?= htmlspecialchars($companyGST) ?></span></div><?php endif; ?>
@@ -1797,9 +1806,10 @@ if (document.readyState === 'loading') {
       <?php if ($companyEmail): ?><div class="info-item"><label>Email</label><span class="val"><?= htmlspecialchars($companyEmail) ?></span></div><?php endif; ?>
       <?php if ($companyAddress): ?><div class="info-item" style="grid-column:1/-1"><label>Address</label><span class="val" style="font-weight:400"><?= nl2br(htmlspecialchars($companyAddress)) ?></span></div><?php endif; ?>
     </div>
+    <?php endif; ?>
 
 
-    <?php if ($remaining > 0.01 && $companyPhone): ?>
+    <?php if ($remaining > 0.01 && $companyPhone && !$isEstimate): ?>
     <?php
       $waNum2     = preg_replace('/\D/', '', $companyPhone);
       if (strlen($waNum2) === 10) $waNum2 = '91' . $waNum2;
@@ -1868,10 +1878,37 @@ function fallback(text,cb) {
 
 // ── Download PDF ───────────────────────────────────────────────
 function downloadPDF() {
-  const origTitle = document.title;
-  document.title = <?= json_encode(($isEstimate ? 'Estimate' : 'Invoice') . '-' . ($inv['invoice_number'] ?? 'doc')) ?>;
-  window.print();
-  setTimeout(() => { document.title = origTitle; }, 1000);
+  const btn      = document.querySelector('.pdf-dl-btn');
+  const filename = <?= json_encode(($isEstimate ? 'Estimate' : 'Invoice') . '-' . ($inv['invoice_number'] ?? 'doc') . '.pdf') ?>;
+  const element  = document.querySelector('.wrap');
+
+  if (btn) { btn.classList.add('loading'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…'; }
+  document.body.classList.add('generating-pdf');
+
+  const opt = {
+    margin:      [10, 10, 10, 10],
+    filename:    filename,
+    image:       { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak:   { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  function restoreBtn() {
+    document.body.classList.remove('generating-pdf');
+    if (btn) { btn.classList.remove('loading'); btn.innerHTML = '<i class="fas fa-file-pdf"></i> Download PDF'; }
+  }
+
+  if (typeof html2pdf === 'undefined') {
+    // Library failed to load — fall back to the browser's print dialog
+    restoreBtn();
+    window.print();
+    return;
+  }
+
+  html2pdf().set(opt).from(element).save()
+    .then(restoreBtn)
+    .catch(() => { restoreBtn(); window.print(); });
 }
 
 // QR rendering handled above

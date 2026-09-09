@@ -55,6 +55,32 @@ function pdf_fmt_date($d) {
 function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
+// Port of the JS numToWordsINR() in index.php — keep both in sync.
+function pdf_num_to_words_inr($amount) {
+    $amount = (int)round((float)$amount);
+    if ($amount === 0) return 'Zero Rupees Only';
+    $ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    $tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    $two = function($n) use ($ones, $tens) {
+        return $n < 20 ? $ones[$n] : $tens[intdiv($n, 10)] . ($n % 10 ? ' ' . $ones[$n % 10] : '');
+    };
+    $threeFn = function($n) use ($ones, $two) {
+        $out = '';
+        if ($n >= 100) { $out .= $ones[intdiv($n, 100)] . ' Hundred '; }
+        $out .= $two($n % 100);
+        return $out;
+    };
+    $n = $amount; $parts = [];
+    $crore = intdiv($n, 10000000); $n %= 10000000;
+    $lakh  = intdiv($n, 100000);   $n %= 100000;
+    $thousand = intdiv($n, 1000);  $n %= 1000;
+    if ($crore)    $parts[] = trim($threeFn($crore)) . ' Crore';
+    if ($lakh)     $parts[] = trim($threeFn($lakh)) . ' Lakh';
+    if ($thousand) $parts[] = trim($threeFn($thousand)) . ' Thousand';
+    if ($n)        $parts[] = trim($threeFn($n));
+    $joined = trim(implode(' ', $parts));
+    return ($joined ?: 'Zero') . ' Rupees Only';
+}
 // Tax Summary section — groups items by HSN/SAC + GST rate, shows post-discount taxable
 // base with an even CGST/SGST split, plus a bold Total row. Mirrors buildTaxSummaryHTML()
 // in index.php exactly so the JS preview and the downloaded PDF always match.
@@ -326,6 +352,16 @@ $companyWebsite = $settings['company_website'] ?? '';
 $companyTagline = $settings['company_tagline'] ?? '';
 $companyLogo    = $inv['company_logo'] ?: ($settings['company_logo'] ?? '');
 $companySign    = $inv['signature']    ?: ($settings['company_sign'] ?? '');
+$companyUpi     = $settings['company_upi'] ?? '';
+
+// Dynamic UPI QR — always reflects the current invoice amount, mirrors the
+// JS preview's qrUrl logic (upi://pay deep link rendered via qrserver.com).
+$qrCode = '';
+if ($companyUpi && $calcGrand > 0) {
+    $upiString = 'upi://pay?pa=' . urlencode($companyUpi) . '&pn=' . urlencode($companyName ?: 'Merchant')
+        . '&am=' . number_format($calcGrand, 2, '.', '') . '&cu=INR&tn=' . urlencode($inv['invoice_number'] ?: 'Invoice');
+    $qrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' . urlencode($upiString);
+}
 
 // ── Status badge colours ───────────────────────────────────────
 $statusColors = [
@@ -803,8 +839,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <th style="width:70px">Type</th>
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
-        <th class="r" style="width:80px">Amount</th>
-        <th class="r" style="width:50px">GST</th>
+        <th class="r" style="width:70px">GST</th>
         <th class="r" style="width:85px">Total</th>
       </tr>
     </thead>
@@ -818,55 +853,22 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $tot = $amt + $gstAmtLine;
         $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
         $itemType = $hasIType ? ($item['item_type'] ?: 'Service') : 'Service';
+        $gLabel   = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
     ?>
     <tr>
       <td style="color:#9CA3AF"><?= $idx + 1 ?></td>
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
-        <?php if ($itemHsn): ?><div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">SAC: <?= htmlspecialchars($itemHsn) ?></div><?php endif; ?>
+        <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
       </td>
       <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
-      <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
-      <td class="r"><?= number_format($g, 2) ?>%</td>
-      <td class="r mono" style="font-weight:bold"><?= pdf_fmt_money($tot, $sym) ?></td>
+      <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
+      <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
-  </table>
-
-  <?= pdf_tax_summary_html($items, $discFactor, $sym, false) ?>
-
-  <!-- Totals -->
-  <table width="100%" style="border-top:1px solid #E5E7EB">
-    <tr class="tfoot-row">
-      <td style="width:60%"></td>
-      <td class="tfoot-lbl">Subtotal</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcSubtotal, $sym) ?></td>
-    </tr>
-    <?php if ($discountAmt > 0): ?>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td>
-      <td class="tfoot-val r disc-val" style="text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
-    </tr>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">Taxable Amount</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcSubtotal - $discountAmt, $sym) ?></td>
-    </tr>
-    <?php endif; ?>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">Total GST<br><span style="font-size:8px;color:#9CA3AF;font-weight:normal">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcGstFinal, $sym) ?></td>
-    </tr>
-    <tr class="tfoot-grand">
-      <td style="width:60%"></td>
-      <td class="tfoot-lbl">Grand Total</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcGrand, $sym) ?></td>
-    </tr>
   </table>
 </div>
 <?php endif; ?>
@@ -898,47 +900,103 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </div>
 <?php endif; ?>
 
-<!-- Bank Details -->
-<?php if (!empty($inv['bank_details'])): ?>
-<div class="card">
-  <div class="card-head">Bank Details</div>
-  <div class="card-body">
-    <div class="notes-box mono"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
-  </div>
-</div>
-<?php endif; ?>
+<!-- TAX SUMMARY + BANK/UPI/NOTES/TNC (left) paired with TOTALS (right, full row height) -->
+<?php if ($items || !empty($inv['bank_details']) || !empty($liveNotes) || !empty($liveTnc)): ?>
+<div class="card" style="padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed">
+    <tr>
+      <!-- LEFT: Tax Summary, then Bank Details+UPI, Notes, T&C -->
+      <td style="vertical-align:top;width:64%;padding:14px">
+        <?php if ($items): ?>
+          <?= pdf_tax_summary_html($items, $discFactor, $sym, false) ?>
+        <?php endif; ?>
 
-<!-- Notes & Terms -->
-<?php if (!empty($liveNotes) || !empty($liveTnc)): ?>
-<div class="card">
-  <div class="card-head">Notes &amp; Terms</div>
-  <div class="card-body" style="display:flex;gap:16px">
-    <?php if (!empty($liveNotes)): ?>
-    <div style="flex:1">
-      <div class="section-lbl">Notes</div>
-      <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
-    </div>
-    <?php endif; ?>
-    <?php if (!empty($liveTnc)): ?>
-    <div style="flex:1">
-      <div class="section-lbl">Terms &amp; Conditions</div>
-      <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
-    </div>
-    <?php endif; ?>
-  </div>
-</div>
-<?php endif; ?>
+        <?php if (!empty($inv['bank_details']) || $companyUpi): ?>
+        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-top:<?= $items ? '12px' : '0' ?>">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <?php if (!empty($inv['bank_details'])): ?>
+              <td style="vertical-align:top;<?= $companyUpi ? 'width:58%;padding-right:14px' : '' ?>">
+                <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1.2px;color:#92400E;margin-bottom:5px">Bank Details</div>
+                <div style="font-size:10px;line-height:1.7;color:#78350F"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
+              </td>
+              <?php endif; ?>
+              <?php if ($companyUpi): ?>
+              <td style="vertical-align:top;<?= !empty($inv['bank_details']) ? 'width:42%;border-left:1px solid #FDE68A;padding-left:14px' : '' ?>;text-align:center">
+                <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1.2px;color:#92400E;margin-bottom:5px">UPI</div>
+                <?php if ($qrCode): ?><img src="<?= htmlspecialchars($qrCode) ?>" style="width:64px;height:64px;border-radius:6px;border:1px solid #FDE68A;display:block;margin:0 auto 4px" alt="UPI QR"><?php endif; ?>
+                <div style="display:inline-block;background:#FEF3C7;border-radius:6px;padding:4px 8px;font-size:9.5px;font-weight:bold;color:#92400E"><?= htmlspecialchars($companyUpi) ?></div>
+                <?php if ($qrCode): ?><div style="font-size:8px;color:#92400E;margin-top:3px">Scan to Pay</div><?php endif; ?>
+              </td>
+              <?php endif; ?>
+            </tr>
+          </table>
+        </div>
+        <?php endif; ?>
 
-<!-- Signature -->
-<?php if ($companySign): ?>
-<div class="signature-block">
-  <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:50px;max-width:160px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
-  <div class="sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
-</div>
-<?php else: ?>
-<div class="signature-block">
-  <div class="sig-line"></div>
-  <div class="sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
+        <?php if (!empty($liveNotes)): ?>
+        <div style="margin-top:12px;<?= (!empty($inv['bank_details'])||$companyUpi) ? 'border-top:1px solid #E5E7EB;padding-top:10px' : '' ?>">
+          <div class="section-lbl">Notes</div>
+          <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($liveTnc)): ?>
+        <div style="margin-top:12px;border-top:1px solid #E5E7EB;padding-top:10px">
+          <div class="section-lbl">Terms &amp; Conditions</div>
+          <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+        </div>
+        <?php endif; ?>
+      </td>
+
+      <!-- RIGHT: Totals, full row height (table cells stretch to match the taller sibling) -->
+      <td style="vertical-align:top;width:36%;background:#EEF2FF;padding:0">
+        <?php if ($items): ?>
+        <table width="100%" style="border-collapse:collapse">
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:10px 14px 4px">Subtotal</td>
+            <td class="tfoot-val r" style="padding:10px 14px 4px;text-align:right"><?= pdf_fmt_money($calcSubtotal, $sym) ?></td>
+          </tr>
+          <?php if ($discountAmt > 0): ?>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px">Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td>
+            <td class="tfoot-val r disc-val" style="padding:4px 14px;text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
+          </tr>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px">Taxable Amount</td>
+            <td class="tfoot-val r" style="padding:4px 14px;text-align:right"><?= pdf_fmt_money($calcSubtotal - $discountAmt, $sym) ?></td>
+          </tr>
+          <?php endif; ?>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px 10px">Total GST<br><span style="font-size:8px;color:#9CA3AF;font-weight:normal">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td>
+            <td class="tfoot-val r" style="padding:4px 14px 10px;text-align:right"><?= pdf_fmt_money($calcGstFinal, $sym) ?></td>
+          </tr>
+          <tr class="tfoot-grand">
+            <td class="tfoot-lbl" style="padding:10px 14px">Grand Total</td>
+            <td class="tfoot-val r" style="padding:10px 14px;text-align:right"><?= pdf_fmt_money($calcGrand, $sym) ?></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:9px 14px;border-bottom:1px solid #DDE1FA">
+              <div style="font-size:7.5px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#4338CA;opacity:.8;margin-bottom:2px">Amount in Words</div>
+              <div style="font-size:9.5px;font-style:italic;color:#312E81;line-height:1.4"><?= htmlspecialchars(pdf_num_to_words_inr($calcGrand)) ?></div>
+            </td>
+          </tr>
+        </table>
+        <?php endif; ?>
+
+        <!-- Signature — pinned toward the bottom of this cell -->
+        <div style="text-align:right;padding:20px 14px 14px">
+          <?php if ($companySign): ?>
+            <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:44px;max-width:150px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
+          <?php else: ?>
+            <div style="width:140px;border-bottom:1px solid #C7D2FE;margin-left:auto;margin-bottom:5px;height:30px"></div>
+          <?php endif; ?>
+          <div style="font-size:8.5px;color:#9CA3AF;font-weight:bold;text-transform:uppercase;letter-spacing:.5px">Authorised Signatory</div>
+          <div style="font-size:8px;color:#C4CAF5;margin-top:1px"><?= htmlspecialchars($companyName) ?></div>
+        </div>
+      </td>
+    </tr>
+  </table>
 </div>
 <?php endif; ?>
 
