@@ -13396,11 +13396,12 @@ function buildInvoiceHTML(d, forPrint) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
           ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGstCol?7:6}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
+    : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
 
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
@@ -14649,6 +14650,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
         <th style="${thStyle}">Type</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
+        <th style="${thr}">Amount</th>
         ${gstColHeader?`<th style="${thr}">GST</th>`:''}
         <th style="${thr};color:#93C5FD">Total</th>
       </tr></thead>
@@ -14913,11 +14915,12 @@ function openPrintWindow(d, items) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
           ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGst?7:6}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
@@ -15031,11 +15034,12 @@ function printInvoiceById(inv) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="6" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const d = {
     tpl: inv.template || inv.template_id || STATE.settings.activeTemplate || '2',
     num: inv.num||inv.invoice_number, date: inv.issued||inv.issued_date,
@@ -15484,11 +15488,12 @@ function openPreviewModal(id) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="6" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;

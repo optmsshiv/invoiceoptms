@@ -838,6 +838,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <th style="width:70px">Type</th>
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
+        <th class="r" style="width:80px">Amount</th>
         <th class="r" style="width:70px">GST</th>
         <th class="r" style="width:85px">Total</th>
       </tr>
@@ -863,6 +864,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
+      <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
       <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
       <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
