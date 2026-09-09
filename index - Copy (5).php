@@ -14865,59 +14865,25 @@ function openPrintWindow(d, items) {
     return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${bg};color:${color};border:1px solid ${border}">${r}%</span>`;
   };
   const itemsHTML = items.length
-    ? items.map((i, idx) => {
-        const line    = (i.qty||1)*(i.rate||0);
-        const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
+    ? items.map(i => {
+        const line = (i.qty||1)*(i.rate||0);
+        const gstR = parseFloat(i.gst)||0;
+        const gstAmt = line * gstR / 100;
         const lineInclGst = line + gstAmt;
         const itype = i.itemType||'Service';
-        const ihsn  = i.hsn || '—';
-        const gstBadge = itemGst === 0
-          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1">${itemGst}%</span>`
-          : itemGst <= 5
-          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#F0FDF4;color:#166534;border:1px solid #86EFAC">${itemGst}%</span>`
-          : itemGst <= 12
-          ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A">${itemGst}%</span>`
-          : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">${itemGst}%</span>`;
-        const typeBadge = `<span style="font-size:11px;font-weight:600;color:#555">${itype}</span>`;
+        const pidx = items.indexOf(i);
         return `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-weight:700;color:#111">${i.desc||'—'}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:10.5px;color:#666;font-family:monospace">${ihsn}</td>
-          <td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${typeBadge}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
-          ${showGst ? `<td style="padding:9px 8px;text-align:center;border-bottom:1px solid #eee">${gstBadge}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:#166534">${fmt_money(gstAmt,d.sym)}</td>` : ''}
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#111">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(pidx+1).padStart(2,'0')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee">${i.desc||'—'}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee;font-size:11px;font-weight:600;color:#555">${itype}</td>
+          <td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${i.qty}</td>
+          <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(i.rate,d.sym)}</td>
+          <td style="padding:10px 12px;text-align:right;border-bottom:1px solid #eee">${fmt_money(line,d.sym)}</td>
+          ${showGst ? `<td style="padding:10px 12px;text-align:center;border-bottom:1px solid #eee">${buildGstBadge(gstR)}</td>` : ''}
+          <td style="padding:10px 12px;text-align:right;font-weight:700;border-bottom:1px solid #eee">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGst?10:8}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
-
-  const itemsHTML2 = items.length
-    ? items.map((i, idx) => {
-        const line    = (i.qty||1)*(i.rate||0);
-        const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
-        const lineInclGst = line + gstAmt;
-        const itype = i.itemType || 'Service';
-        const ihsn  = i.hsn || '—';
-        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        return `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee">
-            <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
-          </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="${showGst?7:6}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
@@ -14934,7 +14900,7 @@ function openPrintWindow(d, items) {
     invoices: STATE.invoices || [],
     payments: STATE.payments || [],
   });
-  const html = fn(d, _printSc, itemsHTML, gstColHeader, rowNumHeader, itemsHTML2);
+  const html = fn(d, _printSc, itemsHTML, gstColHeader, rowNumHeader);
   window.STATE = _origStatePrint;
   const w = window.open('','_blank','width=920,height=750');
   if (!w) { toast('⚠️ Pop-up blocked — please allow pop-ups for this site', 'warning'); return; }
@@ -15011,31 +14977,6 @@ function printInvoiceById(inv) {
     : `<tr><td colspan="7" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstHdr = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHdr2 = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const itemsHTML2 = items.length
-    ? items.map((i, idx) => {
-        const qty  = parseFloat(i.qty||i.quantity||1);
-        const rate = parseFloat(i.rate||0);
-        const gst  = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
-        const line = qty*rate;
-        const gstAmt = line * gst / 100;
-        const lineInclGst = line + gstAmt;
-        const itype = i.itemType||i.item_type||'Service';
-        const ihsn  = i.hsn||i.hsn_code||'—';
-        const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
-        return `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee">
-            <div style="font-weight:700;color:#111">${i.desc||i.description||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
-          </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,sym)}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="6" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const d = {
     tpl: inv.template || inv.template_id || STATE.settings.activeTemplate || '2',
     num: inv.num||inv.invoice_number, date: inv.issued||inv.issued_date,
@@ -15072,7 +15013,7 @@ function printInvoiceById(inv) {
     invoices: STATE.invoices || [],
     payments: STATE.payments || [],
   });
-  const html = fn(d, _printSc2, itemsHTML, gstHdr, rowNumHdr2, itemsHTML2);
+  const html = fn(d, _printSc2, itemsHTML, gstHdr, rowNumHdr2);
   window.STATE = _origState2;
   const w = window.open('','_blank','width=920,height=750');
   if (!w) { toast('⚠️ Pop-up blocked — please allow pop-ups for this site', 'warning'); return; }
@@ -15463,36 +15404,10 @@ function openPreviewModal(id) {
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
-  const previewItemsHTML2 = invItems.length
-    ? invItems.map((i, idx) => {
-        const qty  = parseFloat(i.qty||i.quantity||1);
-        const rate = parseFloat(i.rate||0);
-        const gstR = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
-        const desc = i.desc||i.description||'—';
-        const line = qty*rate;
-        const gstAmt = line * gstR / 100;
-        const lineInclGst = line + gstAmt;
-        const itype = i.itemType||i.item_type||'Service';
-        const ihsn  = i.hsn||i.hsn_code||'—';
-        const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
-        return `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee">
-            <div style="font-weight:700;color:#111">${desc}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
-          </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="6" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
-  const innerHtml = fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader, previewItemsHTML2);
+  const innerHtml = fn(d, sc, previewItemsHTML, gstColHeader, rowNumHeader);
   const mpBody = document.getElementById('mp-body');
   // Measure the real, unscaled content height first — a fixed one-A4-page
   // height would clip invoices with enough items/notes to run past one page.
