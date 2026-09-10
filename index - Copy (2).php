@@ -13074,24 +13074,7 @@ function updateItemDisc(id, field, val) {
   if (!item) return;
   if (field === 'discType') item.discType = val;
   else item.disc = parseFloat(val) || 0;
-  // Targeted DOM update only — NOT renderFormItems(), which would rebuild the
-  // whole items list and steal focus from the input the person is typing in.
-  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
-  const lineAmt  = (item.qty||1)*(item.rate||0);
-  const iDisc    = parseFloat(item.disc||0);
-  const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
-  const base     = discMode === 'item' ? (lineAmt - iDiscAmt) : lineAmt;
-  const gstAmt   = base * (parseFloat(item.gst ?? 0)/100);
-  const amtEl = document.getElementById('iamt-'+id);
-  if (amtEl) amtEl.textContent = fmt_money(base);
-  const totEl = document.getElementById('itot-'+id);
-  if (totEl) totEl.textContent = fmt_money(base+gstAmt);
-  const row = document.getElementById('item-'+id);
-  const note = row?.nextElementSibling?.querySelector?.('.disc-note');
-  if (note) note.textContent = `discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}`;
-  const btn = row?.querySelector('.item-discbtn');
-  if (btn) btn.classList.toggle('active', iDiscAmt>0);
-  calcTotals();
+  renderFormItems();
 }
 
 function updateItem(id, field, val) {
