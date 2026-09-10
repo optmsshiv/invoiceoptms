@@ -86,7 +86,7 @@ function pdf_num_to_words_inr($amount) {
 // in index.php exactly so the JS preview and the downloaded PDF always match.
 // $items: array of ['hsn'=>, 'item_type'=>, 'gst'=>, 'qty'=>, 'rate'=>]. $mono: true for
 // the monochrome/serif Formal Letterhead template, false for the colorful Template 2.
-function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
+function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false, $itemDiscMode = false) {
     if (empty($items)) return '';
     $font = $mono ? "'DejaVu Serif',Georgia,serif" : "'DejaVu Sans',Arial,sans-serif";
     $buckets = [];
@@ -95,10 +95,20 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false) {
         $hsn  = $item['hsn'] ?: '—';
         $type = $item['item_type'] ?: 'Service';
         $key  = $hsn . '|' . $rate;
-        $base = ((float)($item['qty'] ?? 1)) * ((float)($item['rate'] ?? 0)) * $discFactor;
+        $lineAmt = ((float)($item['qty'] ?? 1)) * ((float)($item['rate'] ?? 0));
+        if ($itemDiscMode) {
+            $iDisc = (float)($item['item_discount'] ?? 0);
+            $iDiscAmt = (($item['item_discount_type'] ?? '') === 'fixed') ? min($iDisc, $lineAmt) : $lineAmt * $iDisc / 100;
+            $base = $lineAmt - $iDiscAmt;
+        } else {
+            $base = $lineAmt * $discFactor;
+        }
         if (!isset($buckets[$key])) $buckets[$key] = ['hsn' => $hsn, 'type' => $type, 'rate' => $rate, 'taxable' => 0];
         $buckets[$key]['taxable'] += $base;
     }
+    // Non-taxable (0% / exempt) groups are omitted entirely — blank like the empty state.
+    $buckets = array_filter($buckets, fn($r) => $r['rate'] > 0);
+    if (empty($buckets)) return '';
     usort($buckets, fn($a, $b) => $a['hsn'] === $b['hsn'] ? $a['rate'] <=> $b['rate'] : strcmp($a['hsn'], $b['hsn']));
     $totTaxable = 0; $totCgst = 0; $totSgst = 0; $totGst = 0;
     $rowsHtml = '';
@@ -240,14 +250,19 @@ if ($error || $invoiceId <= 0) {
 try {
     $db = getDB();
 
-    // Invoice
+    // Invoice — discount_mode may not exist on every tenant's invoices table
+    // yet, so detect it first rather than assuming (same defensive pattern
+    // used below for invoice_items' hsn/item_type columns).
+    $invCols = $db->query("SHOW COLUMNS FROM invoices")->fetchAll(PDO::FETCH_COLUMN);
+    $hasDiscMode = in_array('discount_mode', $invCols, true);
+    $discModeSelect = $hasDiscMode ? ', i.discount_mode' : '';
     $stmt = $db->prepare("
         SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                i.due_date, i.grand_total AS amount, i.subtotal,
                i.discount_pct, i.discount_amt, i.gst_amount,
                i.status, i.client_id, i.service_type,
                i.notes, i.terms, i.bank_details, i.currency,
-               i.company_logo, i.signature
+               i.company_logo, i.signature$discModeSelect
         FROM invoices i WHERE i.id = :id LIMIT 1
     ");
     $stmt->execute([':id' => $invoiceId]);
@@ -265,14 +280,17 @@ try {
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Line items — hsn/item_type columns may not exist on every tenant's
-    // invoice_items table yet, so detect them first rather than assuming;
-    // an unconditional SELECT of missing columns would break PDF generation
-    // entirely for anyone who hasn't added them.
+    // Line items — hsn/item_type/item_discount columns may not exist on every
+    // tenant's invoice_items table yet, so detect them first rather than
+    // assuming; an unconditional SELECT of missing columns would break PDF
+    // generation entirely for anyone who hasn't added them.
     $iiCols   = $db->query("SHOW COLUMNS FROM invoice_items")->fetchAll(PDO::FETCH_COLUMN);
     $hasHsn   = in_array('hsn', $iiCols, true);
     $hasIType = in_array('item_type', $iiCols, true);
-    $extraCols = ($hasHsn ? ', hsn' : '') . ($hasIType ? ', item_type' : '');
+    $hasIDisc = in_array('item_discount', $iiCols, true);
+    $hasIDiscType = in_array('item_discount_type', $iiCols, true);
+    $extraCols = ($hasHsn ? ', hsn' : '') . ($hasIType ? ', item_type' : '')
+        . ($hasIDisc ? ', item_discount' : '') . ($hasIDiscType ? ', item_discount_type' : '');
     $iStmt = $db->prepare("SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total$extraCols FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC");
     $iStmt->execute([':id' => $inv['invoice_id']]);
     $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -323,17 +341,31 @@ $remaining = max(0, $totalAmt - $totalCovered);
 $lastPaymentDate = $payments ? pdf_fmt_date(end($payments)['payment_date'] ?? '') : '';
 
 // Line item totals
-$calcSubtotal = 0; $calcGst = 0;
+$discMode = ($hasDiscMode && ($inv['discount_mode'] ?? '') === 'item') ? 'item' : 'invoice';
+$calcSubtotal = 0; $calcGst = 0; $itemDiscTotal = 0;
 foreach ($items as $item) {
-    $a = (float)$item['qty'] * (float)$item['rate'];
-    $calcSubtotal += $a;
-    $calcGst      += $a * (float)$item['gst'] / 100;
+    $lineAmt = (float)$item['qty'] * (float)$item['rate'];
+    $calcSubtotal += $lineAmt;
+    if ($discMode === 'item') {
+        $iDisc = $hasIDisc ? (float)($item['item_discount'] ?? 0) : 0;
+        $iDiscType = $hasIDiscType ? ($item['item_discount_type'] ?? 'pct') : 'pct';
+        $iDiscAmt = ($iDiscType === 'fixed') ? min($iDisc, $lineAmt) : $lineAmt * $iDisc / 100;
+        $itemDiscTotal += $iDiscAmt;
+        $calcGst += ($lineAmt - $iDiscAmt) * (float)$item['gst'] / 100;
+    } else {
+        $calcGst += $lineAmt * (float)$item['gst'] / 100;
+    }
 }
-$discountAmt = (float)($inv['discount_amt'] ?? 0);
-$discountPct = (float)($inv['discount_pct'] ?? 0);
-if ($discountAmt == 0 && $discountPct > 0) $discountAmt = $calcSubtotal * $discountPct / 100;
+if ($discMode === 'item') {
+    $discountAmt = $itemDiscTotal;
+    $discountPct = $calcSubtotal > 0 ? ($discountAmt / $calcSubtotal * 100) : 0;
+} else {
+    $discountAmt = (float)($inv['discount_amt'] ?? 0);
+    $discountPct = (float)($inv['discount_pct'] ?? 0);
+    if ($discountAmt == 0 && $discountPct > 0) $discountAmt = $calcSubtotal * $discountPct / 100;
+}
 $discFactor   = $calcSubtotal > 0 ? (1 - $discountAmt / $calcSubtotal) : 1;
-$calcGstFinal = $discountAmt > 0 ? $calcGst * $discFactor : $calcGst;
+$calcGstFinal = $discMode === 'item' ? $calcGst : ($discountAmt > 0 ? $calcGst * $discFactor : $calcGst);
 $calcGrand    = $calcSubtotal - $discountAmt + $calcGstFinal;
 
 // Company info
@@ -848,7 +880,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $q   = (float)$item['qty'];
         $r   = (float)$item['rate'];
         $g   = (float)$item['gst'];
-        $amt = $q * $r;
+        $lineAmt = $q * $r;
+        $iDisc = ($discMode==='item' && $hasIDisc) ? (float)($item['item_discount'] ?? 0) : 0;
+        $iDiscType = $hasIDiscType ? ($item['item_discount_type'] ?? 'pct') : 'pct';
+        $iDiscAmt = ($discMode==='item') ? (($iDiscType==='fixed') ? min($iDisc,$lineAmt) : $lineAmt*$iDisc/100) : 0;
+        $amt = $lineAmt - $iDiscAmt;
         $gstAmtLine = $amt * $g / 100;
         $tot = $amt + $gstAmtLine;
         $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
@@ -860,6 +896,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
         <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
+        <?php if ($iDiscAmt > 0): ?><div style="font-size:9px;color:#DC2626;margin-top:1px">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?> discount</div><?php endif; ?>
       </td>
       <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
@@ -909,7 +946,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <!-- LEFT: Tax Summary, then Bank Details+UPI, Notes, T&C -->
       <td style="vertical-align:top;width:64%;padding:14px">
         <?php if ($items): ?>
-          <?= pdf_tax_summary_html($items, $discFactor, $sym, false) ?>
+          <?= pdf_tax_summary_html($items, $discFactor, $sym, false, $discMode === 'item') ?>
         <?php endif; ?>
 
         <?php if (!empty($inv['bank_details']) || $companyUpi): ?>
@@ -960,7 +997,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
           </tr>
           <?php if ($discountAmt > 0): ?>
           <tr class="tfoot-row">
-            <td class="tfoot-lbl" style="padding:4px 14px">Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td>
+            <td class="tfoot-lbl" style="padding:4px 14px"><?php if ($discMode === 'item'): ?>Total Discount <span style="font-size:7px;padding:1px 5px;border-radius:7px;background:#DDE1FA;color:#4338CA;text-transform:uppercase;letter-spacing:.3px">Auto</span><?php else: ?>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?><?php endif; ?></td>
             <td class="tfoot-val r disc-val" style="padding:4px 14px;text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
           </tr>
           <tr class="tfoot-row">

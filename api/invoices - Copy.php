@@ -18,7 +18,6 @@ $_migrateCols = [
   'client_email'  => "ALTER TABLE invoices ADD COLUMN client_email  VARCHAR(200) NULL DEFAULT NULL",
   'client_gst'    => "ALTER TABLE invoices ADD COLUMN client_gst    VARCHAR(50)  NULL DEFAULT NULL",
   'client_addr'   => "ALTER TABLE invoices ADD COLUMN client_addr   TEXT         NULL",
-  'discount_mode' => "ALTER TABLE invoices ADD COLUMN discount_mode VARCHAR(20)  NULL DEFAULT 'invoice'",
 ];
 foreach ($_migrateCols as $_col => $_sql) {
   try {
@@ -26,25 +25,6 @@ foreach ($_migrateCols as $_col => $_sql) {
     $_chk->execute([$_col]);
     if ((int)$_chk->fetchColumn() === 0) $db->exec($_sql);
   } catch (Exception $e) { error_log("migrate invoices.$_col: " . $e->getMessage()); }
-}
-
-// ── Auto-migrate: line-item HSN/SAC, item type, and per-item discount ──
-// (hsn/item_type back the Description subtitle + Type column; item_discount
-// /item_discount_type back the per-item discount feature — see index.php's
-// discount-mode toggle and pdf.php's defensive column detection, which both
-// already tolerate these columns being absent.)
-$_migrateItemCols = [
-  'hsn'                 => "ALTER TABLE invoice_items ADD COLUMN hsn VARCHAR(20) NULL DEFAULT NULL",
-  'item_type'           => "ALTER TABLE invoice_items ADD COLUMN item_type VARCHAR(50) NULL DEFAULT 'Service'",
-  'item_discount'       => "ALTER TABLE invoice_items ADD COLUMN item_discount DECIMAL(12,2) NULL DEFAULT 0",
-  'item_discount_type'  => "ALTER TABLE invoice_items ADD COLUMN item_discount_type VARCHAR(10) NULL DEFAULT 'pct'",
-];
-foreach ($_migrateItemCols as $_col => $_sql) {
-  try {
-    $_chk = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='invoice_items' AND COLUMN_NAME=?");
-    $_chk->execute([$_col]);
-    if ((int)$_chk->fetchColumn() === 0) $db->exec($_sql);
-  } catch (Exception $e) { error_log("migrate invoice_items.$_col: " . $e->getMessage()); }
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -75,10 +55,6 @@ return [
 'rate'  => (float)$it['rate'],
 'gst'   => (float)$it['gst_rate'],
 'total' => (float)$it['line_total'],
-'hsn'      => $it['hsn'] ?? '',
-'itemType' => $it['item_type'] ?? 'Service',
-'disc'     => (float)($it['item_discount'] ?? 0),
-'discType' => $it['item_discount_type'] ?? 'pct',
 ];
 }, $rawItems);
 if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
@@ -91,7 +67,6 @@ $inv['due']      = $inv['due_date'];
 $inv['amount']   = (float)$inv['grand_total'];
 $inv['disc']     = (float)$inv['discount_pct'];
 $inv['discount_type'] = $inv['discount_type'] ?? 'percent';
-$inv['discount_mode']  = $inv['discount_mode'] ?? 'invoice';
 $inv['currency'] = $inv['currency'];
 $inv['template'] = (int)$inv['template_id'];
 $inv['subtotal'] = (float)$inv['subtotal'];
@@ -119,8 +94,7 @@ $si = $db->prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY so
 $si->execute([$inv['id']]);
 $rawItems = $si->fetchAll();
 $inv['items'] = array_map(function($it){
-return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total'],
-'hsn'=>$it['hsn']??'','itemType'=>$it['item_type']??'Service','disc'=>(float)($it['item_discount']??0),'discType'=>$it['item_discount_type']??'pct'];
+return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total']];
 }, $rawItems);
 $inv['num']       = $inv['invoice_number'];
 $inv['client']    = (string)$inv['client_id'];
@@ -130,7 +104,6 @@ $inv['due']       = $inv['due_date'];
 $inv['amount']    = (float)$inv['grand_total'];
 $inv['disc']      = (float)$inv['discount_pct'];
 $inv['discount_type'] = $inv['discount_type'] ?? 'percent';
-$inv['discount_mode']  = $inv['discount_mode'] ?? 'invoice';
 $inv['currency']  = $inv['currency'];
 $inv['template']  = (int)$inv['template_id'];
 $inv['subtotal']  = (float)$inv['subtotal'];
@@ -224,11 +197,11 @@ $check->execute([$input['invoice_number']]);
 }
 $stmt = $db->prepare('
 INSERT INTO invoices (invoice_number,client_id,client_name,service_type,issued_date,due_date,
-status,currency,subtotal,discount_pct,discount_type,discount_amt,discount_mode,gst_amount,grand_total,
+status,currency,subtotal,discount_pct,discount_type,discount_amt,gst_amount,grand_total,
 notes,bank_details,terms,company_logo,client_logo,signature,qr_code,
 template_id,generated_by,show_generated,pdf_options,
 client_person,client_wa,client_email,client_gst,client_addr,created_by)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
 try {
 $stmt->execute([
 $input['invoice_number'], nullIfEmpty($input['client_id']??null), $input['client_name']??'',
@@ -237,7 +210,6 @@ $input['status']??'Draft', $input['currency']??'',
 $input['subtotal']??0, $input['discount_pct']??0,
 in_array($input['discount_type']??'percent', ['percent','flat']) ? $input['discount_type'] : 'percent',
 $input['discount_amt']??0,
-in_array($input['discount_mode']??'invoice', ['invoice','item'], true) ? $input['discount_mode'] : 'invoice',
 $input['gst_amount']??0, $input['grand_total']??0,
 $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
 $input['company_logo']??'', $input['client_logo']??'',
@@ -257,13 +229,10 @@ jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
 $invId = (int)$db->lastInsertId();
 // Insert items
 if (!empty($input['items'])) {
-$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,sort_order) VALUES (?,?,?,?,?,?,?)');
 foreach ($input['items'] as $idx => $item) {
 $line = (float)($item['qty']??1) * (float)($item['rate']??0);
-$si->execute([$invId, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line,
-$item['hsn']??'', $item['itemType']??'Service',
-$item['disc']??0, in_array($item['discType']??'pct', ['pct','fixed'], true) ? $item['discType'] : 'pct',
-$idx]);
+$si->execute([$invId, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line, $idx]);
 }
 }
 logActivity((int)$userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
@@ -313,7 +282,7 @@ if (!in_array($statusInput, $allowedStatuses, true)) {
 $input['status'] = $statusInput;
 $stmt = $db->prepare('
 UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
-status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,discount_mode=?,gst_amount=?,grand_total=?,
+status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,gst_amount=?,grand_total=?,
 notes=?,bank_details=?,terms=?,company_logo=?,client_logo=?,signature=?,qr_code=?,
 template_id=?,generated_by=?,show_generated=?,pdf_options=?,
 client_person=?,client_wa=?,client_email=?,client_gst=?,client_addr=?
@@ -324,9 +293,7 @@ nullIfEmpty($input['client_id']??null), $input['client_name']??'', $input['servi
 nullIfEmpty($input['issued_date']??null), nullIfEmpty($input['due_date']??null), $input['status'],
 $input['currency']??'₹', $input['subtotal']??0, $input['discount_pct']??0,
 in_array($input['discount_type']??'percent', ['percent','flat']) ? $input['discount_type'] : 'percent',
-$input['discount_amt']??0,
-in_array($input['discount_mode']??'invoice', ['invoice','item'], true) ? $input['discount_mode'] : 'invoice',
-$input['gst_amount']??0, $input['grand_total']??0,
+$input['discount_amt']??0, $input['gst_amount']??0, $input['grand_total']??0,
 $input['notes']??'', $input['bank_details']??'', $input['terms']??'',
 $input['company_logo']??'', $input['client_logo']??'',
 $input['signature']??'', $input['qr_code']??'',
@@ -345,13 +312,10 @@ jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
 // Re-insert items
 $db->prepare('DELETE FROM invoice_items WHERE invoice_id=?')->execute([$id]);
 if (!empty($input['items'])) {
-$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,sort_order) VALUES (?,?,?,?,?,?,?)');
 foreach ($input['items'] as $idx => $item) {
 $line = (float)($item['qty']??1) * (float)($item['rate']??0);
-$si->execute([$id, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line,
-$item['hsn']??'', $item['itemType']??'Service',
-$item['disc']??0, in_array($item['discType']??'pct', ['pct','fixed'], true) ? $item['discType'] : 'pct',
-$idx]);
+$si->execute([$id, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line, $idx]);
 }
 }
 logActivity($_SESSION['user_id'], 'update', 'invoice', $id, "Updated invoice #$id");
