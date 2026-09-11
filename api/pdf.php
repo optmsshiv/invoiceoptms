@@ -896,12 +896,14 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
         <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
-        <?php if ($iDiscAmt > 0): ?><div style="font-size:9px;color:#DC2626;margin-top:1px">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?> discount</div><?php endif; ?>
       </td>
       <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
-      <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
+      <td class="r mono">
+        <?= pdf_fmt_money($amt, '') ?>
+        <?php if ($iDiscAmt > 0): ?><div style="font-size:8px;color:#DC2626;margin-top:1px">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></div><?php endif; ?>
+      </td>
       <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
       <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>

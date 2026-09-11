@@ -13527,17 +13527,18 @@ function buildInvoiceHTML(d, forPrint) {
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10.5px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)} discount</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
             <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${discNote}
           </td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}</td>
           ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
@@ -15060,17 +15061,18 @@ function openPrintWindow(d, items) {
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10.5px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)} discount</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
             <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${discNote}
           </td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}</td>
           ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
@@ -15184,17 +15186,18 @@ function printInvoiceById(inv) {
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
-        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,sym)}</div>` : '';
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10.5px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,sym)} discount</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||i.description||'—'}</div>
             <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${discNote}
           </td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,sym)}</td>
         </tr>`;
@@ -15656,17 +15659,18 @@ function openPreviewModal(id) {
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
-        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10.5px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)} discount</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${desc}</div>
             <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${discNote}
           </td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
