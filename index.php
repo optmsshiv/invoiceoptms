@@ -1128,12 +1128,10 @@ select { cursor: pointer; }
 .item-total {
   font-weight: 700; font-family: var(--mono); font-size: 12px;
   color: var(--teal); text-align: right;
-  padding: 0 10px; border-right: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: flex-end;
+  padding: 6px 10px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
   background: #E8F5F3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .item-del {
@@ -13046,7 +13044,7 @@ function renderFormItems() {
       </select></div>
       <div class="item-qty"><input type="number" value="${item.qty}" min="1" oninput="updateItem(${item.id},'qty',this.value)"></div>
       <div class="item-rate"><input type="number" value="${item.rate}" min="0" placeholder="0" oninput="updateItem(${item.id},'rate',this.value)"></div>
-      <div class="item-amount" id="iamt-${item.id}" title="Amount (excl. GST)">${fmt_money(base)}</div>
+      <div class="item-amount" id="iamt-${item.id}" title="Amount (excl. GST, before item discount)">${fmt_money(lineAmt)}</div>
       <div class="item-gst"><select onchange="updateItem(${item.id},'gst',this.value)">
         <option value="0" ${item.gst==0?'selected':''}>0%</option>
         <option value="5" ${item.gst==5?'selected':''}>5%</option>
@@ -13054,7 +13052,9 @@ function renderFormItems() {
         <option value="18" ${item.gst==18?'selected':''}>18%</option>
         <option value="28" ${item.gst==28?'selected':''}>28%</option>
       </select></div>
-      <div class="item-total" id="itot-${item.id}" title="Total (incl. GST)">${fmt_money(lineTotal)}</div>
+      <div class="item-total" id="itot-${item.id}" title="Total (incl. GST, after item discount)">
+        ${fmt_money(lineTotal)}${discMode==='item'&&iDiscAmt>0?`<div style="font-size:10px;color:#DC2626;font-weight:400">− ${fmt_money(iDiscAmt)}</div>`:''}
+      </div>
       ${discBtn}
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
     </div>${discRow}`;
@@ -13083,9 +13083,9 @@ function updateItemDisc(id, field, val) {
   const base     = discMode === 'item' ? (lineAmt - iDiscAmt) : lineAmt;
   const gstAmt   = base * (parseFloat(item.gst ?? 0)/100);
   const amtEl = document.getElementById('iamt-'+id);
-  if (amtEl) amtEl.textContent = fmt_money(base);
+  if (amtEl) amtEl.textContent = fmt_money(lineAmt);  // always the raw, pre-discount value
   const totEl = document.getElementById('itot-'+id);
-  if (totEl) totEl.textContent = fmt_money(base+gstAmt);
+  if (totEl) totEl.innerHTML = fmt_money(base+gstAmt) + (discMode==='item'&&iDiscAmt>0?`<div style="font-size:10px;color:#DC2626;font-weight:400">− ${fmt_money(iDiscAmt)}</div>`:'');
   const row = document.getElementById('item-'+id);
   const note = row?.nextElementSibling?.querySelector?.('.disc-note');
   if (note) note.textContent = `discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}`;
@@ -13114,17 +13114,17 @@ function updateItem(id, field, val) {
   }
   const lineAmt = (item.qty||1)*(item.rate||0);
   const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
-  let base = lineAmt;
+  let base = lineAmt, iDiscAmt = 0;
   if (discMode === 'item') {
     const iDisc = parseFloat(item.disc||0);
-    const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+    iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
     base = lineAmt - iDiscAmt;
   }
   const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
   const amt = document.getElementById('iamt-'+id);
-  if (amt) amt.textContent = fmt_money(base);
+  if (amt) amt.textContent = fmt_money(lineAmt);  // always the raw, pre-discount value
   const tot = document.getElementById('itot-'+id);
-  if (tot) tot.textContent = fmt_money(base + gstAmt);  // GST-inclusive
+  if (tot) tot.innerHTML = fmt_money(base + gstAmt) + (discMode==='item'&&iDiscAmt>0?`<div style="font-size:10px;color:#DC2626;font-weight:400">− ${fmt_money(iDiscAmt)}</div>`:'');
   calcTotals();
 }
 
