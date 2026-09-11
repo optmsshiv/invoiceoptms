@@ -13528,8 +13528,8 @@ function buildInvoiceHTML(d, forPrint) {
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
-        const amtCell = itemGst>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
-        const totCell = itemGst>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
+        const amtCell = fmt_money(line,d.sym);
+        const totCell = `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15063,8 +15063,8 @@ function openPrintWindow(d, items) {
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
-        const amtCell = itemGst>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
-        const totCell = itemGst>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
+        const amtCell = fmt_money(line,d.sym);
+        const totCell = `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15189,8 +15189,8 @@ function printInvoiceById(inv) {
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,sym)}</div>` : '';
-        const amtCell = gst>0 ? `${fmt_money(itemTaxable,sym)}${discNote}` : fmt_money(line,sym);
-        const totCell = gst>0 ? fmt_money(lineInclGst,sym) : `${fmt_money(lineInclGst,sym)}${discNote}`;
+        const amtCell = fmt_money(line,sym);
+        const totCell = `${fmt_money(lineInclGst,sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15663,8 +15663,8 @@ function openPreviewModal(id) {
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
-        const amtCell = gstR>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
-        const totCell = gstR>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
+        const amtCell = fmt_money(line,d.sym);
+        const totCell = `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
