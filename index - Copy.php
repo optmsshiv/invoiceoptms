@@ -1032,7 +1032,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1056,7 +1056,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1143,6 +1143,25 @@ select { cursor: pointer; }
   transition: .2s;
   display: flex; align-items: center; justify-content: center;
 }
+.item-discbtn {
+  width: 32px; border-radius: 0; border: none; border-right: 1px solid var(--border);
+  background: transparent; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; transition: .2s;
+  color: var(--muted2);
+}
+.item-discbtn:hover { background: var(--bg); }
+.item-discbtn.active { color: #DC2626; }
+.item-disc-row {
+  padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.item-disc-row select, .item-disc-row input {
+  padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text); font-size: 12px;
+}
+.item-disc-row select { width: 70px; }
+.item-disc-row input { width: 90px; }
+.item-disc-row .disc-note { font-size: 11px; color: var(--muted); }
 .item-qty input[type=number],
 .item-rate input[type=number] {
   -moz-appearance: textfield;
@@ -2575,6 +2594,7 @@ const SERVER = {
               <span style="text-align:center">GST%</span>
               <span style="text-align:right">Total</span>
               <span></span>
+              <span></span>
             </div>
             <div id="itemsList"></div>
             <div class="items-actions">
@@ -2596,10 +2616,17 @@ const SERVER = {
                 <span>Subtotal</span>
                 <code id="tp-sub">₹0.00</code>
               </div>
+              <div class="tp-row" style="align-items:center">
+                <span style="font-size:12px;color:var(--muted)">Discount applies to</span>
+                <select id="f-disc-mode" onchange="toggleDiscMode()" style="width:130px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);cursor:pointer;font-size:12px">
+                  <option value="invoice">Invoice-level</option>
+                  <option value="item">Item-level</option>
+                </select>
+              </div>
               <div class="tp-row">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
 
-  <label style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">
+  <label id="f-disc-label" style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap">
     Discount
   </label>
             <!-- Input -->
@@ -12953,6 +12980,7 @@ function resetCreateForm() {
   // Clear other form fields
   _sv('f-disc', '0');
   const discTypeEl = document.getElementById('f-disc-type'); if (discTypeEl) discTypeEl.value = 'pct';
+  const discModeEl = document.getElementById('f-disc-mode'); if (discModeEl) discModeEl.value = 'invoice';
   const _gstEl2 = document.getElementById('f-gst'); if (_gstEl2) _gstEl2.value = String(STATE.settings.defaultGST ?? 18);
   const svcEl = document.getElementById('f-service'); if (svcEl) svcEl.value = '';
   const svcCustomEl = document.getElementById('f-service-custom'); if (svcCustomEl) svcCustomEl.value = '';
@@ -12977,19 +13005,37 @@ function addItem() {
   const fgst = document.getElementById('f-gst');
   const gstVal = fgst ? fgst.value : String(STATE.settings.defaultGST ?? 18);
   const defaultGst = (gstVal !== '' && gstVal !== null) ? parseInt(gstVal) : (STATE.settings.defaultGST ?? 18);
-  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0, hsn: suggestHsnForCategory('Service') });
+  formItems.push({ id: Date.now(), desc: '', itemType: 'Service', qty: 1, gst: defaultGst, rate: 0, hsn: suggestHsnForCategory('Service'), disc: 0, discType: 'pct' });
   renderFormItems();
 }
 
 function renderFormItems() {
   const el = document.getElementById('itemsList');
   if (!el) return;
+  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
   el.innerHTML = formItems.map((item, idx) => {
-    const base     = (item.qty||1)*(item.rate||0);
+    const lineAmt  = (item.qty||1)*(item.rate||0);
+    const iDisc     = parseFloat(item.disc||0);
+    const iDiscAmt  = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+    const base     = discMode === 'item' ? (lineAmt - iDiscAmt) : lineAmt;
     const gstRate  = parseFloat(item.gst ?? 0);
     const gstAmt   = base * gstRate / 100;
     const lineTotal = base + gstAmt;   // GST-inclusive total
     const itemType = item.itemType || 'Service';
+    const discActive = discMode === 'item' && iDiscAmt > 0;
+    const discBtn = discMode === 'item'
+      ? `<button class="item-discbtn${discActive?' active':''}" onclick="toggleItemDisc(${item.id})" title="Item discount"><i class="fas fa-tag"></i></button>`
+      : `<span></span>`;
+    const discRow = (discMode === 'item' && item._discOpen)
+      ? `<div class="item-disc-row">
+          <select onchange="updateItemDisc(${item.id},'discType',this.value)">
+            <option value="pct" ${item.discType!=='fixed'?'selected':''}>%</option>
+            <option value="fixed" ${item.discType==='fixed'?'selected':''}>₹</option>
+          </select>
+          <input type="number" min="0" value="${iDisc}" oninput="updateItemDisc(${item.id},'disc',this.value)">
+          <span class="disc-note">discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}</span>
+        </div>`
+      : '';
     return `
     <div class="item-row" id="item-${item.id}">
       <div class="item-sr">${idx + 1}</div>
@@ -13009,9 +13055,42 @@ function renderFormItems() {
         <option value="28" ${item.gst==28?'selected':''}>28%</option>
       </select></div>
       <div class="item-total" id="itot-${item.id}" title="Total (incl. GST)">${fmt_money(lineTotal)}</div>
+      ${discBtn}
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
-    </div>`;
+    </div>${discRow}`;
   }).join('');
+  calcTotals();
+}
+
+function toggleItemDisc(id) {
+  const item = formItems.find(i=>i.id===id);
+  if (!item) return;
+  item._discOpen = !item._discOpen;
+  renderFormItems();
+}
+
+function updateItemDisc(id, field, val) {
+  const item = formItems.find(i=>i.id===id);
+  if (!item) return;
+  if (field === 'discType') item.discType = val;
+  else item.disc = parseFloat(val) || 0;
+  // Targeted DOM update only — NOT renderFormItems(), which would rebuild the
+  // whole items list and steal focus from the input the person is typing in.
+  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
+  const lineAmt  = (item.qty||1)*(item.rate||0);
+  const iDisc    = parseFloat(item.disc||0);
+  const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+  const base     = discMode === 'item' ? (lineAmt - iDiscAmt) : lineAmt;
+  const gstAmt   = base * (parseFloat(item.gst ?? 0)/100);
+  const amtEl = document.getElementById('iamt-'+id);
+  if (amtEl) amtEl.textContent = fmt_money(base);
+  const totEl = document.getElementById('itot-'+id);
+  if (totEl) totEl.textContent = fmt_money(base+gstAmt);
+  const row = document.getElementById('item-'+id);
+  const note = row?.nextElementSibling?.querySelector?.('.disc-note');
+  if (note) note.textContent = `discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}`;
+  const btn = row?.querySelector('.item-discbtn');
+  if (btn) btn.classList.toggle('active', iDiscAmt>0);
   calcTotals();
 }
 
@@ -13033,7 +13112,14 @@ function updateItem(id, field, val) {
   } else {
     item[field] = field==='desc' ? val : (parseFloat(val)||0);
   }
-  const base    = (item.qty||1)*(item.rate||0);
+  const lineAmt = (item.qty||1)*(item.rate||0);
+  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
+  let base = lineAmt;
+  if (discMode === 'item') {
+    const iDisc = parseFloat(item.disc||0);
+    const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+    base = lineAmt - iDiscAmt;
+  }
   const gstAmt  = base * (parseFloat(item.gst ?? 0)/100);
   const amt = document.getElementById('iamt-'+id);
   if (amt) amt.textContent = fmt_money(base);
@@ -13050,7 +13136,7 @@ function removeItem(id) {
 // Groups line items by GST rate and shows Taxable Amt / CGST / SGST / Total GST per rate,
 // with the post-discount taxable base (discFactor applied) — mirrors the create-invoice
 // sidebar summary; CGST/SGST assume an even intra-state split of each rate.
-function renderGstBreakdown(discFactor) {
+function renderGstBreakdown(discFactor, itemDiscMode) {
   const el = document.getElementById('gst-breakdown-body');
   if (!el) return;
   // Bucketed by HSN/SAC + rate together (GST-compliant HSN-wise summary) so items
@@ -13060,14 +13146,24 @@ function renderGstBreakdown(discFactor) {
     const rate = parseFloat(item.gst ?? 0);
     const hsn  = (item.hsn || '').trim() || '—';
     const key  = hsn + '|' + rate;
-    const base = (item.qty||1)*(item.rate||0) * discFactor;
+    const lineAmt = (item.qty||1)*(item.rate||0);
+    let base;
+    if (itemDiscMode) {
+      const iDisc = parseFloat(item.disc||0);
+      const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+      base = lineAmt - iDiscAmt;
+    } else {
+      base = lineAmt * discFactor;
+    }
     if (!buckets[key]) buckets[key] = { hsn, rate, taxable: 0 };
     buckets[key].taxable += base;
   });
-  const keys = Object.keys(buckets).sort((a,b) => {
+  // Non-taxable (0% / exempt) groups are omitted entirely — blank like the empty state.
+  const keys = Object.keys(buckets).filter(k => buckets[k].rate > 0).sort((a,b) => {
     const A = buckets[a], B = buckets[b];
     return A.hsn === B.hsn ? A.rate - B.rate : A.hsn.localeCompare(B.hsn);
   });
+  if (!keys.length) { el.innerHTML = ''; return; }
   let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
   const rows = keys.map(key => {
     const { hsn, rate, taxable } = buckets[key];
@@ -13109,32 +13205,62 @@ function renderGstBreakdown(discFactor) {
     </div>`;
 }
 
+function toggleDiscMode() {
+  renderFormItems(); // re-renders item rows (shows/hides per-item discount icons) and calls calcTotals()
+}
+
 function calcTotals() {
-  // Per-item GST calculation
-  let sub = 0, gstAmt = 0;
+  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
+  // Per-item GST calculation — item mode computes GST on each item's own
+  // post-discount taxable value; invoice mode uses the existing blanket discFactor.
+  let sub = 0, gstAmt = 0, itemDiscTotal = 0;
   formItems.forEach(item => {
     const lineAmt = (item.qty||1)*(item.rate||0);
     sub += lineAmt;
     const gstRate = parseFloat(item.gst ?? 0);
-    gstAmt += lineAmt * gstRate / 100;
+    if (discMode === 'item') {
+      const iDisc = parseFloat(item.disc||0);
+      const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+      itemDiscTotal += iDiscAmt;
+      gstAmt += (lineAmt - iDiscAmt) * gstRate / 100;
+    } else {
+      gstAmt += lineAmt * gstRate / 100;
+    }
   });
-  const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
-  const discType = document.getElementById('f-disc-type')?.value || 'pct';
-  const discAmt = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
+  const discInput = document.getElementById('f-disc');
+  const discTypeInput = document.getElementById('f-disc-type');
+  const discLabel = document.getElementById('f-disc-label');
+  let disc, discType, discAmt;
+  if (discMode === 'item') {
+    discAmt = itemDiscTotal;
+    discType = 'fixed';
+    disc = discAmt;
+    if (discInput) { discInput.value = discAmt.toFixed(2); discInput.disabled = true; discInput.style.opacity = '0.6'; }
+    if (discTypeInput) { discTypeInput.disabled = true; discTypeInput.style.opacity = '0.6'; }
+    if (discLabel) discLabel.innerHTML = 'Total Discount <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg);color:var(--muted);font-weight:700;margin-left:2px;vertical-align:1px">AUTO</span>';
+  } else {
+    disc    = parseFloat(discInput?.value) || 0;
+    discType = discTypeInput?.value || 'pct';
+    discAmt = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
+    if (discInput) { discInput.disabled = false; discInput.style.opacity = '1'; }
+    if (discTypeInput) { discTypeInput.disabled = false; discTypeInput.style.opacity = '1'; }
+    if (discLabel) discLabel.textContent = 'Discount';
+  }
   const discPct = sub > 0 ? (discAmt / sub * 100) : 0;
-  // Recalculate GST after discount proportionally
+  // Recalculate GST after discount proportionally (invoice mode only — item
+  // mode already baked each item's own discount into gstAmt above)
   const discFactor = sub > 0 ? (1 - discAmt/sub) : 1;
-  const gstAfterDisc = gstAmt * discFactor;
+  const gstAfterDisc = discMode === 'item' ? gstAmt : gstAmt * discFactor;
   const grand = sub - discAmt + gstAfterDisc;
 
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
   set('tp-sub',    fmt_money(sub));
-  set('tp-disc',   '-'+fmt_money(discAmt)+(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':''));
+  set('tp-disc',   '-'+fmt_money(discAmt)+(discMode==='item'?'':(discType==='fixed'?' (₹ fixed)':disc>0?' ('+disc+'%)':'')));
   set('tp-amount', fmt_money(sub - discAmt));
   const amountRow = document.getElementById('tp-amount-row');
   if (amountRow) amountRow.style.display = discAmt > 0.01 ? 'flex' : 'none';
   set('tp-gst',    '+'+fmt_money(gstAfterDisc));
-  renderGstBreakdown(discFactor);
+  renderGstBreakdown(discFactor, discMode === 'item');
   set('tp-words', numToWordsINR(grand));
   set('tp-grand', fmt_money(grand));
 
@@ -13233,6 +13359,7 @@ function getFormData() {
   const caddr   = document.getElementById('f-caddr')?.value||'';
   const disc    = parseFloat(document.getElementById('f-disc')?.value) || 0;
   const discType = document.getElementById('f-disc-type')?.value || 'pct';
+  const discMode = document.getElementById('f-disc-mode')?.value || 'invoice';
   // Notes & Terms & Conditions are no longer per-invoice editable fields —
   // always pulled live from Settings (Default Notes / Default T&C) so every
   // invoice reflects the current, centrally-managed text.
@@ -13268,17 +13395,27 @@ function getFormData() {
     previousDue:   document.getElementById('popt-previous-due')?.checked !== false,
   };
 
-  // Per-item GST totals
-  let sub = 0, gstAmt = 0;
+  // Per-item GST totals — in item-discount mode, GST is computed on each
+  // item's own post-discount taxable value; in invoice mode, GST is computed
+  // on the raw line amount and the blanket discFactor is applied afterward.
+  let sub = 0, gstAmt = 0, itemDiscTotal = 0;
   formItems.forEach(item => {
     const line = (item.qty||1)*(item.rate||0);
     sub += line;
-    gstAmt += line * (parseFloat(item.gst)||0) / 100;
+    const rate = parseFloat(item.gst)||0;
+    if (discMode === 'item') {
+      const iDisc = parseFloat(item.disc||0);
+      const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, line) : line * iDisc / 100;
+      itemDiscTotal += iDiscAmt;
+      gstAmt += (line - iDiscAmt) * rate / 100;
+    } else {
+      gstAmt += line * rate / 100;
+    }
   });
-  const discAmt      = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
+  const discAmt      = discMode === 'item' ? itemDiscTotal : (discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100);
   const discPct      = sub > 0 ? (discAmt / sub * 100) : 0;
   const discFactor   = sub > 0 ? (1 - discAmt/sub) : 1;
-  const gstAfterDisc = gstAmt * discFactor;
+  const gstAfterDisc = discMode === 'item' ? gstAmt : gstAmt * discFactor;
   const grand        = sub - discAmt + gstAfterDisc;
 
   // Build a dynamic UPI QR that always reflects the current invoice amount.
@@ -13296,8 +13433,8 @@ function getFormData() {
   const invId = STATE.editingInvoiceId ? String(STATE.editingInvoiceId) : '';
   // Normalized per-item data for the Tax Summary (HSN/rate grouping) section — kept
   // separate from the itemsHTML string so buildTpl2/buildTplF can compute it directly.
-  const taxItems = formItems.map(i => ({ hsn: i.hsn||'', itemType: i.itemType||'Service', gst: parseFloat(i.gst??0), qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0 }));
-  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId, taxItems };
+  const taxItems = formItems.map(i => ({ hsn: i.hsn||'', itemType: i.itemType||'Service', gst: parseFloat(i.gst??0), qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, disc: parseFloat(i.disc||0), discType: i.discType||'pct' }));
+  return { tpl, num, date, due, svc, cname, cperson, cemail, cwa, cgst, caddr, disc: discPct, discRaw: disc, discType, discMode, notes, bank, tnc, status, sym, sub, discAmt, gstAmt: gstAfterDisc, grand, companyLogo, clientLogo, signature, qrUrl, popt, generatedBy, showGeneratedBy, invId, clientId, taxItems };
 }
 
 function livePreview() {
@@ -13382,11 +13519,15 @@ function buildInvoiceHTML(d, forPrint) {
     ? formItems.map((i, idx) => {
         const line    = (i.qty||1)*(i.rate||0);
         const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
-        const lineInclGst = line + gstAmt;
+        const iDisc   = parseFloat(i.disc||0);
+        const iDiscAmt = (d.discMode==='item') ? ((i.discType==='fixed') ? Math.min(iDisc,line) : line*iDisc/100) : 0;
+        const itemTaxable = line - iDiscAmt;
+        const gstAmt  = itemTaxable * itemGst / 100;
+        const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -13396,7 +13537,7 @@ function buildInvoiceHTML(d, forPrint) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
           ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
@@ -14459,7 +14600,7 @@ function _pIcon(type, color, alignTop) {
 // plus a bold Total row. Shared by buildTpl2 and buildTplF (JS) and mirrored in pdf.php.
 // Assumes intra-state supply (CGST+SGST) — there's currently no per-item or company/client
 // state field in this app to determine inter-state (IGST), so the title stays generic.
-function buildTaxSummaryHTML(items, discFactor, sym, mono) {
+function buildTaxSummaryHTML(items, discFactor, sym, mono, itemDiscMode) {
   if (!items || !items.length) return '';
   const font = mono ? "'Georgia','Times New Roman',serif" : "inherit";
   const buckets = {};
@@ -14468,11 +14609,21 @@ function buildTaxSummaryHTML(items, discFactor, sym, mono) {
     const hsn  = item.hsn || '—';
     const type = item.itemType || 'Service';
     const key  = hsn + '|' + rate;
-    const base = (item.qty||1) * (item.rate||0) * discFactor;
+    const lineAmt = (item.qty||1) * (item.rate||0);
+    let base;
+    if (itemDiscMode) {
+      const iDisc = parseFloat(item.disc || 0);
+      const iDiscAmt = (item.discType === 'fixed') ? Math.min(iDisc, lineAmt) : lineAmt * iDisc / 100;
+      base = lineAmt - iDiscAmt;
+    } else {
+      base = lineAmt * discFactor;
+    }
     if (!buckets[key]) buckets[key] = { hsn, type, rate, taxable: 0 };
     buckets[key].taxable += base;
   });
-  const rows = Object.values(buckets).sort((a,b) => a.hsn.localeCompare(b.hsn) || a.rate - b.rate);
+  // Non-taxable (0% / exempt) groups are omitted entirely — the summary only lists taxable rates.
+  const rows = Object.values(buckets).filter(r => r.rate > 0).sort((a,b) => a.hsn.localeCompare(b.hsn) || a.rate - b.rate);
+  if (!rows.length) return '';
   let totTaxable=0, totCgst=0, totSgst=0, totGst=0;
   const rowsHTML = rows.map(r => {
     const gstAmt = r.taxable * r.rate / 100;
@@ -14666,7 +14817,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 
       <!-- TAX SUMMARY -->
       <div style="padding:18px 24px">
-        ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym)}
+        ${buildTaxSummaryHTML(d.taxItems||[], d.sub>0 ? 1-(d.discAmt/d.sub) : 1, d.sym, false, d.discMode==='item')}
       </div>
 
       <!-- BANK / UPI / NOTES / TNC -->
@@ -14748,7 +14899,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <!-- Discount (if any) -->
       ${d.discAmt>0?`
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}</span>
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">${d.discMode==='item'?`Total Discount <span style="font-size:8px;padding:1px 5px;border-radius:7px;background:${T.totbr};color:${T.totlbl};opacity:.8;text-transform:uppercase;letter-spacing:.3px">Auto</span>`:`Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}`}</span>
         <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
       </div>`:''}
       <!-- Taxable Amount (after discount, before GST) — hidden when no discount, since it's identical to Subtotal -->
@@ -14847,7 +14998,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -14901,11 +15052,15 @@ function openPrintWindow(d, items) {
     ? items.map((i, idx) => {
         const line    = (i.qty||1)*(i.rate||0);
         const itemGst = parseFloat(i.gst ?? 0);
-        const gstAmt  = line * itemGst / 100;
-        const lineInclGst = line + gstAmt;
+        const iDisc   = parseFloat(i.disc||0);
+        const iDiscAmt = (d.discMode==='item') ? ((i.discType==='fixed') ? Math.min(iDisc,line) : line*iDisc/100) : 0;
+        const itemTaxable = line - iDiscAmt;
+        const gstAmt  = itemTaxable * itemGst / 100;
+        const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -14915,7 +15070,7 @@ function openPrintWindow(d, items) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
           ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
@@ -15014,17 +15169,22 @@ function printInvoiceById(inv) {
     : `<tr><td colspan="7" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstHdr = `<th style="padding:10px 12px;text-align:center">GST%</th>`;
   const rowNumHdr2 = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
+  const discModeInv = inv.discount_mode === 'item';
   const itemsHTML2 = items.length
     ? items.map((i, idx) => {
         const qty  = parseFloat(i.qty||i.quantity||1);
         const rate = parseFloat(i.rate||0);
         const gst  = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
         const line = qty*rate;
-        const gstAmt = line * gst / 100;
-        const lineInclGst = line + gstAmt;
+        const iDisc = parseFloat(i.disc||i.item_discount||0);
+        const iDiscAmt = discModeInv ? (((i.discType||i.item_discount_type)==='fixed') ? Math.min(iDisc,line) : line*iDisc/100) : 0;
+        const itemTaxable = line - iDiscAmt;
+        const gstAmt = itemTaxable * gst / 100;
+        const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,sym)}</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15034,7 +15194,7 @@ function printInvoiceById(inv) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,sym)}${discNote}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,sym)}</td>
         </tr>`;
@@ -15047,7 +15207,7 @@ function printInvoiceById(inv) {
     cname: c.name||inv.clientName||inv.client_name||'',
     cperson:c.person||'', cemail:c.email||'', cwa:c.wa||c.whatsapp||'',
     cgst:c.gst||c.gst_number||'', caddr:c.addr||c.address||'',
-    disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0, discType:inv.discount_type||(parseFloat(inv.discount_amt)>0&&!(parseFloat(inv.disc||0)>0)?'fixed':'percent'),
+    disc:parseFloat(inv.disc||inv.discount_pct)||0, discAmt:parseFloat(inv.discount_amt)||0, discType:inv.discount_type||(parseFloat(inv.discount_amt)>0&&!(parseFloat(inv.disc||0)>0)?'fixed':'percent'), discMode: discModeInv?'item':'invoice',
     notes:inv.notes||'', bank:inv.bank||inv.bank_details||STATE.settings.defaultBank||'',
     tnc:inv.tnc||inv.terms||STATE.settings.defaultTnC||'', status:inv.status, sym,
     sub:parseFloat(inv.subtotal)||0, gstAmt:parseFloat(inv.gst_amount)||0,
@@ -15058,7 +15218,7 @@ function printInvoiceById(inv) {
     clientLogo:inv.client_logo||'', signature:inv.signature||sc.signature||'',
     qrUrl:inv.qr_code||'', generatedBy:inv.generated_by||(STATE.settings.company ? STATE.settings.company + ' Invoice Manager' : 'Invoice Manager'),
     showGeneratedBy:true,
-    taxItems: items.map(i => ({ hsn: i.hsn||i.hsn_code||'', itemType: i.itemType||i.item_type||'Service', gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), qty: parseFloat(i.qty||i.quantity||1), rate: parseFloat(i.rate)||0 })),
+    taxItems: items.map(i => ({ hsn: i.hsn||i.hsn_code||'', itemType: i.itemType||i.item_type||'Service', gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), qty: parseFloat(i.qty||i.quantity||1), rate: parseFloat(i.rate)||0, disc: parseFloat(i.disc||i.item_discount||0), discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' })),
     popt:(function(){
       // Parse pdf_options from DB (may be JSON string or already an object)
       let saved = inv.pdf_options || inv.popt || null;
@@ -15137,7 +15297,7 @@ async function saveInvoice() {
     invoice_number: d.num, client_id: _clientId,
     client_name: d.cname, service_type: d.svc, issued_date: d.date, due_date: d.due,
     status: d.status, currency: d.sym, subtotal: d.sub,
-    discount_pct: d.disc, discount_amt: d.discAmt, discount_type: (d.discType==='fixed'?'flat':'percent'), gst_amount: d.gstAmt, grand_total: d.grand,
+    discount_pct: d.disc, discount_amt: d.discAmt, discount_type: (d.discType==='fixed'?'flat':'percent'), discount_mode: d.discMode || 'invoice', gst_amount: d.gstAmt, grand_total: d.grand,
     notes: d.notes || '', bank_details: d.bank || '', terms: d.tnc || '',
     company_logo: d.companyLogo, client_logo: d.clientLogo,
     signature: d.signature, qr_code: d.qrUrl,
@@ -15149,7 +15309,7 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'' }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct' }))
   };
   try {
     if (!isNewSave) {
@@ -15408,6 +15568,7 @@ function openPreviewModal(id) {
     disc: inv.disc || inv.discount_pct || 0,
     discType: inv.discount_type || (inv.discount_amt > 0 && !(inv.disc > 0) ? 'fixed' : 'percent'),
     discAmt: parseFloat(inv.discount_amt) > 0 ? parseFloat(inv.discount_amt) : (inv.subtotal ? inv.subtotal * (parseFloat(inv.disc||inv.discount_pct)||0) / 100 : 0),
+    discMode: inv.discount_mode === 'item' ? 'item' : 'invoice',
     notes: (inv.notes||'').replace(/\s*\|?\s*Partial payment received\..*$/i,'').trim(),
     bank: inv.bank || inv.bank_details || STATE.settings.defaultBank || '',
     tnc: inv.tnc || inv.terms || STATE.settings.defaultTnC || '',
@@ -15427,13 +15588,26 @@ function openPreviewModal(id) {
   };
   // Recalculate totals from items if available
   if (inv.items && inv.items.length) {
-    let sub=0, gstAmt=0;
-    inv.items.forEach(it => { const line=((it.qty||it.quantity)||1)*(it.rate||0); sub+=line; gstAmt+=line*((it.gstRate!==undefined?parseFloat(it.gstRate):it.gst!==undefined&&it.gst!==null&&it.gst!==''?parseFloat(it.gst):it.gstRate!==undefined&&it.gstRate!==''?parseFloat(it.gstRate):18)/100); });
+    let sub=0, gstAmt=0, itemDiscTotal=0;
+    inv.items.forEach(it => {
+      const line=((it.qty||it.quantity)||1)*(it.rate||0);
+      sub+=line;
+      const rate=(it.gstRate!==undefined?parseFloat(it.gstRate):it.gst!==undefined&&it.gst!==null&&it.gst!==''?parseFloat(it.gst):it.gstRate!==undefined&&it.gstRate!==''?parseFloat(it.gstRate):18);
+      if (d.discMode==='item') {
+        const iDisc = parseFloat(it.disc||it.item_discount||0);
+        const iDiscAmt = ((it.discType||it.item_discount_type)==='fixed') ? Math.min(iDisc,line) : line*iDisc/100;
+        itemDiscTotal += iDiscAmt;
+        gstAmt += (line-iDiscAmt) * rate/100;
+      } else {
+        gstAmt += line * rate/100;
+      }
+    });
     const disc=parseFloat(inv.disc||inv.discount_pct)||0;
-    const discAmt=parseFloat(inv.discount_amt)>0?parseFloat(inv.discount_amt):(d.discType==='fixed'?Math.min(disc,sub):sub*disc/100);
+    const discAmt = d.discMode==='item' ? itemDiscTotal : (parseFloat(inv.discount_amt)>0?parseFloat(inv.discount_amt):(d.discType==='fixed'?Math.min(disc,sub):sub*disc/100));
     const discF=sub>0?(1-discAmt/sub):1;
-    d.sub=sub; d.discAmt=discAmt; d.gstAmt=gstAmt*discF; d.grand=sub-discAmt+gstAmt*discF;
+    d.sub=sub; d.discAmt=discAmt; d.gstAmt=d.discMode==='item'?gstAmt:gstAmt*discF; d.grand=sub-discAmt+(d.discMode==='item'?gstAmt:gstAmt*discF);
   }
+  d.taxItems = (inv.items||[]).map(i => ({ hsn: i.hsn||i.hsn_code||'', itemType: i.itemType||i.item_type||'Service', gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), qty: parseFloat(i.qty||i.quantity||1), rate: parseFloat(i.rate)||0, disc: parseFloat(i.disc||i.item_discount||0), discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
   // Build items HTML
   const invItems = (inv.items||[]);
   const previewItemsHTML = invItems.length
@@ -15474,11 +15648,15 @@ function openPreviewModal(id) {
         const gstR = (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18);
         const desc = i.desc||i.description||'—';
         const line = qty*rate;
-        const gstAmt = line * gstR / 100;
-        const lineInclGst = line + gstAmt;
+        const iDisc = parseFloat(i.disc||i.item_discount||0);
+        const iDiscAmt = (d.discMode==='item') ? (((i.discType||i.item_discount_type)==='fixed') ? Math.min(iDisc,line) : line*iDisc/100) : 0;
+        const itemTaxable = line - iDiscAmt;
+        const gstAmt = itemTaxable * gstR / 100;
+        const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
+        const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15488,7 +15666,7 @@ function openPreviewModal(id) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(line,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
         </tr>`;
@@ -15541,6 +15719,8 @@ function loadInvoiceIntoForm(inv) {
   document.getElementById('f-disc').value = _discRaw;
   const _discTypeEl = document.getElementById('f-disc-type');
   if (_discTypeEl) _discTypeEl.value = _discType;
+  const _discModeEl = document.getElementById('f-disc-mode');
+  if (_discModeEl) _discModeEl.value = (inv.discount_mode === 'item') ? 'item' : 'invoice';
   // Notes/T&C are no longer per-invoice fields — always resolved live from Settings (see getFormData)
   const _bankEl = document.getElementById('f-bank'); if(_bankEl) _bankEl.value = inv.bank||inv.bank_details||STATE.settings.defaultBank||'';
   document.getElementById('f-template').value = String(inv.template || inv.template_id || STATE.settings.activeTemplate || '2');
@@ -15573,7 +15753,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
   renderFormItems();
   livePreview();
 }

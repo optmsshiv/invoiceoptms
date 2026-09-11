@@ -901,11 +901,14 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono">
-        <?= pdf_fmt_money($amt, '') ?>
-        <?php if ($iDiscAmt > 0): ?><div style="font-size:8px;color:#DC2626;margin-top:1px">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></div><?php endif; ?>
+        <?= $g > 0 ? pdf_fmt_money($amt, '') : pdf_fmt_money($lineAmt, '') ?>
+        <?php if ($iDiscAmt > 0 && $g > 0): ?><div style="font-size:8px;color:#DC2626;margin-top:1px">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></div><?php endif; ?>
       </td>
       <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
-      <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
+      <td class="r mono" style="font-weight:bold;color:#1D4ED8">
+        <?= pdf_fmt_money($tot, $sym) ?>
+        <?php if ($iDiscAmt > 0 && $g == 0): ?><div style="font-size:8px;color:#DC2626;margin-top:1px;font-weight:normal">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></div><?php endif; ?>
+      </td>
     </tr>
     <?php endforeach; ?>
     </tbody>

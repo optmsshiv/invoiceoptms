@@ -13528,6 +13528,8 @@ function buildInvoiceHTML(d, forPrint) {
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const amtCell = itemGst>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
+        const totCell = itemGst>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -13537,9 +13539,9 @@ function buildInvoiceHTML(d, forPrint) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
@@ -15061,6 +15063,8 @@ function openPrintWindow(d, items) {
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const amtCell = itemGst>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
+        const totCell = itemGst>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15070,9 +15074,9 @@ function openPrintWindow(d, items) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -15185,6 +15189,8 @@ function printInvoiceById(inv) {
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,sym)}</div>` : '';
+        const amtCell = gst>0 ? `${fmt_money(itemTaxable,sym)}${discNote}` : fmt_money(line,sym);
+        const totCell = gst>0 ? fmt_money(lineInclGst,sym) : `${fmt_money(lineInclGst,sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15194,9 +15200,9 @@ function printInvoiceById(inv) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,sym)}</td>
+          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
@@ -15657,6 +15663,8 @@ function openPreviewModal(id) {
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
         const discNote = iDiscAmt>0 ? `<div style="font-size:10px;color:#DC2626;margin-top:1px">− ${fmt_money(iDiscAmt,d.sym)}</div>` : '';
+        const amtCell = gstR>0 ? `${fmt_money(itemTaxable,d.sym)}${discNote}` : fmt_money(line,d.sym);
+        const totCell = gstR>0 ? fmt_money(lineInclGst,d.sym) : `${fmt_money(lineInclGst,d.sym)}${discNote}`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
@@ -15666,9 +15674,9 @@ function openPreviewModal(id) {
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#555">${itype}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(itemTaxable,d.sym)}${discNote}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
-          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${fmt_money(lineInclGst,d.sym)}</td>
+          <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
