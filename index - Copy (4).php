@@ -13236,14 +13236,14 @@ function calcTotals() {
     discType = 'fixed';
     disc = discAmt;
     if (discInput) { discInput.value = discAmt.toFixed(2); discInput.disabled = true; discInput.style.opacity = '0.6'; }
-    if (discTypeInput) discTypeInput.style.display = 'none';
-    if (discLabel) discLabel.innerHTML = 'Total Discount <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg);color:var(--muted);font-weight:700;margin-left:2px;vertical-align:1px">AUTO</span>';
+    if (discTypeInput) { discTypeInput.disabled = true; discTypeInput.style.opacity = '0.6'; }
+    if (discLabel) discLabel.textContent = 'Total Discount';
   } else {
     disc    = parseFloat(discInput?.value) || 0;
     discType = discTypeInput?.value || 'pct';
     discAmt = discType === 'fixed' ? Math.min(disc, sub) : sub * disc / 100;
     if (discInput) { discInput.disabled = false; discInput.style.opacity = '1'; }
-    if (discTypeInput) discTypeInput.style.display = '';
+    if (discTypeInput) { discTypeInput.disabled = false; discTypeInput.style.opacity = '1'; }
     if (discLabel) discLabel.textContent = 'Discount';
   }
   const discPct = sub > 0 ? (discAmt / sub * 100) : 0;
