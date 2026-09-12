@@ -867,10 +867,10 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <tr>
         <th style="width:20px">#</th>
         <th>Description</th>
-        <th style="width:70px">Type</th>
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
         <th class="r" style="width:80px">Amount</th>
+        <th class="r" style="width:75px">Discount</th>
         <th class="r" style="width:70px">GST</th>
         <th class="r" style="width:85px">Total</th>
       </tr>
@@ -888,7 +888,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $gstAmtLine = $amt * $g / 100;
         $tot = $amt + $gstAmtLine;
         $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
-        $itemType = $hasIType ? ($item['item_type'] ?: 'Service') : 'Service';
         $gLabel   = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
     ?>
     <tr>
@@ -897,15 +896,12 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
         <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
       </td>
-      <td><span style="font-size:10.5px;font-weight:600;color:#555"><?= htmlspecialchars($itemType) ?></span></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono"><?= pdf_fmt_money($lineAmt, '') ?></td>
+      <td class="r mono" style="font-size:9.5px"><?php if ($iDiscAmt > 0): ?><span style="color:#DC2626">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></span><?php else: ?><span style="color:#CBD5E1">&mdash;</span><?php endif; ?></td>
       <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
-      <td class="r mono" style="font-weight:bold;color:#1D4ED8">
-        <?= pdf_fmt_money($tot, $sym) ?>
-        <?php if ($iDiscAmt > 0): ?><div style="font-size:8px;color:#DC2626;margin-top:1px;font-weight:normal">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></div><?php endif; ?>
-      </td>
+      <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
