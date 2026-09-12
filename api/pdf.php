@@ -899,8 +899,8 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono"><?= pdf_fmt_money($lineAmt, '') ?></td>
-      <td class="r mono" style="font-size:9.5px"><?php if ($iDiscAmt > 0): ?><span style="color:#DC2626">&minus; <?= pdf_fmt_money($iDiscAmt, '') ?></span><?php else: ?><span style="color:#CBD5E1">&mdash;</span><?php endif; ?></td>
-      <td class="r mono" style="color:<?= $gstAmtLine > 0 ? '#166534' : '#9CA3AF' ?>"><?= pdf_fmt_money($gstAmtLine, '') ?></td>
+      <td class="r mono" style="font-size:9.5px"><?php if ($iDiscAmt > 0): $discPctEff = $lineAmt > 0 ? ($iDiscAmt / $lineAmt * 100) : 0; $discPctLbl = $discPctEff == (int)$discPctEff ? (string)(int)$discPctEff : number_format($discPctEff, 1); ?><div style="color:#DC2626"><?= pdf_fmt_money($iDiscAmt, '') ?></div><div style="font-size:8px;color:#DC2626;opacity:.75"><?= $discPctLbl ?>%</div><?php else: ?><span style="color:#CBD5E1">&mdash;</span><?php endif; ?></td>
+      <td class="r mono" style="color:<?= $g > 0 ? '#166534' : '#9CA3AF' ?>"><?= $g > 0 ? pdf_fmt_money($gstAmtLine, '') : 'Exempt' ?></td>
       <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
@@ -995,7 +995,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
           </tr>
           <?php if ($discountAmt > 0): ?>
           <tr class="tfoot-row">
-            <td class="tfoot-lbl" style="padding:4px 14px"><?php if ($discMode === 'item'): ?>Total Discount <span style="font-size:7px;padding:1px 5px;border-radius:7px;background:#DDE1FA;color:#4338CA;text-transform:uppercase;letter-spacing:.3px">Auto</span><?php else: ?>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?><?php endif; ?></td>
+            <td class="tfoot-lbl" style="padding:4px 14px"><?php if ($discMode === 'item'): ?>Total Discount<?php else: ?>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?><?php endif; ?></td>
             <td class="tfoot-val r disc-val" style="padding:4px 14px;text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
           </tr>
           <tr class="tfoot-row">

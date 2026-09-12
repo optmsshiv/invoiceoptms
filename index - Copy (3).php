@@ -13237,7 +13237,7 @@ function calcTotals() {
     disc = discAmt;
     if (discInput) { discInput.value = discAmt.toFixed(2); discInput.disabled = true; discInput.style.opacity = '0.6'; }
     if (discTypeInput) { discTypeInput.disabled = true; discTypeInput.style.opacity = '0.6'; }
-    if (discLabel) discLabel.textContent = 'Total Discount';
+    if (discLabel) discLabel.innerHTML = 'Total Discount <span style="font-size:9px;padding:1px 6px;border-radius:8px;background:var(--bg);color:var(--muted);font-weight:700;margin-left:2px;vertical-align:1px">AUTO</span>';
   } else {
     disc    = parseFloat(discInput?.value) || 0;
     discType = discTypeInput?.value || 'pct';
@@ -13527,9 +13527,7 @@ function buildInvoiceHTML(d, forPrint) {
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
-        const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
-        const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
+        const discCell = iDiscAmt>0 ? `<span style="color:#DC2626">− ${fmt_money(iDiscAmt,d.sym)}</span>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
         return `<tr>
@@ -13542,7 +13540,7 @@ function buildInvoiceHTML(d, forPrint) {
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
+          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
@@ -14903,7 +14901,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <!-- Discount (if any) -->
       ${d.discAmt>0?`
       <div style="display:flex;justify-content:space-between;padding:10px 22px;border-bottom:1px solid ${T.totbr};font-size:12px">
-        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">${d.discMode==='item'?`Total Discount`:`Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}`}</span>
+        <span style="font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:${T.totlbl}">${d.discMode==='item'?`Total Discount <span style="font-size:8px;padding:1px 5px;border-radius:7px;background:${T.totbr};color:${T.totlbl};opacity:.8;text-transform:uppercase;letter-spacing:.3px">Auto</span>`:`Discount${d.discType==='fixed'?' (₹)':d.disc>0?' ('+Math.round(d.disc*100)/100+'%)':''}`}</span>
         <span style="font-family:monospace;font-weight:700;color:#DC2626">−${fmt_money(d.discAmt,d.sym)}</span>
       </div>`:''}
       <!-- Taxable Amount (after discount, before GST) — hidden when no discount, since it's identical to Subtotal -->
@@ -15064,9 +15062,7 @@ function openPrintWindow(d, items) {
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
         const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
-        const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
-        const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
-        const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
+        const discCell = iDiscAmt>0 ? `<span style="color:#DC2626">− ${fmt_money(iDiscAmt,d.sym)}</span>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
         return `<tr>
@@ -15079,7 +15075,7 @@ function openPrintWindow(d, items) {
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
+          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
@@ -15192,9 +15188,7 @@ function printInvoiceById(inv) {
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
-        const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
-        const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
-        const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
+        const discCell = iDiscAmt>0 ? `<span style="color:#DC2626">− ${fmt_money(iDiscAmt,sym)}</span>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,sym);
         const totCell = fmt_money(lineInclGst,sym);
         return `<tr>
@@ -15207,7 +15201,7 @@ function printInvoiceById(inv) {
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gst>0?'#166534':'#94A3B8'}">${gst>0?fmt_money(gstAmt,sym):'Exempt'}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
@@ -15668,9 +15662,7 @@ function openPreviewModal(id) {
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
         const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
-        const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
-        const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
-        const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
+        const discCell = iDiscAmt>0 ? `<span style="color:#DC2626">− ${fmt_money(iDiscAmt,d.sym)}</span>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
         return `<tr>
@@ -15683,7 +15675,7 @@ function openPreviewModal(id) {
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstR>0?'#166534':'#94A3B8'}">${gstR>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstAmt>0?'#166534':'#94A3B8'}">${fmt_money(gstAmt,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
