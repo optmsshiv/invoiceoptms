@@ -87,17 +87,11 @@ $FIELDS = [
   'opening_stock','reorder_level','max_stock','default_warehouse','track_batch','track_serial','track_session_price',
   'short_description','detailed_description',
   'country_of_origin','manufacturer','fssai_license','iec_code',
-  'service_cycle',
 ];
 
 try {
 // Auto-migrate: track_session_price didn't exist before this feature.
 try { $db->exec("ALTER TABLE products ADD COLUMN track_session_price TINYINT(1) DEFAULT 0"); } catch (Throwable $e) { /* already exists */ }
-// Auto-migrate: service_cycle backs the "Service Type" (billing cycle) column
-// shown on the Products/Services table when business_type is 'service' or 'both'
-// — e.g. 'monthly', 'yearly'. Values are free-form short codes, not an enum,
-// so existing rows/older app versions aren't broken by adding new cycle options later.
-try { $db->exec("ALTER TABLE products ADD COLUMN service_cycle VARCHAR(20) NULL DEFAULT NULL") ; } catch (Throwable $e) { /* already exists */ }
 
 // Dynamically filter $FIELDS to only columns that exist in the live DB
 // Handles both old schema (service: hsn_code, gst_rate) and new schema (product: hsn, gst)

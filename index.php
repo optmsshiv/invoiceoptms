@@ -606,6 +606,11 @@ canvas { max-width: 100% !important; }
   border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
 }
 .data-table { width: 100%; border-collapse: collapse; }
+/* Products/Services table: Unit Type only applies to physical goods, Service
+   Type (billing cycle) only applies to services — toggled by business_type
+   via the .biz-* class set in applyBusinessTypeLabels(). 'both' shows both. */
+#productsDataTable.biz-service .col-unit-type    { display: none; }
+#productsDataTable.biz-product .col-service-type { display: none; }
 .data-table thead { background: var(--bg); }
 .data-table th {
   padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 700;
@@ -2955,8 +2960,8 @@ const SERVER = {
         <button class="btn btn-primary" id="prodAddBtn" onclick="openAddProductModal()"><i class="fas fa-plus"></i> <span id="prodAddBtnLabel">Add Service</span></button>
       </div>
       <div class="table-card">
-        <table class="data-table">
-          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th>Unit Type</th><th>Actions</th></tr></thead>
+        <table class="data-table" id="productsDataTable">
+          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th class="col-unit-type">Unit Type</th><th class="col-service-type">Service Type</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -18262,6 +18267,16 @@ async function removeTeamMember(userId) {
 }
 function filterProducts(v) { const s=v.toLowerCase(), cat=document.getElementById('productCatFilter')?.value||''; PROD.list=activeProdSource().filter(p=>(!s||p.name.toLowerCase().includes(s)||p.category.toLowerCase().includes(s)||(p.hsn||'').toLowerCase().includes(s))&&(!cat||p.category===cat)); PROD.page=1; _renderProdPage(); }
 function filterProductsCat(v) { filterProducts(document.getElementById('productSearch')?.value||''); }
+// Billing-cycle labels for the Service Type column/field — Category already
+// covers what the service IS (School ERP, Domain…), this covers how OFTEN
+// it recurs (Monthly, Yearly…).
+const SERVICE_CYCLE_LABELS = {
+  onetime: 'One-time', monthly: 'Monthly', quarterly: 'Quarterly',
+  halfyearly: 'Half-yearly', yearly: 'Yearly',
+};
+function formatServiceCycle(code) {
+  return SERVICE_CYCLE_LABELS[code] || '—';
+}
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
   const s=(PROD.page-1)*PROD.per, e=s+PROD.per, pg=PROD.list.slice(s,e);
@@ -18281,9 +18296,10 @@ function _renderProdPage() {
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
     <td><strong>${p.gst}%</strong></td>
-    <td><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${escHtml(p.unit_family || 'count')}</span></td>
+    <td class="col-unit-type"><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${escHtml(p.unit_family || 'count')}</span></td>
+    <td class="col-service-type"><span style="font-size:11px;color:var(--muted)">${formatServiceCycle(p.service_cycle)}</span></td>
     <td><div class="action-cell">${actions}</div></td>
-  </tr>`}).join('')||`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
+  </tr>`}).join('')||`<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">${PROD.archived?'No archived services':'No services found'}</td></tr>`;
   const tot=Math.ceil(PROD.list.length/PROD.per);
   const pg2=document.getElementById('prodPagination');
   if(pg2){let h=`<button class="pg-btn" onclick="prodPage(${PROD.page-1})" ${PROD.page<=1?'disabled':''}><i class="fas fa-chevron-left"></i></button>`;for(let i=1;i<=tot;i++)h+=`<button class="pg-btn ${i===PROD.page?'active':''}" onclick="prodPage(${i})">${i}</button>`;h+=`<button class="pg-btn" onclick="prodPage(${PROD.page+1})" ${PROD.page>=tot?'disabled':''}><i class="fas fa-chevron-right"></i></button>`;pg2.innerHTML=h;}
@@ -18304,10 +18320,18 @@ function editProduct(id){
   <td><input id="ep-rate" type="number" class="table-search" style="width:90px" value="${p.rate}"></td>
   <td><input id="ep-hsn" class="table-search" style="width:75px" value="${escHtml(p.hsn)}" list="hsn-suggestions"></td>
   <td><select id="ep-gst" class="table-filter"><option value="0" ${p.gst==0?'selected':''}>0%</option><option value="5" ${p.gst==5?'selected':''}>5%</option><option value="12" ${p.gst==12?'selected':''}>12%</option><option value="18" ${p.gst==18?'selected':''}>18%</option><option value="28" ${p.gst==28?'selected':''}>28%</option></select></td>
-  <td><select id="ep-unitfam" class="table-filter">
+  <td class="col-unit-type"><select id="ep-unitfam" class="table-filter">
     <option value="count" ${!p.unit_family||p.unit_family==='count'?'selected':''}>Count (pcs)</option>
     <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
     <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
+  </select></td>
+  <td class="col-service-type"><select id="ep-cycle" class="table-filter">
+    <option value="" ${!p.service_cycle?'selected':''}>—</option>
+    <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
+    <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
+    <option value="quarterly" ${p.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
+    <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
+    <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
   </select></td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
   ensureHsnDatalist();
@@ -18340,7 +18364,8 @@ async function saveEditProd(id) {
     rate:parseFloat(document.getElementById('ep-rate')?.value)||0,
     hsn:document.getElementById('ep-hsn')?.value||'998314',
     gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
-    unit_family: document.getElementById('ep-unitfam')?.value || 'count' };
+    unit_family: document.getElementById('ep-unitfam')?.value || 'count',
+    service_cycle: document.getElementById('ep-cycle')?.value || '' };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -18386,6 +18411,11 @@ function applyBusinessTypeLabels(type) {
   // this gives them the equivalent one-click shortcut for their actual
   // primary workflow (New Sale) instead of just an empty gap.
   const newSaleBtn = document.getElementById('topbar-newsale-btn'); if (newSaleBtn) newSaleBtn.style.display = STATE.settings.businessType === 'product' ? '' : 'none';
+  // Unit Type only makes sense for physical goods; Service Type (billing
+  // cycle — Monthly/Yearly/etc.) only makes sense for services. 'both'
+  // tenants see both columns since their catalog mixes the two.
+  const prodTableEl = document.getElementById('productsDataTable');
+  if (prodTableEl) { prodTableEl.classList.remove('biz-service','biz-product','biz-both'); prodTableEl.classList.add('biz-' + (STATE.settings.businessType || 'both')); }
 }
 
 // ══════════════════════════════════════════
@@ -19031,11 +19061,21 @@ function _showAddProductRow(prefill) {
         <option value="0" ${prefill&&prefill.gst==0?'selected':''}>0%</option><option value="5" ${prefill&&prefill.gst==5?'selected':''}>5%</option><option value="12" ${prefill&&prefill.gst==12?'selected':''}>12%</option><option value="18" ${!prefill||prefill.gst==18?'selected':''}>18%</option><option value="28" ${prefill&&prefill.gst==28?'selected':''}>28%</option>
       </select>%
     </td>
-    <td>
+    <td class="col-unit-type">
       <select id="np-unitfam" class="table-filter">
         <option value="count" ${!prefill||!prefill.unit_family||prefill.unit_family==='count'?'selected':''}>Count (pcs)</option>
         <option value="weight" ${prefill&&prefill.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
         <option value="volume" ${prefill&&prefill.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
+      </select>
+    </td>
+    <td class="col-service-type">
+      <select id="np-cycle" class="table-filter">
+        <option value="" ${!prefill||!prefill.service_cycle?'selected':''}>—</option>
+        <option value="onetime" ${prefill&&prefill.service_cycle==='onetime'?'selected':''}>One-time</option>
+        <option value="monthly" ${prefill&&prefill.service_cycle==='monthly'?'selected':''}>Monthly</option>
+        <option value="quarterly" ${prefill&&prefill.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
+        <option value="halfyearly" ${prefill&&prefill.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
+        <option value="yearly" ${prefill&&prefill.service_cycle==='yearly'?'selected':''}>Yearly</option>
       </select>
     </td>
     <td>
@@ -19078,6 +19118,7 @@ async function saveNewProduct() {
     hsn:document.getElementById('np-hsn')?.value||'998314',
     gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
     unit_family: document.getElementById('np-unitfam')?.value || 'count',
+    service_cycle: document.getElementById('np-cycle')?.value || '',
     client_request_id: QUICK_PRODUCT_KEY };
   try {
     await api('api/products.php', 'POST', payload);
