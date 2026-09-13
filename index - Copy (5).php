@@ -9832,6 +9832,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPayments();
   renderTemplatesGrid();
   setTimeout(livePreview, 100);
+  STATE.filteredInvoices = [...STATE.invoices];
   document.addEventListener('click', closeAllDropdowns);
   // Remember whichever sidebar page the user is on, so a plain refresh
   // can restore it (see the fresh-login-gated restore below) instead of
@@ -12320,6 +12321,7 @@ async function refreshInvoices() {
     ]);
     if (invRes?.data) {
       STATE.invoices = invRes.data.map(normalizeInvoice);
+      STATE.filteredInvoices = [...STATE.invoices];
     }
     if (payRes?.data) STATE.payments = payRes.data;
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
@@ -12783,6 +12785,7 @@ async function bulkDelete() {
       STATE.invoices = STATE.invoices.filter(i => String(i.id) !== String(inv.id));
     } catch(e) { toast('❌ Failed to delete ' + inv.num + ': ' + e.message, 'error'); }
   }
+  STATE.filteredInvoices = [...STATE.invoices];
   renderInvoicesTable();
   toast(`🗑️ Deleted ${invs.length} invoice${invs.length>1?'s':''}`, 'info');
   clearBulkSelection();
@@ -15426,6 +15429,7 @@ async function saveInvoice() {
     }
     const r = await api('api/invoices.php');
     STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.filteredInvoices = [...STATE.invoices];
     STATE.editingInvoiceId = null;
     renderInvoicesTable(); renderDashRecent(); renderDonutChart(); updateDashStats();
     const badge = document.getElementById('badge-invoices');
@@ -16370,7 +16374,7 @@ function confirmPaid() {
       // ── STEP 3: Reload data silently in background ─────────────
       Promise.all([api('api/invoices.php'), api('api/payments.php')])
         .then(([ir,pr]) => {
-          if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); }
+          if (ir&&ir.data) { STATE.invoices=ir.data.map(normalizeInvoice); STATE.filteredInvoices=[...STATE.invoices]; }
           if (pr&&pr.data)   STATE.payments=pr.data;
           renderInvoicesTable(); renderDonutChart(); renderDashRecent(); renderPayments(); updateDashStats(); renderDashKpis();
         })
@@ -16448,6 +16452,10 @@ async function changeInvoiceStatus(id, newStatus, cancelReason = '') {
     await api('api/invoices.php?id=' + parseInt(id), 'PATCH', payload);
     inv.status = newStatus;
     if (newStatus === 'Cancelled' && cancelReason) inv.cancel_reason = cancelReason;
+    // Re-apply existing filters instead of resetting to all invoices,
+    // so the user's active search/filter is preserved after a status change.
+    if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
+    else STATE.filteredInvoices = [...STATE.invoices];
     logActivity('status_changed', `Status → ${newStatus}: ${inv.num||inv.invoice_number}${cancelReason ? ' — ' + cancelReason : ''}`, inv.client_name||'', id);
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     toast(`${label}: ${inv.num||inv.invoice_number}`, 'success');
@@ -16587,6 +16595,7 @@ async function duplicateInvoice(id) {
     const newInv = newInvRes.data;
     if (newInv) {
       STATE.invoices.unshift(newInv);
+      STATE.filteredInvoices = [...STATE.invoices];
       renderInvoicesTable();
       // Open it for editing immediately
       editInvoice(String(newInv.id));
@@ -16638,6 +16647,7 @@ async function convertEstimateToInvoice(id) {
     // Refresh invoices from server
     const r = await api('api/invoices.php');
     STATE.invoices = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable(); renderDonutChart(); renderDashRecent(); updateDashStats();
     logActivity('estimate_converted', `Estimate converted: ${oldNum} → ${newNum}`, inv.client_name || inv.clientName || '', dbId);
     toast(`✅ Estimate converted to Invoice ${newNum}!`, 'success');
@@ -29631,6 +29641,7 @@ async function loadAllData() {
     // In, Stock Adjustment) work immediately, without depending on the user
     // having visited a stock page first as an accidental side effect.
     STATE.stock       = Array.isArray(stk.data)  ? stk.data  : [];
+    STATE.filteredInvoices = [...STATE.invoices];
     // Silently persist any Pending→Overdue changes to the DB
     syncOverdueToDb(STATE.invoices);
     // Merge latest server settings into STATE.settings
@@ -29853,6 +29864,7 @@ document.addEventListener('DOMContentLoaded', function() {
       populateWAPage();
       renderFestivalCampaigns();
       resetCreateForm();
+      STATE.filteredInvoices = [...STATE.invoices];
       const _badgeInvBoot = document.getElementById('badge-invoices'); if (_badgeInvBoot) _badgeInvBoot.textContent = STATE.invoices.length;
       // Mark payments whose invoice no longer exists as deleted
       const invoiceIds = new Set(STATE.invoices.map(i => String(i.id)));
@@ -36333,6 +36345,7 @@ async function runRecurringCheck() {
   if (generated > 0) {
     const r = await api('api/invoices.php');
     STATE.invoices         = Array.isArray(r.data) ? r.data.map(normalizeInvoice) : [];
+    STATE.filteredInvoices = [...STATE.invoices];
     renderInvoicesTable();
     renderDashRecent();
     updateDashStats();
