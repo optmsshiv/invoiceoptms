@@ -87,7 +87,7 @@ $FIELDS = [
   'opening_stock','reorder_level','max_stock','default_warehouse','track_batch','track_serial','track_session_price',
   'short_description','detailed_description',
   'country_of_origin','manufacturer','fssai_license','iec_code',
-  'service_cycle','date_start','date_end',
+  'service_cycle',
 ];
 
 try {
@@ -98,11 +98,6 @@ try { $db->exec("ALTER TABLE products ADD COLUMN track_session_price TINYINT(1) 
 // — e.g. 'monthly', 'yearly'. Values are free-form short codes, not an enum,
 // so existing rows/older app versions aren't broken by adding new cycle options later.
 try { $db->exec("ALTER TABLE products ADD COLUMN service_cycle VARCHAR(20) NULL DEFAULT NULL") ; } catch (Throwable $e) { /* already exists */ }
-// Auto-migrate: date_start/date_end back the Description subtitle's date
-// range (e.g. "Yearly · Aug 2026 – Jul 2027") — date_end stays NULL for an
-// ongoing/ never-cancelled subscription.
-try { $db->exec("ALTER TABLE products ADD COLUMN date_start DATE NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE products ADD COLUMN date_end DATE NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
 
 // Dynamically filter $FIELDS to only columns that exist in the live DB
 // Handles both old schema (service: hsn_code, gst_rate) and new schema (product: hsn, gst)
@@ -131,27 +126,9 @@ if (!isset($existingColsSet['created_by'])) {
 // Column name aliases: new_name => old_name (for legacy service DBs)
 $COL_ALIASES = ['hsn' => 'hsn_code', 'gst' => 'gst_rate'];
 
-// Resolves a $FIELDS entry to its real column name for this DB: prefers the
-// new name when it exists (matching the GET side's read priority below —
-// `if (!isset($r['gst']) && isset($r['gst_rate']))`), falling back to the
-// legacy alias only when the new column is absent. Writing to whichever
-// column GET actually prioritizes is what keeps a save from silently
-// reverting on refresh — see chat for the two ways this broke before:
-// (a) only the legacy column exists — 'gst' got filtered out of $FIELDS
-//     below entirely, so GST was never part of the INSERT/UPDATE at all;
-// (b) both columns exist — UPDATE wrote to gst_rate while GET kept
-//     reading the (never-updated) gst column, so the edit looked reverted.
-$resolveProductCol = function($f) use ($existingColsSet, $COL_ALIASES) {
-    if (isset($existingColsSet[$f])) return $f;
-    if (isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]])) return $COL_ALIASES[$f];
-    return $f;
-};
-
-// Keep a $FIELDS entry if either its own column or its legacy alias exists —
-// the previous version only checked the new name, silently dropping gst/hsn
-// entirely (see $resolveProductCol's comment above) on any DB still using
-// the old gst_rate/hsn_code column names.
-$FIELDS = array_values(array_filter($FIELDS, fn($f) => isset($existingColsSet[$f]) || (isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]))));
+$FIELDS = array_values(array_filter($FIELDS, fn($f) => isset($existingColsSet[$f])));
+// Add back aliased columns: if 'hsn' not in DB but 'hsn_code' is, keep 'hsn' mapped
+// handled in POST/PUT by rewriting the column name before building INSERT/UPDATE
 
 switch ($method) {
   case 'GET':
@@ -205,8 +182,8 @@ switch ($method) {
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
-    $cols = array_map($resolveProductCol, $FIELDS);
-    $vals = array_map(fn($f) => in_array($f, ['date_start','date_end'], true) ? (!empty($d[$f]) ? $d[$f] : null) : ($d[$f] ?? ''), $FIELDS);
+    $cols = array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS);
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     // Only add json columns if they exist in this DB
     if (isset($existingColsSet['tags']))        { $cols[] = 'tags';        $vals[] = json_encode($tags); }
     if (isset($existingColsSet['images']))      { $cols[] = 'images';      $vals[] = json_encode($images); }
@@ -251,9 +228,9 @@ switch ($method) {
     $attachments = processFileArray($d['attachments'] ?? [], 'products');
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
-    $mappedFields = array_map($resolveProductCol, $FIELDS);
+    $mappedFields = array_map(fn($f) => isset($COL_ALIASES[$f]) && isset($existingColsSet[$COL_ALIASES[$f]]) ? $COL_ALIASES[$f] : $f, $FIELDS);
     $setParts = array_map(fn($f) => "`$f`=?", $mappedFields);
-    $vals = array_map(fn($f) => in_array($f, ['date_start','date_end'], true) ? (!empty($d[$f]) ? $d[$f] : null) : ($d[$f] ?? ''), $FIELDS);
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     if (isset($existingColsSet['tags']))        { $setParts[] = 'tags=?';        $vals[] = json_encode($tags); }
     if (isset($existingColsSet['images']))      { $setParts[] = 'images=?';      $vals[] = json_encode($images); }
     if (isset($existingColsSet['attachments'])) { $setParts[] = 'attachments=?'; $vals[] = json_encode($attachments); }

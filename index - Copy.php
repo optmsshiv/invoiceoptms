@@ -2961,7 +2961,7 @@ const SERVER = {
       </div>
       <div class="table-card">
         <table class="data-table" id="productsDataTable">
-          <thead><tr><th>#</th><th id="prodNameColLabel">Description</th><th>Category</th><th>Rate (₹)</th><th>HSN/SAC</th><th>GST%</th><th class="col-unit-type">Unit Type</th><th class="col-service-type">Service Type</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th class="col-unit-type">Unit Type</th><th class="col-service-type">Service Type</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -17567,7 +17567,7 @@ async function toggleClientActive(id, makeActive) {
 // ══════════════════════════════════════════
 // PRODUCTS
 // ══════════════════════════════════════════
-const PROD = { page:1, per:15, list:[], archived:false, archivedList:null };
+const PROD = { page:1, per:8, list:[], archived:false, archivedList:null };
 // Category → default HSN/SAC code. Editable suggestions only — never overrides
 // a value the user has already typed, and the field always stays manually editable.
 const HSN_DEFAULTS = {
@@ -18277,31 +18277,6 @@ const SERVICE_CYCLE_LABELS = {
 function formatServiceCycle(code) {
   return SERVICE_CYCLE_LABELS[code] || '—';
 }
-// Shows/hides the Start/End date inputs next to a cycle dropdown: both
-// hidden when no cycle is chosen, End Date hidden for One-time (a single
-// date is enough — no period to bound).
-function toggleServiceDateFields(prefix) {
-  const cycle = document.getElementById(prefix + '-cycle')?.value || '';
-  const startEl = document.getElementById(prefix + '-date-start');
-  const endEl   = document.getElementById(prefix + '-date-end');
-  if (startEl) startEl.style.display = cycle ? '' : 'none';
-  if (endEl)   endEl.style.display   = (cycle && cycle !== 'onetime') ? '' : 'none';
-}
-// Builds the Description subtitle — e.g. "Yearly · Aug 2026 – Jul 2027",
-// "One-time · 14 Sep 2026", or "Monthly · Aug 2026 – ongoing" when no end
-// date is set (still-active subscription). Blank when no cycle is chosen.
-function formatServiceSubtitle(p) {
-  if (!p.service_cycle) return '';
-  const cycleLabel = formatServiceCycle(p.service_cycle);
-  if (!p.date_start) return cycleLabel;
-  const startD = new Date(p.date_start + 'T00:00:00');
-  if (p.service_cycle === 'onetime') {
-    return `${cycleLabel} &middot; ${startD.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-  }
-  const startLabel = startD.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-  const endLabel = p.date_end ? new Date(p.date_end+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'}) : 'ongoing';
-  return `${cycleLabel} &middot; ${startLabel} – ${endLabel}`;
-}
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
   const s=(PROD.page-1)*PROD.per, e=s+PROD.per, pg=PROD.list.slice(s,e);
@@ -18313,12 +18288,10 @@ function _renderProdPage() {
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
       <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
-      ${canDo('delete')
-        ? `<button class="act-btn" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i></button>`
-        : `<button class="act-btn" disabled style="opacity:.45;cursor:not-allowed" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i></button>`}`;
+      ${_delItem("deleteProduct('"+p.id+"')")}`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
-    <td><strong>${escHtml(p.name)}</strong>${formatServiceSubtitle(p)?`<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${formatServiceSubtitle(p)}</div>`:''}</td>
+    <td><strong>${escHtml(p.name)}</strong></td>
     <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${escHtml(p.category)}</span></td>
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
@@ -18352,22 +18325,15 @@ function editProduct(id){
     <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
     <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
   </select></td>
-  <td class="col-service-type">
-    <select id="ep-cycle" class="table-filter" onchange="toggleServiceDateFields('ep')">
-      <option value="" ${!p.service_cycle?'selected':''}>—</option>
-      <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
-      <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
-      <option value="quarterly" ${p.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
-      <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
-      <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
-    </select>
-    <div style="display:flex;gap:4px;margin-top:4px">
-      <input id="ep-date-start" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${p.date_start||''}" title="Start date">
-      <input id="ep-date-end" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${p.date_end||''}" title="End date (optional — blank = ongoing)">
-    </div>
-  </td>
+  <td class="col-service-type"><select id="ep-cycle" class="table-filter">
+    <option value="" ${!p.service_cycle?'selected':''}>—</option>
+    <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
+    <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
+    <option value="quarterly" ${p.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
+    <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
+    <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
+  </select></td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
-  toggleServiceDateFields('ep');
   ensureHsnDatalist();
 }
 // Fills the HSN field with a suggested code when the category changes,
@@ -18399,9 +18365,7 @@ async function saveEditProd(id) {
     hsn:document.getElementById('ep-hsn')?.value||'998314',
     gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
     unit_family: document.getElementById('ep-unitfam')?.value || 'count',
-    service_cycle: document.getElementById('ep-cycle')?.value || '',
-    date_start: document.getElementById('ep-date-start')?.value || '',
-    date_end: document.getElementById('ep-date-end')?.value || '' };
+    service_cycle: document.getElementById('ep-cycle')?.value || '' };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -18423,9 +18387,9 @@ function openAddProductModal() {
 // vs product/trading businesses (import-export, retail) vs a mix of both — this swaps
 // the Products page's labels to match, driven by Settings → Company → Business Type.
 const BUSINESS_TYPE_LABELS = {
-  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Description', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
+  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
   product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
-  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Description', namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
+  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
 };
 function currentBizLabels() {
   return BUSINESS_TYPE_LABELS[STATE.settings.businessType] || BUSINESS_TYPE_LABELS.both;
@@ -19105,7 +19069,7 @@ function _showAddProductRow(prefill) {
       </select>
     </td>
     <td class="col-service-type">
-      <select id="np-cycle" class="table-filter" onchange="toggleServiceDateFields('np')">
+      <select id="np-cycle" class="table-filter">
         <option value="" ${!prefill||!prefill.service_cycle?'selected':''}>—</option>
         <option value="onetime" ${prefill&&prefill.service_cycle==='onetime'?'selected':''}>One-time</option>
         <option value="monthly" ${prefill&&prefill.service_cycle==='monthly'?'selected':''}>Monthly</option>
@@ -19113,10 +19077,6 @@ function _showAddProductRow(prefill) {
         <option value="halfyearly" ${prefill&&prefill.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
         <option value="yearly" ${prefill&&prefill.service_cycle==='yearly'?'selected':''}>Yearly</option>
       </select>
-      <div style="display:flex;gap:4px;margin-top:4px">
-        <input id="np-date-start" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${prefill&&prefill.date_start||''}" title="Start date">
-        <input id="np-date-end" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${prefill&&prefill.date_end||''}" title="End date (optional — blank = ongoing)">
-      </div>
     </td>
     <td>
       <div class="action-cell">
@@ -19131,7 +19091,6 @@ function _showAddProductRow(prefill) {
     npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${escHtml(c.name)}</option>`).join('');
     if (prefill) npCat.value = prefill.category;
   }
-  toggleServiceDateFields('np');
   ensureHsnDatalist();
   const npHsn = document.getElementById('np-hsn');
   if (!prefill && npHsn && npCat && npCat.value) {
@@ -19160,8 +19119,6 @@ async function saveNewProduct() {
     gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
     unit_family: document.getElementById('np-unitfam')?.value || 'count',
     service_cycle: document.getElementById('np-cycle')?.value || '',
-    date_start: document.getElementById('np-date-start')?.value || '',
-    date_end: document.getElementById('np-date-end')?.value || '',
     client_request_id: QUICK_PRODUCT_KEY };
   try {
     await api('api/products.php', 'POST', payload);
