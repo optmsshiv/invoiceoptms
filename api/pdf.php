@@ -55,6 +55,27 @@ function pdf_fmt_date($d) {
 function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
+// Billing-cycle labels — keep in sync with SERVICE_CYCLE_LABELS in index.php.
+function pdf_format_service_cycle($code) {
+    $labels = ['onetime'=>'One-time','monthly'=>'Monthly','quarterly'=>'Quarterly','halfyearly'=>'Half-yearly','yearly'=>'Yearly'];
+    return $labels[$code] ?? '—';
+}
+// Port of formatServiceSubtitle() in index.php — keep both in sync.
+function pdf_format_service_subtitle($item) {
+    $cycle = $item['service_cycle'] ?? '';
+    if (!$cycle) return '';
+    $cycleLabel = pdf_format_service_cycle($cycle);
+    $start = $item['date_start'] ?? '';
+    if (!$start) return $cycleLabel;
+    $startTs = strtotime($start);
+    if ($cycle === 'onetime') {
+        return $cycleLabel . ' &middot; ' . date('d M Y', $startTs);
+    }
+    $startLabel = date('M Y', $startTs);
+    $end = $item['date_end'] ?? '';
+    $endLabel = $end ? date('M Y', strtotime($end)) : 'ongoing';
+    return $cycleLabel . ' &middot; ' . $startLabel . ' – ' . $endLabel;
+}
 // Port of the JS numToWordsINR() in index.php — keep both in sync.
 function pdf_num_to_words_inr($amount) {
     $amount = (int)round((float)$amount);
@@ -867,6 +888,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       <tr>
         <th style="width:20px">#</th>
         <th>Description</th>
+        <th style="width:60px">HSN/SAC</th>
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
         <th class="r" style="width:80px">Amount</th>
@@ -888,19 +910,20 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $gstAmtLine = $amt * $g / 100;
         $tot = $amt + $gstAmtLine;
         $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
-        $gLabel   = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
+        $cycleSubtitle = pdf_format_service_subtitle($item);
     ?>
     <tr>
       <td style="color:#9CA3AF"><?= $idx + 1 ?></td>
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
-        <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
+        <?php if ($cycleSubtitle): ?><div style="font-size:9px;color:#9CA3AF;font-style:italic;margin-top:2px"><?= $cycleSubtitle ?></div><?php endif; ?>
       </td>
+      <td style="font-size:10px;color:#555;font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($itemHsn ?: '—') ?></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
       <td class="r mono"><?= pdf_fmt_money($lineAmt, '') ?></td>
       <td class="r mono" style="font-size:9.5px"><?php if ($iDiscAmt > 0): $discPctEff = $lineAmt > 0 ? ($iDiscAmt / $lineAmt * 100) : 0; $discPctLbl = $discPctEff == (int)$discPctEff ? (string)(int)$discPctEff : number_format($discPctEff, 1); ?><div style="color:#DC2626"><?= pdf_fmt_money($iDiscAmt, '') ?></div><div style="font-size:8px;color:#DC2626;opacity:.75"><?= $discPctLbl ?>%</div><?php else: ?><span style="color:#CBD5E1">&mdash;</span><?php endif; ?></td>
-      <td class="r mono" style="color:<?= $g > 0 ? '#166534' : '#9CA3AF' ?>"><?= $g > 0 ? pdf_fmt_money($gstAmtLine, '') : 'Exempt' ?></td>
+      <td class="r mono" style="font-size:9.5px"><?php if ($g > 0): $gLabel = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.'); ?><div style="color:#166534"><?= pdf_fmt_money($gstAmtLine, '') ?></div><div style="font-size:8px;color:#166534;opacity:.75"><?= $gLabel ?>%</div><?php else: ?><span style="font-style:italic;color:#9CA3AF">Exempt</span><?php endif; ?></td>
       <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>

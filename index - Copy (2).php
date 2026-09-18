@@ -13528,31 +13528,27 @@ function buildInvoiceHTML(d, forPrint) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
-        const cycleSubtitle = formatServiceSubtitle(i);
+        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
-        const gstCell = itemGst>0
-          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${itemGst}%</div>`
-          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
+            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
           </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>` : ''}
+          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGstCol?9:8}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
+    : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
 
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
@@ -14808,7 +14804,6 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
         <th style="${thStyle}">Description</th>
-        <th style="${thStyle}">HSN/SAC</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
         <th style="${thr}">Amount</th>
@@ -15009,7 +15004,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -15070,31 +15065,27 @@ function openPrintWindow(d, items) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
-        const cycleSubtitle = formatServiceSubtitle(i);
+        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
-        const gstCell = itemGst>0
-          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${itemGst}%</div>`
-          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
+            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
           </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>` : ''}
+          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGst?9:8}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
@@ -15202,31 +15193,27 @@ function printInvoiceById(inv) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
-        const cycleSubtitle = formatServiceSubtitle(i);
+        const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,sym);
         const totCell = fmt_money(lineInclGst,sym);
-        const gstCell = gst>0
-          ? `<div style="color:#166534">${fmt_money(gstAmt,sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${gst}%</div>`
-          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||i.description||'—'}</div>
-            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
+            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
           </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gst>0?'#166534':'#94A3B8'}">${gst>0?fmt_money(gstAmt,sym):'Exempt'}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="9" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const d = {
     tpl: inv.template || inv.template_id || STATE.settings.activeTemplate || '2',
     num: inv.num||inv.invoice_number, date: inv.issued||inv.issued_date,
@@ -15336,7 +15323,7 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct' }))
   };
   try {
     if (!isNewSave) {
@@ -15681,31 +15668,27 @@ function openPreviewModal(id) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
-        const cycleSubtitle = formatServiceSubtitle(i);
+        const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
-        const gstCell = gstR>0
-          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${gstR}%</div>`
-          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${desc}</div>
-            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
+            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
           </td>
-          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstR>0?'#166534':'#94A3B8'}">${gstR>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="9" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
@@ -15787,7 +15770,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
   renderFormItems();
   livePreview();
 }
@@ -19195,7 +19178,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   showPage('create', null);
   setTimeout(() => {
-    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate, hsn:p.hsn||'', service_cycle:p.service_cycle||'', date_start:p.date_start||'', date_end:p.date_end||'' });
+    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
     renderFormItems();
     livePreview();
     toast(`✅ "${p.name}" added to invoice`, 'success');
@@ -26970,12 +26953,8 @@ function pickProduct(id) {
     formItems[0].qty      = 1;
     formItems[0].gst      = gst;
     formItems[0].rate     = p.rate;
-    formItems[0].hsn      = p.hsn || '';
-    formItems[0].service_cycle = p.service_cycle || '';
-    formItems[0].date_start    = p.date_start || '';
-    formItems[0].date_end      = p.date_end || '';
   } else {
-    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate, hsn: p.hsn||'', service_cycle: p.service_cycle||'', date_start: p.date_start||'', date_end: p.date_end||'' });
+    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate });
   }
   renderFormItems();
   livePreview();

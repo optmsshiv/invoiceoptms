@@ -55,6 +55,127 @@ function pdf_fmt_date($d) {
 function pdf_fmt_money($n, $sym = '₹') {
     return $sym . number_format((float)$n, 2, '.', ',');
 }
+// Port of the JS numToWordsINR() in index.php — keep both in sync.
+function pdf_num_to_words_inr($amount) {
+    $amount = (int)round((float)$amount);
+    if ($amount === 0) return 'Zero Rupees Only';
+    $ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    $tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    $two = function($n) use ($ones, $tens) {
+        return $n < 20 ? $ones[$n] : $tens[intdiv($n, 10)] . ($n % 10 ? ' ' . $ones[$n % 10] : '');
+    };
+    $threeFn = function($n) use ($ones, $two) {
+        $out = '';
+        if ($n >= 100) { $out .= $ones[intdiv($n, 100)] . ' Hundred '; }
+        $out .= $two($n % 100);
+        return $out;
+    };
+    $n = $amount; $parts = [];
+    $crore = intdiv($n, 10000000); $n %= 10000000;
+    $lakh  = intdiv($n, 100000);   $n %= 100000;
+    $thousand = intdiv($n, 1000);  $n %= 1000;
+    if ($crore)    $parts[] = trim($threeFn($crore)) . ' Crore';
+    if ($lakh)     $parts[] = trim($threeFn($lakh)) . ' Lakh';
+    if ($thousand) $parts[] = trim($threeFn($thousand)) . ' Thousand';
+    if ($n)        $parts[] = trim($threeFn($n));
+    $joined = trim(implode(' ', $parts));
+    return ($joined ?: 'Zero') . ' Rupees Only';
+}
+// Tax Summary section — groups items by HSN/SAC + GST rate, shows post-discount taxable
+// base with an even CGST/SGST split, plus a bold Total row. Mirrors buildTaxSummaryHTML()
+// in index.php exactly so the JS preview and the downloaded PDF always match.
+// $items: array of ['hsn'=>, 'item_type'=>, 'gst'=>, 'qty'=>, 'rate'=>]. $mono: true for
+// the monochrome/serif Formal Letterhead template, false for the colorful Template 2.
+function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false, $itemDiscMode = false) {
+    if (empty($items)) return '';
+    $font = $mono ? "'DejaVu Serif',Georgia,serif" : "'DejaVu Sans',Arial,sans-serif";
+    $buckets = [];
+    foreach ($items as $item) {
+        $rate = (float)($item['gst'] ?? 0);
+        $hsn  = $item['hsn'] ?: '—';
+        $type = $item['item_type'] ?: 'Service';
+        $key  = $hsn . '|' . $rate;
+        $lineAmt = ((float)($item['qty'] ?? 1)) * ((float)($item['rate'] ?? 0));
+        if ($itemDiscMode) {
+            $iDisc = (float)($item['item_discount'] ?? 0);
+            $iDiscAmt = (($item['item_discount_type'] ?? '') === 'fixed') ? min($iDisc, $lineAmt) : $lineAmt * $iDisc / 100;
+            $base = $lineAmt - $iDiscAmt;
+        } else {
+            $base = $lineAmt * $discFactor;
+        }
+        if (!isset($buckets[$key])) $buckets[$key] = ['hsn' => $hsn, 'type' => $type, 'rate' => $rate, 'taxable' => 0];
+        $buckets[$key]['taxable'] += $base;
+    }
+    // Non-taxable (0% / exempt) groups are omitted entirely — blank like the empty state.
+    $buckets = array_filter($buckets, fn($r) => $r['rate'] > 0);
+    if (empty($buckets)) return '';
+    usort($buckets, fn($a, $b) => $a['hsn'] === $b['hsn'] ? $a['rate'] <=> $b['rate'] : strcmp($a['hsn'], $b['hsn']));
+    $totTaxable = 0; $totCgst = 0; $totSgst = 0; $totGst = 0;
+    $rowsHtml = '';
+    foreach ($buckets as $r) {
+        $gstAmt = $r['taxable'] * $r['rate'] / 100;
+        $half   = $gstAmt / 2;
+        $totTaxable += $r['taxable']; $totCgst += $half; $totSgst += $half; $totGst += $gstAmt;
+        $rateLabel = $r['rate'] == 0 ? '0% Exempt' : $r['rate'] . '%';
+        if ($mono) {
+            $rateCell = '<span style="font-size:9.5px;font-weight:bold">' . htmlspecialchars($rateLabel) . '</span>';
+            $gstColor = '#1a1a1a';
+        } else {
+            if ($r['rate'] == 0)      [$bg,$color,$border] = ['#F1F5F9','#475569','#CBD5E1'];
+            elseif ($r['rate'] <= 5)  [$bg,$color,$border] = ['#F0FDF4','#166534','#86EFAC'];
+            elseif ($r['rate'] <= 12) [$bg,$color,$border] = ['#EFF6FF','#1D4ED8','#BFDBFE'];
+            else                      [$bg,$color,$border] = ['#FEF3C7','#92400E','#FDE68A'];
+            $rateCell = '<span style="display:inline-block;padding:2px 7px;border-radius:9px;font-size:9.5px;font-weight:bold;background:' . $bg . ';color:' . $color . ';border:1px solid ' . $border . '">' . htmlspecialchars($rateLabel) . '</span>';
+            $gstColor = $r['rate'] > 0 ? '#166534' : '#9CA3AF';
+        }
+        $rowsHtml .= '<tr style="border-bottom:' . ($mono ? '0.5px solid #ddd' : '1px solid #E5E7EB') . '">
+          <td style="padding:7px 8px;font-family:' . $font . '">
+            <div style="font-family:\'DejaVu Sans Mono\',monospace;font-size:10px;font-weight:bold;color:' . ($mono?'#1a1a1a':'#111') . '">' . htmlspecialchars($r['hsn']) . '</div>
+          </td>
+          <td style="padding:7px 8px;text-align:center;font-family:' . $font . '">' . $rateCell . '</td>
+          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px">' . pdf_fmt_money($r['taxable'], $sym) . '</td>
+          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;color:' . $gstColor . '">' . pdf_fmt_money($half, $sym) . '</td>
+          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;color:' . $gstColor . '">' . pdf_fmt_money($half, $sym) . '</td>
+          <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-size:11px;font-weight:bold;color:' . $gstColor . '">' . pdf_fmt_money($gstAmt, $sym) . '</td>
+        </tr>';
+    }
+    $headBg   = $mono ? 'transparent' : '#F8F9FC';
+    $headBdr  = $mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
+    $wrapBdr  = $mono ? '1.5px solid #1a1a1a' : '1px solid #E5E7EB';
+    $titleClr = $mono ? '#1a1a1a' : '#374151';
+    $accent   = $mono ? '' : '<span style="width:4px;height:12px;background:#4F46E5;display:inline-block;border-radius:2px"></span>';
+    $footTotClr = $mono ? '#1a1a1a' : '#166534';
+    return '
+    <div style="margin:14px 0;font-family:' . $font . '">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        ' . $accent . '
+        <span style="font-size:10px;font-weight:bold;letter-spacing:.5px;text-transform:uppercase;color:' . $titleClr . '">Tax Summary &mdash; Intra-State Supply</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:' . $wrapBdr . '">
+        <thead>
+          <tr style="background:' . $headBg . ';border-bottom:' . $headBdr . '">
+            <th style="padding:7px 8px;text-align:left;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">HSN/SAC</th>
+            <th style="padding:7px 8px;text-align:center;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Tax Rate</th>
+            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Taxable Amt</th>
+            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">CGST</th>
+            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">SGST</th>
+            <th style="padding:7px 8px;text-align:right;font-size:8.5px;font-weight:bold;text-transform:uppercase;color:' . ($mono?'#1a1a1a':'#6B7280') . '">Total GST</th>
+          </tr>
+        </thead>
+        <tbody>' . $rowsHtml . '</tbody>
+        <tfoot>
+          <tr style="background:' . $headBg . ';' . ($mono ? 'border-top:1.5px solid #1a1a1a' : '') . '">
+            <td style="padding:7px 8px;font-weight:bold;font-size:11px;color:' . ($mono?'#1a1a1a':'#111') . '">Total</td>
+            <td></td>
+            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px">' . pdf_fmt_money($totTaxable, $sym) . '</td>
+            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totCgst, $sym) . '</td>
+            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totSgst, $sym) . '</td>
+            <td style="padding:7px 8px;text-align:right;font-family:\'DejaVu Sans Mono\',monospace;font-weight:bold;font-size:11px;color:' . $footTotClr . '">' . pdf_fmt_money($totGst, $sym) . '</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>';
+}
 // Small prefix icons for Billed To / Issued By lines — inline SVG, same paths as the JS template.
 // Note: mPDF's inline-SVG support is more limited than a browser's — verify these render
 // correctly in an actual downloaded PDF; if glyphs look off, drop this helper's calls and
@@ -129,14 +250,19 @@ if ($error || $invoiceId <= 0) {
 try {
     $db = getDB();
 
-    // Invoice
+    // Invoice — discount_mode may not exist on every tenant's invoices table
+    // yet, so detect it first rather than assuming (same defensive pattern
+    // used below for invoice_items' hsn/item_type columns).
+    $invCols = $db->query("SHOW COLUMNS FROM invoices")->fetchAll(PDO::FETCH_COLUMN);
+    $hasDiscMode = in_array('discount_mode', $invCols, true);
+    $discModeSelect = $hasDiscMode ? ', i.discount_mode' : '';
     $stmt = $db->prepare("
         SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                i.due_date, i.grand_total AS amount, i.subtotal,
                i.discount_pct, i.discount_amt, i.gst_amount,
                i.status, i.client_id, i.service_type,
                i.notes, i.terms, i.bank_details, i.currency,
-               i.company_logo, i.signature
+               i.company_logo, i.signature$discModeSelect
         FROM invoices i WHERE i.id = :id LIMIT 1
     ");
     $stmt->execute([':id' => $invoiceId]);
@@ -154,8 +280,18 @@ try {
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Line items
-    $iStmt = $db->prepare('SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+    // Line items — hsn/item_type/item_discount columns may not exist on every
+    // tenant's invoice_items table yet, so detect them first rather than
+    // assuming; an unconditional SELECT of missing columns would break PDF
+    // generation entirely for anyone who hasn't added them.
+    $iiCols   = $db->query("SHOW COLUMNS FROM invoice_items")->fetchAll(PDO::FETCH_COLUMN);
+    $hasHsn   = in_array('hsn', $iiCols, true);
+    $hasIType = in_array('item_type', $iiCols, true);
+    $hasIDisc = in_array('item_discount', $iiCols, true);
+    $hasIDiscType = in_array('item_discount_type', $iiCols, true);
+    $extraCols = ($hasHsn ? ', hsn' : '') . ($hasIType ? ', item_type' : '')
+        . ($hasIDisc ? ', item_discount' : '') . ($hasIDiscType ? ', item_discount_type' : '');
+    $iStmt = $db->prepare("SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total$extraCols FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC");
     $iStmt->execute([':id' => $inv['invoice_id']]);
     $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -205,17 +341,31 @@ $remaining = max(0, $totalAmt - $totalCovered);
 $lastPaymentDate = $payments ? pdf_fmt_date(end($payments)['payment_date'] ?? '') : '';
 
 // Line item totals
-$calcSubtotal = 0; $calcGst = 0;
+$discMode = ($hasDiscMode && ($inv['discount_mode'] ?? '') === 'item') ? 'item' : 'invoice';
+$calcSubtotal = 0; $calcGst = 0; $itemDiscTotal = 0;
 foreach ($items as $item) {
-    $a = (float)$item['qty'] * (float)$item['rate'];
-    $calcSubtotal += $a;
-    $calcGst      += $a * (float)$item['gst'] / 100;
+    $lineAmt = (float)$item['qty'] * (float)$item['rate'];
+    $calcSubtotal += $lineAmt;
+    if ($discMode === 'item') {
+        $iDisc = $hasIDisc ? (float)($item['item_discount'] ?? 0) : 0;
+        $iDiscType = $hasIDiscType ? ($item['item_discount_type'] ?? 'pct') : 'pct';
+        $iDiscAmt = ($iDiscType === 'fixed') ? min($iDisc, $lineAmt) : $lineAmt * $iDisc / 100;
+        $itemDiscTotal += $iDiscAmt;
+        $calcGst += ($lineAmt - $iDiscAmt) * (float)$item['gst'] / 100;
+    } else {
+        $calcGst += $lineAmt * (float)$item['gst'] / 100;
+    }
 }
-$discountAmt = (float)($inv['discount_amt'] ?? 0);
-$discountPct = (float)($inv['discount_pct'] ?? 0);
-if ($discountAmt == 0 && $discountPct > 0) $discountAmt = $calcSubtotal * $discountPct / 100;
+if ($discMode === 'item') {
+    $discountAmt = $itemDiscTotal;
+    $discountPct = $calcSubtotal > 0 ? ($discountAmt / $calcSubtotal * 100) : 0;
+} else {
+    $discountAmt = (float)($inv['discount_amt'] ?? 0);
+    $discountPct = (float)($inv['discount_pct'] ?? 0);
+    if ($discountAmt == 0 && $discountPct > 0) $discountAmt = $calcSubtotal * $discountPct / 100;
+}
 $discFactor   = $calcSubtotal > 0 ? (1 - $discountAmt / $calcSubtotal) : 1;
-$calcGstFinal = $discountAmt > 0 ? $calcGst * $discFactor : $calcGst;
+$calcGstFinal = $discMode === 'item' ? $calcGst : ($discountAmt > 0 ? $calcGst * $discFactor : $calcGst);
 $calcGrand    = $calcSubtotal - $discountAmt + $calcGstFinal;
 
 // Company info
@@ -233,6 +383,16 @@ $companyWebsite = $settings['company_website'] ?? '';
 $companyTagline = $settings['company_tagline'] ?? '';
 $companyLogo    = $inv['company_logo'] ?: ($settings['company_logo'] ?? '');
 $companySign    = $inv['signature']    ?: ($settings['company_sign'] ?? '');
+$companyUpi     = $settings['company_upi'] ?? '';
+
+// Dynamic UPI QR — always reflects the current invoice amount, mirrors the
+// JS preview's qrUrl logic (upi://pay deep link rendered via qrserver.com).
+$qrCode = '';
+if ($companyUpi && $calcGrand > 0) {
+    $upiString = 'upi://pay?pa=' . urlencode($companyUpi) . '&pn=' . urlencode($companyName ?: 'Merchant')
+        . '&am=' . number_format($calcGrand, 2, '.', '') . '&cu=INR&tn=' . urlencode($inv['invoice_number'] ?: 'Invoice');
+    $qrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=' . urlencode($upiString);
+}
 
 // ── Status badge colours ───────────────────────────────────────
 $statusColors = [
@@ -284,7 +444,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 /* Header — full Slate Dark panel (canonical design, matches in-app preview) */
 .hdr-accent { height: 5px; background: <?= $accentColor ?>; }
 .hdr-wrap { width: 100%; border-collapse: collapse; margin-bottom: 16px; background: #1E293B; }
-.hdr-cell { background: #1E293B; padding: 26px 32px; vertical-align: top; }
+.hdr-cell { background: #1E293B; padding: 16px 22px; vertical-align: top; }
 .hdr-logo-cell { width: 124px; text-align: center; vertical-align: middle; padding-right: 20px; }
 .hdr-logo-img { max-width: 112px; max-height: 120px; }
 .hdr-logo-mono { width: 60px; height: 60px; color: #fff; font-size: 22px; font-weight: bold; text-align: center; line-height: 60px; margin: 0 auto; }
@@ -335,11 +495,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 .tfoot-row td { padding: 4px 10px; text-align: right; }
 .tfoot-lbl { font-size: 10px; color: #6B7280; }
 .tfoot-val { font-size: 11px; font-family: 'DejaVu Sans Mono', monospace; min-width: 90px; display: inline-block; }
-.tfoot-grand td { padding: 8px 10px; background: #F0FDF4; border-top: 2px solid #E5E7EB; }
+.tfoot-grand td { padding: 8px 10px; background: #1E293B; border-top: 2px solid #E5E7EB; }
 .tfoot-grand td:first-child { border-bottom-left-radius: 7px; }
 .tfoot-grand td:last-child { border-bottom-right-radius: 7px; }
-.tfoot-grand .tfoot-lbl { font-size: 12px; font-weight: bold; color: #1A1A2E; }
-.tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #00897B; }
+.tfoot-grand .tfoot-lbl { font-size: 12px; font-weight: bold; color: #2DD4BF; text-transform: uppercase; letter-spacing: .5px; }
+.tfoot-grand .tfoot-val { font-size: 14px; font-weight: bold; color: #2DD4BF; }
 .disc-val { color: #C62828; }
 
 /* Payment history */
@@ -532,6 +692,8 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </tbody>
     </table>
 
+    <?= pdf_tax_summary_html($items, $discFactor, $sym, true) ?>
+
     <!-- TOTALS -->
     <table class="flh-tot-wrap">
       <tr><td style="width:65%"></td><td class="flh-tot-row" style="width:35%">
@@ -543,7 +705,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </td></tr>
       <?php endif; ?>
       <tr><td></td><td>
-        <table width="100%"><tr class="flh-tot-row"><td>GST</td><td class="r">+ <?= pdf_fmt_money($calcGstFinal, $sym) ?></td></tr></table>
+        <table width="100%"><tr class="flh-tot-row"><td>Total GST<br><span style="font-size:7.5px;color:#888">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td><td class="r">+ <?= pdf_fmt_money($calcGstFinal, $sym) ?></td></tr></table>
       </td></tr>
       <tr><td></td><td>
         <table width="100%" class="flh-tot-grand"><tr><td class="flh-grand-lbl">Total Due</td><td class="flh-grand-val"><?= pdf_fmt_money($calcGrand, $sym) ?></td></tr></table>
@@ -708,7 +870,8 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <th class="r" style="width:50px">Qty</th>
         <th class="r" style="width:80px">Rate</th>
         <th class="r" style="width:80px">Amount</th>
-        <th class="r" style="width:50px">GST</th>
+        <th class="r" style="width:75px">Discount</th>
+        <th class="r" style="width:70px">GST</th>
         <th class="r" style="width:85px">Total</th>
       </tr>
     </thead>
@@ -717,53 +880,31 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $q   = (float)$item['qty'];
         $r   = (float)$item['rate'];
         $g   = (float)$item['gst'];
-        $amt = $q * $r;
-        $tot = $amt + $amt * $g / 100;
+        $lineAmt = $q * $r;
+        $iDisc = ($discMode==='item' && $hasIDisc) ? (float)($item['item_discount'] ?? 0) : 0;
+        $iDiscType = $hasIDiscType ? ($item['item_discount_type'] ?? 'pct') : 'pct';
+        $iDiscAmt = ($discMode==='item') ? (($iDiscType==='fixed') ? min($iDisc,$lineAmt) : $lineAmt*$iDisc/100) : 0;
+        $amt = $lineAmt - $iDiscAmt;
+        $gstAmtLine = $amt * $g / 100;
+        $tot = $amt + $gstAmtLine;
+        $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
+        $gLabel   = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
     ?>
     <tr>
       <td style="color:#9CA3AF"><?= $idx + 1 ?></td>
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
+        <div style="font-size:9px;color:#9CA3AF;font-family:'DejaVu Sans Mono',monospace;margin-top:2px">HSN/SAC: <?= htmlspecialchars($itemHsn ?: '—') ?><?= $g > 0 ? ' &middot; ' . $gLabel . '% GST' : '' ?></div>
       </td>
       <td class="r mono"><?= number_format($q, 2) ?></td>
       <td class="r mono"><?= pdf_fmt_money($r, '') ?></td>
-      <td class="r mono"><?= pdf_fmt_money($amt, '') ?></td>
-      <td class="r"><?= number_format($g, 2) ?>%</td>
-      <td class="r mono" style="font-weight:bold"><?= pdf_fmt_money($tot, $sym) ?></td>
+      <td class="r mono"><?= pdf_fmt_money($lineAmt, '') ?></td>
+      <td class="r mono" style="font-size:9.5px"><?php if ($iDiscAmt > 0): $discPctEff = $lineAmt > 0 ? ($iDiscAmt / $lineAmt * 100) : 0; $discPctLbl = $discPctEff == (int)$discPctEff ? (string)(int)$discPctEff : number_format($discPctEff, 1); ?><div style="color:#DC2626"><?= pdf_fmt_money($iDiscAmt, '') ?></div><div style="font-size:8px;color:#DC2626;opacity:.75"><?= $discPctLbl ?>%</div><?php else: ?><span style="color:#CBD5E1">&mdash;</span><?php endif; ?></td>
+      <td class="r mono" style="color:<?= $g > 0 ? '#166534' : '#9CA3AF' ?>"><?= $g > 0 ? pdf_fmt_money($gstAmtLine, '') : 'Exempt' ?></td>
+      <td class="r mono" style="font-weight:bold;color:#1D4ED8"><?= pdf_fmt_money($tot, $sym) ?></td>
     </tr>
     <?php endforeach; ?>
     </tbody>
-  </table>
-
-  <!-- Totals -->
-  <table width="100%" style="border-top:1px solid #E5E7EB">
-    <tr class="tfoot-row">
-      <td style="width:60%"></td>
-      <td class="tfoot-lbl">Subtotal</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcSubtotal, $sym) ?></td>
-    </tr>
-    <?php if ($discountAmt > 0): ?>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td>
-      <td class="tfoot-val r disc-val" style="text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
-    </tr>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">Taxable Amount</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcSubtotal - $discountAmt, $sym) ?></td>
-    </tr>
-    <?php endif; ?>
-    <tr class="tfoot-row">
-      <td></td>
-      <td class="tfoot-lbl">GST</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcGstFinal, $sym) ?></td>
-    </tr>
-    <tr class="tfoot-grand">
-      <td style="width:60%"></td>
-      <td class="tfoot-lbl">Grand Total</td>
-      <td class="tfoot-val r" style="text-align:right"><?= pdf_fmt_money($calcGrand, $sym) ?></td>
-    </tr>
   </table>
 </div>
 <?php endif; ?>
@@ -795,55 +936,117 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </div>
 <?php endif; ?>
 
-<!-- Bank Details -->
-<?php if (!empty($inv['bank_details'])): ?>
-<div class="card">
-  <div class="card-head">Bank Details</div>
-  <div class="card-body">
-    <div class="notes-box mono"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
-  </div>
-</div>
-<?php endif; ?>
+<!-- TAX SUMMARY + BANK/UPI/NOTES/TNC (left) paired with TOTALS (right, full row height) -->
+<?php if ($items || !empty($inv['bank_details']) || !empty($liveNotes) || !empty($liveTnc)): ?>
+<div class="card" style="padding:0">
+  <table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed">
+    <tr>
+      <!-- LEFT: Tax Summary, then Bank Details+UPI, Notes, T&C -->
+      <td style="vertical-align:top;width:64%;padding:14px">
+        <?php if ($items): ?>
+          <?= pdf_tax_summary_html($items, $discFactor, $sym, false, $discMode === 'item') ?>
+        <?php endif; ?>
 
-<!-- Notes & Terms -->
-<?php if (!empty($liveNotes) || !empty($liveTnc)): ?>
-<div class="card">
-  <div class="card-head">Notes &amp; Terms</div>
-  <div class="card-body" style="display:flex;gap:16px">
-    <?php if (!empty($liveNotes)): ?>
-    <div style="flex:1">
-      <div class="section-lbl">Notes</div>
-      <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
-    </div>
-    <?php endif; ?>
-    <?php if (!empty($liveTnc)): ?>
-    <div style="flex:1">
-      <div class="section-lbl">Terms &amp; Conditions</div>
-      <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
-    </div>
-    <?php endif; ?>
-  </div>
-</div>
-<?php endif; ?>
+        <?php if (!empty($inv['bank_details']) || $companyUpi): ?>
+        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-top:<?= $items ? '12px' : '0' ?>">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <?php if (!empty($inv['bank_details'])): ?>
+              <td style="vertical-align:top;<?= $companyUpi ? 'width:58%;padding-right:14px' : '' ?>">
+                <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1.2px;color:#92400E;margin-bottom:5px">Bank Details</div>
+                <div style="font-size:10px;line-height:1.7;color:#78350F"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
+              </td>
+              <?php endif; ?>
+              <?php if ($companyUpi): ?>
+              <td style="vertical-align:top;<?= !empty($inv['bank_details']) ? 'width:42%;border-left:1px solid #FDE68A;padding-left:14px' : '' ?>;text-align:center">
+                <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1.2px;color:#92400E;margin-bottom:5px">UPI</div>
+                <?php if ($qrCode): ?><img src="<?= htmlspecialchars($qrCode) ?>" style="width:64px;height:64px;border-radius:6px;border:1px solid #FDE68A;display:block;margin:0 auto 4px" alt="UPI QR"><?php endif; ?>
+                <div style="display:inline-block;background:#FEF3C7;border-radius:6px;padding:4px 8px;font-size:9.5px;font-weight:bold;color:#92400E"><?= htmlspecialchars($companyUpi) ?></div>
+                <?php if ($qrCode): ?><div style="font-size:8px;color:#92400E;margin-top:3px">Scan to Pay</div><?php endif; ?>
+              </td>
+              <?php endif; ?>
+            </tr>
+          </table>
+        </div>
+        <?php endif; ?>
 
-<!-- Signature -->
-<?php if ($companySign): ?>
-<div class="signature-block">
-  <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:50px;max-width:160px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
-  <div class="sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
-</div>
-<?php else: ?>
-<div class="signature-block">
-  <div class="sig-line"></div>
-  <div class="sig-label">Authorised Signatory · <?= htmlspecialchars($companyName) ?></div>
+        <?php if (!empty($liveNotes)): ?>
+        <div style="margin-top:12px;<?= (!empty($inv['bank_details'])||$companyUpi) ? 'border-top:1px solid #E5E7EB;padding-top:10px' : '' ?>">
+          <div class="section-lbl">Notes</div>
+          <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($liveTnc)): ?>
+        <div style="margin-top:12px;border-top:1px solid #E5E7EB;padding-top:10px">
+          <div class="section-lbl">Terms &amp; Conditions</div>
+          <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+        </div>
+        <?php endif; ?>
+      </td>
+
+      <!-- RIGHT: Totals, full row height (table cells stretch to match the taller sibling) -->
+      <td style="vertical-align:top;width:36%;background:#EEF2FF;padding:0">
+        <?php if ($items): ?>
+        <table width="100%" style="border-collapse:collapse">
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:10px 14px 4px">Subtotal</td>
+            <td class="tfoot-val r" style="padding:10px 14px 4px;text-align:right"><?= pdf_fmt_money($calcSubtotal, $sym) ?></td>
+          </tr>
+          <?php if ($discountAmt > 0): ?>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px"><?php if ($discMode === 'item'): ?>Total Discount<?php else: ?>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?><?php endif; ?></td>
+            <td class="tfoot-val r disc-val" style="padding:4px 14px;text-align:right">- <?= pdf_fmt_money($discountAmt, $sym) ?></td>
+          </tr>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px">Taxable Amount</td>
+            <td class="tfoot-val r" style="padding:4px 14px;text-align:right"><?= pdf_fmt_money($calcSubtotal - $discountAmt, $sym) ?></td>
+          </tr>
+          <?php endif; ?>
+          <tr class="tfoot-row">
+            <td class="tfoot-lbl" style="padding:4px 14px 10px">Total GST<br><span style="font-size:8px;color:#9CA3AF;font-weight:normal">CGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?> + SGST <?= pdf_fmt_money($calcGstFinal/2, $sym) ?></span></td>
+            <td class="tfoot-val r" style="padding:4px 14px 10px;text-align:right"><?= pdf_fmt_money($calcGstFinal, $sym) ?></td>
+          </tr>
+          <tr class="tfoot-grand">
+            <td class="tfoot-lbl" style="padding:10px 14px">Grand Total</td>
+            <td class="tfoot-val r" style="padding:10px 14px;text-align:right"><?= pdf_fmt_money($calcGrand, $sym) ?></td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:9px 14px;border-bottom:1px solid #DDE1FA">
+              <div style="font-size:7.5px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#4338CA;opacity:.8;margin-bottom:2px">Amount in Words</div>
+              <div style="font-size:9.5px;font-style:italic;color:#312E81;line-height:1.4"><?= htmlspecialchars(pdf_num_to_words_inr($calcGrand)) ?></div>
+            </td>
+          </tr>
+        </table>
+        <?php endif; ?>
+
+        <!-- Signature — pinned toward the bottom of this cell -->
+        <div style="text-align:right;padding:20px 14px 14px">
+          <?php if ($companySign): ?>
+            <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:44px;max-width:150px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
+          <?php else: ?>
+            <div style="width:140px;border-bottom:1px solid #C7D2FE;margin-left:auto;margin-bottom:5px;height:30px"></div>
+          <?php endif; ?>
+          <div style="font-size:8.5px;color:#9CA3AF;font-weight:bold;text-transform:uppercase;letter-spacing:.5px">Authorised Signatory</div>
+          <div style="font-size:8px;color:#C4CAF5;margin-top:1px"><?= htmlspecialchars($companyName) ?></div>
+        </div>
+      </td>
+    </tr>
+  </table>
 </div>
 <?php endif; ?>
 
 <!-- Footer -->
-<div class="pdf-footer">
-  This is a computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> and is valid without a physical signature.<br>
-  Generated by <strong><?= htmlspecialchars($companyName) ?></strong> · OPTMS Invoice Manager · <?= date('d M Y') ?>
-</div>
+<table width="100%" style="background:#1E293B;margin-top:8px" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:10px 16px;font-size:9px;color:#fff;font-weight:bold">
+      <?= htmlspecialchars($companyName) ?><?= $companyGST ? ' &middot; GSTIN: ' . htmlspecialchars($companyGST) : '' ?><?= $companyWebsite ? ' &middot; ' . htmlspecialchars($companyWebsite) : '' ?>
+    </td>
+    <td style="padding:10px 16px;font-size:8.5px;color:#94A3B8;text-align:right">
+      Computer-generated <?= $isEstimate ? 'estimate' : 'invoice' ?> &middot; No physical signature required
+    </td>
+  </tr>
+</table>
 
 <?php endif; ?>
 

@@ -28,16 +28,22 @@ foreach ($_migrateCols as $_col => $_sql) {
   } catch (Exception $e) { error_log("migrate invoices.$_col: " . $e->getMessage()); }
 }
 
-// ── Auto-migrate: line-item HSN/SAC, item type, and per-item discount ──
+// ── Auto-migrate: line-item HSN/SAC, item type, per-item discount, and
+// service cycle/dates ──
 // (hsn/item_type back the Description subtitle + Type column; item_discount
-// /item_discount_type back the per-item discount feature — see index.php's
-// discount-mode toggle and pdf.php's defensive column detection, which both
+// /item_discount_type back the per-item discount feature; service_cycle
+// /date_start/date_end back the Description subtitle's cycle/date-range
+// line (e.g. "Yearly · Aug 2026 – Jul 2027") — see index.php's
+// discount-mode toggle and pdf.php's defensive column detection, which all
 // already tolerate these columns being absent.)
 $_migrateItemCols = [
   'hsn'                 => "ALTER TABLE invoice_items ADD COLUMN hsn VARCHAR(20) NULL DEFAULT NULL",
   'item_type'           => "ALTER TABLE invoice_items ADD COLUMN item_type VARCHAR(50) NULL DEFAULT 'Service'",
   'item_discount'       => "ALTER TABLE invoice_items ADD COLUMN item_discount DECIMAL(12,2) NULL DEFAULT 0",
   'item_discount_type'  => "ALTER TABLE invoice_items ADD COLUMN item_discount_type VARCHAR(10) NULL DEFAULT 'pct'",
+  'service_cycle'       => "ALTER TABLE invoice_items ADD COLUMN service_cycle VARCHAR(20) NULL DEFAULT NULL",
+  'date_start'          => "ALTER TABLE invoice_items ADD COLUMN date_start DATE NULL DEFAULT NULL",
+  'date_end'            => "ALTER TABLE invoice_items ADD COLUMN date_end DATE NULL DEFAULT NULL",
 ];
 foreach ($_migrateItemCols as $_col => $_sql) {
   try {
@@ -79,6 +85,9 @@ return [
 'itemType' => $it['item_type'] ?? 'Service',
 'disc'     => (float)($it['item_discount'] ?? 0),
 'discType' => $it['item_discount_type'] ?? 'pct',
+'service_cycle' => $it['service_cycle'] ?? '',
+'date_start'    => $it['date_start'] ?? '',
+'date_end'      => $it['date_end'] ?? '',
 ];
 }, $rawItems);
 if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
@@ -120,7 +129,8 @@ $si->execute([$inv['id']]);
 $rawItems = $si->fetchAll();
 $inv['items'] = array_map(function($it){
 return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total'],
-'hsn'=>$it['hsn']??'','itemType'=>$it['item_type']??'Service','disc'=>(float)($it['item_discount']??0),'discType'=>$it['item_discount_type']??'pct'];
+'hsn'=>$it['hsn']??'','itemType'=>$it['item_type']??'Service','disc'=>(float)($it['item_discount']??0),'discType'=>$it['item_discount_type']??'pct',
+'service_cycle'=>$it['service_cycle']??'','date_start'=>$it['date_start']??'','date_end'=>$it['date_end']??''];
 }, $rawItems);
 $inv['num']       = $inv['invoice_number'];
 $inv['client']    = (string)$inv['client_id'];
@@ -257,12 +267,15 @@ jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
 $invId = (int)$db->lastInsertId();
 // Insert items
 if (!empty($input['items'])) {
-$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,service_cycle,date_start,date_end,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
 foreach ($input['items'] as $idx => $item) {
 $line = (float)($item['qty']??1) * (float)($item['rate']??0);
 $si->execute([$invId, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line,
 $item['hsn']??'', $item['itemType']??'Service',
 $item['disc']??0, in_array($item['discType']??'pct', ['pct','fixed'], true) ? $item['discType'] : 'pct',
+$item['service_cycle']??'',
+!empty($item['date_start']) ? $item['date_start'] : null,
+!empty($item['date_end']) ? $item['date_end'] : null,
 $idx]);
 }
 }
@@ -345,12 +358,15 @@ jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
 // Re-insert items
 $db->prepare('DELETE FROM invoice_items WHERE invoice_id=?')->execute([$id]);
 if (!empty($input['items'])) {
-$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+$si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,service_cycle,date_start,date_end,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
 foreach ($input['items'] as $idx => $item) {
 $line = (float)($item['qty']??1) * (float)($item['rate']??0);
 $si->execute([$id, $item['desc']??'', $item['qty']??1, $item['rate']??0, $item['gst']??18, $line,
 $item['hsn']??'', $item['itemType']??'Service',
 $item['disc']??0, in_array($item['discType']??'pct', ['pct','fixed'], true) ? $item['discType'] : 'pct',
+$item['service_cycle']??'',
+!empty($item['date_start']) ? $item['date_start'] : null,
+!empty($item['date_end']) ? $item['date_end'] : null,
 $idx]);
 }
 }
