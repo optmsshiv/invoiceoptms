@@ -78,7 +78,7 @@ function syncOpeningBatch($db, $productId, $trackBatch, $batchCode, $qty, $userI
 }
 
 $FIELDS = [
-  'name','category','rate','gst','hsn','unit_family',
+  'name','category','rate','gst','unit_family',
   'sku','unit','brand','variety','grade','barcode','shelf_life_months','storage_type',
   'base_unit_label','sale_unit','purchase_unit','min_order_qty',
   'moisture_limit','foreign_matter_limit','broken_damage_limit','oil_content','admixture_limit',
