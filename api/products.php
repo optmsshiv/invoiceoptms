@@ -87,7 +87,7 @@ $FIELDS = [
   'opening_stock','reorder_level','max_stock','default_warehouse','track_batch','track_serial','track_session_price',
   'short_description','detailed_description',
   'country_of_origin','manufacturer','fssai_license','iec_code',
-  'service_cycle','date_start','date_end',
+  'service_cycle',
 ];
 
 try {
@@ -98,11 +98,6 @@ try { $db->exec("ALTER TABLE products ADD COLUMN track_session_price TINYINT(1) 
 // — e.g. 'monthly', 'yearly'. Values are free-form short codes, not an enum,
 // so existing rows/older app versions aren't broken by adding new cycle options later.
 try { $db->exec("ALTER TABLE products ADD COLUMN service_cycle VARCHAR(20) NULL DEFAULT NULL") ; } catch (Throwable $e) { /* already exists */ }
-// Auto-migrate: date_start/date_end back the Description subtitle's date
-// range (e.g. "Yearly · Aug 2026 – Jul 2027") — date_end stays NULL for an
-// ongoing/ never-cancelled subscription.
-try { $db->exec("ALTER TABLE products ADD COLUMN date_start DATE NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
-try { $db->exec("ALTER TABLE products ADD COLUMN date_end DATE NULL DEFAULT NULL"); } catch (Throwable $e) { /* already exists */ }
 
 // Dynamically filter $FIELDS to only columns that exist in the live DB
 // Handles both old schema (service: hsn_code, gst_rate) and new schema (product: hsn, gst)
@@ -206,7 +201,7 @@ switch ($method) {
     $tags        = is_array($d['tags'] ?? null) ? array_values(array_filter($d['tags'])) : [];
 
     $cols = array_map($resolveProductCol, $FIELDS);
-    $vals = array_map(fn($f) => in_array($f, ['date_start','date_end'], true) ? (!empty($d[$f]) ? $d[$f] : null) : ($d[$f] ?? ''), $FIELDS);
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     // Only add json columns if they exist in this DB
     if (isset($existingColsSet['tags']))        { $cols[] = 'tags';        $vals[] = json_encode($tags); }
     if (isset($existingColsSet['images']))      { $cols[] = 'images';      $vals[] = json_encode($images); }
@@ -253,7 +248,7 @@ switch ($method) {
 
     $mappedFields = array_map($resolveProductCol, $FIELDS);
     $setParts = array_map(fn($f) => "`$f`=?", $mappedFields);
-    $vals = array_map(fn($f) => in_array($f, ['date_start','date_end'], true) ? (!empty($d[$f]) ? $d[$f] : null) : ($d[$f] ?? ''), $FIELDS);
+    $vals = array_map(fn($f) => $d[$f] ?? '', $FIELDS);
     if (isset($existingColsSet['tags']))        { $setParts[] = 'tags=?';        $vals[] = json_encode($tags); }
     if (isset($existingColsSet['images']))      { $setParts[] = 'images=?';      $vals[] = json_encode($images); }
     if (isset($existingColsSet['attachments'])) { $setParts[] = 'attachments=?'; $vals[] = json_encode($attachments); }

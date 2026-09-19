@@ -1037,7 +1037,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1061,7 +1061,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1167,25 +1167,6 @@ select { cursor: pointer; }
 .item-disc-row select { width: 70px; }
 .item-disc-row input { width: 90px; }
 .item-disc-row .disc-note { font-size: 11px; color: var(--muted); }
-.item-calbtn {
-  width: 32px; border-radius: 0; border: none; border-right: 1px solid var(--border);
-  background: transparent; cursor: pointer; font-size: 12px;
-  display: flex; align-items: center; justify-content: center; transition: .2s;
-  color: var(--muted2);
-}
-.item-calbtn:hover { background: var(--bg); }
-.item-calbtn.active { color: #2563EB; }
-.item-cycle-row {
-  padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-}
-.item-cycle-row select, .item-cycle-row input {
-  padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--card); color: var(--text); font-size: 12px;
-}
-.item-cycle-row select { width: 100px; }
-.item-cycle-row input[type=date] { width: 130px; }
-.item-cycle-row .cycle-note { font-size: 11px; color: var(--muted); }
 .item-qty input[type=number],
 .item-rate input[type=number] {
   -moz-appearance: textfield;
@@ -2617,7 +2598,6 @@ const SERVER = {
               <span style="text-align:right">Amount</span>
               <span style="text-align:center">GST%</span>
               <span style="text-align:right">Total</span>
-              <span></span>
               <span></span>
               <span></span>
             </div>
@@ -13058,24 +13038,6 @@ function renderFormItems() {
           <span class="disc-note">discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}</span>
         </div>`
       : '';
-    const calActive = !!item.service_cycle;
-    const calBtn = `<button class="item-calbtn${calActive?' active':''}" onclick="toggleItemCycle(${item.id})" title="Service period"><i class="fas fa-calendar-alt"></i></button>`;
-    const showEndDate = item.service_cycle && item.service_cycle !== 'onetime';
-    const cycleRow = item._cycleOpen
-      ? `<div class="item-cycle-row">
-          <select onchange="updateItemCycle(${item.id},'service_cycle',this.value)">
-            <option value="" ${!item.service_cycle?'selected':''}>— Cycle —</option>
-            <option value="onetime" ${item.service_cycle==='onetime'?'selected':''}>One-time</option>
-            <option value="monthly" ${item.service_cycle==='monthly'?'selected':''}>Monthly</option>
-            <option value="quarterly" ${item.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
-            <option value="halfyearly" ${item.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
-            <option value="yearly" ${item.service_cycle==='yearly'?'selected':''}>Yearly</option>
-          </select>
-          <input type="date" value="${item.date_start||''}" oninput="updateItemCycle(${item.id},'date_start',this.value)" title="Start date" style="${item.service_cycle?'':'display:none'}">
-          <input type="date" value="${item.date_end||''}" oninput="updateItemCycle(${item.id},'date_end',this.value)" title="End date (optional — blank = ongoing)" style="${showEndDate?'':'display:none'}">
-          <span class="cycle-note">this client's service period${item.service_cycle?' — shown under the description on the invoice':''}</span>
-        </div>`
-      : '';
     return `
     <div class="item-row" id="item-${item.id}">
       <div class="item-sr">${idx + 1}</div>
@@ -13096,9 +13058,8 @@ function renderFormItems() {
       </select></div>
       <div class="item-total" id="itot-${item.id}" title="Total (incl. GST, after item discount)">${fmt_money(lineTotal)}</div>
       ${discBtn}
-      ${calBtn}
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
-    </div>${discRow}${cycleRow}`;
+    </div>${discRow}`;
   }).join('');
   calcTotals();
 }
@@ -13107,26 +13068,6 @@ function toggleItemDisc(id) {
   const item = formItems.find(i=>i.id===id);
   if (!item) return;
   item._discOpen = !item._discOpen;
-  renderFormItems();
-}
-
-function toggleItemCycle(id) {
-  const item = formItems.find(i=>i.id===id);
-  if (!item) return;
-  item._cycleOpen = !item._cycleOpen;
-  renderFormItems();
-}
-
-// Per-item service period (cycle + this specific client's start/end dates) —
-// deliberately per invoice line, not on the catalog record: a catalog entry
-// like "Hosting" is billed yearly for everyone, but WHEN each client's year
-// runs is different per client, so the dates can't live on the shared
-// product/service row without being wrong for everyone but one client.
-function updateItemCycle(id, field, val) {
-  const item = formItems.find(i=>i.id===id);
-  if (!item) return;
-  item[field] = val;
-  if (field === 'service_cycle' && val === 'onetime') item.date_end = ''; // no period to bound
   renderFormItems();
 }
 
@@ -18353,6 +18294,16 @@ const SERVICE_CYCLE_LABELS = {
 function formatServiceCycle(code) {
   return SERVICE_CYCLE_LABELS[code] || '—';
 }
+// Shows/hides the Start/End date inputs next to a cycle dropdown: both
+// hidden when no cycle is chosen, End Date hidden for One-time (a single
+// date is enough — no period to bound).
+function toggleServiceDateFields(prefix) {
+  const cycle = document.getElementById(prefix + '-cycle')?.value || '';
+  const startEl = document.getElementById(prefix + '-date-start');
+  const endEl   = document.getElementById(prefix + '-date-end');
+  if (startEl) startEl.style.display = cycle ? '' : 'none';
+  if (endEl)   endEl.style.display   = (cycle && cycle !== 'onetime') ? '' : 'none';
+}
 // Builds the Description subtitle — e.g. "Yearly · Aug 2026 – Jul 2027",
 // "One-time · 14 Sep 2026", or "Monthly · Aug 2026 – ongoing" when no end
 // date is set (still-active subscription). Blank when no cycle is chosen.
@@ -18419,7 +18370,7 @@ function editProduct(id){
     <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
   </select></td>
   <td class="col-service-type">
-    <select id="ep-cycle" class="table-filter">
+    <select id="ep-cycle" class="table-filter" onchange="toggleServiceDateFields('ep')">
       <option value="" ${!p.service_cycle?'selected':''}>—</option>
       <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
       <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
@@ -18427,8 +18378,13 @@ function editProduct(id){
       <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
       <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
     </select>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      <input id="ep-date-start" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${p.date_start||''}" title="Start date">
+      <input id="ep-date-end" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${p.date_end||''}" title="End date (optional — blank = ongoing)">
+    </div>
   </td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
+  toggleServiceDateFields('ep');
   ensureHsnDatalist();
 }
 // Fills the HSN field with a suggested code when the category changes,
@@ -18460,7 +18416,9 @@ async function saveEditProd(id) {
     hsn:document.getElementById('ep-hsn')?.value||'998314',
     gst:(document.getElementById('ep-gst')?.value!==undefined&&document.getElementById('ep-gst')?.value!==''?parseInt(document.getElementById('ep-gst').value):18),
     unit_family: document.getElementById('ep-unitfam')?.value || 'count',
-    service_cycle: document.getElementById('ep-cycle')?.value || '' };
+    service_cycle: document.getElementById('ep-cycle')?.value || '',
+    date_start: document.getElementById('ep-date-start')?.value || '',
+    date_end: document.getElementById('ep-date-end')?.value || '' };
   try {
     await api('api/products.php?id=' + (parseInt(id.replace('p',''))||0), 'PUT', payload);
     STATE.products[idx] = { ...STATE.products[idx], ...payload };
@@ -19164,7 +19122,7 @@ function _showAddProductRow(prefill) {
       </select>
     </td>
     <td class="col-service-type">
-      <select id="np-cycle" class="table-filter">
+      <select id="np-cycle" class="table-filter" onchange="toggleServiceDateFields('np')">
         <option value="" ${!prefill||!prefill.service_cycle?'selected':''}>—</option>
         <option value="onetime" ${prefill&&prefill.service_cycle==='onetime'?'selected':''}>One-time</option>
         <option value="monthly" ${prefill&&prefill.service_cycle==='monthly'?'selected':''}>Monthly</option>
@@ -19172,6 +19130,10 @@ function _showAddProductRow(prefill) {
         <option value="halfyearly" ${prefill&&prefill.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
         <option value="yearly" ${prefill&&prefill.service_cycle==='yearly'?'selected':''}>Yearly</option>
       </select>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <input id="np-date-start" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${prefill&&prefill.date_start||''}" title="Start date">
+        <input id="np-date-end" type="date" class="table-filter" style="font-size:10.5px;padding:3px 4px" value="${prefill&&prefill.date_end||''}" title="End date (optional — blank = ongoing)">
+      </div>
     </td>
     <td>
       <div class="action-cell">
@@ -19186,6 +19148,7 @@ function _showAddProductRow(prefill) {
     npCat.innerHTML = STATE.categories.map(c=>`<option value="${c.name}">${escHtml(c.name)}</option>`).join('');
     if (prefill) npCat.value = prefill.category;
   }
+  toggleServiceDateFields('np');
   ensureHsnDatalist();
   const npHsn = document.getElementById('np-hsn');
   if (!prefill && npHsn && npCat && npCat.value) {
@@ -19214,6 +19177,8 @@ async function saveNewProduct() {
     gst:(document.getElementById('np-gst')?.value!==undefined&&document.getElementById('np-gst')?.value!==''?parseInt(document.getElementById('np-gst').value):18),
     unit_family: document.getElementById('np-unitfam')?.value || 'count',
     service_cycle: document.getElementById('np-cycle')?.value || '',
+    date_start: document.getElementById('np-date-start')?.value || '',
+    date_end: document.getElementById('np-date-end')?.value || '',
     client_request_id: QUICK_PRODUCT_KEY };
   try {
     await api('api/products.php', 'POST', payload);
@@ -19230,7 +19195,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   showPage('create', null);
   setTimeout(() => {
-    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate, hsn:p.hsn||'', service_cycle:p.service_cycle||'', date_start:'', date_end:'' });
+    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate, hsn:p.hsn||'', service_cycle:p.service_cycle||'', date_start:p.date_start||'', date_end:p.date_end||'' });
     renderFormItems();
     livePreview();
     toast(`✅ "${p.name}" added to invoice`, 'success');
@@ -27007,10 +26972,10 @@ function pickProduct(id) {
     formItems[0].rate     = p.rate;
     formItems[0].hsn      = p.hsn || '';
     formItems[0].service_cycle = p.service_cycle || '';
-    formItems[0].date_start    = '';
-    formItems[0].date_end      = '';
+    formItems[0].date_start    = p.date_start || '';
+    formItems[0].date_end      = p.date_end || '';
   } else {
-    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate, hsn: p.hsn||'', service_cycle: p.service_cycle||'', date_start: '', date_end: '' });
+    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate, hsn: p.hsn||'', service_cycle: p.service_cycle||'', date_start: p.date_start||'', date_end: p.date_end||'' });
   }
   renderFormItems();
   livePreview();
