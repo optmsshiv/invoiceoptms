@@ -1037,7 +1037,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1061,7 +1061,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1167,6 +1167,25 @@ select { cursor: pointer; }
 .item-disc-row select { width: 70px; }
 .item-disc-row input { width: 90px; }
 .item-disc-row .disc-note { font-size: 11px; color: var(--muted); }
+.item-calbtn {
+  width: 32px; border-radius: 0; border: none; border-right: 1px solid var(--border);
+  background: transparent; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; transition: .2s;
+  color: var(--muted2);
+}
+.item-calbtn:hover { background: var(--bg); }
+.item-calbtn.active { color: #2563EB; }
+.item-cycle-row {
+  padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.item-cycle-row select, .item-cycle-row input {
+  padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text); font-size: 12px;
+}
+.item-cycle-row select { width: 100px; }
+.item-cycle-row input[type=date] { width: 130px; }
+.item-cycle-row .cycle-note { font-size: 11px; color: var(--muted); }
 .item-qty input[type=number],
 .item-rate input[type=number] {
   -moz-appearance: textfield;
@@ -2600,6 +2619,7 @@ const SERVER = {
               <span style="text-align:right">Total</span>
               <span></span>
               <span></span>
+              <span></span>
             </div>
             <div id="itemsList"></div>
             <div class="items-actions">
@@ -2961,7 +2981,7 @@ const SERVER = {
       </div>
       <div class="table-card">
         <table class="data-table" id="productsDataTable">
-          <thead><tr><th>#</th><th id="prodNameColLabel">Service Name</th><th>Category</th><th>Rate (₹)</th><th>HSN</th><th>GST%</th><th class="col-unit-type">Unit Type</th><th class="col-service-type">Service Type</th><th>Actions</th></tr></thead>
+          <thead><tr><th>#</th><th id="prodNameColLabel">Description</th><th>Category</th><th>Rate (₹)</th><th>HSN/SAC</th><th>GST%</th><th class="col-unit-type">Unit Type</th><th class="col-service-type">Service Type</th><th>Actions</th></tr></thead>
           <tbody id="productsTbody"></tbody>
         </table>
         <div class="table-footer">
@@ -13038,6 +13058,24 @@ function renderFormItems() {
           <span class="disc-note">discount on this item${iDiscAmt>0?` — you save ${fmt_money(iDiscAmt)}`:''}</span>
         </div>`
       : '';
+    const calActive = !!item.service_cycle;
+    const calBtn = `<button class="item-calbtn${calActive?' active':''}" onclick="toggleItemCycle(${item.id})" title="Service period"><i class="fas fa-calendar-alt"></i></button>`;
+    const showEndDate = item.service_cycle && item.service_cycle !== 'onetime';
+    const cycleRow = item._cycleOpen
+      ? `<div class="item-cycle-row">
+          <select onchange="updateItemCycle(${item.id},'service_cycle',this.value)">
+            <option value="" ${!item.service_cycle?'selected':''}>— Cycle —</option>
+            <option value="onetime" ${item.service_cycle==='onetime'?'selected':''}>One-time</option>
+            <option value="monthly" ${item.service_cycle==='monthly'?'selected':''}>Monthly</option>
+            <option value="quarterly" ${item.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
+            <option value="halfyearly" ${item.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
+            <option value="yearly" ${item.service_cycle==='yearly'?'selected':''}>Yearly</option>
+          </select>
+          <input type="date" value="${item.date_start||''}" oninput="updateItemCycle(${item.id},'date_start',this.value)" title="Start date" style="${item.service_cycle?'':'display:none'}">
+          <input type="date" value="${item.date_end||''}" oninput="updateItemCycle(${item.id},'date_end',this.value)" title="End date (optional — blank = ongoing)" style="${showEndDate?'':'display:none'}">
+          <span class="cycle-note">this client's service period${item.service_cycle?' — shown under the description on the invoice':''}</span>
+        </div>`
+      : '';
     return `
     <div class="item-row" id="item-${item.id}">
       <div class="item-sr">${idx + 1}</div>
@@ -13058,8 +13096,9 @@ function renderFormItems() {
       </select></div>
       <div class="item-total" id="itot-${item.id}" title="Total (incl. GST, after item discount)">${fmt_money(lineTotal)}</div>
       ${discBtn}
+      ${calBtn}
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
-    </div>${discRow}`;
+    </div>${discRow}${cycleRow}`;
   }).join('');
   calcTotals();
 }
@@ -13068,6 +13107,26 @@ function toggleItemDisc(id) {
   const item = formItems.find(i=>i.id===id);
   if (!item) return;
   item._discOpen = !item._discOpen;
+  renderFormItems();
+}
+
+function toggleItemCycle(id) {
+  const item = formItems.find(i=>i.id===id);
+  if (!item) return;
+  item._cycleOpen = !item._cycleOpen;
+  renderFormItems();
+}
+
+// Per-item service period (cycle + this specific client's start/end dates) —
+// deliberately per invoice line, not on the catalog record: a catalog entry
+// like "Hosting" is billed yearly for everyone, but WHEN each client's year
+// runs is different per client, so the dates can't live on the shared
+// product/service row without being wrong for everyone but one client.
+function updateItemCycle(id, field, val) {
+  const item = formItems.find(i=>i.id===id);
+  if (!item) return;
+  item[field] = val;
+  if (field === 'service_cycle' && val === 'onetime') item.date_end = ''; // no period to bound
   renderFormItems();
 }
 
@@ -13528,27 +13587,31 @@ function buildInvoiceHTML(d, forPrint) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
-        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
+        const cycleSubtitle = formatServiceSubtitle(i);
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
+        const gstCell = itemGst>0
+          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${itemGst}%</div>`
+          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
           </td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
+          ${showGstCol ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGstCol?8:7}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
+    : `<tr><td colspan="${showGstCol?9:8}" style="padding:20px;text-align:center;color:#aaa">No items added</td></tr>`;
 
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
@@ -14804,6 +14867,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
       <thead><tr style="background:${T.thbg}">
         <th style="${thStyle};width:26px">#</th>
         <th style="${thStyle}">Description</th>
+        <th style="${thStyle}">HSN/SAC</th>
         <th style="${thr}">Qty</th>
         <th style="${thr}">Rate</th>
         <th style="${thr}">Amount</th>
@@ -15004,7 +15068,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -15065,27 +15129,31 @@ function openPrintWindow(d, items) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType || 'Service';
         const ihsn  = i.hsn || '—';
-        const subtitle = `HSN/SAC: ${ihsn}${itemGst>0 ? ' &middot; '+itemGst+'% GST' : ''}`;
+        const cycleSubtitle = formatServiceSubtitle(i);
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
+        const gstCell = itemGst>0
+          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${itemGst}%</div>`
+          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
           </td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${i.qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(i.rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${itemGst>0?'#166534':'#94A3B8'}">${itemGst>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>` : ''}
+          ${showGst ? `<td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>` : ''}
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="${showGst?8:7}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="${showGst?9:8}" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const gstColHeader = showGst ? `<th style="padding:10px 12px;text-align:center">GST%</th>` : '';
   const rowNumHeader = `<th style="padding:10px 8px;text-align:left;width:28px">#</th>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
@@ -15193,27 +15261,31 @@ function printInvoiceById(inv) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
-        const subtitle = `HSN/SAC: ${ihsn}${gst>0 ? ' &middot; '+gst+'% GST' : ''}`;
+        const cycleSubtitle = formatServiceSubtitle(i);
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,sym);
         const totCell = fmt_money(lineInclGst,sym);
+        const gstCell = gst>0
+          ? `<div style="color:#166534">${fmt_money(gstAmt,sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${gst}%</div>`
+          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${i.desc||i.description||'—'}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
           </td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gst>0?'#166534':'#94A3B8'}">${gst>0?fmt_money(gstAmt,sym):'Exempt'}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="9" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const d = {
     tpl: inv.template || inv.template_id || STATE.settings.activeTemplate || '2',
     num: inv.num||inv.invoice_number, date: inv.issued||inv.issued_date,
@@ -15323,7 +15395,7 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct' }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }))
   };
   try {
     if (!isNewSave) {
@@ -15668,27 +15740,31 @@ function openPreviewModal(id) {
         const lineInclGst = itemTaxable + gstAmt;
         const itype = i.itemType||i.item_type||'Service';
         const ihsn  = i.hsn||i.hsn_code||'—';
-        const subtitle = `HSN/SAC: ${ihsn}${gstR>0 ? ' &middot; '+gstR+'% GST' : ''}`;
+        const cycleSubtitle = formatServiceSubtitle(i);
         const discPctEff = line>0 ? (iDiscAmt/line*100) : 0;
         const discPctLbl = discPctEff % 1 === 0 ? discPctEff.toFixed(0) : discPctEff.toFixed(1);
         const discCell = iDiscAmt>0 ? `<div style="color:#DC2626">${fmt_money(iDiscAmt,d.sym)}</div><div style="font-size:9px;color:#DC2626;opacity:.75">${discPctLbl}%</div>` : `<span style="color:#CBD5E1">—</span>`;
         const amtCell = fmt_money(line,d.sym);
         const totCell = fmt_money(lineInclGst,d.sym);
+        const gstCell = gstR>0
+          ? `<div style="color:#166534">${fmt_money(gstAmt,d.sym)}</div><div style="font-size:9px;color:#166534;opacity:.75">${gstR}%</div>`
+          : `<span style="font-style:italic;color:#94A3B8">Exempt</span>`;
         return `<tr>
           <td style="padding:9px 8px;border-bottom:1px solid #eee;font-size:11px;color:#111;font-family:monospace;font-weight:700">${String(idx+1).padStart(2,'0')}</td>
           <td style="padding:9px 8px;border-bottom:1px solid #eee">
             <div style="font-weight:700;color:#111">${desc}</div>
-            <div style="font-size:10.5px;color:#94A3B8;margin-top:2px">${subtitle}</div>
+            ${cycleSubtitle?`<div style="font-size:10.5px;color:#94A3B8;font-style:italic;margin-top:2px">${cycleSubtitle}</div>`:''}
           </td>
+          <td style="padding:9px 8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;color:#555">${ihsn}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${qty}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${fmt_money(rate,d.sym)}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace">${amtCell}</td>
           <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${discCell}</td>
-          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;color:${gstR>0?'#166534':'#94A3B8'}">${gstR>0?fmt_money(gstAmt,d.sym):'Exempt'}</td>
+          <td style="padding:9px 8px;text-align:right;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${gstCell}</td>
           <td style="padding:9px 8px;text-align:right;font-weight:800;border-bottom:1px solid #eee;font-family:monospace;color:#1D4ED8">${totCell}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="8" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
+    : `<tr><td colspan="9" style="padding:20px;text-align:center;color:#aaa">No items</td></tr>`;
   const _tplMap = {'2':buildTpl2,'F':buildTplF}; // Only these two are ported into pdf.php — keep in sync if either changes
   const fn = _tplMap[String(d.tpl)] || buildTpl2;
   const scale = 0.72;
@@ -15770,7 +15846,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
   renderFormItems();
   livePreview();
 }
@@ -17567,7 +17643,7 @@ async function toggleClientActive(id, makeActive) {
 // ══════════════════════════════════════════
 // PRODUCTS
 // ══════════════════════════════════════════
-const PROD = { page:1, per:8, list:[], archived:false, archivedList:null };
+const PROD = { page:1, per:15, list:[], archived:false, archivedList:null };
 // Category → default HSN/SAC code. Editable suggestions only — never overrides
 // a value the user has already typed, and the field always stays manually editable.
 const HSN_DEFAULTS = {
@@ -18277,6 +18353,21 @@ const SERVICE_CYCLE_LABELS = {
 function formatServiceCycle(code) {
   return SERVICE_CYCLE_LABELS[code] || '—';
 }
+// Builds the Description subtitle — e.g. "Yearly · Aug 2026 – Jul 2027",
+// "One-time · 14 Sep 2026", or "Monthly · Aug 2026 – ongoing" when no end
+// date is set (still-active subscription). Blank when no cycle is chosen.
+function formatServiceSubtitle(p) {
+  if (!p.service_cycle) return '';
+  const cycleLabel = formatServiceCycle(p.service_cycle);
+  if (!p.date_start) return cycleLabel;
+  const startD = new Date(p.date_start + 'T00:00:00');
+  if (p.service_cycle === 'onetime') {
+    return `${cycleLabel} &middot; ${startD.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  }
+  const startLabel = startD.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+  const endLabel = p.date_end ? new Date(p.date_end+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'}) : 'ongoing';
+  return `${cycleLabel} &middot; ${startLabel} – ${endLabel}`;
+}
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
   const s=(PROD.page-1)*PROD.per, e=s+PROD.per, pg=PROD.list.slice(s,e);
@@ -18288,10 +18379,12 @@ function _renderProdPage() {
       : `<button class="act-btn" title="Add to Invoice" onclick="addProductToInvoice('${p.id}')"><i class="fas fa-plus"></i></button>
       <button class="act-btn" title="Clone" onclick="cloneProduct('${p.id}')"><i class="fas fa-copy"></i></button>
       <button class="act-btn" title="Edit" onclick="_editProductWithApproval('${p.id}',()=>editProduct('${p.id}'))"><i class="fas fa-edit"></i></button>
-      ${_delItem("deleteProduct('"+p.id+"')")}`;
+      ${canDo('delete')
+        ? `<button class="act-btn" title="Delete" onclick="deleteProduct('${p.id}')"><i class="fas fa-trash" style="color:#E53935"></i></button>`
+        : `<button class="act-btn" disabled style="opacity:.45;cursor:not-allowed" title="Delete restricted by your role"><i class="fas fa-lock" style="color:var(--muted)"></i></button>`}`;
     return `<tr data-id="${escHtml(p.id)}">
     <td>${s+i+1}</td>
-    <td><strong>${escHtml(p.name)}</strong></td>
+    <td><strong>${escHtml(p.name)}</strong>${formatServiceSubtitle(p)?`<div style="font-size:10.5px;color:var(--muted);margin-top:2px">${formatServiceSubtitle(p)}</div>`:''}</td>
     <td><span style="padding:3px 10px;border-radius:12px;background:${catColor};color:${catTc};font-size:11px;font-weight:700;letter-spacing:.2px;box-shadow:0 1px 3px ${catColor}55">${escHtml(p.category)}</span></td>
     <td><code style="font-family:var(--mono);color:var(--teal);font-weight:700">${fmt_money(p.rate)}</code></td>
     <td><code style="font-family:var(--mono)">${escHtml(p.hsn)}</code></td>
@@ -18325,14 +18418,16 @@ function editProduct(id){
     <option value="weight" ${p.unit_family==='weight'?'selected':''}>Weight (kg/g)</option>
     <option value="volume" ${p.unit_family==='volume'?'selected':''}>Volume (ltr/ml)</option>
   </select></td>
-  <td class="col-service-type"><select id="ep-cycle" class="table-filter">
-    <option value="" ${!p.service_cycle?'selected':''}>—</option>
-    <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
-    <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
-    <option value="quarterly" ${p.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
-    <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
-    <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
-  </select></td>
+  <td class="col-service-type">
+    <select id="ep-cycle" class="table-filter">
+      <option value="" ${!p.service_cycle?'selected':''}>—</option>
+      <option value="onetime" ${p.service_cycle==='onetime'?'selected':''}>One-time</option>
+      <option value="monthly" ${p.service_cycle==='monthly'?'selected':''}>Monthly</option>
+      <option value="quarterly" ${p.service_cycle==='quarterly'?'selected':''}>Quarterly</option>
+      <option value="halfyearly" ${p.service_cycle==='halfyearly'?'selected':''}>Half-yearly</option>
+      <option value="yearly" ${p.service_cycle==='yearly'?'selected':''}>Yearly</option>
+    </select>
+  </td>
   <td><div class="action-cell"><button id="ep-save-btn" class="btn btn-success" style="font-size:11px;padding:4px 10px" onclick="saveEditProd('${id}')"><i class="fas fa-check"></i></button><button class="btn btn-outline" style="font-size:11px;padding:4px 10px" onclick="renderProducts()"><i class="fas fa-times"></i></button></div></td>`;
   ensureHsnDatalist();
 }
@@ -18387,9 +18482,9 @@ function openAddProductModal() {
 // vs product/trading businesses (import-export, retail) vs a mix of both — this swaps
 // the Products page's labels to match, driven by Settings → Company → Business Type.
 const BUSINESS_TYPE_LABELS = {
-  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Service Name', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
+  service: { nav: 'Services',            addBtn: 'Add Service', nameCol: 'Description', namePlaceholder: 'Service name *', searchPlaceholder: 'Search services…' },
   product: { nav: 'Products',            addBtn: 'Add Product', nameCol: 'Product Name', namePlaceholder: 'Product name *', searchPlaceholder: 'Search products…' },
-  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Item Name',    namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
+  both:    { nav: 'Services / Products', addBtn: 'Add Item',    nameCol: 'Description', namePlaceholder: 'Item name *',    searchPlaceholder: 'Search…' },
 };
 function currentBizLabels() {
   return BUSINESS_TYPE_LABELS[STATE.settings.businessType] || BUSINESS_TYPE_LABELS.both;
@@ -19135,7 +19230,7 @@ function addProductToInvoice(id) {
   if (!p) return;
   showPage('create', null);
   setTimeout(() => {
-    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate });
+    formItems.push({ id:Date.now(), desc:p.name, itemType: p.category||'Service', qty:1, gst:(p.gst!==undefined&&p.gst!==null&&p.gst!==''?parseFloat(p.gst):18), rate:p.rate, hsn:p.hsn||'', service_cycle:p.service_cycle||'', date_start:'', date_end:'' });
     renderFormItems();
     livePreview();
     toast(`✅ "${p.name}" added to invoice`, 'success');
@@ -26910,8 +27005,12 @@ function pickProduct(id) {
     formItems[0].qty      = 1;
     formItems[0].gst      = gst;
     formItems[0].rate     = p.rate;
+    formItems[0].hsn      = p.hsn || '';
+    formItems[0].service_cycle = p.service_cycle || '';
+    formItems[0].date_start    = '';
+    formItems[0].date_end      = '';
   } else {
-    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate });
+    formItems.push({ id: Date.now(), desc: p.name, itemType: p.category || 'Service', qty: 1, gst, rate: p.rate, hsn: p.hsn||'', service_cycle: p.service_cycle||'', date_start: '', date_end: '' });
   }
   renderFormItems();
   livePreview();

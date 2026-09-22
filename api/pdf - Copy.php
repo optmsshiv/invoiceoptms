@@ -627,7 +627,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     <?php else: ?>
       <div class="flh-co-name"><?= htmlspecialchars($companyName) ?></div>
     <?php endif; ?>
-    <?php if ($companyTagline): ?><div style="font-size:9px;font-style:italic;color:#666;margin-top:2px;font-family:'DejaVu Sans',Arial,sans-serif"><?= htmlspecialchars($companyTagline) ?></div><?php endif; ?>
     <div class="flh-co-meta">
       <?= $companyAddress ? htmlspecialchars(str_replace("\n", ' · ', $companyAddress)) . ' &nbsp;|&nbsp; ' : '' ?>
       <?= $companyGST ? 'GSTIN: ' . htmlspecialchars($companyGST) . ' &nbsp;|&nbsp; ' : '' ?>
@@ -686,13 +685,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <tr>
           <th style="width:22px">#</th>
           <th>Description</th>
-          <th style="width:52px">HSN/SAC</th>
-          <th class="r" style="width:40px">Qty</th>
-          <th class="r" style="width:68px">Rate</th>
-          <th class="r" style="width:68px">Amount</th>
-          <th class="r" style="width:60px">Discount</th>
-          <th class="r" style="width:56px">GST</th>
-          <th class="r" style="width:76px">Total</th>
+          <th class="r" style="width:48px">Qty</th>
+          <th class="r" style="width:76px">Rate</th>
+          <th class="r" style="width:76px">Amount</th>
+          <th class="r" style="width:46px">GST</th>
+          <th class="r" style="width:82px">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -700,36 +697,23 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
           $q   = (float)$item['qty'];
           $r   = (float)$item['rate'];
           $g   = (float)$item['gst'];
-          $lineAmt = $q * $r;
-          $iDisc = ($discMode==='item' && $hasIDisc) ? (float)($item['item_discount'] ?? 0) : 0;
-          $iDiscType = $hasIDiscType ? ($item['item_discount_type'] ?? 'pct') : 'pct';
-          $iDiscAmt = ($discMode==='item') ? (($iDiscType==='fixed') ? min($iDisc,$lineAmt) : $lineAmt*$iDisc/100) : 0;
-          $amt = $lineAmt - $iDiscAmt;
-          $gstAmtLine = $amt * $g / 100;
-          $tot = $amt + $gstAmtLine;
-          $itemHsn = $hasHsn ? ($item['hsn'] ?: '') : '';
-          $cycleSubtitle = pdf_format_service_subtitle($item);
-          $gLabel = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
+          $amt = $q * $r;
+          $tot = $amt + $amt * $g / 100;
       ?>
       <tr>
         <td><?= $idx + 1 ?></td>
-        <td>
-          <?= htmlspecialchars($item['description']) ?>
-          <?php if ($cycleSubtitle): ?><div style="font-size:8.5px;color:#888;font-style:italic;margin-top:1px"><?= $cycleSubtitle ?></div><?php endif; ?>
-        </td>
-        <td style="font-size:9px;color:#555;font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($itemHsn ?: '—') ?></td>
+        <td><?= htmlspecialchars($item['description']) ?></td>
         <td class="r"><?= number_format($q, 2) ?></td>
         <td class="r"><?= pdf_fmt_money($r, '') ?></td>
-        <td class="r"><?= pdf_fmt_money($lineAmt, '') ?></td>
-        <td class="r" style="font-size:9px"><?php if ($iDiscAmt > 0): $discPctEff = $lineAmt > 0 ? ($iDiscAmt / $lineAmt * 100) : 0; $discPctLbl = $discPctEff == (int)$discPctEff ? (string)(int)$discPctEff : number_format($discPctEff, 1); ?><div style="color:#b91c1c"><?= pdf_fmt_money($iDiscAmt, '') ?></div><div style="font-size:8px;color:#b91c1c;opacity:.75"><?= $discPctLbl ?>%</div><?php else: ?><span style="color:#bbb">&mdash;</span><?php endif; ?></td>
-        <td class="r" style="font-size:9px"><?php if ($g > 0): ?><div><?= pdf_fmt_money($gstAmtLine, '') ?></div><div style="font-size:8px;color:#888"><?= $gLabel ?>%</div><?php else: ?><span style="font-style:italic;color:#999">Exempt</span><?php endif; ?></td>
+        <td class="r"><?= pdf_fmt_money($amt, '') ?></td>
+        <td class="r"><?= number_format($g, 2) ?>%</td>
         <td class="r" style="font-weight:bold"><?= pdf_fmt_money($tot, $sym) ?></td>
       </tr>
       <?php endforeach; ?>
       </tbody>
     </table>
 
-    <?= pdf_tax_summary_html($items, $discFactor, $sym, true, $discMode === 'item') ?>
+    <?= pdf_tax_summary_html($items, $discFactor, $sym, true) ?>
 
     <!-- TOTALS -->
     <table class="flh-tot-wrap">
@@ -738,7 +722,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </td></tr>
       <?php if ($discountAmt > 0): ?>
       <tr><td></td><td>
-        <table width="100%"><tr class="flh-tot-row"><td><?php if ($discMode === 'item'): ?>Total Discount<?php else: ?>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?><?php endif; ?></td><td class="r" style="color:#b91c1c">− <?= pdf_fmt_money($discountAmt, $sym) ?></td></tr></table>
+        <table width="100%"><tr class="flh-tot-row"><td>Discount<?= $discountPct > 0 ? ' (' . (int)$discountPct . '%)' : '' ?></td><td class="r" style="color:#b91c1c">− <?= pdf_fmt_money($discountAmt, $sym) ?></td></tr></table>
       </td></tr>
       <?php endif; ?>
       <tr><td></td><td>
@@ -746,10 +730,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </td></tr>
       <tr><td></td><td>
         <table width="100%" class="flh-tot-grand"><tr><td class="flh-grand-lbl">Total Due</td><td class="flh-grand-val"><?= pdf_fmt_money($calcGrand, $sym) ?></td></tr></table>
-      </td></tr>
-      <tr><td></td><td style="padding-top:6px;border-top:0.5px solid #ddd">
-        <div style="font-size:7.5px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#888;font-family:'DejaVu Sans',Arial,sans-serif">Amount in Words</div>
-        <div style="font-size:9px;font-style:italic;color:#444;margin-top:2px;font-family:'DejaVu Sans',Arial,sans-serif"><?= htmlspecialchars(pdf_num_to_words_inr($calcGrand)) ?></div>
       </td></tr>
     </table>
 
@@ -779,29 +759,12 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
     <?php endif; ?>
   </div>
 
-  <!-- BANK / UPI / NOTES / TERMS / SIGNATURE -->
+  <!-- BANK / NOTES / TERMS / SIGNATURE -->
   <table class="flh-section" width="100%">
     <tr>
       <td style="width:60%;vertical-align:top;padding-right:24px">
-        <?php if (!empty($inv['bank_details']) || $companyUpi): ?>
-        <table width="100%" cellpadding="0" cellspacing="0" style="border:0.5px solid #ccc;margin-bottom:12px">
-          <tr>
-            <?php if (!empty($inv['bank_details'])): ?>
-            <td style="vertical-align:top;padding:10px 12px;<?= $companyUpi ? 'width:58%;border-right:0.5px solid #ccc' : '' ?>">
-              <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:5px;font-family:'DejaVu Sans',Arial,sans-serif">Bank Details</div>
-              <div style="font-size:9.5px;line-height:1.8;color:#444;font-family:'DejaVu Sans',Arial,sans-serif"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
-            </td>
-            <?php endif; ?>
-            <?php if ($companyUpi): ?>
-            <td style="vertical-align:top;padding:10px 12px;text-align:center;<?= !empty($inv['bank_details']) ? 'width:42%' : '' ?>">
-              <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:5px;font-family:'DejaVu Sans',Arial,sans-serif">UPI</div>
-              <?php if ($qrCode): ?><img src="<?= htmlspecialchars($qrCode) ?>" style="width:60px;height:60px;border:0.5px solid #ccc;display:block;margin:0 auto 4px" alt="UPI QR"><?php endif; ?>
-              <div style="font-size:9.5px;font-weight:bold;color:#1a1a1a;font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($companyUpi) ?></div>
-              <?php if ($qrCode): ?><div style="font-size:8px;color:#888;margin-top:2px;font-family:'DejaVu Sans',Arial,sans-serif">Scan to Pay</div><?php endif; ?>
-            </td>
-            <?php endif; ?>
-          </tr>
-        </table>
+        <?php if (!empty($inv['bank_details'])): ?>
+        <div class="flh-bank-box"><?= nl2br(htmlspecialchars($inv['bank_details'])) ?></div>
         <?php endif; ?>
         <?php if (!empty($liveNotes)): ?>
         <div class="flh-notes-lbl">Notes</div>

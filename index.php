@@ -14371,7 +14371,7 @@ function buildTplE(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 
 // ── Payment Received Block — shown on Paid/Partial invoices ─────────────────
 // ── TEMPLATE F: Formal Letterhead ────────────────────────────────────────────
-function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
+function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='') {
   d.popt = d.popt || {};
   sc = resolveCompany(sc);
   const sym      = d.sym || '₹';
@@ -14443,14 +14443,18 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
 
   const totalsHTML = `
   <div style="display:flex;justify-content:flex-end;margin-top:12px">
-    <div style="min-width:210px">
+    <div style="min-width:230px">
       <div style="${trStyle}"><span>Subtotal</span><span style="${valStyle}">${fmt_money(sub,sym)}</span></div>
-      ${discAmt > 0 ? `<div style="${trStyle}"><span>Discount${discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':''}</span><span style="${valStyle};color:#b91c1c">− ${fmt_money(discAmt,sym)}</span></div>
+      ${discAmt > 0 ? `<div style="${trStyle}"><span>${d.discMode==='item'?'Total Discount':'Discount'+(discType==='fixed'?' (fixed)':disc>0?' ('+Math.round(disc*100)/100+'%)':'')}</span><span style="${valStyle};color:#b91c1c">− ${fmt_money(discAmt,sym)}</span></div>
       <div style="${trStyle}"><span>After Discount</span><span style="${valStyle}">${fmt_money(afterDisc,sym)}</span></div>` : ''}
       ${gstAmt > 0 ? `<div style="${trStyle}"><span>Total GST<br><span style="font-size:8px;color:#888">CGST ${fmt_money(gstAmt/2,sym)} + SGST ${fmt_money(gstAmt/2,sym)}</span></span><span style="${valStyle}">+ ${fmt_money(gstAmt,sym)}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;padding:8px 0;margin-top:4px;border-top:1.5px solid #333;font-family:${sans}">
         <span style="font-size:12px;font-weight:700">Total Due</span>
         <span style="font-family:monospace;font-weight:800;font-size:14px">${fmt_money(grand,sym)}</span>
+      </div>
+      <div style="padding:6px 0;border-top:0.5px solid #ddd;font-family:${sans}">
+        <div style="font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888">Amount in Words</div>
+        <div style="font-size:9.5px;font-style:italic;color:#444;margin-top:2px;max-width:230px">${numToWordsINR(grand)}</div>
       </div>
       ${isPaid ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:0.5px solid #ddd;font-size:10px;color:#166534;font-family:${sans}">
         <span>Paid on ${paidDateStr}</span>
@@ -14459,11 +14463,13 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     </div>
   </div>`;
 
-  // ── Items table (adapt shared itemsHTML for ruled style) ──────────────────
-  const ruledItems = itemsHTML
+  // ── Items table (adapt shared itemsHTML2 for the ruled/formal style) ─────
+  const ruledItems = itemsHTML2
     .replace(/border-bottom:1px solid #eee/g, 'border-bottom:0.5px solid #ddd')
     .replace(/padding:9px 8px/g, 'padding:7px 6px')
-    .replace(/font-size:11px/g, 'font-size:10.5px');
+    .replace(/font-size:11px/g, 'font-size:10.5px')
+    .replace(/color:#1D4ED8/g, 'color:#1a1a1a')
+    .replace(/font-family:monospace;font-weight:800/g, 'font-family:monospace;font-weight:700');
 
   return `<div style="font-family:${useSerif};background:#fff;width:794px;min-height:1123px;position:relative;color:#1a1a1a">
   ${tplWatermark(d)}
@@ -14473,6 +14479,7 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
     ${d.popt.logo !== false && sc.logo
       ? `<img src="${sc.logo}" style="height:52px;max-width:220px;object-fit:contain;display:block;margin:0 auto 10px" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div style="display:none;font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase">${sc.company}</div>`
       : `<div style="font-size:20px;font-weight:700;letter-spacing:2px;text-transform:uppercase">${sc.company}</div>`}
+    ${sc.tagline ? `<div style="font-size:10px;font-style:italic;color:#666;margin-top:3px;font-family:${sans}">${sc.tagline}</div>` : ''}
     <div style="font-size:9px;letter-spacing:1px;color:#555;line-height:2;margin-top:4px;font-family:${sans}">
       ${sc.address ? `${sc.address.replace(/\n/g,' · ')} &nbsp;|&nbsp; ` : ''}
       ${sc.gst ? `GSTIN: ${sc.gst} &nbsp;|&nbsp; ` : ''}
@@ -14529,32 +14536,53 @@ function buildTplF(d, sc, itemsHTML, gstColHeader, rowNumHeader='') {
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left;width:24px">#</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:left">Description</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">HSN/SAC</th>
-          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">Type</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Qty</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Rate</th>
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Amount</th>
-          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:center">GST%</th><th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">GST ₹</th>` : ''}
+          <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Discount</th>
+          ${gstColHeader ? `<th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">GST</th>` : ''}
           <th style="padding:7px 6px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;text-align:right">Total</th>
         </tr>
       </thead>
       <tbody>${ruledItems}</tbody>
     </table>
 
-    ${buildTaxSummaryHTML(d.taxItems||[], sub>0 ? 1-(discAmt/sub) : 1, sym, true)}
+    ${buildTaxSummaryHTML(d.taxItems||[], sub>0 ? 1-(discAmt/sub) : 1, sym, true, d.discMode==='item')}
 
     ${totalsHTML}
   </div>
 
-  <!-- BANK + NOTES + PAYMENT RECORD + SIGNATURE -->
+  <!-- BANK + UPI (side by side) + NOTES + PAYMENT RECORD + SIGNATURE -->
   <div style="padding:18px 48px 0;display:flex;gap:32px">
     <div style="flex:1">
-      ${tplBankHTML(d,'#333','#fafafa','border:0.5px solid #ccc;border-radius:0')}
+      ${(() => {
+        const _sc2 = (typeof STATE !== 'undefined' ? STATE.settings : {});
+        const bankTextF = d.bank || _sc2.defaultBank || '';
+        const upiF = d.upi || _sc2.upi || '';
+        const hasBankF = !!bankTextF && !(d.popt && d.popt.bank === false) && d.status !== 'Paid';
+        const hasUpiF = !!upiF;
+        const hasQrF = !!(d.popt && d.popt.qr && d.qrUrl);
+        if (!hasBankF && !hasUpiF && !hasQrF) return '';
+        return `<div style="display:flex;border:0.5px solid #ccc;margin-bottom:14px">
+          ${hasBankF ? `<div style="flex:1;padding:12px 14px;${(hasUpiF||hasQrF)?'border-right:0.5px solid #ccc':''}">
+            <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:${sans}">Bank Details</div>
+            <div style="font-size:10px;line-height:1.9;color:#444;font-family:${sans}">
+              ${bankTextF.split('|').map(s=>s.trim()).filter(Boolean).map(s=>`<div>${s}</div>`).join('')}
+            </div>
+          </div>` : ''}
+          ${(hasUpiF||hasQrF) ? `<div style="width:150px;flex-shrink:0;padding:12px 14px;text-align:center">
+            <div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:${sans}">UPI</div>
+            ${hasQrF?`<img src="${d.qrUrl}" style="width:70px;height:70px;border:0.5px solid #ccc;display:block;margin:0 auto 4px" onerror="this.style.display='none'">`:''}
+            ${hasUpiF?`<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;font-family:monospace">${upiF}</div>`:''}
+            ${hasQrF?`<div style="font-size:8px;color:#888;margin-top:2px;font-family:${sans}">Scan to Pay</div>`:''}
+          </div>` : ''}
+        </div>`;
+      })()}
       ${tplNotesHTML(d,'#555','#fafafa')}
       ${tplTncHTML(d,'#888')}
       ${paidSummaryHTML}
     </div>
     <div style="width:200px">
-      ${tplQrHTML(d)}
       ${tplSignHTML(d,'','Authorised Signatory')}
     </div>
   </div>
