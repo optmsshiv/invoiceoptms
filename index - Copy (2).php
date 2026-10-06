@@ -5585,11 +5585,6 @@ const SERVER = {
       </div>
 
       <div class="pne-card" style="margin-top:16px">
-        <div class="pne-card-head pne-head-blue"><i class="fas fa-bag-shopping"></i> Bags Summary — Purchased vs Sold</div>
-        <div id="fr-bags-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading bags summary…</div></div>
-      </div>
-
-      <div class="pne-card" style="margin-top:16px">
         <div class="pne-card-head pne-head-blue"><i class="fas fa-weight-hanging"></i> Trade Summary — Quantity &amp; Dhalta Report</div>
         <div id="fr-trade-summary"><div style="color:var(--muted);font-size:13px;padding:20px;text-align:center"><i class="fas fa-spinner fa-spin"></i> Loading trade summary…</div></div>
       </div>
@@ -23122,7 +23117,6 @@ async function renderFinanceReport() {
 
 
     renderFRCharts(r);
-    renderFRBags(r.bags_summary);
 
     // ── Trade Summary ─────────────────────────────────────────────
     const ts = r.trade_summary || {};
@@ -23192,68 +23186,6 @@ async function renderFinanceReport() {
 `;
     }
   } catch(e) { toast('❌ ' + e.message, 'error'); }
-}
-
-// Bags Summary card (Finance Report) — Purchased / Sold / Net tiles + a
-// product-wise table. Data comes from finance_report.php → bags_summary.
-function renderFRBags(b) {
-  const el = document.getElementById('fr-bags-summary');
-  if (!el) return;
-  if (!b) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:16px;text-align:center">No bag data available</div>'; return; }
-
-  const nf = v => Math.round(parseFloat(v || 0)).toLocaleString('en-IN');
-  const chg = pct => {
-    pct = parseFloat(pct || 0);
-    return `<div style="font-size:10.5px;color:${pct >= 0 ? '#00897B' : '#E53935'}"><i class="fas fa-arrow-${pct >= 0 ? 'up' : 'down'}"></i> ${Math.abs(pct)}% vs Previous Period</div>`;
-  };
-  const net = parseFloat(b.net || 0);
-  const netColor = net > 0 ? '#1565C0' : net < 0 ? '#E65100' : 'var(--muted)';
-  const netHint = net > 0 ? 'More bought than sold — stock built up'
-                : net < 0 ? 'More sold than bought — stock drawn down'
-                : 'Bought and sold in balance';
-
-  const tile = (icon, bg, fg, label, value, valueColor, sub) => `
-    <div class="pne-card" style="padding:14px 16px">
-      <span class="sa-chip-icon" style="background:${bg};color:${fg};width:34px;height:34px"><i class="fas ${icon}"></i></span>
-      <div style="margin-top:8px;font-size:11px;color:var(--muted)">${label}</div>
-      <div style="font-size:20px;font-weight:800;${valueColor ? 'color:' + valueColor : ''}">${value}</div>
-      ${sub}
-    </div>`;
-
-  const rows = b.by_product || [];
-  const tbl = rows.length ? `
-    <div style="margin-top:14px">
-      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-list"></i> PRODUCT-WISE BAGS</div>
-      <div style="overflow-x:auto;max-height:340px;overflow-y:auto">
-        <table class="data-table" style="font-size:12px">
-          <thead><tr><th>#</th><th>Product</th><th style="text-align:right">Purchased</th><th style="text-align:right">Sold</th><th style="text-align:right">Net (Pur − Sold)</th></tr></thead>
-          <tbody>${rows.map((r, i) => {
-            const n = parseFloat(r.net_bags || 0);
-            return `<tr><td>${i + 1}</td><td>${escHtml(r.name)}</td>
-              <td style="text-align:right;color:#E53935;font-weight:600">${r.pur_bags ? nf(r.pur_bags) : '—'}</td>
-              <td style="text-align:right;color:#00897B;font-weight:600">${r.sale_bags ? nf(r.sale_bags) : '—'}</td>
-              <td style="text-align:right;font-weight:700;color:${n > 0 ? '#1565C0' : n < 0 ? '#E65100' : 'var(--muted)'}">${n > 0 ? '+' : ''}${nf(n)}</td></tr>`;
-          }).join('')}
-          <tr style="font-weight:700"><td colspan="2">Total</td>
-            <td style="text-align:right">${nf(b.purchased.value)}</td>
-            <td style="text-align:right">${nf(b.sold.value)}</td>
-            <td style="text-align:right">${net > 0 ? '+' : ''}${nf(net)}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>` : `<div style="color:var(--muted);font-size:12px;padding:14px;text-align:center">No bags recorded in this period</div>`;
-
-  el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" class="ps-stats-row">
-      ${tile('fa-cart-shopping', '#F3E8FF', '#6A4C93', 'Bags Purchased', nf(b.purchased.value), '#E53935',
-             chg(b.purchased.change) + `<div style="font-size:10.5px;color:var(--muted)">${b.purchased.bills} purchase bill${b.purchased.bills === 1 ? '' : 's'}</div>`)}
-      ${tile('fa-file-invoice-dollar', '#E8F5E9', '#2E7D32', 'Bags Sold', nf(b.sold.value), '#00897B',
-             chg(b.sold.change) + `<div style="font-size:10.5px;color:var(--muted)">${b.sold.bills} sale invoice${b.sold.bills === 1 ? '' : 's'}</div>`)}
-      ${tile('fa-scale-balanced', '#E3F2FD', '#1976D2', 'Net Bags <span title="Purchased − Sold" style="cursor:help">ⓘ</span>',
-             (net > 0 ? '+' : '') + nf(net), netColor, `<div style="font-size:10.5px;color:var(--muted)">${netHint}</div>`)}
-    </div>
-    ${tbl}
-    <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5"><i class="fas fa-circle-info"></i> Counts the “No. of Bags” entered on each line. Cancelled sales are excluded. Net is for this period only — it isn’t your closing stock.</div>`;
 }
 
 function renderFRCharts(r) {

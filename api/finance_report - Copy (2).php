@@ -347,7 +347,7 @@ try {
     FROM sale_items si
     JOIN sales s ON s.id = si.sale_id
     WHERE s.sale_date BETWEEN ? AND ?
-      AND s.status != 'Cancelled'" . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : ''));
+      AND s.status != 'Cancelled'" . $whWhereSales);
   $tradeStmt->execute([$dateFrom, $dateTo]);
   $tradeS = $tradeStmt->fetch();
 
@@ -417,76 +417,6 @@ try {
     'dhalta_detail' => $dhaltaDetail,
   ];
 
-  // ── Bags Summary: number of bags purchased vs sold ───────────────
-  // Source of truth is the per-line `bags` column on purchase_items /
-  // sale_items (the same field the Purchase/Sale entry screens save).
-  // Warehouse filter is applied at line level for sales (sale_items.warehouse)
-  // so a multi-warehouse invoice only counts the bags from the selected one.
-  // Cancelled sales are excluded, matching every other sales figure here.
-  function bagsByProduct(PDO $db, string $kind, string $from, string $to, string $warehouse): array {
-    if ($kind === 'purchase') {
-      $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
-                     SUM(pi.bags) AS bags, COUNT(DISTINCT p.id) AS bills
-              FROM purchase_items pi
-              JOIN purchases p ON p.id = pi.purchase_id
-              LEFT JOIN products pr ON pr.id = pi.product_id
-              WHERE p.purchase_date BETWEEN ? AND ? AND pi.bags > 0"
-              . ($warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : '')
-              . " GROUP BY pi.product_id, pr.name";
-    } else {
-      $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
-                     SUM(si.bags) AS bags, COUNT(DISTINCT s.id) AS bills
-              FROM sale_items si
-              JOIN sales s ON s.id = si.sale_id
-              LEFT JOIN products pr ON pr.id = si.product_id
-              WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND si.bags > 0"
-              . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : '')
-              . " GROUP BY si.product_id, pr.name";
-    }
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$from, $to]);
-    return $stmt->fetchAll();
-  }
-
-  $purBagRows  = bagsByProduct($db, 'purchase', $dateFrom, $dateTo, $warehouse);
-  $saleBagRows = bagsByProduct($db, 'sale',     $dateFrom, $dateTo, $warehouse);
-
-  // Merge both sides into one row per product name
-  $bagsMap = [];
-  foreach ($purBagRows as $r) {
-    $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => (float)$r['bags'], 'sale_bags' => 0.0];
-  }
-  foreach ($saleBagRows as $r) {
-    if (!isset($bagsMap[$r['name']])) $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => 0.0, 'sale_bags' => 0.0];
-    $bagsMap[$r['name']]['sale_bags'] = (float)$r['bags'];
-  }
-  $bagsProducts = array_values($bagsMap);
-  foreach ($bagsProducts as &$bp) { $bp['net_bags'] = $bp['pur_bags'] - $bp['sale_bags']; }
-  unset($bp);
-  usort($bagsProducts, fn($a, $b) => ($b['pur_bags'] + $b['sale_bags']) <=> ($a['pur_bags'] + $a['sale_bags']));
-
-  $purBagsTotal  = array_sum(array_column($purBagRows,  'bags'));
-  $saleBagsTotal = array_sum(array_column($saleBagRows, 'bags'));
-
-  // Previous period (same length) for the % change under each tile
-  $prevPurBags  = array_sum(array_column(bagsByProduct($db, 'purchase', $prevFrom, $prevTo, $warehouse), 'bags'));
-  $prevSaleBags = array_sum(array_column(bagsByProduct($db, 'sale',     $prevFrom, $prevTo, $warehouse), 'bags'));
-
-  // Distinct bills that carried bags (a bill with 3 products counts once)
-  $purBillsStmt = $db->prepare("SELECT COUNT(DISTINCT p.id) FROM purchase_items pi JOIN purchases p ON p.id = pi.purchase_id
-    WHERE p.purchase_date BETWEEN ? AND ? AND pi.bags > 0" . ($warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : ''));
-  $purBillsStmt->execute([$dateFrom, $dateTo]);
-  $saleBillsStmt = $db->prepare("SELECT COUNT(DISTINCT s.id) FROM sale_items si JOIN sales s ON s.id = si.sale_id
-    WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND si.bags > 0" . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : ''));
-  $saleBillsStmt->execute([$dateFrom, $dateTo]);
-
-  $bagsSummary = [
-    'purchased'     => ['value' => (float)$purBagsTotal,  'bills' => (int)$purBillsStmt->fetchColumn(),  'change' => $pctChange($purBagsTotal,  $prevPurBags)],
-    'sold'          => ['value' => (float)$saleBagsTotal, 'bills' => (int)$saleBillsStmt->fetchColumn(), 'change' => $pctChange($saleBagsTotal, $prevSaleBags)],
-    'net'           => (float)$purBagsTotal - (float)$saleBagsTotal,   // purchased − sold (+ = bags added to stock)
-    'by_product'    => $bagsProducts,
-  ];
-
   // Expenses
   $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE `date` BETWEEN ? AND ?");
   $expStmt->execute([$dateFrom, $dateTo]);
@@ -509,7 +439,6 @@ try {
       'net_flow' => (float)$curSales['r'] - (float)$curPur['p'],
     ],
     'trade_summary' => $tradeSummary,
-    'bags_summary'  => $bagsSummary,
     'expenses' => [
       'total'       => (float)$expData['total'],
       'count'       => (int)$expData['cnt'],
