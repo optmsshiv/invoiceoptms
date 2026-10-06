@@ -454,7 +454,7 @@ try {
   function bagsByProduct(PDO $db, string $kind, string $from, string $to, string $warehouse): array {
     if ($kind === 'purchase') {
       $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
-                     SUM(pi.bags) AS bags, SUM(pi.qty) AS qty, COUNT(DISTINCT p.id) AS bills
+                     SUM(pi.bags) AS bags, COUNT(DISTINCT p.id) AS bills
               FROM purchase_items pi
               JOIN purchases p ON p.id = pi.purchase_id
               LEFT JOIN products pr ON pr.id = pi.product_id
@@ -463,7 +463,7 @@ try {
               . " GROUP BY pi.product_id, pr.name";
     } else {
       $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
-                     SUM(si.bags) AS bags, SUM(si.qty) AS qty, COUNT(DISTINCT s.id) AS bills
+                     SUM(si.bags) AS bags, COUNT(DISTINCT s.id) AS bills
               FROM sale_items si
               JOIN sales s ON s.id = si.sale_id
               LEFT JOIN products pr ON pr.id = si.product_id
@@ -482,12 +482,11 @@ try {
   // Merge both sides into one row per product name
   $bagsMap = [];
   foreach ($purBagRows as $r) {
-    $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => (float)$r['bags'], 'sale_bags' => 0.0, 'pur_qty' => (float)$r['qty'], 'sale_qty' => 0.0];
+    $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => (float)$r['bags'], 'sale_bags' => 0.0];
   }
   foreach ($saleBagRows as $r) {
-    if (!isset($bagsMap[$r['name']])) $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => 0.0, 'sale_bags' => 0.0, 'pur_qty' => 0.0, 'sale_qty' => 0.0];
+    if (!isset($bagsMap[$r['name']])) $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => 0.0, 'sale_bags' => 0.0];
     $bagsMap[$r['name']]['sale_bags'] = (float)$r['bags'];
-    $bagsMap[$r['name']]['sale_qty']  = (float)$r['qty'];
   }
   $bagsProducts = array_values($bagsMap);
   foreach ($bagsProducts as &$bp) { $bp['net_bags'] = $bp['pur_bags'] - $bp['sale_bags']; }
@@ -496,8 +495,6 @@ try {
 
   $purBagsTotal  = array_sum(array_column($purBagRows,  'bags'));
   $saleBagsTotal = array_sum(array_column($saleBagRows, 'bags'));
-  $purBagsQty    = array_sum(array_column($purBagRows,  'qty'));
-  $saleBagsQty   = array_sum(array_column($saleBagRows, 'qty'));
 
   // Previous period (same length) for the % change under each tile
   $prevPurBags  = array_sum(array_column(bagsByProduct($db, 'purchase', $prevFrom, $prevTo, $warehouse), 'bags'));
@@ -512,8 +509,8 @@ try {
   $saleBillsStmt->execute([$dateFrom, $dateTo]);
 
   $bagsSummary = [
-    'purchased'     => ['value' => (float)$purBagsTotal, 'qty' => (float)$purBagsQty,  'bills' => (int)$purBillsStmt->fetchColumn(),  'change' => $pctChange($purBagsTotal,  $prevPurBags)],
-    'sold'          => ['value' => (float)$saleBagsTotal, 'qty' => (float)$saleBagsQty, 'bills' => (int)$saleBillsStmt->fetchColumn(), 'change' => $pctChange($saleBagsTotal, $prevSaleBags)],
+    'purchased'     => ['value' => (float)$purBagsTotal,  'bills' => (int)$purBillsStmt->fetchColumn(),  'change' => $pctChange($purBagsTotal,  $prevPurBags)],
+    'sold'          => ['value' => (float)$saleBagsTotal, 'bills' => (int)$saleBillsStmt->fetchColumn(), 'change' => $pctChange($saleBagsTotal, $prevSaleBags)],
     'net'           => (float)$purBagsTotal - (float)$saleBagsTotal,   // purchased − sold (+ = bags added to stock)
     'by_product'    => $bagsProducts,
   ];
