@@ -351,6 +351,31 @@ try {
   $tradeStmt->execute([$dateFrom, $dateTo]);
   $tradeS = $tradeStmt->fetch();
 
+  // Sale weights, computed ONE ROW PER INVOICE. The old query summed the
+  // sales-level kanta_* columns after joining sale_items, so a 3-item
+  // invoice counted its weighbridge weights 3 times; and invoices entered
+  // without a kanta slip contributed 0, which is why Net/Billable Wt showed
+  // empty. Per invoice: if kanta gross > 0 use kanta net (gross − tare),
+  // otherwise fall back to the invoice's own item quantities (Kg).
+  $saleWtSql = "SELECT s.id, s.kanta_gross_weight g, s.kanta_tare_weight t, s.kanta_dhalta_kg d,
+      (SELECT COALESCE(SUM(si.qty),0) FROM sale_items si WHERE si.sale_id = s.id"
+      . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : '') . ") q
+    FROM sales s
+    WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled'"
+    . ($warehouse ? " AND EXISTS (SELECT 1 FROM sale_items si2 WHERE si2.sale_id = s.id AND si2.warehouse = " . $db->quote($warehouse) . ")" : '');
+  $saleWtStmt = $db->prepare($saleWtSql);
+  $saleWtStmt->execute([$dateFrom, $dateTo]);
+  $saleGross = $saleTare = $saleNet = $saleDhalta = $saleBillable = 0.0;
+  $saleFromItems = 0;
+  foreach ($saleWtStmt->fetchAll() as $w) {
+    $g = (float)$w['g']; $t = (float)$w['t']; $d = (float)$w['d'];
+    if ($g > 0) { $net = max(0, $g - $t); $saleGross += $g; $saleTare += $t; }
+    else        { $net = (float)$w['q']; $saleFromItems++; }
+    $saleNet      += $net;
+    $saleDhalta   += $d;
+    $saleBillable += max(0, $net - $d);
+  }
+
   // Use purchase-level total (not item-level amount) so the value matches
   // the Finance Report card exactly — both now read from purchases.total.
   // Qty/weight/dhalta still come from purchase_items (item level).
@@ -399,9 +424,12 @@ try {
   $tradeSummary = [
     'sale_qty'        => (float)$tradeS['sale_qty'],
     'sale_value'      => (float)$tradeS['sale_value'],
-    'sale_gross_wt'   => (float)$tradeS['sale_gross_wt'],
-    'sale_tare_wt'    => (float)$tradeS['sale_tare_wt'],
-    'sale_dhalta_kg'  => (float)$tradeS['sale_dhalta_kg'],
+    'sale_gross_wt'   => $saleGross,
+    'sale_tare_wt'    => $saleTare,
+    'sale_net_wt'     => $saleNet,
+    'sale_dhalta_kg'  => $saleDhalta,
+    'sale_billable_wt'=> $saleBillable,
+    'sale_wt_from_items' => $saleFromItems,   // invoices with no kanta weight → used item qty
     'pur_qty'         => (float)$tradeP['pur_qty'],
     'pur_value'       => (float)$purVal,
     'pur_item_value'  => (float)$exp['purchase_amt'],
@@ -486,6 +514,8 @@ try {
     'net'           => (float)$purBagsTotal - (float)$saleBagsTotal,   // purchased − sold (+ = bags added to stock)
     'by_product'    => $bagsProducts,
   ];
+  $tradeSummary['pur_bags']  = $bagsSummary['purchased']['value'];
+  $tradeSummary['sale_bags'] = $bagsSummary['sold']['value'];
 
   // Expenses
   $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE `date` BETWEEN ? AND ?");

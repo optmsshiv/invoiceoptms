@@ -23129,6 +23129,7 @@ async function renderFinanceReport() {
     const tsCont = document.getElementById('fr-trade-summary');
     if (tsCont && ts.pur_qty !== undefined) {
       const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
+      const bagFmt = v => Math.round(parseFloat(v||0)).toLocaleString('en-IN');
       const dhaltaPct = ts.gross_wt > 0 ? (ts.dhalta_kg/ts.gross_wt*100).toFixed(2) : '0.00';
       const hasCharges = (ts.transport_amt||0)+(ts.loading_amt||0)+(ts.packing_amt||0)+(ts.other_amt||0) > 0;
       const netWt = (ts.gross_wt||0)-(ts.tare_wt||0);
@@ -23143,6 +23144,7 @@ async function renderFinanceReport() {
               <i class="fas fa-cart-shopping"></i> PURCHASE
             </div>
             ${[
+              ['No. of Bags', bagFmt(ts.pur_bags),    '#6A4C93', 'Bags purchased in this period'],
               ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
               ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
               ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
@@ -23163,9 +23165,10 @@ async function renderFinanceReport() {
               <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
             ${[
-              ['Net Wt',      kgFmt((ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)),                                          '', 'Gross − Tare'],
-              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),                                                                 '#E65100', 'Weight deducted at delivery'],
-              ['Billable Wt', kgFmt(Math.max(0,(ts.sale_gross_wt||0)-(ts.sale_tare_wt||0)-(ts.sale_dhalta_kg||0))),      '#00897B', 'Net − Dhalta'],
+              ['No. of Bags', bagFmt(ts.sale_bags),                  '#6A4C93', 'Bags sold in this period'],
+              ['Net Wt',      kgFmt(ts.sale_net_wt||0),                '', ts.sale_wt_from_items > 0 ? 'Gross − Tare (kanta), else item qty' : 'Gross − Tare'],
+              ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),             '#E65100', 'Weight deducted at delivery'],
+              ['Billable Wt', kgFmt(ts.sale_billable_wt||0),           '#00897B', 'Net − Dhalta'],
               ['Total Value', fmt_money(ts.sale_value),                                                                    '#00897B', 'Sum of all sale invoices'],
             ].map(([l,v,c,sub],i)=>`
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;${i%2===0?'background:var(--bg)':''}">
