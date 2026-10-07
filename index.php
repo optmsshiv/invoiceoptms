@@ -23129,7 +23129,6 @@ async function renderFinanceReport() {
     const tsCont = document.getElementById('fr-trade-summary');
     if (tsCont && ts.pur_qty !== undefined) {
       const kgFmt = v => parseFloat(v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' Kg';
-      const bagFmt = v => Math.round(parseFloat(v||0)).toLocaleString('en-IN');
       const dhaltaPct = ts.gross_wt > 0 ? (ts.dhalta_kg/ts.gross_wt*100).toFixed(2) : '0.00';
       const hasCharges = (ts.transport_amt||0)+(ts.loading_amt||0)+(ts.packing_amt||0)+(ts.other_amt||0) > 0;
       const netWt = (ts.gross_wt||0)-(ts.tare_wt||0);
@@ -23144,7 +23143,6 @@ async function renderFinanceReport() {
               <i class="fas fa-cart-shopping"></i> PURCHASE
             </div>
             ${[
-              ['No. of Bags', bagFmt(ts.pur_bags),    '#6A4C93', 'Bags purchased in this period'],
               ['Total Qty',   kgFmt(ts.pur_qty),      '', 'Billable qty across all purchases'],
               ['Dhalta',      kgFmt(ts.dhalta_kg),    '#E65100', 'Weight deducted at purchase'],
               ['Billable Wt', kgFmt(ts.billable_wt), '#00897B', 'Net − Dhalta (what you pay for)'],
@@ -23165,7 +23163,6 @@ async function renderFinanceReport() {
               <i class="fas fa-file-invoice-dollar"></i> SALE
             </div>
             ${[
-              ['No. of Bags', bagFmt(ts.sale_bags),                  '#6A4C93', 'Bags sold in this period'],
               ['Net Wt',      kgFmt(ts.sale_net_wt||0),                '', ts.sale_wt_from_items > 0 ? 'Gross − Tare (kanta), else item qty' : 'Gross − Tare'],
               ['Dhalta',      kgFmt(ts.sale_dhalta_kg||0),             '#E65100', 'Weight deducted at delivery'],
               ['Billable Wt', kgFmt(ts.sale_billable_wt||0),           '#00897B', 'Net − Dhalta'],
@@ -23211,13 +23208,6 @@ function renderFRBags(b) {
     pct = parseFloat(pct || 0);
     return `<div style="font-size:10.5px;color:${pct >= 0 ? '#00897B' : '#E53935'}"><i class="fas fa-arrow-${pct >= 0 ? 'up' : 'down'}"></i> ${Math.abs(pct)}% vs Previous Period</div>`;
   };
-  const net = parseFloat(b.net || 0);
-  const netQty = parseFloat(b.purchased.qty || 0) - parseFloat(b.sold.qty || 0);
-  const netColor = net > 0 ? '#1565C0' : net < 0 ? '#E65100' : 'var(--muted)';
-  const netHint = net > 0 ? 'More bought than sold — stock built up'
-                : net < 0 ? 'More sold than bought — stock drawn down'
-                : 'Bought and sold in balance';
-
   const tile = (icon, bg, fg, label, value, valueColor, sub) => `
     <div class="pne-card" style="padding:14px 16px">
       <span class="sa-chip-icon" style="background:${bg};color:${fg};width:34px;height:34px"><i class="fas ${icon}"></i></span>
@@ -23232,40 +23222,32 @@ function renderFRBags(b) {
       <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:6px"><i class="fas fa-list"></i> PRODUCT-WISE BAGS</div>
       <div style="overflow-x:auto;max-height:340px;overflow-y:auto">
         <table class="data-table" style="font-size:12px">
-          <thead><tr><th rowspan="2">#</th><th rowspan="2">Product</th><th colspan="2" style="text-align:center">Purchased</th><th colspan="2" style="text-align:center">Sold</th><th colspan="2" style="text-align:center">Net (Pur − Sold)</th></tr>
-          <tr><th style="text-align:right">Bags</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Bags</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Bags</th><th style="text-align:right">Qty (Kg)</th></tr></thead>
+          <thead><tr><th rowspan="2">#</th><th rowspan="2">Product</th><th colspan="2" style="text-align:center">Purchased</th><th colspan="2" style="text-align:center">Sold</th></tr>
+          <tr><th style="text-align:right">Bags</th><th style="text-align:right">Qty (Kg)</th><th style="text-align:right">Bags</th><th style="text-align:right">Qty (Kg)</th></tr></thead>
           <tbody>${rows.map((r, i) => {
-            const n = parseFloat(r.net_bags || 0);
-            const nq = parseFloat(r.pur_qty || 0) - parseFloat(r.sale_qty || 0);
-            const nc = n > 0 ? '#1565C0' : n < 0 ? '#E65100' : 'var(--muted)';
             return `<tr><td>${i + 1}</td><td>${escHtml(r.name)}</td>
               <td style="text-align:right;color:#E53935;font-weight:600">${r.pur_bags ? nf(r.pur_bags) : '—'}</td>
               <td style="text-align:right">${r.pur_qty ? kg(r.pur_qty) : '—'}</td>
               <td style="text-align:right;color:#00897B;font-weight:600">${r.sale_bags ? nf(r.sale_bags) : '—'}</td>
-              <td style="text-align:right">${r.sale_qty ? kg(r.sale_qty) : '—'}</td>
-              <td style="text-align:right;font-weight:700;color:${nc}">${n > 0 ? '+' : ''}${nf(n)}</td>
-              <td style="text-align:right;color:${nc}">${nq > 0 ? '+' : ''}${kg(nq)}</td></tr>`;
+              <td style="text-align:right">${r.sale_qty ? kg(r.sale_qty) : '—'}</td></tr>`;
           }).join('')}
           <tr style="font-weight:700"><td colspan="2">Total</td>
             <td style="text-align:right">${nf(b.purchased.value)}</td><td style="text-align:right">${kg(b.purchased.qty)}</td>
-            <td style="text-align:right">${nf(b.sold.value)}</td><td style="text-align:right">${kg(b.sold.qty)}</td>
-            <td style="text-align:right">${net > 0 ? '+' : ''}${nf(net)}</td><td style="text-align:right">${netQty > 0 ? '+' : ''}${kg(netQty)}</td></tr>
+            <td style="text-align:right">${nf(b.sold.value)}</td><td style="text-align:right">${kg(b.sold.qty)}</td></tr>
           </tbody>
         </table>
       </div>
     </div>` : `<div style="color:var(--muted);font-size:12px;padding:14px;text-align:center">No bags recorded in this period</div>`;
 
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" class="ps-stats-row">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px" class="ps-stats-row">
       ${tile('fa-cart-shopping', '#F3E8FF', '#6A4C93', 'Bags Purchased', nf(b.purchased.value), '#E53935',
              `<div style="font-size:12px;font-weight:700;margin-top:2px">${kg(b.purchased.qty)}</div><div style="font-size:10px;color:var(--muted)">Quantity in bags${avg(b.purchased.qty, b.purchased.value)}</div>` + chg(b.purchased.change) + `<div style="font-size:10.5px;color:var(--muted)">${b.purchased.bills} purchase bill${b.purchased.bills === 1 ? '' : 's'}</div>`)}
       ${tile('fa-file-invoice-dollar', '#E8F5E9', '#2E7D32', 'Bags Sold', nf(b.sold.value), '#00897B',
              `<div style="font-size:12px;font-weight:700;margin-top:2px">${kg(b.sold.qty)}</div><div style="font-size:10px;color:var(--muted)">Quantity in bags${avg(b.sold.qty, b.sold.value)}</div>` + chg(b.sold.change) + `<div style="font-size:10.5px;color:var(--muted)">${b.sold.bills} sale invoice${b.sold.bills === 1 ? '' : 's'}</div>`)}
-      ${tile('fa-scale-balanced', '#E3F2FD', '#1976D2', 'Net Bags <span title="Purchased − Sold" style="cursor:help">ⓘ</span>',
-             (net > 0 ? '+' : '') + nf(net), netColor, `<div style="font-size:12px;font-weight:700;margin-top:2px">${netQty > 0 ? '+' : ''}${kg(netQty)}</div><div style="font-size:10px;color:var(--muted)">Net quantity</div><div style="font-size:10.5px;color:var(--muted)">${netHint}</div>`)}
     </div>
     ${tbl}
-    <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5"><i class="fas fa-circle-info"></i> Bags = the “No. of Bags” entered on each line; Qty = the Kg on those same lines. Cancelled sales are excluded. Net is for this period only — it isn’t your closing stock.</div>`;
+    <div style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5"><i class="fas fa-circle-info"></i> Bags = the “No. of Bags” entered on each line; Qty = the Kg on those same lines. Cancelled sales are excluded.</div>`;
 }
 
 function renderFRCharts(r) {

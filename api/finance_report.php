@@ -490,8 +490,6 @@ try {
     $bagsMap[$r['name']]['sale_qty']  = (float)$r['qty'];
   }
   $bagsProducts = array_values($bagsMap);
-  foreach ($bagsProducts as &$bp) { $bp['net_bags'] = $bp['pur_bags'] - $bp['sale_bags']; }
-  unset($bp);
   usort($bagsProducts, fn($a, $b) => ($b['pur_bags'] + $b['sale_bags']) <=> ($a['pur_bags'] + $a['sale_bags']));
 
   $purBagsTotal  = array_sum(array_column($purBagRows,  'bags'));
@@ -514,11 +512,8 @@ try {
   $bagsSummary = [
     'purchased'     => ['value' => (float)$purBagsTotal, 'qty' => (float)$purBagsQty,  'bills' => (int)$purBillsStmt->fetchColumn(),  'change' => $pctChange($purBagsTotal,  $prevPurBags)],
     'sold'          => ['value' => (float)$saleBagsTotal, 'qty' => (float)$saleBagsQty, 'bills' => (int)$saleBillsStmt->fetchColumn(), 'change' => $pctChange($saleBagsTotal, $prevSaleBags)],
-    'net'           => (float)$purBagsTotal - (float)$saleBagsTotal,   // purchased − sold (+ = bags added to stock)
     'by_product'    => $bagsProducts,
   ];
-  $tradeSummary['pur_bags']  = $bagsSummary['purchased']['value'];
-  $tradeSummary['sale_bags'] = $bagsSummary['sold']['value'];
 
   // Expenses
   $expStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) total, COUNT(*) cnt FROM expenses WHERE `date` BETWEEN ? AND ?");
