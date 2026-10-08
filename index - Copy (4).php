@@ -23710,7 +23710,7 @@ function exportStockHistoryCsv() {
 // system, gated behind business_type='product'. Writes stock OUT via
 // api/sales.php, closing the loop with Purchases' stock IN.
 // ══════════════════════════════════════════
-const SN = { editingId: null, items: [], attachments: [], deductions: [], additions: [], activeRowId: null, headerKantaFallback: null, idempotencyKey: crypto.randomUUID() };
+const SN = { editingId: null, items: [], attachments: [], deductions: [], additions: [], activeRowId: null, idempotencyKey: crypto.randomUUID() };
 // Batch options per product, fetched from product_batches.php on demand —
 // only products with actual received batches will have entries here;
 // everything else just falls back to "No batch" (same as today, harmless).
@@ -23809,7 +23809,6 @@ function goToNewSale() {
   // pattern as PNE.idempotencyKey in goToNewPurchase() above.
   SN.idempotencyKey = crypto.randomUUID();
   SN.items = [snEmptyItem()];
-  SN.headerKantaFallback = null;
   SN.activeRowId = SN.items[0].id; // auto-link kanta to row 1 immediately
   SN.attachments = [];
   document.getElementById('psn-title').textContent = 'New Sale Entry';
@@ -24072,29 +24071,6 @@ function openSNItemEditor(id) {
   toast(`⚖ Kanta linked to Row ${SN.items.indexOf(it)+1} — adjust weights above to update qty`, 'info');
 }
 
-// ✓ on a row: write the weight form into that row, then unlink.
-// The invoice itself is written to the database when Save / Update Sale is pressed.
-function snCommitItemKanta(id) {
-  const it = SN.items.find(i => i.id === id); if (!it) return;
-  const num = elId => parseFloat(document.getElementById(elId).value) || 0;
-  const gross = num('sn-kanta-gross'), tare = num('sn-kanta-tare');
-  const rowNo = SN.items.indexOf(it) + 1;
-  if (gross > 0 && tare > gross) { toast('⚠️ Tare weight cannot be more than gross weight', 'warning'); return; }
-  if (gross > 0) {
-    calcSNWeightSummary();               // stores it.kanta, moisture and qty (= billable)
-    if (!(it.kanta && it.kanta.billable > 0)) { toast('⚠️ Billable weight is 0 — check tare and dhalta', 'warning'); return; }
-    toast(`✅ Row ${rowNo} weights saved — Billable ${it.kanta.billable.toFixed(2)} Kg`, 'success');
-  } else {
-    // Weight form left empty: no weighbridge weights for this row. Keep the
-    // quantity as typed in the table instead of zeroing it.
-    it.kanta = { gross: 0, tare: 0, net: 0, dhalta: 0, billable: 0, slip: '' };
-    const m = document.getElementById('sn-kanta-moisture').value;
-    it.moisture_pct = m === '' ? it.moisture_pct : (parseFloat(m) || null);
-    toast(`Row ${rowNo}: no kanta weights — quantity kept as entered`, 'info');
-  }
-  snCloseItemEditor();
-}
-
 function snCloseItemEditor() {
   snClearKanta();        // clears kanta fields + SN.activeRowId + hides indicator
   renderSNItemsTable();  // remove active row highlight
@@ -24167,8 +24143,8 @@ function renderSNItemsTable() {
       <td class="pne-amount-cell" id="sn-total-${it.id}">${fmt_money(c.lineTotal)}</td>
       <td style="text-align:center;white-space:nowrap">
         ${isActive
-          ? `<button class="act-btn" onclick="snCommitItemKanta(${it.id})" title="Save weights to this row" style="color:var(--teal);font-weight:900;font-size:15px">✓</button>`
-          : `<button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Edit — load this row's weights into the weight form"><i class="fas fa-scale-balanced" style="color:var(--teal)"></i></button>`
+          ? `<button class="act-btn" onclick="snCloseItemEditor()" title="Done — unlink kanta" style="color:var(--teal);font-weight:900;font-size:15px">✓</button>`
+          : `<button class="act-btn" onclick="openSNItemEditor(${it.id})" title="Link kanta to this row"><i class="fas fa-scale-balanced" style="color:var(--teal)"></i></button>`
         }
         <button class="act-btn" onclick="removeSNItem(${it.id})" title="Remove row"><i class="fas fa-times" style="color:#E53935"></i></button>
       </td>
@@ -24550,26 +24526,6 @@ function renderSNAttachments() {
     <div class="pp-attach-row"><span><i class="fas fa-file"></i> ${escHtml(a.name)}</span><span class="pp-attach-actions">${a.url?`<button class="pp-attach-view" onclick="window.open('${a.url}','_blank')" title="View"><i class="fas fa-eye"></i></button>`:''}<button onclick="snRemoveAttachment(${i})" title="Remove"><i class="fas fa-times"></i></button></span></div>`).join('');
 }
 
-// Invoice-level weighbridge totals sent with the sale. Previously these were
-// read straight from the weight form, so they held only the row currently
-// linked — or 0 after ✓ cleared the form — and editing + re-saving a sale
-// blanked them. Now: sum of every row's saved weights; if no row has any,
-// the form values, then the weights the sale was loaded with.
-function snHeaderKanta() {
-  let gross = 0, tare = 0, dhalta = 0, any = false;
-  SN.items.forEach(it => {
-    const k = it.kanta;
-    if (k && parseFloat(k.billable) > 0) {
-      gross += parseFloat(k.gross) || 0; tare += parseFloat(k.tare) || 0; dhalta += parseFloat(k.dhalta) || 0; any = true;
-    }
-  });
-  if (any) return { gross, tare, dhalta };
-  const f = id => parseFloat(document.getElementById(id).value) || 0;
-  const form = { gross: f('sn-kanta-gross'), tare: f('sn-kanta-tare'), dhalta: f('sn-kanta-dhaltakg') };
-  if (form.gross > 0) return form;
-  return SN.headerKantaFallback || form;
-}
-
 async function saveSaleEntry(mode, btnEl) {
   const customerId = document.getElementById('sn-customer').value;
   if (!customerId) { toast('⚠️ Select a customer', 'warning'); return; }
@@ -24592,7 +24548,6 @@ async function saveSaleEntry(mode, btnEl) {
     if (!ok.isConfirmed) return;
   }
 
-  const snHdr = snHeaderKanta();
   const payload = {
     invoice_no: document.getElementById('sn-invno').value.trim(),
     customer_id: parseInt(customerId),
@@ -24606,10 +24561,10 @@ async function saveSaleEntry(mode, btnEl) {
     weighbridge_slip_no: document.getElementById('sn-slipno').value.trim(),
     weight_datetime: document.getElementById('sn-weightdatetime').value || null,
     kanta_operator_name: document.getElementById('sn-kantaoperator').value.trim(),
-    kanta_gross_weight: snHdr.gross,
-    kanta_tare_weight: snHdr.tare,
+    kanta_gross_weight: parseFloat(document.getElementById('sn-kanta-gross').value) || 0,
+    kanta_tare_weight: parseFloat(document.getElementById('sn-kanta-tare').value) || 0,
     kanta_moisture_pct: document.getElementById('sn-kanta-moisture').value || null,
-    kanta_dhalta_kg: snHdr.dhalta,
+    kanta_dhalta_kg: parseFloat(document.getElementById('sn-kanta-dhaltakg').value) || 0,
     place_of_supply: document.getElementById('sn-placeofsupply').value,
     currency: document.getElementById('sn-currency').value,
     is_interstate: document.getElementById('sn-salestype').value !== 'Local Sales',
@@ -24695,40 +24650,11 @@ async function editSale(id) {
     const s = r.data;
     SN.editingId = id;
     SN.attachments = (s.attachments||[]).map(url => ({ name: url.split('/').pop(), url }));
-    // Each row's weighbridge weights are saved with the row as `kanta_data`
-    // (JSON). Read them back so ⚖ / the weight form can show them again.
-    const snParseKanta = raw => {
-      if (!raw) return null;
-      try {
-        const k = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (!k || typeof k !== 'object') return null;
-        const n = v => parseFloat(v) || 0;
-        const out = { gross: n(k.gross), tare: n(k.tare), net: n(k.net), dhalta: n(k.dhalta), billable: n(k.billable), slip: k.slip || '' };
-        return out.billable > 0 || out.gross > 0 ? out : null;
-      } catch (e) { return null; }
-    };
-    const savedItems = s.items || [];
-    SN.items = savedItems.map(it => {
-      let kanta = snParseKanta(it.kanta_data);
-      // Older sales (or single-item sales) may only have the invoice-level
-      // kanta weights — use those for a single-row invoice.
-      if (!kanta && savedItems.length === 1 && parseFloat(s.kanta_gross_weight) > 0) {
-        const g = parseFloat(s.kanta_gross_weight) || 0, t = parseFloat(s.kanta_tare_weight) || 0, d = parseFloat(s.kanta_dhalta_kg) || 0;
-        const net = Math.max(0, g - t);
-        kanta = { gross: g, tare: t, net, dhalta: d, billable: Math.max(0, net - d), slip: '' };
-      }
-      return {
-        id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
-        batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
-        rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0, bags: it.bags || 0,
-        kanta: kanta || { gross: 0, tare: 0, net: 0, dhalta: 0, billable: 0, slip: '' },
-      };
-    });
-    // Invoice-level weights of an older multi-row sale that has no per-row
-    // data: remember them so re-saving doesn't blank them out.
-    SN.headerKantaFallback = SN.items.some(i => i.kanta.billable > 0) ? null : {
-      gross: parseFloat(s.kanta_gross_weight) || 0, tare: parseFloat(s.kanta_tare_weight) || 0, dhalta: parseFloat(s.kanta_dhalta_kg) || 0,
-    };
+    SN.items = (s.items||[]).map(it => ({
+      id: snItemSeq++, product_id: it.product_id ? 'p' + it.product_id : '', description: it.description, variety_grade: it.variety_grade || '',
+      batch_no: it.batch_no || '', moisture_pct: it.moisture_pct ?? null, warehouse: it.warehouse || 'Main Warehouse', qty: it.qty || 0, unit: it.unit || 'Kg',
+      rate: it.rate || 0, discount_pct: it.discount_pct || 0, gst_pct: it.gst_pct || 0, bags: it.bags || 0,
+    }));
     SN.items.forEach(it => { if (it.product_id) _snLoadBatchesForProduct(it.product_id); });
     SN.deductions = (s.deductions||[]).map(d => ({ id: snDeductionSeq++, type: d.type||'', description: d.description||'', amount: parseFloat(d.amount)||0 }));
     SN.additions = (s.additions||[]).map(a => ({ id: snAdditionSeq++, type: a.type||'', description: a.description||'', amount: parseFloat(a.amount)||0 }));
@@ -24796,10 +24722,7 @@ async function editSale(id) {
       const r1 = document.getElementById('sn-sum-additions-row'); if (r1) r1.style.display = '';
       const r2 = document.getElementById('sn-sb-additions-row'); if (r2) r2.style.display = '';
     }
-    // Fill the weight form from the first row straight away (same as a new
-    // sale); click ⚖ on another row to switch the form to that row.
-    snClearKanta();
-    if (SN.items[0]) { snPopulateKanta(SN.items[0]); renderSNItemsTable(); }
+    snClearKanta(); // neutral — operator clicks ⚖ on a row to link kanta
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
     api('api/stock.php').then(r => {
