@@ -601,6 +601,20 @@ canvas { max-width: 100% !important; }
 }
 .table-filter:focus { border-color: var(--teal); }
 
+/* Expenses month switcher  ‹ [Oct 2026 · ₹10,000] ›
+   Must not shrink (it was being squeezed and painting over the next
+   dropdown) and the select must show its full text, so it overrides the
+   140px cap of .table-filter. */
+.exp-month-nav { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.exp-month-nav .table-filter { max-width: none; min-width: 150px; }
+.exp-month-nav .btn { padding: 8px 10px; font-size: 12px; line-height: 1.2; flex-shrink: 0; }
+.exp-month-nav .btn:disabled { opacity: .4; cursor: not-allowed; }
+/* On this page the filter group keeps its natural width; if the window is
+   too narrow the toolbar scrolls sideways (it already has overflow-x:auto)
+   instead of controls overlapping each other. */
+#page-expenses .page-toolbar .toolbar-left { flex-shrink: 0; }
+#exp-gdr-note { min-width: 200px; }
+
 .table-card {
   background: var(--card); border-radius: var(--r);
   border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
@@ -7967,12 +7981,12 @@ View Invoice: {{6}}</pre></details>
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
           </select>
-          <span style="display:inline-flex;align-items:center;gap:4px">
-            <button type="button" class="btn btn-outline" id="exp-month-prev" onclick="expStepMonth(1)" title="Previous month" style="padding:6px 10px"><i class="fas fa-chevron-left"></i></button>
+          <span class="exp-month-nav">
+            <button type="button" class="btn btn-outline" id="exp-month-prev" onclick="expStepMonth(1)" title="Previous month"><i class="fas fa-chevron-left"></i></button>
             <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
               <option value="">All months</option>
             </select>
-            <button type="button" class="btn btn-outline" id="exp-month-next" onclick="expStepMonth(-1)" title="Next month" style="padding:6px 10px"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="btn btn-outline" id="exp-month-next" onclick="expStepMonth(-1)" title="Next month"><i class="fas fa-chevron-right"></i></button>
           </span>
           <select class="table-filter" onchange="filterExpensesSource(this.value)" id="exp-source-filter">
             <option value="">All Sources</option>
