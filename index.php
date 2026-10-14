@@ -7967,9 +7967,13 @@ View Invoice: {{6}}</pre></details>
           <select class="table-filter" onchange="filterExpensesCat(this.value)" id="exp-cat-filter">
             <option value="">All Categories</option>
           </select>
-          <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
-            <option value="">All Time</option>
-          </select>
+          <span style="display:inline-flex;align-items:center;gap:4px">
+            <button type="button" class="btn btn-outline" id="exp-month-prev" onclick="expStepMonth(1)" title="Previous month" style="padding:6px 10px"><i class="fas fa-chevron-left"></i></button>
+            <select class="table-filter" onchange="filterExpensesMonth(this.value)" id="exp-month-filter">
+              <option value="">All months</option>
+            </select>
+            <button type="button" class="btn btn-outline" id="exp-month-next" onclick="expStepMonth(-1)" title="Next month" style="padding:6px 10px"><i class="fas fa-chevron-right"></i></button>
+          </span>
           <select class="table-filter" onchange="filterExpensesSource(this.value)" id="exp-source-filter">
             <option value="">All Sources</option>
             <option value="credit">Via Credit</option>
@@ -7987,10 +7991,14 @@ View Invoice: {{6}}</pre></details>
       <!-- Mixed chart: bars = monthly total, stacked per category -->
       <div class="pne-card" style="margin-bottom:18px" id="exp-charts-row">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div style="font-size:13px;font-weight:700">Monthly Amount &amp; Category Breakdown</div>
+          <div style="font-size:13px;font-weight:700">Monthly Amount &amp; Category Breakdown <span style="font-size:11px;color:var(--muted);font-weight:500;margin-left:6px">· click a bar to open that month</span></div>
           <div id="exp-mix-legend" style="display:flex;gap:10px;font-size:11px;flex-wrap:wrap"></div>
         </div>
         <div style="height:250px;position:relative"><canvas id="exp-mix-chart"></canvas></div>
+      </div>
+      <div id="exp-group-tools" style="display:none;justify-content:flex-end;gap:14px;font-size:12px;margin:-6px 2px 8px">
+        <a onclick="expSetAllMonths(true)" style="cursor:pointer;color:var(--teal)">Expand all</a>
+        <a onclick="expSetAllMonths(false)" style="cursor:pointer;color:var(--teal)">Collapse all</a>
       </div>
       <!-- Expense table -->
       <div class="table-card">
@@ -32648,132 +32656,271 @@ async function refreshCashInHandDashboardWidget() {
 // ══════════════════════════════════════════════════════════════
 // 2. EXPENSE TRACKER
 // ══════════════════════════════════════════════════════════════
-const EXP = { list: [], page: 1, per: 20 };
+const EXP = { list: [], page: 1, per: 20, month: '', expanded: new Set(), _months: [], _rows: 0 };
 
-function renderExpenses() {
+// ── Expenses page: month-first view ─────────────────────────────────
+// The page always opens on the CURRENT month (or, if a Global Date Range
+// is locked, the latest month inside it). "All months" is still one click
+// away and then groups the table by month. renderExpenses(true) is used
+// after save/delete so the user stays on the month they were looking at.
+const _EXP_MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _expMonthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function _expMonthLabel(key) {
+  if (!key) return 'All months';
+  const [y, m] = key.split('-');
+  return `${_EXP_MONTHS[+m] || m} ${y}`;
+}
+function _expPrevMonthKey(key) {
+  const [y, m] = key.split('-').map(Number);
+  return _expMonthKey(new Date(y, m - 2, 1));
+}
+// Newest first. Always contains the current month (unless a Global Date
+// Range is locked), so the page can open on it even before any entry exists.
+function _expMonthsAvailable() {
+  const set = new Set(_expBaseList().map(e => (e.date || '').slice(0, 7)).filter(Boolean));
+  if (!GLOBAL_DATE_ACTIVE) set.add(_expMonthKey(new Date()));
+  return [...set].sort().reverse();
+}
+function _expInitialMonth() {
+  // Jumping here from a Credit entry's "→ Expense #X" link: open that expense's month.
+  const hid = window.EXPENSE_HIGHLIGHT_ID;
+  if (hid) {
+    const t = STATE.expenses.find(e => String(e.id) === String(hid));
+    return t && t.date ? t.date.slice(0, 7) : '';
+  }
+  return GLOBAL_DATE_ACTIVE ? (_expMonthsAvailable()[0] || '') : _expMonthKey(new Date());
+}
+
+function renderExpenses(keepView) {
+  const keep = keepView === true;
   updateExpenseCatDropdowns();
   const expGdrNote = document.getElementById('exp-gdr-note');
   if (expGdrNote) expGdrNote.style.display = GLOBAL_DATE_ACTIVE ? 'inline' : 'none';
-  // Refresh from DB then render
-  api('api/expenses.php').then(r=>{
-    if(r&&r.data) STATE.expenses=r.data;
+  if (!keep) {
+    // Fresh visit: no leftover search / category / source filters.
+    ['exp-search', 'exp-cat-filter', 'exp-source-filter'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  }
+  const finish = () => {
+    if (!keep) EXP.month = _expInitialMonth();
     _populateExpenseMonthFilter();
-    EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
-    EXP.page=1; _renderExpSummary(); _renderExpTable();
+    _applyExpFilters(!keep);
     _consumeExpenseHighlight();
-  }).catch(()=>{
-    // Fallback to cached STATE
-    _populateExpenseMonthFilter();
-    EXP.list=_expBaseList().sort((a,b)=>new Date(b.date)-new Date(a.date));
-    EXP.page=1; _renderExpSummary(); _renderExpTable();
-    _consumeExpenseHighlight();
-  });
+  };
+  // Refresh from DB then render (falls back to cached STATE)
+  api('api/expenses.php').then(r => {
+    if (r && r.data) STATE.expenses = r.data;
+    finish();
+  }).catch(finish);
 }
 
+// Month dropdown ("Oct 2026 · ₹45,000") + ‹ › arrows.
 function _populateExpenseMonthFilter() {
   const sel = document.getElementById('exp-month-filter');
   if (!sel) return;
-  const months = [...new Set(STATE.expenses.map(e => e.date?.slice(0,7)))].sort().reverse();
-  sel.innerHTML = '<option value="">All Time</option>' +
-    months.map(m => `<option value="${m}">${m}</option>`).join('');
+  const months = _expMonthsAvailable();
+  if (EXP.month && !months.includes(EXP.month)) { months.push(EXP.month); months.sort().reverse(); }
+  const totals = {};
+  _expBaseList().forEach(e => { const m = (e.date || '').slice(0, 7); totals[m] = (totals[m] || 0) + (parseFloat(e.amount) || 0); });
+  sel.innerHTML = '<option value="">All months</option>' +
+    months.map(m => `<option value="${m}">${_expMonthLabel(m)} · ${fmt_money(totals[m] || 0)}</option>`).join('');
+  sel.value = EXP.month;
+  EXP._months = months;
+  const idx = months.indexOf(EXP.month);
+  const prev = document.getElementById('exp-month-prev'), next = document.getElementById('exp-month-next');
+  if (prev) prev.disabled = !EXP.month || idx >= months.length - 1;
+  if (next) next.disabled = !EXP.month || idx <= 0;
+}
+function _expSetMonth(m) { EXP.month = m || ''; _populateExpenseMonthFilter(); _applyExpFilters(); }
+function expStepMonth(dir) {            // +1 = older month, −1 = newer month
+  const i = EXP._months.indexOf(EXP.month);
+  const n = EXP._months[i + dir];
+  if (i >= 0 && n) _expSetMonth(n);
+}
+
+// ONE place applies every filter together. (Previously each control
+// rebuilt the list on its own, so choosing a category and then a month
+// silently dropped the category.) withMonth=false gives the same filters
+// across all months — used by the chart and the previous-month compare.
+function _expFilteredList(withMonth = true) {
+  const q   = (document.getElementById('exp-search')?.value || '').toLowerCase().trim();
+  const cat = document.getElementById('exp-cat-filter')?.value || '';
+  const src = document.getElementById('exp-source-filter')?.value || '';
+  return _expBaseList().filter(e =>
+    (!withMonth || !EXP.month || (e.date || '').startsWith(EXP.month)) &&
+    (!cat || e.category === cat) &&
+    (!src || (src === 'credit' ? e.source === 'credit' : e.source !== 'credit')) &&
+    (!q || (e.vendor || '').toLowerCase().includes(q) || (e.notes || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q))
+  ).sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+function _applyExpFilters(resetExpand = true) {
+  EXP.list = _expFilteredList(true);
+  EXP.page = 1;
+  if (resetExpand) _expResetExpanded();
+  _renderExpSummary();
+  _renderExpTable();
+}
+// "All months" view: latest month open, older ones collapsed — unless the
+// user is searching/filtering, then everything opens so no match is hidden.
+function _expResetExpanded() {
+  const months = [...new Set(EXP.list.map(e => (e.date || '').slice(0, 7)))];
+  const filtering = !!((document.getElementById('exp-search')?.value || '').trim() ||
+                       document.getElementById('exp-cat-filter')?.value || document.getElementById('exp-source-filter')?.value);
+  EXP.expanded = new Set(filtering ? months : months.slice(0, 1));
+}
+function expToggleMonth(m) { EXP.expanded.has(m) ? EXP.expanded.delete(m) : EXP.expanded.add(m); _renderExpTable(); }
+function expSetAllMonths(open) {
+  EXP.expanded = open ? new Set(EXP.list.map(e => (e.date || '').slice(0, 7))) : new Set();
+  _renderExpTable();
+}
+// After saving an expense dated outside the month being viewed, follow it
+// so it doesn't seem to vanish.
+function _expFollowSavedDate(date) {
+  if (EXP.month && date && !String(date).startsWith(EXP.month)) EXP.month = String(date).slice(0, 7);
+}
+
+// Rows for the table: flat for a single month; month headers (+ entries when
+// expanded) for "All months".
+function _expDisplayRows() {
+  if (EXP.month) return EXP.list.map(e => ({ type: 'row', e }));
+  const groups = new Map();
+  EXP.list.forEach(e => { const m = (e.date || '').slice(0, 7); if (!groups.has(m)) groups.set(m, []); groups.get(m).push(e); });
+  const rows = [];
+  groups.forEach((items, m) => {
+    const open = EXP.expanded.has(m);
+    rows.push({ type: 'head', month: m, count: items.length, open, total: items.reduce((t, e) => t + (parseFloat(e.amount) || 0), 0) });
+    if (open) items.forEach(e => rows.push({ type: 'row', e }));
+  });
+  return rows;
+}
+function _expGroupHeaderHtml(h) {
+  return `<tr onclick="expToggleMonth('${h.month}')" style="cursor:pointer;background:var(--bg)">
+    <td colspan="7" style="padding:10px 14px;font-weight:700;border-top:1px solid var(--border)">
+      <i class="fas fa-chevron-${h.open ? 'down' : 'right'}" style="width:14px;font-size:10px;color:var(--muted)"></i>
+      ${_expMonthLabel(h.month)}
+      <span style="color:var(--muted);font-weight:600;font-size:11.5px;margin-left:8px">${h.count} entr${h.count === 1 ? 'y' : 'ies'}</span>
+      <span style="float:right;font-family:var(--mono);color:#C62828">${fmt_money(h.total)}</span>
+    </td></tr>`;
 }
 
 function _renderExpSummary() {
   const el = document.getElementById('exp-summary-cards');
   if (!el) return;
-  const list = EXP.list || STATE.expenses; // whatever's currently filtered (search/category/month/global range)
-  const total    = list.reduce((s,e) => s + parseFloat(e.amount||0), 0);
-  const now      = new Date();
-  const thisMonth = list.filter(e => e.date?.slice(0,7) === `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
-  const monthTotal = thisMonth.reduce((s,e) => s + parseFloat(e.amount||0), 0);
-  const catTotals  = {};
-  list.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + parseFloat(e.amount||0); });
-  const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
-  const revenue = sumActualPaid(STATE.invoices.filter(i=>i.status==='Paid'));
-  const expRatio = revenue > 0 ? Math.round(total/revenue*100) : 0;
+  const list = EXP.list || [];   // already filtered: month + search + category + source + global range
+  const period = _expMonthLabel(EXP.month);
+  const sum = arr => arr.reduce((t, e) => t + (parseFloat(e.amount) || 0), 0);
+  const total = sum(list);
+
+  // Card 2: single month → change vs the month before; all months → monthly average
+  let c2;
+  if (EXP.month) {
+    const prevKey = _expPrevMonthKey(EXP.month);
+    if (GLOBAL_DATE_ACTIVE && !_expMonthsAvailable().includes(prevKey)) {
+      c2 = { l: `vs ${_expMonthLabel(prevKey)}`, v: '—', sub: 'Outside date range' };
+    } else {
+      const prevTotal = sum(_expFilteredList(false).filter(e => (e.date || '').startsWith(prevKey)));
+      const diff = total - prevTotal;
+      const pct = prevTotal > 0 ? Math.round(Math.abs(diff) / prevTotal * 100) : null;
+      c2 = { l: `vs ${_expMonthLabel(prevKey)}`, v: pct === null ? (total > 0 ? 'New' : '—') : `${diff >= 0 ? '+' : '−'}${pct}%`,
+             sub: `${_expMonthLabel(prevKey)}: ${fmt_money(prevTotal)}` };
+    }
+  } else {
+    const n = new Set(list.map(e => (e.date || '').slice(0, 7))).size;
+    c2 = { l: 'Average / Month', v: fmt_money(n ? total / n : 0), sub: `${n} month${n === 1 ? '' : 's'}` };
+  }
+
+  const catTotals = {};
+  list.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + (parseFloat(e.amount) || 0); });
+  const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0];
+
+  // Revenue for the ratio is scoped to the same month when one is selected.
+  let revenue;
+  if (EXP.month) {
+    const paidIds = new Set(STATE.invoices.filter(i => i.status === 'Paid').map(i => String(i.id)));
+    revenue = STATE.payments
+      .filter(p => paidIds.has(String(p.invoice_id)) && String(p.date || p.payment_date || '').startsWith(EXP.month))
+      .reduce((t, p) => t + (parseFloat(p.amount) || 0), 0);
+  } else {
+    revenue = sumActualPaid(STATE.invoices.filter(i => i.status === 'Paid'));
+  }
+  const expRatio = revenue > 0 ? Math.round(total / revenue * 100) : 0;
   const creditSourced = list.filter(e => e.source === 'credit');
-  const creditTotal = creditSourced.reduce((s,e) => s + parseFloat(e.amount||0), 0);
+  const creditTotal = sum(creditSourced);
   const cards = [
-    {l:'Total Expenses',    v:fmt_money(total),         ic:'fa-wallet',         col:'#E65100', bg:'#fbe9e7'},
-    {l:'This Month',        v:fmt_money(monthTotal),    ic:'fa-calendar-day',   col:'#1976D2', bg:'#e3f2fd'},
-    {l:'Top Category',      v:topCat?topCat[0]:'—',     ic:'fa-tag',            col:'#7B1FA2', bg:'#f3e5f5'},
-    {l:'Expense / Revenue', v:expRatio+'%',             ic:'fa-chart-pie',      col:'#388E3C', bg:'#e8f5e9'},
-    {l:'Via Credit',        v:fmt_money(creditTotal),   ic:'fa-hand-holding-dollar', col:'#7B1FA2', bg:'#f3e5f5', sub:`${creditSourced.length} entr${creditSourced.length===1?'y':'ies'}`},
+    { l: `Total — ${period}`, v: fmt_money(total), ic: 'fa-wallet', col: '#E65100', bg: '#fbe9e7', sub: `${list.length} entr${list.length === 1 ? 'y' : 'ies'}` },
+    { l: c2.l, v: c2.v, ic: 'fa-calendar-day', col: '#1976D2', bg: '#e3f2fd', sub: c2.sub },
+    { l: 'Top Category', v: topCat ? topCat[0] : '—', ic: 'fa-tag', col: '#7B1FA2', bg: '#f3e5f5', sub: topCat ? fmt_money(topCat[1]) : '' },
+    { l: 'Expense / Revenue', v: expRatio + '%', ic: 'fa-chart-pie', col: '#388E3C', bg: '#e8f5e9', sub: `Revenue ${fmt_money(revenue)}` },
+    { l: 'Via Credit', v: fmt_money(creditTotal), ic: 'fa-hand-holding-dollar', col: '#7B1FA2', bg: '#f3e5f5', sub: `${creditSourced.length} entr${creditSourced.length === 1 ? 'y' : 'ies'}` },
   ];
   el.innerHTML = cards.map(c => `<div class="stat-card">
     <div class="stat-icon" style="background:${c.bg};color:${c.col}"><i class="fas ${c.ic}"></i></div>
     <div class="stat-body"><div class="stat-val" style="font-size:18px">${c.v}</div><div class="stat-lbl">${c.l}</div>${c.sub ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${c.sub}</div>` : ''}</div>
   </div>`).join('');
 
-  // ── Expense mixed chart: stacked bars per category + total line ──
+  // ── Chart: the all-months overview. It ignores the month filter (so it
+  //    keeps showing the year), highlights the selected month, and a click
+  //    on a bar opens that month. ──
   const chartsRow = document.getElementById('exp-charts-row');
   if (chartsRow) {
-    chartsRow.style.display = list.length > 0 ? '' : 'none';
-    if (list.length > 0) {
-      // Build month × category matrix
-      const monthSet = new Set();
-      const catSet   = new Set();
-      const matrix   = {}; // matrix[month][category] = amount
-      list.forEach(e => {
-        const m = e.date?.slice(0,7); if (!m) return;
-        monthSet.add(m); catSet.add(e.category||'Other');
+    const chartList = _expFilteredList(false);
+    chartsRow.style.display = chartList.length > 0 ? '' : 'none';
+    if (chartList.length > 0) {
+      const monthSet = new Set(), catSet = new Set(), matrix = {};
+      chartList.forEach(e => {
+        const m = e.date?.slice(0, 7); if (!m) return;
+        monthSet.add(m); catSet.add(e.category || 'Other');
         if (!matrix[m]) matrix[m] = {};
-        matrix[m][e.category||'Other'] = (matrix[m][e.category||'Other']||0) + parseFloat(e.amount||0);
+        matrix[m][e.category || 'Other'] = (matrix[m][e.category || 'Other'] || 0) + (parseFloat(e.amount) || 0);
       });
+      if (!GLOBAL_DATE_ACTIVE) monthSet.add(_expMonthKey(new Date()));
+      if (EXP.month) monthSet.add(EXP.month);
       const months = [...monthSet].sort().slice(-12);
-      const cats   = [...catSet];
-      const mLabels = months.map(m => { const [y,mo] = m.split('-'); return ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo] + '\'' + y.slice(2); });
-      const colors  = ['#E53935','#E65100','#7B1FA2','#1976D2','#00897B','#388E3C','#F57C00','#6A4C93','#00838F','#C62828'];
+      const cats = [...catSet];
+      const mLabels = months.map(m => { const [y, mo] = m.split('-'); return _EXP_MONTHS[+mo] + '\'' + y.slice(2); });
+      const colors = ['#E53935', '#E65100', '#7B1FA2', '#1976D2', '#00897B', '#388E3C', '#F57C00', '#6A4C93', '#00838F', '#C62828'];
+      const dim = m => EXP.month && m !== EXP.month;
 
-      // Stacked bar datasets (one per category)
       const barDatasets = cats.map((cat, i) => ({
-        type: 'bar',
-        label: cat,
+        type: 'bar', label: cat,
         data: months.map(m => matrix[m]?.[cat] || 0),
-        backgroundColor: (colors[i % colors.length]) + 'BB',
-        borderColor: colors[i % colors.length],
-        borderWidth: 1,
-        borderRadius: 3,
-        stack: 'expenses',
+        backgroundColor: months.map(m => colors[i % colors.length] + (dim(m) ? '33' : 'BB')),
+        borderColor: colors[i % colors.length], borderWidth: 1, borderRadius: 3, stack: 'expenses',
       }));
-
-      // Total line dataset
       const totalLine = {
-        type: 'line',
-        label: 'Total',
-        data: months.map(m => Object.values(matrix[m]||{}).reduce((s,v)=>s+v,0)),
-        borderColor: '#212121',
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#212121',
-        tension: 0.3,
-        order: 0,
+        type: 'line', label: 'Total',
+        data: months.map(m => Object.values(matrix[m] || {}).reduce((t, v) => t + v, 0)),
+        borderColor: '#212121', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4,
+        pointBackgroundColor: months.map(m => dim(m) ? '#9E9E9E' : '#212121'), tension: 0.3, order: 0,
       };
 
       const mixCtx = document.getElementById('exp-mix-chart');
       if (mixCtx) {
         if (window._expMixChart) window._expMixChart.destroy();
+        const hit = (evt, chart) => chart.getElementsAtEventForMode(evt, 'index', { intersect: false }, true);
         window._expMixChart = new Chart(mixCtx, {
           data: { labels: mLabels, datasets: [...barDatasets, totalLine] },
           options: {
             responsive: true, maintainAspectRatio: false,
+            onClick: (evt, _els, chart) => {
+              const pts = hit(evt, chart); if (!pts.length) return;
+              const m = months[pts[0].index];
+              if (m) _expSetMonth(EXP.month === m ? '' : m);   // click the open month again → All months
+            },
+            onHover: (evt, _els, chart) => { if (evt.native && evt.native.target) evt.native.target.style.cursor = hit(evt, chart).length ? 'pointer' : 'default'; },
             plugins: {
               legend: { display: false },
               tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt_money(ctx.raw)}` } }
             },
             scales: {
               x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
-              y: { stacked: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹'+v.toLocaleString('en-IN') } }
+              y: { stacked: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 10 }, callback: v => '₹' + v.toLocaleString('en-IN') } }
             }
           }
         });
       }
-
-      // Legend
       const lgEl = document.getElementById('exp-mix-legend');
       if (lgEl) lgEl.innerHTML =
-        cats.map((cat,i) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></span><span>${escHtml(cat)}</span></span>`).join('')
+        cats.map((cat, i) => `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i % colors.length]};flex-shrink:0"></span><span>${escHtml(cat)}</span></span>`).join('')
         + `<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#212121;flex-shrink:0"></span><span>Total</span></span>`;
     }
   }
@@ -32798,14 +32945,25 @@ function _renderExpTable() {
   const tbody = document.getElementById('exp-tbody');
   const info  = document.getElementById('exp-info');
   if (!tbody) return;
+  const tools = document.getElementById('exp-group-tools');
+  if (tools) tools.style.display = (!EXP.month && EXP.list.length) ? 'flex' : 'none';
+  const dispRows = _expDisplayRows();
+  EXP._rows = dispRows.length;
+  const pages = Math.max(1, Math.ceil(dispRows.length / EXP.per));
+  if (EXP.page > pages) EXP.page = pages;
   const s = (EXP.page-1)*EXP.per, e = s+EXP.per;
-  const pg = EXP.list.slice(s, e);
+  const pg = dispRows.slice(s, e);
   if (!EXP.list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-wallet" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px"></i>No expenses yet. <a onclick="openAddExpenseModal()" style="color:var(--teal);cursor:pointer">Add one →</a></td></tr>`;
-    if(info) info.textContent = '0 expenses';
+    const filtered = !!((document.getElementById('exp-search')?.value || '').trim() || document.getElementById('exp-cat-filter')?.value || document.getElementById('exp-source-filter')?.value);
+    const what = filtered ? 'No expenses match these filters' : (EXP.month ? `No expenses in ${_expMonthLabel(EXP.month)}` : 'No expenses yet');
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)"><i class="fas fa-wallet" style="font-size:28px;opacity:.2;display:block;margin-bottom:8px"></i>${what}. <a onclick="openAddExpenseModal()" style="color:var(--teal);cursor:pointer">Add one →</a></td></tr>`;
+    if(info) info.textContent = `${_expMonthLabel(EXP.month)} · 0 expenses`;
+    _renderExpPagination();
     return;
   }
-  tbody.innerHTML = pg.map(exp => {
+  tbody.innerHTML = pg.map(item => {
+    if (item.type === 'head') return _expGroupHeaderHtml(item);
+    const exp = item.e;
     const col = getExpCatColor(exp.category);
     const isLocked = exp.method === 'Cash in Hand' || exp.source === 'credit';
     // Same color mapping already used for the "Via Credit" pill (purple)
@@ -32831,14 +32989,14 @@ function _renderExpTable() {
       </td>
     </tr>`;
   }).join('');
-  if(info) info.textContent = `${EXP.list.length} expenses · Total: ${fmt_money(EXP.list.reduce((s,e)=>s+parseFloat(e.amount||0),0))}`;
+  if(info) info.textContent = `${_expMonthLabel(EXP.month)} · ${EXP.list.length} expenses · Total: ${fmt_money(EXP.list.reduce((s,e)=>s+parseFloat(e.amount||0),0))}`;
   _renderExpPagination();
 }
 
 function _renderExpPagination() {
   const el = document.getElementById('exp-pagination');
   if (!el) return;
-  const total = Math.ceil(EXP.list.length / EXP.per);
+  const total = Math.ceil((EXP._rows || 0) / EXP.per);
   if (total <= 1) { el.innerHTML=''; return; }
   el.innerHTML = Array.from({length:total},(_,i)=>
     `<button class="page-btn${EXP.page===i+1?' active':''}" onclick="expPage(${i+1})">${i+1}</button>`
@@ -32884,7 +33042,10 @@ function _consumeExpenseHighlight() {
     toast('⚠️ Expense #' + targetId + (GLOBAL_DATE_ACTIVE ? ' is outside the active Global Date Range — adjust it in Settings to find it' : ' could not be found — it may have been deleted'), 'warning', 6000);
     return;
   }
-  EXP.page = Math.floor(idx / EXP.per) + 1;
+  // In "All months" the target's month may be collapsed — open it, then find its page among the displayed rows.
+  if (!EXP.month) EXP.expanded.add((EXP.list[idx].date || '').slice(0, 7));
+  const di = _expDisplayRows().findIndex(r => r.type === 'row' && String(r.e.id) === String(targetId));
+  EXP.page = Math.floor(Math.max(di, 0) / EXP.per) + 1;
   _renderExpTable();
   setTimeout(() => {
     const row = document.getElementById('exp-row-' + targetId);
@@ -32897,31 +33058,13 @@ function _consumeExpenseHighlight() {
   }, 50);
 }
 
-function filterExpenses(val) {
-  const s = val.toLowerCase();
-  EXP.list = _expBaseList().filter(e =>
-    !s || (e.vendor||'').toLowerCase().includes(s) || (e.notes||'').toLowerCase().includes(s) || (e.category||'').toLowerCase().includes(s)
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  EXP.page=1; _renderExpTable();
-}
-function filterExpensesCat(val) {
-  EXP.list = (val ? _expBaseList().filter(e=>e.category===val) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  EXP.page=1; _renderExpTable();
-}
-function filterExpensesMonth(val) {
-  EXP.list = (val ? _expBaseList().filter(e=>(e.date||'').startsWith(val)) : _expBaseList()).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  EXP.page=1; _renderExpTable();
-}
+function filterExpenses(val)       { _applyExpFilters(); }
+function filterExpensesCat(val)    { _applyExpFilters(); }
+function filterExpensesMonth(val)  { _expSetMonth(val); }
 // "Via Credit" — a real usage-history view: isolates expenses that
 // started life as an owner Credit Entry and were later converted here,
 // instead of that only being visible as a small per-row badge.
-function filterExpensesSource(val) {
-  EXP.list = (val
-    ? _expBaseList().filter(e => val === 'credit' ? e.source === 'credit' : e.source !== 'credit')
-    : _expBaseList()
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  EXP.page=1; _renderExpTable();
-}
+function filterExpensesSource(val) { _applyExpFilters(); }
 
 // ── Credit (Owner Personal Expenses) ────────────────────────────────
 let CREDIT_ENTRIES = [];
@@ -33319,14 +33462,14 @@ function saveExpense() {
         ? `${fmt_money(oldAmount)} → ${fmt_money(amount)}` : `${fmt_money(amount)} (amount unchanged)`;
       logActivity('expense_edited', `Expense edited: ${vendor}`, diffLabel);
       consumeEditApproval();
-      closeModal('modal-expense'); renderExpenses(); toast('✅ Expense saved','success');
+      closeModal('modal-expense'); _expFollowSavedDate(date); renderExpenses(true); toast('✅ Expense saved','success');
     }).catch(e=>toast('❌ '+e.message,'error'));
   } else {
     api('api/expenses.php','POST',entry).then(r=>{
       if(r&&r.id) entry.id=String(r.id);
       STATE.expenses.unshift(entry);
       logActivity('expense_added',`Expense added: ${vendor}`,fmt_money(amount));
-      closeModal('modal-expense'); renderExpenses(); toast('✅ Expense saved','success');
+      closeModal('modal-expense'); _expFollowSavedDate(date); renderExpenses(true); toast('✅ Expense saved','success');
     }).catch(e=>toast('❌ '+e.message,'error'));
   }
 }
@@ -33336,14 +33479,14 @@ async function deleteExpense(id) {
   if (!_expResult.isConfirmed) return;
   api('api/expenses.php?id='+id,'DELETE').then(()=>{
     STATE.expenses = STATE.expenses.filter(e=>String(e.id)!==String(id));
-    renderExpenses(); toast('🗑️ Expense deleted','info');
+    renderExpenses(true); toast('🗑️ Expense deleted','info');
   }).catch(e=>toast('❌ '+e.message,'error'));
 }
 
 function exportExpensesCSV() {
   const rows = [['Date','Category','Vendor','Method','Amount','Notes']];
   EXP.list.forEach(e => rows.push([e.date,e.category,e.vendor,e.method,e.amount,e.notes||'']));
-  _downloadCSV(rows, 'expenses.csv');
+  _downloadCSV(rows, EXP.month ? `expenses-${EXP.month}.csv` : 'expenses.csv');
 }
 
 // ══════════════════════════════════════════════════════════════

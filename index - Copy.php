@@ -24796,10 +24796,9 @@ async function editSale(id) {
       const r1 = document.getElementById('sn-sum-additions-row'); if (r1) r1.style.display = '';
       const r2 = document.getElementById('sn-sb-additions-row'); if (r2) r2.style.display = '';
     }
-    // Fill the weight form from the first row straight away (same as a new
-    // sale); click ⚖ on another row to switch the form to that row.
+    // Weight form stays blank until the operator clicks the edit (⚖) button
+    // on a row — only then is that row's saved weight loaded into the form.
     snClearKanta();
-    if (SN.items[0]) { snPopulateKanta(SN.items[0]); renderSNItemsTable(); }
     showPage('sale-new');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === 'sales-list'));
     api('api/stock.php').then(r => {
