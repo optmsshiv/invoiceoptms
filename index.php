@@ -622,18 +622,23 @@ canvas { max-width: 100% !important; }
 /* ══════════════════════════════════════════
    BUSINESS ASSISTANT (floating chat)
 ══════════════════════════════════════════ */
-#opt-bot, #opt-bot * { font-family: var(--font); }
+/* Set the font once and let children inherit it. (A "* { font-family }" rule here
+   used to override Font Awesome on every icon, which showed boxes instead of icons.) */
+#opt-bot { font-family: var(--font); }
+#opt-bot button, #opt-bot input { font-family: inherit; }
 #opt-bot { position: fixed; right: 22px; bottom: 22px; z-index: 900; }
 #opt-bot [hidden] { display: none !important; }
 #ob-fab, .ob-chip, #ob-panel button { -webkit-tap-highlight-color: transparent; }
-#ob-fab { width: 54px; height: 54px; border-radius: 50%; border: 0; cursor: pointer; color: #fff; font-size: 21px;
+#ob-fab { height: 48px; padding: 0 18px 0 15px; gap: 8px; border-radius: 999px; border: 0; cursor: pointer; color: #fff;
+  font-size: 14px; font-weight: 700; letter-spacing: .2px; white-space: nowrap;
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, var(--teal), #00695C); box-shadow: 0 6px 18px rgba(0,0,0,.25); transition: transform .15s, box-shadow .15s; }
+#ob-fab i { font-size: 16px; }
 #ob-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.3); }
 #ob-fab.on { background: #37474F; }
 #ob-fab:focus-visible, #ob-panel button:focus-visible, #ob-in:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-#ob-panel { position: absolute; right: 0; bottom: 68px; width: 390px; max-width: calc(100vw - 28px);
+#ob-panel { position: absolute; right: 0; bottom: 60px; width: 390px; max-width: calc(100vw - 28px);
   height: min(600px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 14px 44px rgba(0,0,0,.28); display: flex; flex-direction: column; overflow: hidden; }
 #ob-panel > header { display: flex; align-items: center; gap: 4px; padding: 12px 12px 12px 16px;
@@ -690,8 +695,8 @@ canvas { max-width: 100% !important; }
 
 @media (max-width: 600px) {
   #opt-bot { right: 14px; bottom: 14px; }
-  #ob-panel { position: fixed; left: 8px; right: 8px; bottom: 80px; width: auto; max-width: none;
-    height: calc(100vh - 100px); height: calc(100dvh - 100px); }
+  #ob-panel { position: fixed; left: 8px; right: 8px; bottom: 72px; width: auto; max-width: none;
+    height: calc(100vh - 92px); height: calc(100dvh - 92px); }
   #ob-in { font-size: 16px; }        /* stops iOS zooming in on focus */
 }
 @media print { #opt-bot { display: none !important; } }
@@ -38920,17 +38925,18 @@ async function ask(text, chip) {
   }
   busy = false;
 }
-function openPanel() { BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
-function closePanel() { BOT.open = false; $panel.hidden = true; $fab.setAttribute('aria-expanded', 'false'); $fab.classList.remove('on'); }
+const fabIcon = open => { const i = $fab.querySelector('i'); if (i) i.className = open ? 'fas fa-xmark' : 'fas fa-robot'; };
+function openPanel() { BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); fabIcon(true); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
+function closePanel() { BOT.open = false; $panel.hidden = true; $fab.setAttribute('aria-expanded', 'false'); $fab.classList.remove('on'); fabIcon(false); }
 function reset() { $msgs.innerHTML = ''; BOT.ctx = {}; BOT.actions.clear(); welcome(); }
-function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I can answer questions about your <b>sales, purchases, bags, expenses, balances and stock</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
+function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I’m <b>OPTMS ai</b>. Ask me about your <b>sales, purchases, bags, expenses, balances and stock</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
 
 function init() {
   $root = document.createElement('div'); $root.id = 'opt-bot';
   $root.innerHTML =
-    `<button id="ob-fab" type="button" aria-label="Open business assistant" aria-expanded="false" title="Ask the assistant"><i class="fas fa-comments"></i></button>` +
-    `<section id="ob-panel" role="dialog" aria-label="Business assistant" hidden>` +
-      `<header><div><b>Business Assistant</b><small>Ask about sales, bags, expenses, balances…</small></div>` +
+    `<button id="ob-fab" type="button" aria-label="Open OPTMS ai assistant" aria-expanded="false" title="OPTMS ai — ask about your business"><i class="fas fa-robot"></i><span>OPTMS ai</span></button>` +
+    `<section id="ob-panel" role="dialog" aria-label="OPTMS ai assistant" hidden>` +
+      `<header><div><b>OPTMS ai</b><small>Ask about sales, bags, expenses, balances…</small></div>` +
       `<button type="button" id="ob-clear" title="Clear chat" aria-label="Clear chat"><i class="fas fa-rotate-left"></i></button>` +
       `<button type="button" id="ob-close" title="Close" aria-label="Close"><i class="fas fa-xmark"></i></button></header>` +
       `<div id="ob-msgs" aria-live="polite"></div>` +
