@@ -13,6 +13,50 @@ try {
   $dateTo   = $_GET['date_to']   ?? date('Y-m-d');
   $warehouse = $_GET['warehouse'] ?? '';
 
+  // ── Split-payment breakdown helpers ─────────────────────────────
+  // There are two different ways a purchase/sale ends up "Split", and
+  // each stores the real per-method amounts differently:
+  //  1. Split at creation, in one entry — payment_mode/payment_method is
+  //     literally the string "Split: Cash: ₹500.00 + UPI: ₹300.00", built
+  //     by getPNESplitLabel()/getSNSplitLabel(). Parseable directly.
+  //  2. Paid off over time through the Purchase/Sale Payments ledger with
+  //     different methods on different payments — payment_mode/method is
+  //     just the bare word "Split" (see recachePurchasePaid() /
+  //     recacheSaleReceived()), with the real amounts sitting in the
+  //     purchase_payments / sale_payments tables instead.
+  // Both need to resolve to the same {method => amount} shape so the rest
+  // of this file doesn't need to care which kind of split it's looking at.
+  function parseSplitLabel(string $label): array {
+    $out = [];
+    if (!preg_match('/^Split:\s*(.+)$/', $label, $m)) return $out;
+    foreach (explode(' + ', $m[1]) as $part) {
+      if (preg_match('/^(.+?):\s*₹\s*([\d,]+\.?\d*)/', trim($part), $pm)) {
+        $method = trim($pm[1]);
+        $out[$method] = ($out[$method] ?? 0) + (float)str_replace(',', '', $pm[2]);
+      }
+    }
+    return $out;
+  }
+  function getLedgerSplitBreakdown(PDO $db, string $type, int $id): array {
+    $table = $type === 'purchases' ? 'purchase_payments' : 'sale_payments';
+    $idCol = $type === 'purchases' ? 'purchase_id' : 'sale_id';
+    $delCol = $type === 'purchases' ? 'purchase_deleted' : 'sale_deleted';
+    $stmt = $db->prepare("SELECT method, SUM(amount) amt FROM `$table`
+      WHERE `$idCol` = ? AND `$delCol` = 0 AND method IS NOT NULL AND method <> '' GROUP BY method");
+    $stmt->execute([$id]);
+    $out = [];
+    foreach ($stmt->fetchAll() as $r) { $out[$r['method']] = (float)$r['amt']; }
+    return $out;
+  }
+  function getSplitBreakdown(PDO $db, string $type, int $id, string $rawMode): array {
+    if (str_starts_with($rawMode, 'Split:')) return parseSplitLabel($rawMode);
+    if ($rawMode === 'Split') return getLedgerSplitBreakdown($db, $type, $id);
+    return [];
+  }
+  function isSplitMode(string $mode): bool {
+    return $mode === 'Split' || str_starts_with($mode, 'Split:');
+  }
+
   // ── Drill-down: the actual transactions behind one payment-mode total
   // on the Finance Report (e.g. "Bank Transfer — ₹7,34,550.75" under
   // Received/Paid Out/Expenses). Exits early — this isn't part of the
@@ -30,35 +74,72 @@ try {
     }
     $ddWhWhereSales = $warehouse ? " AND EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.warehouse = " . $db->quote($warehouse) . ")" : '';
     $ddWhWherePur   = $warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : '';
-    // "Split Payment" is a synthetic bucket (see modeBreakdown() below) —
-    // any row whose raw mode starts with "Split:" was folded into it, so
-    // the drill-down needs the same LIKE match, not an exact-string one.
-    $isSplit = ($mode === 'Split Payment');
 
-    if ($type === 'sales') {
-      $modeClause = $isSplit ? "s.payment_method LIKE 'Split:%'" : 's.payment_method = ?';
-      $sql = "SELECT s.id, s.sale_date AS `date`, c.name AS party, s.invoice_no AS reference, s.amount_received AS amount
-              FROM sales s JOIN customers c ON c.id = s.customer_id
-              WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND $modeClause"
-              . $ddWhWhereSales . " ORDER BY s.sale_date DESC, s.id DESC";
-      $params = $isSplit ? [$dateFrom, $dateTo] : [$dateFrom, $dateTo, $mode];
-    } elseif ($type === 'purchases') {
-      $modeClause = $isSplit ? "p.payment_mode LIKE 'Split:%'" : 'p.payment_mode = ?';
-      $sql = "SELECT p.id, p.purchase_date AS `date`, s.name AS party, p.purchase_no AS reference, p.amount_paid AS amount
-              FROM purchases p JOIN suppliers s ON s.id = p.supplier_id
-              WHERE p.purchase_date BETWEEN ? AND ? AND $modeClause"
-              . $ddWhWherePur . " ORDER BY p.purchase_date DESC, p.id DESC";
-      $params = $isSplit ? [$dateFrom, $dateTo] : [$dateFrom, $dateTo, $mode];
-    } else { // expenses — no split-payment concept, always an exact match
+    if ($type === 'expenses') {
+      // No split concept for expenses — exact match, unchanged.
       $sql = "SELECT id, `date`, vendor AS party, category AS reference, amount
               FROM expenses WHERE `date` BETWEEN ? AND ? AND method = ?
               ORDER BY `date` DESC, id DESC";
-      $params = [$dateFrom, $dateTo, $mode];
+      $stmt = $db->prepare($sql);
+      $stmt->execute([$dateFrom, $dateTo, $mode]);
+      jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
     }
 
+    // Split Payment itself was clicked — show every split transaction with
+    // its full amount and its own composition. Clicking a REAL method
+    // (e.g. "Cash") instead needs to also surface split transactions that
+    // included Cash as one of their components — but only that method's
+    // own portion as the amount, since that's what's actually counted in
+    // the Cash bucket on the summary card, not the transaction's full total.
+    $isSplitSummary = ($mode === 'Split Payment');
+
+    if ($type === 'sales') {
+      $sql = "SELECT s.id, s.sale_date AS `date`, c.name AS party, s.invoice_no AS reference,
+                     s.amount_received AS amount, s.payment_method AS raw_mode
+              FROM sales s JOIN customers c ON c.id = s.customer_id
+              WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled'"
+              . $ddWhWhereSales . " ORDER BY s.sale_date DESC, s.id DESC";
+    } else { // purchases
+      $sql = "SELECT p.id, p.purchase_date AS `date`, s.name AS party, p.purchase_no AS reference,
+                     p.amount_paid AS amount, p.payment_mode AS raw_mode
+              FROM purchases p JOIN suppliers s ON s.id = p.supplier_id
+              WHERE p.purchase_date BETWEEN ? AND ?"
+              . $ddWhWherePur . " ORDER BY p.purchase_date DESC, p.id DESC";
+    }
     $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    jsonResponse(['success' => true, 'data' => $stmt->fetchAll()]);
+    $stmt->execute([$dateFrom, $dateTo]);
+
+    $result = [];
+    foreach ($stmt->fetchAll() as $r) {
+      $rawMode = $r['raw_mode'];
+      $split = isSplitMode($rawMode);
+
+      if ($isSplitSummary) {
+        if (!$split) continue;
+        $breakdown = getSplitBreakdown($db, $type, (int)$r['id'], $rawMode);
+        $chips = [];
+        foreach ($breakdown as $method => $amt) $chips[] = ['method' => $method, 'amount' => $amt];
+        $result[] = ['id' => $r['id'], 'date' => $r['date'], 'party' => $r['party'], 'reference' => $r['reference'],
+                      'amount' => (float)$r['amount'], 'is_split' => true, 'breakdown' => $chips];
+        continue;
+      }
+
+      if (!$split) {
+        if ($rawMode !== $mode) continue;
+        $result[] = ['id' => $r['id'], 'date' => $r['date'], 'party' => $r['party'], 'reference' => $r['reference'],
+                      'amount' => (float)$r['amount'], 'is_split' => false];
+        continue;
+      }
+
+      $breakdown = getSplitBreakdown($db, $type, (int)$r['id'], $rawMode);
+      if (!isset($breakdown[$mode])) continue; // this method wasn't part of the split
+      $chips = [];
+      foreach ($breakdown as $method => $amt) $chips[] = ['method' => $method, 'amount' => $amt];
+      $result[] = ['id' => $r['id'], 'date' => $r['date'], 'party' => $r['party'], 'reference' => $r['reference'],
+                    'amount' => $breakdown[$mode], 'is_split' => true, 'breakdown' => $chips];
+    }
+
+    jsonResponse(['success' => true, 'data' => $result]);
   }
 
   // Previous period of equal length, for the vs-Previous-Period comparison
@@ -180,17 +261,76 @@ try {
     return $out;
   }
 
-  $paymentModesSales = modeBreakdown($db,
-    "SELECT payment_method m, SUM(amount_received) a FROM sales
-     WHERE sale_date BETWEEN ? AND ? AND payment_method != '' GROUP BY payment_method",
+  // Same idea as modeBreakdown() above, but for sales/purchases, where a
+  // "Split" transaction's real per-method amounts need to be attributed
+  // to their actual methods (so Cash/UPI totals reflect real money
+  // movement), while ALSO keeping a separate "Split Payment" line so it's
+  // still visible which transactions were split ones. This deliberately
+  // double-counts split amounts (once under their real method, once under
+  // Split Payment) — the summary card's rows will not sum to the period
+  // total, by design; that's the same rupee shown two different ways, not
+  // new money. Needs per-row ids (not a GROUP BY) so each split row's real
+  // breakdown can be looked up individually.
+  function modeBreakdownWithSplit(PDO $db, string $type, string $sql, array $params): array {
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+
+    $map = [];
+    $splitTotal = 0;
+    $splitBreakdown = [];
+
+    foreach ($stmt->fetchAll() as $r) {
+      $mode = $r['m'];
+      $amt  = (float)$r['a'];
+
+      if (!isSplitMode($mode)) {
+        $map[$mode] = ($map[$mode] ?? 0) + $amt;
+        continue;
+      }
+
+      $breakdown = getSplitBreakdown($db, $type, (int)$r['id'], $mode);
+      if (!$breakdown) {
+        // Split marker but no real breakdown found (e.g. the ledger rows
+        // it depended on were since deleted) — fall back to a single
+        // unattributed bucket rather than silently dropping the amount
+        // from every total.
+        $map['Split Payment'] = ($map['Split Payment'] ?? 0) + $amt;
+        $splitTotal += $amt;
+        continue;
+      }
+      foreach ($breakdown as $method => $portion) {
+        $map[$method] = ($map[$method] ?? 0) + $portion;
+        $splitBreakdown[$method] = ($splitBreakdown[$method] ?? 0) + $portion;
+      }
+      $splitTotal += $amt;
+    }
+
+    arsort($map);
+    $out = [];
+    foreach ($map as $mode => $amt) $out[] = ['mode' => $mode, 'amount' => $amt];
+
+    if ($splitTotal > 0) {
+      arsort($splitBreakdown);
+      $chips = [];
+      foreach ($splitBreakdown as $method => $amt) $chips[] = ['method' => $method, 'amount' => $amt];
+      $out[] = ['mode' => 'Split Payment', 'amount' => $splitTotal, 'is_split_summary' => true, 'breakdown' => $chips];
+    }
+
+    return $out;
+  }
+
+  $paymentModesSales = modeBreakdownWithSplit($db, 'sales',
+    "SELECT id, payment_method m, amount_received a FROM sales
+     WHERE sale_date BETWEEN ? AND ? AND payment_method != ''",
     [$dateFrom, $dateTo]);
 
-  $paymentModesPurchases = modeBreakdown($db,
-    "SELECT payment_mode m, SUM(amount_paid) a FROM purchases
-     WHERE purchase_date BETWEEN ? AND ? AND payment_mode != ''" . $whWherePur . " GROUP BY payment_mode",
+  $paymentModesPurchases = modeBreakdownWithSplit($db, 'purchases',
+    "SELECT id, payment_mode m, amount_paid a FROM purchases
+     WHERE purchase_date BETWEEN ? AND ? AND payment_mode != ''" . $whWherePur,
     [$dateFrom, $dateTo]);
 
-  // Expenses — its own separate card, not folded into Purchases
+  // Expenses — its own separate card, not folded into Purchases. No split
+  // concept here, so the original simple GROUP BY breakdown is unchanged.
   $paymentModesExpenses = modeBreakdown($db,
     "SELECT method m, SUM(amount) a FROM expenses
      WHERE `date` BETWEEN ? AND ? AND method != '' GROUP BY method",
@@ -207,9 +347,34 @@ try {
     FROM sale_items si
     JOIN sales s ON s.id = si.sale_id
     WHERE s.sale_date BETWEEN ? AND ?
-      AND s.status != 'Cancelled'" . $whWhereSales);
+      AND s.status != 'Cancelled'" . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : ''));
   $tradeStmt->execute([$dateFrom, $dateTo]);
   $tradeS = $tradeStmt->fetch();
+
+  // Sale weights, computed ONE ROW PER INVOICE. The old query summed the
+  // sales-level kanta_* columns after joining sale_items, so a 3-item
+  // invoice counted its weighbridge weights 3 times; and invoices entered
+  // without a kanta slip contributed 0, which is why Net/Billable Wt showed
+  // empty. Per invoice: if kanta gross > 0 use kanta net (gross − tare),
+  // otherwise fall back to the invoice's own item quantities (Kg).
+  $saleWtSql = "SELECT s.id, s.kanta_gross_weight g, s.kanta_tare_weight t, s.kanta_dhalta_kg d,
+      (SELECT COALESCE(SUM(si.qty),0) FROM sale_items si WHERE si.sale_id = s.id"
+      . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : '') . ") q
+    FROM sales s
+    WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled'"
+    . ($warehouse ? " AND EXISTS (SELECT 1 FROM sale_items si2 WHERE si2.sale_id = s.id AND si2.warehouse = " . $db->quote($warehouse) . ")" : '');
+  $saleWtStmt = $db->prepare($saleWtSql);
+  $saleWtStmt->execute([$dateFrom, $dateTo]);
+  $saleGross = $saleTare = $saleNet = $saleDhalta = $saleBillable = 0.0;
+  $saleFromItems = 0;
+  foreach ($saleWtStmt->fetchAll() as $w) {
+    $g = (float)$w['g']; $t = (float)$w['t']; $d = (float)$w['d'];
+    if ($g > 0) { $net = max(0, $g - $t); $saleGross += $g; $saleTare += $t; }
+    else        { $net = (float)$w['q']; $saleFromItems++; }
+    $saleNet      += $net;
+    $saleDhalta   += $d;
+    $saleBillable += max(0, $net - $d);
+  }
 
   // Use purchase-level total (not item-level amount) so the value matches
   // the Finance Report card exactly — both now read from purchases.total.
@@ -259,9 +424,12 @@ try {
   $tradeSummary = [
     'sale_qty'        => (float)$tradeS['sale_qty'],
     'sale_value'      => (float)$tradeS['sale_value'],
-    'sale_gross_wt'   => (float)$tradeS['sale_gross_wt'],
-    'sale_tare_wt'    => (float)$tradeS['sale_tare_wt'],
-    'sale_dhalta_kg'  => (float)$tradeS['sale_dhalta_kg'],
+    'sale_gross_wt'   => $saleGross,
+    'sale_tare_wt'    => $saleTare,
+    'sale_net_wt'     => $saleNet,
+    'sale_dhalta_kg'  => $saleDhalta,
+    'sale_billable_wt'=> $saleBillable,
+    'sale_wt_from_items' => $saleFromItems,   // invoices with no kanta weight → used item qty
     'pur_qty'         => (float)$tradeP['pur_qty'],
     'pur_value'       => (float)$purVal,
     'pur_item_value'  => (float)$exp['purchase_amt'],
@@ -275,6 +443,76 @@ try {
     'billable_wt'   => (float)$tradeP['billable_wt'],
     'top_products'  => $topProducts,
     'dhalta_detail' => $dhaltaDetail,
+  ];
+
+  // ── Bags Summary: number of bags purchased vs sold ───────────────
+  // Source of truth is the per-line `bags` column on purchase_items /
+  // sale_items (the same field the Purchase/Sale entry screens save).
+  // Warehouse filter is applied at line level for sales (sale_items.warehouse)
+  // so a multi-warehouse invoice only counts the bags from the selected one.
+  // Cancelled sales are excluded, matching every other sales figure here.
+  function bagsByProduct(PDO $db, string $kind, string $from, string $to, string $warehouse): array {
+    if ($kind === 'purchase') {
+      $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
+                     SUM(pi.bags) AS bags, SUM(pi.qty) AS qty, COUNT(DISTINCT p.id) AS bills
+              FROM purchase_items pi
+              JOIN purchases p ON p.id = pi.purchase_id
+              LEFT JOIN products pr ON pr.id = pi.product_id
+              WHERE p.purchase_date BETWEEN ? AND ? AND pi.bags > 0"
+              . ($warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : '')
+              . " GROUP BY pi.product_id, pr.name";
+    } else {
+      $sql = "SELECT COALESCE(pr.name, 'Other items') AS name,
+                     SUM(si.bags) AS bags, SUM(si.qty) AS qty, COUNT(DISTINCT s.id) AS bills
+              FROM sale_items si
+              JOIN sales s ON s.id = si.sale_id
+              LEFT JOIN products pr ON pr.id = si.product_id
+              WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND si.bags > 0"
+              . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : '')
+              . " GROUP BY si.product_id, pr.name";
+    }
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$from, $to]);
+    return $stmt->fetchAll();
+  }
+
+  $purBagRows  = bagsByProduct($db, 'purchase', $dateFrom, $dateTo, $warehouse);
+  $saleBagRows = bagsByProduct($db, 'sale',     $dateFrom, $dateTo, $warehouse);
+
+  // Merge both sides into one row per product name
+  $bagsMap = [];
+  foreach ($purBagRows as $r) {
+    $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => (float)$r['bags'], 'sale_bags' => 0.0, 'pur_qty' => (float)$r['qty'], 'sale_qty' => 0.0];
+  }
+  foreach ($saleBagRows as $r) {
+    if (!isset($bagsMap[$r['name']])) $bagsMap[$r['name']] = ['name' => $r['name'], 'pur_bags' => 0.0, 'sale_bags' => 0.0, 'pur_qty' => 0.0, 'sale_qty' => 0.0];
+    $bagsMap[$r['name']]['sale_bags'] = (float)$r['bags'];
+    $bagsMap[$r['name']]['sale_qty']  = (float)$r['qty'];
+  }
+  $bagsProducts = array_values($bagsMap);
+  usort($bagsProducts, fn($a, $b) => ($b['pur_bags'] + $b['sale_bags']) <=> ($a['pur_bags'] + $a['sale_bags']));
+
+  $purBagsTotal  = array_sum(array_column($purBagRows,  'bags'));
+  $saleBagsTotal = array_sum(array_column($saleBagRows, 'bags'));
+  $purBagsQty    = array_sum(array_column($purBagRows,  'qty'));
+  $saleBagsQty   = array_sum(array_column($saleBagRows, 'qty'));
+
+  // Previous period (same length) for the % change under each tile
+  $prevPurBags  = array_sum(array_column(bagsByProduct($db, 'purchase', $prevFrom, $prevTo, $warehouse), 'bags'));
+  $prevSaleBags = array_sum(array_column(bagsByProduct($db, 'sale',     $prevFrom, $prevTo, $warehouse), 'bags'));
+
+  // Distinct bills that carried bags (a bill with 3 products counts once)
+  $purBillsStmt = $db->prepare("SELECT COUNT(DISTINCT p.id) FROM purchase_items pi JOIN purchases p ON p.id = pi.purchase_id
+    WHERE p.purchase_date BETWEEN ? AND ? AND pi.bags > 0" . ($warehouse ? ' AND p.warehouse = ' . $db->quote($warehouse) : ''));
+  $purBillsStmt->execute([$dateFrom, $dateTo]);
+  $saleBillsStmt = $db->prepare("SELECT COUNT(DISTINCT s.id) FROM sale_items si JOIN sales s ON s.id = si.sale_id
+    WHERE s.sale_date BETWEEN ? AND ? AND s.status != 'Cancelled' AND si.bags > 0" . ($warehouse ? ' AND si.warehouse = ' . $db->quote($warehouse) : ''));
+  $saleBillsStmt->execute([$dateFrom, $dateTo]);
+
+  $bagsSummary = [
+    'purchased'     => ['value' => (float)$purBagsTotal, 'qty' => (float)$purBagsQty,  'bills' => (int)$purBillsStmt->fetchColumn(),  'change' => $pctChange($purBagsTotal,  $prevPurBags)],
+    'sold'          => ['value' => (float)$saleBagsTotal, 'qty' => (float)$saleBagsQty, 'bills' => (int)$saleBillsStmt->fetchColumn(), 'change' => $pctChange($saleBagsTotal, $prevSaleBags)],
+    'by_product'    => $bagsProducts,
   ];
 
   // Expenses
@@ -299,6 +537,7 @@ try {
       'net_flow' => (float)$curSales['r'] - (float)$curPur['p'],
     ],
     'trade_summary' => $tradeSummary,
+    'bags_summary'  => $bagsSummary,
     'expenses' => [
       'total'       => (float)$expData['total'],
       'count'       => (int)$expData['cnt'],

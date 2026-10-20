@@ -602,18 +602,100 @@ canvas { max-width: 100% !important; }
 .table-filter:focus { border-color: var(--teal); }
 
 /* Expenses month switcher  ‹ [Oct 2026 · ₹10,000] ›
-   Must not shrink (it was being squeezed and painting over the next
-   dropdown) and the select must show its full text, so it overrides the
-   140px cap of .table-filter. */
+   The group must never shrink or grow into the neighbouring dropdowns. */
 .exp-month-nav { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
-.exp-month-nav .table-filter { max-width: none; min-width: 150px; }
+.exp-month-nav .table-filter {
+  /* Fixed width: a select sized by its longest option can grow into the
+     next dropdown. 180px fits "Oct 2026 · ₹1,25,000"; longer text is clipped
+     in the closed box only (the opened list still shows it in full). */
+  flex: 0 0 180px; width: 180px; max-width: 180px; min-width: 0;
+  box-sizing: border-box; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+}
 .exp-month-nav .btn { padding: 8px 10px; font-size: 12px; line-height: 1.2; flex-shrink: 0; }
 .exp-month-nav .btn:disabled { opacity: .4; cursor: not-allowed; }
-/* On this page the filter group keeps its natural width; if the window is
-   too narrow the toolbar scrolls sideways (it already has overflow-x:auto)
-   instead of controls overlapping each other. */
-#page-expenses .page-toolbar .toolbar-left { flex-shrink: 0; }
-#exp-gdr-note { min-width: 200px; }
+/* This page has more filters than most, so its toolbar wraps onto a second
+   line instead of overlapping or scrolling sideways. Other pages are unchanged. */
+#page-expenses .page-toolbar { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
+#page-expenses .page-toolbar .toolbar-left { flex: 1 1 420px; flex-wrap: wrap; min-width: 0; row-gap: 8px; }
+#exp-gdr-note { min-width: 190px; max-width: 260px; }
+
+/* ══════════════════════════════════════════
+   BUSINESS ASSISTANT (floating chat)
+══════════════════════════════════════════ */
+#opt-bot, #opt-bot * { font-family: var(--font); }
+#opt-bot { position: fixed; right: 22px; bottom: 22px; z-index: 900; }
+#opt-bot [hidden] { display: none !important; }
+#ob-fab, .ob-chip, #ob-panel button { -webkit-tap-highlight-color: transparent; }
+#ob-fab { width: 54px; height: 54px; border-radius: 50%; border: 0; cursor: pointer; color: #fff; font-size: 21px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--teal), #00695C); box-shadow: 0 6px 18px rgba(0,0,0,.25); transition: transform .15s, box-shadow .15s; }
+#ob-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.3); }
+#ob-fab.on { background: #37474F; }
+#ob-fab:focus-visible, #ob-panel button:focus-visible, #ob-in:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+#ob-panel { position: absolute; right: 0; bottom: 68px; width: 390px; max-width: calc(100vw - 28px);
+  height: min(600px, calc(100vh - 120px)); background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 14px 44px rgba(0,0,0,.28); display: flex; flex-direction: column; overflow: hidden; }
+#ob-panel > header { display: flex; align-items: center; gap: 4px; padding: 12px 12px 12px 16px;
+  background: linear-gradient(135deg, var(--teal), #00695C); color: #fff; }
+#ob-panel > header > div { flex: 1; min-width: 0; }
+#ob-panel > header b { display: block; font-size: 14px; }
+#ob-panel > header small { display: block; font-size: 11px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ob-panel > header button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; flex-shrink: 0; }
+#ob-panel > header button:hover { background: rgba(255,255,255,.26); }
+
+#ob-msgs { flex: 1; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); overscroll-behavior: contain; }
+.ob-row { display: flex; flex-direction: column; max-width: 92%; gap: 6px; }
+.ob-row.ob-user { align-self: flex-end; align-items: flex-end; }
+.ob-row.ob-bot { align-self: flex-start; }
+.ob-bubble { padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.ob-user .ob-bubble { background: var(--teal); color: #fff; border-bottom-right-radius: 4px; }
+.ob-bot .ob-bubble { background: var(--card); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.ob-bubble code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-family: var(--mono); font-size: 12px; }
+
+.ob-h { font-weight: 700; font-size: 13px; display: flex; flex-direction: column; gap: 1px; margin-bottom: 4px; }
+.ob-p { font-weight: 500; font-size: 11px; color: var(--muted); }
+.ob-big { font-size: 22px; font-weight: 800; letter-spacing: -.3px; line-height: 1.2; }
+.ob-sub { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.ob-kv { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-top: 1px dashed var(--border); font-size: 12.5px; }
+.ob-kv span { color: var(--muted); }
+.ob-kv b { font-weight: 700; text-align: right; }
+.ob-kv small { font-weight: 500; color: var(--muted); }
+.ob-note { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.ob-warn { background: var(--amber-bg); color: #7A5200; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px; font-size: 12px; }
+.ob-rank { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: r; }
+.ob-rank li { counter-increment: r; display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px dashed var(--border); font-size: 12.5px; }
+.ob-rank li span::before { content: counter(r) '.'; color: var(--muted2); font-weight: 600; margin-right: 6px; display: inline-block; min-width: 14px; }
+.ob-rank li b { white-space: nowrap; font-weight: 700; }
+.ob-d { display: inline-block; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+.ob-good { color: var(--green) !important; }
+.ob-bad { color: var(--red) !important; }
+
+.ob-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ob-chip { border: 1px solid var(--border2); background: var(--card); color: var(--text2); font-size: 12px; padding: 6px 11px;
+  border-radius: 999px; cursor: pointer; line-height: 1.2; transition: .15s; text-align: left; }
+.ob-chip:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-bg); }
+.ob-chip.ob-nav { border-color: var(--teal); color: var(--teal); font-weight: 600; }
+
+.ob-typing .ob-bubble { display: flex; gap: 4px; padding: 12px 14px; }
+.ob-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted2); animation: obdot 1.2s infinite ease-in-out; }
+.ob-typing i:nth-child(2) { animation-delay: .15s; }
+.ob-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes obdot { 0%, 60%, 100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+#ob-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); background: var(--card); }
+#ob-in { flex: 1; min-width: 0; border: 1.5px solid var(--border2); border-radius: 10px; padding: 9px 12px; font-size: 13px; background: var(--card); color: var(--text); }
+#ob-in:focus { border-color: var(--teal); outline: none; }
+#ob-form button { width: 40px; border: 0; border-radius: 10px; background: var(--teal); color: #fff; cursor: pointer; flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  #opt-bot { right: 14px; bottom: 14px; }
+  #ob-panel { position: fixed; left: 8px; right: 8px; bottom: 80px; width: auto; max-width: none;
+    height: calc(100vh - 100px); height: calc(100dvh - 100px); }
+  #ob-in { font-size: 16px; }        /* stops iOS zooming in on focus */
+}
+@media print { #opt-bot { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { #ob-fab, .ob-chip { transition: none; } .ob-typing i { animation: none; } }
 
 .table-card {
   background: var(--card); border-radius: var(--r);
@@ -37892,5 +37974,990 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 </div>
+<!-- ── Business Assistant (local, read-only; no external AI) ─────────────── -->
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   BUSINESS ASSISTANT  —  local, rule-based, READ-ONLY
+   ------------------------------------------------------------------
+   • No AI API and no external service: questions are understood with
+     keyword rules (English + Roman Hinglish), then answered from your
+     own data. Nothing leaves the server.
+   • Numbers come from the same places the pages use: sales / purchases /
+     customers / suppliers / stock from the lists, and bags / expenses /
+     profit from api/finance_report.php, so the bot and the reports agree.
+   • It only reads. It never adds, edits or deletes anything.
+   • Respects the sidebar menu permissions (a page the user can't see is
+     a topic the bot won't answer) and the Global Date Range lock.
+   • To teach it a word, add a line to SYN (spelling variants) or STOP.
+   ══════════════════════════════════════════════════════════════════ */
+(function () {
+'use strict';
+if (typeof window !== 'undefined' && window.optBot) return;
+
+/* ───────────────────────── small helpers ───────────────────────── */
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;   // local date (not UTC)
+const parseYmd = s => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+const MON_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MON_L = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const disp = s => { const [y, m, d] = String(s).slice(0, 10).split('-'); return `${+d} ${MON_S[+m - 1]} ${y}`; };
+const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const weekStart = d => { const x = startOfDay(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };   // Monday
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = v => (typeof fmt_money === 'function') ? fmt_money(v) : '₹' + (+v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const n0 = v => Math.round(+v || 0).toLocaleString('en-IN');
+const kg = v => (+v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kg';
+const num = v => parseFloat(v) || 0;
+const sumBy = (list, k) => list.reduce((t, x) => t + num(x[k]), 0);
+const plural = (n, one, many) => `${n0(n)} ${n === 1 ? one : (many || one + 's')}`;
+
+function lev(a, b) {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 2) return 3;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/* ───────────────── normalising what the user typed ─────────────────
+   Hinglish / spelling variants → one English keyword each.            */
+const SYN = [
+  // periods
+  [/\bparso\b/g, 'day before yesterday'],
+  [/\b(aaj|aj)\b/g, 'today'],
+  [/\bkal\b/g, 'yesterday'],
+  [/\b(?:is|iss|isi|ye|yeh) (?:mahine|mahina|month)\b/g, 'this month'],
+  [/\b(?:pichle|pichhle|pichla|pichhla|last) (?:mahine|mahina)\b/g, 'last month'],
+  [/\b(?:is|iss|ye|yeh) (?:hafte|hafta|week)\b/g, 'this week'],
+  [/\b(?:pichle|pichhle|pichla|pichhla|last) (?:hafte|hafta)\b/g, 'last week'],
+  [/\b(?:is|iss|ye|yeh) (?:saal|sal|varsh|year)\b/g, 'this year'],
+  [/\b(?:pichle|pichhle|pichla|pichhla|last) (?:saal|sal|varsh)\b/g, 'last year'],
+  [/\b(?:pichle|pichhle|past|last) (\d+) (?:din|dino|days?)\b/g, 'last $1 days'],
+  [/\b(?:pichle|pichhle|past|last) (\d+) (?:hafte|hafta|weeks?)\b/g, 'last $1 weeks'],
+  [/\b(?:pichle|pichhle|past|last) (\d+) (?:mahine|mahina|months?)\b/g, 'last $1 months'],
+  // what is being asked
+  [/\b(?:bikri|bikree|vikray)\b/g, 'sales'],
+  [/\b(?:bike|biki|bikay|bikey|beche|becha|bechi|bechna|bech)\b/g, 'sold'],
+  [/\b(?:kharidari|khareedari)\b/g, 'purchases'],
+  [/\b(?:kharid|khareed|kharide|khareede|kharida|khareeda|kharidi|khareedi)\b/g, 'purchased'],
+  [/\b(?:kharcha|kharche|kharch|kharchey|kharcho|kharchon)\b/g, 'expenses'],
+  [/\b(?:baki|baaki|bakaya|baqi|bakaaya|udhar|udhaar|udhari)\b/g, 'outstanding'],
+  [/\b(?:munafa|nafa|fayda|faida|labh|nuksan|nuksaan)\b/g, 'profit'],
+  [/\b(?:maal|saman|godown)\b/g, 'stock'],
+  [/\b(?:bacha|bachi|bache|bachha)\b/g, 'left'],
+  [/\b(?:bori|boris|bora|bore|katta|katte|kattey|kattay|bagon|bage)\b/g, 'bags'],
+  [/\b(?:vasooli|vasuli|wasooli|wasuli)\b/g, 'received'],
+  [/\b(?:lena|lene|lenge)\b/g, 'receivable'],
+  [/\b(?:dena|dene|denge)\b/g, 'payable'],
+  [/\b(?:grahak|gahak|graahak)\b/g, 'customer'],
+  [/\b(?:kitna|kitni|kitne)\b/g, 'how much'],
+  [/\b(?:dikhao|dikhaiye|dikha|batao|bataiye|bata|btao|dijiye)\b/g, 'show'],
+  [/\bsabse (?:zyada|jyada|jyaada|bada|bade|adhik)\b/g, 'most'],
+  [/\bsabse\b/g, 'most'],
+  [/\b(?:sabhi|saare|sare)\b/g, 'all'],
+  [/\b(?:hisab|hisaab)\b/g, 'summary'],
+  [/\b(?:kaun|kon|kaunsa|kaunse)\b/g, 'who'],
+  [/\b(?:namaste|namaskar|pranam)\b/g, 'hello'],
+  [/\b(?:shukriya|dhanyavad|dhanyawad)\b/g, 'thanks'],
+  [/\b(?:madad|sahayata)\b/g, 'help'],
+];
+
+function norm(q) {
+  let s = String(q || '').toLowerCase().slice(0, 300)
+    .replace(/[’']/g, '')
+    .replace(/₹/g, ' ')
+    .replace(/&/g, ' and ');
+  while (/(\d),(?=\d)/.test(s)) s = s.replace(/(\d),(?=\d)/g, '$1');         // 1,00,000 → 100000
+  s = ' ' + s.replace(/[^a-z0-9\/\- ]+/g, ' ') + ' ';
+  for (const [re, rep] of SYN) s = s.replace(re, rep);
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+// Typo tolerance for the *keywords only* (never applied to names).
+const VOCAB = ['sales','purchase','purchases','expenses','expense','outstanding','customer','customers','supplier','suppliers',
+  'overdue','profit','summary','yesterday','balance','receivable','payable','stock','bags','today','invoices','invoice',
+  'received','payments','collection','products','biggest','highest','largest','category','categories'];
+const NO_FIX = new Set(['stuck','stick','store','stores','stack','shock','state','stale','scale','sails','seals','tales','purse','shops','bills']);
+function fixTypos(n) {
+  return n.split(' ').map(t => {
+    if (t.length < 4 || /\d/.test(t) || VOCAB.includes(t) || NO_FIX.has(t)) return t;
+    for (const v of VOCAB) if (v[0] === t[0] && lev(t, v) <= (t.length >= 8 ? 2 : 1)) return v;
+    return t;
+  }).join(' ');
+}
+
+/* Words that are not part of a name. Whatever is left is a name to look up. */
+const STOP = new Set(('a an the of for in on at to from by with and or is are was were be been am i me my mine we our you your us ' +
+  'how much many what whats which who whom when where why do does did can could would should will shall have has had get got ' +
+  'give show tell list display find check see know want need please pls kindly any all some this that these those it its there here ' +
+  'total sales sale sold purchase purchases purchased expense expenses profit stock bags bag left remaining available outstanding balance ' +
+  'owe owes owed due pending unpaid overdue late receivable payable received payment payments paid collection collections ' +
+  'customer customers supplier suppliers vendor vendors party parties client clients buyer buyers product products item items ' +
+  'category categories wise top best biggest highest largest most least lowest ranking report summary overview status details detail info ' +
+  'amount value number no nos qty quantity kg kgs rs rupees inr count ' +
+  'last past next previous current today yesterday day days week weeks month months year years ago till until between since overall ' +
+  'also aur phir bhi sir madam bhai ji ok okay yes hi hello hey thanks thank ' +
+  'open go goto page tab screen section menu new add create make record enter ' +
+  'ko ka ki ke me mein mai se hai hain tha thi ho hu hun na nahi kya mera meri mere hamara hamare hamari humara humare abhi yaar yar kripya zara thoda ' +
+  'mujhe mujhko hume humein humko aap tum apna apni apne kisko kisse kiska kiski kiske kahan kab kyun kyu kaise kaisa kaisi kuch wala wali wale ' +
+  'money paisa paise rupaye rupee stuck market business doing going making hows list lists data record records receivables payables dues debtors creditors ' +
+  'sell sells selling buy buys bought ordered order orders did does making').split(' '));
+
+const GENERIC = new Set(['traders','trader','trading','enterprises','enterprise','and','co','company','pvt','ltd','private','limited','agro',
+  'agencies','agency','store','stores','mart','sons','brothers','bros','industries','mills','mill','foods','food','group','associates',
+  'the','of','shop','suppliers','supplier','dealers','dealer','wholesale','retail','corporation','corp']);
+
+/* ─────────────────────────── periods ─────────────────────────── */
+const MP = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const monthIdx = s => MON_S.map(m => m.toLowerCase()).indexOf(String(s).slice(0, 3));
+const dateRe = () => new RegExp(
+  '\\b(\\d{4})-(\\d{1,2})-(\\d{1,2})\\b' +                                   // 2026-10-05
+  '|\\b(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4}|\\d{2})\\b' +                      // 05/10/2026 (day first)
+  '|\\b(\\d{1,2})(?:st|nd|rd|th)? ' + MP + '\\b(?: (\\d{4}))?' +               // 5 oct [2026]
+  '|\\b' + MP + ' (\\d{1,2})(?!\\d)(?:st|nd|rd|th)?(?: (\\d{4}))?', 'g');      // oct 5 [2026]
+
+function dateFromGroups(g, today) {
+  let y, mo, d;
+  if (g[0]) { y = +g[0]; mo = +g[1]; d = +g[2]; }
+  else if (g[3]) { d = +g[3]; mo = +g[4]; y = +g[5]; if (y < 100) y += 2000; }
+  else if (g[6]) { d = +g[6]; mo = monthIdx(g[7]) + 1; y = g[8] ? +g[8] : today.getFullYear(); }
+  else if (g[9]) { mo = monthIdx(g[9]) + 1; d = +g[10]; y = g[11] ? +g[11] : today.getFullYear(); }
+  else return null;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const dt = new Date(y, mo - 1, d);
+  return dt.getMonth() === mo - 1 ? dt : null;
+}
+
+function parsePeriod(n, now, nameTok) {
+  const today = startOfDay(now || new Date());
+  let rest = ' ' + n + ' ';
+  const out = (from, to, label, kind, extra) => Object.assign({ from: ymd(from), to: ymd(to), label, kind, explicit: true, rest: rest.replace(/\s+/g, ' ').trim() }, extra || {});
+  const cut = re => { const m = re.exec(rest); if (m) rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length); return m; };
+  const fy = y1 => {
+    const end = new Date(y1 + 1, 2, 31);
+    return out(new Date(y1, 3, 1), end > today ? today : end, `FY ${y1}-${String(y1 + 1).slice(2)}`, 'fy');
+  };
+
+  // 1) written dates: "5 oct", "1 oct to 15 oct", "2026-10-05", "05/10/2026"
+  const found = [];
+  rest = rest.replace(dateRe(), (...a) => { const d = dateFromGroups(a.slice(1, 13), today); if (d) { found.push(d); return ' '; } return a[0]; });
+  if (found.length >= 2) {
+    found.sort((a, b) => a - b);
+    const f = found[0], t = found[found.length - 1];
+    return out(f, t, `${disp(ymd(f))} – ${disp(ymd(t))}`, 'range');
+  }
+  if (found.length === 1) return out(found[0], found[0], disp(ymd(found[0])), 'day');
+
+  let m;
+  // 2) financial year (April → March)
+  if ((m = cut(/\b(?:fy|financial year)\s*(\d{2,4})\s*[-\/]\s*(\d{2,4})\b/))) { let y1 = +m[1]; if (y1 < 100) y1 += 2000; return fy(y1); }
+  if ((m = cut(/\b(this|current|last|previous) (?:fy|financial year)\b/))) {
+    const base = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    return fy(/last|previous/.test(m[1]) ? base - 1 : base);
+  }
+
+  // 3) relative words
+  if (cut(/\bday before yesterday\b/)) { const d = addDays(today, -2); return out(d, d, 'Day before yesterday', 'day'); }
+  if (cut(/\byesterday\b/)) { const d = addDays(today, -1); return out(d, d, 'Yesterday', 'day'); }
+  if (cut(/\btoday\b/)) return out(today, today, 'Today', 'day');
+  if (cut(/\bthis week\b/)) return out(weekStart(today), today, 'This week', 'week');
+  if (cut(/\blast week\b/)) { const s = addDays(weekStart(today), -7); return out(s, addDays(s, 6), 'Last week', 'week'); }
+  if (cut(/\bthis month\b/)) return out(new Date(today.getFullYear(), today.getMonth(), 1), today, 'This month', 'month');
+  if (cut(/\blast month\b/)) return out(new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 0), 'Last month', 'month');
+  if (cut(/\bthis year\b/)) return out(new Date(today.getFullYear(), 0, 1), today, 'This year', 'year');
+  if (cut(/\blast year\b/)) return out(new Date(today.getFullYear() - 1, 0, 1), new Date(today.getFullYear() - 1, 11, 31), 'Last year', 'year');
+  if ((m = cut(/\b(?:last|past) (\d{1,3}) (days?|weeks?|months?)\b/))) {
+    const k = Math.max(1, +m[1]), u = m[2][0];
+    const from = u === 'd' ? addDays(today, -(k - 1)) : u === 'w' ? addDays(today, -(7 * k - 1)) : new Date(today.getFullYear(), today.getMonth() - k, today.getDate() + 1);
+    return out(from, today, `Last ${k} ${u === 'd' ? 'day' : u === 'w' ? 'week' : 'month'}${k === 1 ? '' : 's'}`, 'rolling');
+  }
+  if (cut(/\b(all time|alltime|overall|till date|till now|to date|so far|lifetime|since start|since beginning|ever)\b/))
+    return out(new Date(2000, 0, 1), today, 'All time', 'all', { all: true });
+
+  // 4) a month name, with optional year ("september", "in sep 2025")
+  const mm = new RegExp('\\b(?:(in|of|for|during|month of|month)\\s+)?' + MP + '(?:\\s+(20\\d{2}))?\\b').exec(rest);
+  if (mm) {
+    const word = mm[2], hasYear = !!mm[3], prep = !!mm[1];
+    const after = rest.slice(mm.index + mm[0].length).trim().split(' ')[0];
+    const nameFollows = !!(nameTok && after && nameTok.has(after));                            // "March Enterprises"
+    const risky = !hasYear && (nameFollows && nameTok.has(word) ||
+      (!prep && (word === 'may' || (nameTok && nameTok.has(word)))));                          // "may I know…", a customer called "March"
+    if (!risky) {
+      rest = rest.slice(0, mm.index) + ' ' + rest.slice(mm.index + mm[0].length);
+      const idx = monthIdx(word);
+      const y = hasYear ? +mm[3] : (idx <= today.getMonth() ? today.getFullYear() : today.getFullYear() - 1);
+      const end = new Date(y, idx + 1, 0);
+      return out(new Date(y, idx, 1), end > today ? today : end, `${MON_L[idx]} ${y}`, 'month');
+    }
+  }
+  // 5) a bare year ("in 2025")
+  if ((m = cut(/\b(?:in|of|for|during|year)\s+(20\d{2})\b/))) {
+    const y = +m[1], end = new Date(y, 11, 31);
+    return out(new Date(y, 0, 1), end > today ? today : end, String(y), 'year');
+  }
+  return { explicit: false, rest: rest.replace(/\s+/g, ' ').trim() };
+}
+
+function prevPeriod(p) {
+  const f = parseYmd(p.from), t = parseYmd(p.to);
+  const days = Math.round((t - f) / 86400000) + 1;
+  const pt = addDays(f, -1), pf = addDays(pt, -(days - 1));
+  return { from: ymd(pf), to: ymd(pt) };
+}
+const periodText = p => {
+  const body = (p.kind === 'range' || p.kind === 'day' || p.kind === 'fy') ? p.label
+    : `${p.label} · ${disp(p.from)}${p.from === p.to ? '' : ' – ' + disp(p.to)}`;
+  return body + (p.clamped ? ' (limited to your date range)' : '');
+};
+
+/* ───────────── names: matching what is left of the sentence ───────────── */
+const nameToks = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(' ').filter(t => t.length >= 2);
+function sim(a, b) {
+  if (a === b) return 1;
+  const la = a.length, lb = b.length;
+  if (Math.min(la, lb) >= 3 && (a.startsWith(b) || b.startsWith(a))) return 0.85;
+  if (la >= 4 && lb >= 4 && lev(a, b) <= (la >= 8 ? 2 : 1)) return 0.7;
+  return 0;
+}
+function rankPool(pool, qt) {
+  const out = [];
+  if (!qt.length) return out;
+  for (const e of pool) {
+    const nt = e._t || (e._t = nameToks(e.name));
+    if (!nt.length) continue;
+    let hit = 0, sumW = 0, gotW = 0;
+    for (const t of nt) {
+      const w = GENERIC.has(t) ? 0.3 : 1;
+      let best = 0;
+      for (const q of qt) { const s = sim(t, q); if (s > best) best = s; if (best === 1) break; }
+      sumW += w; gotW += w * best;
+      if (w === 1 && best >= 0.7) hit++;
+    }
+    const cov = gotW / sumW;
+    if (hit >= 1 && cov >= 0.4) out.push({ e, hit, cov });
+  }
+  return out.sort((a, b) => b.hit - a.hit || b.cov - a.cov);
+}
+// One clear winner, or a short list to ask the user about.
+function pickBest(ranked) {
+  if (!ranked.length) return { none: true };
+  if (ranked.length === 1) return { ent: ranked[0].e };
+  const [a, b] = ranked;
+  if (a.hit > b.hit) return { ent: a.e };
+  if (a.cov >= 0.9 && a.cov - b.cov >= 0.2) return { ent: a.e };
+  return { ambiguous: ranked.slice(0, 5).map(r => r.e) };
+}
+
+/* ─────────────────────────── state + data ─────────────────────────── */
+const BOT = { open: false, ctx: {}, cache: new Map(), data: null, dataAt: 0, pools: null, nameTok: null, actions: new Map(), seq: 0, lastAt: 0 };
+const TTL = 90 * 1000;
+
+function can(page) {                         // sidebar menu items exist only for permitted pages
+  if (typeof document === 'undefined') return true;
+  const el = document.querySelector(`.nav-item[data-page="${page}"]`);
+  return !!el && el.style.display !== 'none';
+}
+
+async function data() {
+  const now = Date.now();
+  if (BOT.data && now - BOT.dataAt < TTL) return BOT.data;
+  const svc = STATE.settings && STATE.settings.businessType === 'service';
+  const get = (url, fb) => Promise.resolve().then(() => api(url)).then(r => Array.isArray(r && r.data) ? r.data : fb).catch(() => fb);
+  const [sales, purchases, cA, cR, suppliers, stock, products] = await Promise.all([
+    svc ? [] : get('api/sales.php', STATE.sales || []),
+    get('api/purchases.php', STATE.purchases || []),
+    svc ? [] : get('api/customers.php', STATE.customers || []),
+    svc ? [] : get('api/customers.php?status=archived', []),
+    get('api/suppliers.php', STATE.suppliers || []),
+    get('api/stock.php', STATE.stock || []),
+    get('api/products.php', STATE.products || []),
+  ]);
+  const seen = new Set();
+  const customers = [...cA, ...cR].filter(c => !seen.has(String(c.id)) && seen.add(String(c.id)));
+  BOT.data = { sales, purchases, customers, suppliers, stock, products };
+  BOT.dataAt = now; BOT.pools = null; BOT.nameTok = null;
+  return BOT.data;
+}
+
+function pools(d) {
+  if (BOT.pools) return BOT.pools;
+  const cats = new Set((STATE.expenseCategories || []).map(c => c.name));
+  (STATE.expenses || []).forEach(e => e.category && cats.add(e.category));
+  BOT.pools = {
+    customer: (can('customers-list') || can('sales-list')) ? d.customers.map(c => ({ kind: 'customer', id: c.id, name: c.name || '', rec: c })) : [],
+    supplier: (can('suppliers') || can('purchases')) ? d.suppliers.map(s => ({ kind: 'supplier', id: s.id, name: s.name || '', rec: s })) : [],
+    product: d.products.map(p => ({ kind: 'product', id: p.id, name: p.name || '', rec: p })),
+    category: can('expenses') ? [...cats].map(n => ({ kind: 'category', id: n, name: n })) : [],
+  };
+  return BOT.pools;
+}
+function allNameTokens(d) {
+  if (BOT.nameTok) return BOT.nameTok;
+  const s = new Set(); const P = pools(d);
+  Object.values(P).forEach(list => list.forEach(e => nameToks(e.name).forEach(t => s.add(t))));
+  return (BOT.nameTok = s);
+}
+
+async function fr(p) {                          // Finance Report API (cached a minute)
+  const key = p.from + '|' + p.to, hit = BOT.cache.get(key);
+  if (hit && Date.now() - hit.t < 60000) return hit.r;
+  const r = await api('api/finance_report.php?' + new URLSearchParams({ date_from: p.from, date_to: p.to }).toString());
+  if (!r || r.error || !r.stats) throw new Error((r && r.error) || 'No data');
+  BOT.cache.set(key, { t: Date.now(), r });
+  return r;
+}
+async function expenseRows() {
+  const hit = BOT.cache.get('expenses');
+  if (hit && Date.now() - hit.t < 60000) return hit.r;
+  const r = await api('api/expenses.php');
+  const rows = Array.isArray(r && r.data) ? r.data : (STATE.expenses || []);
+  BOT.cache.set('expenses', { t: Date.now(), r: rows });
+  return rows;
+}
+
+/* ───────────── resolve the period (default, follow-up, date lock) ───────────── */
+function resolvePeriod(per, followUp) {
+  const today = startOfDay(new Date());
+  let p;
+  if (per.explicit) p = per;
+  else if (followUp && BOT.ctx.period) p = Object.assign({}, BOT.ctx.period, { explicit: true, carried: true });
+  else p = { from: ymd(new Date(today.getFullYear(), today.getMonth(), 1)), to: ymd(today), label: 'This month', kind: 'month', explicit: false };
+
+  if (typeof GLOBAL_DATE_ACTIVE !== 'undefined' && GLOBAL_DATE_ACTIVE) {
+    const lo = GLOBAL_DATE_FROM, hi = GLOBAL_DATE_TO;
+    const from = p.from > lo ? p.from : lo, to = p.to < hi ? p.to : hi;
+    if (from > to) {
+      if (!per.explicit && !p.carried) return Object.assign({}, p, { from: lo, to: hi, label: 'Your date range', kind: 'range', clamped: false });
+      return { blocked: true, lo, hi };
+    }
+    if (from !== p.from || to !== p.to) p = Object.assign({}, p, { from, to, clamped: true });
+  }
+  return p;
+}
+function prevOk(p) {                            // is the comparison period inside the user's date lock?
+  const pp = prevPeriod(p);
+  return !(typeof GLOBAL_DATE_ACTIVE !== 'undefined' && GLOBAL_DATE_ACTIVE && pp.from < GLOBAL_DATE_FROM) && !p.all ? pp : null;
+}
+const inR = (d, p) => { d = String(d || '').slice(0, 10); return d >= p.from && d <= p.to; };
+
+/* ─────────────────────────── understanding ─────────────────────────── */
+const NAV = [
+  { page: 'stock-history',  re: /\bstock history\b/, label: 'Stock History' },
+  { page: 'finance-report', re: /\b(finance|financial)( report)?\b|\bfinance\b/, label: 'Finance Report' },
+  { page: 'credit-notes',   re: /\bcredit notes?\b/, label: 'Credit Notes' },
+  { page: 'cash-in-hand',   re: /\bcash in hand\b|\bcash book\b/, label: 'Cash in Hand' },
+  { page: 'aging',          re: /\baging\b/, label: 'Aging Report' },
+  { page: 'dashboard',      re: /\b(dashboard|home)\b/, label: 'Dashboard' },
+  { page: 'sales-list',     re: /\bsales?\b/, label: 'Sales' },
+  { page: 'purchases',      re: /\bpurchases?\b/, label: 'Purchases' },
+  { page: 'customers-list', re: /\bcustomers?\b/, label: 'Customers' },
+  { page: 'suppliers',      re: /\b(suppliers?|vendors?)\b/, label: 'Suppliers' },
+  { page: 'products',       re: /\bproducts?\b/, label: 'Products' },
+  { page: 'stock',          re: /\bstock\b/, label: 'Stock' },
+  { page: 'expenses',       re: /\bexpenses?\b/, label: 'Expenses' },
+  { page: 'payments',       re: /\bpayments?\b/, label: 'Payments' },
+  { page: 'reports',        re: /\breports?\b/, label: 'Reports' },
+  { page: 'tax',            re: /\b(tax|gst)\b/, label: 'Tax' },
+  { page: 'settings',       re: /\bsettings?\b/, label: 'Settings' },
+];
+const CREATE = [
+  { re: /\b(sales?|sale invoice|invoice)\b/, page: 'sales-list', label: 'New Sale', run: () => goToNewSale() },
+  { re: /\bpurchases?\b/,                      page: 'purchases',  label: 'New Purchase', run: () => goToNewPurchase() },
+  { re: /\bexpenses?\b/,                       page: 'expenses',   label: 'Add Expense', run: () => { showPage('expenses', null); openAddExpenseModal(); } },
+];
+
+function classify(n, info) {
+  const t = re => re.test(n);
+  const words = n.split(' ').filter(Boolean);
+  const wc = words.length;
+
+  if (wc <= 2 && /^(hello|hi|hey|hii+|good (morning|afternoon|evening))\b/.test(n)) return { id: 'greet' };
+  if (wc <= 6 && /\b(thanks|thank you|thx)\b/.test(n)) return { id: 'thanks' };
+  if (/^(help|menu|commands?)$/.test(n) || t(/\b(what can you do|what do you do|how can you help|your features|what can i ask)\b/) || (wc <= 3 && t(/\bhelp\b/))) return { id: 'help' };
+
+  // The assistant only reads. Say so instead of guessing what "delete sale 5" should show.
+  const wv = /^(?:please |pls |can you |could you )?(delete|remove|erase|edit|update|modify|change|cancel|void|approve|reject|archive|restore|send|remind|mark|pay|settle)\b/.exec(n);
+  if (wv) return { id: 'readonly', verb: wv[1] };
+
+  // open a page / start a new entry
+  const howTo = t(/^(how (do i|to|can i|should i)|where (do i|can i|to))\b/);
+  const createWord = t(/^(?:i want to |want to |please |let me |can you )?(new|add|create|make|record|enter)\b/);
+  if (createWord || (howTo && t(/\b(add|create|make|record|enter|new)\b/))) {
+    const c = CREATE.find(x => x.re.test(n));
+    if (c) return { id: howTo ? 'howto' : 'create', create: c };
+  }
+  if (t(/^(open|go to|goto|take me to|navigate to|jump to|switch to)\b/) || t(/\b(page|screen|tab|section)$/)) {
+    const nv = NAV.find(x => x.re.test(n));
+    if (nv) return { id: 'navigate', nav: nv };
+  }
+
+  const bal = t(/\b(owe|owes|owed|outstanding|balance|receivables?|payables?|pending|due|unpaid|udhar|stuck)\b/);
+  const rank = t(/\b(top|best|biggest|highest|largest|most|ranking|leaderboard)\b/);
+  const custBuy = t(/\b(buy|buys|bought|ordered)\b/) && info.topKind === 'customer';     // "what did Ramesh buy" = sales to Ramesh
+  const sold = custBuy || t(/\b(sold|sales?|sell|selling|revenue|turnover|income|invoices?)\b/);
+  const bought = !custBuy && t(/\b(purchases?|purchased|bought|buy|buying)\b/);
+  const bags = t(/\bbags?\b/);
+  const exp = t(/\b(expenses?|expenditure|spent|spending|spend|costs?)\b/);
+  const stk = t(/\b(stock|inventory|left|remaining|available|do (we|i) have|have we|is there|are there)\b/);
+  const countQ = t(/\bhow (much|many) (customers?|suppliers?|products?)\b|\bnumber of (customers?|suppliers?|products?)\b/);
+  if (countQ) return { id: 'count' };
+
+  if (info.hasParty && !custBuy && (bal || (!sold && !bought && !exp && !bags && !rank && !stk)) && !t(/\boverdue\b/)) return { id: 'party' };
+  if (t(/\b(overdue|past due|late payments?|due date)\b/)) return { id: 'overdue' };
+
+  if (t(/\bwho (bought|buys|purchased|ordered)\b/)) return { id: 'top_customers' };
+  if (t(/\bkisko\b.*\bpayable\b/)) return { id: 'top_balances', kind: 'supplier' };
+  if (rank || t(/\bwho (owes|owe|has not paid|hasnt paid)\b|\bwhom\b/)) {
+    if (exp) return { id: 'expenses', biggest: true };
+    if (t(/\bproducts?\b|\bitems?\b/)) return { id: 'top_products' };
+    const sup = t(/\b(suppliers?|vendors?)\b/), cus = t(/\b(customers?|buyers?|clients?|parties|party)\b/);
+    if (t(/\bwhom\b|\bi owe\b|\bkisko\b.*\bpayable\b/)) return { id: 'top_balances', kind: 'supplier' };
+    if (t(/\bwho (owes|owe|has not paid|hasnt paid)\b/) || (bal && !sup)) return { id: 'top_balances', kind: 'customer' };
+    if (bal && sup) return { id: 'top_balances', kind: 'supplier' };
+    if (sup) return { id: 'top_suppliers' };
+    if (cus || sold) return { id: 'top_customers' };
+    if (bought) return { id: 'top_suppliers' };
+  }
+
+  if (stk && !sold && !bought) return { id: 'stock' };
+  if (bags) return { id: 'bags', side: sold && !bought ? 'sold' : bought && !sold ? 'bought' : 'both' };
+  if (t(/\b(profit|loss|earnings?|margin)\b|\bmaking (money|profit)\b/)) return { id: 'profit' };
+  if (exp) return { id: 'expenses' };
+
+  if (bal) {
+    if (t(/\b(supplier|suppliers|vendors?|payables?|i owe)\b/)) return { id: 'totals', kind: 'supplier' };
+    return { id: 'totals', kind: 'customer' };
+  }
+  if (t(/\b(summary|overview|snapshot|report|status)\b|\bhow (is|are|was) (the )?(business|work|things)\b|\bhows business\b/) || (sold && bought)) return { id: 'summary' };
+  if (sold) return { id: 'sales' };
+  if (bought) return { id: 'purchases' };
+  if (t(/\b(received|collection|collections|paid out|payments?|paid)\b/)) return { id: 'cashflow' };
+  if (info.hasParty) return { id: 'party' };
+  return null;
+}
+
+const STARTS_FOLLOW = /^(and|also|what about|how about|same for|phir|aur)\b/;
+
+/* ───────────────────────── answer builders ───────────────────────── */
+const H = {
+  head: (title, p) => `<div class="ob-h">${title}${p ? `<span class="ob-p">${esc(periodText(p))}</span>` : ''}</div>`,
+  big: (v, sub) => `<div class="ob-big">${v}</div>${sub ? `<div class="ob-sub">${sub}</div>` : ''}`,
+  kv: (k, v) => `<div class="ob-kv"><span>${k}</span><b>${v}</b></div>`,
+  note: t => `<div class="ob-note">${t}</div>`,
+  rank: items => `<ol class="ob-rank">${items.map(i => `<li><span>${i.l}</span><b>${i.v}</b></li>`).join('')}</ol>`,
+};
+function delta(cur, prev, goodUp) { return prev > 0 ? deltaPct(Math.round((cur - prev) / prev * 1000) / 10, goodUp) : ''; }
+function deltaPct(pct, goodUp) {
+  if (pct == null || isNaN(pct)) return '';
+  if (pct === 0) return '<span class="ob-d">No change vs previous period</span>';
+  const up = pct > 0, cls = goodUp == null ? '' : (up === goodUp ? ' ob-good' : ' ob-bad');   // null = neither good nor bad (e.g. purchases)
+  return `<span class="ob-d${cls}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs previous period</span>`;
+}
+const noAccess = what => ({ html: `<b>${esc(what)}</b> isn’t available to your login, so I can’t answer that. Ask your admin if you need it.` });
+const explain = (n) => ({ html: n });
+const periodChips = () => ['Last month', 'This year', 'Today'].map(l => ({ label: l, q: l.toLowerCase() }));
+
+const bal = s => num(s.total) - num(s.amount_received);
+const liveSales = (d, p) => d.sales.filter(s => s.status !== 'Cancelled' && inR(s.sale_date, p));   // same rule as the Finance Report
+const livePurchases = (d, p) => d.purchases.filter(x => inR(x.purchase_date, p));
+const custName = (d, id, fallback) => { const c = d.customers.find(x => String(x.id) === String(id)); return c ? c.name : (fallback || 'Unknown'); };
+
+/* —— sales / purchases —— */
+async function hSales(c) {
+  if (!can('sales-list')) return noAccess('Sales');
+  const d = await data(), p = c.period;
+  let list = liveSales(d, p), who = '';
+  if (c.ent && c.ent.kind === 'customer') { list = list.filter(s => String(s.customer_id) === String(c.ent.id)); who = ` to <b>${esc(c.ent.name)}</b>`; }
+  const tot = sumBy(list, 'total'), rec = sumBy(list, 'amount_received');
+  let cmp = '';
+  const pp = prevOk(p);
+  if (pp) {
+    let prev = liveSales(d, pp);
+    if (c.ent && c.ent.kind === 'customer') prev = prev.filter(s => String(s.customer_id) === String(c.ent.id));
+    cmp = delta(tot, sumBy(prev, 'total'), true);
+  }
+  const html = H.head('Sales' + who, p) + H.big(money(tot), `${plural(list.length, 'invoice')} · ${kg(sumBy(list, 'total_qty'))}`) +
+    H.kv('Received', money(rec)) + H.kv('Still to receive', money(Math.max(0, tot - rec))) + (cmp ? `<div>${cmp}</div>` : '') +
+    (list.length === 0 ? H.note('No sales found for this period.') : '');
+  return { html, chips: [{ label: 'Top customers', q: 'top customers ' + p.label.toLowerCase() }, { label: 'Bags sold', q: 'bags sold ' + p.label.toLowerCase() }, ...periodChips()], nav: [can('sales-list') && { label: 'Open Sales', page: 'sales-list' }] };
+}
+async function hPurchases(c) {
+  if (!can('purchases')) return noAccess('Purchases');
+  const d = await data(), p = c.period;
+  let list = livePurchases(d, p), who = '';
+  if (c.ent && c.ent.kind === 'supplier') { list = list.filter(x => String(x.supplier_id) === String(c.ent.id)); who = ` from <b>${esc(c.ent.name)}</b>`; }
+  const tot = sumBy(list, 'total'), paid = sumBy(list, 'amount_paid');
+  let cmp = '';
+  const pp = prevOk(p);
+  if (pp) {
+    let prev = livePurchases(d, pp);
+    if (c.ent && c.ent.kind === 'supplier') prev = prev.filter(x => String(x.supplier_id) === String(c.ent.id));
+    cmp = delta(tot, sumBy(prev, 'total'), null);
+  }
+  const html = H.head('Purchases' + who, p) + H.big(money(tot), plural(list.length, 'purchase bill')) +
+    H.kv('Paid', money(paid)) + H.kv('Still to pay', money(Math.max(0, tot - paid))) + (cmp ? `<div>${cmp}</div>` : '') +
+    (list.length === 0 ? H.note('No purchases found for this period.') : '');
+  return { html, chips: [{ label: 'Top suppliers', q: 'top suppliers ' + p.label.toLowerCase() }, { label: 'Bags purchased', q: 'bags purchased ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Purchases', page: 'purchases' }] };
+}
+
+/* —— bags (from the Finance Report) —— */
+async function hBags(c) {
+  const showSold = c.side !== 'bought' && can('sales-list'), showBought = c.side !== 'sold' && can('purchases');
+  if (!showSold && !showBought) return noAccess('Bags');
+  const p = c.period, r = await fr(p), b = r.bags_summary;
+  if (!b) return explain('The bags report isn’t available yet — please update <code>finance_report.php</code>.');
+  let pur = b.purchased, sold = b.sold, title = 'Bags';
+  if (c.ent && c.ent.kind === 'product') {
+    const row = (b.by_product || []).find(x => String(x.name).trim().toLowerCase() === String(c.ent.name).trim().toLowerCase());
+    pur = { value: row ? row.pur_bags : 0, qty: row ? row.pur_qty : 0, bills: null };
+    sold = { value: row ? row.sale_bags : 0, qty: row ? row.sale_qty : 0, bills: null };
+    title = `Bags — <b>${esc(c.ent.name)}</b>`;
+  }
+  const line = (label, x, goodUp, noun) =>
+    H.kv(label, `${n0(x.value)} bags`) +
+    `<div class="ob-sub" style="margin:-2px 0 6px">${kg(x.qty)}${x.bills != null ? ` · ${plural(x.bills, noun)}` : ''}${x.value > 0 ? ` · avg ${(x.qty / x.value).toFixed(1)} Kg/bag` : ''}</div>` +
+    (x.bills != null ? deltaPct(x.change, goodUp) : '');
+  let html = H.head(title, p);
+  if (showBought) html += line('Purchased', pur, null, 'purchase bill');
+  if (showSold) html += line('Sold', sold, true, 'sale invoice');
+  if (showSold && showBought) html += H.note('Bags are counted from the “No. of Bags” entered on each line. Sold can exceed purchased when you sell older stock or change bag sizes.');
+  return { html, chips: [{ label: 'Product-wise bags', q: 'top products ' + p.label.toLowerCase() }, ...periodChips()], nav: [can('finance-report') && { label: 'Open Finance Report', page: 'finance-report' }] };
+}
+async function hTopProducts(c) {
+  if (!can('sales-list') && !can('purchases')) return noAccess('Products');
+  const p = c.period, r = await fr(p), rows = (r.bags_summary && r.bags_summary.by_product) || [];
+  const top = rows.filter(x => x.sale_qty > 0).sort((a, b) => b.sale_qty - a.sale_qty).slice(0, 5);
+  if (!top.length) return { html: H.head('Top products sold', p) + H.note('No sales with bags or quantity recorded for this period.') };
+  return { html: H.head('Top products sold', p) + H.rank(top.map(x => ({ l: esc(x.name), v: `${kg(x.sale_qty)} · ${n0(x.sale_bags)} bags` }))) + H.note('Ranked by quantity (Kg) on sale lines.'), chips: periodChips() };
+}
+
+/* —— expenses —— */
+async function hExpenses(c) {
+  if (!can('expenses')) return noAccess('Expenses');
+  const p = c.period;
+  if (c.biggest) {
+    const rows = (await expenseRows()).filter(e => inR(e.date, p)).sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 5);
+    if (!rows.length) return { html: H.head('Biggest expenses', p) + H.note('No expenses found for this period.') };
+    return { html: H.head('Biggest expenses', p) + H.rank(rows.map(e => ({ l: `${esc(disp(e.date))} · ${esc(e.category || 'Other')}${e.vendor ? ' · ' + esc(e.vendor) : ''}`, v: money(e.amount) }))), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+  }
+  const r = await fr(p), ex = r.expenses || { total: 0, count: 0, by_category: [] };
+  const cats = ex.by_category || [];
+  let ent = c.ent && c.ent.kind === 'category' ? c.ent : null;
+  if (!ent && c.leftover && c.leftover.length) {                  // a category we didn't know about until now
+    const hit = rankPool(cats.map(x => ({ name: x.category })), c.leftover);
+    const pk = pickBest(hit); if (pk.ent) ent = { kind: 'category', name: pk.ent.name };
+  }
+  if (ent) {
+    const row = cats.find(x => String(x.category).toLowerCase() === String(ent.name).toLowerCase());
+    const v = row ? num(row.total) : 0;
+    return { html: H.head(`Expenses — <b>${esc(ent.name)}</b>`, p) + H.big(money(v), `${ex.total > 0 ? Math.round(v / ex.total * 100) : 0}% of all expenses (${money(ex.total)})`), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+  }
+  const missed = !ent && c.leftover && c.leftover.length;
+  let cmp = '';
+  const pp = prevOk(p);
+  if (pp) { try { cmp = delta(num(ex.total), num((await fr(pp)).expenses.total), false); } catch (e) { /* comparison is optional */ } }
+  const wantsCats = /\b(category|categories|wise|breakdown|by)\b/.test(c.n || '');
+  const top = cats.slice(0, wantsCats ? 8 : 4);
+  const html = H.head('Expenses', p) + H.big(money(ex.total), plural(ex.count, 'entry', 'entries')) + (cmp ? `<div>${cmp}</div>` : '') +
+    (top.length ? H.rank(top.map(x => ({ l: esc(x.category || 'Other'), v: `${money(x.total)} · ${ex.total > 0 ? Math.round(num(x.total) / ex.total * 100) : 0}%` }))) : H.note('No expenses found for this period.')) +
+    (missed ? H.note(`I couldn’t find a category called “${esc(c.leftover.join(' '))}”, so this is the overall total.`) : '');
+  return { html, chips: [{ label: 'Biggest expenses', q: 'biggest expenses ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+}
+
+/* —— profit / money in-out / summary —— */
+async function hProfit(c) {
+  if (!can('finance-report')) return noAccess('Profit');
+  const p = c.period, r = await fr(p), s = r.stats;
+  const np = s.net_profit, up = np.value >= 0;
+  const html = H.head('Net profit', p) + H.big(`<span class="${up ? 'ob-good' : 'ob-bad'}">${money(np.value)}</span>`, up ? 'Profit' : 'Loss') +
+    (np.change != null ? `<div>${delta(1 + np.change / 100, 1, true)}</div>` : '') +
+    H.kv('Sales', money(s.total_sales.value)) + H.kv('Purchases', money(s.total_purchase.value)) + H.kv('Expenses', money((r.expenses || {}).total || 0)) +
+    H.note('Profit = Sales − Purchases − Expenses, exactly as the Finance Report calculates it.');
+  return { html, chips: periodChips(), nav: [{ label: 'Open Finance Report', page: 'finance-report' }] };
+}
+async function hCashflow(c) {
+  const sOk = can('sales-list'), pOk = can('purchases');
+  if (!sOk && !pOk) return noAccess('Payments');
+  const d = await data(), p = c.period;
+  let html = H.head('Money in / out', p);
+  const rec = sumBy(liveSales(d, p), 'amount_received'), paid = sumBy(livePurchases(d, p), 'amount_paid');
+  if (sOk) html += H.kv('Received from customers', money(rec));
+  if (pOk) html += H.kv('Paid to suppliers', money(paid));
+  if (sOk && pOk) html += H.kv('Net', `<span class="${rec - paid >= 0 ? 'ob-good' : 'ob-bad'}">${money(rec - paid)}</span>`);
+  html += H.note('Based on sales and purchases dated in this period.');
+  return { html, chips: periodChips() };
+}
+async function hSummary(c) {
+  const p = c.period, d = await data();
+  let html = H.head('Business summary', p), any = false;
+  if (can('sales-list')) { any = true; const l = liveSales(d, p); html += H.kv('Sales', `${money(sumBy(l, 'total'))} <small>(${plural(l.length, 'invoice')})</small>`); }
+  if (can('purchases')) { any = true; const l = livePurchases(d, p); html += H.kv('Purchases', `${money(sumBy(l, 'total'))} <small>(${plural(l.length, 'bill')})</small>`); }
+  let r = null; try { r = await fr(p); } catch (e) { /* API part is optional */ }
+  if (r && can('expenses')) { any = true; html += H.kv('Expenses', money((r.expenses || {}).total || 0)); }
+  if (r && r.bags_summary) {
+    const b = r.bags_summary;
+    if (can('purchases')) html += H.kv('Bags purchased', `${n0(b.purchased.value)} <small>(${kg(b.purchased.qty)})</small>`);
+    if (can('sales-list')) html += H.kv('Bags sold', `${n0(b.sold.value)} <small>(${kg(b.sold.qty)})</small>`);
+  }
+  if (r && can('finance-report')) { const v = r.stats.net_profit.value; html += H.kv('Net profit', `<span class="${v >= 0 ? 'ob-good' : 'ob-bad'}">${money(v)}</span>`); }
+  if (!any) return noAccess('The business summary');
+  return { html, chips: periodChips(), nav: [can('finance-report') && { label: 'Open Finance Report', page: 'finance-report' }] };
+}
+
+/* —— customers, suppliers, balances —— */
+const openBills = (d, custId) => d.sales.filter(s => s.status !== 'Cancelled' && String(s.customer_id) === String(custId) && bal(s) > 0);
+const payOf = x => Math.max(0, num(x.total) - num(x.amount_paid));
+function customerOwed(d) {
+  const m = new Map();
+  d.sales.forEach(s => { if (s.status === 'Cancelled') return; const b = bal(s); if (b > 0) m.set(String(s.customer_id), (m.get(String(s.customer_id)) || 0) + b); });
+  return m;
+}
+function supplierOwed(d) {
+  const m = new Map();
+  d.purchases.forEach(x => { const b = payOf(x); if (b > 0) { const k = String(x.supplier_id); m.set(k, { amt: (m.get(k) ? m.get(k).amt : 0) + b, name: x.supplier_name }); } });
+  return m;
+}
+async function hParty(c) {
+  const d = await data(), e = c.ent, today = ymd(new Date());
+  if (e.kind === 'customer') {
+    if (!can('customers-list') && !can('sales-list')) return noAccess('Customers');
+    const open = openBills(d, e.id), owed = sumBy(open.map(s => ({ b: bal(s) })), 'b');
+    const overdue = open.filter(s => s.due_date && String(s.due_date).slice(0, 10) < today);
+    const all = d.sales.filter(s => s.status !== 'Cancelled' && String(s.customer_id) === String(e.id));
+    const last = all.map(s => String(s.sale_date).slice(0, 10)).sort().pop();
+    const lim = num(e.rec && e.rec.credit_limit);
+    let html = H.head(`Customer — <b>${esc(e.name)}</b>`) + (owed > 0 ? H.big(money(owed), 'owed to you') : H.big('<span class="ob-good">₹0.00</span>', 'Nothing outstanding — all invoices settled'));
+    if (open.length) html += H.kv('Open invoices', n0(open.length));
+    if (overdue.length) html += H.kv('Overdue', `<span class="ob-bad">${money(sumBy(overdue.map(s => ({ b: bal(s) })), 'b'))}</span> <small>(${plural(overdue.length, 'invoice')})</small>`);
+    if (lim > 0) html += H.kv('Credit limit', `${money(lim)} <small>(${Math.round(owed / lim * 100)}% used)</small>`);
+    if (last) html += H.kv('Last sale', esc(disp(last)));
+    return { html, chips: [{ label: `Sales to ${e.name} this month`, q: `sales to ${e.name} this month`, ent: e, run: 'sales' }], nav: [can('customers-list') && { label: 'Open profile', fn: () => viewCustomerProfile(e.id) }] };
+  }
+  if (e.kind === 'supplier') {
+    if (!can('suppliers') && !can('purchases')) return noAccess('Suppliers');
+    const mine = d.purchases.filter(x => String(x.supplier_id) === String(e.id));
+    const open = mine.filter(x => payOf(x) > 0), owed = sumBy(open.map(x => ({ b: payOf(x) })), 'b');
+    const last = mine.map(x => String(x.purchase_date).slice(0, 10)).sort().pop();
+    let html = H.head(`Supplier — <b>${esc(e.name)}</b>`) + (owed > 0 ? H.big(money(owed), 'you owe them') : H.big('<span class="ob-good">₹0.00</span>', 'Nothing to pay — all bills settled'));
+    if (open.length) html += H.kv('Unpaid bills', n0(open.length));
+    if (last) html += H.kv('Last purchase', esc(disp(last)));
+    return { html, chips: [{ label: `Purchases from ${e.name} this month`, q: `purchases from ${e.name} this month`, ent: e, run: 'purchases' }], nav: [can('suppliers') && { label: 'Open profile', fn: () => viewSupplierProfile(e.id) }] };
+  }
+  return explain('I found that name, but it isn’t a customer or supplier.');
+}
+async function hTotals(c) {
+  const d = await data();
+  if (c.kind === 'supplier') {
+    if (!can('suppliers') && !can('purchases')) return noAccess('Suppliers');
+    const m = supplierOwed(d), tot = [...m.values()].reduce((t, x) => t + x.amt, 0);
+    return { html: H.head('You owe suppliers') + H.big(money(tot), `across ${plural(m.size, 'supplier')}`) + (m.size ? H.note('Ask “whom do I owe the most?” for the list.') : ''), chips: [{ label: 'Whom do I owe the most?', q: 'whom do i owe the most' }], nav: [{ label: 'Open Suppliers', page: 'suppliers' }] };
+  }
+  if (!can('customers-list') && !can('sales-list')) return noAccess('Customers');
+  const m = customerOwed(d), tot = [...m.values()].reduce((t, x) => t + x, 0);
+  return { html: H.head('Customers owe you') + H.big(money(tot), `across ${plural(m.size, 'customer')}`) + (m.size ? H.note('Ask “who owes me the most?” for the list.') : ''), chips: [{ label: 'Who owes me the most?', q: 'who owes me the most' }, { label: 'Overdue invoices', q: 'overdue invoices' }], nav: [can('customers-list') && { label: 'Open Customers', page: 'customers-list' }] };
+}
+async function hTopBalances(c) {
+  const d = await data();
+  if (c.kind === 'supplier') {
+    if (!can('suppliers') && !can('purchases')) return noAccess('Suppliers');
+    const rows = [...supplierOwed(d).entries()].map(([id, x]) => ({ name: (d.suppliers.find(s => String(s.id) === id) || {}).name || x.name || 'Unknown', amt: x.amt })).sort((a, b) => b.amt - a.amt).slice(0, c.topN);
+    return { html: H.head('You owe the most to') + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('You don’t owe any supplier right now.')) };
+  }
+  if (!can('customers-list') && !can('sales-list')) return noAccess('Customers');
+  const rows = [...customerOwed(d).entries()].map(([id, amt]) => ({ name: custName(d, id), amt })).sort((a, b) => b.amt - a.amt).slice(0, c.topN);
+  return { html: H.head('Customers who owe you the most') + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No customer has anything outstanding.')), chips: [{ label: 'Overdue invoices', q: 'overdue invoices' }] };
+}
+async function hTopParties(c, kind) {
+  const d = await data(), p = c.period;
+  if (kind === 'customer') {
+    if (!can('sales-list')) return noAccess('Sales');
+    const m = new Map(); liveSales(d, p).forEach(s => { const k = String(s.customer_id); m.set(k, (m.get(k) || 0) + num(s.total)); });
+    const rows = [...m.entries()].map(([id, amt]) => ({ name: custName(d, id), amt })).sort((a, b) => b.amt - a.amt).slice(0, c.topN);
+    return { html: H.head('Top customers', p) + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No sales found for this period.')), chips: periodChips() };
+  }
+  if (!can('purchases')) return noAccess('Purchases');
+  const m = new Map(); livePurchases(d, p).forEach(x => { const k = String(x.supplier_id); const o = m.get(k) || { amt: 0, name: x.supplier_name }; o.amt += num(x.total); m.set(k, o); });
+  const rows = [...m.entries()].map(([id, o]) => ({ name: (d.suppliers.find(s => String(s.id) === id) || {}).name || o.name || 'Unknown', amt: o.amt })).sort((a, b) => b.amt - a.amt).slice(0, c.topN);
+  return { html: H.head('Top suppliers', p) + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No purchases found for this period.')), chips: periodChips() };
+}
+async function hOverdue() {
+  if (!can('sales-list')) return noAccess('Sales');
+  const d = await data(), today = ymd(new Date());
+  const rows = d.sales.filter(s => s.status !== 'Cancelled' && s.due_date && String(s.due_date).slice(0, 10) < today && bal(s) > 0)
+    .map(s => ({ s, days: Math.round((parseYmd(today) - parseYmd(s.due_date)) / 86400000) })).sort((a, b) => b.days - a.days);
+  const tot = rows.reduce((t, r) => t + bal(r.s), 0);
+  if (!rows.length) return { html: H.head('Overdue invoices') + H.big('<span class="ob-good">None</span>', 'No invoice is past its due date 🎉') };
+  return { html: H.head('Overdue invoices') + H.big(`<span class="ob-bad">${money(tot)}</span>`, `${plural(rows.length, 'invoice')} past due`) +
+    H.rank(rows.slice(0, 5).map(r => ({ l: `${esc(r.s.customer_name || custName(d, r.s.customer_id))} · ${esc(r.s.invoice_no || '#' + r.s.id)} · ${r.days}d late`, v: money(bal(r.s)) }))) +
+    (rows.length > 5 ? H.note(`+ ${rows.length - 5} more`) : ''), nav: [{ label: 'Open Aging Report', page: 'aging', ok: can('aging') }, { label: 'Open Sales', page: 'sales-list' }] };
+}
+
+/* —— stock —— */
+async function hStock(c) {
+  if (!can('stock')) return noAccess('Stock');
+  const d = await data();
+  const by = new Map();
+  d.stock.forEach(s => { const k = String(s.product_id).replace(/\D/g, ''); by.set(k, (by.get(k) || 0) + num(s.current_stock != null ? s.current_stock : s.available_stock)); });
+  const idOf = p => String(p.id).replace(/\D/g, '');
+  if (c.ent && c.ent.kind === 'product') {
+    const v = by.get(idOf(c.ent)) || 0;
+    return { html: H.head(`Stock — <b>${esc(c.ent.name)}</b>`) + H.big(`<span class="${v > 0 ? '' : 'ob-bad'}">${kg(v)}</span>`, v > 0 ? 'available now' : 'Out of stock') + H.note('Stock is tracked in Kg.'), nav: [{ label: 'Open Stock', page: 'stock' }] };
+  }
+  const rows = d.products.map(p => ({ name: p.name, v: by.get(idOf(p)) || 0 })).sort((a, b) => b.v - a.v);
+  const tot = rows.reduce((t, r) => t + r.v, 0), zero = rows.filter(r => r.v <= 0).length;
+  return { html: H.head('Stock') + H.big(kg(tot), `across ${plural(rows.length, 'product')}${zero ? ` · ${zero} out of stock` : ''}`) + H.rank(rows.filter(r => r.v > 0).slice(0, 8).map(r => ({ l: esc(r.name), v: kg(r.v) }))) + (/\bbags?\b/.test(c.n || '') ? H.note('Stock is tracked in Kg, not in bags.') : ''), nav: [{ label: 'Open Stock', page: 'stock' }] };
+}
+async function hCount() {
+  const d = await data();
+  let html = H.head('Your records');
+  if (can('customers-list') || can('sales-list')) html += H.kv('Customers', n0(d.customers.length));
+  if (can('suppliers') || can('purchases')) html += H.kv('Suppliers', n0(d.suppliers.length));
+  html += H.kv('Products', n0(d.products.length));
+  return { html };
+}
+
+/* ─────────────────────────── the brain ─────────────────────────── */
+const EXAMPLES = [
+  ['Sales this month', 'sales this month', 'sales-list'],
+  ['Bags sold & purchased', 'bags this month', 'sales-list'],
+  ['Expenses this month', 'expenses this month', 'expenses'],
+  ['Who owes me the most?', 'who owes me the most', 'customers-list'],
+  ['Overdue invoices', 'overdue invoices', 'sales-list'],
+  ['Profit this month', 'profit this month', 'finance-report'],
+  ['Business summary today', 'summary today', 'dashboard'],
+];
+const exampleChips = () => EXAMPLES.filter(e => can(e[2]) || (e[2] === 'customers-list' && can('sales-list')) || (e[2] === 'dashboard')).slice(0, 6).map(e => ({ label: e[0], q: e[1] }));
+const firstName = () => { try { return String(SERVER.user.name || '').split(' ')[0]; } catch (e) { return ''; } };
+
+async function answer(text) {
+  if (/[\u0900-\u097F]/.test(text)) return { html: 'Please type in English or in Roman Hindi (for example “aaj kitne bag bike”). Devanagari isn’t supported yet.', chips: exampleChips() };
+  const d = await data();
+  const n = norm(text);
+  if (!n) return { html: 'Type a question and I’ll look it up.', chips: exampleChips() };
+  const nameTok = allNameTokens(d);
+  const per = parsePeriod(n, new Date(), nameTok);
+  const qt = per.rest.split(' ').filter(t => t && !STOP.has(t) && !/^\d+$/.test(t));
+  const P = pools(d);
+  const kinds = ['customer', 'supplier', 'product', 'category'];
+  const R = {}; kinds.forEach(k => R[k] = rankPool(P[k], qt));
+  const partyRanked = [...R.customer, ...R.supplier].sort((a, b) => b.hit - a.hit || b.cov - a.cov);
+  const ni = fixTypos(n);
+  const topN = Math.min(10, Math.max(1, +(/\btop (\d{1,2})\b/.exec(n) || [])[1] || 5));
+
+  let cls = classify(ni, { hasParty: partyRanked.length > 0, topKind: partyRanked.length ? partyRanked[0].e.kind : null });
+  // A bare follow-up such as "last month" or "and Ramesh?" re-uses the previous question.
+  let fromCtx = false;
+  if (!cls && BOT.ctx.intent && Date.now() - BOT.lastAt < 10 * 60 * 1000 &&
+      (per.explicit || partyRanked.length || R.product.length || R.category.length)) {
+    cls = Object.assign({}, BOT.ctx.opts || {}, { id: BOT.ctx.intent }); fromCtx = true;
+  }
+  if (!cls) return miss(text, n);
+  const carry = fromCtx || STARTS_FOLLOW.test(n);            // keep the previous period / name only for real follow-ups
+  const period = resolvePeriod(per, carry);
+  if (period.blocked) return { html: `Your login is limited to <b>${esc(disp(period.lo))} – ${esc(disp(period.hi))}</b>, so I can’t look outside that range.` };
+
+  // which kind of name does this question need?
+  const want = {
+    party: ['customer', 'supplier'], sales: ['customer'], purchases: ['supplier'], bags: ['product'], stock: ['product'], expenses: ['category'],
+  }[cls.id];
+  let ent = null;
+  if (want) {
+    const ranked = want.length === 2 ? partyRanked : R[want[0]];
+    const pk = pickBest(ranked);
+    if (pk.ambiguous) return { html: 'More than one match for that name — which one do you mean?', chips: pk.ambiguous.map(e => ({ label: `${e.name} (${e.kind})`, run: cls.id, ent: e, opts: cls, period })) };
+    if (pk.ent) ent = pk.ent;
+    else if (!qt.length && carry && BOT.ctx.ent && want.includes(BOT.ctx.ent.kind)) ent = BOT.ctx.ent;
+    else if (cls.id === 'party') return notFound(qt, [...P.customer, ...P.supplier]);
+    else if (cls.id === 'stock' && qt.length) return notFound(qt, P.product, 'product');
+  }
+  const leftover = (!ent && qt.length) ? qt : [];
+  // Filters the bot can't apply yet — say so honestly instead of "couldn't find" or silently ignoring them
+  let unsupported = null;
+  if ((cls.id === 'sales' || cls.id === 'purchases') && !ent && R.product.length) unsupported = `${cls.id} by product`;
+  if (cls.id === 'bags' && !ent && partyRanked.length) unsupported = 'bags by customer or supplier';
+  return run(cls.id, Object.assign({}, cls, { n, period, ent, leftover, topN, unsupported, unknownName: cls.id === 'totals' ? qt.filter(t => t.length >= 3) : [] }));
+}
+
+const DATA_INTENTS = ['sales','purchases','bags','top_products','expenses','profit','cashflow','summary','party','totals','top_balances','top_customers','top_suppliers','overdue','stock','count'];
+async function run(id, c) {
+  if (DATA_INTENTS.includes(id)) {
+    const opts = Object.assign({}, c);
+    ['period', 'ent', 'n', 'leftover', 'topN'].forEach(k => delete opts[k]);
+    BOT.ctx = { intent: id, opts, period: c.period, ent: c.ent };
+    BOT.lastAt = Date.now();
+  }
+  let out;
+  switch (id) {
+    case 'sales': out = await hSales(c); break;
+    case 'purchases': out = await hPurchases(c); break;
+    case 'bags': out = await hBags(c); break;
+    case 'top_products': out = await hTopProducts(c); break;
+    case 'expenses': out = await hExpenses(c); break;
+    case 'profit': out = await hProfit(c); break;
+    case 'cashflow': out = await hCashflow(c); break;
+    case 'summary': out = await hSummary(c); break;
+    case 'party': out = await hParty(c); break;
+    case 'totals': out = await hTotals(c); break;
+    case 'top_balances': out = await hTopBalances(c); break;
+    case 'top_customers': out = await hTopParties(c, 'customer'); break;
+    case 'top_suppliers': out = await hTopParties(c, 'supplier'); break;
+    case 'overdue': out = await hOverdue(c); break;
+    case 'stock': out = await hStock(c); break;
+    case 'count': out = await hCount(c); break;
+    case 'greet': { const nm = firstName(); out = { html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 Ask me about your sales, purchases, bags, expenses, balances or stock — in English or Hinglish.`, chips: exampleChips() }; break; }
+    case 'thanks': out = { html: 'Happy to help! Ask me anything else about your business.' }; break;
+    case 'help': out = helpAnswer(); break;
+    case 'navigate': out = navAnswer(c.nav); break;
+    case 'create': out = createAnswer(c.create, false); break;
+    case 'howto': out = createAnswer(c.create, true); break;
+    case 'readonly': out = readonlyAnswer(c); break;
+    default: out = { html: 'Sorry, I couldn’t work that out.' };
+  }
+  if (!out.chips && ['sales', 'purchases', 'expenses', 'bags'].includes(id)) out.chips = periodChips();
+  if (c.unsupported && out.html) out.html += H.note(`I can’t show ${esc(c.unsupported)} yet, so these are the overall figures.`);
+  else if (c.leftover && c.leftover.length && !c.ent && ['sales', 'purchases', 'bags'].includes(id) && out.html)
+    out.html += H.note(`I couldn’t find “${esc(c.leftover.join(' '))}” in your records, so these are overall figures.`);
+  if (id === 'totals' && c.unknownName && c.unknownName.length && out.html)
+    out.html = `<div class="ob-warn">I couldn’t find a customer or supplier called <b>${esc(c.unknownName.join(' '))}</b> — showing the overall total instead.</div>` + out.html;
+  if (/\b(vs|versus|compare|compared|comparison)\b/.test(c.n || '') && ['sales', 'purchases', 'expenses', 'bags', 'profit'].includes(id) && out.html)
+    out.html += H.note('I can’t put two periods side by side yet. Ask for each one (e.g. “last month”), or read the ▲/▼ change under the figure.');
+  return out;
+}
+const VERB_ING = { delete: 'delete', remove: 'remove', erase: 'delete', edit: 'edit', update: 'update', modify: 'edit', change: 'change', cancel: 'cancel', void: 'void', approve: 'approve', reject: 'reject', archive: 'archive', restore: 'restore', send: 'send messages for', remind: 'send reminders for', mark: 'change', pay: 'record payments for', settle: 'settle' };
+function readonlyAnswer(c) {
+  const nv = NAV.find(x => x.re.test(c.n || ''));
+  const v = VERB_ING[c.verb] || c.verb;
+  return { html: `I can only look things up — I can’t ${esc(v)} records or send anything. Please do that on the page itself.`, nav: [nv && can(nv.page) && { label: 'Open ' + nv.label, page: nv.page }] };
+}
+function helpAnswer() {
+  const ok = [];
+  if (can('sales-list')) ok.push('<b>Sales</b> & who bought most', 'bags <b>sold</b>');
+  if (can('purchases')) ok.push('<b>Purchases</b> & top suppliers', 'bags <b>purchased</b>');
+  if (can('expenses')) ok.push('<b>Expenses</b> by category');
+  if (can('customers-list') || can('sales-list')) ok.push('what a customer <b>owes</b>', '<b>overdue</b> invoices');
+  if (can('stock')) ok.push('<b>stock</b> of a product');
+  if (can('finance-report')) ok.push('<b>profit</b>');
+  return { html: `<div class="ob-h">What I can answer</div><div class="ob-note" style="font-size:12.5px;color:var(--text2)">${ok.join(' · ')}</div>` +
+    H.note('Add a time like “today”, “last month”, “September”, “last 7 days” or “1 Oct to 15 Oct”. I understand Hinglish too — try “aaj kitne bag bike”. I only read your data; I never change anything.'), chips: exampleChips() };
+}
+function navAnswer(nv) {
+  if (!can(nv.page)) return noAccess(nv.label);
+  return { html: `Opening <b>${esc(nv.label)}</b>…`, go: () => goPage(nv.page) };
+}
+function createAnswer(c, howTo) {
+  if (!can(c.page)) return noAccess(c.label.replace(/^(New|Add) /, ''));
+  if (typeof SERVER !== 'undefined' && SERVER.canCreate === false) return { html: 'Your role isn’t allowed to create new entries.' };
+  return howTo ? { html: `I can’t walk you through that yet, but I can take you there.`, nav: [{ label: c.label, fn: c.run }] } : { html: `Opening <b>${esc(c.label)}</b>…`, go: c.run };
+}
+function miss(text, n) {
+  const nv = NAV.find(x => x.re.test(n || ''));
+  if (nv && can(nv.page)) {
+    return { html: `I can’t answer that one directly yet, but I can open <b>${esc(nv.label)}</b> for you.`, nav: [{ label: 'Open ' + nv.label, page: nv.page }], chips: exampleChips().slice(0, 3) };
+  }
+  try { const k = 'optBotMisses'; const a = JSON.parse(localStorage.getItem(k) || '[]'); a.push({ q: String(text).slice(0, 200), t: new Date().toISOString() }); localStorage.setItem(k, JSON.stringify(a.slice(-50))); } catch (e) { /* storage may be blocked */ }
+  return { html: 'I’m not sure I understood that. Try something like:', chips: exampleChips() };
+}
+function notFound(qt, pool, kind) {
+  const what = kind || 'customer or supplier';
+  // looser than the matcher: a typo of up to 2 letters, or the same first 3 letters
+  const near = pool.map(e => { const nt = e._t || (e._t = nameToks(e.name)); let sc = 0;
+    nt.forEach(t => { if (GENERIC.has(t)) return; qt.forEach(q => { if (q.length >= 3 && t.slice(0, 3) === q.slice(0, 3)) sc = Math.max(sc, 1); else if (q.length >= 4 && t.length >= 4 && lev(t, q) <= 2) sc = Math.max(sc, 2); }); });
+    return { e, sc }; }).filter(x => x.sc).sort((a, b) => b.sc - a.sc).slice(0, 3);
+  return { html: `I couldn’t find a ${what} called <b>${esc(qt.join(' '))}</b>.` + (near.length ? ` Did you mean: ${near.map(r => `<b>${esc(r.e.name)}</b>`).join(', ')}?` : ''),
+           chips: near.map(r => ({ label: r.e.name, q: r.e.name })) };
+}
+function goPage(page) {
+  const el = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (el) el.click(); else showPage(page, null);
+  if (window.matchMedia && window.matchMedia('(max-width:700px)').matches) closePanel();
+}
+
+/* ───────────────────────────── the chat window ───────────────────────────── */
+let $root, $msgs, $in, $panel, $fab;
+function addUser(text) {
+  const el = document.createElement('div'); el.className = 'ob-row ob-user'; el.innerHTML = `<div class="ob-bubble">${esc(text)}</div>`;
+  $msgs.appendChild(el); scroll();
+}
+function clearChips() { $msgs.querySelectorAll('.ob-chips').forEach(x => x.remove()); }
+function addBot(out) {
+  clearChips();
+  const el = document.createElement('div'); el.className = 'ob-row ob-bot';
+  let html = `<div class="ob-bubble">${out.html}</div>`;
+  const navs = (out.nav || []).filter(x => x && x.ok !== false);
+  if (navs.length) html += `<div class="ob-chips">${navs.map(x => `<button type="button" class="ob-chip ob-nav" data-a="${reg({ nav: x })}"><i class="fas fa-arrow-up-right-from-square"></i> ${esc(x.label)}</button>`).join('')}</div>`;
+  if (out.chips && out.chips.length) html += `<div class="ob-chips">${out.chips.map(x => `<button type="button" class="ob-chip" data-a="${reg({ chip: x })}">${esc(x.label)}</button>`).join('')}</div>`;
+  el.innerHTML = html; $msgs.appendChild(el); scroll();
+  if (out.go) setTimeout(() => { try { out.go(); } catch (e) { console.error(e); } }, 150);
+}
+function reg(a) { const id = ++BOT.seq; BOT.actions.set(id, a); if (BOT.actions.size > 300) BOT.actions.delete(BOT.actions.keys().next().value); return id; }
+function scroll() { $msgs.scrollTop = $msgs.scrollHeight; }
+function typing(on) {
+  let t = $msgs.querySelector('.ob-typing');
+  if (on && !t) { t = document.createElement('div'); t.className = 'ob-row ob-bot ob-typing'; t.innerHTML = '<div class="ob-bubble"><i></i><i></i><i></i></div>'; $msgs.appendChild(t); scroll(); }
+  if (!on && t) t.remove();
+}
+let busy = false;
+async function ask(text, chip) {
+  text = String(text || '').trim(); if (!text || busy) return;
+  busy = true; addUser(chip && chip.label || text); typing(true);
+  try {
+    let out;
+    if (chip && chip.run && chip.ent) {                    // a disambiguation / follow-up chip carries its exact choice
+      const d = await data();
+      const per = chip.period || resolvePeriod({ explicit: false }, false);
+      out = await run(chip.run, Object.assign({}, chip.opts || {}, { n: '', period: per, ent: chip.ent, leftover: [], topN: 5 }));
+    } else out = await answer(text);
+    typing(false); addBot(out);
+  } catch (e) {
+    console.error('[assistant]', e); typing(false);
+    addBot({ html: 'Sorry — I couldn’t load that just now. Please try again, or open the page directly.' });
+  }
+  busy = false;
+}
+function openPanel() { BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
+function closePanel() { BOT.open = false; $panel.hidden = true; $fab.setAttribute('aria-expanded', 'false'); $fab.classList.remove('on'); }
+function reset() { $msgs.innerHTML = ''; BOT.ctx = {}; BOT.actions.clear(); welcome(); }
+function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I can answer questions about your <b>sales, purchases, bags, expenses, balances and stock</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
+
+function init() {
+  $root = document.createElement('div'); $root.id = 'opt-bot';
+  $root.innerHTML =
+    `<button id="ob-fab" type="button" aria-label="Open business assistant" aria-expanded="false" title="Ask the assistant"><i class="fas fa-comments"></i></button>` +
+    `<section id="ob-panel" role="dialog" aria-label="Business assistant" hidden>` +
+      `<header><div><b>Business Assistant</b><small>Ask about sales, bags, expenses, balances…</small></div>` +
+      `<button type="button" id="ob-clear" title="Clear chat" aria-label="Clear chat"><i class="fas fa-rotate-left"></i></button>` +
+      `<button type="button" id="ob-close" title="Close" aria-label="Close"><i class="fas fa-xmark"></i></button></header>` +
+      `<div id="ob-msgs" aria-live="polite"></div>` +
+      `<form id="ob-form" autocomplete="off"><input id="ob-in" type="text" maxlength="200" placeholder="Ask e.g. “bags sold this month”" aria-label="Your question"><button type="submit" aria-label="Send"><i class="fas fa-paper-plane"></i></button></form>` +
+    `</section>`;
+  document.body.appendChild($root);
+  $panel = $root.querySelector('#ob-panel'); $fab = $root.querySelector('#ob-fab'); $msgs = $root.querySelector('#ob-msgs'); $in = $root.querySelector('#ob-in');
+  $fab.addEventListener('click', () => BOT.open ? closePanel() : openPanel());
+  $root.querySelector('#ob-close').addEventListener('click', closePanel);
+  $root.querySelector('#ob-clear').addEventListener('click', reset);
+  $root.querySelector('#ob-form').addEventListener('submit', e => { e.preventDefault(); const v = $in.value; $in.value = ''; ask(v); });
+  $panel.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); $fab.focus(); } });
+  $msgs.addEventListener('click', e => {
+    const b = e.target.closest('.ob-chip'); if (!b) return;
+    const a = BOT.actions.get(+b.dataset.a); if (!a) return;
+    if (a.nav) { const x = a.nav; try { x.fn ? x.fn() : goPage(x.page); } catch (er) { console.error(er); } return; }
+    const ch = a.chip; ask(ch.q || ch.label, ch);
+  });
+  welcome();
+}
+
+window.optBot = { open: () => { if (!$root) init(); openPanel(); }, close: () => $panel && closePanel(), ask: q => { if (!$root) init(); openPanel(); return ask(q); },
+  misses: () => { try { return JSON.parse(localStorage.getItem('optBotMisses') || '[]'); } catch (e) { return []; } },
+  _answer: answer, _norm: norm, _parsePeriod: parsePeriod, _classify: classify, _reset: () => { BOT.data = null; BOT.pools = null; BOT.nameTok = null; BOT.cache.clear(); BOT.ctx = {}; } };
+
+if (typeof document !== 'undefined' && document.body && !window.__OPTBOT_TEST__) init();
+})();
+</script>
 </body>
 </html>
