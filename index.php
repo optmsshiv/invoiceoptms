@@ -17242,6 +17242,7 @@ function renderClients() {
         ${!isInactive ? `<button class="btn btn-outline" style="flex:1;font-size:12px" onclick="createInvoiceForClient('${c.id}')"><i class="fas fa-plus"></i> Invoice</button>` : ''}
         ${!isInactive ? `<button class="btn btn-whatsapp" style="flex:1;font-size:12px" onclick="sendWAMessage('${c.wa}','${c.name}','','','')"><i class="fab fa-whatsapp"></i> Msg</button>` : ''}
         ${outstandingAmt > 0 ? `<button class="btn btn-outline" style="flex:1;font-size:12px;color:var(--amber);border-color:var(--amber)" onclick="sendAccountStatement('${c.id}')" title="Send Account Statement"><i class="fas fa-file-alt"></i> Statement</button>` : ''}
+        <button class="btn btn-outline" style="flex:1;font-size:12px;color:var(--teal);border-color:var(--teal)" onclick="openOnboardingStatement('${c.id}')" title="Onboarding statement: since when, how much paid, month by month"><i class="fas fa-timeline"></i> Onboarding</button>
         <button class="btn btn-outline" style="padding:9px 12px;font-size:12px" onclick="editClient('${c.id}')" title="Edit"><i class="fas fa-edit"></i></button>
         ${isInactive
           ? `<button class="btn" style="flex:1;font-size:12px;background:#E8F5E9;color:#2E7D32;border:1.5px solid #A5D6A7" onclick="toggleClientActive('${c.id}',true)" title="Re-activate client"><i class="fas fa-check-circle"></i> Activate</button>`
@@ -39018,16 +39019,28 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
 .modal { border-radius: 16px; box-shadow: 0 24px 70px rgba(16,24,40,.28); }
 .page.active { animation: optPageIn .25s ease both; }
 @keyframes optPageIn { from { opacity: 0; } to { opacity: 1; } }
-html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+/* the side menu's scrollbar stays hidden until you point at the menu */
+.sidebar-nav { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.sidebar-nav:hover, .sidebar-nav:focus-within { scrollbar-color: rgba(255,255,255,.28) transparent; }
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: transparent; }
+.sidebar-nav:hover::-webkit-scrollbar-thumb, .sidebar-nav:focus-within::-webkit-scrollbar-thumb { background: rgba(255,255,255,.28); }
 
 /* grids that used a hard minimum can overflow narrow screens */
 .clients-grid { grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr)); }
 .templates-grid { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
 .cal-grid > * { min-width: 0; }
 
+/* Dashboard stat row (service dashboard): 5 cards fit 5 across; with the 6th (WhatsApp) card they go 3 × 2, never 5 + 1 */
+@media (min-width: 1200px) and (max-width: 1599.98px) { .dash-stats-row:has(> :nth-child(6)) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1600px) { .dash-stats-row:has(> :nth-child(6)) { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
 /* a flex item can't shrink below its content unless told it may — this stopped wide content from widening the whole page */
 .main-wrap { min-width: 0; max-width: 100%; }
 .page { min-width: 0; }
+
+/* the OPTMS ai chat button sits above the page but BELOW pop-ups (they are layer 300), so it never covers a form's buttons */
+#opt-bot { z-index: 250; }
 
 /* new controls are hidden unless a media query turns them on */
 .filters-toggle,
@@ -39111,14 +39124,15 @@ html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
   .topbar { padding: 0 10px; gap: 6px; -webkit-backdrop-filter: none; backdrop-filter: none; background: #fff; }
   .mm-btn, .mm-search-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 12px; background: transparent; color: var(--text2); font-size: 18px; cursor: pointer; }
   .mm-btn:active, .mm-search-btn:active { background: var(--bg); }
-  .topbar-left { flex: 1 1 0; min-width: 0; gap: 8px; }
-  .page-breadcrumb { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar-left { flex: 1 1 0; min-width: 0; gap: 8px; flex-wrap: nowrap !important; overflow: hidden; }   /* the page's own inline style says wrap — that dropped the period badge onto a second line */
+  .page-breadcrumb { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 0 auto; max-width: 46vw; }   /* the title keeps its full width; the badge gives way */
   .topbar-right { gap: 4px; flex: none; }
   .topbar-right > span[title^="Session is connected"], .topbar-right > button[onclick*="connectDbPrompt"] { display: none !important; }   /* database connect/disconnect (admin tool) */
   .user-chip { padding: 3px; gap: 0; }
   .user-chip > :not(.user-avatar):not(img):not(:first-child) { display: none; }
+  #gdr-topbar-badge { flex: 0 1 auto; min-width: 34px; padding: 6px 9px !important; gap: 6px !important; }
   #gdr-topbar-badge-dates { display: none; }
-  #gdr-topbar-badge { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #gdr-topbar-badge-name { display: block; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px !important; }
   .wa-queued-pill, #ear-topbar-alert { font-size: 0; padding: 6px 8px; }
   .wa-queued-pill > *, #ear-topbar-alert > * { font-size: 12px; }
 
@@ -39172,9 +39186,27 @@ html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
   .toast { min-width: 0 !important; width: 100%; }
 }
 
+@media (max-width: 479.98px) {
+  .topbar { padding: 0 6px; gap: 2px; }
+  .topbar-left { gap: 6px; }
+  .topbar-right { gap: 2px; }
+  #gdr-topbar-badge-name { display: none; }          /* very small phones: the calendar icon alone (tap it to change the period) */
+  #gdr-topbar-badge { padding: 8px !important; flex: 0 0 34px; justify-content: center; }
+}
+
 /* ─────────── 5. CONTENT: grids, forms, pop-ups, toolbars ─────────── */
+@media (max-width: 1199.98px) {
+  /* 3 per row, and a short last row stretches to fill (1 left → full width, 2 left → half each) */
+  .dash-stats-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .dash-stats-row > * { grid-column: span 2; min-width: 0; }
+  .dash-stats-row > :last-child:nth-child(3n+1) { grid-column: span 6; }
+  .dash-stats-row > :nth-last-child(2):nth-child(3n+1), .dash-stats-row > :last-child:nth-child(3n+2) { grid-column: span 3; }
+  /* the chart / calendar / donut and recent / top-clients rows wrap instead of squeezing */
+  #page-dashboard div[style*="display:flex"]:has(> .dash-card) { flex-wrap: wrap !important; }
+  #page-dashboard div[style*="display:flex"] > .dash-card { flex: 1 1 300px !important; min-width: 0 !important; }
+  #page-dashboard div[style*="display:flex"] > .dash-card:first-child { flex: 1 1 100% !important; }
+}
 @media (max-width: 1099.98px) {
-  .dash-stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .kanta-grid, .backup-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .g3, .wa-row-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* inline 3+ column grids → 2 columns, side-by-side layouts → 1 */
@@ -39197,7 +39229,10 @@ html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
 }
 
 @media (max-width: 639.98px) {
-  .dash-stats-row, .kanta-grid, .backup-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kanta-grid, .backup-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-stats-row > *, .dash-stats-row > :last-child:nth-child(3n+1), .dash-stats-row > :nth-last-child(2):nth-child(3n+1), .dash-stats-row > :last-child:nth-child(3n+2) { grid-column: auto; }
+  #page-dashboard div[style*="display:flex"] > .dash-card { flex: 1 1 100% !important; }
   .g3, .wa-row-2, .wa-row-3, .pne-grid2, .pne-grid3, .pne-grid4, .pne-grid5, .pne-grid-auto, .pne-signature-row { grid-template-columns: minmax(0, 1fr); }
   /* inline grids: stat-style cards stay 2-up, everything else stacks */
   [style*="grid-template-columns:repeat"], [style*="grid-template-columns: repeat"],
@@ -39207,6 +39242,12 @@ html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
   .ps-stats-row[style], .dash-stats-row[style], .db-kpi-row[style] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
   .ps-stats-row > :last-child:nth-child(odd), .dash-stats-row > :last-child:nth-child(odd), .db-kpi-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .cal-grid { gap: 2px; }
+  /* stat cards: icon above the number, so a big amount like ₹12,45,000 gets the whole card width */
+  .stat-card { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; min-width: 0; }
+  .stat-card .stat-body { min-width: 0; width: 100%; }
+  .stat-val { font-size: 20px; overflow-wrap: anywhere; }
+  /* the dashboard period picker: the two dates share a row */
+  #page-dashboard input[type=date] { width: auto; flex: 1 1 130px; min-width: 0; }
   /* cards with a fixed 220–300px width take the whole row instead of squeezing their neighbour */
   .page [style*="flex:0 0 220px"], .page [style*="flex: 0 0 220px"], .page [style*="flex:0 0 280px"], .page [style*="flex: 0 0 280px"],
   .page [style*="flex:0 0 300px"], .page [style*="flex: 0 0 300px"] { flex: 1 1 100% !important; min-width: 0 !important; }
@@ -39539,5 +39580,347 @@ html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
 })();
 </script>
 <!-- OPTMS-RESPONSIVE:END -->
+<!-- OPTMS-ONBOARD:START -->
+<style id="optms-onboarding">
+/* ═══ Client Onboarding Statement ═══ */
+#modal-onboarding .modal-body { max-height: 70vh; overflow-y: auto; }
+.onb-hero { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 16px 18px; border-radius: 14px; margin-bottom: 14px;
+  background: linear-gradient(135deg, #E0F2F1 0%, #F4FBFA 100%); border: 1px solid #B2DFDB; }
+.onb-av { width: 48px; height: 48px; flex: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 17px; }
+.onb-who { flex: 1 1 200px; min-width: 0; }
+.onb-name { font-size: 17px; font-weight: 800; color: var(--text); overflow-wrap: anywhere; }
+.onb-badge { font-size: 9.5px; font-weight: 800; letter-spacing: .5px; padding: 2px 7px; border-radius: 6px; background: #ECEFF1; color: #607D8B; vertical-align: middle; }
+.onb-sub { font-size: 12px; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+.onb-since { text-align: right; flex: none; }
+.onb-lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #00695C; }
+.onb-date { font-size: 22px; font-weight: 800; color: #00695C; line-height: 1.2; }
+.onb-ten { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.onb-ten span { color: var(--muted); border-bottom: 1px dotted var(--muted2); cursor: help; }
+
+.onb-range { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; font-size: 13px; color: var(--text2); }
+.onb-range select, .onb-range input[type=date] { width: auto; min-width: 0; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--card); font: inherit; font-size: 13px; }
+.onb-range [hidden] { display: none; }
+#onb-custom { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#onb-custom[hidden] { display: none; }
+.onb-period { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.onb-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.onb-tile { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: var(--shadow); min-width: 0; }
+.onb-ic { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+.onb-tl { margin-top: 8px; font-size: 11px; color: var(--muted); font-weight: 600; }
+.onb-tv { font-size: 19px; font-weight: 800; color: var(--text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.onb-ts { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.onb-line { font-size: 12px; color: var(--text2); margin: 0 0 12px; line-height: 1.55; }
+.onb-line i { color: var(--teal); margin-right: 4px; }
+
+.onb-scroll { max-height: 340px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+.onb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.onb-table th { position: sticky; top: 0; z-index: 1; background: #F7FAFB; }
+.onb-table th.r, .onb-table td.r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.onb-table tr.onb-quiet td { color: var(--muted2); }
+.onb-table tr.onb-open td { background: #FFFDE7; font-style: italic; color: var(--text2); }
+.onb-table td.onb-paid { color: #2E7D32; font-weight: 700; }
+.onb-table tfoot td { position: sticky; bottom: 0; background: #F2F6F8; font-weight: 800; border-top: 1.5px solid var(--border2); }
+.onb-details { margin-top: 12px; }
+.onb-details summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--teal); padding: 8px 2px; }
+.onb-note { margin-top: 12px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.onb-empty { padding: 34px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
+.onb-empty i { display: block; font-size: 30px; opacity: .25; margin-bottom: 10px; }
+.onb-empty small { display: block; margin-top: 6px; opacity: .8; }
+.onb-empty.small { padding: 14px; }
+
+@media (max-width: 720px) {
+  .onb-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .onb-since { text-align: left; flex: 1 1 100%; }
+  .onb-period { margin-left: 0; flex: 1 1 100%; }
+  .onb-hero { padding: 14px; }
+  .onb-date { font-size: 20px; }
+}
+@media (max-width: 639.98px) {
+  #modal-onboarding .modal-body { padding: 14px 14px !important; max-height: none; }
+  .onb-tv { font-size: 17px; }
+}
+</style>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   CLIENT ONBOARDING STATEMENT
+   Shows, for one client: since when they have been with you, how much they
+   have paid, and a month-by-month table (billed / paid / balance).
+   • Reads only what the app already has loaded (clients, invoices, payments).
+   • Same rules as the rest of the app: Draft and Cancelled invoices are not
+     billing; a payment's settlement discount is shown separately.
+   • "Onboarded on" = the earliest of: the date the client was added (if the
+     server sends one), their first invoice, their first payment.
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.optmsOnboarding) return;
+
+  /* ───────── helpers ───────── */
+  const num = v => parseFloat(v) || 0;
+  const pad = n => String(n).padStart(2, '0');
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const money = v => (typeof fmt_money === 'function') ? fmt_money(v) : '₹' + num(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plain = v => num(v).toFixed(2);
+  const ymdLocal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  function toYmd(v) {                                   // "2025-03-15", "2025-03-15 10:00:00", "15 Mar 2025" … → "2025-03-15" ('' if not a date)
+    if (!v) return '';
+    const s = String(v).trim(), m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    const d = new Date(s); return isNaN(d) ? '' : ymdLocal(d);
+  }
+  const parts = s => s.split('-').map(Number);
+  const dispDate = s => { if (!s) return '—'; const [y, m, d] = parts(s); return `${d} ${MON[m - 1]} ${y}`; };
+  const monthLabel = k => { const [y, m] = k.split('-'); return MON[+m - 1] + ' ' + y; };
+  const monthKey = s => s.slice(0, 7);
+  const nextMonth = k => { let [y, m] = k.split('-').map(Number); m++; if (m > 12) { m = 1; y++; } return y + '-' + pad(m); };
+  const daysIn = (y, m) => new Date(y, m, 0).getDate();   // m is 1-based
+  const maxS = (a, b) => a > b ? a : b, minS = (a, b) => a < b ? a : b;
+
+  function addMonths(ymd, n) {                          // adds whole months, clamping the day (31 Jan + 1 month = 28 Feb)
+    const [y, m, d] = parts(ymd); const idx = (y * 12 + (m - 1)) + n, ny = Math.floor(idx / 12), nm = idx % 12 + 1;
+    return `${ny}-${pad(nm)}-${pad(Math.min(d, daysIn(ny, nm)))}`;
+  }
+  function tenure(from, to) {
+    let months = (parts(to)[0] - parts(from)[0]) * 12 + (parts(to)[1] - parts(from)[1]);
+    if (addMonths(from, months) > to) months--;
+    if (months < 0) months = 0;
+    const base = addMonths(from, months), [by, bm, bd] = parts(base), [ty, tm, td] = parts(to);
+    const days = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(by, bm - 1, bd)) / 86400000);
+    return { y: Math.floor(months / 12), m: months % 12, d: days };
+  }
+  function tenureText(t) {
+    const out = [];
+    if (t.y) out.push(t.y + (t.y === 1 ? ' yr' : ' yrs'));
+    if (t.m) out.push(t.m + (t.m === 1 ? ' month' : ' months'));
+    if (!out.length) out.push(t.d + (t.d === 1 ? ' day' : ' days'));
+    return out.join(' ');
+  }
+
+  /* ───────── the calculation (pure: no page access except STATE) ───────── */
+  const SOURCE_RANK = { 'Client added': 0, 'First invoice': 1, 'First payment': 2 };
+  function build(clientId, opts) {
+    opts = opts || {};
+    const today = toYmd(opts.today || new Date());
+    const c = (STATE.clients || []).find(x => String(x.id) === String(clientId));
+    if (!c) return null;
+
+    const live = (STATE.invoices || []).filter(i => String(i.client) === String(clientId) && i.status !== 'Cancelled' && i.status !== 'Draft');
+    const ids = new Set(live.map(i => String(i.id)));
+    const numById = {}; live.forEach(i => { numById[String(i.id)] = i.num || i.invoice_number || ''; });
+    const allInv = live.map(i => ({ date: toYmd(i.issued || i.date), amount: num(i.amount), num: i.num || i.invoice_number || '' }));
+    const undated = allInv.filter(i => !i.date).length;
+    const future = allInv.filter(i => i.date && i.date > today).length;
+    const invs = allInv.filter(i => i.date && i.date <= today);
+    const pays = (STATE.payments || []).filter(p => p.invoice_id && ids.has(String(p.invoice_id)))
+      .map(p => ({ date: toYmd(p.date || p.payment_date), amount: num(p.amount), disc: num(p.settlement_discount), method: p.method || '', txn: p.txn || '', inv: numById[String(p.invoice_id)] || '' }))
+      .filter(p => p.date && p.date <= today)
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+
+    // since when
+    const cands = [];
+    const created = toYmd(c.created_at || c.createdAt || c.created || c.added_on || c.onboarded_on || c.onboarded_at || c.since);
+    if (created) cands.push({ date: created, source: 'Client added' });
+    if (invs.length) cands.push({ date: invs.map(i => i.date).sort()[0], source: 'First invoice' });
+    if (pays.length) cands.push({ date: pays[0].date, source: 'First payment' });
+    cands.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : SOURCE_RANK[a.source] - SOURCE_RANK[b.source]);
+    const since = cands[0] || null;
+
+    // lifetime figures (everything up to today)
+    const sum = (a, k) => a.reduce((t, x) => t + x[k], 0);
+    const life = { billed: sum(invs, 'amount'), paid: sum(pays, 'amount'), disc: sum(pays, 'disc'), inv: invs.length, pays: pays.length,
+      firstPay: pays[0] ? pays[0].date : '', lastPay: pays.length ? pays[pays.length - 1].date : '', lastPayAmt: pays.length ? pays[pays.length - 1].amount : 0 };
+    life.balance = life.billed - life.paid - life.disc;
+
+    // the period shown
+    const mode = opts.range || 'all';
+    const [ty, tm] = parts(today);
+    const fyY = tm >= 4 ? ty : ty - 1, fyStart = fyY + '-04-01';
+    let from = since ? since.date : today, to = today, label = 'Since onboarding';
+    if (mode === 'fy') { from = fyStart; label = `FY ${fyY}-${String(fyY + 1).slice(2)}`; }
+    else if (mode === 'last12') { let y = ty, m = tm - 11; while (m < 1) { m += 12; y--; } from = `${y}-${pad(m)}-01`; label = 'Last 12 months'; }
+    else if (mode === 'custom') { from = toYmd(opts.from) || from; to = minS(toYmd(opts.to) || today, today); label = 'Custom range'; }
+    if (since) from = maxS(from, since.date);
+    if (from > to) { const t = from; from = to; to = t; }
+
+    const rows = [];
+    let opening = 0;
+    if (since) {
+      invs.forEach(i => { if (i.date < from) opening += i.amount; });
+      pays.forEach(p => { if (p.date < from) opening -= p.amount + p.disc; });
+      const byKey = {};
+      for (let k = monthKey(from); k <= monthKey(to); k = nextMonth(k)) { const r = { key: k, label: monthLabel(k), inv: 0, billed: 0, paid: 0, disc: 0, pays: 0, closing: 0 }; byKey[k] = r; rows.push(r); }
+      invs.forEach(i => { if (i.date >= from && i.date <= to) { const r = byKey[monthKey(i.date)]; r.inv++; r.billed += i.amount; } });
+      pays.forEach(p => { if (p.date >= from && p.date <= to) { const r = byKey[monthKey(p.date)]; r.pays++; r.paid += p.amount; r.disc += p.disc; } });
+      let run = opening; rows.forEach(r => { run += r.billed - r.paid - r.disc; r.closing = run; });
+    }
+    const totals = { inv: sum(rows, 'inv'), billed: sum(rows, 'billed'), paid: sum(rows, 'paid'), disc: sum(rows, 'disc'), pays: sum(rows, 'pays') };
+    totals.closing = opening + totals.billed - totals.paid - totals.disc;
+    const monthsPaid = rows.filter(r => r.paid > 0).length;
+
+    return {
+      client: c, today, since, tenure: since ? tenure(since.date, today) : null,
+      range: { mode, from, to, label, months: rows.length },
+      opening, rows, totals, life, monthsPaid,
+      avgPaid: rows.length ? totals.paid / rows.length : 0,
+      payments: pays.filter(p => p.date >= from && p.date <= to).slice().reverse(),
+      undated, future,
+    };
+  }
+
+  /* ───────── the pop-up ───────── */
+  const S = { id: null, opts: { range: 'all' }, data: null };
+  const $ = id => document.getElementById(id);
+  const initials = n => (typeof getInitials === 'function') ? getInitials(n) : String(n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+  function ensureModal() {
+    if ($('modal-onboarding')) return;
+    const el = document.createElement('div'); el.className = 'modal-overlay'; el.id = 'modal-onboarding';
+    el.innerHTML = '<div class="modal" style="max-width:920px">' +
+      '<div class="modal-header"><span><i class="fas fa-timeline" style="color:var(--teal);margin-right:8px"></i>Onboarding Statement</span>' +
+        '<button class="modal-close" type="button" aria-label="Close" onclick="closeModal(\'modal-onboarding\')"><i class="fas fa-times"></i></button></div>' +
+      '<div class="modal-body" id="onb-body" style="padding:20px 24px"></div>' +
+      '<div class="modal-footer" id="onb-foot">' +
+        '<button class="btn btn-primary" type="button" onclick="optmsOnboarding.print()"><i class="fas fa-print"></i> Print / Save PDF</button>' +
+        '<button class="btn btn-outline" type="button" onclick="optmsOnboarding.csv()"><i class="fas fa-file-csv"></i> Download CSV</button>' +
+        '<button class="btn btn-outline" type="button" id="onb-wa" onclick="optmsOnboarding.whatsapp()" style="color:#25D366;border-color:#25D366"><i class="fab fa-whatsapp"></i> WhatsApp</button>' +
+        '<button class="btn btn-outline" type="button" onclick="closeModal(\'modal-onboarding\')">Close</button></div></div>';
+    document.body.appendChild(el);
+  }
+
+  function tile(icon, bg, fg, label, value, sub, color) {
+    return `<div class="onb-tile"><span class="onb-ic" style="background:${bg};color:${fg}"><i class="fas ${icon}"></i></span><div class="onb-tl">${label}</div>` +
+      `<div class="onb-tv"${color ? ` style="color:${color}"` : ''}>${value}</div>${sub ? `<div class="onb-ts">${sub}</div>` : ''}</div>`;
+  }
+
+  function render() {
+    const d = S.data = build(S.id, S.opts), body = $('onb-body');
+    if (!d) { body.innerHTML = '<div class="onb-empty">Client not found.</div>'; return; }
+    const c = d.client, inactive = parseInt(c.active) === 0 || c.status === 'inactive';
+    const hero = `<div class="onb-hero"><div class="onb-av" style="background:${esc(c.color || '#00897B')}">${esc(initials(c.name))}</div>` +
+      `<div class="onb-who"><div class="onb-name">${esc(c.name)}${inactive ? ' <span class="onb-badge">INACTIVE</span>' : ''}</div>` +
+      `<div class="onb-sub">${[c.person, c.wa, c.email].filter(Boolean).map(esc).join(' · ') || '&nbsp;'}</div></div>` +
+      (d.since ? `<div class="onb-since"><div class="onb-lbl">Onboarded on</div><div class="onb-date">${dispDate(d.since.date)}</div>` +
+        `<div class="onb-ten">${esc(tenureText(d.tenure))} with you · <span title="Earliest of: client added, first invoice, first payment">${esc(d.since.source.toLowerCase())}</span></div></div>` : '') + '</div>';
+    if (!d.since) { body.innerHTML = hero + '<div class="onb-empty"><i class="fas fa-inbox"></i><div>No invoices or payments yet for this client, so there is nothing to show.</div><small>Create an invoice and come back.</small></div>'; $('onb-wa').disabled = true; return; }
+
+    const r = d.range, showDisc = d.rows.some(x => x.disc > 0) || d.opening !== 0 && d.life.disc > 0;
+    const fyNow = (() => { const [y, m] = parts(d.today); const fy = m >= 4 ? y : y - 1; return `FY ${fy}-${String(fy + 1).slice(2)}`; })();
+    const sel = (v, t) => `<option value="${v}"${r.mode === v ? ' selected' : ''}>${t}</option>`;
+    const bar = `<div class="onb-range"><label>Show <select id="onb-range" onchange="optmsOnboarding.setRange(this.value)">${sel('all', 'Since onboarding')}${sel('fy', 'This financial year (' + fyNow + ')')}${sel('last12', 'Last 12 months')}${sel('custom', 'Custom range…')}</select></label>` +
+      `<span id="onb-custom"${r.mode === 'custom' ? '' : ' hidden'}><input type="date" id="onb-from" value="${r.from}"> to <input type="date" id="onb-to" value="${r.to}"> <button class="btn btn-outline" type="button" onclick="optmsOnboarding.applyCustom()">Apply</button></span>` +
+      `<span class="onb-period">${dispDate(r.from)} – ${dispDate(r.to)} · ${r.months} month${r.months === 1 ? '' : 's'}</span></div>`;
+
+    const bal = d.totals.closing;
+    const tiles = '<div class="onb-tiles">' +
+      tile('fa-hand-holding-dollar', '#E8F5E9', '#2E7D32', 'Total paid', money(d.totals.paid), `${d.monthsPaid} of ${r.months} month${r.months === 1 ? '' : 's'} with a payment`, '#2E7D32') +
+      tile('fa-calendar-check', '#E3F2FD', '#1976D2', 'Average paid / month', money(d.avgPaid), `over ${r.months} month${r.months === 1 ? '' : 's'}`) +
+      tile('fa-file-invoice', '#F3E8FF', '#6A4C93', 'Total billed', money(d.totals.billed), `${d.totals.inv} invoice${d.totals.inv === 1 ? '' : 's'}`) +
+      tile('fa-scale-balanced', bal > 0.004 ? '#FFEBEE' : '#E8F5E9', bal > 0.004 ? '#C62828' : '#2E7D32', 'Balance due', money(Math.max(0, bal)), bal > 0.004 ? 'as of ' + dispDate(r.to) : (bal < -0.004 ? 'advance ' + money(-bal) : 'all settled'), bal > 0.004 ? '#C62828' : '#2E7D32') + '</div>';
+
+    const lastPay = d.life.lastPay ? `<div class="onb-line"><i class="fas fa-circle-info"></i> First payment <b>${dispDate(d.life.firstPay)}</b> · Last payment <b>${dispDate(d.life.lastPay)}</b> (${money(d.life.lastPayAmt)}) · Lifetime paid <b>${money(d.life.paid)}</b></div>` :
+      '<div class="onb-line"><i class="fas fa-circle-info"></i> No payment received yet.</div>';
+
+    const head = `<tr><th>Month</th><th class="r">Invoices</th><th class="r">Billed</th><th class="r">Paid</th>${showDisc ? '<th class="r">Discount</th>' : ''}<th class="r">Balance</th></tr>`;
+    const openRow = d.opening !== 0 ? `<tr class="onb-open"><td colspan="${showDisc ? 5 : 4}">Opening balance (before ${dispDate(r.from)})</td><td class="r">${money(d.opening)}</td></tr>` : '';
+    const trs = d.rows.map(x => `<tr class="${x.billed || x.paid ? '' : 'onb-quiet'}"><td>${esc(x.label)}</td><td class="r">${x.inv || '—'}</td><td class="r">${x.billed ? money(x.billed) : '—'}</td>` +
+      `<td class="r${x.paid ? ' onb-paid' : ''}">${x.paid ? money(x.paid) : '—'}</td>${showDisc ? `<td class="r">${x.disc ? money(x.disc) : '—'}</td>` : ''}<td class="r">${money(x.closing)}</td></tr>`).join('');
+    const foot = `<tr class="onb-total"><td>Total</td><td class="r">${d.totals.inv}</td><td class="r">${money(d.totals.billed)}</td><td class="r">${money(d.totals.paid)}</td>${showDisc ? `<td class="r">${money(d.totals.disc)}</td>` : ''}<td class="r">${money(d.totals.closing)}</td></tr>`;
+    const table = `<div class="onb-scroll"><table class="data-table onb-table"><thead>${head}</thead><tbody>${openRow}${trs}</tbody><tfoot>${foot}</tfoot></table></div>`;
+
+    const pRows = d.payments.map(p => `<tr><td>${dispDate(p.date)}</td><td>${esc(p.inv || '—')}</td><td>${esc(p.method || '—')}</td><td>${esc(p.txn || '—')}</td><td class="r">${money(p.amount)}${p.disc ? `<div class="onb-ts">+ ${money(p.disc)} discount</div>` : ''}</td></tr>`).join('');
+    const details = `<details class="onb-details"><summary>Payment details (${d.payments.length})</summary>` + (d.payments.length ?
+      `<div class="onb-scroll"><table class="data-table onb-table"><thead><tr><th>Date</th><th>Invoice</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead><tbody>${pRows}</tbody></table></div>` : '<div class="onb-empty small">No payments in this period.</div>') + '</details>';
+
+    const notes = [];
+    if (d.undated) notes.push(`${d.undated} invoice${d.undated === 1 ? ' has' : 's have'} no valid date and ${d.undated === 1 ? 'is' : 'are'} left out.`);
+    if (d.future) notes.push(`${d.future} invoice${d.future === 1 ? ' is' : 's are'} dated after today and not counted yet.`);
+    const foot2 = '<div class="onb-note">Billed = invoices issued in the month (drafts and cancelled invoices are not counted). Paid = payments received in the month. Balance = billed − paid − settlement discount, carried forward month to month.' +
+      (notes.length ? '<br><b>Note:</b> ' + notes.join(' ') : '') + '</div>';
+    body.innerHTML = hero + bar + tiles + lastPay + table + details + foot2;
+    $('onb-wa').disabled = !String(c.wa || '').replace(/\D/g, '');
+  }
+
+  /* ───────── actions ───────── */
+  function open(clientId) {
+    ensureModal(); S.id = clientId; S.opts = { range: 'all' }; render(); openModal('modal-onboarding');
+  }
+  function setRange(v) {
+    S.opts.range = v;
+    if (v === 'custom') { S.opts.from = S.opts.from || (S.data && S.data.range.from); S.opts.to = S.opts.to || (S.data && S.data.range.to); }
+    render();
+  }
+  function applyCustom() { S.opts.from = ($('onb-from') || {}).value || ''; S.opts.to = ($('onb-to') || {}).value || ''; S.opts.range = 'custom'; render(); }
+  const slug = s => String(s || 'client').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'client';
+  const company = () => (STATE.settings && STATE.settings.company) || 'Statement';
+
+  function csv() {
+    const d = S.data; if (!d || !d.since) { if (typeof toast === 'function') toast('Nothing to export yet', 'info'); return; }
+    const rows = [['Client Onboarding Statement'], ['Company', company()], ['Client', d.client.name], ['Onboarded on', dispDate(d.since.date)], ['With us', tenureText(d.tenure)], ['Period', dispDate(d.range.from) + ' - ' + dispDate(d.range.to)], ['Generated on', dispDate(d.today)], [],
+      ['Month', 'Invoices', 'Billed', 'Paid', 'Settlement discount', 'Balance']];
+    if (d.opening !== 0) rows.push(['Opening balance', '', '', '', '', plain(d.opening)]);
+    d.rows.forEach(r => rows.push([r.label, r.inv, plain(r.billed), plain(r.paid), plain(r.disc), plain(r.closing)]));
+    rows.push(['Total', d.totals.inv, plain(d.totals.billed), plain(d.totals.paid), plain(d.totals.disc), plain(d.totals.closing)], [], ['Payments'], ['Date', 'Invoice', 'Method', 'Reference', 'Amount', 'Settlement discount']);
+    d.payments.slice().reverse().forEach(p => rows.push([dispDate(p.date), p.inv, p.method, p.txn, plain(p.amount), plain(p.disc)]));
+    if (typeof _downloadCSV === 'function') _downloadCSV(rows, `Onboarding-Statement-${slug(d.client.name)}-${d.today}.csv`);
+  }
+
+  function whatsapp() {
+    const d = S.data; if (!d || !d.since) return;
+    const wa = String(d.client.wa || '').replace(/\D/g, '');
+    if (!wa) { if (typeof toast === 'function') toast('⚠️ No WhatsApp number for this client', 'warning'); return; }
+    const last = d.rows.slice(-12), lines = last.map(r => `${r.label}: ${money(r.paid)}`);
+    const msg = `*Onboarding Statement — ${d.client.name}*\n${company()}\n\n` +
+      `Onboarded: ${dispDate(d.since.date)} (${tenureText(d.tenure)} with us)\nPeriod: ${dispDate(d.range.from)} – ${dispDate(d.range.to)}\n\n` +
+      `Total billed: ${money(d.totals.billed)}\nTotal paid: ${money(d.totals.paid)}\n` + (d.totals.closing > 0.004 ? `Balance due: ${money(d.totals.closing)}\n` : 'Balance: settled ✅\n') +
+      `\n*Paid per month${d.rows.length > 12 ? ' (last 12 months)' : ''}*\n${lines.join('\n')}\n\nThank you for being with us 🙏`;
+    window.open('https://wa.me/' + (wa.length === 10 ? '91' + wa : wa) + '?text=' + encodeURIComponent(msg), '_blank');
+  }
+
+  function docHtml(d) {
+    const st = STATE.settings || {}, c = d.client;
+    const img = /^(data:image\/|https?:\/\/)/.test(st.logo || '') ? `<img src="${esc(st.logo)}" alt="" style="max-height:54px;max-width:150px;object-fit:contain">` : '';
+    const contact = [st.address, st.phone, st.email, st.gst ? 'GSTIN ' + st.gst : ''].filter(Boolean).map(esc).join(' · ');
+    const showDisc = d.rows.some(x => x.disc > 0);
+    const tr = d.rows.map(x => `<tr><td>${esc(x.label)}</td><td class="r">${x.inv || '—'}</td><td class="r">${x.billed ? money(x.billed) : '—'}</td><td class="r">${x.paid ? '<b>' + money(x.paid) + '</b>' : '—'}</td>${showDisc ? `<td class="r">${x.disc ? money(x.disc) : '—'}</td>` : ''}<td class="r">${money(x.closing)}</td></tr>`).join('');
+    const pr = d.payments.map(p => `<tr><td>${dispDate(p.date)}</td><td>${esc(p.inv || '—')}</td><td>${esc(p.method || '—')}</td><td>${esc(p.txn || '—')}</td><td class="r">${money(p.amount)}</td></tr>`).join('');
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Onboarding Statement – ${esc(c.name)}</title><style>
+      @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:'Public Sans',Arial,sans-serif;color:#1a2332;font-size:12px;margin:0;padding:18px}
+      .bar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}.bar button{padding:8px 20px;background:#00897B;color:#fff;border:0;border-radius:7px;cursor:pointer;font-weight:700;font-family:inherit}
+      .hd{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:2.5px solid #00897B;padding-bottom:12px}.co{font-size:18px;font-weight:800}.ct{color:#5b6573;font-size:10.5px;margin-top:4px;max-width:360px}
+      h1{font-size:15px;margin:0;text-align:right;letter-spacing:.4px;text-transform:uppercase;color:#00695C}.dt{text-align:right;color:#5b6573;font-size:11px;margin-top:3px}
+      .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}.box{border:1px solid #dde3ea;border-radius:8px;padding:10px 12px}.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#6b7686;font-weight:700}
+      .nm{font-size:15px;font-weight:800;margin:3px 0}.mut{color:#5b6573;font-size:11px;line-height:1.5}.big{font-size:20px;font-weight:800;color:#00695C;margin-top:3px}
+      .sum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}.sum .box{text-align:center}.sum .v{font-size:15px;font-weight:800;margin-top:4px}
+      h2{font-size:12.5px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.5px;color:#00695C}
+      table{width:100%;border-collapse:collapse}th{background:#f2f6f8;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1.5px solid #cfd8dc}td{padding:6px 8px;border-bottom:1px solid #e6ebef}
+      .r{text-align:right;font-variant-numeric:tabular-nums}tfoot td{font-weight:800;background:#f2f6f8;border-top:1.5px solid #cfd8dc}tr{page-break-inside:avoid}
+      .foot{margin-top:16px;color:#6b7686;font-size:10px;line-height:1.5;border-top:1px dashed #cfd8dc;padding-top:8px}
+      @media print{.bar{display:none}body{padding:0}}</style></head><body>
+      <div class="bar"><button onclick="window.print()">🖨️ Print / Save PDF</button></div>
+      <div class="hd"><div style="display:flex;gap:12px;align-items:center">${img}<div><div class="co">${esc(company())}</div><div class="ct">${contact}</div></div></div>
+        <div><h1>Client Onboarding Statement</h1><div class="dt">Generated ${dispDate(d.today)}</div></div></div>
+      <div class="two"><div class="box"><div class="lbl">Client</div><div class="nm">${esc(c.name)}</div><div class="mut">${[c.person, c.wa, c.email].filter(Boolean).map(esc).join(' · ')}${c.addr ? '<br>' + esc(c.addr) : ''}${c.gst ? '<br>GSTIN ' + esc(c.gst) : ''}</div></div>
+        <div class="box"><div class="lbl">Onboarded on</div><div class="big">${dispDate(d.since.date)}</div><div class="mut">${esc(tenureText(d.tenure))} with us<br>Period shown: ${dispDate(d.range.from)} – ${dispDate(d.range.to)} (${d.range.months} month${d.range.months === 1 ? '' : 's'})</div></div></div>
+      <div class="sum"><div class="box"><div class="lbl">Total billed</div><div class="v">${money(d.totals.billed)}</div></div><div class="box"><div class="lbl">Total paid</div><div class="v" style="color:#2E7D32">${money(d.totals.paid)}</div></div>
+        <div class="box"><div class="lbl">Avg paid / month</div><div class="v">${money(d.avgPaid)}</div></div><div class="box"><div class="lbl">Balance due</div><div class="v" style="color:${d.totals.closing > 0.004 ? '#C62828' : '#2E7D32'}">${money(Math.max(0, d.totals.closing))}</div></div></div>
+      <h2>Month-wise statement</h2><table><thead><tr><th>Month</th><th class="r">Invoices</th><th class="r">Billed</th><th class="r">Paid</th>${showDisc ? '<th class="r">Discount</th>' : ''}<th class="r">Balance</th></tr></thead><tbody>${d.opening !== 0 ? `<tr><td colspan="${showDisc ? 5 : 4}"><i>Opening balance</i></td><td class="r">${money(d.opening)}</td></tr>` : ''}${tr}</tbody>
+        <tfoot><tr><td>Total</td><td class="r">${d.totals.inv}</td><td class="r">${money(d.totals.billed)}</td><td class="r">${money(d.totals.paid)}</td>${showDisc ? `<td class="r">${money(d.totals.disc)}</td>` : ''}<td class="r">${money(d.totals.closing)}</td></tr></tfoot></table>
+      ${d.payments.length ? `<h2>Payments received</h2><table><thead><tr><th>Date</th><th>Invoice</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead><tbody>${pr}</tbody></table>` : ''}
+      <div class="foot">Billed = invoices issued in the month (drafts and cancelled invoices are not counted). Paid = payments received in the month. Balance = billed − paid − settlement discount, carried forward. This is a computer-generated statement.</div></body></html>`;
+  }
+  function print() {
+    const d = S.data; if (!d || !d.since) { if (typeof toast === 'function') toast('Nothing to print yet', 'info'); return; }
+    const w = window.open('', '_blank');
+    if (!w) { if (typeof toast === 'function') toast('⚠️ Pop-up blocked — allow pop-ups for this site to print', 'warning'); return; }
+    w.document.write(docHtml(d)); w.document.close();
+  }
+
+  window.optmsOnboarding = { build, open, setRange, applyCustom, csv, whatsapp, print, _doc: () => S.data && docHtml(S.data), _tenureText: tenureText };
+  window.openOnboardingStatement = open;
+})();
+</script>
+<!-- OPTMS-ONBOARD:END -->
 </body>
 </html>

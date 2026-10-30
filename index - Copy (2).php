@@ -173,7 +173,8 @@ $businessType   = $settings['business_type']    ?? 'both';
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1C2739">
 <title><?= htmlspecialchars($companyName) ?> — Invoice Manager</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -2113,6 +2114,7 @@ const SERVER = {
     </div>
   </div>
 </aside>
+<script>/* tablet: slim sidebar from the first paint */(function(){var w=window.innerWidth;if(w>=768&&w<1200){var s=document.getElementById("sidebar");if(s)s.classList.add("collapsed");}})();</script>
 
 <!-- ══════════════════════════════════════════
      MAIN CONTENT
@@ -38965,5 +38967,577 @@ window.optBot = { open: () => { if (!$root) init(); openPanel(); }, close: () =>
 if (typeof document !== 'undefined' && document.body && !window.__OPTBOT_TEST__) init();
 })();
 </script>
+<!-- OPTMS-RESPONSIVE:START -->
+<style id="optms-responsive">
+/* ═══════════════════════════════════════════════════════════════════
+   OPTMS RESPONSIVE + PREMIUM LAYER
+   ───────────────────────────────────────────────────────────────────
+   Desktop  (≥1200px)    layout unchanged — only the polish in part 1 applies
+   Tablet   (768–1199px) slim icon sidebar (tap to expand over the page)
+   Phone    (≤767px)     slide-in menu, bottom bar, card tables, bottom-sheet pop-ups
+   All rules below the polish section only apply inside a media query.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─────────── 1. PREMIUM POLISH (every screen, no layout changes) ─────────── */
+:root {
+  --shadow:    0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.05);
+  --shadow-md: 0 8px 28px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.06);
+  --ring:      0 0 0 3px rgba(0,137,123,.18);
+  --safe-b:    env(safe-area-inset-bottom, 0px);
+  --safe-t:    env(safe-area-inset-top, 0px);
+}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+::selection { background: rgba(0,137,123,.2); }
+
+/* glass top bar, softer sidebar, clearer active state */
+.topbar { background: rgba(255,255,255,.88); -webkit-backdrop-filter: saturate(1.5) blur(12px); backdrop-filter: saturate(1.5) blur(12px);
+  box-shadow: 0 1px 0 var(--border), 0 6px 20px rgba(16,24,40,.04); }
+.sidebar { background: linear-gradient(180deg, #1C2739 0%, #151E2D 100%); box-shadow: 1px 0 0 rgba(255,255,255,.04), 6px 0 28px rgba(10,18,32,.14); }
+.nav-item { border-radius: 10px; }
+.nav-item:hover { background: rgba(255,255,255,.08); }
+.nav-item.active { background: linear-gradient(135deg, #00A294 0%, var(--teal) 100%); box-shadow: 0 4px 14px rgba(0,137,123,.38); }
+
+/* cards, tables, numbers */
+.stat-card, .table-card, .pne-card { border-color: rgba(16,24,40,.07); }
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.data-table td, .data-table th, .stat-val, .pne-total-val { font-variant-numeric: tabular-nums; }
+.data-table tbody tr { transition: background .15s; }
+.data-table tbody tr:hover td { background: #F7FAFB; }
+
+/* buttons + fields */
+.btn:active { transform: scale(.98); }
+.btn-primary { background: linear-gradient(180deg, #2A86DC 0%, var(--blue) 100%); box-shadow: 0 1px 2px rgba(25,118,210,.35), inset 0 1px 0 rgba(255,255,255,.16); }
+.btn-primary:hover { filter: brightness(1.06); box-shadow: 0 6px 16px rgba(25,118,210,.32); }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--teal); box-shadow: var(--ring); }
+input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
+
+/* pop-ups + page change */
+.modal-overlay { background: rgba(15,23,42,.5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.modal { border-radius: 16px; box-shadow: 0 24px 70px rgba(16,24,40,.28); }
+.page.active { animation: optPageIn .25s ease both; }
+@keyframes optPageIn { from { opacity: 0; } to { opacity: 1; } }
+html { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+
+/* grids that used a hard minimum can overflow narrow screens */
+.clients-grid { grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr)); }
+.templates-grid { grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+.cal-grid > * { min-width: 0; }
+
+/* a flex item can't shrink below its content unless told it may — this stopped wide content from widening the whole page */
+.main-wrap { min-width: 0; max-width: 100%; }
+.page { min-width: 0; }
+
+/* new controls are hidden unless a media query turns them on */
+.filters-toggle,
+.mm-btn, .mm-search-btn, .mm-search-close, .nav-scrim, .bottom-nav { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page.active { animation: none; }
+  .sidebar, .nav-scrim, .modal, .bottom-nav * { transition: none !important; animation: none !important; }
+}
+
+/* ─────────── 2. SHARED: wrap toolbars, scroll tables ─────────── */
+/* A toolbar whose controls don't fit wraps onto a second line instead of hiding controls under each
+   other. On screens ≥1200px the script adds .tb-wrap ONLY to a toolbar that really overflows, so every
+   toolbar that already fits keeps its exact layout. Below 1200px all toolbars wrap (see part 2b). */
+.page-toolbar.tb-wrap { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
+.page-toolbar.tb-wrap .toolbar-left { flex: 1 1 auto; flex-wrap: wrap; min-width: 0; row-gap: 8px; }
+.page-toolbar.tb-wrap .toolbar-right { flex-wrap: wrap; }
+@media (max-width: 1199.98px) {
+  /* 2b. every toolbar wraps below 1200px */
+  .page-toolbar { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; }
+  .page-toolbar .toolbar-left { flex-wrap: wrap; min-width: 0; row-gap: 8px; }
+  .page-toolbar .toolbar-right { flex-wrap: wrap; }
+  :root { --page-px: 22px; --page-py: 24px; }
+  .page { padding: var(--page-py) var(--page-px); }
+  .create-layout { margin: calc(-1 * var(--page-py)) calc(-1 * var(--page-px)); }
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .page-toolbar .toolbar-left { flex: 1 1 420px; }
+  .table-search { flex: 1 1 200px; min-width: 0; }
+  .pne-topbar { flex-wrap: wrap; gap: 10px; padding: 14px 18px; }
+  .pne-actions { flex-wrap: wrap; }
+  .pne-card-head { flex-wrap: wrap; }
+}
+/* tables outside a scrolling card still reach every column */
+@media (max-width: 1199.98px) { .page > table, .page > div > table:not(.tbl-cards):not(.tbl-form) { max-width: 100%; } }
+
+@media (max-width: 1199.98px) {
+  /* a table inside any box gets a sideways scroll instead of being cut off */
+  div:has(> table.data-table) { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  canvas { max-width: 100% !important; }
+  .dash-card, .card { min-width: 0; }
+}
+@media (max-width: 899.98px) {
+  /* header / button / field rows wrap instead of running off the screen */
+  .page :is(div, span)[style*="display:flex"]:not([style*="flex-direction:column"]):not([style*="flex-wrap:nowrap"]),
+  .page :is(div, span)[style*="display: flex"]:not([style*="flex-direction: column"]):not([style*="flex-wrap: nowrap"]),
+  .card-header, .section-head { flex-wrap: wrap; row-gap: 8px; }
+  /* two-column page layouts with a fixed side column stack */
+  .profile-top-row, .profile-2col, .summary { grid-template-columns: minmax(0, 1fr); }
+  .pne-layout { grid-template-columns: minmax(0, 1fr); }
+  /* 16px stops iPhones zooming in when a field is tapped */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]), select, textarea { font-size: 16px !important; }
+  .topbar-right > span[title^="Session is connected"], .topbar-right > button[onclick*="connectDbPrompt"] { display: none !important; }
+  #userChipChevron { display: none; }
+}
+
+/* ─────────── 3. TABLET (768–1199px): slim rail that expands OVER the page ─────────── */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .main-wrap, .sidebar.collapsed ~ .main-wrap { margin-left: 64px; }
+  .search-bar { width: min(300px, 28vw); }
+  .sidebar:not(.collapsed) { z-index: 1000; box-shadow: 10px 0 40px rgba(10,18,32,.35); }
+  .nav-scrim { display: block; position: fixed; inset: 0; z-index: 999; background: rgba(10,18,30,.42); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  body.rail-open .nav-scrim { opacity: 1; pointer-events: auto; }
+}
+
+/* ─────────── 4. PHONE SHELL (≤767px) ─────────── */
+@media (max-width: 767.98px) {
+  :root { --topbar-h: 56px; }
+  body { padding-top: var(--safe-t); }
+
+  /* slide-in menu */
+  .sidebar { width: min(86vw, 320px) !important; height: 100vh; height: 100dvh; transform: translateX(-105%); transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 1000; padding-bottom: var(--safe-b); }
+  body.nav-open .sidebar { transform: none; box-shadow: 10px 0 44px rgba(0,0,0,.4); }
+  .sidebar-toggle-btn { display: none !important; }
+  .main-wrap, .sidebar.collapsed ~ .main-wrap { margin-left: 0 !important; width: 100%; }
+  .nav-scrim { display: block; position: fixed; inset: 0; z-index: 999; background: rgba(10,18,30,.52); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+  body.nav-open { overflow: hidden; }
+  .nav-item { min-height: 46px; }
+
+  /* single-row top bar: ☰  title  🔍  ＋  🔔  avatar */
+  .topbar { padding: 0 10px; gap: 6px; -webkit-backdrop-filter: none; backdrop-filter: none; background: #fff; }
+  .mm-btn, .mm-search-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 12px; background: transparent; color: var(--text2); font-size: 18px; cursor: pointer; }
+  .mm-btn:active, .mm-search-btn:active { background: var(--bg); }
+  .topbar-left { flex: 1 1 0; min-width: 0; gap: 8px; }
+  .page-breadcrumb { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar-right { gap: 4px; flex: none; }
+  .topbar-right > span[title^="Session is connected"], .topbar-right > button[onclick*="connectDbPrompt"] { display: none !important; }   /* database connect/disconnect (admin tool) */
+  .user-chip { padding: 3px; gap: 0; }
+  .user-chip > :not(.user-avatar):not(img):not(:first-child) { display: none; }
+  #gdr-topbar-badge-dates { display: none; }
+  #gdr-topbar-badge { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wa-queued-pill, #ear-topbar-alert { font-size: 0; padding: 6px 8px; }
+  .wa-queued-pill > *, #ear-topbar-alert > * { font-size: 12px; }
+
+  /* search becomes a full-width layer over the top bar */
+  .search-bar { display: none; }
+  body.search-open .search-bar { display: flex; position: absolute; left: 0; right: 0; top: 0; height: var(--topbar-h); width: auto; max-width: none; margin: 0; padding: 8px 10px; background: #fff; z-index: 6; border-radius: 0; align-items: center; gap: 8px; }
+  body.search-open .search-bar input { flex: 1; min-width: 0; }
+  .search-kbd-hint { display: none !important; }
+  body.search-open .mm-search-close { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 12px; background: var(--bg); color: var(--text2); }
+
+  /* dropdowns use the screen width instead of overflowing it */
+  .notif-panel { position: fixed; top: calc(var(--topbar-h) + var(--safe-t) + 4px); left: 10px; right: 10px; width: auto; max-height: 70vh; max-height: 70dvh; }
+  .user-dropdown { position: fixed; top: calc(var(--topbar-h) + var(--safe-t) + 4px); right: 10px; width: min(280px, calc(100vw - 20px)); }
+
+  /* warning banners above the top bar */
+  #tenant-warn-banner, #license-warn-banner { padding: 8px 12px !important; font-size: 12px !important; line-height: 1.35 !important; }
+
+  /* page body */
+  :root { --page-px: 12px; --page-py: 14px; }
+  .create-layout { grid-template-columns: minmax(0, 1fr); }
+  .create-form, .create-preview { max-height: none; min-width: 0; }
+  .main-wrap { padding-bottom: calc(76px + var(--safe-b)); }
+
+  /* bottom bar */
+  .bottom-nav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; gap: 2px; padding: 6px 6px calc(6px + var(--safe-b));
+    background: rgba(255,255,255,.94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--border); box-shadow: 0 -6px 22px rgba(16,24,40,.08); }
+  .bottom-nav button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 50px; padding: 6px 2px;
+    border: 0; border-radius: 12px; background: none; color: var(--muted); font: 600 10.5px/1.1 var(--font); position: relative; cursor: pointer; }
+  .bottom-nav button i { font-size: 18px; }
+  .bottom-nav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bottom-nav button.active { color: var(--teal); }
+  .bottom-nav button.active::before { content: ''; position: absolute; top: -7px; left: 28%; right: 28%; height: 3px; border-radius: 0 0 4px 4px; background: var(--teal); }
+  .bottom-nav button:active { background: var(--bg); }
+  body.is-entry .bottom-nav { display: none; }
+
+  /* chat button sits above the bottom bar */
+  #opt-bot { bottom: calc(76px + var(--safe-b)) !important; right: 12px !important; }
+  #ob-panel { bottom: calc(76px + var(--safe-b) + 58px) !important; height: calc(100vh - 156px - var(--safe-b)); height: calc(100dvh - 156px - var(--safe-b)); }
+
+  /* entry pages (new sale, purchase, …): the action buttons stay pinned to the bottom edge */
+  .pne-topbar { position: static; padding: 12px; }
+  .pne-title { font-size: 17px; }
+  .pne-actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 85; gap: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding: 10px 12px calc(10px + var(--safe-b)); background: rgba(255,255,255,.96); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border); box-shadow: 0 -6px 22px rgba(16,24,40,.1); }
+  .pne-actions .btn { flex: 1 1 auto; white-space: nowrap; padding-left: 10px; padding-right: 10px; font-size: 13px; }
+  .pne-layout { padding-top: 12px; }
+
+  /* notifications */
+  .toast-container, #toast-container { left: 12px !important; right: 12px !important; bottom: calc(82px + var(--safe-b)) !important; }
+  .toast { min-width: 0 !important; width: 100%; }
+}
+
+/* ─────────── 5. CONTENT: grids, forms, pop-ups, toolbars ─────────── */
+@media (max-width: 1099.98px) {
+  .dash-stats-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kanta-grid, .backup-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g3, .wa-row-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* inline 3+ column grids → 2 columns, side-by-side layouts → 1 */
+  [style*="grid-template-columns:repeat(3"], [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns:repeat(4"], [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns:repeat(5"], [style*="grid-template-columns: repeat(5"],
+  [style*="grid-template-columns:repeat(6"], [style*="grid-template-columns: repeat(6"],
+  [style*="grid-template-columns:1fr 1fr 1fr"], [style*="grid-template-columns: 1fr 1fr 1fr"],
+  [style*="grid-template-columns:1.4fr 1fr 1fr"], [style*="grid-template-columns: 1.4fr 1fr 1fr"],
+  [style*="grid-template-columns:1.2fr 1fr 1.4fr"], [style*="grid-template-columns: 1.2fr 1fr 1.4fr"],
+  [style*="grid-template-columns:1.3fr 1fr 1fr"], [style*="grid-template-columns: 1.3fr 1fr 1fr"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  [style*="grid-template-columns:2fr 1fr"], [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns:1.3fr 1fr"], [style*="grid-template-columns: 1.3fr 1fr"],
+  [style*="grid-template-columns:1fr 320px"], [style*="grid-template-columns: 1fr 320px"],
+  [style*="grid-template-columns:1fr 280px"], [style*="grid-template-columns: 1fr 280px"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 899.98px) {
+  .create-layout { grid-template-columns: minmax(0, 1fr); }
+  .create-form, .create-preview { max-height: none; min-width: 0; }
+}
+
+@media (max-width: 639.98px) {
+  .dash-stats-row, .kanta-grid, .backup-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3, .wa-row-2, .wa-row-3, .pne-grid2, .pne-grid3, .pne-grid4, .pne-grid5, .pne-grid-auto, .pne-signature-row { grid-template-columns: minmax(0, 1fr); }
+  /* inline grids: stat-style cards stay 2-up, everything else stacks */
+  [style*="grid-template-columns:repeat"], [style*="grid-template-columns: repeat"],
+  [style*="grid-template-columns:1fr 1fr"], [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1.4fr"], [style*="grid-template-columns:1.2fr"], [style*="grid-template-columns:1.3fr"] { grid-template-columns: minmax(0, 1fr) !important; }
+  [style*="grid-template-columns"]:has(> [class*="stat"]), [style*="grid-template-columns"]:has(> [class*="kpi"]) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .ps-stats-row[style], .dash-stats-row[style], .db-kpi-row[style] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .ps-stats-row > :last-child:nth-child(odd), .dash-stats-row > :last-child:nth-child(odd), .db-kpi-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .cal-grid { gap: 2px; }
+  /* cards with a fixed 220–300px width take the whole row instead of squeezing their neighbour */
+  .page [style*="flex:0 0 220px"], .page [style*="flex: 0 0 220px"], .page [style*="flex:0 0 280px"], .page [style*="flex: 0 0 280px"],
+  .page [style*="flex:0 0 300px"], .page [style*="flex: 0 0 300px"] { flex: 1 1 100% !important; min-width: 0 !important; }
+
+  /* the invoice item rows (12-column grid of fields) become stacked fields */
+  .items-head-row { display: none; }
+  #itemsList { border-top: 1px solid var(--border); border-radius: 10px; }
+  .item-row { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+  .item-row > :nth-child(2), .item-row > :nth-child(1) { grid-column: 1 / -1; }
+  .item-row input, .item-row select { border: 1px solid var(--border); border-radius: 8px; height: 42px; background: var(--card); }
+  .item-row::before { display: none; }
+
+  /* toolbars: search full width, buttons share the row */
+  .page-toolbar .toolbar-left { flex-basis: 100%; }
+  .page-toolbar .toolbar-right { width: 100%; margin-left: 0; }
+  .page-toolbar .toolbar-right > .btn { flex: 1; }
+  .table-search, .table-filter { flex: 1 1 100%; max-width: none; width: 100%; }
+  .exp-month-nav { width: 100%; }
+  .exp-month-nav .table-filter { flex: 1 1 auto; max-width: none; width: auto; }
+  #exp-gdr-note { max-width: none; min-width: 0; }
+  .modal-footer { flex-wrap: wrap; }
+
+  /* long filter panels fold away behind one "Filters" button (with a count of what is active) */
+  .filters-toggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 14px; margin: 0 0 12px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font: 600 13.5px var(--font); box-shadow: var(--shadow); cursor: pointer; }
+  .filters-toggle i:first-child { color: var(--teal); }
+  .filters-toggle .ft-count { padding: 1px 9px; border-radius: 999px; background: var(--teal-bg); color: var(--teal); font-size: 11.5px; }
+  .filters-toggle .ft-chev { margin-left: auto; color: var(--muted); transition: transform .2s; }
+  .filters-toggle[aria-expanded="true"] .ft-chev { transform: rotate(180deg); }
+  .filters-panel:not(.open) { display: none; }
+  .filters-panel .pne-grid5, .filters-panel .pne-grid4, .filters-panel .pne-grid-auto { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-toolbar.tb-filters:not(.filters-open) .toolbar-left > :not(.table-search):not(.filters-toggle) { display: none; }
+}
+
+/* ─────────── 6. POP-UPS as bottom sheets (phones) ─────────── */
+@media (max-width: 639.98px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { width: 100% !important; max-width: 100% !important; min-width: 0 !important; max-height: 92vh; max-height: 92dvh; border-radius: 18px 18px 0 0;
+    animation: optSheetUp .26s cubic-bezier(.2,.8,.2,1); }
+  .modal::before { content: ''; display: block; width: 38px; height: 4px; border-radius: 4px; background: var(--border2); margin: 8px auto 0; flex: none; }
+  .modal-header { padding: 14px 16px 12px; }
+  .modal-body { padding: 14px 16px; -webkit-overflow-scrolling: touch; }
+  .modal-footer { padding: 12px 16px calc(12px + var(--safe-b)); gap: 8px; }
+  .modal-footer .btn { flex: 1 1 auto; }
+}
+@keyframes optSheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ─────────── 7. TOUCH: bigger targets, no iOS zoom-on-focus ─────────── */
+@media (max-width: 899.98px), (pointer: coarse) {
+  .btn { min-height: 42px; }
+  .btn-sm, .pne-small-btn { min-height: 38px; }
+  .act-btn { width: 40px; height: 40px; font-size: 14px; }
+  .topbar-btn, .notif-bell-btn, .modal-close { min-width: 40px; min-height: 40px; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]), select, textarea { min-height: 42px; font-size: 16px; }
+  input[type=checkbox], input[type=radio] { width: 20px; height: 20px; min-height: 0; }
+  .table-search, .table-filter { min-height: 42px; }
+  .cf-btn { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+  .add-line-btn, .mini-btn { min-height: 38px; }
+  .btn, .cf-btn, .mini-btn { min-width: 38px; }
+  .pne-pill { min-height: 38px; }
+  button[onclick*="-note-banner"] { min-width: 36px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }   /* the × on dismissible notes */
+}
+
+/* ─────────── 8. CARD TABLES (phones) ───────────
+   JS labels every <td> with its column title and marks tables:
+     .tbl-cards  list tables that have an action column → one card per row
+     .tbl-form   tables that contain inputs (sale/purchase items) → fields in a 2-column card
+   Report-style tables (no actions) simply scroll sideways.                  */
+@media (max-width: 639.98px) {
+  table.tbl-cards, table.tbl-form, table.tbl-cards > tbody, table.tbl-form > tbody, table.tbl-cards > tfoot, table.tbl-form > tfoot { display: block; width: 100%; min-width: 0 !important; }
+  table.tbl-cards > thead, table.tbl-form > thead, table.tbl-cards > colgroup, table.tbl-form > colgroup { display: none; }
+  table.tbl-cards tr, table.tbl-form tr { display: block; margin: 0 0 12px; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  table.tbl-cards td, table.tbl-form td { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; width: auto !important;
+    padding: 7px 0 !important; border: 0 !important; background: transparent !important; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere; }
+  table.tbl-cards td::before, table.tbl-form td::before { content: attr(data-label); flex: 0 0 38%; max-width: 46%; text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
+  table.tbl-cards td[data-label=""]::before, table.tbl-form td[data-label=""]::before, table.tbl-cards td:not([data-label])::before, table.tbl-form td:not([data-label])::before, td.td-span::before { display: none; }
+  table.tbl-cards td.td-idx { display: none; }
+  table.tbl-cards td.td-title { justify-content: flex-start; text-align: left !important; padding-top: 0 !important; padding-bottom: 8px !important; margin-bottom: 4px; font-weight: 700; font-size: 15px; color: var(--text); border-bottom: 1px solid var(--border) !important; }
+  table.tbl-cards td.td-title::before { display: none; }
+  td.td-actions { justify-content: flex-end !important; gap: 8px; margin-top: 6px; padding-top: 10px !important; border-top: 1px dashed var(--border) !important; flex-wrap: wrap; }
+  td.td-actions::before { display: none; }
+  td.td-span { justify-content: center; text-align: center !important; }
+
+  /* entry tables: label on top, 2 columns */
+  table.tbl-form tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+  table.tbl-form td { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; padding: 0 !important; text-align: left !important; }
+  table.tbl-form td::before { flex: none; max-width: none; }
+  table.tbl-form td.td-idx, table.tbl-form td.td-actions, table.tbl-form td.td-span, table.tbl-form td[data-label^="Product"], table.tbl-form td[data-label*="Total"], table.tbl-form td[data-label^="Description"] { grid-column: 1 / -1; }
+  table.tbl-form td.td-idx { flex-direction: row; align-items: center; justify-content: flex-start; gap: 6px; font-weight: 800; color: var(--teal); padding-bottom: 2px !important; }
+  table.tbl-form td.td-idx::before { content: 'Item'; flex: none; max-width: none; color: var(--teal); font-size: 12px; letter-spacing: .3px; }
+  table.tbl-form td.td-actions { flex-direction: row; justify-content: flex-end; border-top: 1px dashed var(--border) !important; padding-top: 10px !important; margin-top: 2px; }
+  table.tbl-form td input, table.tbl-form td select, table.tbl-form td textarea { width: 100%; max-width: none; }
+}
+</style>
+<script>
+/* OPTMS responsive behaviour: slide-in menu, bottom bar, phone search, card-table labels. */
+(function () {
+  'use strict';
+  if (window.optmsResp) return;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  const body = document.body, sb = $('#sidebar'), topbar = $('.topbar');
+  if (!sb || !topbar) return;
+
+  const mqPhone = matchMedia('(max-width: 767.98px)');
+  const mqTab = matchMedia('(min-width: 768px) and (max-width: 1199.98px)');
+  const ENTRY = /^(create|purchase-new|product-new|sale-new|proforma-new|customer-new|stock-adjust-new|supplier-new|stock-in-new)$/;
+  let mode = null, desktopCollapsed = false;
+
+  /* ── sidebar collapse (mirrors toggleSidebar()) ── */
+  function setCollapsed(c) {
+    sb.classList.toggle('collapsed', c);
+    const btn = $('#sidebarToggle');
+    if (btn) {
+      btn.style.left = c ? '50px' : ((parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')) || 240) - 14) + 'px';
+      const i = btn.querySelector('i'); if (i) i.className = c ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+    }
+  }
+
+  /* ── controls we add ── */
+  const mm = document.createElement('button');
+  mm.id = 'mmBtn'; mm.className = 'mm-btn'; mm.type = 'button';
+  mm.setAttribute('aria-label', 'Open menu'); mm.setAttribute('aria-controls', 'sidebar'); mm.setAttribute('aria-expanded', 'false');
+  mm.innerHTML = '<i class="fas fa-bars"></i>';
+  topbar.insertBefore(mm, topbar.firstChild);
+
+  const scrim = document.createElement('div'); scrim.className = 'nav-scrim'; scrim.id = 'navScrim'; document.body.appendChild(scrim);
+
+  const right = $('.topbar-right', topbar), searchBar = $('.search-bar', topbar);
+  const sBtn = document.createElement('button');
+  sBtn.id = 'mmSearchBtn'; sBtn.className = 'mm-search-btn'; sBtn.type = 'button'; sBtn.setAttribute('aria-label', 'Search'); sBtn.innerHTML = '<i class="fas fa-magnifying-glass"></i>';
+  if (right) right.insertBefore(sBtn, right.firstChild);
+  const sClose = document.createElement('button');
+  sClose.className = 'mm-search-close'; sClose.type = 'button'; sClose.setAttribute('aria-label', 'Close search'); sClose.innerHTML = '<i class="fas fa-xmark"></i>';
+  if (searchBar) searchBar.appendChild(sClose);
+
+  /* ── menu drawer (phone) / rail overlay (tablet) ── */
+  function openNav() {
+    body.classList.add('nav-open'); mm.setAttribute('aria-expanded', 'true'); sb.inert = false;
+    sb.setAttribute('tabindex', '-1'); setTimeout(() => sb.focus({ preventScroll: true }), 280);
+  }
+  function closeNav(restoreFocus) {
+    body.classList.remove('nav-open'); mm.setAttribute('aria-expanded', 'false');
+    if (mqPhone.matches) sb.inert = true;
+    if (restoreFocus) mm.focus({ preventScroll: true });
+  }
+  mm.addEventListener('click', () => body.classList.contains('nav-open') ? closeNav() : openNav());
+  scrim.addEventListener('click', () => { if (mode === 'tablet') setCollapsed(true); else closeNav(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (body.classList.contains('search-open')) { body.classList.remove('search-open'); sBtn.focus(); }
+    else if (body.classList.contains('nav-open')) closeNav(true);
+    else if (mode === 'tablet' && !sb.classList.contains('collapsed')) setCollapsed(true);
+  });
+  sBtn.addEventListener('click', () => {
+    body.classList.add('search-open');
+    const inp = $('input', searchBar); if (inp) setTimeout(() => inp.focus(), 30);
+  });
+  sClose.addEventListener('click', () => { body.classList.remove('search-open'); sBtn.focus(); });
+
+  /* tablet: show the scrim while the rail is expanded */
+  new MutationObserver(() => { body.classList.toggle('rail-open', mode === 'tablet' && !sb.classList.contains('collapsed')); })
+    .observe(sb, { attributes: true, attributeFilter: ['class'] });
+
+  /* ── screen size → behaviour ── */
+  function applyMode() {
+    const next = mqPhone.matches ? 'phone' : mqTab.matches ? 'tablet' : 'desktop';
+    if (next === mode) return;
+    const prev = mode; mode = next;
+    body.classList.toggle('is-phone', next === 'phone');
+    body.classList.toggle('is-tablet', next === 'tablet');
+    if (prev === 'desktop') desktopCollapsed = sb.classList.contains('collapsed');
+    body.classList.remove('nav-open', 'rail-open', 'search-open'); mm.setAttribute('aria-expanded', 'false');
+    if (next === 'phone') { setCollapsed(false); sb.inert = true; }
+    else { sb.inert = false; setCollapsed(next === 'tablet' ? true : (prev !== null && desktopCollapsed)); }
+    buildBottomNav();
+  }
+  [mqPhone, mqTab].forEach(m => m.addEventListener ? m.addEventListener('change', applyMode) : m.addListener(applyMode));
+
+  /* ── bottom bar: the four most-used pages the user is allowed to see, plus "More" ── */
+  const PREF = ['dashboard', 'sales-list', 'purchases', 'expenses', 'customers-list', 'invoices', 'clients', 'payments'];
+  let navSig = '';
+  function buildBottomNav() {
+    let nav = $('#bottomNav');
+    if (!nav) {
+      nav = document.createElement('nav'); nav.id = 'bottomNav'; nav.className = 'bottom-nav'; nav.setAttribute('aria-label', 'Quick navigation');
+      document.body.appendChild(nav);
+      nav.addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.more) { openNav(); return; }
+        const el = $('.nav-item[data-page="' + b.dataset.page + '"]', sb); if (el) el.click();
+      });
+    }
+    const items = [];
+    for (const p of PREF) {
+      const el = $('.nav-item[data-page="' + p + '"]', sb);
+      if (el && el.style.display !== 'none' && items.length < 4) items.push(el);
+    }
+    const sig = items.map(e => e.dataset.page).join('|');
+    if (sig !== navSig) {
+      navSig = sig;
+      const label = el => { const s = $('span', el); return ((s || el).textContent || '').replace(/\s+/g, ' ').trim(); };
+      nav.innerHTML = items.map(el => '<button type="button" data-page="' + el.dataset.page + '" aria-label="' + label(el).replace(/"/g, '') + '">' +
+        '<i class="' + (($('i', el) || {}).className || 'fas fa-circle') + '"></i><span>' + label(el).replace(/</g, '&lt;') + '</span></button>').join('') +
+        '<button type="button" data-more="1" aria-label="More menu"><i class="fas fa-ellipsis"></i><span>More</span></button>';
+    }
+    syncActive();
+  }
+  function syncActive() {
+    const nav = $('#bottomNav'); if (!nav) return;
+    const cur = $('.nav-item.active', sb), page = cur && cur.dataset.page;
+    let any = false;
+    $$('button[data-page]', nav).forEach(b => { const on = b.dataset.page === page; b.classList.toggle('active', on); b.toggleAttribute('aria-current', on); if (on) any = true; });
+    const more = $('button[data-more]', nav); if (more) more.classList.toggle('active', !any && !!page);
+  }
+  /* the app shows/hides menu items after login (product vs service business) — keep the bar in step */
+  let navRaf = 0;
+  new MutationObserver(() => { if (navRaf) return; navRaf = requestAnimationFrame(() => { navRaf = 0; buildBottomNav(); }); })
+    .observe(sb, { subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+  /* ── every page change goes through showPage() ── */
+  function onNavigate(name) {
+    body.classList.toggle('is-entry', ENTRY.test(name));
+    body.classList.remove('search-open');
+    if (mode !== 'desktop') { closeNav(); if (mode === 'tablet' && !sb.classList.contains('collapsed')) setCollapsed(true); }
+    if (mode === 'phone') window.scrollTo(0, 0);
+    syncActive();
+    initFilters();
+    scheduleToolbars();
+  }
+  const _show = window.showPage;
+  if (typeof _show === 'function') {
+    window.showPage = function (name) {
+      const r = _show.apply(this, arguments);
+      try { onNavigate(name); } catch (e) { console.error(e); }
+      return r;
+    };
+  }
+
+  /* ── tables: label each cell with its column title, decide card vs scroll ── */
+  const clean = t => (t || '').replace(/\s+/g, ' ').replace(/[▲▼↑↓⇅]/g, '').trim();
+  const SERIAL = /^(#|sr\.?|sl\.?|s\.?\s?no\.?|sno\.?|no\.?|sr\.?\s?no\.?|serial.*)$/i;
+  function labelTable(t) {
+    const heads = $$('thead th', t); if (!heads.length) return;
+    const names = heads.map(h => clean(h.getAttribute('data-label') || h.textContent));
+    let hasInput = false, hasAction = false;
+    $$('tbody tr', t).forEach(tr => {
+      const cells = [...tr.children];
+      if (cells.length === 1 && (cells[0].colSpan || 1) > 1) { cells[0].classList.add('td-span'); return; }
+      let col = 0;
+      cells.forEach(td => { if (!td.hasAttribute('data-label')) td.setAttribute('data-label', names[col] || ''); col += td.colSpan || 1; });
+      // a leading "#" / serial-number column is not the row's name: hide it on cards, make the next cell the headline
+      if (SERIAL.test(names[0] || '') && cells.length > 1) { cells[0].classList.add('td-idx'); cells[1].classList.add('td-title'); }
+      else if (cells[0]) cells[0].classList.add('td-title');
+      const last = cells[cells.length - 1];
+      if (last && $('button, .act-btn, a[onclick]', last)) { last.classList.add('td-actions'); hasAction = true; }
+      if ($('input:not([type=hidden]):not([type=checkbox]), select, textarea', tr)) hasInput = true;
+    });
+    t.classList.toggle('tbl-form', hasInput);
+    t.classList.toggle('tbl-cards', !hasInput && hasAction && heads.length >= 3);
+  }
+  const queue = new Set(); let raf = 0;
+  new MutationObserver(muts => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      if (n.tagName === 'TABLE') queue.add(n);
+      else { const up = n.closest && n.closest('table'); if (up) queue.add(up); else if (n.querySelectorAll) n.querySelectorAll('table').forEach(t => queue.add(t)); }
+    }
+    if (muts.some(m => m.target && m.target.closest && m.target.closest('.page-toolbar'))) scheduleToolbars();
+    if (queue.size && !raf) raf = requestAnimationFrame(() => { raf = 0; const q = [...queue]; queue.clear(); q.forEach(labelTable); });
+  }).observe(document.body, { childList: true, subtree: true });
+
+  /* ── filters: fold long filter panels behind one button on phones ── */
+  function toggleBtn(target, cls) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'filters-toggle'; b.setAttribute('aria-expanded', 'false');
+    b.innerHTML = '<i class="fas fa-sliders"></i><span>Filters</span><span class="ft-count" hidden></span><i class="fas fa-chevron-down ft-chev"></i>';
+    b.addEventListener('click', () => { const on = !target.classList.contains(cls); target.classList.toggle(cls, on); b.setAttribute('aria-expanded', String(on)); });
+    return b;
+  }
+  function refreshCount(scope, btn) {
+    let n = 0;
+    $$('input:not([type=hidden]):not(.table-search), select', scope).forEach(e => {
+      if (e.type === 'checkbox' || e.type === 'radio') { if (e.checked) n++; } else if (e.value !== '' && e.selectedIndex !== 0) n++;
+    });
+    const c = $('.ft-count', btn); c.hidden = !n; c.textContent = n ? n + ' active' : '';
+  }
+  function initFilters() {
+    $$('.pne-card').forEach(card => {
+      if (card.dataset.ft) return;
+      const pageEl = card.closest('.page'); if (!pageEl || ENTRY.test(pageEl.id.replace(/^page-/, ''))) return;
+      const grid = $(':scope > .pne-grid5, :scope > .pne-grid4, :scope > .pne-grid-auto', card);
+      if (!grid || $$('.field', grid).length < 4 || !$('table', pageEl)) return;
+      card.dataset.ft = '1'; card.classList.add('filters-panel');
+      const btn = toggleBtn(card, 'open'); card.parentElement.insertBefore(btn, card);
+      const upd = () => refreshCount(card, btn); card.addEventListener('input', upd); card.addEventListener('change', upd); upd();
+    });
+    $$('.page-toolbar').forEach(tb => {
+      if (tb.dataset.ft) return;
+      const l = $('.toolbar-left', tb), search = l && $('.table-search', l); if (!search) return;
+      if ($$('select.table-filter, input.table-filter', l).filter(e => !e.closest('.exp-month-nav')).length < 4) return;
+      tb.dataset.ft = '1'; tb.classList.add('tb-filters');
+      const btn = toggleBtn(tb, 'filters-open'); search.insertAdjacentElement('afterend', btn);
+      const upd = () => refreshCount(l, btn); l.addEventListener('input', upd); l.addEventListener('change', upd); upd();
+    });
+  }
+
+  /* ── toolbars: wrap only the ones that genuinely don't fit (so layouts that fit never change) ── */
+  function checkToolbars(root) {
+    $$('.page-toolbar', root).forEach(tb => {
+      tb.classList.remove('tb-wrap');
+      const l = $('.toolbar-left', tb), r = $('.toolbar-right', tb);
+      if (!l || !tb.offsetParent) return;                                  // on a hidden page: checked when the page is shown
+      const lastRight = l.lastElementChild ? l.lastElementChild.getBoundingClientRect().right : 0;
+      const spills = l.scrollWidth > l.clientWidth + 1 || tb.scrollWidth > tb.clientWidth + 1 || (r && lastRight > r.getBoundingClientRect().left + 1);
+      if (spills) tb.classList.add('tb-wrap');
+    });
+  }
+  let tbRaf = 0;
+  const scheduleToolbars = () => { if (tbRaf) return; tbRaf = requestAnimationFrame(() => { tbRaf = 0; checkToolbars(); }); };
+  window.addEventListener('resize', () => { clearTimeout(scheduleToolbars.t); scheduleToolbars.t = setTimeout(scheduleToolbars, 120); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleToolbars);
+
+  /* ── start ── */
+  applyMode();
+  initFilters();
+  $$('table').forEach(labelTable);
+  const first = $('.page.active'); onNavigate(first ? first.id.replace(/^page-/, '') : 'dashboard');
+  scheduleToolbars();
+  window.optmsResp = { initFilters, checkToolbars, mode: () => mode, openNav, closeNav, label: labelTable, rebuild: buildBottomNav };
+})();
+</script>
+<!-- OPTMS-RESPONSIVE:END -->
 </body>
 </html>
