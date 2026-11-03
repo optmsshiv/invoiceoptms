@@ -53,6 +53,10 @@ foreach ($_migrateItemCols as $_col => $_sql) {
   } catch (Exception $e) { error_log("migrate invoice_items.$_col: " . $e->getMessage()); }
 }
 
+// ── Installment plans: payment_plans table + invoices.plan_id (self-migrating) ──
+require_once __DIR__ . '/../includes/plans_schema.php';
+ensurePlanSchema($db);
+
 $method = $_SERVER['REQUEST_METHOD'];
 switch ($method) {
 // ── GET: list all or single ─────────────────────────
@@ -232,6 +236,16 @@ $check->execute([$input['invoice_number']]);
 }
 } catch (\Exception $e) { /* ignore safety check errors */ }
 }
+// Plan guard: an invoice linked to an installment plan can never bill more than the plan has left
+$planId = !empty($input['plan_id']) ? (int)$input['plan_id'] : 0;
+if ($planId && !in_array($input['status'], ['Draft','Estimate','Cancelled'], true)) {
+  try {
+    $free = planUnbilled($db, $planId, 0);
+    if ($free === null) jsonResponse(['error' => 'Payment plan not found'], 400);
+    if ((float)($input['grand_total'] ?? 0) > $free + 0.02)
+      jsonResponse(['error' => 'This invoice (' . number_format((float)$input['grand_total'], 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
+  } catch (\PDOException $e) { error_log('plan guard: ' . $e->getMessage()); }
+}
 $stmt = $db->prepare('
 INSERT INTO invoices (invoice_number,client_id,client_name,service_type,issued_date,due_date,
 status,currency,subtotal,discount_pct,discount_type,discount_amt,discount_mode,gst_amount,grand_total,
@@ -265,6 +279,7 @@ error_log('Invoice INSERT error: ' . $e->getMessage());
 jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
 }
 $invId = (int)$db->lastInsertId();
+if ($planId) { try { $db->prepare('UPDATE invoices SET plan_id=? WHERE id=?')->execute([$planId, $invId]); } catch (\PDOException $e) { error_log('plan link: ' . $e->getMessage()); } }
 // Insert items
 if (!empty($input['items'])) {
 $si = $db->prepare('INSERT INTO invoice_items (invoice_id,description,quantity,rate,gst_rate,line_total,hsn,item_type,item_discount,item_discount_type,service_cycle,date_start,date_end,sort_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
@@ -324,6 +339,15 @@ if (!in_array($statusInput, $allowedStatuses, true)) {
         : 'Draft';
 }
 $input['status'] = $statusInput;
+// Plan guard (edit): ignore this invoice's own current amount when checking what is left
+if (array_key_exists('plan_id', $input) && !empty($input['plan_id']) && !in_array($input['status'], ['Draft','Estimate','Cancelled'], true)) {
+  try {
+    $free = planUnbilled($db, (int)$input['plan_id'], $id);
+    if ($free === null) jsonResponse(['error' => 'Payment plan not found'], 400);
+    if ((float)($input['grand_total'] ?? 0) > $free + 0.02)
+      jsonResponse(['error' => 'This invoice (' . number_format((float)$input['grand_total'], 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
+  } catch (\PDOException $e) { error_log('plan guard: ' . $e->getMessage()); }
+}
 $stmt = $db->prepare('
 UPDATE invoices SET client_id=?,client_name=?,service_type=?,issued_date=?,due_date=?,
 status=?,currency=?,subtotal=?,discount_pct=?,discount_type=?,discount_amt=?,discount_mode=?,gst_amount=?,grand_total=?,
@@ -354,6 +378,9 @@ $id
 } catch (\PDOException $e) {
 error_log('Invoice UPDATE error: ' . $e->getMessage());
 jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+}
+if (array_key_exists('plan_id', $input)) {
+  try { $db->prepare('UPDATE invoices SET plan_id=? WHERE id=?')->execute([nullIfEmpty($input['plan_id']) !== null ? (int)$input['plan_id'] : null, $id]); } catch (\PDOException $e) { error_log('plan link: ' . $e->getMessage()); }
 }
 // Re-insert items
 $db->prepare('DELETE FROM invoice_items WHERE invoice_id=?')->execute([$id]);

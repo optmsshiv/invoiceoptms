@@ -2707,6 +2707,57 @@ const SERVER = {
             </div>
           </div>
 
+          <!-- Installment plan — appears once a saved client is selected -->
+          <div class="form-section" id="planPanel" style="display:none">
+            <style>
+              #planPanel .pl-opt{font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1px 8px;margin-left:8px;letter-spacing:.3px;text-transform:uppercase}
+              #planPanel .pl-row{display:flex;gap:8px;align-items:center}
+              #planPanel .pl-row select{flex:1}
+              #planPanel .pl-btn{border:1.5px solid var(--teal);color:var(--teal);background:transparent;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+              #planPanel .pl-btn:hover{background:var(--teal-bg)}
+              #planPanel .pl-btn.ghost{border-color:var(--border);color:var(--muted)}
+              #planPanel .pl-card{margin-top:12px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px 16px}
+              #planPanel .pl-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+              #planPanel .pl-title{font-weight:800;font-size:14px}
+              #planPanel .pl-sub{font-size:11.5px;color:var(--muted)}
+              #planPanel .pl-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+              #planPanel .pl-tile{background:var(--bg);border-radius:10px;padding:8px 10px}
+              #planPanel .pl-tile b{display:block;font-size:14px;font-family:var(--mono,monospace)}
+              #planPanel .pl-tile span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+              #planPanel .pl-bar{height:8px;border-radius:6px;background:var(--bg);overflow:hidden;display:flex;margin:12px 0 4px}
+              #planPanel .pl-bar i{display:block;height:100%}
+              #planPanel .pl-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px}
+              #planPanel .pl-chip{border:1.5px solid var(--border);background:var(--card);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)}
+              #planPanel .pl-chip:hover,#planPanel .pl-chip.on{border-color:var(--teal);background:var(--teal-bg);color:var(--teal)}
+              #planPanel .pl-amt{display:flex;align-items:center;gap:8px;margin-top:4px}
+              #planPanel .pl-amt input{max-width:170px;font-family:var(--mono,monospace);font-weight:700}
+              #planPanel .pl-live{margin-top:12px;border-radius:10px;padding:10px 12px;font-size:12.5px;background:var(--teal-bg);color:var(--text);border:1px solid var(--teal-l,#4DB6AC)}
+              #planPanel .pl-live.bad{background:#FFEBEE;border-color:#E53935;color:#B71C1C}
+              #planPanel .pl-live b{font-family:var(--mono,monospace)}
+              #planPanel .pl-new{margin-top:12px;border:1.5px dashed var(--teal);border-radius:12px;padding:14px 16px}
+              @media(max-width:640px){#planPanel .pl-tiles{grid-template-columns:repeat(2,1fr)}}
+            </style>
+            <div class="fs-title"><i class="fas fa-calendar-check"></i> Installment Plan <span class="pl-opt">optional</span></div>
+            <div class="pl-row">
+              <select id="plan-select" onchange="planSelect(this.value)"></select>
+              <button type="button" class="pl-btn" onclick="planToggleNew(true)"><i class="fas fa-plus"></i> New plan</button>
+            </div>
+            <div class="pl-new" id="plan-new" style="display:none">
+              <div class="form-grid g3">
+                <div class="field"><label>Service *</label><input id="pn-svc" placeholder="e.g. WhatsApp Service"></div>
+                <div class="field"><label>Plan total (₹, incl. GST) *</label><input id="pn-total" type="number" min="1" step="0.01" placeholder="6000" oninput="planNewCalc()"></div>
+                <div class="field"><label>Months *</label><input id="pn-months" type="number" min="1" max="120" value="12" oninput="planNewCalc()"></div>
+                <div class="field"><label>Installment (₹)</label><input id="pn-inst" type="number" min="1" step="0.01" placeholder="auto" oninput="this.dataset.manual='1'"></div>
+                <div class="field"><label>First month starts</label><input id="pn-start" type="date"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button type="button" class="pl-btn" id="pn-save" onclick="planCreate()"><i class="fas fa-check"></i> Create plan</button>
+                <button type="button" class="pl-btn ghost" onclick="planToggleNew(false)">Cancel</button>
+              </div>
+            </div>
+            <div class="pl-card" id="plan-body" style="display:none"></div>
+          </div>
+
           <!-- Items -->
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
@@ -13126,6 +13177,7 @@ function resetCreateForm() {
   const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || '2');
   syncThemePicker();
   const clientSelEl = document.getElementById('f-client-select'); if (clientSelEl) clientSelEl.value = '';
+  try { planReset(); } catch (e) {}
   // Hide one-time client indicators
   const _otNotice = document.getElementById('onetime-notice'); if (_otNotice) _otNotice.style.display = 'none';
   const _otBadge  = document.getElementById('onetime-badge');  if (_otBadge)  _otBadge.style.display  = 'none';
@@ -13442,11 +13494,13 @@ function calcTotals() {
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
+  try { planRefreshSummary(grand); } catch (e) {}
   livePreview();
   return { sub, discAmt, gstAmt: gstAfterDisc, grand };
 }
 
 function fillClientForm(val) {
+  try { planOnClient(val); } catch (e) {}
   const notice  = document.getElementById('onetime-notice');
   const badge   = document.getElementById('onetime-badge');
   if (val === '__onetime__') {
@@ -15511,10 +15565,203 @@ async function cancelInvoiceForm() {
   showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  INSTALLMENT PLANS — bill a yearly fee in monthly parts.
+//  The plan lives in payment_plans; each invoice carries plan_id.
+//  "Paid" and "Remaining" are always derived server-side from invoices
+//  + payments (api/plans.php), never typed in, so they can't drift.
+// ═══════════════════════════════════════════════════════════════
+const PLAN = { list: [], sel: null, clientId: null, editInv: null, editBase: 0, ready: false };
+const planMoney = n => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const planAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function planAddMonths(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1 + n, 1));
+  const dim = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, dim));
+  return first.toISOString().slice(0, 10);
+}
+// Amount of this plan that is still free to invoice (own current amount added back while editing)
+function planFree() {
+  if (!PLAN.sel) return 0;
+  const same = PLAN.editInv && String(PLAN.editInv.plan_id) === String(PLAN.sel.id);
+  return Math.max(0, PLAN.sel.unbilled + (same ? PLAN.editBase : 0));
+}
+function planReset() {
+  PLAN.list = []; PLAN.sel = null; PLAN.clientId = null; PLAN.editInv = null; PLAN.editBase = 0; PLAN.ready = false;
+  const p = document.getElementById('planPanel'); if (p) p.style.display = 'none';
+  const n = document.getElementById('plan-new'); if (n) n.style.display = 'none';
+}
+function planClearItem() {
+  if (!formItems.some(i => i._plan)) return;
+  formItems = formItems.filter(i => !i._plan);
+  if (!formItems.length) { addItem(); } else { renderFormItems(); calcTotals(); }
+}
+async function planOnClient(val) {
+  const panel = document.getElementById('planPanel'); if (!panel) return;
+  planClearItem();
+  PLAN.sel = null; PLAN.editInv = null; PLAN.editBase = 0; PLAN.ready = false;
+  if (!val || val === '__onetime__') { PLAN.clientId = null; panel.style.display = 'none'; return; }
+  PLAN.clientId = String(val); panel.style.display = '';
+  await planReload();
+}
+async function planLoadForInvoice(inv) {
+  planReset();
+  const cid = inv && inv.client;
+  if (!cid || cid === 'null' || cid === '0') return;
+  PLAN.clientId = String(cid);
+  document.getElementById('planPanel').style.display = '';
+  if (inv.plan_id) {
+    PLAN.editInv = inv;
+    PLAN.editBase = ['Draft', 'Estimate', 'Cancelled'].includes(inv.status) ? 0 : (parseFloat(inv.amount) || 0);
+  }
+  await planReload(inv.plan_id ? String(inv.plan_id) : null, true);
+}
+async function planReload(selectId, keepItems) {
+  try {
+    const r = await api('api/plans.php?client_id=' + encodeURIComponent(PLAN.clientId));
+    PLAN.list = Array.isArray(r.data) ? r.data : [];
+    PLAN.ready = true;
+  } catch (e) { PLAN.list = []; PLAN.ready = false; }   // API missing/failed → panel simply offers "New plan"; never blocks invoicing
+  const sel = document.getElementById('plan-select');
+  const keep = selectId || (PLAN.sel ? String(PLAN.sel.id) : '');
+  const usable = PLAN.list.filter(p => p.status === 'Active' || String(p.id) === keep);
+  sel.innerHTML = '<option value="">— Regular invoice (not part of a plan) —</option>' +
+    usable.map(p => `<option value="${p.id}">${escHtml(p.service_name)} · ${planMoney(p.total_amount)} · ${planMoney(p.remaining)} left${p.status !== 'Active' ? ' (' + p.status + ')' : ''}</option>`).join('');
+  sel.value = usable.some(p => String(p.id) === keep) ? keep : '';
+  planSelect(sel.value, keepItems);
+}
+function planSelect(id, keepItems) {
+  const body = document.getElementById('plan-body');
+  PLAN.sel = PLAN.list.find(p => String(p.id) === String(id)) || null;
+  if (!PLAN.sel) { if (!keepItems) planClearItem(); body.style.display = 'none'; return; }
+  planRenderBody();
+  if (keepItems) {
+    // editing: keep the saved line items, just remember which one is the plan line
+    if (!formItems.some(i => i._plan)) {
+      const it = formItems.find(i => (i.desc || '').trim() === PLAN.sel.service_name.trim()) || formItems[0];
+      if (it) it._plan = true;
+    }
+    calcTotals();
+  } else {
+    planApplyAmount(Math.min(PLAN.sel.suggested || PLAN.sel.installment_amount, planFree()));
+  }
+}
+function planRenderBody() {
+  const p = PLAN.sel, body = document.getElementById('plan-body');
+  const same = PLAN.editInv && String(PLAN.editInv.plan_id) === String(p.id);
+  const slot = (p.invoice_count + (same ? 0 : 1));
+  const paidPct   = p.total_amount ? Math.min(100, p.paid / p.total_amount * 100) : 0;
+  const billedPct = p.total_amount ? Math.min(100 - paidPct, Math.max(0, p.billed - p.paid) / p.total_amount * 100) : 0;
+  body.innerHTML = `
+    <div class="pl-head">
+      <div><div class="pl-title">${escHtml(p.service_name)}</div>
+      <div class="pl-sub">${p.term_months}-month plan · ${planMoney(p.installment_amount)}/month · ${p.months_paid} of ${p.term_months} months paid</div></div>
+      <button type="button" class="pl-btn ghost" onclick="planClose()">Close plan</button>
+    </div>
+    <div class="pl-tiles">
+      <div class="pl-tile"><span>Plan total</span><b>${planMoney(p.total_amount)}</b></div>
+      <div class="pl-tile"><span>Paid so far</span><b style="color:var(--green,#388E3C)">${planMoney(p.paid)}</b></div>
+      <div class="pl-tile"><span>Billed, unpaid</span><b style="color:var(--orange,#E65100)">${planMoney(Math.max(0, p.billed - p.paid))}</b></div>
+      <div class="pl-tile"><span>Left to bill</span><b>${planMoney(planFree())}</b></div>
+    </div>
+    <div class="pl-bar"><i style="width:${paidPct}%;background:var(--green,#388E3C)"></i><i style="width:${billedPct}%;background:#FFB74D"></i></div>
+    <div class="pl-sub">This will be installment ${slot} of ${p.term_months}</div>
+    <div class="pl-chips">
+      <button type="button" class="pl-chip" onclick="planApplyAmount(Math.min(${p.installment_amount}, planFree()))">1 installment · ${planMoney(Math.min(p.installment_amount, planFree()))}</button>
+      <button type="button" class="pl-chip" onclick="planApplyAmount(planFree())">Full balance · ${planMoney(planFree())}</button>
+    </div>
+    <div class="pl-amt"><label style="font-size:12px;font-weight:700">Or enter amount (₹, incl. GST)</label>
+      <input id="plan-amt" type="number" min="0" step="0.01" oninput="planApplyAmount(this.value, true)"></div>
+    <div class="pl-live" id="plan-live"></div>`;
+  body.style.display = '';
+}
+// Creates/updates the plan's line item on the invoice so the totals, PDF and portal all follow the chosen amount.
+function planApplyAmount(v, fromInput) {
+  if (!PLAN.sel) return;
+  const amt = Math.max(0, Math.round((parseFloat(v) || 0) * 100) / 100);
+  const inp = document.getElementById('plan-amt');
+  if (inp && !fromInput) inp.value = amt || '';
+  let it = formItems.find(i => i._plan);
+  if (!it) {
+    const blank = formItems.length === 1 && !(formItems[0].desc || '').trim() && !(parseFloat(formItems[0].rate) || 0);
+    if (blank) { it = formItems[0]; }
+    else { it = { id: Date.now(), itemType: 'Service', qty: 1, hsn: (typeof suggestHsnForCategory === 'function' ? suggestHsnForCategory('Service') : ''), disc: 0, discType: 'pct' }; formItems.push(it); }
+    it._plan = true;
+    const g = parseFloat(document.getElementById('f-gst')?.value);
+    it.gst = isNaN(g) ? (STATE.settings.defaultGST ?? 18) : g;
+    it.desc = PLAN.sel.service_name; it.qty = 1;
+  }
+  const g = parseFloat(it.gst) || 0;
+  it.rate = Math.round(amt / (1 + g / 100) * 100) / 100;
+  if (!PLAN.editInv) {
+    // billing period for this installment (monthly slots counted from the plan start)
+    const months = Math.max(1, Math.round(amt / (PLAN.sel.installment_amount || amt || 1)));
+    const start = planAddMonths(PLAN.sel.start_date || new Date().toISOString().slice(0, 10), PLAN.sel.invoice_count);
+    it.service_cycle = 'monthly'; it.date_start = start; it.date_end = planAddDays(planAddMonths(start, months), -1);
+  }
+  renderFormItems(); calcTotals();
+}
+// Called from calcTotals() with the real invoice grand total, so the live line always matches what will be saved.
+function planRefreshSummary(grand) {
+  const el = document.getElementById('plan-live'); if (!el || !PLAN.sel) return;
+  grand = Math.round(grand * 100) / 100;
+  const p = PLAN.sel, free = planFree(), left = Math.max(0, Math.round((free - grand) * 100) / 100);
+  const months = p.installment_amount > 0 ? Math.ceil(left / p.installment_amount - 1e-9) : 0;
+  const others = formItems.filter(i => !i._plan && (parseFloat(i.rate) || 0) > 0).length;
+  const over = grand > free + 0.02;
+  el.classList.toggle('bad', over);
+  el.innerHTML = over
+    ? `<b>${planMoney(grand)}</b> is more than what is left on this plan (<b>${planMoney(free)}</b>). Reduce the amount.`
+    : `This invoice <b>${planMoney(grand)}</b> &nbsp;→&nbsp; remaining after it is paid: <b>${planMoney(left)}</b>${left >= 0.01 ? ` (${months} month${months === 1 ? '' : 's'})` : ' — <b>final installment, plan will be complete</b>'}` +
+      (others ? `<div style="margin-top:4px;font-size:11.5px;color:var(--orange,#E65100)">⚠ This invoice has other items too — the whole invoice total counts against the plan.</div>` : '');
+}
+function planToggleNew(show) {
+  const box = document.getElementById('plan-new'); box.style.display = show ? '' : 'none';
+  if (!show) return;
+  document.getElementById('pn-start').value = new Date().toISOString().slice(0, 10);
+  const first = formItems.find(i => (i.desc || '').trim());
+  if (first && !document.getElementById('pn-svc').value) document.getElementById('pn-svc').value = first.desc;
+  document.getElementById('pn-svc').focus();
+}
+function planNewCalc() {
+  const inst = document.getElementById('pn-inst');
+  if (inst.dataset.manual === '1') return;
+  const t = parseFloat(document.getElementById('pn-total').value) || 0, m = parseInt(document.getElementById('pn-months').value) || 0;
+  inst.value = t > 0 && m > 0 ? (Math.round(t / m * 100) / 100) : '';
+}
+async function planCreate() {
+  const v = id => document.getElementById(id).value;
+  const body = { client_id: parseInt(PLAN.clientId), client_name: v('f-cname'), service_name: v('pn-svc').trim(), total_amount: parseFloat(v('pn-total')) || 0,
+                 term_months: parseInt(v('pn-months')) || 0, installment_amount: parseFloat(v('pn-inst')) || 0, start_date: v('pn-start') };
+  if (!body.service_name || body.total_amount <= 0 || body.term_months < 1) { toast('⚠️ Enter service, total and months', 'warning'); return; }
+  const btn = document.getElementById('pn-save'); btn.disabled = true;
+  try {
+    const r = await api('api/plans.php', 'POST', body);
+    toast('✅ Plan created', 'success');
+    planToggleNew(false);
+    ['pn-svc', 'pn-total'].forEach(i => document.getElementById(i).value = '');
+    const inst = document.getElementById('pn-inst'); inst.value = ''; delete inst.dataset.manual;
+    PLAN.sel = null;
+    await planReload(String(r.id));
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+async function planClose() {
+  if (!PLAN.sel) return;
+  const { isConfirmed } = await Swal.fire({ title: 'Close this plan?', text: 'No more invoices can be billed against it. Existing invoices stay as they are.', icon: 'question', showCancelButton: true, confirmButtonText: 'Close plan', customClass: { popup: 'swal-compact' } });
+  if (!isConfirmed) return;
+  try { await api('api/plans.php?id=' + PLAN.sel.id, 'PUT', { status: 'Closed' }); planClearItem(); PLAN.sel = null; await planReload(''); toast('Plan closed', 'info'); }
+  catch (e) { toast('❌ ' + e.message, 'error'); }
+}
+
 async function saveInvoice() {
   const d = getFormData();
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
+  if (PLAN.sel && !['Draft','Estimate','Cancelled'].includes(d.status) && d.grand > planFree() + 0.02) {
+    toast('⚠️ This invoice is more than what is left on the installment plan (' + planMoney(planFree()) + ')', 'warning'); return;
+  }
   const selVal = document.getElementById('f-client-select')?.value;
   const _clientId = (selVal && selVal !== '__onetime__') ? parseInt(selVal) : null;
 
@@ -15539,6 +15786,8 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
+    // Installment plan link — omitted if the plan list could not be loaded, so an edit never unlinks by accident
+    ...(PLAN.ready ? { plan_id: PLAN.sel ? PLAN.sel.id : null } : {}),
     items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }))
   };
   try {
@@ -29618,6 +29867,7 @@ function editInvoice(id) {
       }
     }
     livePreview();
+    try { planLoadForInvoice(inv); } catch (e) {}
     toast(`✏️ Editing ${inv.num||inv.invoice_number}`, 'info');
   }, 80);
 }
