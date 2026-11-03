@@ -1455,6 +1455,95 @@ if ($items):
 </div>
 <?php endif; ?>
 
+<!-- Recurring service: what has been paid so far across this client's invoices for the same service -->
+<?php
+$planRows = []; $planName = ''; $planErr = false;
+try {
+  if (!$isEstimate && !$isCancelled && !empty($inv['client_id'])) {
+    foreach ($items as $it0) {
+      $cy = strtolower((string)($it0['service_cycle'] ?? ''));
+      if ($cy !== '' && $cy !== 'onetime' && trim((string)($it0['name'] ?? '')) !== '') { $planName = $it0['name']; break; }
+    }
+    if ($planName !== '') {
+      $q = $db->prepare("SELECT i.id, i.invoice_number, i.status, i.grand_total, i.due_date,
+                                it.service_cycle, it.date_start, it.date_end
+                         FROM invoice_items it JOIN invoices i ON i.id = it.invoice_id
+                         WHERE i.client_id = :cid AND it.description = :d
+                           AND it.service_cycle IS NOT NULL AND it.service_cycle NOT IN ('', 'onetime')
+                           AND i.status NOT IN ('Cancelled','Estimate')
+                         ORDER BY (it.date_start IS NULL), it.date_start ASC, i.id ASC LIMIT 60");
+      $q->execute([':cid' => $inv['client_id'], ':d' => $planName]);
+      $planRows = $q->fetchAll(PDO::FETCH_ASSOC);
+      if (count($planRows) >= 2) {
+        $ids = array_map('intval', array_column($planRows, 'id'));
+        $paidMap = [];
+        $in = implode(',', $ids);
+        try {
+          $pm = $db->query("SELECT invoice_id, SUM(amount + COALESCE(settlement_discount,0)) AS c FROM payments WHERE invoice_id IN ($in) GROUP BY invoice_id");
+        } catch (Exception $e) {
+          $pm = $db->query("SELECT invoice_id, SUM(amount) AS c FROM payments WHERE invoice_id IN ($in) GROUP BY invoice_id");
+        }
+        foreach ($pm->fetchAll(PDO::FETCH_ASSOC) as $r) $paidMap[(int)$r['invoice_id']] = (float)$r['c'];
+        foreach ($planRows as &$pr) {
+          $tot = (float)$pr['grand_total'];
+          $cov = $paidMap[(int)$pr['id']] ?? 0;
+          if ($pr['status'] === 'Paid') $cov = $tot;           // marked Paid with no payment rows
+          $pr['_tot'] = $tot; $pr['_cov'] = min($cov, $tot); $pr['_left'] = max(0, $tot - min($cov, $tot));
+        }
+        unset($pr);
+      } else { $planRows = []; }
+    }
+  }
+} catch (Exception $e) { $planRows = []; /* service period columns may not exist — hide card */ }
+
+if (count($planRows) >= 2):
+  $plBilled = array_sum(array_column($planRows, '_tot'));
+  $plPaid   = array_sum(array_column($planRows, '_cov'));
+  $plLeft   = array_sum(array_column($planRows, '_left'));
+  $plPct    = $plBilled > 0 ? min(100, round($plPaid / $plBilled * 100)) : 0;
+  $plPaidN  = count(array_filter($planRows, fn($r) => $r['_left'] < 0.01));
+  $plN      = count($planRows);
+?>
+<div class="card" id="planCard">
+  <div class="card-head"><i class="fas fa-calendar-check"></i> <span><?= htmlspecialchars($planName) ?> — Payment Plan</span></div>
+  <div class="card-body">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Billed</div><div style="font-weight:700;font-family:var(--mono)"><?= fmt_inr($plBilled, $sym) ?></div></div>
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Paid so far</div><div style="font-weight:700;font-family:var(--mono);color:var(--green)"><?= fmt_inr($plPaid, $sym) ?></div></div>
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Remaining</div><div style="font-weight:700;font-family:var(--mono);color:<?= $plLeft > 0.01 ? 'var(--red)' : 'var(--green)' ?>"><?= $plLeft > 0.01 ? fmt_inr($plLeft, $sym) : '✓ Cleared' ?></div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:<?= $plPct ?>%"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin:6px 0 14px"><?= $plPaidN ?> of <?= $plN ?> periods paid (<?= $plPct ?>%)</div>
+
+    <?php foreach ($planRows as $pr):
+      $isCur = ((int)$pr['id'] === (int)$inv['invoice_id']);
+      $ds = $pr['date_start'] ?? ''; $de = $pr['date_end'] ?? '';
+      if ($ds === '0000-00-00') $ds = ''; if ($de === '0000-00-00') $de = '';
+      $cyc = strtolower((string)$pr['service_cycle']);
+      $period = $ds ? (($cyc === 'monthly' && !$de) ? date('M Y', strtotime($ds)) : fmt_date($ds) . ($de ? ' – ' . fmt_date($de) : '')) : (string)$pr['invoice_number'];
+      $paidFull = $pr['_left'] < 0.01;
+      $partial  = !$paidFull && $pr['_cov'] > 0.01;
+      $overdue  = !$paidFull && ($pr['status'] === 'Overdue');
+      if ($paidFull)      { $chipBg = 'var(--green-bg)'; $chipCol = 'var(--green)'; $chip = '✓ Paid'; }
+      elseif ($partial)   { $chipBg = '#FFF3E0';          $chipCol = 'var(--orange)'; $chip = fmt_inr($pr['_left'], $sym) . ' left'; }
+      elseif ($overdue)   { $chipBg = 'var(--red-bg)';   $chipCol = 'var(--red)';   $chip = 'Overdue'; }
+      else                { $chipBg = '#FFF8E1';          $chipCol = '#B26A00';       $chip = 'Pending'; }
+    ?>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:8px;<?= $isCur ? 'background:var(--teal-bg);border:1px solid var(--teal);' : 'border-bottom:1px solid var(--border);' ?>">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:600"><?= htmlspecialchars($period) ?><?php if ($isCur): ?> <span style="font-size:10px;font-weight:700;color:var(--teal);margin-left:4px">THIS INVOICE</span><?php endif; ?></div>
+        <div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($pr['invoice_number']) ?><?= $partial ? ' · ' . fmt_inr($pr['_cov'], $sym) . ' paid of ' . fmt_inr($pr['_tot'], $sym) : '' ?></div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-family:var(--mono);font-size:12.5px;font-weight:700"><?= fmt_inr($pr['_tot'], $sym) ?></div>
+        <span style="display:inline-block;margin-top:2px;padding:1px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:<?= $chipBg ?>;color:<?= $chipCol ?>"><?= $chip ?></span>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- Payment history (not shown for estimates) -->
 <?php if ($payments && !$isEstimate): ?>
 <div class="card">
