@@ -56,6 +56,20 @@ foreach ($_migrateItemCols as $_col => $_sql) {
 // ── Installment plans: payment_plans table + invoices.plan_id (self-migrating) ──
 require_once __DIR__ . '/../includes/plans_schema.php';
 ensurePlanSchema($db);
+// Flag which saved line item(s) belong to an installment plan (separate statement so a missing column can never break saving)
+function planMarkItems(PDO $db, int $invoiceId, array $items): void {
+  try {
+    $u = $db->prepare('UPDATE invoice_items SET plan_id = ? WHERE invoice_id = ? AND sort_order = ?');
+    foreach ($items as $idx => $it) if (!empty($it['plan_id'])) $u->execute([(int)$it['plan_id'], $invoiceId, $idx]);
+  } catch (\PDOException $e) { error_log('plan item link: ' . $e->getMessage()); }
+}
+// Plan part of the invoice being saved (the flagged line items), from the posted payload
+function planShareFromInput(array $input, int $planId): float {
+  $items = array_map(fn($i) => ['qty' => $i['qty'] ?? 1, 'rate' => $i['rate'] ?? 0, 'gst' => $i['gst'] ?? 18,
+                                 'disc' => $i['disc'] ?? 0, 'discType' => $i['discType'] ?? 'pct', 'plan_id' => $i['plan_id'] ?? null], $input['items'] ?? []);
+  $mode = in_array($input['discount_mode'] ?? 'invoice', ['invoice', 'item'], true) ? $input['discount_mode'] : 'invoice';
+  return planShareCalc($items, $mode, (float)($input['discount_amt'] ?? 0), $planId, (float)($input['grand_total'] ?? 0));
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 switch ($method) {
@@ -92,6 +106,7 @@ return [
 'service_cycle' => $it['service_cycle'] ?? '',
 'date_start'    => $it['date_start'] ?? '',
 'date_end'      => $it['date_end'] ?? '',
+'plan_id'       => isset($it['plan_id']) ? (int)$it['plan_id'] : null,
 ];
 }, $rawItems);
 if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
@@ -108,6 +123,7 @@ $inv['discount_mode']  = $inv['discount_mode'] ?? 'invoice';
 $inv['currency'] = $inv['currency'];
 $inv['template'] = (int)$inv['template_id'];
 $inv['subtotal'] = (float)$inv['subtotal'];
+$inv['plan_share'] = !empty($inv['plan_id']) ? planShareCalc($inv['items'], (string)$inv['discount_mode'], (float)$inv['discount_amt'], (int)$inv['plan_id'], (float)$inv['grand_total']) : null;
 jsonResponse(['data' => $inv]);
 }
 // List with optional filters
@@ -134,7 +150,7 @@ $rawItems = $si->fetchAll();
 $inv['items'] = array_map(function($it){
 return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total'],
 'hsn'=>$it['hsn']??'','itemType'=>$it['item_type']??'Service','disc'=>(float)($it['item_discount']??0),'discType'=>$it['item_discount_type']??'pct',
-'service_cycle'=>$it['service_cycle']??'','date_start'=>$it['date_start']??'','date_end'=>$it['date_end']??''];
+'service_cycle'=>$it['service_cycle']??'','date_start'=>$it['date_start']??'','date_end'=>$it['date_end']??'','plan_id'=>isset($it['plan_id'])?(int)$it['plan_id']:null];
 }, $rawItems);
 $inv['num']       = $inv['invoice_number'];
 $inv['client']    = (string)$inv['client_id'];
@@ -151,6 +167,7 @@ $inv['subtotal']  = (float)$inv['subtotal'];
 $inv['bank']      = $inv['bank_details'] ?? '';
 $inv['tnc']       = $inv['terms'] ?? '';
 $inv['clientName']= $inv['client_name'] ?? '';
+$inv['plan_share'] = !empty($inv['plan_id']) ? planShareCalc($inv['items'], (string)$inv['discount_mode'], (float)$inv['discount_amt'], (int)$inv['plan_id'], (float)$inv['grand_total']) : null;
 if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
 }
 jsonResponse(['data' => $invoices]);
@@ -242,8 +259,9 @@ if ($planId && !in_array($input['status'], ['Draft','Estimate','Cancelled'], tru
   try {
     $free = planUnbilled($db, $planId, 0);
     if ($free === null) jsonResponse(['error' => 'Payment plan not found'], 400);
-    if ((float)($input['grand_total'] ?? 0) > $free + 0.02)
-      jsonResponse(['error' => 'This invoice (' . number_format((float)$input['grand_total'], 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
+    $share = planShareFromInput($input, $planId);
+    if ($share > $free + 0.02)
+      jsonResponse(['error' => 'The plan part of this invoice (' . number_format($share, 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
   } catch (\PDOException $e) { error_log('plan guard: ' . $e->getMessage()); }
 }
 $stmt = $db->prepare('
@@ -293,6 +311,7 @@ $item['service_cycle']??'',
 !empty($item['date_end']) ? $item['date_end'] : null,
 $idx]);
 }
+planMarkItems($db, $invId, $input['items']);
 }
 logActivity((int)$userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
 jsonResponse(['success'=>true, 'id'=>$invId, 'invoice_number'=>$input['invoice_number']]);
@@ -344,8 +363,9 @@ if (array_key_exists('plan_id', $input) && !empty($input['plan_id']) && !in_arra
   try {
     $free = planUnbilled($db, (int)$input['plan_id'], $id);
     if ($free === null) jsonResponse(['error' => 'Payment plan not found'], 400);
-    if ((float)($input['grand_total'] ?? 0) > $free + 0.02)
-      jsonResponse(['error' => 'This invoice (' . number_format((float)$input['grand_total'], 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
+    $share = planShareFromInput($input, (int)$input['plan_id']);
+    if ($share > $free + 0.02)
+      jsonResponse(['error' => 'The plan part of this invoice (' . number_format($share, 2) . ') is more than what is left on the payment plan (' . number_format($free, 2) . ').'], 400);
   } catch (\PDOException $e) { error_log('plan guard: ' . $e->getMessage()); }
 }
 $stmt = $db->prepare('
@@ -396,6 +416,7 @@ $item['service_cycle']??'',
 !empty($item['date_end']) ? $item['date_end'] : null,
 $idx]);
 }
+planMarkItems($db, $id, $input['items']);
 }
 logActivity($_SESSION['user_id'], 'update', 'invoice', $id, "Updated invoice #$id");
 jsonResponse(['success'=>true]);

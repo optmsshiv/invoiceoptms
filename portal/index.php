@@ -237,12 +237,12 @@ if (!$error && $invoiceId > 0) {
                     $plS->execute([':id' => $planId]);
                     $planRow = $plS->fetch(PDO::FETCH_ASSOC);
                     if ($planRow) {
-                        $liS = $db->prepare("SELECT id, invoice_number, status, grand_total FROM invoices
+                        $liS = $db->prepare("SELECT id, invoice_number, status, grand_total, discount_amt, discount_mode FROM invoices
                                              WHERE plan_id = :p AND status NOT IN ('Cancelled','Draft','Estimate')
                                              ORDER BY issued_date ASC, id ASC");
                         $liS->execute([':p' => $planId]);
                         $linked = $liS->fetchAll(PDO::FETCH_ASSOC);
-                        $covMap = [];
+                        $covMap = []; $itemMap = [];
                         if ($linked) {
                             $idList = implode(',', array_map('intval', array_column($linked, 'id')));
                             try {
@@ -251,12 +251,24 @@ if (!$error && $invoiceId > 0) {
                                 $cm = $db->query("SELECT invoice_id, SUM(amount) AS c FROM payments WHERE invoice_id IN ($idList) GROUP BY invoice_id");
                             }
                             foreach ($cm->fetchAll(PDO::FETCH_ASSOC) as $cr) $covMap[(int)$cr['invoice_id']] = (float)$cr['c'];
+                            try {
+                                $im = $db->query("SELECT invoice_id, quantity, rate, gst_rate, item_discount, item_discount_type, plan_id FROM invoice_items WHERE invoice_id IN ($idList)");
+                                foreach ($im->fetchAll(PDO::FETCH_ASSOC) as $ir) {
+                                    $itemMap[(int)$ir['invoice_id']][] = ['qty' => $ir['quantity'], 'rate' => $ir['rate'], 'gst' => $ir['gst_rate'],
+                                        'disc' => $ir['item_discount'], 'discType' => $ir['item_discount_type'], 'plan_id' => $ir['plan_id']];
+                                }
+                            } catch (Exception $e3) { /* item columns missing — whole invoice counts */ }
                         }
                         $planRows = [];
                         foreach ($linked as $l) {
-                            $t = (float)$l['grand_total'];
-                            $c = ($l['status'] === 'Paid') ? $t : min($t, $covMap[(int)$l['id']] ?? 0);
-                            $planRows[] = ['id' => (int)$l['id'], 'number' => $l['invoice_number'], 'status' => $l['status'], 'total' => $t, 'paid' => $c, 'left' => max(0, $t - $c)];
+                            $t = (float)$l['grand_total']; $lid = (int)$l['id'];
+                            $c = ($l['status'] === 'Paid') ? $t : min($t, $covMap[$lid] ?? 0);
+                            $share = min($t, planShareCalc($itemMap[$lid] ?? [], (string)($l['discount_mode'] ?: 'invoice'), (float)$l['discount_amt'], $planId, $t));
+                            $ratio = $t > 0 ? $share / $t : 1;
+                            $planRows[] = ['id' => $lid, 'number' => $l['invoice_number'], 'status' => $l['status'],
+                                           'total' => $t, 'share' => $share,
+                                           'paid' => round($c * $ratio, 2), 'plan_left' => round(max(0, $share - $c * $ratio), 2),
+                                           'left' => max(0, $t - $c)];
                         }
                         $planData = ['plan' => $planRow, 'rows' => $planRows];
                     }
@@ -268,6 +280,33 @@ if (!$error && $invoiceId > 0) {
         $debugDetail = $e->getMessage();
         $error = 'A server error occurred. Please try again later.';
     }
+}
+
+/**
+ * The part of an invoice that belongs to a plan: the flagged line item(s) with their own GST and
+ * their share of any invoice-level discount — exactly the maths the invoice form uses.
+ * $items: [qty, rate, gst, disc, discType('pct'|'fixed'), plan_id].
+ * Legacy invoices (linked to a plan before line items were flagged) have no flagged item, so the
+ * whole invoice ($fallbackGrand) counts, as before.
+ */
+function planShareCalc(array $items, string $mode, float $discAmt, int $planId, float $fallbackGrand): float {
+  $flagged = array_filter($items, fn($i) => (int)($i['plan_id'] ?? 0) === $planId);
+  if (!$flagged) return round($fallbackGrand, 2);
+  $sub = 0.0;
+  foreach ($items as $i) $sub += (float)($i['qty'] ?? 1) * (float)($i['rate'] ?? 0);
+  $factor = $sub > 0 ? max(0, 1 - $discAmt / $sub) : 1;
+  $out = 0.0;
+  foreach ($flagged as $i) {
+    $line = (float)($i['qty'] ?? 1) * (float)($i['rate'] ?? 0);
+    $g = (float)($i['gst'] ?? 0);
+    if ($mode === 'item') {
+      $d = (($i['discType'] ?? 'pct') === 'fixed') ? min((float)($i['disc'] ?? 0), $line) : $line * (float)($i['disc'] ?? 0) / 100;
+      $out += ($line - $d) * (1 + $g / 100);
+    } else {
+      $out += $line * (1 + $g / 100) * $factor;
+    }
+  }
+  return round($out, 2);
 }
 
 /**
@@ -284,9 +323,10 @@ function plan_view(array $plan, array $rows, int $curId): array {
         if ($r['left'] < 0.01) $monthsPaid++;
         if ($r['id'] === $curId) { $cur = $r; $curNo = $i + 1; }
     }
-    $remaining = max(0, $total - $paid);
-    $curLeft   = $cur ? $cur['left'] : 0;
-    $after     = max(0, $remaining - $curLeft);               // what will still be owed once THIS invoice is settled
+    $remaining = max(0, $total - $paid);                        // $paid = plan part of payments only
+    $curLeft   = $cur ? $cur['left'] : 0;                       // whole-invoice balance (what the customer pays now)
+    $curPlanLeft = $cur ? $cur['plan_left'] : 0;                // plan part of that balance
+    $after     = max(0, $remaining - $curPlanLeft);             // what will still be owed on the plan once THIS invoice is settled
     $per       = fn($x) => $inst > 0 ? (int)ceil($x / $inst - 1e-9) : 0;
     $slots = max($term, count($rows));
     $start = !empty($plan['start_date']) && strtotime($plan['start_date']) ? strtotime($plan['start_date']) : null;
@@ -308,7 +348,9 @@ function plan_view(array $plan, array $rows, int $curId): array {
         'cur_paid' => $cur && $cur['left'] < 0.01, 'cur_left' => $curLeft,
         'months_left_now' => $per($remaining), 'months_left_after' => $per($after),
         'paid_pct' => $total > 0 ? min(100, $paid / $total * 100) : 0,
-        'cur_pct'  => $total > 0 ? min(100, $curLeft / $total * 100) : 0,
+        'cur_pct'  => $total > 0 ? min(100, $curPlanLeft / $total * 100) : 0,
+        'cur_share' => $cur ? $cur['share'] : 0, 'cur_total' => $cur ? $cur['total'] : 0,
+        'mixed' => $cur && ($cur['total'] - $cur['share']) > 0.01,
         'chips' => $chips,
     ];
 }
@@ -1592,9 +1634,9 @@ if ($pv):
       <div class="ico"><i class="fas fa-hourglass-half"></i></div>
       <div>
         <div class="t">Pay <?= fmt_inr($pv['cur_left'], $sym) ?> now</div>
-        <div class="s"><?= $pv['after'] < 0.01
+        <div class="s"><?= $pv['mixed'] ? 'Includes your ' . htmlspecialchars($pl['service_name']) . ' installment of ' . fmt_inr($pv['cur_share'], $sym) . '. ' : '' ?><?= $pv['after'] < 0.01
             ? 'This is your final installment — it completes the plan.'
-            : 'After this payment, ' . fmt_inr($pv['after'], $sym) . ' will remain (' . (int)$pv['months_left_after'] . ' month' . ($pv['months_left_after'] == 1 ? '' : 's') . ')' ?></div>
+            : 'After this payment, ' . fmt_inr($pv['after'], $sym) . ' of the plan will remain (' . (int)$pv['months_left_after'] . ' month' . ($pv['months_left_after'] == 1 ? '' : 's') . ')' ?></div>
       </div>
     </div>
     <?php endif; ?>
@@ -1609,6 +1651,9 @@ if ($pv):
       <i style="width:<?= round($pv['cur_pct'], 2) ?>%;background:#FFB300"></i>
     </div>
     <div class="pc-cap"><span><?= (int)$pv['months_paid'] ?> of <?= (int)$pv['term'] ?> months paid</span><span><?= (int)round($pv['paid_pct']) ?>% of plan</span></div>
+    <?php if ($pv['mixed']): ?>
+    <div class="pc-cap" style="margin-top:6px"><span>Plan figures count only <?= htmlspecialchars($pl['service_name']) ?>: <?= fmt_inr($pv['cur_share'], $sym) ?> of this <?= fmt_inr($pv['cur_total'], $sym) ?> invoice.</span></div>
+    <?php endif; ?>
 
     <div class="pc-chips">
       <?php foreach ($pv['chips'] as $k => $c):

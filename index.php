@@ -13494,7 +13494,7 @@ function calcTotals() {
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
-  try { planRefreshSummary(grand); } catch (e) {}
+  try { planRefreshSummary(grand, sub, discAmt, discMode); } catch (e) {}
   livePreview();
   return { sub, discAmt, gstAmt: gstAfterDisc, grand };
 }
@@ -15266,7 +15266,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -15613,7 +15613,7 @@ async function planLoadForInvoice(inv) {
   document.getElementById('planPanel').style.display = '';
   if (inv.plan_id) {
     PLAN.editInv = inv;
-    PLAN.editBase = ['Draft', 'Estimate', 'Cancelled'].includes(inv.status) ? 0 : (parseFloat(inv.amount) || 0);
+    PLAN.editBase = ['Draft', 'Estimate', 'Cancelled'].includes(inv.status) ? 0 : (parseFloat(inv.plan_share ?? inv.amount) || 0);   // only the plan item's part of the invoice
   }
   await planReload(inv.plan_id ? String(inv.plan_id) : null, true);
 }
@@ -15638,8 +15638,9 @@ function planSelect(id, keepItems) {
   planRenderBody();
   if (keepItems) {
     // editing: keep the saved line items, just remember which one is the plan line
-    if (!formItems.some(i => i._plan)) {
-      const it = formItems.find(i => (i.desc || '').trim() === PLAN.sel.service_name.trim()) || formItems[0];
+    formItems.forEach(i => { if (String(i.plan_id || '') === String(PLAN.sel.id)) i._plan = true; });
+    if (!formItems.some(i => i._plan)) {          // older invoice linked before items were flagged: best guess by name
+      const it = formItems.find(i => (i.desc || '').trim().toLowerCase() === PLAN.sel.service_name.trim().toLowerCase()) || (formItems.length === 1 ? formItems[0] : null);
       if (it) it._plan = true;
     }
     calcTotals();
@@ -15702,19 +15703,34 @@ function planApplyAmount(v, fromInput) {
   }
   renderFormItems(); calcTotals();
 }
-// Called from calcTotals() with the real invoice grand total, so the live line always matches what will be saved.
-function planRefreshSummary(grand) {
+// The plan's part of THIS invoice: only the flagged line(s), with their own GST and their share of any invoice discount.
+function planShareNow(sub, discAmt, discMode) {
+  const factor = sub > 0 ? Math.max(0, 1 - discAmt / sub) : 1;
+  let out = 0;
+  formItems.filter(i => i._plan).forEach(i => {
+    const line = (parseFloat(i.qty) || 1) * (parseFloat(i.rate) || 0), g = parseFloat(i.gst) || 0;
+    if (discMode === 'item') {
+      const dv = parseFloat(i.disc) || 0, d = i.discType === 'fixed' ? Math.min(dv, line) : line * dv / 100;
+      out += (line - d) * (1 + g / 100);
+    } else out += line * (1 + g / 100) * factor;
+  });
+  return Math.round(out * 100) / 100;
+}
+// Called from calcTotals(), so the live line always matches what will be saved.
+function planRefreshSummary(grand, sub, discAmt, discMode) {
   const el = document.getElementById('plan-live'); if (!el || !PLAN.sel) return;
   grand = Math.round(grand * 100) / 100;
-  const p = PLAN.sel, free = planFree(), left = Math.max(0, Math.round((free - grand) * 100) / 100);
+  const p = PLAN.sel, free = planFree(), share = planShareNow(sub, discAmt, discMode);
+  const left = Math.max(0, Math.round((free - share) * 100) / 100);
   const months = p.installment_amount > 0 ? Math.ceil(left / p.installment_amount - 1e-9) : 0;
-  const others = formItems.filter(i => !i._plan && (parseFloat(i.rate) || 0) > 0).length;
-  const over = grand > free + 0.02;
+  const over = share > free + 0.02, none = share < 0.01;
   el.classList.toggle('bad', over);
+  if (none) { el.innerHTML = `Choose an amount above to add <b>${escHtml(p.service_name)}</b> to this invoice.`; return; }
+  const mixed = grand - share > 0.01;
   el.innerHTML = over
-    ? `<b>${planMoney(grand)}</b> is more than what is left on this plan (<b>${planMoney(free)}</b>). Reduce the amount.`
-    : `This invoice <b>${planMoney(grand)}</b> &nbsp;→&nbsp; remaining after it is paid: <b>${planMoney(left)}</b>${left >= 0.01 ? ` (${months} month${months === 1 ? '' : 's'})` : ' — <b>final installment, plan will be complete</b>'}` +
-      (others ? `<div style="margin-top:4px;font-size:11.5px;color:var(--orange,#E65100)">⚠ This invoice has other items too — the whole invoice total counts against the plan.</div>` : '');
+    ? `The ${escHtml(p.service_name)} part (<b>${planMoney(share)}</b>) is more than what is left on this plan (<b>${planMoney(free)}</b>). Reduce the amount.`
+    : `${escHtml(p.service_name)} <b>${planMoney(share)}</b>${mixed ? ` of this <b>${planMoney(grand)}</b> invoice` : ''} &nbsp;→&nbsp; remaining after it is paid: <b>${planMoney(left)}</b>${left >= 0.01 ? ` (${months} month${months === 1 ? '' : 's'})` : ' — <b>final installment, plan will be complete</b>'}` +
+      (mixed ? `<div style="margin-top:4px;font-size:11.5px;color:var(--muted)">Other items on this invoice don't count against the plan.</div>` : '');
 }
 function planToggleNew(show) {
   const box = document.getElementById('plan-new'); box.style.display = show ? '' : 'none';
@@ -15759,8 +15775,9 @@ async function saveInvoice() {
   const d = getFormData();
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
-  if (PLAN.sel && !['Draft','Estimate','Cancelled'].includes(d.status) && d.grand > planFree() + 0.02) {
-    toast('⚠️ This invoice is more than what is left on the installment plan (' + planMoney(planFree()) + ')', 'warning'); return;
+  if (PLAN.sel && !['Draft','Estimate','Cancelled'].includes(d.status)) {
+    const _t = calcTotals(), _sh = planShareNow(_t.sub, _t.discAmt, document.getElementById('f-disc-mode')?.value || 'invoice');
+    if (_sh > planFree() + 0.02) { toast('⚠️ The ' + PLAN.sel.service_name + ' part of this invoice is more than what is left on the plan (' + planMoney(planFree()) + ')', 'warning'); return; }
   }
   const selVal = document.getElementById('f-client-select')?.value;
   const _clientId = (selVal && selVal !== '__onetime__') ? parseInt(selVal) : null;
@@ -15787,8 +15804,8 @@ async function saveInvoice() {
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
     // Installment plan link — omitted if the plan list could not be loaded, so an edit never unlinks by accident
-    ...(PLAN.ready ? { plan_id: PLAN.sel ? PLAN.sel.id : null } : {}),
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }))
+    ...(PLAN.ready ? { plan_id: (PLAN.sel && formItems.some(i => i._plan)) ? PLAN.sel.id : null } : {}),
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: (i._plan && PLAN.sel) ? PLAN.sel.id : null }))
   };
   try {
     if (!isNewSave) {
@@ -16239,7 +16256,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
   renderFormItems();
   livePreview();
 }
