@@ -233,7 +233,26 @@ if (!$error && $invoiceId > 0) {
     }
 }
 
+// Defined early: the sticky bar (top of page) uses it before the dues summary block
+$dueCount = count($otherDues ?? []);
+
 // ── Helpers ──────────────────────────────────────────────────
+function svc_cycle_label($c) {
+    $m = ['onetime'=>'One-time','monthly'=>'Monthly','quarterly'=>'Quarterly','halfyearly'=>'Half-yearly','yearly'=>'Yearly'];
+    return $m[strtolower((string)$c)] ?? '';
+}
+// Muted subtitle under item name, e.g. "Monthly · 01 Oct 2026 – 30 Oct 2026". '' when no duration.
+function svc_subtitle($item) {
+    $cycle = svc_cycle_label($item['service_cycle'] ?? '');
+    $start = $item['date_start'] ?? '';
+    $end   = $item['date_end']   ?? '';
+    if ($start === '0000-00-00') $start = '';
+    if ($end   === '0000-00-00') $end   = '';
+    if ($cycle === '' && $start === '') return '';
+    if ($start === '') return $cycle;
+    if (strtolower((string)($item['service_cycle'] ?? '')) === 'onetime') return $cycle . ' · ' . fmt_date($start);
+    return ($cycle !== '' ? $cycle . ' · ' : '') . fmt_date($start) . ' – ' . ($end !== '' ? fmt_date($end) : 'ongoing');
+}
 function fmt_date($d) {
     if (!$d || $d === '—') return '—';
     $ts = strtotime($d);
@@ -1291,8 +1310,14 @@ if (!$isEstimate && !empty($inv['notes'])) {
 
 <!-- Line items -->
 <?php
-$iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
-$iStmt->execute([':id' => $inv['invoice_id']]);
+try {
+  // Includes service period columns; falls back below if they don't exist in this DB
+  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total, service_cycle, date_start, date_end FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+  $iStmt->execute([':id' => $inv['invoice_id']]);
+} catch (Exception $e) {
+  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+  $iStmt->execute([':id' => $inv['invoice_id']]);
+}
 $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($items):
 ?>
@@ -1319,6 +1344,7 @@ if ($items):
       <td>
         <strong style="font-size:13px"><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
         <?php if (!empty($item['type'])): ?><br><span style="font-size:10px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
+        <?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?>
       </td>
       <?php
         $lineQty    = (float)($item['qty']  ?? 1);
@@ -1394,7 +1420,7 @@ if ($items):
     ?>
     <div class="line-card">
       <div class="line-card-top">
-        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?></div>
+        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?><?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;font-weight:400;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?></div>
         <div class="line-card-total"><?= fmt_inr($tot, $sym) ?></div>
       </div>
       <div class="line-card-meta">
