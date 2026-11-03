@@ -1690,7 +1690,7 @@ try {
                          FROM invoice_items it JOIN invoices i ON i.id = it.invoice_id
                          WHERE i.client_id = :cid AND it.description = :d
                            AND it.service_cycle IS NOT NULL AND it.service_cycle NOT IN ('', 'onetime')
-                           AND i.status NOT IN ('Cancelled','Estimate')
+                           AND i.status NOT IN ('Cancelled','Draft','Estimate')
                          ORDER BY (it.date_start IS NULL), it.date_start ASC, i.id ASC LIMIT 60");
       $q->execute([':cid' => $inv['client_id'], ':d' => $planName]);
       $planRows = $q->fetchAll(PDO::FETCH_ASSOC);
