@@ -38090,7 +38090,7 @@ function norm(q) {
 // Typo tolerance for the *keywords only* (never applied to names).
 const VOCAB = ['sales','purchase','purchases','expenses','expense','outstanding','customer','customers','supplier','suppliers',
   'overdue','profit','summary','yesterday','balance','receivable','payable','stock','bags','today','invoices','invoice',
-  'received','payments','collection','products','biggest','highest','largest','category','categories'];
+  'received','payments','collection','products','biggest','highest','largest','category','categories','clients','client','billed'];
 const NO_FIX = new Set(['stuck','stick','store','stores','stack','shock','state','stale','scale','sails','seals','tales','purse','shops','bills']);
 function fixTypos(n) {
   return n.split(' ').map(t => {
@@ -38107,6 +38107,7 @@ const STOP = new Set(('a an the of for in on at to from by with and or is are wa
   'total sales sale sold purchase purchases purchased expense expenses profit stock bags bag left remaining available outstanding balance ' +
   'owe owes owed due pending unpaid overdue late receivable payable received payment payments paid collection collections ' +
   'customer customers supplier suppliers vendor vendors party parties client clients buyer buyers product products item items ' +
+  'invoice invoices bill bills billed billing revenue income turnover earnings earned receipts collected net cash ' +
   'category categories wise top best biggest highest largest most least lowest ranking report summary overview status details detail info ' +
   'amount value number no nos qty quantity kg kgs rs rupees inr count ' +
   'last past next previous current today yesterday day days week weeks month months year years ago till until between since overall ' +
@@ -38266,29 +38267,49 @@ function pickBest(ranked) {
 const BOT = { open: false, ctx: {}, cache: new Map(), data: null, dataAt: 0, pools: null, nameTok: null, actions: new Map(), seq: 0, lastAt: 0 };
 const TTL = 90 * 1000;
 
-function can(page) {                         // sidebar menu items exist only for permitted pages
-  if (typeof document === 'undefined') return true;
+/* Why is a page unavailable?
+     'ok'   — the menu item is there
+     'type' — the item exists but the business setup hides it (e.g. Sales in a service business)
+     'perm' — this login has no menu item for it (permission)                                   */
+function access(page) {
+  if (typeof document === 'undefined') return 'ok';
   const el = document.querySelector(`.nav-item[data-page="${page}"]`);
-  return !!el && el.style.display !== 'none';
+  if (!el) return 'perm';
+  return el.style.display === 'none' ? 'type' : 'ok';
 }
+const can = page => access(page) === 'ok';
+const bizType = () => (typeof STATE !== 'undefined' && STATE.settings && STATE.settings.businessType) || 'both';
+const roleName = () => { try { return String(SERVER.user.role || ''); } catch (e) { return ''; } };
+// A service business invoices its clients; a product business has Sales. Everything below picks the right one.
+const svcMode = () => !can('sales-list') && can('invoices');
 
 async function data() {
   const now = Date.now();
   if (BOT.data && now - BOT.dataAt < TTL) return BOT.data;
-  const svc = STATE.settings && STATE.settings.businessType === 'service';
   const get = (url, fb) => Promise.resolve().then(() => api(url)).then(r => Array.isArray(r && r.data) ? r.data : fb).catch(() => fb);
-  const [sales, purchases, cA, cR, suppliers, stock, products] = await Promise.all([
-    svc ? [] : get('api/sales.php', STATE.sales || []),
-    get('api/purchases.php', STATE.purchases || []),
-    svc ? [] : get('api/customers.php', STATE.customers || []),
-    svc ? [] : get('api/customers.php?status=archived', []),
-    get('api/suppliers.php', STATE.suppliers || []),
-    get('api/stock.php', STATE.stock || []),
+  const S1 = can('sales-list'), C1 = S1 || can('customers-list'), P1 = can('purchases'), V1 = P1 || can('suppliers');
+  const I1 = can('invoices') || can('clients') || can('payments');
+  const normI = typeof normalizeInvoice === 'function' ? normalizeInvoice : (x => x);
+  const getInvoices = () => Promise.resolve().then(() => api('api/invoices.php')).then(r => Array.isArray(r && r.data) ? r.data.map(normI) : (STATE.invoices || [])).catch(() => STATE.invoices || []);
+  const [sales, purchases, cA, cR, suppliers, stock, products, invoices, clients, payments, expenses] = await Promise.all([
+    S1 ? get('api/sales.php', STATE.sales || []) : [],
+    P1 ? get('api/purchases.php', STATE.purchases || []) : [],
+    C1 ? get('api/customers.php', STATE.customers || []) : [],
+    C1 ? get('api/customers.php?status=archived', []) : [],
+    V1 ? get('api/suppliers.php', STATE.suppliers || []) : [],
+    can('stock') ? get('api/stock.php', STATE.stock || []) : [],
     get('api/products.php', STATE.products || []),
+    I1 ? getInvoices() : [],
+    I1 ? get('api/clients.php', STATE.clients || []) : [],
+    I1 ? get('api/payments.php', STATE.payments || []) : [],
+    can('expenses') ? expenseRows().catch(() => STATE.expenses || []) : [],
   ]);
   const seen = new Set();
   const customers = [...cA, ...cR].filter(c => !seen.has(String(c.id)) && seen.add(String(c.id)));
-  BOT.data = { sales, purchases, customers, suppliers, stock, products };
+  // what each invoice has had settled against it: cash received + any settlement discount (same rule as the invoice screens)
+  const payMap = new Map();
+  payments.forEach(p => { if (p.invoice_id == null) return; const k = String(p.invoice_id); payMap.set(k, (payMap.get(k) || 0) + num(p.amount) + num(p.settlement_discount)); });
+  BOT.data = { sales, purchases, customers, suppliers, stock, products, invoices, clients, payments, payMap, expenses };
   BOT.dataAt = now; BOT.pools = null; BOT.nameTok = null;
   return BOT.data;
 }
@@ -38296,10 +38317,11 @@ async function data() {
 function pools(d) {
   if (BOT.pools) return BOT.pools;
   const cats = new Set((STATE.expenseCategories || []).map(c => c.name));
-  (STATE.expenses || []).forEach(e => e.category && cats.add(e.category));
+  (d.expenses && d.expenses.length ? d.expenses : (STATE.expenses || [])).forEach(e => e.category && cats.add(e.category));
   BOT.pools = {
     customer: (can('customers-list') || can('sales-list')) ? d.customers.map(c => ({ kind: 'customer', id: c.id, name: c.name || '', rec: c })) : [],
     supplier: (can('suppliers') || can('purchases')) ? d.suppliers.map(s => ({ kind: 'supplier', id: s.id, name: s.name || '', rec: s })) : [],
+    client: (can('clients') || can('invoices')) ? d.clients.map(c => ({ kind: 'client', id: c.id, name: c.name || '', rec: c })) : [],
     product: d.products.map(p => ({ kind: 'product', id: p.id, name: p.name || '', rec: p })),
     category: can('expenses') ? [...cats].map(n => ({ kind: 'category', id: n, name: n })) : [],
   };
@@ -38362,7 +38384,10 @@ const NAV = [
   { page: 'cash-in-hand',   re: /\bcash in hand\b|\bcash book\b/, label: 'Cash in Hand' },
   { page: 'aging',          re: /\baging\b/, label: 'Aging Report' },
   { page: 'dashboard',      re: /\b(dashboard|home)\b/, label: 'Dashboard' },
+  { page: 'create',         re: /\b(new|create|add) (an )?invoice\b/, label: 'New Invoice' },
   { page: 'sales-list',     re: /\bsales?\b/, label: 'Sales' },
+  { page: 'invoices',       re: /\binvoices?\b/, label: 'Invoices' },
+  { page: 'clients',        re: /\bclients?\b/, label: 'Clients' },
   { page: 'purchases',      re: /\bpurchases?\b/, label: 'Purchases' },
   { page: 'customers-list', re: /\bcustomers?\b/, label: 'Customers' },
   { page: 'suppliers',      re: /\b(suppliers?|vendors?)\b/, label: 'Suppliers' },
@@ -38375,6 +38400,7 @@ const NAV = [
   { page: 'settings',       re: /\bsettings?\b/, label: 'Settings' },
 ];
 const CREATE = [
+  { re: /\b(invoices?|bill)\b/, page: 'create', label: 'New Invoice', svc: true, run: () => goPage('create') },
   { re: /\b(sales?|sale invoice|invoice)\b/, page: 'sales-list', label: 'New Sale', run: () => goToNewSale() },
   { re: /\bpurchases?\b/,                      page: 'purchases',  label: 'New Purchase', run: () => goToNewPurchase() },
   { re: /\bexpenses?\b/,                       page: 'expenses',   label: 'Add Expense', run: () => { showPage('expenses', null); openAddExpenseModal(); } },
@@ -38397,7 +38423,7 @@ function classify(n, info) {
   const howTo = t(/^(how (do i|to|can i|should i)|where (do i|can i|to))\b/);
   const createWord = t(/^(?:i want to |want to |please |let me |can you )?(new|add|create|make|record|enter)\b/);
   if (createWord || (howTo && t(/\b(add|create|make|record|enter|new)\b/))) {
-    const c = CREATE.find(x => x.re.test(n));
+    const c = CREATE.filter(x => svcMode() || !x.svc).find(x => x.re.test(n));
     if (c) return { id: howTo ? 'howto' : 'create', create: c };
   }
   if (t(/^(open|go to|goto|take me to|navigate to|jump to|switch to)\b/) || t(/\b(page|screen|tab|section)$/)) {
@@ -38407,13 +38433,13 @@ function classify(n, info) {
 
   const bal = t(/\b(owe|owes|owed|outstanding|balance|receivables?|payables?|pending|due|unpaid|udhar|stuck)\b/);
   const rank = t(/\b(top|best|biggest|highest|largest|most|ranking|leaderboard)\b/);
-  const custBuy = t(/\b(buy|buys|bought|ordered)\b/) && info.topKind === 'customer';     // "what did Ramesh buy" = sales to Ramesh
-  const sold = custBuy || t(/\b(sold|sales?|sell|selling|revenue|turnover|income|invoices?)\b/);
+  const custBuy = t(/\b(buy|buys|bought|ordered)\b/) && (info.topKind === 'customer' || info.topKind === 'client');     // "what did Ramesh buy" = sales to Ramesh
+  const sold = custBuy || t(/\b(sold|sales?|sell|selling|revenue|turnover|income|invoices?|billed|billing)\b/);
   const bought = !custBuy && t(/\b(purchases?|purchased|bought|buy|buying)\b/);
   const bags = t(/\bbags?\b/);
   const exp = t(/\b(expenses?|expenditure|spent|spending|spend|costs?)\b/);
   const stk = t(/\b(stock|inventory|left|remaining|available|do (we|i) have|have we|is there|are there)\b/);
-  const countQ = t(/\bhow (much|many) (customers?|suppliers?|products?)\b|\bnumber of (customers?|suppliers?|products?)\b/);
+  const countQ = t(/\bhow (much|many) (customers?|clients?|suppliers?|products?|invoices?)\b|\bnumber of (customers?|clients?|suppliers?|products?|invoices?)\b/);
   if (countQ) return { id: 'count' };
 
   if (info.hasParty && !custBuy && (bal || (!sold && !bought && !exp && !bags && !rank && !stk)) && !t(/\boverdue\b/)) return { id: 'party' };
@@ -38467,7 +38493,22 @@ function deltaPct(pct, goodUp) {
   const up = pct > 0, cls = goodUp == null ? '' : (up === goodUp ? ' ob-good' : ' ob-bad');   // null = neither good nor bad (e.g. purchases)
   return `<span class="ob-d${cls}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs previous period</span>`;
 }
-const noAccess = what => ({ html: `<b>${esc(what)}</b> isn’t available to your login, so I can’t answer that. Ask your admin if you need it.` });
+const LABEL_PAGES = { Sales: ['sales-list'], Purchases: ['purchases'], Expenses: ['expenses'], Profit: ['finance-report'], Payments: ['payments', 'invoices', 'sales-list', 'purchases'],
+  'The business summary': ['dashboard'], Customers: ['customers-list', 'sales-list'], Suppliers: ['suppliers', 'purchases'], Stock: ['stock'], Bags: ['sales-list', 'purchases'],
+  Products: ['sales-list', 'purchases'], Invoices: ['invoices'], Clients: ['clients', 'invoices'] };
+function noAccess(what) {
+  const states = (LABEL_PAGES[what] || []).map(access);
+  const byType = states.length > 0 && states.every(x => x !== 'perm') && states.some(x => x === 'type');
+  const w = `<b>${esc(what)}</b>`, role = roleName();
+  if (byType) {                                   // the business setup hides it — nothing to do with permissions
+    const kind = bizType() === 'service' ? 'service ' : bizType() === 'product' ? 'product ' : '';
+    return { html: `${w} isn’t part of your ${kind}business setup, so there’s nothing to show for it.` +
+      (svcMode() ? ' I can help with <b>invoices, payments, clients and expenses</b> instead.' : ' I can help with <b>sales, purchases, bags, expenses and stock</b> instead.'), chips: exampleChips() };
+  }
+  if (role === 'owner' || role === 'super_admin') return { html: `${w} isn’t switched on for this account right now, so I can’t answer that.` };
+  if (role === 'admin' || role === 'manager') return { html: `Your role doesn’t have access to ${w} yet. Ask the owner to grant it in <b>Team Permissions</b>.` };
+  return { html: `${w} isn’t available to your login, so I can’t answer that. Ask the owner or admin to enable it for your role.` };
+}
 const explain = (n) => ({ html: n });
 const periodChips = () => ['Last month', 'This year', 'Today'].map(l => ({ label: l, q: l.toLowerCase() }));
 
@@ -38548,32 +38589,35 @@ async function hTopProducts(c) {
 /* —— expenses —— */
 async function hExpenses(c) {
   if (!can('expenses')) return noAccess('Expenses');
-  const p = c.period;
+  const p = c.period, d = await data(), all = d.expenses || [];
+  const dt = e => String(e.date || '').slice(0, 10);
+  const inP = all.filter(e => inR(dt(e), p));
   if (c.biggest) {
-    const rows = (await expenseRows()).filter(e => inR(e.date, p)).sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 5);
+    const rows = inP.slice().sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 5);
     if (!rows.length) return { html: H.head('Biggest expenses', p) + H.note('No expenses found for this period.') };
-    return { html: H.head('Biggest expenses', p) + H.rank(rows.map(e => ({ l: `${esc(disp(e.date))} · ${esc(e.category || 'Other')}${e.vendor ? ' · ' + esc(e.vendor) : ''}`, v: money(e.amount) }))), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+    return { html: H.head('Biggest expenses', p) + H.rank(rows.map(e => ({ l: `${esc(disp(dt(e)))} · ${esc(e.category || 'Other')}${e.vendor ? ' · ' + esc(e.vendor) : ''}`, v: money(e.amount) }))), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
   }
-  const r = await fr(p), ex = r.expenses || { total: 0, count: 0, by_category: [] };
-  const cats = ex.by_category || [];
+  const total = sumBy(inP, 'amount'), count = inP.length;
+  const byCat = {}; inP.forEach(e => { const k = e.category || 'Other'; byCat[k] = (byCat[k] || 0) + num(e.amount); });
+  const cats = Object.entries(byCat).map(([category, t]) => ({ category, total: t })).sort((a, b) => b.total - a.total);
   let ent = c.ent && c.ent.kind === 'category' ? c.ent : null;
   if (!ent && c.leftover && c.leftover.length) {                  // a category we didn't know about until now
-    const hit = rankPool(cats.map(x => ({ name: x.category })), c.leftover);
-    const pk = pickBest(hit); if (pk.ent) ent = { kind: 'category', name: pk.ent.name };
+    const names = [...new Set(all.map(e => e.category).filter(Boolean))].map(n => ({ name: n }));
+    const pk = pickBest(rankPool(names, c.leftover)); if (pk.ent) ent = { kind: 'category', name: pk.ent.name };
   }
   if (ent) {
     const row = cats.find(x => String(x.category).toLowerCase() === String(ent.name).toLowerCase());
-    const v = row ? num(row.total) : 0;
-    return { html: H.head(`Expenses — <b>${esc(ent.name)}</b>`, p) + H.big(money(v), `${ex.total > 0 ? Math.round(v / ex.total * 100) : 0}% of all expenses (${money(ex.total)})`), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+    const v = row ? row.total : 0;
+    return { html: H.head(`Expenses — <b>${esc(ent.name)}</b>`, p) + H.big(money(v), `${total > 0 ? Math.round(v / total * 100) : 0}% of all expenses (${money(total)})`), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
   }
   const missed = !ent && c.leftover && c.leftover.length;
   let cmp = '';
   const pp = prevOk(p);
-  if (pp) { try { cmp = delta(num(ex.total), num((await fr(pp)).expenses.total), false); } catch (e) { /* comparison is optional */ } }
+  if (pp) cmp = delta(total, sumBy(all.filter(e => inR(dt(e), pp)), 'amount'), false);
   const wantsCats = /\b(category|categories|wise|breakdown|by)\b/.test(c.n || '');
   const top = cats.slice(0, wantsCats ? 8 : 4);
-  const html = H.head('Expenses', p) + H.big(money(ex.total), plural(ex.count, 'entry', 'entries')) + (cmp ? `<div>${cmp}</div>` : '') +
-    (top.length ? H.rank(top.map(x => ({ l: esc(x.category || 'Other'), v: `${money(x.total)} · ${ex.total > 0 ? Math.round(num(x.total) / ex.total * 100) : 0}%` }))) : H.note('No expenses found for this period.')) +
+  const html = H.head('Expenses', p) + H.big(money(total), plural(count, 'entry', 'entries')) + (cmp ? `<div>${cmp}</div>` : '') +
+    (top.length ? H.rank(top.map(x => ({ l: esc(x.category), v: `${money(x.total)} · ${total > 0 ? Math.round(x.total / total * 100) : 0}%` }))) : H.note('No expenses found for this period.')) +
     (missed ? H.note(`I couldn’t find a category called “${esc(c.leftover.join(' '))}”, so this is the overall total.`) : '');
   return { html, chips: [{ label: 'Biggest expenses', q: 'biggest expenses ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Expenses', page: 'expenses' }] };
 }
@@ -38633,6 +38677,28 @@ function supplierOwed(d) {
 }
 async function hParty(c) {
   const d = await data(), e = c.ent, today = ymd(new Date());
+  if (e.kind === 'client') {
+    if (!can('clients') && !can('invoices')) return noAccess('Clients');
+    const mine = liveInv(d).filter(i => String(i.client) === String(e.id));
+    const open = openInvoices(d).filter(x => String(x.i.client) === String(e.id));
+    const owed = open.reduce((t, x) => t + x.rem, 0), late = open.filter(x => x.late);
+    const ids = new Set(mine.map(i => String(i.id)));
+    const pays = d.payments.filter(p => ids.has(String(p.invoice_id))).map(p => ({ date: payDate(p), amount: num(p.amount) })).filter(p => p.date).sort((a, b) => a.date < b.date ? -1 : 1);
+    const paidLife = pays.reduce((t, p) => t + p.amount, 0), lastPay = pays[pays.length - 1];
+    const lastInv = mine.map(invDate).filter(Boolean).sort().pop();
+    let ob = null; try { const b = window.optmsOnboarding && window.optmsOnboarding.build(e.id); if (b && b.since) ob = b; } catch (er) { /* optional extra */ }
+    let html = H.head(`Client — <b>${esc(e.name)}</b>`) + (owed > 0 ? H.big(money(owed), 'owed to you') : H.big(`<span class="ob-good">${money(0)}</span>`, 'Nothing outstanding — all invoices settled'));
+    if (open.length) html += H.kv('Open invoices', n0(open.length));
+    if (late.length) html += H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`);
+    html += H.kv('Total paid so far', money(paidLife));
+    if (ob) html += H.kv('With you since', `${esc(disp(ob.since.date))} <small>(${esc(window.optmsOnboarding._tenureText(ob.tenure))})</small>`);
+    if (lastPay) html += H.kv('Last payment', `${esc(disp(lastPay.date))} <small>(${money(lastPay.amount)})</small>`);
+    if (lastInv) html += H.kv('Last invoice', esc(disp(lastInv)));
+    const nav = [];
+    if (typeof openOnboardingStatement === 'function') nav.push({ label: 'Onboarding statement', fn: () => openOnboardingStatement(e.id) });
+    if (typeof viewClientInvoices === 'function' && can('invoices')) nav.push({ label: 'View invoices', fn: () => viewClientInvoices(e.id) });
+    return { html, chips: [{ label: `Invoices for ${e.name} this month`, q: `invoices for ${e.name} this month`, ent: e, run: 'sales' }], nav };
+  }
   if (e.kind === 'customer') {
     if (!can('customers-list') && !can('sales-list')) return noAccess('Customers');
     const open = openBills(d, e.id), owed = sumBy(open.map(s => ({ b: bal(s) })), 'b');
@@ -38725,9 +38791,114 @@ async function hCount() {
   const d = await data();
   let html = H.head('Your records');
   if (can('customers-list') || can('sales-list')) html += H.kv('Customers', n0(d.customers.length));
+  if (can('clients') || can('invoices')) html += H.kv('Clients', n0(d.clients.length));
+  if (can('invoices')) html += H.kv('Invoices', n0(liveAll(d).length));
   if (can('suppliers') || can('purchases')) html += H.kv('Suppliers', n0(d.suppliers.length));
-  html += H.kv('Products', n0(d.products.length));
+  html += H.kv(svcMode() ? 'Services / products' : 'Products', n0(d.products.length));
   return { html };
+}
+
+/* ─────────────── service business: invoices, clients, payments ───────────────
+   Same rules as the rest of the app: Draft, Estimate (quotation) and Cancelled invoices are
+   not billing; an invoice's settled amount = cash received + settlement discount; a "Paid"
+   invoice owes nothing.                                                                     */
+const INV_EXCL = new Set(['Draft', 'Estimate', 'Cancelled']);
+const OPEN_ST = new Set(['Pending', 'Overdue', 'Partial']);
+const dOnly = v => { const s = String(v || ''); const m = /^(\d{4}-\d{2}-\d{2})/.exec(s); if (m) return m[1]; const t = new Date(s); return (!s || isNaN(t)) ? '' : ymd(t); };
+const invDate = i => dOnly(i.issued || i.date || i.issue_date);
+const invDue = i => dOnly(i.due || i.due_date);
+const payDate = p => dOnly(p.date || p.payment_date);
+const gdrOk = ds => !(typeof GLOBAL_DATE_ACTIVE !== 'undefined' && GLOBAL_DATE_ACTIVE) || (!!ds && ds >= GLOBAL_DATE_FROM && ds <= GLOBAL_DATE_TO);
+const liveAll = d => d.invoices.filter(i => !INV_EXCL.has(i.status));
+const liveInv = d => liveAll(d).filter(i => gdrOk(invDate(i)));
+const settledOf = (d, i) => d.payMap.get(String(i.id)) || 0;
+const remainingOf = (d, i) => i.status === 'Paid' ? 0 : Math.max(0, num(i.amount) - settledOf(d, i));
+const clientOf = (d, i) => i.clientName || i.client_name || ((d.clients.find(c => String(c.id) === String(i.client)) || {}).name) || 'Unknown client';
+const invNum = i => i.num || i.invoice_number || ('#' + i.id);
+function openInvoices(d) {                                   // unpaid invoices, with how late each one is
+  const today = ymd(new Date());
+  return liveInv(d).filter(i => OPEN_ST.has(i.status)).map(i => ({ i, rem: remainingOf(d, i), due: invDue(i) })).filter(x => x.rem > 0)
+    .map(x => Object.assign(x, { late: x.i.status === 'Overdue' || (x.due && x.due < today), days: x.due && x.due < today ? Math.round((parseYmd(today) - parseYmd(x.due)) / 86400000) : 0 }));
+}
+const receivedIn = (d, pr) => { const ids = new Set(liveAll(d).map(i => String(i.id))); return d.payments.filter(x => ids.has(String(x.invoice_id)) && inR(payDate(x), pr)); };
+const expensesIn = (d, pr) => (d.expenses || []).filter(e => inR(String(e.date || '').slice(0, 10), pr));
+
+async function hInvoices(c) {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), p = c.period, isC = c.ent && c.ent.kind === 'client';
+  let list = liveInv(d).filter(i => inR(invDate(i), p)), who = '';
+  if (isC) { list = list.filter(i => String(i.client) === String(c.ent.id)); who = ` for <b>${esc(c.ent.name)}</b>`; }
+  const tot = sumBy(list, 'amount'), pending = list.reduce((t, i) => t + remainingOf(d, i), 0);
+  let cmp = '';
+  const pp = prevOk(p);
+  if (pp) { let prev = liveInv(d).filter(i => inR(invDate(i), pp)); if (isC) prev = prev.filter(i => String(i.client) === String(c.ent.id)); cmp = delta(tot, sumBy(prev, 'amount'), true); }
+  const html = H.head('Invoices' + who, p) + H.big(money(tot), plural(list.length, 'invoice')) + H.kv('Collected so far', money(tot - pending)) + H.kv('Still to receive', money(pending)) +
+    (cmp ? `<div>${cmp}</div>` : '') + (list.length ? '' : H.note('No invoices found for this period.'));
+  return { html, chips: [{ label: 'Top clients', q: 'top clients ' + p.label.toLowerCase() }, { label: 'Payments received', q: 'payments received ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hReceipts(c) {
+  if (!can('invoices') && !can('payments')) return noAccess('Payments');
+  const d = await data(), p = c.period, rows = receivedIn(d, p), tot = sumBy(rows, 'amount'), disc = sumBy(rows, 'settlement_discount');
+  const byM = {}; rows.forEach(x => { const k = x.method || 'Other'; byM[k] = (byM[k] || 0) + num(x.amount); });
+  const methods = Object.entries(byM).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  let cmp = ''; const pp = prevOk(p); if (pp) cmp = delta(tot, sumBy(receivedIn(d, pp), 'amount'), true);
+  const html = H.head('Payments received', p) + H.big(money(tot), plural(rows.length, 'payment')) + (disc > 0 ? H.kv('Settlement discount given', money(disc)) : '') + (cmp ? `<div>${cmp}</div>` : '') +
+    (methods.length ? H.rank(methods.map(([m, v]) => ({ l: esc(m), v: `${money(v)} · ${tot > 0 ? Math.round(v / tot * 100) : 0}%` }))) : H.note('No payments received in this period.'));
+  return { html, chips: [{ label: 'Overdue invoices', q: 'overdue invoices' }, ...periodChips()], nav: [can('payments') && { label: 'Open Payments', page: 'payments' }] };
+}
+
+async function hOverdueSvc() {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), rows = openInvoices(d).filter(x => x.late).sort((a, b) => b.days - a.days), tot = rows.reduce((t, x) => t + x.rem, 0);
+  if (!rows.length) return { html: H.head('Overdue invoices') + H.big('<span class="ob-good">None</span>', 'No invoice is past its due date 🎉') };
+  return { html: H.head('Overdue invoices') + H.big(`<span class="ob-bad">${money(tot)}</span>`, `${plural(rows.length, 'invoice')} past due`) +
+    H.rank(rows.slice(0, 5).map(x => ({ l: `${esc(clientOf(d, x.i))} · ${esc(invNum(x.i))}${x.days ? ` · ${x.days}d late` : ''}`, v: money(x.rem) }))) + (rows.length > 5 ? H.note(`+ ${rows.length - 5} more`) : ''),
+    nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hClientTotals() {
+  if (!can('invoices') && !can('clients')) return noAccess('Clients');
+  const d = await data(), open = openInvoices(d), tot = open.reduce((t, x) => t + x.rem, 0), who = new Set(open.map(x => String(x.i.client))), late = open.filter(x => x.late);
+  return { html: H.head('Clients owe you') + H.big(money(tot), `across ${plural(who.size, 'client')}`) +
+    (late.length ? H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`) : '') + (who.size ? H.note('Ask “who owes me the most?” for the list.') : ''),
+    chips: [{ label: 'Who owes me the most?', q: 'who owes me the most' }, { label: 'Overdue invoices', q: 'overdue invoices' }], nav: [can('clients') && { label: 'Open Clients', page: 'clients' }] };
+}
+
+async function hTopClientBalances(c) {
+  if (!can('invoices') && !can('clients')) return noAccess('Clients');
+  const d = await data(), m = new Map();
+  openInvoices(d).forEach(x => { const k = String(x.i.client); const o = m.get(k) || { name: clientOf(d, x.i), amt: 0 }; o.amt += x.rem; m.set(k, o); });
+  const rows = [...m.values()].sort((a, b) => b.amt - a.amt).slice(0, c.topN || 5);
+  return { html: H.head('Clients who owe you the most') + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No client has anything outstanding.')), chips: [{ label: 'Overdue invoices', q: 'overdue invoices' }] };
+}
+
+async function hTopClients(c) {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), p = c.period, m = new Map();
+  liveInv(d).filter(i => inR(invDate(i), p)).forEach(i => { const k = String(i.client); const o = m.get(k) || { name: clientOf(d, i), amt: 0 }; o.amt += num(i.amount); m.set(k, o); });
+  const rows = [...m.values()].sort((a, b) => b.amt - a.amt).slice(0, c.topN || 5);
+  return { html: H.head('Top clients', p) + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No invoices found for this period.')), chips: periodChips() };
+}
+
+async function hSummarySvc(c) {
+  if (!can('invoices') && !can('payments')) return noAccess('The business summary');
+  const d = await data(), p = c.period, inv = liveInv(d).filter(i => inR(invDate(i), p)), rec = sumBy(receivedIn(d, p), 'amount');
+  const open = openInvoices(d), owed = open.reduce((t, x) => t + x.rem, 0), late = open.filter(x => x.late);
+  let html = H.head('Business summary', p) + H.kv('Invoices billed', `${money(sumBy(inv, 'amount'))} <small>(${plural(inv.length, 'invoice')})</small>`) + H.kv('Payments received', money(rec)) +
+    H.kv('Still to collect (all time)', money(owed)) + (late.length ? H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`) : '');
+  if (can('expenses')) { const ex = sumBy(expensesIn(d, p), 'amount'); html += H.kv('Expenses', money(ex)) + H.kv('Net cash', `<span class="${rec - ex >= 0 ? 'ob-good' : 'ob-bad'}">${money(rec - ex)}</span>`); }
+  return { html, chips: periodChips(), nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hProfitSvc(c) {
+  if (!can('expenses')) return noAccess('Expenses');
+  if (!can('invoices') && !can('payments')) return noAccess('Payments');
+  const d = await data(), p = c.period, rec = sumBy(receivedIn(d, p), 'amount'), ex = sumBy(expensesIn(d, p), 'amount'), net = rec - ex;
+  let cmp = ''; const pp = prevOk(p); if (pp) { const pn = sumBy(receivedIn(d, pp), 'amount') - sumBy(expensesIn(d, pp), 'amount'); if (pn > 0) cmp = delta(net, pn, true); }
+  const html = H.head('Net cash', p) + H.big(`<span class="${net >= 0 ? 'ob-good' : 'ob-bad'}">${money(net)}</span>`, net >= 0 ? 'received more than spent' : 'spent more than received') + (cmp ? `<div>${cmp}</div>` : '') +
+    H.kv('Payments received', money(rec)) + H.kv('Expenses', money(ex)) + H.note('Cash basis: money actually received minus expenses in this period. Invoices not yet paid are not counted, so this can differ from the Finance Report.');
+  return { html, chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
 }
 
 /* ─────────────────────────── the brain ─────────────────────────── */
@@ -38740,7 +38911,20 @@ const EXAMPLES = [
   ['Profit this month', 'profit this month', 'finance-report'],
   ['Business summary today', 'summary today', 'dashboard'],
 ];
-const exampleChips = () => EXAMPLES.filter(e => can(e[2]) || (e[2] === 'customers-list' && can('sales-list')) || (e[2] === 'dashboard')).slice(0, 6).map(e => ({ label: e[0], q: e[1] }));
+const EXAMPLES_SVC = [
+  ['Invoices this month', 'invoices this month', 'invoices'],
+  ['Payments received', 'payments received this month', 'payments'],
+  ['Who owes me the most?', 'who owes me the most', 'clients'],
+  ['Overdue invoices', 'overdue invoices', 'invoices'],
+  ['Expenses this month', 'expenses this month', 'expenses'],
+  ['Business summary today', 'summary today', 'dashboard'],
+];
+const exampleChips = () => {
+  const svc = svcMode();
+  return (svc ? EXAMPLES_SVC : EXAMPLES).filter(e => e[2] === 'dashboard' || can(e[2]) || (e[2] === 'customers-list' && can('sales-list')) || (e[2] === 'payments' && can('invoices')) || (e[2] === 'clients' && can('invoices')))
+    .slice(0, 6).map(e => ({ label: e[0], q: e[1] }));
+};
+const topicWords = () => svcMode() ? 'invoices, payments, clients, expenses and balances' : 'sales, purchases, bags, expenses, balances and stock';
 const firstName = () => { try { return String(SERVER.user.name || '').split(' ')[0]; } catch (e) { return ''; } };
 
 async function answer(text) {
@@ -38752,9 +38936,9 @@ async function answer(text) {
   const per = parsePeriod(n, new Date(), nameTok);
   const qt = per.rest.split(' ').filter(t => t && !STOP.has(t) && !/^\d+$/.test(t));
   const P = pools(d);
-  const kinds = ['customer', 'supplier', 'product', 'category'];
+  const kinds = ['customer', 'supplier', 'client', 'product', 'category'];
   const R = {}; kinds.forEach(k => R[k] = rankPool(P[k], qt));
-  const partyRanked = [...R.customer, ...R.supplier].sort((a, b) => b.hit - a.hit || b.cov - a.cov);
+  const partyRanked = [...R.customer, ...R.supplier, ...R.client].sort((a, b) => b.hit - a.hit || b.cov - a.cov);
   const ni = fixTypos(n);
   const topN = Math.min(10, Math.max(1, +(/\btop (\d{1,2})\b/.exec(n) || [])[1] || 5));
 
@@ -38770,24 +38954,27 @@ async function answer(text) {
   const period = resolvePeriod(per, carry);
   if (period.blocked) return { html: `Your login is limited to <b>${esc(disp(period.lo))} – ${esc(disp(period.hi))}</b>, so I can’t look outside that range.` };
 
+  const GATE = { stock: 'Stock', bags: 'Bags', purchases: 'Purchases', top_products: 'Products', top_suppliers: 'Suppliers' };
+  if (GATE[cls.id] && !(LABEL_PAGES[GATE[cls.id]] || []).some(pg => access(pg) === 'ok')) return noAccess(GATE[cls.id]);
+
   // which kind of name does this question need?
   const want = {
-    party: ['customer', 'supplier'], sales: ['customer'], purchases: ['supplier'], bags: ['product'], stock: ['product'], expenses: ['category'],
+    party: ['customer', 'supplier', 'client'], sales: ['customer', 'client'], purchases: ['supplier'], bags: ['product'], stock: ['product'], expenses: ['category'],
   }[cls.id];
   let ent = null;
   if (want) {
-    const ranked = want.length === 2 ? partyRanked : R[want[0]];
+    const ranked = want.length > 1 ? want.flatMap(k => R[k]).sort((a, b) => b.hit - a.hit || b.cov - a.cov) : R[want[0]];
     const pk = pickBest(ranked);
     if (pk.ambiguous) return { html: 'More than one match for that name — which one do you mean?', chips: pk.ambiguous.map(e => ({ label: `${e.name} (${e.kind})`, run: cls.id, ent: e, opts: cls, period })) };
     if (pk.ent) ent = pk.ent;
     else if (!qt.length && carry && BOT.ctx.ent && want.includes(BOT.ctx.ent.kind)) ent = BOT.ctx.ent;
-    else if (cls.id === 'party') return notFound(qt, [...P.customer, ...P.supplier]);
+    else if (cls.id === 'party') return notFound(qt, [...P.customer, ...P.supplier, ...P.client]);
     else if (cls.id === 'stock' && qt.length) return notFound(qt, P.product, 'product');
   }
   const leftover = (!ent && qt.length) ? qt : [];
   // Filters the bot can't apply yet — say so honestly instead of "couldn't find" or silently ignoring them
   let unsupported = null;
-  if ((cls.id === 'sales' || cls.id === 'purchases') && !ent && R.product.length) unsupported = `${cls.id} by product`;
+  if ((cls.id === 'sales' || cls.id === 'purchases') && !ent && R.product.length) unsupported = (cls.id === 'sales' && svcMode()) ? 'invoices by service' : `${cls.id} by product`;
   if (cls.id === 'bags' && !ent && partyRanked.length) unsupported = 'bags by customer or supplier';
   return run(cls.id, Object.assign({}, cls, { n, period, ent, leftover, topN, unsupported, unknownName: cls.id === 'totals' ? qt.filter(t => t.length >= 3) : [] }));
 }
@@ -38800,25 +38987,27 @@ async function run(id, c) {
     BOT.ctx = { intent: id, opts, period: c.period, ent: c.ent };
     BOT.lastAt = Date.now();
   }
+  // a service business: Sales is hidden by the business setup and Invoices exists (even if THIS login may not open it — then the answer is a permission message about Invoices)
+  const svc = svcMode() || (access('sales-list') !== 'ok' && access('invoices') !== 'type');
   let out;
   switch (id) {
-    case 'sales': out = await hSales(c); break;
+    case 'sales': out = svc ? await hInvoices(c) : await hSales(c); break;
     case 'purchases': out = await hPurchases(c); break;
     case 'bags': out = await hBags(c); break;
     case 'top_products': out = await hTopProducts(c); break;
     case 'expenses': out = await hExpenses(c); break;
-    case 'profit': out = await hProfit(c); break;
-    case 'cashflow': out = await hCashflow(c); break;
-    case 'summary': out = await hSummary(c); break;
+    case 'profit': out = svc ? await hProfitSvc(c) : await hProfit(c); break;
+    case 'cashflow': out = svc ? await hReceipts(c) : await hCashflow(c); break;
+    case 'summary': out = svc ? await hSummarySvc(c) : await hSummary(c); break;
     case 'party': out = await hParty(c); break;
-    case 'totals': out = await hTotals(c); break;
-    case 'top_balances': out = await hTopBalances(c); break;
-    case 'top_customers': out = await hTopParties(c, 'customer'); break;
+    case 'totals': out = (svc && c.kind !== 'supplier') ? await hClientTotals(c) : await hTotals(c); break;
+    case 'top_balances': out = (svc && c.kind !== 'supplier') ? await hTopClientBalances(c) : await hTopBalances(c); break;
+    case 'top_customers': out = svc ? await hTopClients(c) : await hTopParties(c, 'customer'); break;
     case 'top_suppliers': out = await hTopParties(c, 'supplier'); break;
-    case 'overdue': out = await hOverdue(c); break;
+    case 'overdue': out = svc ? await hOverdueSvc(c) : await hOverdue(c); break;
     case 'stock': out = await hStock(c); break;
     case 'count': out = await hCount(c); break;
-    case 'greet': { const nm = firstName(); out = { html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 Ask me about your sales, purchases, bags, expenses, balances or stock — in English or Hinglish.`, chips: exampleChips() }; break; }
+    case 'greet': { const nm = firstName(); out = { html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 Ask me about your ${topicWords()} — in English or Hinglish.`, chips: exampleChips() }; break; }
     case 'thanks': out = { html: 'Happy to help! Ask me anything else about your business.' }; break;
     case 'help': out = helpAnswer(); break;
     case 'navigate': out = navAnswer(c.nav); break;
@@ -38832,7 +39021,7 @@ async function run(id, c) {
   else if (c.leftover && c.leftover.length && !c.ent && ['sales', 'purchases', 'bags'].includes(id) && out.html)
     out.html += H.note(`I couldn’t find “${esc(c.leftover.join(' '))}” in your records, so these are overall figures.`);
   if (id === 'totals' && c.unknownName && c.unknownName.length && out.html)
-    out.html = `<div class="ob-warn">I couldn’t find a customer or supplier called <b>${esc(c.unknownName.join(' '))}</b> — showing the overall total instead.</div>` + out.html;
+    out.html = `<div class="ob-warn">I couldn’t find a ${svc ? 'client' : 'customer'} or supplier called <b>${esc(c.unknownName.join(' '))}</b> — showing the overall total instead.</div>` + out.html;
   if (/\b(vs|versus|compare|compared|comparison)\b/.test(c.n || '') && ['sales', 'purchases', 'expenses', 'bags', 'profit'].includes(id) && out.html)
     out.html += H.note('I can’t put two periods side by side yet. Ask for each one (e.g. “last month”), or read the ▲/▼ change under the figure.');
   return out;
@@ -38844,15 +39033,20 @@ function readonlyAnswer(c) {
   return { html: `I can only look things up — I can’t ${esc(v)} records or send anything. Please do that on the page itself.`, nav: [nv && can(nv.page) && { label: 'Open ' + nv.label, page: nv.page }] };
 }
 function helpAnswer() {
-  const ok = [];
-  if (can('sales-list')) ok.push('<b>Sales</b> & who bought most', 'bags <b>sold</b>');
-  if (can('purchases')) ok.push('<b>Purchases</b> & top suppliers', 'bags <b>purchased</b>');
+  const ok = [], svc = svcMode();
+  if (svc) {
+    if (can('invoices')) ok.push('<b>Invoices</b> & top clients', '<b>overdue</b> invoices', 'what a client <b>owes</b>', 'payments <b>received</b>');
+  } else {
+    if (can('sales-list')) ok.push('<b>Sales</b> & who bought most', 'bags <b>sold</b>');
+    if (can('purchases')) ok.push('<b>Purchases</b> & top suppliers', 'bags <b>purchased</b>');
+    if (can('customers-list') || can('sales-list')) ok.push('what a customer <b>owes</b>', '<b>overdue</b> invoices');
+    if (can('stock')) ok.push('<b>stock</b> of a product');
+    if (can('finance-report')) ok.push('<b>profit</b>');
+  }
   if (can('expenses')) ok.push('<b>Expenses</b> by category');
-  if (can('customers-list') || can('sales-list')) ok.push('what a customer <b>owes</b>', '<b>overdue</b> invoices');
-  if (can('stock')) ok.push('<b>stock</b> of a product');
-  if (can('finance-report')) ok.push('<b>profit</b>');
+  if (svc && can('expenses')) ok.push('<b>net cash</b> (received − expenses)');
   return { html: `<div class="ob-h">What I can answer</div><div class="ob-note" style="font-size:12.5px;color:var(--text2)">${ok.join(' · ')}</div>` +
-    H.note('Add a time like “today”, “last month”, “September”, “last 7 days” or “1 Oct to 15 Oct”. I understand Hinglish too — try “aaj kitne bag bike”. I only read your data; I never change anything.'), chips: exampleChips() };
+    H.note('Add a time like “today”, “last month”, “September”, “last 7 days” or “1 Oct to 15 Oct”. I understand Hinglish too. I only read your data; I never change anything.'), chips: exampleChips() };
 }
 function navAnswer(nv) {
   if (!can(nv.page)) return noAccess(nv.label);
@@ -38929,10 +39123,10 @@ async function ask(text, chip) {
   busy = false;
 }
 const fabIcon = open => { const i = $fab.querySelector('i'); if (i) i.className = open ? 'fas fa-xmark' : 'fas fa-robot'; };
-function openPanel() { BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); fabIcon(true); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
+function openPanel() { $in.placeholder = svcMode() ? 'Ask e.g. “invoices this month”' : 'Ask e.g. “bags sold this month”'; const hs = $panel.querySelector('header small'); if (hs) hs.textContent = svcMode() ? 'Ask about invoices, payments, clients, expenses…' : 'Ask about sales, bags, expenses, balances…'; BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); fabIcon(true); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
 function closePanel() { BOT.open = false; $panel.hidden = true; $fab.setAttribute('aria-expanded', 'false'); $fab.classList.remove('on'); fabIcon(false); }
 function reset() { $msgs.innerHTML = ''; BOT.ctx = {}; BOT.actions.clear(); welcome(); }
-function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I’m <b>OPTMS ai</b>. Ask me about your <b>sales, purchases, bags, expenses, balances and stock</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
+function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I’m <b>OPTMS ai</b>. Ask me about your <b>${topicWords()}</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
 
 function init() {
   $root = document.createElement('div'); $root.id = 'opt-bot';
@@ -39647,8 +39841,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
    Shows, for one client: since when they have been with you, how much they
    have paid, and a month-by-month table (billed / paid / balance).
    • Reads only what the app already has loaded (clients, invoices, payments).
-   • Same rules as the rest of the app: Draft and Cancelled invoices are not
-     billing; a payment's settlement discount is shown separately.
+   • Same rules as the rest of the app: Draft, Estimate (quotation) and Cancelled
+     invoices are not billing; a payment's settlement discount is shown separately.
    • "Onboarded on" = the earliest of: the date the client was added (if the
      server sends one), their first invoice, their first payment.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -39706,7 +39900,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
     const c = (STATE.clients || []).find(x => String(x.id) === String(clientId));
     if (!c) return null;
 
-    const live = (STATE.invoices || []).filter(i => String(i.client) === String(clientId) && i.status !== 'Cancelled' && i.status !== 'Draft');
+    const NOT_BILLING = ['Cancelled', 'Draft', 'Estimate'];            // quotations and drafts are not billing
+    const live = (STATE.invoices || []).filter(i => String(i.client) === String(clientId) && !NOT_BILLING.includes(i.status));
     const ids = new Set(live.map(i => String(i.id)));
     const numById = {}; live.forEach(i => { numById[String(i.id)] = i.num || i.invoice_number || ''; });
     const allInv = live.map(i => ({ date: toYmd(i.issued || i.date), amount: num(i.amount), num: i.num || i.invoice_number || '' }));
