@@ -2734,6 +2734,8 @@ const SERVER = {
               #planPanel .pl-live{margin-top:12px;border-radius:10px;padding:10px 12px;font-size:12.5px;background:var(--teal-bg);color:var(--text);border:1px solid var(--teal-l,#4DB6AC)}
               #planPanel .pl-live.bad{background:#FFEBEE;border-color:#E53935;color:#B71C1C}
               #planPanel .pl-live b{font-family:var(--mono,monospace)}
+              #planPanel .pl-linkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:9px 12px;border-radius:10px;background:#FFF8E1;border:1px solid #FFB300;font-size:12.5px}
+              #planPanel .pl-linkbar span{flex:1;min-width:180px}
               #planPanel .pl-new{margin-top:12px;border:1.5px dashed var(--teal);border-radius:12px;padding:14px 16px}
               @media(max-width:640px){#planPanel .pl-tiles{grid-template-columns:repeat(2,1fr)}}
             </style>
@@ -15636,6 +15638,7 @@ function planSelect(id, keepItems) {
   PLAN.sel = PLAN.list.find(p => String(p.id) === String(id)) || null;
   if (!PLAN.sel) { if (!keepItems) planClearItem(); body.style.display = 'none'; return; }
   planRenderBody();
+  planCheckCandidates();
   if (keepItems) {
     // editing: keep the saved line items, just remember which one is the plan line
     formItems.forEach(i => { if (String(i.plan_id || '') === String(PLAN.sel.id)) i._plan = true; });
@@ -15660,6 +15663,7 @@ function planRenderBody() {
       <div class="pl-sub">${p.term_months}-month plan · ${planMoney(p.installment_amount)}/month · ${p.months_paid} of ${p.term_months} months paid</div></div>
       <button type="button" class="pl-btn ghost" onclick="planClose()">Close plan</button>
     </div>
+    <div class="pl-linkbar" id="plan-link" style="display:none"></div>
     <div class="pl-tiles">
       <div class="pl-tile"><span>Plan total</span><b>${planMoney(p.total_amount)}</b></div>
       <div class="pl-tile"><span>Paid so far</span><b style="color:var(--green,#388E3C)">${planMoney(p.paid)}</b></div>
@@ -15731,6 +15735,41 @@ function planRefreshSummary(grand, sub, discAmt, discMode) {
     ? `The ${escHtml(p.service_name)} part (<b>${planMoney(share)}</b>) is more than what is left on this plan (<b>${planMoney(free)}</b>). Reduce the amount.`
     : `${escHtml(p.service_name)} <b>${planMoney(share)}</b>${mixed ? ` of this <b>${planMoney(grand)}</b> invoice` : ''} &nbsp;→&nbsp; remaining after it is paid: <b>${planMoney(left)}</b>${left >= 0.01 ? ` (${months} month${months === 1 ? '' : 's'})` : ' — <b>final installment, plan will be complete</b>'}` +
       (mixed ? `<div style="margin-top:4px;font-size:11.5px;color:var(--muted)">Other items on this invoice don't count against the plan.</div>` : '');
+}
+// Earlier invoices (e.g. months already billed and paid before the plan was set up) that are not linked yet
+async function planCheckCandidates() {
+  const box = document.getElementById('plan-link'); if (!box || !PLAN.sel) return;
+  PLAN.cands = [];
+  try {
+    const ex = PLAN.editInv ? '&exclude=' + (parseInt(PLAN.editInv.id) || 0) : '';
+    const r = await api('api/plans.php?id=' + PLAN.sel.id + '&candidates=1' + ex);
+    PLAN.cands = Array.isArray(r.data) ? r.data : [];
+  } catch (e) { return; }
+  if (!PLAN.cands.length) { box.style.display = 'none'; return; }
+  const n = PLAN.cands.length;
+  box.innerHTML = `<i class="fas fa-link" style="color:#B26A00"></i><span><b>${n} earlier ${escHtml(PLAN.sel.service_name)} invoice${n > 1 ? 's are' : ' is'} not linked to this plan.</b> Link ${n > 1 ? 'them' : 'it'} so the paid months and remaining amount show correctly everywhere, including the customer portal.</span><button type="button" class="pl-btn" onclick="planLinkDialog()">Review &amp; link</button>`;
+  box.style.display = '';
+}
+async function planLinkDialog() {
+  if (!PLAN.sel || !PLAN.cands.length) return;
+  const name = escHtml(PLAN.sel.service_name);
+  const rows = PLAN.cands.map(c => `<label style="display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid #eee;text-align:left;font-size:13px;cursor:pointer">
+      <input type="checkbox" class="pl-cb" value="${c.id}" checked>
+      <span style="flex:1"><b>${escHtml(c.invoice_number)}</b> · ${escHtml(c.issued_date || '')} · ${escHtml(c.status)}</span>
+      <span style="font-family:monospace">${planMoney(c.share)}${c.share < c.grand_total - 0.01 ? ` <small style="color:#888">of ${planMoney(c.grand_total)}</small>` : ''}</span></label>`).join('');
+  const res = await Swal.fire({
+    title: 'Link earlier invoices', width: 520,
+    html: `<div style="max-height:300px;overflow:auto">${rows}</div><p style="font-size:12px;color:#666;margin:10px 0 0;text-align:left">Only the ${name} line of each invoice counts toward the plan. Other items are left alone.</p>`,
+    showCancelButton: true, confirmButtonText: 'Link selected', customClass: { popup: 'swal-compact' },
+    preConfirm: () => { const ids = [...document.querySelectorAll('.pl-cb:checked')].map(x => parseInt(x.value)); if (!ids.length) { Swal.showValidationMessage('Select at least one invoice'); return false; } return ids; }
+  });
+  if (!res.isConfirmed) return;
+  try {
+    const r = await api('api/plans.php?id=' + PLAN.sel.id + '&action=link', 'POST', { invoice_ids: res.value });
+    toast('✅ Linked ' + r.linked + ' invoice' + (r.linked > 1 ? 's' : ''), 'success');
+    await planReload(String(PLAN.sel.id), !!PLAN.editInv);
+    try { await refreshInvoices(); } catch (e) {}
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
 }
 function planToggleNew(show) {
   const box = document.getElementById('plan-new'); box.style.display = show ? '' : 'none';

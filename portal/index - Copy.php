@@ -37,6 +37,7 @@ $error    = '';
 $inv      = null;
 $client   = [];
 $payments = [];
+$planData = null;   // installment plan this invoice belongs to (if any)
 $settings = [];
 $invoiceId = 0;
 
@@ -225,6 +226,54 @@ if (!$error && $invoiceId > 0) {
                 $odStmt->execute([':cid' => $inv['client_id'], ':iid' => $invoiceId]);
                 $otherDues = $odStmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) { /* non-fatal */ }
+
+            // ── Installment plan (annual fee paid monthly) ─────────
+            try {
+                $pidS = $db->prepare('SELECT plan_id FROM invoices WHERE id = :id');
+                $pidS->execute([':id' => $inv['invoice_id']]);
+                $planId = (int)$pidS->fetchColumn();
+                if ($planId) {
+                    $plS = $db->prepare('SELECT * FROM payment_plans WHERE id = :id');
+                    $plS->execute([':id' => $planId]);
+                    $planRow = $plS->fetch(PDO::FETCH_ASSOC);
+                    if ($planRow) {
+                        $liS = $db->prepare("SELECT id, invoice_number, status, grand_total, discount_amt, discount_mode FROM invoices
+                                             WHERE plan_id = :p AND status NOT IN ('Cancelled','Draft','Estimate')
+                                             ORDER BY issued_date ASC, id ASC");
+                        $liS->execute([':p' => $planId]);
+                        $linked = $liS->fetchAll(PDO::FETCH_ASSOC);
+                        $covMap = []; $itemMap = [];
+                        if ($linked) {
+                            $idList = implode(',', array_map('intval', array_column($linked, 'id')));
+                            try {
+                                $cm = $db->query("SELECT invoice_id, SUM(amount + COALESCE(settlement_discount,0)) AS c FROM payments WHERE invoice_id IN ($idList) GROUP BY invoice_id");
+                            } catch (Exception $e2) {
+                                $cm = $db->query("SELECT invoice_id, SUM(amount) AS c FROM payments WHERE invoice_id IN ($idList) GROUP BY invoice_id");
+                            }
+                            foreach ($cm->fetchAll(PDO::FETCH_ASSOC) as $cr) $covMap[(int)$cr['invoice_id']] = (float)$cr['c'];
+                            try {
+                                $im = $db->query("SELECT invoice_id, quantity, rate, gst_rate, item_discount, item_discount_type, plan_id FROM invoice_items WHERE invoice_id IN ($idList)");
+                                foreach ($im->fetchAll(PDO::FETCH_ASSOC) as $ir) {
+                                    $itemMap[(int)$ir['invoice_id']][] = ['qty' => $ir['quantity'], 'rate' => $ir['rate'], 'gst' => $ir['gst_rate'],
+                                        'disc' => $ir['item_discount'], 'discType' => $ir['item_discount_type'], 'plan_id' => $ir['plan_id']];
+                                }
+                            } catch (Exception $e3) { /* item columns missing — whole invoice counts */ }
+                        }
+                        $planRows = [];
+                        foreach ($linked as $l) {
+                            $t = (float)$l['grand_total']; $lid = (int)$l['id'];
+                            $c = ($l['status'] === 'Paid') ? $t : min($t, $covMap[$lid] ?? 0);
+                            $share = min($t, planShareCalc($itemMap[$lid] ?? [], (string)($l['discount_mode'] ?: 'invoice'), (float)$l['discount_amt'], $planId, $t));
+                            $ratio = $t > 0 ? $share / $t : 1;
+                            $planRows[] = ['id' => $lid, 'number' => $l['invoice_number'], 'status' => $l['status'],
+                                           'total' => $t, 'share' => $share,
+                                           'paid' => round($c * $ratio, 2), 'plan_left' => round(max(0, $share - $c * $ratio), 2),
+                                           'left' => max(0, $t - $c)];
+                        }
+                        $planData = ['plan' => $planRow, 'rows' => $planRows];
+                    }
+                }
+            } catch (Exception $e) { $planData = null; /* plan tables not created yet — card simply stays hidden */ }
         }
     } catch (Exception $e) {
         error_log('portal/index.php error: ' . $e->getMessage());
@@ -233,7 +282,99 @@ if (!$error && $invoiceId > 0) {
     }
 }
 
+/**
+ * The part of an invoice that belongs to a plan: the flagged line item(s) with their own GST and
+ * their share of any invoice-level discount — exactly the maths the invoice form uses.
+ * $items: [qty, rate, gst, disc, discType('pct'|'fixed'), plan_id].
+ * Legacy invoices (linked to a plan before line items were flagged) have no flagged item, so the
+ * whole invoice ($fallbackGrand) counts, as before.
+ */
+function planShareCalc(array $items, string $mode, float $discAmt, int $planId, float $fallbackGrand): float {
+  $flagged = array_filter($items, fn($i) => (int)($i['plan_id'] ?? 0) === $planId);
+  if (!$flagged) return round($fallbackGrand, 2);
+  $sub = 0.0;
+  foreach ($items as $i) $sub += (float)($i['qty'] ?? 1) * (float)($i['rate'] ?? 0);
+  $factor = $sub > 0 ? max(0, 1 - $discAmt / $sub) : 1;
+  $out = 0.0;
+  foreach ($flagged as $i) {
+    $line = (float)($i['qty'] ?? 1) * (float)($i['rate'] ?? 0);
+    $g = (float)($i['gst'] ?? 0);
+    if ($mode === 'item') {
+      $d = (($i['discType'] ?? 'pct') === 'fixed') ? min((float)($i['disc'] ?? 0), $line) : $line * (float)($i['disc'] ?? 0) / 100;
+      $out += ($line - $d) * (1 + $g / 100);
+    } else {
+      $out += $line * (1 + $g / 100) * $factor;
+    }
+  }
+  return round($out, 2);
+}
+
+/**
+ * Installment-plan figures for the portal card. Pure function (no DB) so it is easy to test.
+ * $rows: linked live invoices in billing order, each [id, number, status, total, paid, left].
+ */
+function plan_view(array $plan, array $rows, int $curId): array {
+    $total = (float)$plan['total_amount'];
+    $inst  = (float)$plan['installment_amount'];
+    $term  = max(1, (int)$plan['term_months']);
+    $paid = 0; $monthsPaid = 0; $cur = null; $curNo = 0;
+    foreach ($rows as $i => $r) {
+        $paid += $r['paid'];
+        if ($r['left'] < 0.01) $monthsPaid++;
+        if ($r['id'] === $curId) { $cur = $r; $curNo = $i + 1; }
+    }
+    $remaining = max(0, $total - $paid);                        // $paid = plan part of payments only
+    $curLeft   = $cur ? $cur['left'] : 0;                       // whole-invoice balance (what the customer pays now)
+    $curPlanLeft = $cur ? $cur['plan_left'] : 0;                // plan part of that balance
+    $after     = max(0, $remaining - $curPlanLeft);             // what will still be owed on the plan once THIS invoice is settled
+    $per       = fn($x) => $inst > 0 ? (int)ceil($x / $inst - 1e-9) : 0;
+    $slots = max($term, count($rows));
+    $start = !empty($plan['start_date']) && strtotime($plan['start_date']) ? strtotime($plan['start_date']) : null;
+    $chips = [];
+    for ($k = 1; $k <= $slots; $k++) {
+        $r = $rows[$k - 1] ?? null;
+        $state = !$r ? 'upcoming'
+               : ($r['left'] < 0.01 ? 'paid'
+               : ($r['paid'] > 0.01 ? 'partial'
+               : ($r['status'] === 'Overdue' ? 'overdue' : 'due')));
+        $ts = $start ? strtotime('+' . ($k - 1) . ' month', $start) : null;
+        $chips[] = ['state' => $state, 'current' => $r && $r['id'] === $curId,
+                    'm' => $ts ? date('M', $ts) : (string)$k, 'y' => $ts ? date('Y', $ts) : '',
+                    'number' => $r['number'] ?? ''];
+    }
+    return [
+        'total' => $total, 'paid' => $paid, 'remaining' => $remaining, 'after' => $after,
+        'months_paid' => $monthsPaid, 'term' => $term, 'cur' => $cur, 'cur_no' => $curNo,
+        'cur_paid' => $cur && $cur['left'] < 0.01, 'cur_left' => $curLeft,
+        'months_left_now' => $per($remaining), 'months_left_after' => $per($after),
+        'paid_pct' => $total > 0 ? min(100, $paid / $total * 100) : 0,
+        'cur_pct'  => $total > 0 ? min(100, $curPlanLeft / $total * 100) : 0,
+        'cur_share' => $cur ? $cur['share'] : 0, 'cur_total' => $cur ? $cur['total'] : 0,
+        'mixed' => $cur && ($cur['total'] - $cur['share']) > 0.01,
+        'chips' => $chips,
+    ];
+}
+
+// Defined early: the sticky bar (top of page) uses it before the dues summary block
+$dueCount = count($otherDues ?? []);
+
 // ── Helpers ──────────────────────────────────────────────────
+function svc_cycle_label($c) {
+    $m = ['onetime'=>'One-time','monthly'=>'Monthly','quarterly'=>'Quarterly','halfyearly'=>'Half-yearly','yearly'=>'Yearly'];
+    return $m[strtolower((string)$c)] ?? '';
+}
+// Muted subtitle under item name, e.g. "Monthly · 01 Oct 2026 – 30 Oct 2026". '' when no duration.
+function svc_subtitle($item) {
+    $cycle = svc_cycle_label($item['service_cycle'] ?? '');
+    $start = $item['date_start'] ?? '';
+    $end   = $item['date_end']   ?? '';
+    if ($start === '0000-00-00') $start = '';
+    if ($end   === '0000-00-00') $end   = '';
+    if ($cycle === '' && $start === '') return '';
+    if ($start === '') return $cycle;
+    if (strtolower((string)($item['service_cycle'] ?? '')) === 'onetime') return $cycle . ' · ' . fmt_date($start);
+    return ($cycle !== '' ? $cycle . ' · ' : '') . fmt_date($start) . ' – ' . ($end !== '' ? fmt_date($end) : 'ongoing');
+}
 function fmt_date($d) {
     if (!$d || $d === '—') return '—';
     $ts = strtotime($d);
@@ -1291,8 +1432,14 @@ if (!$isEstimate && !empty($inv['notes'])) {
 
 <!-- Line items -->
 <?php
-$iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
-$iStmt->execute([':id' => $inv['invoice_id']]);
+try {
+  // Includes service period columns; falls back below if they don't exist in this DB
+  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total, service_cycle, date_start, date_end FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+  $iStmt->execute([':id' => $inv['invoice_id']]);
+} catch (Exception $e) {
+  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
+  $iStmt->execute([':id' => $inv['invoice_id']]);
+}
 $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
 if ($items):
 ?>
@@ -1319,6 +1466,7 @@ if ($items):
       <td>
         <strong style="font-size:13px"><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
         <?php if (!empty($item['type'])): ?><br><span style="font-size:10px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
+        <?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?>
       </td>
       <?php
         $lineQty    = (float)($item['qty']  ?? 1);
@@ -1394,7 +1542,7 @@ if ($items):
     ?>
     <div class="line-card">
       <div class="line-card-top">
-        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?></div>
+        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?><?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;font-weight:400;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?></div>
         <div class="line-card-total"><?= fmt_inr($tot, $sym) ?></div>
       </div>
       <div class="line-card-meta">
@@ -1426,6 +1574,193 @@ if ($items):
     </div>
   </div><!-- end line-cards -->
 
+</div>
+<?php endif; ?>
+
+<!-- Installment plan card: annual fee paid in monthly parts -->
+<?php
+$pv = null;
+if ($planData && !$isEstimate && !$isCancelled) {
+    $pv = plan_view($planData['plan'], $planData['rows'], (int)$inv['invoice_id']);
+    if (!$pv['cur']) $pv = null;       // this invoice is not a live plan invoice (e.g. draft) — nothing to show
+}
+if ($pv):
+  $pl = $planData['plan'];
+  $plDone = $pv['remaining'] < 0.01;
+?>
+<div class="card" id="planCard">
+  <style>
+    .pc-hero{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:12px;margin-bottom:14px}
+    .pc-hero.paid{background:var(--green-bg);border:1px solid var(--green)}
+    .pc-hero.due{background:#FFF8E1;border:1px solid #FFB300}
+    .pc-hero .ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;color:#fff;font-size:16px}
+    .pc-hero.paid .ico{background:var(--green)} .pc-hero.due .ico{background:#F59E0B}
+    .pc-hero .t{font-weight:800;font-size:15px;line-height:1.25} .pc-hero .s{font-size:12px;color:var(--muted);margin-top:2px}
+    .pc-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .pc-tile{background:var(--bg);border-radius:10px;padding:9px 11px}
+    .pc-tile span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+    .pc-tile b{font-family:var(--mono);font-size:14px}
+    .pc-bar{height:9px;border-radius:6px;background:var(--bg);overflow:hidden;display:flex;margin:14px 0 4px}
+    .pc-bar i{display:block;height:100%}
+    .pc-cap{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .pc-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:7px;margin-top:14px}
+    .pc-chip{border-radius:10px;padding:7px 4px 6px;text-align:center;border:1.5px solid var(--border);background:var(--card);line-height:1.15}
+    .pc-chip .m{font-size:12px;font-weight:700} .pc-chip .y{font-size:9px;color:var(--muted)} .pc-chip .k{font-size:11px;font-weight:800;margin-top:2px}
+    .pc-chip.paid{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+    .pc-chip.partial,.pc-chip.due{background:#FFF8E1;border-color:#FFB300;color:#B26A00}
+    .pc-chip.overdue{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+    .pc-chip.upcoming{border-style:dashed;color:var(--muted)}
+    .pc-chip.current{box-shadow:0 0 0 3px var(--teal-bg);border-color:var(--teal)}
+    .pc-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:10px}
+    .pc-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+    @media(max-width:480px){.pc-tile b{font-size:12.5px}}
+  </style>
+  <div class="card-head"><i class="fas fa-calendar-check"></i> <span><?= htmlspecialchars($pl['service_name']) ?> — Installment Plan</span>
+    <span style="margin-left:auto;font-size:11px;font-weight:600;color:var(--muted)"><?= (int)$pv['term'] ?>-month plan</span></div>
+  <div class="card-body">
+
+    <?php if ($pv['cur_paid']): ?>
+    <div class="pc-hero paid">
+      <div class="ico"><i class="fas fa-check"></i></div>
+      <div>
+        <div class="t"><?= $plDone ? 'Plan complete — fully paid' : 'Month ' . (int)$pv['cur_no'] . ' of ' . (int)$pv['term'] . ' paid' ?></div>
+        <div class="s"><?= $plDone
+            ? 'All ' . fmt_inr($pv['total'], $sym) . ' received. Thank you!'
+            : fmt_inr($pv['paid'], $sym) . ' of ' . fmt_inr($pv['total'], $sym) . ' paid · ' . fmt_inr($pv['remaining'], $sym) . ' remaining (' . (int)$pv['months_left_now'] . ' month' . ($pv['months_left_now'] == 1 ? '' : 's') . ')' ?></div>
+      </div>
+    </div>
+    <?php else: ?>
+    <div class="pc-hero due">
+      <div class="ico"><i class="fas fa-hourglass-half"></i></div>
+      <div>
+        <div class="t">Pay <?= fmt_inr($pv['cur_left'], $sym) ?> now</div>
+        <div class="s"><?= $pv['mixed'] ? 'Includes your ' . htmlspecialchars($pl['service_name']) . ' installment of ' . fmt_inr($pv['cur_share'], $sym) . '. ' : '' ?><?= $pv['after'] < 0.01
+            ? 'This is your final installment — it completes the plan.'
+            : 'After this payment, ' . fmt_inr($pv['after'], $sym) . ' of the plan will remain (' . (int)$pv['months_left_after'] . ' month' . ($pv['months_left_after'] == 1 ? '' : 's') . ')' ?></div>
+      </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="pc-tiles">
+      <div class="pc-tile"><span>Plan total</span><b><?= fmt_inr($pv['total'], $sym) ?></b></div>
+      <div class="pc-tile"><span>Paid so far</span><b style="color:var(--green)"><?= fmt_inr($pv['paid'], $sym) ?></b></div>
+      <div class="pc-tile"><span>Remaining</span><b style="color:<?= $plDone ? 'var(--green)' : 'var(--red)' ?>"><?= $plDone ? '✓ Nil' : fmt_inr($pv['remaining'], $sym) ?></b></div>
+    </div>
+    <div class="pc-bar" role="img" aria-label="<?= (int)round($pv['paid_pct']) ?> percent of the plan paid">
+      <i style="width:<?= round($pv['paid_pct'], 2) ?>%;background:var(--green)"></i>
+      <i style="width:<?= round($pv['cur_pct'], 2) ?>%;background:#FFB300"></i>
+    </div>
+    <div class="pc-cap"><span><?= (int)$pv['months_paid'] ?> of <?= (int)$pv['term'] ?> months paid</span><span><?= (int)round($pv['paid_pct']) ?>% of plan</span></div>
+    <?php if ($pv['mixed']): ?>
+    <div class="pc-cap" style="margin-top:6px"><span>Plan figures count only <?= htmlspecialchars($pl['service_name']) ?>: <?= fmt_inr($pv['cur_share'], $sym) ?> of this <?= fmt_inr($pv['cur_total'], $sym) ?> invoice.</span></div>
+    <?php endif; ?>
+
+    <div class="pc-chips">
+      <?php foreach ($pv['chips'] as $k => $c):
+        $sym2 = ['paid' => '✓', 'partial' => '◐', 'due' => '●', 'overdue' => '!', 'upcoming' => '○'][$c['state']]; ?>
+      <div class="pc-chip <?= $c['state'] ?><?= $c['current'] ? ' current' : '' ?>" title="<?= htmlspecialchars(($c['number'] ?: 'Not billed yet') . ' · ' . ucfirst($c['state'])) ?>">
+        <div class="m"><?= htmlspecialchars($c['m']) ?></div>
+        <?php if ($c['y'] !== ''): ?><div class="y"><?= htmlspecialchars($c['y']) ?></div><?php endif; ?>
+        <div class="k"><?= $sym2 ?></div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <div class="pc-legend">
+      <span><i style="background:var(--green)"></i>Paid</span>
+      <span><i style="background:#FFB300"></i>Billed, to pay</span>
+      <span><i style="border:1.5px dashed var(--muted)"></i>Upcoming</span>
+      <span><i style="box-shadow:0 0 0 2px var(--teal)"></i>This invoice</span>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<!-- Recurring service: what has been paid so far across this client's invoices for the same service -->
+<?php
+$planRows = []; $planName = ''; $planErr = false;
+try {
+  if (!$isEstimate && !$isCancelled && !empty($inv['client_id']) && empty($planData)) {
+    foreach ($items as $it0) {
+      $cy = strtolower((string)($it0['service_cycle'] ?? ''));
+      if ($cy !== '' && $cy !== 'onetime' && trim((string)($it0['name'] ?? '')) !== '') { $planName = $it0['name']; break; }
+    }
+    if ($planName !== '') {
+      $q = $db->prepare("SELECT i.id, i.invoice_number, i.status, i.grand_total, i.due_date,
+                                it.service_cycle, it.date_start, it.date_end
+                         FROM invoice_items it JOIN invoices i ON i.id = it.invoice_id
+                         WHERE i.client_id = :cid AND it.description = :d
+                           AND it.service_cycle IS NOT NULL AND it.service_cycle NOT IN ('', 'onetime')
+                           AND i.status NOT IN ('Cancelled','Draft','Estimate')
+                         ORDER BY (it.date_start IS NULL), it.date_start ASC, i.id ASC LIMIT 60");
+      $q->execute([':cid' => $inv['client_id'], ':d' => $planName]);
+      $planRows = $q->fetchAll(PDO::FETCH_ASSOC);
+      if (count($planRows) >= 2) {
+        $ids = array_map('intval', array_column($planRows, 'id'));
+        $paidMap = [];
+        $in = implode(',', $ids);
+        try {
+          $pm = $db->query("SELECT invoice_id, SUM(amount + COALESCE(settlement_discount,0)) AS c FROM payments WHERE invoice_id IN ($in) GROUP BY invoice_id");
+        } catch (Exception $e) {
+          $pm = $db->query("SELECT invoice_id, SUM(amount) AS c FROM payments WHERE invoice_id IN ($in) GROUP BY invoice_id");
+        }
+        foreach ($pm->fetchAll(PDO::FETCH_ASSOC) as $r) $paidMap[(int)$r['invoice_id']] = (float)$r['c'];
+        foreach ($planRows as &$pr) {
+          $tot = (float)$pr['grand_total'];
+          $cov = $paidMap[(int)$pr['id']] ?? 0;
+          if ($pr['status'] === 'Paid') $cov = $tot;           // marked Paid with no payment rows
+          $pr['_tot'] = $tot; $pr['_cov'] = min($cov, $tot); $pr['_left'] = max(0, $tot - min($cov, $tot));
+        }
+        unset($pr);
+      } else { $planRows = []; }
+    }
+  }
+} catch (Exception $e) { $planRows = []; /* service period columns may not exist — hide card */ }
+
+if (count($planRows) >= 2):
+  $plBilled = array_sum(array_column($planRows, '_tot'));
+  $plPaid   = array_sum(array_column($planRows, '_cov'));
+  $plLeft   = array_sum(array_column($planRows, '_left'));
+  $plPct    = $plBilled > 0 ? min(100, round($plPaid / $plBilled * 100)) : 0;
+  $plPaidN  = count(array_filter($planRows, fn($r) => $r['_left'] < 0.01));
+  $plN      = count($planRows);
+?>
+<div class="card" id="planCard">
+  <div class="card-head"><i class="fas fa-calendar-check"></i> <span><?= htmlspecialchars($planName) ?> — Payment Plan</span></div>
+  <div class="card-body">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Billed</div><div style="font-weight:700;font-family:var(--mono)"><?= fmt_inr($plBilled, $sym) ?></div></div>
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Paid so far</div><div style="font-weight:700;font-family:var(--mono);color:var(--green)"><?= fmt_inr($plPaid, $sym) ?></div></div>
+      <div style="flex:1;min-width:96px"><div style="font-size:10.5px;color:var(--muted)">Remaining</div><div style="font-weight:700;font-family:var(--mono);color:<?= $plLeft > 0.01 ? 'var(--red)' : 'var(--green)' ?>"><?= $plLeft > 0.01 ? fmt_inr($plLeft, $sym) : '✓ Cleared' ?></div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:<?= $plPct ?>%"></div></div>
+    <div style="font-size:11px;color:var(--muted);margin:6px 0 14px"><?= $plPaidN ?> of <?= $plN ?> periods paid (<?= $plPct ?>%)</div>
+
+    <?php foreach ($planRows as $pr):
+      $isCur = ((int)$pr['id'] === (int)$inv['invoice_id']);
+      $ds = $pr['date_start'] ?? ''; $de = $pr['date_end'] ?? '';
+      if ($ds === '0000-00-00') $ds = ''; if ($de === '0000-00-00') $de = '';
+      $cyc = strtolower((string)$pr['service_cycle']);
+      $period = $ds ? (($cyc === 'monthly' && !$de) ? date('M Y', strtotime($ds)) : fmt_date($ds) . ($de ? ' – ' . fmt_date($de) : '')) : (string)$pr['invoice_number'];
+      $paidFull = $pr['_left'] < 0.01;
+      $partial  = !$paidFull && $pr['_cov'] > 0.01;
+      $overdue  = !$paidFull && ($pr['status'] === 'Overdue');
+      if ($paidFull)      { $chipBg = 'var(--green-bg)'; $chipCol = 'var(--green)'; $chip = '✓ Paid'; }
+      elseif ($partial)   { $chipBg = '#FFF3E0';          $chipCol = 'var(--orange)'; $chip = fmt_inr($pr['_left'], $sym) . ' left'; }
+      elseif ($overdue)   { $chipBg = 'var(--red-bg)';   $chipCol = 'var(--red)';   $chip = 'Overdue'; }
+      else                { $chipBg = '#FFF8E1';          $chipCol = '#B26A00';       $chip = 'Pending'; }
+    ?>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:8px;<?= $isCur ? 'background:var(--teal-bg);border:1px solid var(--teal);' : 'border-bottom:1px solid var(--border);' ?>">
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:600"><?= htmlspecialchars($period) ?><?php if ($isCur): ?> <span style="font-size:10px;font-weight:700;color:var(--teal);margin-left:4px">THIS INVOICE</span><?php endif; ?></div>
+        <div style="font-size:10.5px;color:var(--muted)"><?= htmlspecialchars($pr['invoice_number']) ?><?= $partial ? ' · ' . fmt_inr($pr['_cov'], $sym) . ' paid of ' . fmt_inr($pr['_tot'], $sym) : '' ?></div>
+      </div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-family:var(--mono);font-size:12.5px;font-weight:700"><?= fmt_inr($pr['_tot'], $sym) ?></div>
+        <span style="display:inline-block;margin-top:2px;padding:1px 8px;border-radius:10px;font-size:10.5px;font-weight:700;background:<?= $chipBg ?>;color:<?= $chipCol ?>"><?= $chip ?></span>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
 </div>
 <?php endif; ?>
 

@@ -160,3 +160,43 @@ function planUnbilled(PDO $db, int $planId, int $excludeInvoiceId = 0): ?float {
   foreach (planLinkedInvoices($db, $planId, $excludeInvoiceId) as $r) $billed += $r['share'];
   return max(0, (float)$total - $billed);
 }
+
+/**
+ * Earlier invoices of the plan's client that are not linked to any plan yet but contain the plan's service
+ * (item description matches the service name, either way round, ignoring case). Each result carries the
+ * plan share it would contribute and the matching line-item ids to flag when linking.
+ */
+function planCandidates(PDO $db, array $plan, int $excludeInvoiceId = 0): array {
+  if (empty($plan['client_id'])) return [];
+  $name = mb_strtolower(trim((string)$plan['service_name']));
+  if ($name === '') return [];
+  $q = $db->prepare("SELECT id, invoice_number, status, grand_total, issued_date, discount_amt, discount_mode
+                     FROM invoices
+                     WHERE client_id = ? AND plan_id IS NULL AND id <> ? AND status NOT IN ('Cancelled','Draft','Estimate')
+                     ORDER BY issued_date ASC, id ASC");
+  $q->execute([(int)$plan['client_id'], $excludeInvoiceId]);
+  $inv = $q->fetchAll(PDO::FETCH_ASSOC);
+  if (!$inv) return [];
+  $ids = implode(',', array_map('intval', array_column($inv, 'id')));
+  $byInv = [];
+  foreach ($db->query("SELECT id, invoice_id, description, quantity, rate, gst_rate, item_discount, item_discount_type FROM invoice_items WHERE invoice_id IN ($ids)")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $byInv[(int)$r['invoice_id']][] = $r;
+  }
+  $out = [];
+  foreach ($inv as $i) {
+    $items = []; $itemIds = [];
+    foreach ($byInv[(int)$i['id']] ?? [] as $r) {
+      $d = mb_strtolower(trim((string)$r['description']));
+      $hit = $d !== '' && (mb_strpos($d, $name) !== false || mb_strpos($name, $d) !== false);
+      if ($hit) $itemIds[] = (int)$r['id'];
+      $items[] = ['qty' => $r['quantity'], 'rate' => $r['rate'], 'gst' => $r['gst_rate'], 'disc' => $r['item_discount'],
+                  'discType' => $r['item_discount_type'], 'plan_id' => $hit ? (int)$plan['id'] : null];
+    }
+    if (!$itemIds) continue;
+    $t = (float)$i['grand_total'];
+    $share = min($t, planShareCalc($items, (string)($i['discount_mode'] ?: 'invoice'), (float)$i['discount_amt'], (int)$plan['id'], $t));
+    $out[] = ['id' => (int)$i['id'], 'invoice_number' => $i['invoice_number'], 'status' => $i['status'],
+              'grand_total' => $t, 'share' => $share, 'issued_date' => $i['issued_date'], 'item_ids' => $itemIds];
+  }
+  return $out;
+}

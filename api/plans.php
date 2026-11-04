@@ -48,6 +48,13 @@ function planClean(array $in, ?array $old = null): array {
 switch ($_SERVER['REQUEST_METHOD']) {
 
 case 'GET':
+  if (!empty($_GET['id']) && !empty($_GET['candidates'])) {      // earlier invoices that could be linked to this plan
+    $p = planFetch($db, (int)$_GET['id']);
+    if (!$p) jsonResponse(['error' => 'Plan not found'], 404);
+    $c = planCandidates($db, $p, (int)($_GET['exclude'] ?? 0));
+    foreach ($c as &$row) unset($row['item_ids']);
+    jsonResponse(['data' => $c]);
+  }
   if (!empty($_GET['id'])) {
     $p = planFetch($db, (int)$_GET['id']);
     if (!$p) jsonResponse(['error' => 'Plan not found'], 404);
@@ -71,6 +78,29 @@ case 'GET':
 case 'POST':
   $in = json_decode(file_get_contents('php://input'), true);
   if (!$in) jsonResponse(['error' => 'Invalid JSON'], 400);
+  if (($_GET['action'] ?? '') === 'link') {                       // link earlier invoices to a plan
+    $pid = (int)($_GET['id'] ?? 0);
+    $p = $pid ? planFetch($db, $pid) : null;
+    if (!$p) jsonResponse(['error' => 'Plan not found'], 404);
+    $want = array_map('intval', (array)($in['invoice_ids'] ?? []));
+    if (!$want) jsonResponse(['error' => 'Select at least one invoice'], 400);
+    $cands = [];                                                    // never trust the client: re-derive what is linkable
+    foreach (planCandidates($db, $p) as $c) if (in_array($c['id'], $want, true)) $cands[] = $c;
+    if (!$cands) jsonResponse(['error' => 'None of the selected invoices can be linked to this plan'], 400);
+    $add = array_sum(array_column($cands, 'share'));
+    $free = planUnbilled($db, $pid, 0);
+    if ($add > $free + 0.02)
+      jsonResponse(['error' => 'Linking these adds ' . number_format($add, 2) . ' but only ' . number_format($free, 2) . ' is left on the plan. Untick some, or raise the plan total first.'], 400);
+    $uInv = $db->prepare('UPDATE invoices SET plan_id = ? WHERE id = ? AND plan_id IS NULL');
+    foreach ($cands as $c) {
+      $uInv->execute([$pid, $c['id']]);
+      $ids = implode(',', array_map('intval', $c['item_ids']));
+      $db->exec("UPDATE invoice_items SET plan_id = $pid WHERE id IN ($ids)");
+    }
+    logActivity((int)$_SESSION['user_id'], 'update', 'plan', $pid, 'Linked ' . count($cands) . ' earlier invoice(s) to plan #' . $pid);
+    $st = planStats($db, planFetch($db, $pid));
+    jsonResponse(['success' => true, 'linked' => count($cands), 'data' => $st]);
+  }
   [$name, $total, $inst, $term, $start] = planClean($in);
   $cid = !empty($in['client_id']) ? (int)$in['client_id'] : null;
   if (!$cid) jsonResponse(['error' => 'Select a saved client first — plans are kept per client'], 400);

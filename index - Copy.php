@@ -2707,6 +2707,57 @@ const SERVER = {
             </div>
           </div>
 
+          <!-- Installment plan — appears once a saved client is selected -->
+          <div class="form-section" id="planPanel" style="display:none">
+            <style>
+              #planPanel .pl-opt{font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1px 8px;margin-left:8px;letter-spacing:.3px;text-transform:uppercase}
+              #planPanel .pl-row{display:flex;gap:8px;align-items:center}
+              #planPanel .pl-row select{flex:1}
+              #planPanel .pl-btn{border:1.5px solid var(--teal);color:var(--teal);background:transparent;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+              #planPanel .pl-btn:hover{background:var(--teal-bg)}
+              #planPanel .pl-btn.ghost{border-color:var(--border);color:var(--muted)}
+              #planPanel .pl-card{margin-top:12px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px 16px}
+              #planPanel .pl-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+              #planPanel .pl-title{font-weight:800;font-size:14px}
+              #planPanel .pl-sub{font-size:11.5px;color:var(--muted)}
+              #planPanel .pl-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+              #planPanel .pl-tile{background:var(--bg);border-radius:10px;padding:8px 10px}
+              #planPanel .pl-tile b{display:block;font-size:14px;font-family:var(--mono,monospace)}
+              #planPanel .pl-tile span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+              #planPanel .pl-bar{height:8px;border-radius:6px;background:var(--bg);overflow:hidden;display:flex;margin:12px 0 4px}
+              #planPanel .pl-bar i{display:block;height:100%}
+              #planPanel .pl-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 8px}
+              #planPanel .pl-chip{border:1.5px solid var(--border);background:var(--card);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)}
+              #planPanel .pl-chip:hover,#planPanel .pl-chip.on{border-color:var(--teal);background:var(--teal-bg);color:var(--teal)}
+              #planPanel .pl-amt{display:flex;align-items:center;gap:8px;margin-top:4px}
+              #planPanel .pl-amt input{max-width:170px;font-family:var(--mono,monospace);font-weight:700}
+              #planPanel .pl-live{margin-top:12px;border-radius:10px;padding:10px 12px;font-size:12.5px;background:var(--teal-bg);color:var(--text);border:1px solid var(--teal-l,#4DB6AC)}
+              #planPanel .pl-live.bad{background:#FFEBEE;border-color:#E53935;color:#B71C1C}
+              #planPanel .pl-live b{font-family:var(--mono,monospace)}
+              #planPanel .pl-new{margin-top:12px;border:1.5px dashed var(--teal);border-radius:12px;padding:14px 16px}
+              @media(max-width:640px){#planPanel .pl-tiles{grid-template-columns:repeat(2,1fr)}}
+            </style>
+            <div class="fs-title"><i class="fas fa-calendar-check"></i> Installment Plan <span class="pl-opt">optional</span></div>
+            <div class="pl-row">
+              <select id="plan-select" onchange="planSelect(this.value)"></select>
+              <button type="button" class="pl-btn" onclick="planToggleNew(true)"><i class="fas fa-plus"></i> New plan</button>
+            </div>
+            <div class="pl-new" id="plan-new" style="display:none">
+              <div class="form-grid g3">
+                <div class="field"><label>Service *</label><input id="pn-svc" placeholder="e.g. WhatsApp Service"></div>
+                <div class="field"><label>Plan total (₹, incl. GST) *</label><input id="pn-total" type="number" min="1" step="0.01" placeholder="6000" oninput="planNewCalc()"></div>
+                <div class="field"><label>Months *</label><input id="pn-months" type="number" min="1" max="120" value="12" oninput="planNewCalc()"></div>
+                <div class="field"><label>Installment (₹)</label><input id="pn-inst" type="number" min="1" step="0.01" placeholder="auto" oninput="this.dataset.manual='1'"></div>
+                <div class="field"><label>First month starts</label><input id="pn-start" type="date"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button type="button" class="pl-btn" id="pn-save" onclick="planCreate()"><i class="fas fa-check"></i> Create plan</button>
+                <button type="button" class="pl-btn ghost" onclick="planToggleNew(false)">Cancel</button>
+              </div>
+            </div>
+            <div class="pl-card" id="plan-body" style="display:none"></div>
+          </div>
+
           <!-- Items -->
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-list-ul"></i> Line Items</div>
@@ -13126,6 +13177,7 @@ function resetCreateForm() {
   const tplEl = document.getElementById('f-template'); if (tplEl) tplEl.value = String(STATE.settings.activeTemplate || '2');
   syncThemePicker();
   const clientSelEl = document.getElementById('f-client-select'); if (clientSelEl) clientSelEl.value = '';
+  try { planReset(); } catch (e) {}
   // Hide one-time client indicators
   const _otNotice = document.getElementById('onetime-notice'); if (_otNotice) _otNotice.style.display = 'none';
   const _otBadge  = document.getElementById('onetime-badge');  if (_otBadge)  _otBadge.style.display  = 'none';
@@ -13442,11 +13494,13 @@ function calcTotals() {
   set('tp-grand', fmt_money(grand));
 
   // Update the global GST selector display (show blended or first item rate)
+  try { planRefreshSummary(grand, sub, discAmt, discMode); } catch (e) {}
   livePreview();
   return { sub, discAmt, gstAmt: gstAfterDisc, grand };
 }
 
 function fillClientForm(val) {
+  try { planOnClient(val); } catch (e) {}
   const notice  = document.getElementById('onetime-notice');
   const badge   = document.getElementById('onetime-badge');
   if (val === '__onetime__') {
@@ -15212,7 +15266,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -15511,10 +15565,220 @@ async function cancelInvoiceForm() {
   showPage('invoices', document.querySelector('.nav-item[data-page="invoices"]'));
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  INSTALLMENT PLANS — bill a yearly fee in monthly parts.
+//  The plan lives in payment_plans; each invoice carries plan_id.
+//  "Paid" and "Remaining" are always derived server-side from invoices
+//  + payments (api/plans.php), never typed in, so they can't drift.
+// ═══════════════════════════════════════════════════════════════
+const PLAN = { list: [], sel: null, clientId: null, editInv: null, editBase: 0, ready: false };
+const planMoney = n => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const planAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+function planAddMonths(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1 + n, 1));
+  const dim = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, dim));
+  return first.toISOString().slice(0, 10);
+}
+// Amount of this plan that is still free to invoice (own current amount added back while editing)
+function planFree() {
+  if (!PLAN.sel) return 0;
+  const same = PLAN.editInv && String(PLAN.editInv.plan_id) === String(PLAN.sel.id);
+  return Math.max(0, PLAN.sel.unbilled + (same ? PLAN.editBase : 0));
+}
+function planReset() {
+  PLAN.list = []; PLAN.sel = null; PLAN.clientId = null; PLAN.editInv = null; PLAN.editBase = 0; PLAN.ready = false;
+  const p = document.getElementById('planPanel'); if (p) p.style.display = 'none';
+  const n = document.getElementById('plan-new'); if (n) n.style.display = 'none';
+}
+function planClearItem() {
+  if (!formItems.some(i => i._plan)) return;
+  formItems = formItems.filter(i => !i._plan);
+  if (!formItems.length) { addItem(); } else { renderFormItems(); calcTotals(); }
+}
+async function planOnClient(val) {
+  const panel = document.getElementById('planPanel'); if (!panel) return;
+  planClearItem();
+  PLAN.sel = null; PLAN.editInv = null; PLAN.editBase = 0; PLAN.ready = false;
+  if (!val || val === '__onetime__') { PLAN.clientId = null; panel.style.display = 'none'; return; }
+  PLAN.clientId = String(val); panel.style.display = '';
+  await planReload();
+}
+async function planLoadForInvoice(inv) {
+  planReset();
+  const cid = inv && inv.client;
+  if (!cid || cid === 'null' || cid === '0') return;
+  PLAN.clientId = String(cid);
+  document.getElementById('planPanel').style.display = '';
+  if (inv.plan_id) {
+    PLAN.editInv = inv;
+    PLAN.editBase = ['Draft', 'Estimate', 'Cancelled'].includes(inv.status) ? 0 : (parseFloat(inv.plan_share ?? inv.amount) || 0);   // only the plan item's part of the invoice
+  }
+  await planReload(inv.plan_id ? String(inv.plan_id) : null, true);
+}
+async function planReload(selectId, keepItems) {
+  try {
+    const r = await api('api/plans.php?client_id=' + encodeURIComponent(PLAN.clientId));
+    PLAN.list = Array.isArray(r.data) ? r.data : [];
+    PLAN.ready = true;
+  } catch (e) { PLAN.list = []; PLAN.ready = false; }   // API missing/failed → panel simply offers "New plan"; never blocks invoicing
+  const sel = document.getElementById('plan-select');
+  const keep = selectId || (PLAN.sel ? String(PLAN.sel.id) : '');
+  const usable = PLAN.list.filter(p => p.status === 'Active' || String(p.id) === keep);
+  sel.innerHTML = '<option value="">— Regular invoice (not part of a plan) —</option>' +
+    usable.map(p => `<option value="${p.id}">${escHtml(p.service_name)} · ${planMoney(p.total_amount)} · ${planMoney(p.remaining)} left${p.status !== 'Active' ? ' (' + p.status + ')' : ''}</option>`).join('');
+  sel.value = usable.some(p => String(p.id) === keep) ? keep : '';
+  planSelect(sel.value, keepItems);
+}
+function planSelect(id, keepItems) {
+  const body = document.getElementById('plan-body');
+  PLAN.sel = PLAN.list.find(p => String(p.id) === String(id)) || null;
+  if (!PLAN.sel) { if (!keepItems) planClearItem(); body.style.display = 'none'; return; }
+  planRenderBody();
+  if (keepItems) {
+    // editing: keep the saved line items, just remember which one is the plan line
+    formItems.forEach(i => { if (String(i.plan_id || '') === String(PLAN.sel.id)) i._plan = true; });
+    if (!formItems.some(i => i._plan)) {          // older invoice linked before items were flagged: best guess by name
+      const it = formItems.find(i => (i.desc || '').trim().toLowerCase() === PLAN.sel.service_name.trim().toLowerCase()) || (formItems.length === 1 ? formItems[0] : null);
+      if (it) it._plan = true;
+    }
+    calcTotals();
+  } else {
+    planApplyAmount(Math.min(PLAN.sel.suggested || PLAN.sel.installment_amount, planFree()));
+  }
+}
+function planRenderBody() {
+  const p = PLAN.sel, body = document.getElementById('plan-body');
+  const same = PLAN.editInv && String(PLAN.editInv.plan_id) === String(p.id);
+  const slot = (p.invoice_count + (same ? 0 : 1));
+  const paidPct   = p.total_amount ? Math.min(100, p.paid / p.total_amount * 100) : 0;
+  const billedPct = p.total_amount ? Math.min(100 - paidPct, Math.max(0, p.billed - p.paid) / p.total_amount * 100) : 0;
+  body.innerHTML = `
+    <div class="pl-head">
+      <div><div class="pl-title">${escHtml(p.service_name)}</div>
+      <div class="pl-sub">${p.term_months}-month plan · ${planMoney(p.installment_amount)}/month · ${p.months_paid} of ${p.term_months} months paid</div></div>
+      <button type="button" class="pl-btn ghost" onclick="planClose()">Close plan</button>
+    </div>
+    <div class="pl-tiles">
+      <div class="pl-tile"><span>Plan total</span><b>${planMoney(p.total_amount)}</b></div>
+      <div class="pl-tile"><span>Paid so far</span><b style="color:var(--green,#388E3C)">${planMoney(p.paid)}</b></div>
+      <div class="pl-tile"><span>Billed, unpaid</span><b style="color:var(--orange,#E65100)">${planMoney(Math.max(0, p.billed - p.paid))}</b></div>
+      <div class="pl-tile"><span>Left to bill</span><b>${planMoney(planFree())}</b></div>
+    </div>
+    <div class="pl-bar"><i style="width:${paidPct}%;background:var(--green,#388E3C)"></i><i style="width:${billedPct}%;background:#FFB74D"></i></div>
+    <div class="pl-sub">This will be installment ${slot} of ${p.term_months}</div>
+    <div class="pl-chips">
+      <button type="button" class="pl-chip" onclick="planApplyAmount(Math.min(${p.installment_amount}, planFree()))">1 installment · ${planMoney(Math.min(p.installment_amount, planFree()))}</button>
+      <button type="button" class="pl-chip" onclick="planApplyAmount(planFree())">Full balance · ${planMoney(planFree())}</button>
+    </div>
+    <div class="pl-amt"><label style="font-size:12px;font-weight:700">Or enter amount (₹, incl. GST)</label>
+      <input id="plan-amt" type="number" min="0" step="0.01" oninput="planApplyAmount(this.value, true)"></div>
+    <div class="pl-live" id="plan-live"></div>`;
+  body.style.display = '';
+}
+// Creates/updates the plan's line item on the invoice so the totals, PDF and portal all follow the chosen amount.
+function planApplyAmount(v, fromInput) {
+  if (!PLAN.sel) return;
+  const amt = Math.max(0, Math.round((parseFloat(v) || 0) * 100) / 100);
+  const inp = document.getElementById('plan-amt');
+  if (inp && !fromInput) inp.value = amt || '';
+  let it = formItems.find(i => i._plan);
+  if (!it) {
+    const blank = formItems.length === 1 && !(formItems[0].desc || '').trim() && !(parseFloat(formItems[0].rate) || 0);
+    if (blank) { it = formItems[0]; }
+    else { it = { id: Date.now(), itemType: 'Service', qty: 1, hsn: (typeof suggestHsnForCategory === 'function' ? suggestHsnForCategory('Service') : ''), disc: 0, discType: 'pct' }; formItems.push(it); }
+    it._plan = true;
+    const g = parseFloat(document.getElementById('f-gst')?.value);
+    it.gst = isNaN(g) ? (STATE.settings.defaultGST ?? 18) : g;
+    it.desc = PLAN.sel.service_name; it.qty = 1;
+  }
+  const g = parseFloat(it.gst) || 0;
+  it.rate = Math.round(amt / (1 + g / 100) * 100) / 100;
+  if (!PLAN.editInv) {
+    // billing period for this installment (monthly slots counted from the plan start)
+    const months = Math.max(1, Math.round(amt / (PLAN.sel.installment_amount || amt || 1)));
+    const start = planAddMonths(PLAN.sel.start_date || new Date().toISOString().slice(0, 10), PLAN.sel.invoice_count);
+    it.service_cycle = 'monthly'; it.date_start = start; it.date_end = planAddDays(planAddMonths(start, months), -1);
+  }
+  renderFormItems(); calcTotals();
+}
+// The plan's part of THIS invoice: only the flagged line(s), with their own GST and their share of any invoice discount.
+function planShareNow(sub, discAmt, discMode) {
+  const factor = sub > 0 ? Math.max(0, 1 - discAmt / sub) : 1;
+  let out = 0;
+  formItems.filter(i => i._plan).forEach(i => {
+    const line = (parseFloat(i.qty) || 1) * (parseFloat(i.rate) || 0), g = parseFloat(i.gst) || 0;
+    if (discMode === 'item') {
+      const dv = parseFloat(i.disc) || 0, d = i.discType === 'fixed' ? Math.min(dv, line) : line * dv / 100;
+      out += (line - d) * (1 + g / 100);
+    } else out += line * (1 + g / 100) * factor;
+  });
+  return Math.round(out * 100) / 100;
+}
+// Called from calcTotals(), so the live line always matches what will be saved.
+function planRefreshSummary(grand, sub, discAmt, discMode) {
+  const el = document.getElementById('plan-live'); if (!el || !PLAN.sel) return;
+  grand = Math.round(grand * 100) / 100;
+  const p = PLAN.sel, free = planFree(), share = planShareNow(sub, discAmt, discMode);
+  const left = Math.max(0, Math.round((free - share) * 100) / 100);
+  const months = p.installment_amount > 0 ? Math.ceil(left / p.installment_amount - 1e-9) : 0;
+  const over = share > free + 0.02, none = share < 0.01;
+  el.classList.toggle('bad', over);
+  if (none) { el.innerHTML = `Choose an amount above to add <b>${escHtml(p.service_name)}</b> to this invoice.`; return; }
+  const mixed = grand - share > 0.01;
+  el.innerHTML = over
+    ? `The ${escHtml(p.service_name)} part (<b>${planMoney(share)}</b>) is more than what is left on this plan (<b>${planMoney(free)}</b>). Reduce the amount.`
+    : `${escHtml(p.service_name)} <b>${planMoney(share)}</b>${mixed ? ` of this <b>${planMoney(grand)}</b> invoice` : ''} &nbsp;→&nbsp; remaining after it is paid: <b>${planMoney(left)}</b>${left >= 0.01 ? ` (${months} month${months === 1 ? '' : 's'})` : ' — <b>final installment, plan will be complete</b>'}` +
+      (mixed ? `<div style="margin-top:4px;font-size:11.5px;color:var(--muted)">Other items on this invoice don't count against the plan.</div>` : '');
+}
+function planToggleNew(show) {
+  const box = document.getElementById('plan-new'); box.style.display = show ? '' : 'none';
+  if (!show) return;
+  document.getElementById('pn-start').value = new Date().toISOString().slice(0, 10);
+  const first = formItems.find(i => (i.desc || '').trim());
+  if (first && !document.getElementById('pn-svc').value) document.getElementById('pn-svc').value = first.desc;
+  document.getElementById('pn-svc').focus();
+}
+function planNewCalc() {
+  const inst = document.getElementById('pn-inst');
+  if (inst.dataset.manual === '1') return;
+  const t = parseFloat(document.getElementById('pn-total').value) || 0, m = parseInt(document.getElementById('pn-months').value) || 0;
+  inst.value = t > 0 && m > 0 ? (Math.round(t / m * 100) / 100) : '';
+}
+async function planCreate() {
+  const v = id => document.getElementById(id).value;
+  const body = { client_id: parseInt(PLAN.clientId), client_name: v('f-cname'), service_name: v('pn-svc').trim(), total_amount: parseFloat(v('pn-total')) || 0,
+                 term_months: parseInt(v('pn-months')) || 0, installment_amount: parseFloat(v('pn-inst')) || 0, start_date: v('pn-start') };
+  if (!body.service_name || body.total_amount <= 0 || body.term_months < 1) { toast('⚠️ Enter service, total and months', 'warning'); return; }
+  const btn = document.getElementById('pn-save'); btn.disabled = true;
+  try {
+    const r = await api('api/plans.php', 'POST', body);
+    toast('✅ Plan created', 'success');
+    planToggleNew(false);
+    ['pn-svc', 'pn-total'].forEach(i => document.getElementById(i).value = '');
+    const inst = document.getElementById('pn-inst'); inst.value = ''; delete inst.dataset.manual;
+    PLAN.sel = null;
+    await planReload(String(r.id));
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+async function planClose() {
+  if (!PLAN.sel) return;
+  const { isConfirmed } = await Swal.fire({ title: 'Close this plan?', text: 'No more invoices can be billed against it. Existing invoices stay as they are.', icon: 'question', showCancelButton: true, confirmButtonText: 'Close plan', customClass: { popup: 'swal-compact' } });
+  if (!isConfirmed) return;
+  try { await api('api/plans.php?id=' + PLAN.sel.id, 'PUT', { status: 'Closed' }); planClearItem(); PLAN.sel = null; await planReload(''); toast('Plan closed', 'info'); }
+  catch (e) { toast('❌ ' + e.message, 'error'); }
+}
+
 async function saveInvoice() {
   const d = getFormData();
   if (!d.cname || d.cname === 'Client Name') { toast('⚠️ Please enter client name', 'warning'); return; }
   if (formItems.length === 0) { toast('⚠️ Add at least one line item', 'warning'); return; }
+  if (PLAN.sel && !['Draft','Estimate','Cancelled'].includes(d.status)) {
+    const _t = calcTotals(), _sh = planShareNow(_t.sub, _t.discAmt, document.getElementById('f-disc-mode')?.value || 'invoice');
+    if (_sh > planFree() + 0.02) { toast('⚠️ The ' + PLAN.sel.service_name + ' part of this invoice is more than what is left on the plan (' + planMoney(planFree()) + ')', 'warning'); return; }
+  }
   const selVal = document.getElementById('f-client-select')?.value;
   const _clientId = (selVal && selVal !== '__onetime__') ? parseInt(selVal) : null;
 
@@ -15539,7 +15803,9 @@ async function saveInvoice() {
     client_email:  d.cemail  || '',
     client_gst:    d.cgst    || '',
     client_addr:   d.caddr   || '',
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }))
+    // Installment plan link — omitted if the plan list could not be loaded, so an edit never unlinks by accident
+    ...(PLAN.ready ? { plan_id: (PLAN.sel && formItems.some(i => i._plan)) ? PLAN.sel.id : null } : {}),
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: (i._plan && PLAN.sel) ? PLAN.sel.id : null }))
   };
   try {
     if (!isNewSave) {
@@ -15990,7 +16256,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'' }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
   renderFormItems();
   livePreview();
 }
@@ -29618,6 +29884,7 @@ function editInvoice(id) {
       }
     }
     livePreview();
+    try { planLoadForInvoice(inv); } catch (e) {}
     toast(`✏️ Editing ${inv.num||inv.invoice_number}`, 'info');
   }, 80);
 }
@@ -38090,7 +38357,7 @@ function norm(q) {
 // Typo tolerance for the *keywords only* (never applied to names).
 const VOCAB = ['sales','purchase','purchases','expenses','expense','outstanding','customer','customers','supplier','suppliers',
   'overdue','profit','summary','yesterday','balance','receivable','payable','stock','bags','today','invoices','invoice',
-  'received','payments','collection','products','biggest','highest','largest','category','categories'];
+  'received','payments','collection','products','biggest','highest','largest','category','categories','clients','client','billed'];
 const NO_FIX = new Set(['stuck','stick','store','stores','stack','shock','state','stale','scale','sails','seals','tales','purse','shops','bills']);
 function fixTypos(n) {
   return n.split(' ').map(t => {
@@ -38107,6 +38374,7 @@ const STOP = new Set(('a an the of for in on at to from by with and or is are wa
   'total sales sale sold purchase purchases purchased expense expenses profit stock bags bag left remaining available outstanding balance ' +
   'owe owes owed due pending unpaid overdue late receivable payable received payment payments paid collection collections ' +
   'customer customers supplier suppliers vendor vendors party parties client clients buyer buyers product products item items ' +
+  'invoice invoices bill bills billed billing revenue income turnover earnings earned receipts collected net cash ' +
   'category categories wise top best biggest highest largest most least lowest ranking report summary overview status details detail info ' +
   'amount value number no nos qty quantity kg kgs rs rupees inr count ' +
   'last past next previous current today yesterday day days week weeks month months year years ago till until between since overall ' +
@@ -38266,29 +38534,49 @@ function pickBest(ranked) {
 const BOT = { open: false, ctx: {}, cache: new Map(), data: null, dataAt: 0, pools: null, nameTok: null, actions: new Map(), seq: 0, lastAt: 0 };
 const TTL = 90 * 1000;
 
-function can(page) {                         // sidebar menu items exist only for permitted pages
-  if (typeof document === 'undefined') return true;
+/* Why is a page unavailable?
+     'ok'   — the menu item is there
+     'type' — the item exists but the business setup hides it (e.g. Sales in a service business)
+     'perm' — this login has no menu item for it (permission)                                   */
+function access(page) {
+  if (typeof document === 'undefined') return 'ok';
   const el = document.querySelector(`.nav-item[data-page="${page}"]`);
-  return !!el && el.style.display !== 'none';
+  if (!el) return 'perm';
+  return el.style.display === 'none' ? 'type' : 'ok';
 }
+const can = page => access(page) === 'ok';
+const bizType = () => (typeof STATE !== 'undefined' && STATE.settings && STATE.settings.businessType) || 'both';
+const roleName = () => { try { return String(SERVER.user.role || ''); } catch (e) { return ''; } };
+// A service business invoices its clients; a product business has Sales. Everything below picks the right one.
+const svcMode = () => !can('sales-list') && can('invoices');
 
 async function data() {
   const now = Date.now();
   if (BOT.data && now - BOT.dataAt < TTL) return BOT.data;
-  const svc = STATE.settings && STATE.settings.businessType === 'service';
   const get = (url, fb) => Promise.resolve().then(() => api(url)).then(r => Array.isArray(r && r.data) ? r.data : fb).catch(() => fb);
-  const [sales, purchases, cA, cR, suppliers, stock, products] = await Promise.all([
-    svc ? [] : get('api/sales.php', STATE.sales || []),
-    get('api/purchases.php', STATE.purchases || []),
-    svc ? [] : get('api/customers.php', STATE.customers || []),
-    svc ? [] : get('api/customers.php?status=archived', []),
-    get('api/suppliers.php', STATE.suppliers || []),
-    get('api/stock.php', STATE.stock || []),
+  const S1 = can('sales-list'), C1 = S1 || can('customers-list'), P1 = can('purchases'), V1 = P1 || can('suppliers');
+  const I1 = can('invoices') || can('clients') || can('payments');
+  const normI = typeof normalizeInvoice === 'function' ? normalizeInvoice : (x => x);
+  const getInvoices = () => Promise.resolve().then(() => api('api/invoices.php')).then(r => Array.isArray(r && r.data) ? r.data.map(normI) : (STATE.invoices || [])).catch(() => STATE.invoices || []);
+  const [sales, purchases, cA, cR, suppliers, stock, products, invoices, clients, payments, expenses] = await Promise.all([
+    S1 ? get('api/sales.php', STATE.sales || []) : [],
+    P1 ? get('api/purchases.php', STATE.purchases || []) : [],
+    C1 ? get('api/customers.php', STATE.customers || []) : [],
+    C1 ? get('api/customers.php?status=archived', []) : [],
+    V1 ? get('api/suppliers.php', STATE.suppliers || []) : [],
+    can('stock') ? get('api/stock.php', STATE.stock || []) : [],
     get('api/products.php', STATE.products || []),
+    I1 ? getInvoices() : [],
+    I1 ? get('api/clients.php', STATE.clients || []) : [],
+    I1 ? get('api/payments.php', STATE.payments || []) : [],
+    can('expenses') ? expenseRows().catch(() => STATE.expenses || []) : [],
   ]);
   const seen = new Set();
   const customers = [...cA, ...cR].filter(c => !seen.has(String(c.id)) && seen.add(String(c.id)));
-  BOT.data = { sales, purchases, customers, suppliers, stock, products };
+  // what each invoice has had settled against it: cash received + any settlement discount (same rule as the invoice screens)
+  const payMap = new Map();
+  payments.forEach(p => { if (p.invoice_id == null) return; const k = String(p.invoice_id); payMap.set(k, (payMap.get(k) || 0) + num(p.amount) + num(p.settlement_discount)); });
+  BOT.data = { sales, purchases, customers, suppliers, stock, products, invoices, clients, payments, payMap, expenses };
   BOT.dataAt = now; BOT.pools = null; BOT.nameTok = null;
   return BOT.data;
 }
@@ -38296,10 +38584,11 @@ async function data() {
 function pools(d) {
   if (BOT.pools) return BOT.pools;
   const cats = new Set((STATE.expenseCategories || []).map(c => c.name));
-  (STATE.expenses || []).forEach(e => e.category && cats.add(e.category));
+  (d.expenses && d.expenses.length ? d.expenses : (STATE.expenses || [])).forEach(e => e.category && cats.add(e.category));
   BOT.pools = {
     customer: (can('customers-list') || can('sales-list')) ? d.customers.map(c => ({ kind: 'customer', id: c.id, name: c.name || '', rec: c })) : [],
     supplier: (can('suppliers') || can('purchases')) ? d.suppliers.map(s => ({ kind: 'supplier', id: s.id, name: s.name || '', rec: s })) : [],
+    client: (can('clients') || can('invoices')) ? d.clients.map(c => ({ kind: 'client', id: c.id, name: c.name || '', rec: c })) : [],
     product: d.products.map(p => ({ kind: 'product', id: p.id, name: p.name || '', rec: p })),
     category: can('expenses') ? [...cats].map(n => ({ kind: 'category', id: n, name: n })) : [],
   };
@@ -38362,7 +38651,10 @@ const NAV = [
   { page: 'cash-in-hand',   re: /\bcash in hand\b|\bcash book\b/, label: 'Cash in Hand' },
   { page: 'aging',          re: /\baging\b/, label: 'Aging Report' },
   { page: 'dashboard',      re: /\b(dashboard|home)\b/, label: 'Dashboard' },
+  { page: 'create',         re: /\b(new|create|add) (an )?invoice\b/, label: 'New Invoice' },
   { page: 'sales-list',     re: /\bsales?\b/, label: 'Sales' },
+  { page: 'invoices',       re: /\binvoices?\b/, label: 'Invoices' },
+  { page: 'clients',        re: /\bclients?\b/, label: 'Clients' },
   { page: 'purchases',      re: /\bpurchases?\b/, label: 'Purchases' },
   { page: 'customers-list', re: /\bcustomers?\b/, label: 'Customers' },
   { page: 'suppliers',      re: /\b(suppliers?|vendors?)\b/, label: 'Suppliers' },
@@ -38375,6 +38667,7 @@ const NAV = [
   { page: 'settings',       re: /\bsettings?\b/, label: 'Settings' },
 ];
 const CREATE = [
+  { re: /\b(invoices?|bill)\b/, page: 'create', label: 'New Invoice', svc: true, run: () => goPage('create') },
   { re: /\b(sales?|sale invoice|invoice)\b/, page: 'sales-list', label: 'New Sale', run: () => goToNewSale() },
   { re: /\bpurchases?\b/,                      page: 'purchases',  label: 'New Purchase', run: () => goToNewPurchase() },
   { re: /\bexpenses?\b/,                       page: 'expenses',   label: 'Add Expense', run: () => { showPage('expenses', null); openAddExpenseModal(); } },
@@ -38397,7 +38690,7 @@ function classify(n, info) {
   const howTo = t(/^(how (do i|to|can i|should i)|where (do i|can i|to))\b/);
   const createWord = t(/^(?:i want to |want to |please |let me |can you )?(new|add|create|make|record|enter)\b/);
   if (createWord || (howTo && t(/\b(add|create|make|record|enter|new)\b/))) {
-    const c = CREATE.find(x => x.re.test(n));
+    const c = CREATE.filter(x => svcMode() || !x.svc).find(x => x.re.test(n));
     if (c) return { id: howTo ? 'howto' : 'create', create: c };
   }
   if (t(/^(open|go to|goto|take me to|navigate to|jump to|switch to)\b/) || t(/\b(page|screen|tab|section)$/)) {
@@ -38407,13 +38700,13 @@ function classify(n, info) {
 
   const bal = t(/\b(owe|owes|owed|outstanding|balance|receivables?|payables?|pending|due|unpaid|udhar|stuck)\b/);
   const rank = t(/\b(top|best|biggest|highest|largest|most|ranking|leaderboard)\b/);
-  const custBuy = t(/\b(buy|buys|bought|ordered)\b/) && info.topKind === 'customer';     // "what did Ramesh buy" = sales to Ramesh
-  const sold = custBuy || t(/\b(sold|sales?|sell|selling|revenue|turnover|income|invoices?)\b/);
+  const custBuy = t(/\b(buy|buys|bought|ordered)\b/) && (info.topKind === 'customer' || info.topKind === 'client');     // "what did Ramesh buy" = sales to Ramesh
+  const sold = custBuy || t(/\b(sold|sales?|sell|selling|revenue|turnover|income|invoices?|billed|billing)\b/);
   const bought = !custBuy && t(/\b(purchases?|purchased|bought|buy|buying)\b/);
   const bags = t(/\bbags?\b/);
   const exp = t(/\b(expenses?|expenditure|spent|spending|spend|costs?)\b/);
   const stk = t(/\b(stock|inventory|left|remaining|available|do (we|i) have|have we|is there|are there)\b/);
-  const countQ = t(/\bhow (much|many) (customers?|suppliers?|products?)\b|\bnumber of (customers?|suppliers?|products?)\b/);
+  const countQ = t(/\bhow (much|many) (customers?|clients?|suppliers?|products?|invoices?)\b|\bnumber of (customers?|clients?|suppliers?|products?|invoices?)\b/);
   if (countQ) return { id: 'count' };
 
   if (info.hasParty && !custBuy && (bal || (!sold && !bought && !exp && !bags && !rank && !stk)) && !t(/\boverdue\b/)) return { id: 'party' };
@@ -38467,7 +38760,22 @@ function deltaPct(pct, goodUp) {
   const up = pct > 0, cls = goodUp == null ? '' : (up === goodUp ? ' ob-good' : ' ob-bad');   // null = neither good nor bad (e.g. purchases)
   return `<span class="ob-d${cls}">${up ? '▲' : '▼'} ${Math.abs(pct)}% vs previous period</span>`;
 }
-const noAccess = what => ({ html: `<b>${esc(what)}</b> isn’t available to your login, so I can’t answer that. Ask your admin if you need it.` });
+const LABEL_PAGES = { Sales: ['sales-list'], Purchases: ['purchases'], Expenses: ['expenses'], Profit: ['finance-report'], Payments: ['payments', 'invoices', 'sales-list', 'purchases'],
+  'The business summary': ['dashboard'], Customers: ['customers-list', 'sales-list'], Suppliers: ['suppliers', 'purchases'], Stock: ['stock'], Bags: ['sales-list', 'purchases'],
+  Products: ['sales-list', 'purchases'], Invoices: ['invoices'], Clients: ['clients', 'invoices'] };
+function noAccess(what) {
+  const states = (LABEL_PAGES[what] || []).map(access);
+  const byType = states.length > 0 && states.every(x => x !== 'perm') && states.some(x => x === 'type');
+  const w = `<b>${esc(what)}</b>`, role = roleName();
+  if (byType) {                                   // the business setup hides it — nothing to do with permissions
+    const kind = bizType() === 'service' ? 'service ' : bizType() === 'product' ? 'product ' : '';
+    return { html: `${w} isn’t part of your ${kind}business setup, so there’s nothing to show for it.` +
+      (svcMode() ? ' I can help with <b>invoices, payments, clients and expenses</b> instead.' : ' I can help with <b>sales, purchases, bags, expenses and stock</b> instead.'), chips: exampleChips() };
+  }
+  if (role === 'owner' || role === 'super_admin') return { html: `${w} isn’t switched on for this account right now, so I can’t answer that.` };
+  if (role === 'admin' || role === 'manager') return { html: `Your role doesn’t have access to ${w} yet. Ask the owner to grant it in <b>Team Permissions</b>.` };
+  return { html: `${w} isn’t available to your login, so I can’t answer that. Ask the owner or admin to enable it for your role.` };
+}
 const explain = (n) => ({ html: n });
 const periodChips = () => ['Last month', 'This year', 'Today'].map(l => ({ label: l, q: l.toLowerCase() }));
 
@@ -38548,32 +38856,35 @@ async function hTopProducts(c) {
 /* —— expenses —— */
 async function hExpenses(c) {
   if (!can('expenses')) return noAccess('Expenses');
-  const p = c.period;
+  const p = c.period, d = await data(), all = d.expenses || [];
+  const dt = e => String(e.date || '').slice(0, 10);
+  const inP = all.filter(e => inR(dt(e), p));
   if (c.biggest) {
-    const rows = (await expenseRows()).filter(e => inR(e.date, p)).sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 5);
+    const rows = inP.slice().sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 5);
     if (!rows.length) return { html: H.head('Biggest expenses', p) + H.note('No expenses found for this period.') };
-    return { html: H.head('Biggest expenses', p) + H.rank(rows.map(e => ({ l: `${esc(disp(e.date))} · ${esc(e.category || 'Other')}${e.vendor ? ' · ' + esc(e.vendor) : ''}`, v: money(e.amount) }))), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+    return { html: H.head('Biggest expenses', p) + H.rank(rows.map(e => ({ l: `${esc(disp(dt(e)))} · ${esc(e.category || 'Other')}${e.vendor ? ' · ' + esc(e.vendor) : ''}`, v: money(e.amount) }))), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
   }
-  const r = await fr(p), ex = r.expenses || { total: 0, count: 0, by_category: [] };
-  const cats = ex.by_category || [];
+  const total = sumBy(inP, 'amount'), count = inP.length;
+  const byCat = {}; inP.forEach(e => { const k = e.category || 'Other'; byCat[k] = (byCat[k] || 0) + num(e.amount); });
+  const cats = Object.entries(byCat).map(([category, t]) => ({ category, total: t })).sort((a, b) => b.total - a.total);
   let ent = c.ent && c.ent.kind === 'category' ? c.ent : null;
   if (!ent && c.leftover && c.leftover.length) {                  // a category we didn't know about until now
-    const hit = rankPool(cats.map(x => ({ name: x.category })), c.leftover);
-    const pk = pickBest(hit); if (pk.ent) ent = { kind: 'category', name: pk.ent.name };
+    const names = [...new Set(all.map(e => e.category).filter(Boolean))].map(n => ({ name: n }));
+    const pk = pickBest(rankPool(names, c.leftover)); if (pk.ent) ent = { kind: 'category', name: pk.ent.name };
   }
   if (ent) {
     const row = cats.find(x => String(x.category).toLowerCase() === String(ent.name).toLowerCase());
-    const v = row ? num(row.total) : 0;
-    return { html: H.head(`Expenses — <b>${esc(ent.name)}</b>`, p) + H.big(money(v), `${ex.total > 0 ? Math.round(v / ex.total * 100) : 0}% of all expenses (${money(ex.total)})`), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
+    const v = row ? row.total : 0;
+    return { html: H.head(`Expenses — <b>${esc(ent.name)}</b>`, p) + H.big(money(v), `${total > 0 ? Math.round(v / total * 100) : 0}% of all expenses (${money(total)})`), chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
   }
   const missed = !ent && c.leftover && c.leftover.length;
   let cmp = '';
   const pp = prevOk(p);
-  if (pp) { try { cmp = delta(num(ex.total), num((await fr(pp)).expenses.total), false); } catch (e) { /* comparison is optional */ } }
+  if (pp) cmp = delta(total, sumBy(all.filter(e => inR(dt(e), pp)), 'amount'), false);
   const wantsCats = /\b(category|categories|wise|breakdown|by)\b/.test(c.n || '');
   const top = cats.slice(0, wantsCats ? 8 : 4);
-  const html = H.head('Expenses', p) + H.big(money(ex.total), plural(ex.count, 'entry', 'entries')) + (cmp ? `<div>${cmp}</div>` : '') +
-    (top.length ? H.rank(top.map(x => ({ l: esc(x.category || 'Other'), v: `${money(x.total)} · ${ex.total > 0 ? Math.round(num(x.total) / ex.total * 100) : 0}%` }))) : H.note('No expenses found for this period.')) +
+  const html = H.head('Expenses', p) + H.big(money(total), plural(count, 'entry', 'entries')) + (cmp ? `<div>${cmp}</div>` : '') +
+    (top.length ? H.rank(top.map(x => ({ l: esc(x.category), v: `${money(x.total)} · ${total > 0 ? Math.round(x.total / total * 100) : 0}%` }))) : H.note('No expenses found for this period.')) +
     (missed ? H.note(`I couldn’t find a category called “${esc(c.leftover.join(' '))}”, so this is the overall total.`) : '');
   return { html, chips: [{ label: 'Biggest expenses', q: 'biggest expenses ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Expenses', page: 'expenses' }] };
 }
@@ -38633,6 +38944,28 @@ function supplierOwed(d) {
 }
 async function hParty(c) {
   const d = await data(), e = c.ent, today = ymd(new Date());
+  if (e.kind === 'client') {
+    if (!can('clients') && !can('invoices')) return noAccess('Clients');
+    const mine = liveInv(d).filter(i => String(i.client) === String(e.id));
+    const open = openInvoices(d).filter(x => String(x.i.client) === String(e.id));
+    const owed = open.reduce((t, x) => t + x.rem, 0), late = open.filter(x => x.late);
+    const ids = new Set(mine.map(i => String(i.id)));
+    const pays = d.payments.filter(p => ids.has(String(p.invoice_id))).map(p => ({ date: payDate(p), amount: num(p.amount) })).filter(p => p.date).sort((a, b) => a.date < b.date ? -1 : 1);
+    const paidLife = pays.reduce((t, p) => t + p.amount, 0), lastPay = pays[pays.length - 1];
+    const lastInv = mine.map(invDate).filter(Boolean).sort().pop();
+    let ob = null; try { const b = window.optmsOnboarding && window.optmsOnboarding.build(e.id); if (b && b.since) ob = b; } catch (er) { /* optional extra */ }
+    let html = H.head(`Client — <b>${esc(e.name)}</b>`) + (owed > 0 ? H.big(money(owed), 'owed to you') : H.big(`<span class="ob-good">${money(0)}</span>`, 'Nothing outstanding — all invoices settled'));
+    if (open.length) html += H.kv('Open invoices', n0(open.length));
+    if (late.length) html += H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`);
+    html += H.kv('Total paid so far', money(paidLife));
+    if (ob) html += H.kv('With you since', `${esc(disp(ob.since.date))} <small>(${esc(window.optmsOnboarding._tenureText(ob.tenure))})</small>`);
+    if (lastPay) html += H.kv('Last payment', `${esc(disp(lastPay.date))} <small>(${money(lastPay.amount)})</small>`);
+    if (lastInv) html += H.kv('Last invoice', esc(disp(lastInv)));
+    const nav = [];
+    if (typeof openOnboardingStatement === 'function') nav.push({ label: 'Onboarding statement', fn: () => openOnboardingStatement(e.id) });
+    if (typeof viewClientInvoices === 'function' && can('invoices')) nav.push({ label: 'View invoices', fn: () => viewClientInvoices(e.id) });
+    return { html, chips: [{ label: `Invoices for ${e.name} this month`, q: `invoices for ${e.name} this month`, ent: e, run: 'sales' }], nav };
+  }
   if (e.kind === 'customer') {
     if (!can('customers-list') && !can('sales-list')) return noAccess('Customers');
     const open = openBills(d, e.id), owed = sumBy(open.map(s => ({ b: bal(s) })), 'b');
@@ -38725,9 +39058,114 @@ async function hCount() {
   const d = await data();
   let html = H.head('Your records');
   if (can('customers-list') || can('sales-list')) html += H.kv('Customers', n0(d.customers.length));
+  if (can('clients') || can('invoices')) html += H.kv('Clients', n0(d.clients.length));
+  if (can('invoices')) html += H.kv('Invoices', n0(liveAll(d).length));
   if (can('suppliers') || can('purchases')) html += H.kv('Suppliers', n0(d.suppliers.length));
-  html += H.kv('Products', n0(d.products.length));
+  html += H.kv(svcMode() ? 'Services / products' : 'Products', n0(d.products.length));
   return { html };
+}
+
+/* ─────────────── service business: invoices, clients, payments ───────────────
+   Same rules as the rest of the app: Draft, Estimate (quotation) and Cancelled invoices are
+   not billing; an invoice's settled amount = cash received + settlement discount; a "Paid"
+   invoice owes nothing.                                                                     */
+const INV_EXCL = new Set(['Draft', 'Estimate', 'Cancelled']);
+const OPEN_ST = new Set(['Pending', 'Overdue', 'Partial']);
+const dOnly = v => { const s = String(v || ''); const m = /^(\d{4}-\d{2}-\d{2})/.exec(s); if (m) return m[1]; const t = new Date(s); return (!s || isNaN(t)) ? '' : ymd(t); };
+const invDate = i => dOnly(i.issued || i.date || i.issue_date);
+const invDue = i => dOnly(i.due || i.due_date);
+const payDate = p => dOnly(p.date || p.payment_date);
+const gdrOk = ds => !(typeof GLOBAL_DATE_ACTIVE !== 'undefined' && GLOBAL_DATE_ACTIVE) || (!!ds && ds >= GLOBAL_DATE_FROM && ds <= GLOBAL_DATE_TO);
+const liveAll = d => d.invoices.filter(i => !INV_EXCL.has(i.status));
+const liveInv = d => liveAll(d).filter(i => gdrOk(invDate(i)));
+const settledOf = (d, i) => d.payMap.get(String(i.id)) || 0;
+const remainingOf = (d, i) => i.status === 'Paid' ? 0 : Math.max(0, num(i.amount) - settledOf(d, i));
+const clientOf = (d, i) => i.clientName || i.client_name || ((d.clients.find(c => String(c.id) === String(i.client)) || {}).name) || 'Unknown client';
+const invNum = i => i.num || i.invoice_number || ('#' + i.id);
+function openInvoices(d) {                                   // unpaid invoices, with how late each one is
+  const today = ymd(new Date());
+  return liveInv(d).filter(i => OPEN_ST.has(i.status)).map(i => ({ i, rem: remainingOf(d, i), due: invDue(i) })).filter(x => x.rem > 0)
+    .map(x => Object.assign(x, { late: x.i.status === 'Overdue' || (x.due && x.due < today), days: x.due && x.due < today ? Math.round((parseYmd(today) - parseYmd(x.due)) / 86400000) : 0 }));
+}
+const receivedIn = (d, pr) => { const ids = new Set(liveAll(d).map(i => String(i.id))); return d.payments.filter(x => ids.has(String(x.invoice_id)) && inR(payDate(x), pr)); };
+const expensesIn = (d, pr) => (d.expenses || []).filter(e => inR(String(e.date || '').slice(0, 10), pr));
+
+async function hInvoices(c) {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), p = c.period, isC = c.ent && c.ent.kind === 'client';
+  let list = liveInv(d).filter(i => inR(invDate(i), p)), who = '';
+  if (isC) { list = list.filter(i => String(i.client) === String(c.ent.id)); who = ` for <b>${esc(c.ent.name)}</b>`; }
+  const tot = sumBy(list, 'amount'), pending = list.reduce((t, i) => t + remainingOf(d, i), 0);
+  let cmp = '';
+  const pp = prevOk(p);
+  if (pp) { let prev = liveInv(d).filter(i => inR(invDate(i), pp)); if (isC) prev = prev.filter(i => String(i.client) === String(c.ent.id)); cmp = delta(tot, sumBy(prev, 'amount'), true); }
+  const html = H.head('Invoices' + who, p) + H.big(money(tot), plural(list.length, 'invoice')) + H.kv('Collected so far', money(tot - pending)) + H.kv('Still to receive', money(pending)) +
+    (cmp ? `<div>${cmp}</div>` : '') + (list.length ? '' : H.note('No invoices found for this period.'));
+  return { html, chips: [{ label: 'Top clients', q: 'top clients ' + p.label.toLowerCase() }, { label: 'Payments received', q: 'payments received ' + p.label.toLowerCase() }, ...periodChips()], nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hReceipts(c) {
+  if (!can('invoices') && !can('payments')) return noAccess('Payments');
+  const d = await data(), p = c.period, rows = receivedIn(d, p), tot = sumBy(rows, 'amount'), disc = sumBy(rows, 'settlement_discount');
+  const byM = {}; rows.forEach(x => { const k = x.method || 'Other'; byM[k] = (byM[k] || 0) + num(x.amount); });
+  const methods = Object.entries(byM).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  let cmp = ''; const pp = prevOk(p); if (pp) cmp = delta(tot, sumBy(receivedIn(d, pp), 'amount'), true);
+  const html = H.head('Payments received', p) + H.big(money(tot), plural(rows.length, 'payment')) + (disc > 0 ? H.kv('Settlement discount given', money(disc)) : '') + (cmp ? `<div>${cmp}</div>` : '') +
+    (methods.length ? H.rank(methods.map(([m, v]) => ({ l: esc(m), v: `${money(v)} · ${tot > 0 ? Math.round(v / tot * 100) : 0}%` }))) : H.note('No payments received in this period.'));
+  return { html, chips: [{ label: 'Overdue invoices', q: 'overdue invoices' }, ...periodChips()], nav: [can('payments') && { label: 'Open Payments', page: 'payments' }] };
+}
+
+async function hOverdueSvc() {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), rows = openInvoices(d).filter(x => x.late).sort((a, b) => b.days - a.days), tot = rows.reduce((t, x) => t + x.rem, 0);
+  if (!rows.length) return { html: H.head('Overdue invoices') + H.big('<span class="ob-good">None</span>', 'No invoice is past its due date 🎉') };
+  return { html: H.head('Overdue invoices') + H.big(`<span class="ob-bad">${money(tot)}</span>`, `${plural(rows.length, 'invoice')} past due`) +
+    H.rank(rows.slice(0, 5).map(x => ({ l: `${esc(clientOf(d, x.i))} · ${esc(invNum(x.i))}${x.days ? ` · ${x.days}d late` : ''}`, v: money(x.rem) }))) + (rows.length > 5 ? H.note(`+ ${rows.length - 5} more`) : ''),
+    nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hClientTotals() {
+  if (!can('invoices') && !can('clients')) return noAccess('Clients');
+  const d = await data(), open = openInvoices(d), tot = open.reduce((t, x) => t + x.rem, 0), who = new Set(open.map(x => String(x.i.client))), late = open.filter(x => x.late);
+  return { html: H.head('Clients owe you') + H.big(money(tot), `across ${plural(who.size, 'client')}`) +
+    (late.length ? H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`) : '') + (who.size ? H.note('Ask “who owes me the most?” for the list.') : ''),
+    chips: [{ label: 'Who owes me the most?', q: 'who owes me the most' }, { label: 'Overdue invoices', q: 'overdue invoices' }], nav: [can('clients') && { label: 'Open Clients', page: 'clients' }] };
+}
+
+async function hTopClientBalances(c) {
+  if (!can('invoices') && !can('clients')) return noAccess('Clients');
+  const d = await data(), m = new Map();
+  openInvoices(d).forEach(x => { const k = String(x.i.client); const o = m.get(k) || { name: clientOf(d, x.i), amt: 0 }; o.amt += x.rem; m.set(k, o); });
+  const rows = [...m.values()].sort((a, b) => b.amt - a.amt).slice(0, c.topN || 5);
+  return { html: H.head('Clients who owe you the most') + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No client has anything outstanding.')), chips: [{ label: 'Overdue invoices', q: 'overdue invoices' }] };
+}
+
+async function hTopClients(c) {
+  if (!can('invoices')) return noAccess('Invoices');
+  const d = await data(), p = c.period, m = new Map();
+  liveInv(d).filter(i => inR(invDate(i), p)).forEach(i => { const k = String(i.client); const o = m.get(k) || { name: clientOf(d, i), amt: 0 }; o.amt += num(i.amount); m.set(k, o); });
+  const rows = [...m.values()].sort((a, b) => b.amt - a.amt).slice(0, c.topN || 5);
+  return { html: H.head('Top clients', p) + (rows.length ? H.rank(rows.map(r => ({ l: esc(r.name), v: money(r.amt) }))) : H.note('No invoices found for this period.')), chips: periodChips() };
+}
+
+async function hSummarySvc(c) {
+  if (!can('invoices') && !can('payments')) return noAccess('The business summary');
+  const d = await data(), p = c.period, inv = liveInv(d).filter(i => inR(invDate(i), p)), rec = sumBy(receivedIn(d, p), 'amount');
+  const open = openInvoices(d), owed = open.reduce((t, x) => t + x.rem, 0), late = open.filter(x => x.late);
+  let html = H.head('Business summary', p) + H.kv('Invoices billed', `${money(sumBy(inv, 'amount'))} <small>(${plural(inv.length, 'invoice')})</small>`) + H.kv('Payments received', money(rec)) +
+    H.kv('Still to collect (all time)', money(owed)) + (late.length ? H.kv('Overdue', `<span class="ob-bad">${money(late.reduce((t, x) => t + x.rem, 0))}</span> <small>(${plural(late.length, 'invoice')})</small>`) : '');
+  if (can('expenses')) { const ex = sumBy(expensesIn(d, p), 'amount'); html += H.kv('Expenses', money(ex)) + H.kv('Net cash', `<span class="${rec - ex >= 0 ? 'ob-good' : 'ob-bad'}">${money(rec - ex)}</span>`); }
+  return { html, chips: periodChips(), nav: [{ label: 'Open Invoices', page: 'invoices' }] };
+}
+
+async function hProfitSvc(c) {
+  if (!can('expenses')) return noAccess('Expenses');
+  if (!can('invoices') && !can('payments')) return noAccess('Payments');
+  const d = await data(), p = c.period, rec = sumBy(receivedIn(d, p), 'amount'), ex = sumBy(expensesIn(d, p), 'amount'), net = rec - ex;
+  let cmp = ''; const pp = prevOk(p); if (pp) { const pn = sumBy(receivedIn(d, pp), 'amount') - sumBy(expensesIn(d, pp), 'amount'); if (pn > 0) cmp = delta(net, pn, true); }
+  const html = H.head('Net cash', p) + H.big(`<span class="${net >= 0 ? 'ob-good' : 'ob-bad'}">${money(net)}</span>`, net >= 0 ? 'received more than spent' : 'spent more than received') + (cmp ? `<div>${cmp}</div>` : '') +
+    H.kv('Payments received', money(rec)) + H.kv('Expenses', money(ex)) + H.note('Cash basis: money actually received minus expenses in this period. Invoices not yet paid are not counted, so this can differ from the Finance Report.');
+  return { html, chips: periodChips(), nav: [{ label: 'Open Expenses', page: 'expenses' }] };
 }
 
 /* ─────────────────────────── the brain ─────────────────────────── */
@@ -38740,7 +39178,20 @@ const EXAMPLES = [
   ['Profit this month', 'profit this month', 'finance-report'],
   ['Business summary today', 'summary today', 'dashboard'],
 ];
-const exampleChips = () => EXAMPLES.filter(e => can(e[2]) || (e[2] === 'customers-list' && can('sales-list')) || (e[2] === 'dashboard')).slice(0, 6).map(e => ({ label: e[0], q: e[1] }));
+const EXAMPLES_SVC = [
+  ['Invoices this month', 'invoices this month', 'invoices'],
+  ['Payments received', 'payments received this month', 'payments'],
+  ['Who owes me the most?', 'who owes me the most', 'clients'],
+  ['Overdue invoices', 'overdue invoices', 'invoices'],
+  ['Expenses this month', 'expenses this month', 'expenses'],
+  ['Business summary today', 'summary today', 'dashboard'],
+];
+const exampleChips = () => {
+  const svc = svcMode();
+  return (svc ? EXAMPLES_SVC : EXAMPLES).filter(e => e[2] === 'dashboard' || can(e[2]) || (e[2] === 'customers-list' && can('sales-list')) || (e[2] === 'payments' && can('invoices')) || (e[2] === 'clients' && can('invoices')))
+    .slice(0, 6).map(e => ({ label: e[0], q: e[1] }));
+};
+const topicWords = () => svcMode() ? 'invoices, payments, clients, expenses and balances' : 'sales, purchases, bags, expenses, balances and stock';
 const firstName = () => { try { return String(SERVER.user.name || '').split(' ')[0]; } catch (e) { return ''; } };
 
 async function answer(text) {
@@ -38752,9 +39203,9 @@ async function answer(text) {
   const per = parsePeriod(n, new Date(), nameTok);
   const qt = per.rest.split(' ').filter(t => t && !STOP.has(t) && !/^\d+$/.test(t));
   const P = pools(d);
-  const kinds = ['customer', 'supplier', 'product', 'category'];
+  const kinds = ['customer', 'supplier', 'client', 'product', 'category'];
   const R = {}; kinds.forEach(k => R[k] = rankPool(P[k], qt));
-  const partyRanked = [...R.customer, ...R.supplier].sort((a, b) => b.hit - a.hit || b.cov - a.cov);
+  const partyRanked = [...R.customer, ...R.supplier, ...R.client].sort((a, b) => b.hit - a.hit || b.cov - a.cov);
   const ni = fixTypos(n);
   const topN = Math.min(10, Math.max(1, +(/\btop (\d{1,2})\b/.exec(n) || [])[1] || 5));
 
@@ -38770,24 +39221,27 @@ async function answer(text) {
   const period = resolvePeriod(per, carry);
   if (period.blocked) return { html: `Your login is limited to <b>${esc(disp(period.lo))} – ${esc(disp(period.hi))}</b>, so I can’t look outside that range.` };
 
+  const GATE = { stock: 'Stock', bags: 'Bags', purchases: 'Purchases', top_products: 'Products', top_suppliers: 'Suppliers' };
+  if (GATE[cls.id] && !(LABEL_PAGES[GATE[cls.id]] || []).some(pg => access(pg) === 'ok')) return noAccess(GATE[cls.id]);
+
   // which kind of name does this question need?
   const want = {
-    party: ['customer', 'supplier'], sales: ['customer'], purchases: ['supplier'], bags: ['product'], stock: ['product'], expenses: ['category'],
+    party: ['customer', 'supplier', 'client'], sales: ['customer', 'client'], purchases: ['supplier'], bags: ['product'], stock: ['product'], expenses: ['category'],
   }[cls.id];
   let ent = null;
   if (want) {
-    const ranked = want.length === 2 ? partyRanked : R[want[0]];
+    const ranked = want.length > 1 ? want.flatMap(k => R[k]).sort((a, b) => b.hit - a.hit || b.cov - a.cov) : R[want[0]];
     const pk = pickBest(ranked);
     if (pk.ambiguous) return { html: 'More than one match for that name — which one do you mean?', chips: pk.ambiguous.map(e => ({ label: `${e.name} (${e.kind})`, run: cls.id, ent: e, opts: cls, period })) };
     if (pk.ent) ent = pk.ent;
     else if (!qt.length && carry && BOT.ctx.ent && want.includes(BOT.ctx.ent.kind)) ent = BOT.ctx.ent;
-    else if (cls.id === 'party') return notFound(qt, [...P.customer, ...P.supplier]);
+    else if (cls.id === 'party') return notFound(qt, [...P.customer, ...P.supplier, ...P.client]);
     else if (cls.id === 'stock' && qt.length) return notFound(qt, P.product, 'product');
   }
   const leftover = (!ent && qt.length) ? qt : [];
   // Filters the bot can't apply yet — say so honestly instead of "couldn't find" or silently ignoring them
   let unsupported = null;
-  if ((cls.id === 'sales' || cls.id === 'purchases') && !ent && R.product.length) unsupported = `${cls.id} by product`;
+  if ((cls.id === 'sales' || cls.id === 'purchases') && !ent && R.product.length) unsupported = (cls.id === 'sales' && svcMode()) ? 'invoices by service' : `${cls.id} by product`;
   if (cls.id === 'bags' && !ent && partyRanked.length) unsupported = 'bags by customer or supplier';
   return run(cls.id, Object.assign({}, cls, { n, period, ent, leftover, topN, unsupported, unknownName: cls.id === 'totals' ? qt.filter(t => t.length >= 3) : [] }));
 }
@@ -38800,25 +39254,27 @@ async function run(id, c) {
     BOT.ctx = { intent: id, opts, period: c.period, ent: c.ent };
     BOT.lastAt = Date.now();
   }
+  // a service business: Sales is hidden by the business setup and Invoices exists (even if THIS login may not open it — then the answer is a permission message about Invoices)
+  const svc = svcMode() || (access('sales-list') !== 'ok' && access('invoices') !== 'type');
   let out;
   switch (id) {
-    case 'sales': out = await hSales(c); break;
+    case 'sales': out = svc ? await hInvoices(c) : await hSales(c); break;
     case 'purchases': out = await hPurchases(c); break;
     case 'bags': out = await hBags(c); break;
     case 'top_products': out = await hTopProducts(c); break;
     case 'expenses': out = await hExpenses(c); break;
-    case 'profit': out = await hProfit(c); break;
-    case 'cashflow': out = await hCashflow(c); break;
-    case 'summary': out = await hSummary(c); break;
+    case 'profit': out = svc ? await hProfitSvc(c) : await hProfit(c); break;
+    case 'cashflow': out = svc ? await hReceipts(c) : await hCashflow(c); break;
+    case 'summary': out = svc ? await hSummarySvc(c) : await hSummary(c); break;
     case 'party': out = await hParty(c); break;
-    case 'totals': out = await hTotals(c); break;
-    case 'top_balances': out = await hTopBalances(c); break;
-    case 'top_customers': out = await hTopParties(c, 'customer'); break;
+    case 'totals': out = (svc && c.kind !== 'supplier') ? await hClientTotals(c) : await hTotals(c); break;
+    case 'top_balances': out = (svc && c.kind !== 'supplier') ? await hTopClientBalances(c) : await hTopBalances(c); break;
+    case 'top_customers': out = svc ? await hTopClients(c) : await hTopParties(c, 'customer'); break;
     case 'top_suppliers': out = await hTopParties(c, 'supplier'); break;
-    case 'overdue': out = await hOverdue(c); break;
+    case 'overdue': out = svc ? await hOverdueSvc(c) : await hOverdue(c); break;
     case 'stock': out = await hStock(c); break;
     case 'count': out = await hCount(c); break;
-    case 'greet': { const nm = firstName(); out = { html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 Ask me about your sales, purchases, bags, expenses, balances or stock — in English or Hinglish.`, chips: exampleChips() }; break; }
+    case 'greet': { const nm = firstName(); out = { html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 Ask me about your ${topicWords()} — in English or Hinglish.`, chips: exampleChips() }; break; }
     case 'thanks': out = { html: 'Happy to help! Ask me anything else about your business.' }; break;
     case 'help': out = helpAnswer(); break;
     case 'navigate': out = navAnswer(c.nav); break;
@@ -38832,7 +39288,7 @@ async function run(id, c) {
   else if (c.leftover && c.leftover.length && !c.ent && ['sales', 'purchases', 'bags'].includes(id) && out.html)
     out.html += H.note(`I couldn’t find “${esc(c.leftover.join(' '))}” in your records, so these are overall figures.`);
   if (id === 'totals' && c.unknownName && c.unknownName.length && out.html)
-    out.html = `<div class="ob-warn">I couldn’t find a customer or supplier called <b>${esc(c.unknownName.join(' '))}</b> — showing the overall total instead.</div>` + out.html;
+    out.html = `<div class="ob-warn">I couldn’t find a ${svc ? 'client' : 'customer'} or supplier called <b>${esc(c.unknownName.join(' '))}</b> — showing the overall total instead.</div>` + out.html;
   if (/\b(vs|versus|compare|compared|comparison)\b/.test(c.n || '') && ['sales', 'purchases', 'expenses', 'bags', 'profit'].includes(id) && out.html)
     out.html += H.note('I can’t put two periods side by side yet. Ask for each one (e.g. “last month”), or read the ▲/▼ change under the figure.');
   return out;
@@ -38844,15 +39300,20 @@ function readonlyAnswer(c) {
   return { html: `I can only look things up — I can’t ${esc(v)} records or send anything. Please do that on the page itself.`, nav: [nv && can(nv.page) && { label: 'Open ' + nv.label, page: nv.page }] };
 }
 function helpAnswer() {
-  const ok = [];
-  if (can('sales-list')) ok.push('<b>Sales</b> & who bought most', 'bags <b>sold</b>');
-  if (can('purchases')) ok.push('<b>Purchases</b> & top suppliers', 'bags <b>purchased</b>');
+  const ok = [], svc = svcMode();
+  if (svc) {
+    if (can('invoices')) ok.push('<b>Invoices</b> & top clients', '<b>overdue</b> invoices', 'what a client <b>owes</b>', 'payments <b>received</b>');
+  } else {
+    if (can('sales-list')) ok.push('<b>Sales</b> & who bought most', 'bags <b>sold</b>');
+    if (can('purchases')) ok.push('<b>Purchases</b> & top suppliers', 'bags <b>purchased</b>');
+    if (can('customers-list') || can('sales-list')) ok.push('what a customer <b>owes</b>', '<b>overdue</b> invoices');
+    if (can('stock')) ok.push('<b>stock</b> of a product');
+    if (can('finance-report')) ok.push('<b>profit</b>');
+  }
   if (can('expenses')) ok.push('<b>Expenses</b> by category');
-  if (can('customers-list') || can('sales-list')) ok.push('what a customer <b>owes</b>', '<b>overdue</b> invoices');
-  if (can('stock')) ok.push('<b>stock</b> of a product');
-  if (can('finance-report')) ok.push('<b>profit</b>');
+  if (svc && can('expenses')) ok.push('<b>net cash</b> (received − expenses)');
   return { html: `<div class="ob-h">What I can answer</div><div class="ob-note" style="font-size:12.5px;color:var(--text2)">${ok.join(' · ')}</div>` +
-    H.note('Add a time like “today”, “last month”, “September”, “last 7 days” or “1 Oct to 15 Oct”. I understand Hinglish too — try “aaj kitne bag bike”. I only read your data; I never change anything.'), chips: exampleChips() };
+    H.note('Add a time like “today”, “last month”, “September”, “last 7 days” or “1 Oct to 15 Oct”. I understand Hinglish too. I only read your data; I never change anything.'), chips: exampleChips() };
 }
 function navAnswer(nv) {
   if (!can(nv.page)) return noAccess(nv.label);
@@ -38929,10 +39390,10 @@ async function ask(text, chip) {
   busy = false;
 }
 const fabIcon = open => { const i = $fab.querySelector('i'); if (i) i.className = open ? 'fas fa-xmark' : 'fas fa-robot'; };
-function openPanel() { BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); fabIcon(true); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
+function openPanel() { $in.placeholder = svcMode() ? 'Ask e.g. “invoices this month”' : 'Ask e.g. “bags sold this month”'; const hs = $panel.querySelector('header small'); if (hs) hs.textContent = svcMode() ? 'Ask about invoices, payments, clients, expenses…' : 'Ask about sales, bags, expenses, balances…'; BOT.open = true; $panel.hidden = false; $fab.setAttribute('aria-expanded', 'true'); $fab.classList.add('on'); fabIcon(true); setTimeout(() => $in.focus(), 50); data().catch(() => {}); }
 function closePanel() { BOT.open = false; $panel.hidden = true; $fab.setAttribute('aria-expanded', 'false'); $fab.classList.remove('on'); fabIcon(false); }
 function reset() { $msgs.innerHTML = ''; BOT.ctx = {}; BOT.actions.clear(); welcome(); }
-function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I’m <b>OPTMS ai</b>. Ask me about your <b>sales, purchases, bags, expenses, balances and stock</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
+function welcome() { const nm = firstName(); addBot({ html: `Hi${nm ? ' ' + esc(nm) : ''}! 👋 I’m <b>OPTMS ai</b>. Ask me about your <b>${topicWords()}</b>. I only read your data — I never change anything.`, chips: exampleChips() }); }
 
 function init() {
   $root = document.createElement('div'); $root.id = 'opt-bot';
@@ -39647,8 +40108,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
    Shows, for one client: since when they have been with you, how much they
    have paid, and a month-by-month table (billed / paid / balance).
    • Reads only what the app already has loaded (clients, invoices, payments).
-   • Same rules as the rest of the app: Draft and Cancelled invoices are not
-     billing; a payment's settlement discount is shown separately.
+   • Same rules as the rest of the app: Draft, Estimate (quotation) and Cancelled
+     invoices are not billing; a payment's settlement discount is shown separately.
    • "Onboarded on" = the earliest of: the date the client was added (if the
      server sends one), their first invoice, their first payment.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -39706,7 +40167,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
     const c = (STATE.clients || []).find(x => String(x.id) === String(clientId));
     if (!c) return null;
 
-    const live = (STATE.invoices || []).filter(i => String(i.client) === String(clientId) && i.status !== 'Cancelled' && i.status !== 'Draft');
+    const NOT_BILLING = ['Cancelled', 'Draft', 'Estimate'];            // quotations and drafts are not billing
+    const live = (STATE.invoices || []).filter(i => String(i.client) === String(clientId) && !NOT_BILLING.includes(i.status));
     const ids = new Set(live.map(i => String(i.id)));
     const numById = {}; live.forEach(i => { numById[String(i.id)] = i.num || i.invoice_number || ''; });
     const allInv = live.map(i => ({ date: toYmd(i.issued || i.date), amount: num(i.amount), num: i.num || i.invoice_number || '' }));
