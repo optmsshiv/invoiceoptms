@@ -363,6 +363,27 @@ function svc_cycle_label($c) {
     $m = ['onetime'=>'One-time','monthly'=>'Monthly','quarterly'=>'Quarterly','halfyearly'=>'Half-yearly','yearly'=>'Yearly'];
     return $m[strtolower((string)$c)] ?? '';
 }
+// Warranty line under the item name, e.g. "Warranty: 12 months · valid till 04 Nov 2027" ('' when none)
+function svc_warranty($item, $issueDate = '') {
+    $v = (int)($item['warranty_value'] ?? 0);
+    if ($v < 1) return '';
+    $unit = in_array($item['warranty_unit'] ?? '', ['days', 'months', 'years'], true) ? $item['warranty_unit'] : 'months';
+    $label = $v . ' ' . ($v === 1 ? rtrim($unit, 's') : $unit);
+    $start = $item['warranty_start'] ?? '';
+    if (!$start || $start === '0000-00-00') $start = $issueDate;
+    $ts = $start ? strtotime($start) : false;
+    if (!$ts) return 'Warranty: ' . $label;
+    $d = new DateTime(date('Y-m-d', $ts));
+    if ($unit === 'days') { $d->modify("+$v days"); }
+    else {
+        $months = $unit === 'years' ? $v * 12 : $v;
+        $day = (int)$d->format('j');
+        $d->modify('first day of this month')->modify("+$months months");
+        $d->setDate((int)$d->format('Y'), (int)$d->format('n'), min($day, (int)$d->format('t')));   // 31 Jan + 1 month = 28/29 Feb, not 3 Mar
+    }
+    $d->modify('-1 day');
+    return 'Warranty: ' . $label . ' · valid till ' . $d->format('d M Y');
+}
 // Muted subtitle under item name, e.g. "Monthly · 01 Oct 2026 – 30 Oct 2026". '' when no duration.
 function svc_subtitle($item) {
     $cycle = svc_cycle_label($item['service_cycle'] ?? '');
@@ -1432,15 +1453,19 @@ if (!$isEstimate && !empty($inv['notes'])) {
 
 <!-- Line items -->
 <?php
-try {
-  // Includes service period columns; falls back below if they don't exist in this DB
-  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total, service_cycle, date_start, date_end FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
-  $iStmt->execute([':id' => $inv['invoice_id']]);
-} catch (Exception $e) {
-  $iStmt = $db->prepare('SELECT description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC');
-  $iStmt->execute([':id' => $inv['invoice_id']]);
+// Newest columns first; fall back step by step so an older database never breaks the page
+$iBase = 'description AS name, quantity AS qty, rate, gst_rate AS gst, line_total AS total';
+$iStmt = null;
+foreach ([$iBase . ', service_cycle, date_start, date_end, warranty_value, warranty_unit, warranty_start',
+          $iBase . ', service_cycle, date_start, date_end',
+          $iBase] as $iCols) {
+  try {
+    $iStmt = $db->prepare("SELECT $iCols FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC");
+    $iStmt->execute([':id' => $inv['invoice_id']]);
+    break;
+  } catch (Exception $e) { $iStmt = null; }
 }
-$items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
+$items = $iStmt ? $iStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 if ($items):
 ?>
 <div class="card" style="padding:0">
@@ -1467,6 +1492,7 @@ if ($items):
         <strong style="font-size:13px"><?= htmlspecialchars($item['name'] ?? $item['desc'] ?? '') ?></strong>
         <?php if (!empty($item['type'])): ?><br><span style="font-size:10px;color:var(--muted)"><?= htmlspecialchars($item['type']) ?></span><?php endif; ?>
         <?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?>
+        <?php if ($war = svc_warranty($item, $inv['issue_date'] ?? '')): ?><div style="font-size:10.5px;color:#15803D;margin-top:2px"><i class="fas fa-shield-alt" style="font-size:9px"></i> <?= htmlspecialchars($war) ?></div><?php endif; ?>
       </td>
       <?php
         $lineQty    = (float)($item['qty']  ?? 1);
@@ -1542,7 +1568,7 @@ if ($items):
     ?>
     <div class="line-card">
       <div class="line-card-top">
-        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?><?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;font-weight:400;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?></div>
+        <div class="line-card-name"><?= htmlspecialchars($item['name'] ?? '') ?><?php if ($sub = svc_subtitle($item)): ?><div style="font-size:10.5px;font-weight:400;color:var(--muted);margin-top:2px"><?= htmlspecialchars($sub) ?></div><?php endif; ?><?php if ($war = svc_warranty($item, $inv['issue_date'] ?? '')): ?><div style="font-size:10.5px;font-weight:400;color:#15803D;margin-top:2px"><i class="fas fa-shield-alt" style="font-size:9px"></i> <?= htmlspecialchars($war) ?></div><?php endif; ?></div>
         <div class="line-card-total"><?= fmt_inr($tot, $sym) ?></div>
       </div>
       <div class="line-card-meta">

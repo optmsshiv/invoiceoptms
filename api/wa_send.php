@@ -72,6 +72,15 @@ if ($type === 'template' && $tplName) {
         $components[] = ['type' => 'body', 'parameters' => $params];
     }
 
+    // Optional IMAGE header (e.g. payment receipt). Template must be approved with an Image header.
+    $headerImage = trim($input['header_image'] ?? '');
+    if ($headerImage !== '') {
+        if (!preg_match('#^https://[^\s]+$#i', $headerImage)) {
+            jsonResponse(['error' => 'header_image must be a public https:// URL'], 400);
+        }
+        array_unshift($components, ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['link' => $headerImage]]]]);
+    }
+
     $msgBody = [
         'messaging_product' => 'whatsapp',
         'recipient_type'    => 'individual',

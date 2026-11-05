@@ -44,6 +44,9 @@ $_migrateItemCols = [
   'service_cycle'       => "ALTER TABLE invoice_items ADD COLUMN service_cycle VARCHAR(20) NULL DEFAULT NULL",
   'date_start'          => "ALTER TABLE invoice_items ADD COLUMN date_start DATE NULL DEFAULT NULL",
   'date_end'            => "ALTER TABLE invoice_items ADD COLUMN date_end DATE NULL DEFAULT NULL",
+  'warranty_value'      => "ALTER TABLE invoice_items ADD COLUMN warranty_value INT NULL DEFAULT NULL",
+  'warranty_unit'       => "ALTER TABLE invoice_items ADD COLUMN warranty_unit VARCHAR(10) NULL DEFAULT NULL",
+  'warranty_start'      => "ALTER TABLE invoice_items ADD COLUMN warranty_start DATE NULL DEFAULT NULL",
 ];
 foreach ($_migrateItemCols as $_col => $_sql) {
   try {
@@ -62,6 +65,19 @@ function planMarkItems(PDO $db, int $invoiceId, array $items): void {
     $u = $db->prepare('UPDATE invoice_items SET plan_id = ? WHERE invoice_id = ? AND sort_order = ?');
     foreach ($items as $idx => $it) if (!empty($it['plan_id'])) $u->execute([(int)$it['plan_id'], $invoiceId, $idx]);
   } catch (\PDOException $e) { error_log('plan item link: ' . $e->getMessage()); }
+}
+// Save each line's warranty (separate statement so a missing column can never break saving an invoice)
+function warrantyMarkItems(PDO $db, int $invoiceId, array $items): void {
+  try {
+    $u = $db->prepare('UPDATE invoice_items SET warranty_value = ?, warranty_unit = ?, warranty_start = ? WHERE invoice_id = ? AND sort_order = ?');
+    foreach ($items as $idx => $it) {
+      $v = (int)($it['warranty_value'] ?? 0);
+      if ($v < 1) continue;
+      $unit = in_array($it['warranty_unit'] ?? '', ['days', 'months', 'years'], true) ? $it['warranty_unit'] : 'months';
+      $start = (!empty($it['warranty_start']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $it['warranty_start'])) ? $it['warranty_start'] : null;
+      $u->execute([min($v, 1200), $unit, $start, $invoiceId, $idx]);
+    }
+  } catch (\PDOException $e) { error_log('warranty save: ' . $e->getMessage()); }
 }
 // Plan part of the invoice being saved (the flagged line items), from the posted payload
 function planShareFromInput(array $input, int $planId): float {
@@ -107,6 +123,9 @@ return [
 'date_start'    => $it['date_start'] ?? '',
 'date_end'      => $it['date_end'] ?? '',
 'plan_id'       => isset($it['plan_id']) ? (int)$it['plan_id'] : null,
+'warranty_value' => !empty($it['warranty_value']) ? (int)$it['warranty_value'] : '',
+'warranty_unit'  => $it['warranty_unit'] ?? '',
+'warranty_start' => $it['warranty_start'] ?? '',
 ];
 }, $rawItems);
 if ($inv['pdf_options']) $inv['pdf_options'] = json_decode($inv['pdf_options'], true);
@@ -150,7 +169,8 @@ $rawItems = $si->fetchAll();
 $inv['items'] = array_map(function($it){
 return ['id'=>$it['id'],'desc'=>$it['description'],'qty'=>(float)$it['quantity'],'rate'=>(float)$it['rate'],'gst'=>(float)$it['gst_rate'],'total'=>(float)$it['line_total'],
 'hsn'=>$it['hsn']??'','itemType'=>$it['item_type']??'Service','disc'=>(float)($it['item_discount']??0),'discType'=>$it['item_discount_type']??'pct',
-'service_cycle'=>$it['service_cycle']??'','date_start'=>$it['date_start']??'','date_end'=>$it['date_end']??'','plan_id'=>isset($it['plan_id'])?(int)$it['plan_id']:null];
+'service_cycle'=>$it['service_cycle']??'','date_start'=>$it['date_start']??'','date_end'=>$it['date_end']??'','plan_id'=>isset($it['plan_id'])?(int)$it['plan_id']:null,
+'warranty_value'=>!empty($it['warranty_value'])?(int)$it['warranty_value']:'','warranty_unit'=>$it['warranty_unit']??'','warranty_start'=>$it['warranty_start']??''];
 }, $rawItems);
 $inv['num']       = $inv['invoice_number'];
 $inv['client']    = (string)$inv['client_id'];
@@ -312,6 +332,7 @@ $item['service_cycle']??'',
 $idx]);
 }
 planMarkItems($db, $invId, $input['items']);
+warrantyMarkItems($db, $invId, $input['items']);
 }
 logActivity((int)$userId, 'create', 'invoice', $invId, "Created invoice " . $input['invoice_number']);
 jsonResponse(['success'=>true, 'id'=>$invId, 'invoice_number'=>$input['invoice_number']]);
@@ -417,6 +438,7 @@ $item['service_cycle']??'',
 $idx]);
 }
 planMarkItems($db, $id, $input['items']);
+warrantyMarkItems($db, $id, $input['items']);
 }
 logActivity($_SESSION['user_id'], 'update', 'invoice', $id, "Updated invoice #$id");
 jsonResponse(['success'=>true]);

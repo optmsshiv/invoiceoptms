@@ -1139,7 +1139,7 @@ select { cursor: pointer; }
 /* ── REDESIGNED LINE ITEMS ── */
 .items-head-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 32px 36px;
   gap: 0;
   padding: 0;
   background: #EEF0F4;
@@ -1163,7 +1163,7 @@ select { cursor: pointer; }
 
 .item-row {
   display: grid;
-  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 36px;
+  grid-template-columns: 40px minmax(140px,1fr) 84px minmax(90px,110px) 62px minmax(80px,95px) minmax(90px,105px) 76px minmax(90px,105px) 32px 32px 32px 36px;
   gap: 0;
   align-items: stretch;
   padding: 0;
@@ -1288,6 +1288,35 @@ select { cursor: pointer; }
 .item-cycle-row select { width: 100px; }
 .item-cycle-row input[type=date] { width: 130px; }
 .item-cycle-row .cycle-note { font-size: 11px; color: var(--muted); }
+.item-warbtn {
+  width: 32px; border-radius: 0; border: none; border-right: 1px solid var(--border);
+  background: transparent; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; transition: .2s;
+  color: var(--muted2);
+}
+.item-warbtn:hover { background: var(--bg); }
+.item-warbtn.active { color: #16A34A; }
+.item-war-row {
+  padding: 9px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.item-war-row .war-lbl { font-size: 12px; font-weight: 700; color: #15803D; display: inline-flex; align-items: center; gap: 6px; }
+.item-war-row input, .item-war-row select {
+  padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text); font-size: 12px;
+}
+.item-war-row input[type=number] { width: 70px; }
+.item-war-row input[type=date] { width: 130px; }
+.item-war-row select { width: 90px; }
+.item-war-row .war-from { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.item-war-row .war-chip {
+  border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 14px;
+  padding: 3px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.item-war-row .war-chip:hover, .item-war-row .war-chip.on { border-color: #16A34A; color: #15803D; background: #F0FDF4; }
+.item-war-row .war-note { font-size: 11px; color: var(--muted); }
+.item-war-row .war-note b { color: #15803D; }
+.item-war-row .war-clear { border: none; background: transparent; color: #DC2626; font-size: 11.5px; cursor: pointer; text-decoration: underline; }
 .item-qty input[type=number],
 .item-rate input[type=number] {
   -moz-appearance: textfield;
@@ -1882,6 +1911,8 @@ const SERVER = {
     tpl_lang_reminder:         <?= json_encode($settings['wa_tpl_lang_reminder']         ?? 'en_US') ?>,
     tpl_name_overdue:          <?= json_encode($settings['wa_tpl_name_overdue']          ?? '') ?>,
     tpl_lang_overdue:          <?= json_encode($settings['wa_tpl_lang_overdue']          ?? 'en_US') ?>,
+    tpl_name_receipt:          <?= json_encode($settings['wa_tpl_name_receipt']          ?? '') ?>,
+    tpl_lang_receipt:          <?= json_encode($settings['wa_tpl_lang_receipt']          ?? 'en_US') ?>,
     tpl_name_paid:             <?= json_encode($settings['wa_tpl_name_paid']             ?? '') ?>,
     tpl_lang_paid:             <?= json_encode($settings['wa_tpl_lang_paid']             ?? 'en_US') ?>,
     tpl_name_followup:         <?= json_encode($settings['wa_tpl_name_followup']         ?? '') ?>,
@@ -2773,6 +2804,7 @@ const SERVER = {
               <span style="text-align:right">Amount</span>
               <span style="text-align:center">GST%</span>
               <span style="text-align:right">Total</span>
+              <span></span>
               <span></span>
               <span></span>
               <span></span>
@@ -6786,6 +6818,7 @@ Thank you for choosing {company_name}!
                 <div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}link {{7}}phone {{8}}company</div>
                 <div class="field"><label>✅ Payment Received</label><div style="display:flex;gap:6px"><input id="tpl-name-paid" placeholder="payment_received" style="flex:1"><input id="tpl-lang-paid" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}disc {{5}}date {{6}}company {{7}}link</div></div>
                 <div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}discount {{5}}date {{6}}company {{7}}link</div>
+                <div class="field"><label>🧾 Receipt Image <span style="font-size:10px;font-weight:600;color:#1B9A4B">— sent with the payment receipt picture</span></label><div style="display:flex;gap:6px"><input id="tpl-name-receipt" placeholder="payment_receipt_image" style="flex:1"><input id="tpl-lang-receipt" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Template needs an <b>Image header</b>. {{1}}name {{2}}amount {{3}}inv# {{4}}status {{5}}link. Leave empty to keep sending the text receipt.</div></div>
                 <div class="field"><label>📋 Invoice Follow-up</label><div style="display:flex;gap:6px"><input id="tpl-name-followup" placeholder="invoice_followup" style="flex:1"><input id="tpl-lang-followup" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link</div></div>
                 <div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}days {{5}}upi {{6}}phone {{7}}link</div>
                 <div class="field"><label>🔁 Recurring Invoice</label><div style="display:flex;gap:6px"><input id="tpl-name-recurring" placeholder="recurring_invoice" style="flex:1"><input id="tpl-lang-recurring" placeholder="en_US" style="width:70px;text-align:center"></div><div style="font-size:10px;color:var(--muted);margin-top:2px">{{1}}name {{2}}inv# {{3}}amount {{4}}due {{5}}upi {{6}}link {{7}}outstanding</div></div>
@@ -9473,6 +9506,7 @@ View Invoice: {{6}}</pre></details>
     <div class="modal-body" id="receiptBody" style="padding:24px;max-height:70vh;overflow-y:auto"></div>
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="printReceiptModal()"><i class="fas fa-print"></i> Print Receipt</button>
+      <button class="btn btn-outline" id="btn-resend-rcpt" style="border-color:#25D366;color:#1B9A4B" onclick="resendReceiptWA()"><i class="fab fa-whatsapp"></i> Send on WhatsApp</button>
       <button class="btn btn-outline" onclick="closeModal('modal-receipt')">Close</button>
     </div>
   </div>
@@ -13230,6 +13264,24 @@ function renderFormItems() {
       : '';
     const calActive = !!item.service_cycle;
     const calBtn = `<button class="item-calbtn${calActive?' active':''}" onclick="toggleItemCycle(${item.id})" title="Service period"><i class="fas fa-calendar-alt"></i></button>`;
+    const warActive = !!parseInt(item.warranty_value);
+    const warBtn = `<button class="item-warbtn${warActive?' active':''}" onclick="toggleItemWarranty(${item.id})" title="Warranty period"><i class="fas fa-shield-alt"></i></button>`;
+    const wUnit = item.warranty_unit || 'months';
+    const warRow = item._warOpen
+      ? `<div class="item-war-row">
+          <span class="war-lbl"><i class="fas fa-shield-alt"></i> Warranty</span>
+          <input type="number" min="1" value="${item.warranty_value||''}" placeholder="12" oninput="updateItemWarranty(${item.id},'warranty_value',this.value)">
+          <select onchange="updateItemWarranty(${item.id},'warranty_unit',this.value,true)">
+            <option value="days" ${wUnit==='days'?'selected':''}>days</option>
+            <option value="months" ${wUnit==='months'?'selected':''}>months</option>
+            <option value="years" ${wUnit==='years'?'selected':''}>years</option>
+          </select>
+          ${[[6,'months','6 mo'],[1,'years','1 yr'],[2,'years','2 yr'],[3,'years','3 yr']].map(([v,u,l]) => `<button type="button" class="war-chip${(parseInt(item.warranty_value)===v && wUnit===u)?' on':''}" onclick="setItemWarranty(${item.id},${v},'${u}')">${l}</button>`).join('')}
+          <label class="war-from">From <input type="date" value="${item.warranty_start||''}" oninput="updateItemWarranty(${item.id},'warranty_start',this.value)" title="Leave blank to start on the invoice date"></label>
+          <span class="war-note" id="war-note-${item.id}">${warrantyNoteHTML(item)}</span>
+          ${warActive?`<button type="button" class="war-clear" onclick="clearItemWarranty(${item.id})">Remove</button>`:''}
+        </div>`
+      : '';
     const showEndDate = item.service_cycle && item.service_cycle !== 'onetime';
     const cycleRow = item._cycleOpen
       ? `<div class="item-cycle-row">
@@ -13267,8 +13319,9 @@ function renderFormItems() {
       <div class="item-total" id="itot-${item.id}" title="Total (incl. GST, after item discount)">${fmt_money(lineTotal)}</div>
       ${discBtn}
       ${calBtn}
+      ${warBtn}
       <button class="item-del" onclick="removeItem(${item.id})" title="Remove"><i class="fas fa-times"></i></button>
-    </div>${discRow}${cycleRow}`;
+    </div>${discRow}${cycleRow}${warRow}`;
   }).join('');
   calcTotals();
 }
@@ -13278,6 +13331,76 @@ function toggleItemDisc(id) {
   if (!item) return;
   item._discOpen = !item._discOpen;
   renderFormItems();
+}
+
+// ── Warranty (per invoice line) ──────────────────────────────────────────
+// Like the service period, warranty belongs to the invoice line (it runs from THIS sale), not the
+// catalogue item. Stored as warranty_value + warranty_unit + optional warranty_start; when the start
+// is blank the invoice date is used. Shown under the item name on the invoice, PDF-less print views
+// and the customer portal.
+const WARRANTY_UNITS = { days: ['day', 'days'], months: ['month', 'months'], years: ['year', 'years'] };
+function warrantyLabel(v, unit) {
+  const n = parseInt(v) || 0, u = WARRANTY_UNITS[unit] || WARRANTY_UNITS.months;
+  return n + ' ' + (n === 1 ? u[0] : u[1]);
+}
+function _warAddMonths(d, n) {                    // month maths that clamps 31 Jan + 1 month → 28/29 Feb
+  const day = d.getDate(), r = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  r.setDate(Math.min(day, new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate()));
+  return r;
+}
+// Last day covered by the warranty (start + period − 1 day), as a Date, or null
+function warrantyEndDate(item, fallbackStart) {
+  const v = parseInt(item && item.warranty_value) || 0;
+  const start = (item && item.warranty_start) || fallbackStart || '';
+  if (!v || !start) return null;
+  const d = new Date(start + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const unit = item.warranty_unit || 'months';
+  let end = unit === 'days' ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + v)
+          : unit === 'years' ? _warAddMonths(d, v * 12)
+          : _warAddMonths(d, v);
+  end.setDate(end.getDate() - 1);
+  return end;
+}
+function _warDate(d) { return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+// "Warranty: 12 months · valid till 04 Nov 2027" ('' when the line has no warranty)
+function formatWarrantySubtitle(item) {
+  if (!item || !(parseInt(item.warranty_value) > 0)) return '';
+  const fallback = (typeof document !== 'undefined' && document.getElementById('f-date')?.value) || '';
+  const end = warrantyEndDate(item, fallback);
+  return 'Warranty: ' + warrantyLabel(item.warranty_value, item.warranty_unit || 'months') + (end ? ' &middot; valid till ' + _warDate(end) : '');
+}
+function warrantyNoteHTML(item) {
+  if (!(parseInt(item.warranty_value) > 0)) return 'optional — shown under the item on the invoice';
+  const fallback = document.getElementById('f-date')?.value || '';
+  const end = warrantyEndDate(item, fallback);
+  return (end ? 'valid till <b>' + _warDate(end) + '</b> · ' : '') + 'shown under the item on the invoice';
+}
+function toggleItemWarranty(id) {
+  const item = formItems.find(i => i.id === id); if (!item) return;
+  item._warOpen = !item._warOpen;
+  renderFormItems();
+}
+function setItemWarranty(id, v, unit) {
+  const item = formItems.find(i => i.id === id); if (!item) return;
+  item.warranty_value = v; item.warranty_unit = unit;
+  renderFormItems();
+}
+function clearItemWarranty(id) {
+  const item = formItems.find(i => i.id === id); if (!item) return;
+  item.warranty_value = ''; item.warranty_unit = ''; item.warranty_start = '';
+  renderFormItems();
+}
+// Typing in the number / date boxes updates just the note + preview — a full re-render would steal focus.
+function updateItemWarranty(id, field, val, rerender) {
+  const item = formItems.find(i => i.id === id); if (!item) return;
+  if (field === 'warranty_value') item.warranty_value = val === '' ? '' : Math.max(0, parseInt(val) || 0);
+  else item[field] = val;
+  if (field === 'warranty_value' && !item.warranty_unit) item.warranty_unit = 'months';
+  if (rerender) { renderFormItems(); return; }
+  const note = document.getElementById('war-note-' + id); if (note) note.innerHTML = warrantyNoteHTML(item);
+  const btn = document.querySelector('#item-' + id + ' .item-warbtn'); if (btn) btn.classList.toggle('active', parseInt(item.warranty_value) > 0);
+  livePreview();
 }
 
 function toggleItemCycle(id) {
@@ -15268,7 +15391,7 @@ function buildTpl2(d, sc, itemsHTML, gstColHeader, rowNumHeader='', itemsHTML2='
 function printInvoiceData(inv) {
   // Restore formItems from invoice data temporarily
   const savedItems = [...formItems];
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null, warranty_value: i.warranty_value||'', warranty_unit: i.warranty_unit||'', warranty_start: i.warranty_start||'', _warOpen: !!parseInt(i.warranty_value) }));
   const d = getFormData();
   openPrintWindow(d, formItems);
   formItems = savedItems;
@@ -15844,7 +15967,10 @@ async function saveInvoice() {
     client_addr:   d.caddr   || '',
     // Installment plan link — omitted if the plan list could not be loaded, so an edit never unlinks by accident
     ...(PLAN.ready ? { plan_id: (PLAN.sel && formItems.some(i => i._plan)) ? PLAN.sel.id : null } : {}),
-    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: (i._plan && PLAN.sel) ? PLAN.sel.id : null }))
+    items: formItems.map(i => ({ desc: i.desc, itemType: i.itemType||'Service', qty: parseFloat(i.qty)||1, rate: parseFloat(i.rate)||0, gst: (i.gst !== undefined && i.gst !== null && i.gst !== '') ? parseFloat(i.gst) : 18, hsn: i.hsn||'', disc: parseFloat(i.disc)||0, discType: i.discType||'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: (i._plan && PLAN.sel) ? PLAN.sel.id : null,
+      warranty_value: parseInt(i.warranty_value) > 0 ? parseInt(i.warranty_value) : null,
+      warranty_unit:  parseInt(i.warranty_value) > 0 ? (i.warranty_unit || 'months') : '',
+      warranty_start: parseInt(i.warranty_value) > 0 ? (i.warranty_start || d.date || '') : '' }))
   };
   try {
     if (!isNewSave) {
@@ -16295,7 +16421,7 @@ function loadInvoiceIntoForm(inv) {
     _sc('popt-payment-block',_savedPopt.paymentBlock !== false);
     _sc('popt-previous-due',  !!_savedPopt.previousDue);
   }
-  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null }));
+  formItems = inv.items.map(i => ({ id: Date.now() + Math.random(), desc: i.desc||i.description||'', itemType: i.itemType||i.item_type||'Service', qty: parseFloat(i.qty||i.quantity)||1, gst: (i.gst!==undefined&&i.gst!==null&&i.gst!==''?parseFloat(i.gst):i.gstRate!==undefined&&i.gstRate!==null&&i.gstRate!==''?parseFloat(i.gstRate):i.gst_rate!==undefined&&i.gst_rate!==''?parseFloat(i.gst_rate):18), rate: parseFloat(i.rate)||0, hsn: i.hsn||i.hsn_code||'', disc: parseFloat(i.disc||i.item_discount)||0, discType: (i.discType||i.item_discount_type)==='fixed'?'fixed':'pct', service_cycle: i.service_cycle||'', date_start: i.date_start||'', date_end: i.date_end||'', plan_id: i.plan_id||null, warranty_value: i.warranty_value||'', warranty_unit: i.warranty_unit||'', warranty_start: i.warranty_start||'', _warOpen: !!parseInt(i.warranty_value) }));
   renderFormItems();
   livePreview();
 }
@@ -16836,7 +16962,7 @@ function confirmPaid() {
   }
 
   api('api/payments.php','POST',payload)
-    .then(() => {
+    .then((pmtRes) => {
       // ── STEP 1: Close modal & show toast instantly ─────────────
       closeModal('modal-paid');
       if (wasPartial) {
@@ -16866,17 +16992,35 @@ function confirmPaid() {
           _settleDisc:   payload.settlement_discount || 0,
         });
         const msgP = formatWAMsg(tplP, invWithPmt, cP, STATE.settings);
-        logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'sending' });
-        sendWA(phoneP, msgP, tplName, invWithPmt, cP)
-          .then(r => {
-            logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:r?'sent_api':'sent_web' });
-            const label = wasPartial ? 'Partial payment receipt' : (isSplitPmt ? 'Split payment receipt' : 'Payment receipt');
-            toast(`📱 ${label} sent to ${cP.name || phoneP} via WhatsApp!`, 'success');
-          })
-          .catch(e => {
-            logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'failed', error:e.message });
-            toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
-          });
+        const label = wasPartial ? 'Partial payment receipt' : (isSplitPmt ? 'Split payment receipt' : 'Payment receipt');
+        const sendTextReceipt = () => {
+          logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'sending' });
+          sendWA(phoneP, msgP, tplName, invWithPmt, cP)
+            .then(r => {
+              logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:r?'sent_api':'sent_web' });
+              toast(`📱 ${label} sent to ${cP.name || phoneP} via WhatsApp!`, 'success');
+            })
+            .catch(e => {
+              logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:msgP, status:'failed', error:e.message });
+              toast(`⚠️ WhatsApp not sent — ${e.message}`, 'warning');
+            });
+        };
+        // Receipt IMAGE first (when its template is configured); if anything fails, fall back to the text receipt
+        if (waReceiptTplReady() && pmtRes && pmtRes.id) {
+          logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:'📎 Receipt image', status:'sending' });
+          sendReceiptImageWA(pmtRes.id, invWithPmt, cP, phoneP, payload.remaining_amt || 0)
+            .then(() => {
+              logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:'📎 Receipt image', status:'sent_api' });
+              toast(`📱 ${label} image sent to ${cP.name || phoneP} via WhatsApp!`, 'success');
+            })
+            .catch(e => {
+              console.warn('[receipt image] sending the text receipt instead:', e.message);
+              logWAMessage({ inv:invWithPmt, client:cP, type:tplName, msg:'📎 Receipt image', status:'failed', error:e.message });
+              sendTextReceipt();
+            });
+        } else {
+          sendTextReceipt();
+        }
       } else if (shouldSendWA && !phoneP) {
         toast(`⚠️ WA not sent — no phone number for ${cP.name || 'client'}`, 'warning');
       }
@@ -18806,7 +18950,7 @@ function formatServiceCycle(code) {
 // Builds the Description subtitle — e.g. "Yearly · Aug 2026 – Jul 2027",
 // "One-time · 14 Sep 2026", or "Monthly · Aug 2026 – ongoing" when no end
 // date is set (still-active subscription). Blank when no cycle is chosen.
-function formatServiceSubtitle(p) {
+function _cycleSubtitle(p) {
   if (!p.service_cycle) return '';
   const cycleLabel = formatServiceCycle(p.service_cycle);
   if (!p.date_start) return cycleLabel;
@@ -18817,6 +18961,10 @@ function formatServiceSubtitle(p) {
   const startLabel = startD.toLocaleDateString('en-US',{month:'short',year:'numeric'});
   const endLabel = p.date_end ? new Date(p.date_end+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'}) : 'ongoing';
   return `${cycleLabel} &middot; ${startLabel} – ${endLabel}`;
+}
+// Description subtitle under an item name: service period and/or warranty (one line each)
+function formatServiceSubtitle(p) {
+  return [_cycleSubtitle(p), (typeof formatWarrantySubtitle === 'function' ? formatWarrantySubtitle(p) : '')].filter(Boolean).join('<br>');
 }
 function _renderProdPage() {
   const tbody=document.getElementById('productsTbody'); if(!tbody) return;
@@ -28521,6 +28669,8 @@ window.saveWASettings = async function() {
     wa_tpl_lang_reminder:  val('tpl-lang-reminder')  || 'en_US',
     wa_tpl_name_overdue:   val('tpl-name-overdue'),
     wa_tpl_lang_overdue:   val('tpl-lang-overdue')   || 'en_US',
+    wa_tpl_name_receipt:   val('tpl-name-receipt'),
+    wa_tpl_lang_receipt:   val('tpl-lang-receipt')   || 'en_US',
     wa_tpl_name_paid:      val('tpl-name-paid'),
     wa_tpl_lang_paid:      val('tpl-lang-paid')      || 'en_US',
     wa_tpl_name_followup:  val('tpl-name-followup'),
@@ -28558,6 +28708,8 @@ window.saveWASettings = async function() {
     tpl_lang_reminder: payload.wa_tpl_lang_reminder,
     tpl_name_overdue:  payload.wa_tpl_name_overdue,
     tpl_lang_overdue:  payload.wa_tpl_lang_overdue,
+    tpl_name_receipt:  payload.wa_tpl_name_receipt,
+    tpl_lang_receipt:  payload.wa_tpl_lang_receipt,
     tpl_name_paid:     payload.wa_tpl_name_paid,
     tpl_lang_paid:     payload.wa_tpl_lang_paid,
     tpl_name_followup:  payload.wa_tpl_name_followup,
@@ -30394,6 +30546,8 @@ async function loadAllData() {
         tpl_lang_reminder: s.wa_tpl_lang_reminder || 'en_US',
         tpl_name_overdue:  s.wa_tpl_name_overdue  || '',
         tpl_lang_overdue:  s.wa_tpl_lang_overdue  || 'en_US',
+        tpl_name_receipt:  s.wa_tpl_name_receipt  || '',
+        tpl_lang_receipt:  s.wa_tpl_lang_receipt  || 'en_US',
         tpl_name_paid:     s.wa_tpl_name_paid     || '',
         tpl_lang_paid:     s.wa_tpl_lang_paid     || 'en_US',
         tpl_name_followup:  s.wa_tpl_name_followup  || '',
@@ -31357,7 +31511,7 @@ function populateWAPage() {
   const mode  = wa.msg_mode || 'session';
   const radio = document.querySelector('input[name="wa-msg-mode"][value="' + mode + '"]');
   if (radio) { radio.checked = true; setWAMode(mode); }
-  const tpls  = ['invoice','estimate','reminder','overdue','paid','followup','recurring','partial','festival'];
+  const tpls  = ['invoice','estimate','reminder','overdue','paid','receipt','followup','recurring','partial','festival'];
   tpls.forEach(t => {
     const nEl = document.getElementById('tpl-name-' + t);
     const lEl = document.getElementById('tpl-lang-' + t);
@@ -31581,7 +31735,8 @@ async function sendWABusinessMsg(toPhone, message, token, pid, tplOpts) {
   const body = tplOpts
     ? { token, pid, to: toPhone, type: 'template',
         template_name: tplOpts.name, template_lang: tplOpts.lang || 'en',
-        template_params: tplOpts.params || [], message }
+        template_params: tplOpts.params || [], message,
+        ...(tplOpts.headerImage ? { header_image: tplOpts.headerImage } : {}) }
     : { token, pid, to: toPhone, type: 'text', message };
 
   const res  = await fetch('api/wa_send.php', {
@@ -31595,6 +31750,60 @@ async function sendWABusinessMsg(toPhone, message, token, pid, tplOpts) {
   catch(e) { throw new Error('Server error: ' + text.substring(0,200)); }
   if (!res.ok || data.error) throw new Error(data.error || 'API error ' + res.status);
   return data;
+}
+
+// ── Payment receipt as an IMAGE ───────────────────────────────────────────
+// Sent with an approved WhatsApp template that has an Image header (set its name under
+// WhatsApp → Templates → "Receipt image"). Body variables: {{1}} client name, {{2}} amount paid,
+// {{3}} invoice no., {{4}} status ("Balance due ₹930.00" / "Invoice fully paid"), {{5}} portal link.
+// Until that template name is filled in, nothing changes: the usual text receipt is sent.
+function waReceiptTplReady() {
+  const wa = STATE.settings.wa || {};
+  return !!(wa.token && wa.pid && wa.tpl_name_receipt);
+}
+async function sendReceiptImageWA(paymentId, inv, client, phone, remaining) {
+  const wa    = STATE.settings.wa || {};
+  const clean = String(phone || '').replace(/\D/g, '');
+  if (!clean) throw new Error('No phone number');
+  const img = await api('api/receipt_img.php?payment_id=' + encodeURIComponent(paymentId));
+  if (!img || !img.url) throw new Error('Receipt image could not be created');
+  let link = '';
+  const invId = String(inv.id || inv._dbId || '');
+  if (invId) {
+    if (!_portalTokenCache[invId]) {
+      try { const r = await api('api/portal.php', 'POST', { invoice_id: parseInt(invId) }); if (r && r.token) _portalTokenCache[invId] = r.token; } catch (e) {}
+    }
+    if (_portalTokenCache[invId]) link = _portalBaseURL() + '?t=' + _portalTokenCache[invId];
+  }
+  const cur   = inv.currency || '₹';
+  const rem   = parseFloat(remaining) || 0;
+  const params = [
+    (client && client.name) || inv.client_name || inv.clientName || 'Customer',
+    fmt_money(parseFloat(inv._paidAmt) || 0, cur),
+    String(inv.num || inv.invoice_number || ''),
+    rem > 0.009 ? 'Balance due ' + fmt_money(rem, cur) + '.' : 'Invoice fully paid.',
+    link || (STATE.settings.company || 'Thank you'),
+  ];
+  return sendWABusinessMsg(clean, 'Payment receipt ' + (img.receipt_no || ''), wa.token, wa.pid, {
+    name: wa.tpl_name_receipt, lang: wa.tpl_lang_receipt || 'en_US', params, headerImage: img.url,
+  });
+}
+// "Send receipt on WhatsApp" button inside the receipt view (invoice payments only)
+async function resendReceiptWA() {
+  const p = PMT.list[STATE._rcptIdx]; if (!p) return;
+  if (!/^\d+$/.test(String(p.id)) || !p.invoice_id) { toast('⚠️ Receipt images are only available for invoice payments', 'warning'); return; }
+  if (!waReceiptTplReady()) { toast('⚠️ Add your approved "Receipt image" template name in WhatsApp settings first', 'warning'); return; }
+  const inv    = STATE.invoices.find(i => String(i.id) === String(p.invoice_id)) || {};
+  const client = STATE.clients.find(x => String(x.id) === String(inv.client)) || {};
+  const phone  = (client.wa || client.whatsapp || client.phone || inv.client_wa || inv.client_phone || '').replace(/\D/g, '');
+  if (!phone) { toast('⚠️ No WhatsApp number for ' + (client.name || p.client || 'this client'), 'warning'); return; }
+  const btn = document.getElementById('btn-resend-rcpt');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…'; }
+  try {
+    await sendReceiptImageWA(p.id, Object.assign({}, inv, { _paidAmt: p.amount }), client, phone, p.remaining_amt || 0);
+    toast('📱 Receipt image sent to ' + (client.name || phone), 'success');
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fab fa-whatsapp"></i> Send on WhatsApp'; } }
 }
 
 // Build template params from invoice data
