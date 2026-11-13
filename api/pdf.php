@@ -27,11 +27,26 @@ ini_set('memory_limit', '128M');
 require_once __DIR__ . '/../config/db.php';
 
 // ── Locate mPDF via autoloader ────────────────────────────────
-$autoloadPath = '/home1/edrppymy/public_html/invoiceoptms/vendor/autoload.php';
-if (!file_exists($autoloadPath)) {
+// Looks in every place Composer's vendor/ folder is commonly uploaded to
+// (project root, api/, one level above the project) instead of one fixed path.
+$autoloadCandidates = [
+    __DIR__ . '/../vendor/autoload.php',        // <project>/vendor
+    __DIR__ . '/vendor/autoload.php',           // <project>/api/vendor
+    __DIR__ . '/../../vendor/autoload.php',     // one level above the project
+    __DIR__ . '/../../../vendor/autoload.php',
+    (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim($_SERVER['DOCUMENT_ROOT'], '/') : '') . '/vendor/autoload.php',
+];
+$autoloadPath = null;
+foreach ($autoloadCandidates as $cand) {
+    if ($cand !== '/vendor/autoload.php' && is_file($cand)) { $autoloadPath = $cand; break; }
+}
+if (!$autoloadPath) {
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => "Composer autoloader not found at $autoloadPath — the vendor/ folder is missing or was not uploaded to this path."]);
+    echo json_encode([
+        'error' => 'PDF library (mPDF) not found on the server. Upload the Composer "vendor" folder (it must contain vendor/autoload.php and vendor/mpdf/) to the project root, next to the api folder.',
+        'looked_in' => array_map(function ($c) { $r = realpath(dirname($c)); return $r ? $r : dirname($c); }, array_filter($autoloadCandidates, function ($c) { return $c !== '/vendor/autoload.php'; })),
+    ]);
     exit;
 }
 require_once $autoloadPath;
@@ -42,7 +57,7 @@ if (!class_exists('\Mpdf\Mpdf')) {
     // via Composer in this vendor/ directory (only other packages were).
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'mPDF library not installed. From /home1/edrppymy/public_html/invoiceoptms/ run: composer require mpdf/mpdf — then confirm vendor/mpdf/mpdf/ exists on the server.']);
+    echo json_encode(['error' => 'mPDF library not installed. From the project folder run: composer require mpdf/mpdf — then confirm vendor/mpdf/mpdf/ exists on the server.']);
     exit;
 }
 
@@ -61,20 +76,47 @@ function pdf_format_service_cycle($code) {
     return $labels[$code] ?? '—';
 }
 // Port of formatServiceSubtitle() in index.php — keep both in sync.
+// e.g. "Monthly · 01 Oct 2026 – 30 Oct 2026". '' when the line has no cycle/date.
 function pdf_format_service_subtitle($item) {
     $cycle = $item['service_cycle'] ?? '';
-    if (!$cycle) return '';
-    $cycleLabel = pdf_format_service_cycle($cycle);
     $start = $item['date_start'] ?? '';
+    if ($start === '0000-00-00') $start = '';
+    $end = $item['date_end'] ?? '';
+    if ($end === '0000-00-00') $end = '';
+    if (!$cycle && !$start) return '';
+    $cycleLabel = $cycle ? pdf_format_service_cycle(strtolower($cycle)) : '';
     if (!$start) return $cycleLabel;
     $startTs = strtotime($start);
-    if ($cycle === 'onetime') {
+    if (!$startTs) return $cycleLabel;
+    if (strtolower($cycle) === 'onetime') {
         return $cycleLabel . ' &middot; ' . date('d M Y', $startTs);
     }
-    $startLabel = date('M Y', $startTs);
-    $end = $item['date_end'] ?? '';
-    $endLabel = $end ? date('M Y', strtotime($end)) : 'ongoing';
-    return $cycleLabel . ' &middot; ' . $startLabel . ' – ' . $endLabel;
+    $endLabel = $end && strtotime($end) ? date('d M Y', strtotime($end)) : 'ongoing';
+    return ($cycleLabel ? $cycleLabel . ' &middot; ' : '') . date('d M Y', $startTs) . ' &ndash; ' . $endLabel;
+}
+// Warranty line under the item name, e.g. "Warranty: 12 months · valid till 04 Nov 2027".
+// Start = the line's own start date, else the invoice date. End = start + period − 1 day
+// (month-end clamped, so 31 Jan + 1 month ends 27 Feb). Port of svc_warranty() in portal/index.php.
+function pdf_warranty_line($item, $issueDate = '') {
+    $v = (int)($item['warranty_value'] ?? 0);
+    if ($v < 1) return '';
+    $unit = in_array($item['warranty_unit'] ?? '', ['days', 'months', 'years'], true) ? $item['warranty_unit'] : 'months';
+    $label = $v . ' ' . ($v === 1 ? rtrim($unit, 's') : $unit);
+    $start = $item['warranty_start'] ?? '';
+    if (!$start || $start === '0000-00-00') $start = $issueDate;
+    $ts = $start ? strtotime($start) : false;
+    if (!$ts) return 'Warranty: ' . $label;
+    $d = new DateTime(date('Y-m-d', $ts));
+    if ($unit === 'days') {
+        $d->modify("+$v days");
+    } else {
+        $months = $unit === 'years' ? $v * 12 : $v;
+        $day = (int)$d->format('j');
+        $d->modify('first day of this month')->modify("+$months months");
+        $d->setDate((int)$d->format('Y'), (int)$d->format('n'), min($day, (int)$d->format('t')));
+    }
+    $d->modify('-1 day');
+    return 'Warranty: ' . $label . ' &middot; valid till ' . $d->format('d M Y');
 }
 // Port of the JS numToWordsINR() in index.php — keep both in sync.
 function pdf_num_to_words_inr($amount) {
@@ -312,6 +354,11 @@ try {
     $hasIDiscType = in_array('item_discount_type', $iiCols, true);
     $extraCols = ($hasHsn ? ', hsn' : '') . ($hasIType ? ', item_type' : '')
         . ($hasIDisc ? ', item_discount' : '') . ($hasIDiscType ? ', item_discount_type' : '');
+    // Service duration + warranty columns (auto-created by api/invoices.php) — only
+    // selected when present so older tenants without them still produce a PDF.
+    foreach (['service_cycle', 'date_start', 'date_end', 'warranty_value', 'warranty_unit', 'warranty_start'] as $_c) {
+        if (in_array($_c, $iiCols, true)) $extraCols .= ', ' . $_c;
+    }
     $iStmt = $db->prepare("SELECT description, quantity AS qty, rate, gst_rate AS gst, line_total$extraCols FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order ASC");
     $iStmt->execute([':id' => $inv['invoice_id']]);
     $items = $iStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -709,6 +756,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
           $tot = $amt + $gstAmtLine;
           $itemHsn = $hasHsn ? ($item['hsn'] ?: '') : '';
           $cycleSubtitle = pdf_format_service_subtitle($item);
+          $warrantyLine = pdf_warranty_line($item, $inv['issue_date'] ?? '');
           $gLabel = $g == (int)$g ? (string)(int)$g : rtrim(rtrim(number_format($g, 2), '0'), '.');
       ?>
       <tr>
@@ -716,6 +764,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <td>
           <?= htmlspecialchars($item['description']) ?>
           <?php if ($cycleSubtitle): ?><div style="font-size:8.5px;color:#888;font-style:italic;margin-top:1px"><?= $cycleSubtitle ?></div><?php endif; ?>
+          <?php if ($warrantyLine): ?><div style="font-size:8.5px;color:#2E7D32;margin-top:1px"><?= $warrantyLine ?></div><?php endif; ?>
         </td>
         <td style="font-size:9px;color:#555;font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($itemHsn ?: '—') ?></td>
         <td class="r"><?= number_format($q, 2) ?></td>
@@ -948,12 +997,14 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         $tot = $amt + $gstAmtLine;
         $itemHsn  = $hasHsn   ? ($item['hsn'] ?: '')          : '';
         $cycleSubtitle = pdf_format_service_subtitle($item);
+          $warrantyLine = pdf_warranty_line($item, $inv['issue_date'] ?? '');
     ?>
     <tr>
       <td style="color:#9CA3AF"><?= $idx + 1 ?></td>
       <td>
         <div class="item-name"><?= htmlspecialchars($item['description']) ?></div>
         <?php if ($cycleSubtitle): ?><div style="font-size:9px;color:#9CA3AF;font-style:italic;margin-top:2px"><?= $cycleSubtitle ?></div><?php endif; ?>
+        <?php if ($warrantyLine): ?><div style="font-size:9px;color:#2E7D32;margin-top:2px"><?= $warrantyLine ?></div><?php endif; ?>
       </td>
       <td style="font-size:10px;color:#555;font-family:'DejaVu Sans Mono',monospace"><?= htmlspecialchars($itemHsn ?: '—') ?></td>
       <td class="r mono"><?= number_format($q, 2) ?></td>

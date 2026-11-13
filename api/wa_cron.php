@@ -143,12 +143,16 @@ function waCronSend(string $waToken, string $waPid, string $phone,
 
 // ── Direct Meta API call (fallback if localhost wa_send.php unreachable) ─
 function waCronSendDirect(string $token, string $pid, string $toPhone,
-                          string $tplName, string $tplLang, array $params): bool {
+                          string $tplName, string $tplLang, array $params, string $headerImage = ''): bool {
+    $GLOBALS['wa_last_err'] = '';
     $phone = preg_replace('/\D/', '', $toPhone);
     if (strlen($phone) === 10) $phone = '91' . $phone;
     if (strlen($phone) < 10) return false;
 
     $components = [];
+    if ($headerImage !== '') {
+        $components[] = ['type' => 'header', 'parameters' => [['type' => 'image', 'image' => ['link' => $headerImage]]]];
+    }
     if (!empty($params)) {
         $components[] = [
             'type'       => 'body',
@@ -188,6 +192,8 @@ function waCronSendDirect(string $token, string $pid, string $toPhone,
 
     if ($err || $status >= 400) {
         error_log("wa_cron direct send error [{$status}]: " . ($err ?: $resp));
+        $j = json_decode((string)$resp, true);
+        $GLOBALS['wa_last_err'] = $err ?: ($j['error']['message'] ?? ('HTTP ' . $status));
         return false;
     }
     return true;
@@ -374,6 +380,103 @@ function waPickAnchor(array $invs, array $amtInfo): array {
     return $anchor;
 }
 
+
+// ================================================================
+//  FESTIVAL / BULK CAMPAIGN (scheduled from WhatsApp → Festival & Bulk Campaign)
+//  Reads wa_festival_* settings; when the saved schedule time has passed it sends the
+//  approved festival template (+ optional image header) to the selected clients, then
+//  moves the schedule forward (weekly / monthly / yearly) or clears it (one-time).
+//  Needs this cron to run often (e.g. every 5–15 min) so the time is hit.
+// ================================================================
+function waSetting($db, string $key, string $value): void {
+    $q = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key`=?");
+    $q->execute([$key]);
+    if ((int)$q->fetchColumn() > 0) {
+        $db->prepare("UPDATE settings SET `value`=? WHERE `key`=?")->execute([$value, $key]);
+    } else {
+        $db->prepare("INSERT INTO settings (`key`,`value`) VALUES (?,?)")->execute([$key, $value]);
+    }
+}
+
+function waFestivalRecipients($db, string $sendTo): array {
+    $cols = $db->query("SHOW COLUMNS FROM clients")->fetchAll(PDO::FETCH_COLUMN);
+    $sel  = 'id, name, whatsapp, phone' . (in_array('active', $cols, true) ? ', active' : '') . (in_array('status', $cols, true) ? ', status' : '');
+    $rows = $db->query("SELECT {$sel} FROM clients")->fetchAll(PDO::FETCH_ASSOC);
+
+    $allowed = null;   // client ids permitted by the "send to" filter
+    if ($sendTo === 'paid') {
+        $allowed = array_flip(array_map('strval', $db->query("SELECT DISTINCT client_id FROM invoices WHERE status='Paid'")->fetchAll(PDO::FETCH_COLUMN)));
+    } elseif ($sendTo === 'active') {
+        $allowed = array_flip(array_map('strval', $db->query("SELECT DISTINCT client_id FROM invoices WHERE issued_date > DATE_SUB(CURDATE(), INTERVAL 90 DAY)")->fetchAll(PDO::FETCH_COLUMN)));
+    }
+    $out = []; $seen = [];
+    foreach ($rows as $r) {
+        if (array_key_exists('active', $r) && $r['active'] !== null && (int)$r['active'] === 0) continue;
+        if (isset($r['status']) && strtolower((string)$r['status']) === 'inactive') continue;
+        if ($allowed !== null && !isset($allowed[(string)$r['id']])) continue;
+        $ph = preg_replace('/\D/', '', (string)($r['whatsapp'] ?: $r['phone']));
+        if (strlen($ph) < 10) continue;
+        $key = substr($ph, -10);
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $out[] = ['name' => $r['name'] ?: 'Valued Client', 'phone' => $ph];
+    }
+    return $out;
+}
+
+function waRunFestival($db, array $cfg, string $waToken, string $waPid, string $portalBase): void {
+    $sched = trim($cfg['wa_festival_schedule'] ?? '');
+    if ($sched === '') return;
+    $ts = strtotime($sched);                          // saved as local (IST) date-time
+    if (!$ts) { echo "[Festival] Invalid schedule '{$sched}' — ignoring.\n"; return; }
+    if ($ts > time()) { echo "[Festival] Scheduled for {$sched} — not due yet.\n"; return; }
+
+    $tplName = trim($cfg['wa_tpl_name_festival'] ?? '');
+    $tplLang = trim($cfg['wa_tpl_lang_festival'] ?? '') ?: 'en_US';
+    if ($tplName === '') { echo "[Festival] Due, but no festival template name is set (WhatsApp → Templates). Skipped.\n"; return; }
+
+    $img = trim($cfg['wa_festival_img'] ?? '');
+    if ($img !== '' && !preg_match('#^https?://#i', $img)) {
+        $img = rtrim(preg_replace('#/portal/?$#', '/', $portalBase), '/') . '/' . ltrim($img, '/');
+    }
+    if ($img !== '' && !preg_match('#^https://#i', $img)) { echo "[Festival] Image link must be https — skipped.\n"; return; }
+
+    // Claim the run first (advance / clear the schedule) so an overlapping cron can't send it twice.
+    $repeat = $cfg['wa_festival_repeat'] ?? '';
+    $next = '';
+    if (in_array($repeat, ['weekly', 'monthly', 'yearly'], true)) {
+        $step = ['weekly' => '+1 week', 'monthly' => '+1 month', 'yearly' => '+1 year'][$repeat];
+        $n = $ts; $guard = 0;
+        while ($n <= time() && $guard++ < 500) $n = strtotime($step, $n);
+        $next = date('Y-m-d\TH:i', $n);
+    }
+    waSetting($db, 'wa_festival_schedule', $next);
+    waSetting($db, 'wa_festival_last_run', date('Y-m-d H:i:s'));
+
+    $targets = waFestivalRecipients($db, $cfg['wa_festival_sendto'] ?? 'all');
+    $company = $cfg['company_name'] ?? '';
+    $phone   = $cfg['company_phone'] ?? '';
+    echo "[Festival] Sending '{$tplName}' to " . count($targets) . " client(s)" . ($img ? ' with image' : '') . "...\n";
+    $sent = 0; $failed = 0; $failStreak = 0;
+    foreach ($targets as $t) {
+        $params = [$t['name'] ?: '-', $company ?: '-', $phone ?: '-'];
+        $ok = waCronSendDirect($waToken, $waPid, $t['phone'], $tplName, $tplLang, $params, $img);
+        try {
+            $db->prepare("INSERT INTO wa_message_log (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
+                          VALUES (?, NOW(), 'festival', ?, ?, ?, '', '', '', '', ?, ?)")
+               ->execute(['cron_festival_' . date('YmdHis') . '_' . substr($t['phone'], -4), $ok ? 'sent_api' : 'failed', $t['name'], $t['phone'], '[cron] ' . $tplName, $ok ? null : ($GLOBALS['wa_last_err'] ?? 'send failed')]);
+        } catch (Throwable $e) {}
+        if ($ok) { $sent++; $failStreak = 0; }
+        else {
+            $failed++; $failStreak++;
+            echo "  ❌ {$t['name']} ({$t['phone']}): " . ($GLOBALS['wa_last_err'] ?? 'failed') . "\n";
+            if ($failStreak >= 5 && $sent === 0) { echo "  Stopping — first 5 sends all failed (check template name / approval / image).\n"; break; }
+        }
+        usleep(350000);
+    }
+    echo "[Festival] Done: {$sent} sent, {$failed} failed." . ($next ? " Next run: {$next}." : " One-time campaign finished.") . "\n";
+}
+
 // ================================================================
 //  Resolve active tenants, then run the routine above once per tenant
 //  against that tenant's own database + own WhatsApp credentials.
@@ -422,6 +525,16 @@ foreach ($tenants as $tenant) {
         if (empty($waToken) || empty($waPid)) {
             echo "[" . date('Y-m-d H:i:s') . "] WhatsApp API not configured (wa_token / wa_pid missing). Exiting.\n";
             continue;
+        }
+
+        // ── Festival / bulk campaign (independent of reminder automation & send window) ──
+        try {
+            $fPortal = rtrim($cfg['portal_base_url'] ?? '', '/');
+            if (!$fPortal) $fPortal = 'https://invcs.optms.co.in';
+            waRunFestival($db, $cfg, $waToken, $waPid, $fPortal . '/portal/');
+        } catch (Throwable $eF) {
+            echo "  ⚠️  Festival campaign error: " . $eF->getMessage() . "\n";
+            error_log('wa_cron festival: ' . $eF->getMessage());
         }
 
         // ── Automation flags ─────────────────────────────────────────────
