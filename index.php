@@ -11629,6 +11629,7 @@ function _printProforma(d, curr, autoPrint = true) {
   <div class="no-print">
     <button onclick="window.print()" style="background:#00897B;color:#fff">🖨️ Print / Save PDF</button>
     <button onclick="window.close()" style="background:#eee;color:#333">Close</button>
+    ${_bwPrintCtl()}
   </div>
 
   <!-- HEADER -->
@@ -13075,6 +13076,7 @@ function openRowMenu(e, id) {
     ${isDraft ? `<div class="rm-item" onclick="rowMenuAction('make-pending')" style="color:#E65100"><i class="fas fa-paper-plane"></i> Make Pending</div>` : ''}
     ${isEstimate ? `<div class="rm-item" onclick="rowMenuAction('convert-estimate')" style="color:#3949AB;font-weight:700"><i class="fas fa-file-invoice"></i> Convert to Invoice</div>` : ''}
     <div class="rm-item" onclick="rowMenuAction('download')"><i class="fas fa-download"></i> Download PDF</div>
+    <div class="rm-item" onclick="rowMenuAction('download-bw')"><i class="fas fa-print"></i> Download PDF (B&amp;W)</div>
     <div class="rm-item" onclick="rowMenuAction('duplicate')"><i class="fas fa-copy"></i> Duplicate</div>
     <div class="rm-item" onclick="rowMenuAction('wa')"><i class="fab fa-whatsapp"></i> Send WhatsApp</div>
     <div class="rm-item" onclick="rowMenuAction('email')"><i class="fas fa-envelope"></i> Send Email</div>
@@ -13108,6 +13110,7 @@ function rowMenuAction(action) {
   if (!inv) return;
   if (action === 'preview')      { openPreviewModal(id); return; }
   if (action === 'download')     { downloadInvoicePDF(id); return; }
+  if (action === 'download-bw')  { downloadInvoicePDF(id, true); return; }
   if (action === 'edit')         { editInvoice(id); return; }
   if (action === 'duplicate')    { duplicateInvoice(id); return; }
   if (action === 'wa')           { sendWAForInvoice(inv); return; }
@@ -13126,9 +13129,20 @@ function rowMenuAction(action) {
 //    mPDF renderer (api/pdf.php) so what you download here is identical
 //    to what a client sees via their portal link. Requires the invoice
 //    to already be saved (has a real numeric/db id).
-function downloadInvoicePDF(id) {
+// If the server's PDF library (mPDF) is missing or incomplete, this falls back to the browser's
+// own print view ("Save as PDF") instead of showing an error page.
+async function downloadInvoicePDF(id, bw) {
   if (!id) { toast('⚠️ Save the invoice first','warning'); return; }
-  window.open('api/pdf.php?invoice_id=' + encodeURIComponent(id), '_blank');
+  const url = 'api/pdf.php?invoice_id=' + encodeURIComponent(id) + (bw ? '&bw=1' : '');
+  const w = window.open('', '_blank');            // opened now so pop-up blockers allow it
+  let ok = false;
+  try { const r = await fetch('api/pdf.php?check=1', { cache: 'no-store' }); ok = !!((await r.json()) || {}).ok; } catch (e) { ok = false; }
+  if (ok) { if (w) w.location.href = url; else window.open(url, '_blank'); return; }
+  if (w) w.close();
+  const inv = STATE.invoices.find(i => String(i.id) === String(id));
+  if (!inv) { toast('⚠️ Could not open the invoice', 'warning'); return; }
+  toast('🖨️ Opening the print view — choose "Save as PDF" in the print window' + (bw ? ' (tick "Black & white" there)' : ''), 'info');
+  printInvoiceById(inv);
 }
 
 function closeAllDropdowns(e) {
@@ -15516,6 +15530,7 @@ function openPrintWindow(d, items) {
   <div class="no-print">
     <button onclick="window.print()" style="padding:8px 20px;background:#00897B;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-family:inherit">🖨️ Print / Save PDF</button>
     <button onclick="window.close()" style="padding:8px 16px;background:#fff;border:1.5px solid #ddd;border-radius:7px;cursor:pointer;font-family:inherit">✕ Close</button>
+    ${_bwPrintCtl()}
     <span style="color:#888;font-size:12px">💡 Set margins to "None" in print dialog for best result</span>
   </div>
   <div class="print-wrap">${html}</div>
@@ -15537,6 +15552,28 @@ function printFromModal() {
 
 // Live draft (not yet saved, no invoice id) → no server PDF possible yet,
 // so fall back to the in-browser print preview built from the current form.
+// ── Black & white / ink-saver switch for the browser print windows ─────────────────────
+// Returns a checkbox + a tiny script that (un)re-colours the printed invoice in light greys.
+function _bwPrintCtl() {
+  const js = `window.__bw=function(on){
+    function lum(c){var m=(c||'').match(/[\\d.]+/g);if(!m||m.length<3)return null;var a=m.length>3?parseFloat(m[3]):1;if(a===0)return null;return (0.299*m[0]+0.587*m[1]+0.114*m[2])/255;}
+    function gr(v){v=Math.round(Math.max(0,Math.min(255,v)));return 'rgb('+v+','+v+','+v+')';}
+    var els=document.querySelectorAll('body *');
+    for(var i=0;i<els.length;i++){var el=els[i];
+      if(el.closest('.no-print,.np,script,style'))continue;
+      if(!on){if(el.hasAttribute('data-bw')){var o=el.getAttribute('data-bw');if(o==='-')el.removeAttribute('style');else el.setAttribute('style',o);el.removeAttribute('data-bw');}continue;}
+      if(el.hasAttribute('data-bw'))continue;
+      var orig=el.getAttribute('style');el.setAttribute('data-bw',orig===null?'-':orig);
+      var cs=getComputedStyle(el),st=el.style,L;
+      L=lum(cs.color);if(L!==null)st.setProperty('color',gr(L>0.82?31:30+L*95),'important');
+      L=lum(cs.backgroundColor);if(L!==null)st.setProperty('background-color',gr(232+L*23),'important');
+      if(cs.backgroundImage&&cs.backgroundImage.indexOf('gradient')>-1){st.setProperty('background-image','none','important');st.setProperty('background-color','#eee','important');}
+      ['Top','Right','Bottom','Left'].forEach(function(sd){if(cs['border'+sd+'Style']!=='none'&&parseFloat(cs['border'+sd+'Width'])>0){var b=lum(cs['border'+sd+'Color']);if(b!==null)st.setProperty('border-'+sd.toLowerCase()+'-color',gr(90+b*110),'important');}});
+      if(el.tagName==='IMG')st.setProperty('filter','grayscale(1)','important');
+    }};`;
+  return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;font-family:inherit"><input type="checkbox" onchange="__bw(this.checked)"> Black &amp; white (ink saver)</label><script>${js}<\/script>`;
+}
+
 function printCurrentInvoice() {
   printInvoiceData({ items: formItems });
 }
@@ -15668,6 +15705,7 @@ function printInvoiceById(inv) {
   <div class="np">
     <button onclick="window.print()" style="padding:8px 20px;background:#00897B;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-family:inherit">🖨️ Print / Save PDF</button>
     <button onclick="window.close()" style="padding:8px 16px;background:#fff;border:1.5px solid #ddd;border-radius:7px;cursor:pointer;font-family:inherit">✕ Close</button>
+    ${_bwPrintCtl()}
     <span style="color:#888;font-size:12px">💡 Set margins to "None" for best result</span>
   </div>
   <div class="print-wrap">${html}</div>

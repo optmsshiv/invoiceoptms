@@ -262,6 +262,64 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false, $itemDis
 // Note: mPDF's inline-SVG support is more limited than a browser's — verify these render
 // correctly in an actual downloaded PDF; if glyphs look off, drop this helper's calls and
 // fall back to plain label text (the JS/browser-preview version is unaffected either way).
+// ── Black & white / ink-saver mode (?bw=1) ─────────────────────────────────────────────
+// Re-colours the finished HTML in greys: backgrounds become very light (no heavy dark header
+// block), text becomes dark-grey so it stays readable on any B&W printer, borders stay visible.
+function pdf_bw_gray($r, $g, $b, $mode) {
+    $L = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
+    if ($mode === 'bg')      $v = 232 + $L * 23;                       // 232..255  (faded)
+    elseif ($mode === 'bd')  $v = 90 + $L * 110;                       // 90..200   (visible lines)
+    else                     $v = ($L > 0.82) ? 31 : 30 + $L * 95;     // text: dark; was-white-on-dark -> near black
+    $v = (int)round(max(0, min(255, $v)));
+    return sprintf('#%02X%02X%02X', $v, $v, $v);
+}
+function pdf_bw_value($val, $mode) {
+    $val = preg_replace_callback('/#([0-9a-f]{6}|[0-9a-f]{3})\b/i', function ($m) use ($mode) {
+        $h = $m[1]; if (strlen($h) === 3) $h = $h[0].$h[0].$h[1].$h[1].$h[2].$h[2];
+        return pdf_bw_gray(hexdec(substr($h,0,2)), hexdec(substr($h,2,2)), hexdec(substr($h,4,2)), $mode);
+    }, $val);
+    $val = preg_replace_callback('/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)/i', function ($m) use ($mode) {
+        return pdf_bw_gray((int)$m[1], (int)$m[2], (int)$m[3], $mode);
+    }, $val);
+    $val = preg_replace_callback('/(?<![\w#-])(white|black)(?![\w-])/i', function ($m) use ($mode) {
+        return strtolower($m[1]) === 'white' ? pdf_bw_gray(255,255,255,$mode) : pdf_bw_gray(0,0,0,$mode);
+    }, $val);
+    return $val;
+}
+function pdf_bw_html($html) {
+    // CSS declarations (both <style> blocks and style="" attributes)
+    $html = preg_replace_callback(
+        '/(?<![\w-])(background-color|background|border(?:-(?:top|bottom|left|right))?(?:-color)?|outline|color)\s*:\s*([^;}"\']+)/i',
+        function ($m) {
+            $prop = strtolower($m[1]);
+            $mode = strpos($prop, 'background') === 0 ? 'bg' : ($prop === 'color' ? 'tx' : 'bd');
+            if (preg_match('/gradient/i', $m[2])) return $m[1] . ':' . ($mode === 'bg' ? '#EEEEEE' : $m[2]);
+            return $m[1] . ':' . pdf_bw_value($m[2], $mode);
+        }, $html);
+    // legacy bgcolor="#xxxxxx" attributes
+    $html = preg_replace_callback('/bgcolor\s*=\s*(["\'])([^"\']*)\1/i', function ($m) {
+        return 'bgcolor=' . $m[1] . pdf_bw_value($m[2], 'bg') . $m[1];
+    }, $html);
+    return $html;
+}
+
+// Notes / Terms text -> tidy lines. Numbered or bulleted lines ("1. …", "- …") get a hanging indent
+// so wrapped text lines up under the words, not under the number.
+function pdf_lines_html($text, $size = 10, $color = '#374151', $gap = 4) {
+    $out = '';
+    foreach (preg_split('/\r\n|\r|\n/', (string)$text) as $ln) {
+        $ln = trim($ln);
+        if ($ln === '') continue;
+        if (preg_match('/^(\d+[.)]|[-•*])\s+(.*)$/u', $ln, $m)) {
+            $out .= '<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:' . $gap . 'px"><tr>'
+                 . '<td width="16" valign="top" style="font-size:' . $size . 'px;color:' . $color . ';font-weight:bold">' . htmlspecialchars($m[1]) . '</td>'
+                 . '<td valign="top" style="font-size:' . $size . 'px;color:' . $color . ';line-height:1.5">' . htmlspecialchars($m[2]) . '</td></tr></table>';
+        } else {
+            $out .= '<div style="font-size:' . $size . 'px;color:' . $color . ';line-height:1.5;margin-bottom:' . $gap . 'px">' . htmlspecialchars($ln) . '</div>';
+        }
+    }
+    return $out;
+}
 function pdf_picon($type, $color = '#888', $alignTop = false) {
     // mPDF cannot draw inline SVG (it printed black squares), so use small text labels instead.
     $labels = ['mail' => 'Email:', 'phone' => 'Phone:'];
@@ -861,11 +919,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
         <?php if (!empty($liveNotes)): ?>
         <div class="flh-notes-lbl">Notes</div>
-        <div style="font-size:10px;color:#555;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif;margin-bottom:10px"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
+        <div style="margin-bottom:10px"><?= pdf_lines_html($liveNotes, 10, '#444444', 3) ?></div>
         <?php endif; ?>
         <?php if (!empty($liveTnc)): ?>
         <div class="flh-notes-lbl">Terms &amp; Conditions</div>
-        <div style="font-size:9.5px;color:#888;line-height:1.7;font-family:'DejaVu Sans',Arial,sans-serif"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+        <div><?= pdf_lines_html($liveTnc, 9.5, '#777777', 3) ?></div>
         <?php endif; ?>
       </td>
       <td style="width:40%;vertical-align:bottom">
@@ -1091,16 +1149,16 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
 
         <?php if (!empty($liveNotes)): ?>
-        <div style="margin-top:12px;<?= (!empty($inv['bank_details'])||$companyUpi) ? 'border-top:1px solid #E5E7EB;padding-top:10px' : '' ?>">
-          <div class="section-lbl">Notes</div>
-          <div class="notes-box"><?= nl2br(htmlspecialchars($liveNotes)) ?></div>
-        </div>
+        <table width="100%" cellpadding="9" cellspacing="0" bgcolor="#F8FAFC" style="margin-top:12px;background-color:#F8FAFC;border:1px solid #E5E7EB;border-left:3px solid #4F46E5"><tr><td>
+          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#4F46E5;margin-bottom:5px">NOTES</div>
+          <?= pdf_lines_html($liveNotes, 10, '#374151', 3) ?>
+        </td></tr></table>
         <?php endif; ?>
 
         <?php if (!empty($liveTnc)): ?>
-        <div style="margin-top:12px;border-top:1px solid #E5E7EB;padding-top:10px">
-          <div class="section-lbl">Terms &amp; Conditions</div>
-          <div class="notes-box" style="color:#6B7280"><?= nl2br(htmlspecialchars($liveTnc)) ?></div>
+        <div style="margin-top:12px">
+          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:4px;margin-bottom:6px">TERMS &amp; CONDITIONS</div>
+          <?= pdf_lines_html($liveTnc, 9, '#6B7280', 3) ?>
         </div>
         <?php endif; ?>
       </td>
@@ -1206,9 +1264,10 @@ try {
     $mpdf->autoLangToFont           = true;
     $mpdf->allow_charset_conversion = false;
 
+    if (!empty($_GET['bw'])) $html = pdf_bw_html($html);
     $mpdf->WriteHTML($html);
 
-    $filename = ($isEstimate ? 'Estimate' : 'Invoice') . '-' . preg_replace('/[^A-Za-z0-9\-_]/', '-', $inv['invoice_number']) . '.pdf';
+    $filename = ($isEstimate ? 'Estimate' : 'Invoice') . '-' . preg_replace('/[^A-Za-z0-9\-_]/', '-', $inv['invoice_number']) . (!empty($_GET['bw']) ? '-BW' : '') . '.pdf';
     $dest     = $inline ? 'I' : 'D'; // I = inline browser view, D = force download
 
     $mpdf->Output($filename, $dest);
