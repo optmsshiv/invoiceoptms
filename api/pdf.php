@@ -937,11 +937,12 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
         <?php if (!empty($liveNotes)): ?>
         <div class="flh-notes-lbl">Notes</div>
-        <div style="margin-bottom:18px"><?= pdf_lines_html($liveNotes, 10, '#444444', 6) ?></div>
+        <div><?= pdf_lines_html($liveNotes, 10, '#444444', 6) ?></div>
         <?php endif; ?>
         <?php if (!empty($liveTnc)): ?>
+        <table width="100%" cellpadding="0" cellspacing="0"><tr><td height="16" style="height:16px;font-size:1px;line-height:1px">&nbsp;</td></tr></table>
         <div class="flh-notes-lbl">Terms &amp; Conditions</div>
-        <div><?= pdf_lines_html($liveTnc, 9.5, '#777777', 6) ?></div>
+        <div><?= pdf_lines_html($liveTnc, 9.5, '#777777', 1) ?></div>
         <?php endif; ?>
       </td>
       <td style="width:40%;vertical-align:bottom">
@@ -1174,9 +1175,10 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
 
         <?php if (!empty($liveTnc)): ?>
-        <div style="margin-top:20px">
-          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:5px;margin-bottom:10px">TERMS &amp; CONDITIONS</div>
-          <?= pdf_lines_html($liveTnc, 9, '#6B7280', 6) ?>
+        <table width="100%" cellpadding="0" cellspacing="0"><tr><td height="18" style="height:18px;font-size:1px;line-height:1px">&nbsp;</td></tr></table>
+        <div>
+          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:5px;margin-bottom:8px">TERMS &amp; CONDITIONS</div>
+          <?= pdf_lines_html($liveTnc, 9, '#6B7280', 1) ?>
         </div>
         <?php endif; ?>
       </td>
