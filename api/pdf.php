@@ -40,6 +40,18 @@ $autoloadPath = null;
 foreach ($autoloadCandidates as $cand) {
     if ($cand !== '/vendor/autoload.php' && is_file($cand)) { $autoloadPath = $cand; break; }
 }
+// ── ?check=1 → tiny health probe used by the app's "Download PDF" button. If the PDF library is
+//    missing or incomplete the app opens the browser print view instead of showing an error page.
+if (isset($_GET['check'])) {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    $ok = false;
+    if ($autoloadPath && extension_loaded('mbstring')) {
+        try { require_once $autoloadPath; $ok = class_exists('\\Mpdf\\Mpdf'); } catch (\Throwable $e) { $ok = false; }
+    }
+    echo json_encode(['ok' => $ok]);
+    exit;
+}
 if (!$autoloadPath) {
     http_response_code(500);
     header('Content-Type: application/json');
@@ -49,7 +61,14 @@ if (!$autoloadPath) {
     ]);
     exit;
 }
-require_once $autoloadPath;
+try {
+    require_once $autoloadPath;
+} catch (\Throwable $e) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'The PDF library on the server is incomplete (' . basename($e->getFile()) . '). Re-upload a complete vendor folder or run: composer install --no-dev --optimize-autoloader']);
+    exit;
+}
 
 if (!class_exists('\Mpdf\Mpdf')) {
     // The autoloader itself is fine (loaded above with no fatal error), but it has
@@ -244,17 +263,9 @@ function pdf_tax_summary_html($items, $discFactor, $sym, $mono = false, $itemDis
 // correctly in an actual downloaded PDF; if glyphs look off, drop this helper's calls and
 // fall back to plain label text (the JS/browser-preview version is unaffected either way).
 function pdf_picon($type, $color = '#888', $alignTop = false) {
-    $paths = [
-        'building' => '<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
-        'user'     => '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.58-7 8-7s8 3 8 7"/>',
-        'mail'     => '<path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/>',
-        'phone'    => '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
-        'pin'      => '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
-        'gst'      => '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M6 15h4"/>',
-    ];
-    $p = $paths[$type] ?? $paths['user'];
-    $mt = $alignTop ? 'margin-top:2px;' : '';
-    return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="' . $color . '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="' . $mt . 'flex-shrink:0">' . $p . '</svg>';
+    // mPDF cannot draw inline SVG (it printed black squares), so use small text labels instead.
+    $labels = ['mail' => 'Email:', 'phone' => 'Phone:'];
+    return isset($labels[$type]) ? '<span style="color:#9CA3AF;font-size:8.5px">' . $labels[$type] . '</span>' : '';
 }
 
 // ── Resolve invoice from token OR from invoice_id (internal, authenticated) ──
@@ -650,10 +661,6 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </head>
 <body>
 
-<?php if ($inv['status'] === 'Paid'): ?>
-<div class="watermark">PAID</div>
-<?php endif; ?>
-
 <?php if ($isFormal):
     // ── Computed values specific to the Formal Letterhead template ──
     $refNo = ($isEstimate ? 'EST' : 'INV') . '/' . date('Y') . '/' .
@@ -916,10 +923,12 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
       </table>
     </td>
     <td class="hdr-cell" style="text-align:right;white-space:nowrap">
-      <div class="hdr-badges">
-        <span class="hdr-pill hdr-pill-outline"><?= $isEstimate ? 'ESTIMATE' : 'TAX INVOICE' ?></span>
-        <span class="hdr-pill" style="background:<?= $stBg ?>;color:<?= $stFg ?>"><?= $stLabel ?></span>
-      </div>
+      <table align="right" cellpadding="0" cellspacing="0" style="margin-bottom:10px"><tr>
+        <td style="border:1px solid #94A3B8;color:#E2E8F0;font-size:9px;font-weight:bold;letter-spacing:.7px;padding:5px 11px"><?= $isEstimate ? 'ESTIMATE' : 'TAX INVOICE' ?></td>
+        <td width="6"></td>
+        <td style="background-color:<?= $stBg ?>;color:<?= $stFg ?>;font-size:9px;font-weight:bold;letter-spacing:.7px;padding:5px 11px"><?= $stLabel ?></td>
+      </tr></table>
+      <div style="clear:both"></div>
       <div class="hdr-inv-num" style="margin-bottom:15px"><?= htmlspecialchars($inv['invoice_number']) ?></div>
       <div class="hdr-date-lbl">Issue Date</div>
       <div class="hdr-date-val"><?= pdf_fmt_date($inv['issue_date']) ?></div>
@@ -1059,7 +1068,7 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
 
         <?php if (!empty($inv['bank_details']) || $companyUpi): ?>
-        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-top:<?= $items ? '12px' : '0' ?>">
+        <table width="100%" cellpadding="10" cellspacing="0" bgcolor="#FFFBEB" style="background-color:#FFFBEB;border:1px solid #FDE68A;margin-top:<?= $items ? '12px' : '0' ?>"><tr><td>
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <?php if (!empty($inv['bank_details'])): ?>
@@ -1072,13 +1081,13 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
               <td style="vertical-align:top;<?= !empty($inv['bank_details']) ? 'width:42%;border-left:1px solid #FDE68A;padding-left:14px' : '' ?>;text-align:center">
                 <div style="font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:1.2px;color:#92400E;margin-bottom:5px">UPI</div>
                 <?php if ($qrCode): ?><img src="<?= htmlspecialchars($qrCode) ?>" style="width:64px;height:64px;border-radius:6px;border:1px solid #FDE68A;display:block;margin:0 auto 4px" alt="UPI QR"><?php endif; ?>
-                <div style="display:inline-block;background:#FEF3C7;border-radius:6px;padding:4px 8px;font-size:9.5px;font-weight:bold;color:#92400E"><?= htmlspecialchars($companyUpi) ?></div>
+                <div style="font-size:9.5px;font-weight:bold;color:#92400E"><?= htmlspecialchars($companyUpi) ?></div>
                 <?php if ($qrCode): ?><div style="font-size:8px;color:#92400E;margin-top:3px">Scan to Pay</div><?php endif; ?>
               </td>
               <?php endif; ?>
             </tr>
           </table>
-        </div>
+        </td></tr></table>
         <?php endif; ?>
 
         <?php if (!empty($liveNotes)): ?>
@@ -1185,6 +1194,11 @@ try {
         'default_font'  => 'dejavusans',
     ]);
 
+    if (($inv['status'] ?? '') === 'Paid') {
+        $mpdf->SetWatermarkText('PAID', 0.06);
+        $mpdf->showWatermarkText = true;
+        $mpdf->watermark_font = 'dejavusans';
+    }
     $mpdf->SetTitle(($isEstimate ? 'Estimate' : 'Invoice') . ' ' . $inv['invoice_number']);
     $mpdf->SetAuthor($companyName);
     $mpdf->SetCreator('OPTMS Invoice Manager');
