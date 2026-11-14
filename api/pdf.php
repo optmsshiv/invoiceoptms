@@ -388,6 +388,10 @@ try {
     $invCols = $db->query("SHOW COLUMNS FROM invoices")->fetchAll(PDO::FETCH_COLUMN);
     $hasDiscMode = in_array('discount_mode', $invCols, true);
     $discModeSelect = $hasDiscMode ? ', i.discount_mode' : '';
+    // Details typed on the invoice itself (used for one-time / walk-in clients with no client record)
+    foreach (['client_name', 'client_email', 'client_wa', 'client_addr', 'client_gst'] as $_c) {
+        if (in_array($_c, $invCols, true)) $discModeSelect .= ', i.' . $_c;
+    }
     $stmt = $db->prepare("
         SELECT i.id AS invoice_id, i.invoice_number, i.issued_date AS issue_date,
                i.due_date, i.grand_total AS amount, i.subtotal,
@@ -411,6 +415,20 @@ try {
     $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    // One-time / walk-in clients have no row in `clients` (client_id empty) — their details live on
+    // the invoice itself. Use those whenever the client record is missing or a field is blank.
+    foreach ([
+        'name'       => ['client_name'],
+        'email'      => ['client_email'],
+        'phone'      => ['client_wa', 'client_phone'],
+        'address'    => ['client_addr', 'client_address'],
+        'gst_number' => ['client_gst'],
+    ] as $_f => $_srcs) {
+        if (trim((string)($client[$_f] ?? '')) !== '') continue;
+        foreach ($_srcs as $_s) {
+            if (trim((string)($inv[$_s] ?? '')) !== '') { $client[$_f] = $inv[$_s]; break; }
+        }
+    }
 
     // Line items — hsn/item_type/item_discount columns may not exist on every
     // tenant's invoice_items table yet, so detect them first rather than
@@ -919,11 +937,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
         <?php if (!empty($liveNotes)): ?>
         <div class="flh-notes-lbl">Notes</div>
-        <div style="margin-bottom:10px"><?= pdf_lines_html($liveNotes, 10, '#444444', 3) ?></div>
+        <div style="margin-bottom:18px"><?= pdf_lines_html($liveNotes, 10, '#444444', 6) ?></div>
         <?php endif; ?>
         <?php if (!empty($liveTnc)): ?>
         <div class="flh-notes-lbl">Terms &amp; Conditions</div>
-        <div><?= pdf_lines_html($liveTnc, 9.5, '#777777', 3) ?></div>
+        <div><?= pdf_lines_html($liveTnc, 9.5, '#777777', 6) ?></div>
         <?php endif; ?>
       </td>
       <td style="width:40%;vertical-align:bottom">
@@ -1149,16 +1167,16 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
 
         <?php if (!empty($liveNotes)): ?>
-        <table width="100%" cellpadding="9" cellspacing="0" bgcolor="#F8FAFC" style="margin-top:12px;background-color:#F8FAFC;border:1px solid #E5E7EB;border-left:3px solid #4F46E5"><tr><td>
-          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#4F46E5;margin-bottom:5px">NOTES</div>
-          <?= pdf_lines_html($liveNotes, 10, '#374151', 3) ?>
+        <table width="100%" cellpadding="9" cellspacing="0" bgcolor="#F8FAFC" style="margin-top:18px;background-color:#F8FAFC;border:1px solid #E5E7EB;border-left:3px solid #4F46E5"><tr><td style="padding:12px 12px 8px 12px">
+          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#4F46E5;margin-bottom:8px">NOTES</div>
+          <?= pdf_lines_html($liveNotes, 10, '#374151', 6) ?>
         </td></tr></table>
         <?php endif; ?>
 
         <?php if (!empty($liveTnc)): ?>
-        <div style="margin-top:12px">
-          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:4px;margin-bottom:6px">TERMS &amp; CONDITIONS</div>
-          <?= pdf_lines_html($liveTnc, 9, '#6B7280', 3) ?>
+        <div style="margin-top:20px">
+          <div style="font-size:8px;font-weight:bold;letter-spacing:1.2px;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:5px;margin-bottom:10px">TERMS &amp; CONDITIONS</div>
+          <?= pdf_lines_html($liveTnc, 9, '#6B7280', 6) ?>
         </div>
         <?php endif; ?>
       </td>
@@ -1252,8 +1270,12 @@ try {
         'default_font'  => 'dejavusans',
     ]);
 
-    if (($inv['status'] ?? '') === 'Paid') {
-        $mpdf->SetWatermarkText('PAID', 0.06);
+    // Faint diagonal watermark showing the document status on every invoice / estimate.
+    $_wm = ['paid' => 'PAID', 'partial' => 'PARTIAL', 'pending' => 'PENDING', 'overdue' => 'OVERDUE',
+            'draft' => 'DRAFT', 'estimate' => 'ESTIMATE', 'cancelled' => 'CANCELLED', 'canceled' => 'CANCELLED'];
+    $_wmText = $_wm[strtolower(trim((string)($inv['status'] ?? '')))] ?? '';
+    if ($_wmText !== '') {
+        $mpdf->SetWatermarkText($_wmText, in_array($_wmText, ['CANCELLED', 'DRAFT'], true) ? 0.09 : 0.06);
         $mpdf->showWatermarkText = true;
         $mpdf->watermark_font = 'dejavusans';
     }
