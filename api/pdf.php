@@ -415,6 +415,9 @@ try {
     $cStmt = $db->prepare('SELECT name, email, phone, address, gst_number FROM clients WHERE id = :id');
     $cStmt->execute([':id' => $inv['client_id']]);
     $client = $cStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    // (placeholder values such as "na" / "n/a" / "-" typed into optional fields are treated as empty)
+    $_isBlank = function ($v) { return in_array(strtolower(trim((string)$v)), ['', 'na', 'n/a', 'n.a.', 'nil', 'none', 'null', '-', '--'], true); };
+    foreach (['email', 'phone', 'address', 'gst_number'] as $_f) { if ($_isBlank($client[$_f] ?? '')) $client[$_f] = ''; }
     // One-time / walk-in clients have no row in `clients` (client_id empty) — their details live on
     // the invoice itself. Use those whenever the client record is missing or a field is blank.
     foreach ([
@@ -426,7 +429,7 @@ try {
     ] as $_f => $_srcs) {
         if (trim((string)($client[$_f] ?? '')) !== '') continue;
         foreach ($_srcs as $_s) {
-            if (trim((string)($inv[$_s] ?? '')) !== '') { $client[$_f] = $inv[$_s]; break; }
+            if (!$_isBlank($inv[$_s] ?? '')) { $client[$_f] = $inv[$_s]; break; }
         }
     }
 
@@ -1027,29 +1030,28 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
 </div>
 <?php endif; ?>
 
-<!-- Billed To / Issued By -->
-<div class="card">
-  <table class="two-col" width="100%">
-    <tr>
-      <td>
-        <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Billed To</div>
-        <div class="info-val" style="font-size:13px"><?= pdf_picon('building','#555') ?> <?= htmlspecialchars($client['name'] ?? '—') ?></div>
-        <?php if (!empty($client['email'])): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($client['email']) ?></div><?php endif; ?>
-        <?php if (!empty($client['phone'])): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('phone') ?> <?= htmlspecialchars($client['phone']) ?></div><?php endif; ?>
-        <?php if (!empty($client['address'])): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= pdf_picon('pin','#888',true) ?> <?= nl2br(htmlspecialchars($client['address'])) ?></div><?php endif; ?>
-        <?php if (!empty($client['gst_number'])): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('gst') ?> GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
-      </td>
-      <td>
-        <div class="card-head" style="background:none;border:none;padding:8px 0 6px 0">Issued By</div>
-        <div class="info-val" style="font-size:13px"><?= pdf_picon('building','#555') ?> <?= htmlspecialchars($companyName) ?></div>
-        <?php if ($companyEmail): ?><div style="font-size:10px;color:#6B7280;margin-top:3px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
-        <?php if ($companyPhone): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('phone') ?> <?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
-        <?php if ($companyAddress): ?><div style="font-size:10px;color:#6B7280;margin-top:2px"><?= pdf_picon('pin','#888',true) ?> <?= nl2br(htmlspecialchars($companyAddress)) ?></div><?php endif; ?>
-        <?php if ($companyGST): ?><div style="font-size:10px;color:#6B7280"><?= pdf_picon('gst') ?> GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
-      </td>
-    </tr>
-  </table>
-</div>
+<!-- Billed To / Issued By — two separate colour-coded cards with a clear gap and inner margins -->
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px">
+  <tr>
+    <td width="49%" valign="top" bgcolor="#EEF2FF" style="background-color:#EEF2FF;border:1px solid #C7D2FE;border-left:4px solid #4F46E5;padding:12px 16px 12px 16px">
+      <div style="font-size:8.5px;font-weight:bold;letter-spacing:1.3px;color:#4F46E5;text-transform:uppercase;margin-bottom:6px">Billed To</div>
+      <div style="font-size:13.5px;font-weight:bold;color:#1E1B4B;margin-bottom:4px"><?= htmlspecialchars($client['name'] ?? '—') ?></div>
+      <?php if (!empty($client['email'])): ?><div style="font-size:10px;color:#4B5563;margin-top:2px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($client['email']) ?></div><?php endif; ?>
+      <?php if (!empty($client['phone'])): ?><div style="font-size:10px;color:#4B5563;margin-top:2px"><?= pdf_picon('phone') ?> <?= htmlspecialchars($client['phone']) ?></div><?php endif; ?>
+      <?php if (!empty($client['address'])): ?><div style="font-size:10px;color:#4B5563;margin-top:2px;line-height:1.45"><?= nl2br(htmlspecialchars($client['address'])) ?></div><?php endif; ?>
+      <?php if (!empty($client['gst_number'])): ?><div style="font-size:10px;color:#4B5563;margin-top:2px">GSTIN: <?= htmlspecialchars($client['gst_number']) ?></div><?php endif; ?>
+    </td>
+    <td width="2%">&nbsp;</td>
+    <td width="49%" valign="top" bgcolor="#ECFDF5" style="background-color:#ECFDF5;border:1px solid #A7F3D0;border-left:4px solid #0D9488;padding:12px 16px 12px 16px">
+      <div style="font-size:8.5px;font-weight:bold;letter-spacing:1.3px;color:#0F766E;text-transform:uppercase;margin-bottom:6px">Issued By</div>
+      <div style="font-size:13.5px;font-weight:bold;color:#064E3B;margin-bottom:4px"><?= htmlspecialchars($companyName) ?></div>
+      <?php if ($companyEmail): ?><div style="font-size:10px;color:#4B5563;margin-top:2px"><?= pdf_picon('mail') ?> <?= htmlspecialchars($companyEmail) ?></div><?php endif; ?>
+      <?php if ($companyPhone): ?><div style="font-size:10px;color:#4B5563;margin-top:2px"><?= pdf_picon('phone') ?> <?= htmlspecialchars($companyPhone) ?></div><?php endif; ?>
+      <?php if ($companyAddress): ?><div style="font-size:10px;color:#4B5563;margin-top:2px;line-height:1.45"><?= nl2br(htmlspecialchars($companyAddress)) ?></div><?php endif; ?>
+      <?php if ($companyGST): ?><div style="font-size:10px;color:#4B5563;margin-top:2px">GSTIN: <?= htmlspecialchars($companyGST) ?></div><?php endif; ?>
+    </td>
+  </tr>
+</table>
 
 <!-- Line Items -->
 <?php if ($items): ?>
@@ -1219,11 +1221,11 @@ body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; color: #1
         <?php endif; ?>
 
         <!-- Signature — pinned toward the bottom of this cell -->
-        <div style="text-align:right;padding:20px 14px 14px">
+        <div style="text-align:left;padding:20px 14px 14px 18px">
           <?php if ($companySign): ?>
-            <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:44px;max-width:150px;display:block;margin-left:auto;margin-bottom:4px" alt="Signature">
+            <img src="<?= htmlspecialchars($companySign) ?>" style="max-height:44px;max-width:150px;display:block;margin-bottom:4px" alt="Signature">
           <?php else: ?>
-            <div style="width:140px;border-bottom:1px solid #C7D2FE;margin-left:auto;margin-bottom:5px;height:30px"></div>
+            <div style="width:140px;border-bottom:1px solid #C7D2FE;margin-bottom:5px;height:30px"></div>
           <?php endif; ?>
           <div style="font-size:8.5px;color:#9CA3AF;font-weight:bold;text-transform:uppercase;letter-spacing:.5px">Authorised Signatory</div>
           <div style="font-size:8px;color:#C4CAF5;margin-top:1px"><?= htmlspecialchars($companyName) ?></div>
