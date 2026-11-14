@@ -2671,22 +2671,26 @@ const SERVER = {
           <!-- Invoice Meta -->
           <div class="form-section">
             <div class="fs-title"><i class="fas fa-hashtag"></i> Invoice Details</div>
-            <div class="form-grid g3">
-              <div class="field" id="pne-field-fssai_license"><label id="pne-label-fssai_license">Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
-              <div class="field"><label>Service Type</label>
-                <select id="f-service" onchange="onServiceSelect(this.value);livePreview()" style="margin-bottom:5px">
-                  <option value="">-- Select from your services --</option>
-                </select>
-                <input id="f-service-custom" placeholder="Or type a custom service description…" oninput="syncServiceText(this.value);livePreview()" style="font-size:12.5px">
+            <div class="invd-grid">
+              <div class="field c4" id="pne-field-fssai_license"><label id="pne-label-fssai_license">Invoice #</label><input id="f-num" value="" placeholder="Auto-generated" oninput="livePreview()"></div>
+              <div class="field c4"><label>Issue Date</label><input type="date" id="f-date" oninput="updateDueFromIssue();livePreview()"></div>
+              <div class="field c4"><label>Due Date</label><input type="date" id="f-due" oninput="livePreview()"></div>
+
+              <div class="field c8"><label>Service Type</label>
+                <div class="svc-pair">
+                  <select id="f-service" onchange="onServiceSelect(this.value);livePreview()">
+                    <option value="">-- Select from your services --</option>
+                  </select>
+                  <input id="f-service-custom" placeholder="…or type a custom service description" oninput="syncServiceText(this.value);livePreview()">
+                </div>
               </div>
-              <div class="field"><label>Issue Date</label><input type="date" id="f-date" oninput="updateDueFromIssue();livePreview()"></div>
-              <div class="field"><label>Due Date</label><input type="date" id="f-due" oninput="livePreview()"></div>
-              <div class="field"><label>Currency</label>
+              <div class="field c4"><label>Currency</label>
                 <select id="f-currency" onchange="livePreview()">
                   <option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option>
                 </select>
               </div>
-              <div class="field"><label>PDF Template</label>
+
+              <div class="field c4"><label>PDF Template</label>
                 <select id="f-template" onchange="syncThemePicker();livePreview()">
                   <option value="2">Colorful Matte</option>
                   <option value="A">Clean Minimal</option>
@@ -2695,15 +2699,14 @@ const SERVER = {
                   <option value="F">Formal Letterhead</option>
                 </select>
               </div>
-            </div>
-            <div style="margin-top:14px">
-              <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px">Payment Status</label>
-              <div class="status-toggle-row">
-                <label class="status-radio"><input type="radio" name="inv-status" value="Draft" checked onchange="livePreview()"><span class="sr-pill draft">Draft</span></label>
-                <label class="status-radio"><input type="radio" name="inv-status" value="Estimate" onchange="onStatusChange('Estimate');livePreview()"><span class="sr-pill estimate">📋 Estimate</span></label>
-                <label class="status-radio"><input type="radio" name="inv-status" value="Pending" onchange="onStatusChange('Pending');livePreview()"><span class="sr-pill pending">Pending</span></label>
-                <label class="status-radio"><input type="radio" name="inv-status" value="Paid" onchange="livePreview()"><span class="sr-pill paid">Paid</span></label>
-                <label class="status-radio"><input type="radio" name="inv-status" value="Overdue" onchange="livePreview()"><span class="sr-pill overdue">Overdue</span></label>
+              <div class="field c8"><label>Payment Status</label>
+                <div class="status-toggle-row">
+                  <label class="status-radio"><input type="radio" name="inv-status" value="Draft" checked onchange="livePreview()"><span class="sr-pill draft">Draft</span></label>
+                  <label class="status-radio"><input type="radio" name="inv-status" value="Estimate" onchange="onStatusChange('Estimate');livePreview()"><span class="sr-pill estimate">📋 Estimate</span></label>
+                  <label class="status-radio"><input type="radio" name="inv-status" value="Pending" onchange="onStatusChange('Pending');livePreview()"><span class="sr-pill pending">Pending</span></label>
+                  <label class="status-radio"><input type="radio" name="inv-status" value="Paid" onchange="livePreview()"><span class="sr-pill paid">Paid</span></label>
+                  <label class="status-radio"><input type="radio" name="inv-status" value="Overdue" onchange="livePreview()"><span class="sr-pill overdue">Overdue</span></label>
+                </div>
               </div>
             </div>
           </div>
@@ -39879,6 +39882,41 @@ function init() {
     `</section>`;
   document.body.appendChild($root);
   $panel = $root.querySelector('#ob-panel'); $fab = $root.querySelector('#ob-fab'); $msgs = $root.querySelector('#ob-msgs'); $in = $root.querySelector('#ob-in');
+  // Drag the button anywhere (position is remembered); double-click it to send it back home.
+  (function () {
+    const KEY = 'optBotPos'; let sx, sy, ox, oy, moved = false, down = false, blockClick = false;
+    const narrow = () => window.innerWidth <= 900;
+    function place(x, y) {
+      const w = $root.offsetWidth || 44, h = $root.offsetHeight || 44;
+      x = Math.max(8, Math.min(window.innerWidth - w - 8, x)); y = Math.max(8, Math.min(window.innerHeight - h - 8, y));
+      $root.style.left = x + 'px'; $root.style.top = y + 'px'; $root.style.right = 'auto'; $root.style.bottom = 'auto';
+      $root.classList.add('moved');
+      $root.classList.toggle('pos-left', x < 400);
+      $root.classList.toggle('pos-top', y < 640);
+      return { x, y };
+    }
+    function home() { ['left', 'top', 'right', 'bottom'].forEach(k => $root.style[k] = ''); $root.classList.remove('moved', 'pos-left', 'pos-top'); }
+    try { const p = JSON.parse(localStorage.getItem(KEY) || 'null'); if (p && !narrow()) place(p.x, p.y); } catch (e) {}
+    window.addEventListener('resize', () => { if ($root.classList.contains('moved') && !narrow()) { const r = $root.getBoundingClientRect(); place(r.left, r.top); } });
+    $fab.addEventListener('pointerdown', e => {
+      if (narrow() || e.button > 0) return;
+      const r = $root.getBoundingClientRect(); down = true; moved = false; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      try { $fab.setPointerCapture(e.pointerId); } catch (er) {}
+    });
+    $fab.addEventListener('pointermove', e => {
+      if (!down) return;
+      if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) < 6) return;
+      moved = true; $root.classList.add('dragging'); place(ox + e.clientX - sx, oy + e.clientY - sy);
+    });
+    const end = () => {
+      if (!down) return; down = false; $root.classList.remove('dragging');
+      if (moved) { blockClick = true; setTimeout(() => blockClick = false, 0); const r = $root.getBoundingClientRect(); try { localStorage.setItem(KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })); } catch (e) {} }
+    };
+    $fab.addEventListener('pointerup', end); $fab.addEventListener('pointercancel', end);
+    $fab.addEventListener('click', e => { if (blockClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    $fab.addEventListener('dblclick', e => { e.preventDefault(); home(); try { localStorage.removeItem(KEY); } catch (er) {} if (BOT.open) closePanel(); });
+    $fab.title = 'OPTMS ai — ask about your business (drag to move, double-click to reset)';
+  })();
   $fab.addEventListener('click', () => BOT.open ? closePanel() : openPanel());
   $root.querySelector('#ob-close').addEventListener('click', closePanel);
   $root.querySelector('#ob-clear').addEventListener('click', reset);
@@ -39973,6 +40011,32 @@ input[type=checkbox], input[type=radio] { accent-color: var(--teal); }
 
 /* the OPTMS ai chat button sits above the page but BELOW pop-ups (they are layer 300), so it never covers a form's buttons */
 #opt-bot { z-index: 250; }
+
+/* ── OPTMS ai button: compact round icon (label shows on hover), draggable, never parks over form buttons ── */
+#ob-fab { width: 44px; height: 44px; padding: 0; gap: 0; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; }
+#ob-fab span { max-width: 0; overflow: hidden; opacity: 0; margin: 0; transition: max-width .18s, opacity .18s, margin .18s; }
+#ob-fab:hover, #ob-fab:focus-visible { width: auto; padding: 0 16px 0 14px; border-radius: 999px; }
+#ob-fab:hover span, #ob-fab:focus-visible span { max-width: 90px; opacity: 1; margin-left: 8px; }
+#opt-bot.dragging #ob-fab { transition: none; cursor: grabbing; transform: scale(1.06); }
+#opt-bot.dragging #ob-fab span { max-width: 0; opacity: 0; margin: 0; }
+/* panel opens toward the free side of the screen when the button has been moved */
+#opt-bot.pos-left  #ob-panel { right: auto; left: 0; }
+#opt-bot.pos-top   #ob-panel { bottom: auto; top: 56px; }
+/* on the create-invoice page (form + preview columns) tuck the button at the form/preview seam, clear of the Save / Print / WhatsApp / Email buttons */
+@media (min-width: 1101px) { body:has(#page-create.active) #opt-bot:not(.moved) { right: 424px; bottom: 16px; } }
+body:has(#page-create.active) .create-form { padding-bottom: 76px; }
+
+/* ── Invoice Details card: 12-column grid so every row lines up ── */
+.invd-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px 16px; align-items: start; }
+.invd-grid > .field { min-width: 0; margin: 0; }
+.invd-grid .c4 { grid-column: span 4; }
+.invd-grid .c8 { grid-column: span 8; }
+.invd-grid .svc-pair { display: flex; gap: 8px; }
+.invd-grid .svc-pair > select { flex: 1 1 46%; min-width: 0; margin: 0; }
+.invd-grid .svc-pair > input  { flex: 1 1 54%; min-width: 0; margin: 0; }
+.invd-grid .status-toggle-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 40px; }
+@media (max-width: 1100px) { .invd-grid .c4 { grid-column: span 6; } .invd-grid .c8 { grid-column: span 12; } }
+@media (max-width: 600px)  { .invd-grid .c4 { grid-column: span 12; } .invd-grid .svc-pair { flex-direction: column; } }
 
 /* new controls are hidden unless a media query turns them on */
 .filters-toggle,
