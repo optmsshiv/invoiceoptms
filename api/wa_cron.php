@@ -425,56 +425,70 @@ function waFestivalRecipients($db, string $sendTo): array {
 }
 
 function waRunFestival($db, array $cfg, string $waToken, string $waPid, string $portalBase): void {
-    $sched = trim($cfg['wa_festival_schedule'] ?? '');
-    if ($sched === '') return;
-    $ts = strtotime($sched);                          // saved as local (IST) date-time
-    if (!$ts) { echo "[Festival] Invalid schedule '{$sched}' — ignoring.\n"; return; }
-    if ($ts > time()) { echo "[Festival] Scheduled for {$sched} — not due yet.\n"; return; }
+    // Saved campaigns live in festival_campaigns (managed from WhatsApp → Festival & Bulk Campaign).
+    try {
+        $due = $db->query("SELECT * FROM festival_campaigns WHERE active=1 AND schedule IS NOT NULL AND schedule <= NOW() ORDER BY schedule ASC")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) { return; }   // table not created yet = no campaigns saved
+    if (!$due) { echo "[Festival] No campaign due.\n"; return; }
 
     $tplName = trim($cfg['wa_tpl_name_festival'] ?? '');
     $tplLang = trim($cfg['wa_tpl_lang_festival'] ?? '') ?: 'en_US';
-    if ($tplName === '') { echo "[Festival] Due, but no festival template name is set (WhatsApp → Templates). Skipped.\n"; return; }
-
-    $img = trim($cfg['wa_festival_img'] ?? '');
-    if ($img !== '' && !preg_match('#^https?://#i', $img)) {
-        $img = rtrim(preg_replace('#/portal/?$#', '/', $portalBase), '/') . '/' . ltrim($img, '/');
-    }
-    if ($img !== '' && !preg_match('#^https://#i', $img)) { echo "[Festival] Image link must be https — skipped.\n"; return; }
-
-    // Claim the run first (advance / clear the schedule) so an overlapping cron can't send it twice.
-    $repeat = $cfg['wa_festival_repeat'] ?? '';
-    $next = '';
-    if (in_array($repeat, ['weekly', 'monthly', 'yearly'], true)) {
-        $step = ['weekly' => '+1 week', 'monthly' => '+1 month', 'yearly' => '+1 year'][$repeat];
-        $n = $ts; $guard = 0;
-        while ($n <= time() && $guard++ < 500) $n = strtotime($step, $n);
-        $next = date('Y-m-d\TH:i', $n);
-    }
-    waSetting($db, 'wa_festival_schedule', $next);
-    waSetting($db, 'wa_festival_last_run', date('Y-m-d H:i:s'));
-
-    $targets = waFestivalRecipients($db, $cfg['wa_festival_sendto'] ?? 'all');
     $company = $cfg['company_name'] ?? '';
     $phone   = $cfg['company_phone'] ?? '';
-    echo "[Festival] Sending '{$tplName}' to " . count($targets) . " client(s)" . ($img ? ' with image' : '') . "...\n";
-    $sent = 0; $failed = 0; $failStreak = 0;
-    foreach ($targets as $t) {
-        $params = [$t['name'] ?: '-', $company ?: '-', $phone ?: '-'];
-        $ok = waCronSendDirect($waToken, $waPid, $t['phone'], $tplName, $tplLang, $params, $img);
-        try {
-            $db->prepare("INSERT INTO wa_message_log (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
-                          VALUES (?, NOW(), 'festival', ?, ?, ?, '', '', '', '', ?, ?)")
-               ->execute(['cron_festival_' . date('YmdHis') . '_' . substr($t['phone'], -4), $ok ? 'sent_api' : 'failed', $t['name'], $t['phone'], '[cron] ' . $tplName, $ok ? null : ($GLOBALS['wa_last_err'] ?? 'send failed')]);
-        } catch (Throwable $e) {}
-        if ($ok) { $sent++; $failStreak = 0; }
-        else {
-            $failed++; $failStreak++;
-            echo "  ❌ {$t['name']} ({$t['phone']}): " . ($GLOBALS['wa_last_err'] ?? 'failed') . "\n";
-            if ($failStreak >= 5 && $sent === 0) { echo "  Stopping — first 5 sends all failed (check template name / approval / image).\n"; break; }
+    $site    = rtrim(preg_replace('#/portal/?$#', '/', $portalBase), '/');
+
+    foreach ($due as $camp) {
+        $label = "'{$camp['name']}' (#{$camp['id']})";
+        if ($tplName === '') {
+            echo "[Festival] {$label} is due, but no festival template name is set (WhatsApp → Templates). Skipped.\n";
+            $db->prepare("UPDATE festival_campaigns SET last_result=? WHERE id=?")->execute(['Not sent: no template name set', $camp['id']]);
+            continue;
         }
-        usleep(350000);
+        $img = trim((string)$camp['image']);
+        if ($img !== '' && !preg_match('#^https?://#i', $img)) $img = $site . '/' . ltrim($img, '/');
+        if ($img !== '' && !preg_match('#^https://#i', $img)) {
+            echo "[Festival] {$label}: image link must be https — skipped.\n";
+            $db->prepare("UPDATE festival_campaigns SET last_result=? WHERE id=?")->execute(['Not sent: image must be https', $camp['id']]);
+            continue;
+        }
+
+        // Claim the run first (move the schedule on, or switch a one-time campaign off) so an
+        // overlapping cron run can never send the same campaign twice.
+        $ts = strtotime($camp['schedule']);
+        $next = null;
+        if (in_array($camp['repeat_mode'], ['weekly', 'monthly', 'yearly'], true)) {
+            $step = ['weekly' => '+1 week', 'monthly' => '+1 month', 'yearly' => '+1 year'][$camp['repeat_mode']];
+            $n = $ts; $guard = 0;
+            while ($n <= time() && $guard++ < 500) $n = strtotime($step, $n);
+            $next = date('Y-m-d H:i:s', $n);
+        }
+        $claim = $db->prepare("UPDATE festival_campaigns SET schedule=?, active=?, last_run=NOW() WHERE id=? AND schedule=?");
+        $claim->execute([$next, $next ? 1 : 0, $camp['id'], $camp['schedule']]);
+        if ($claim->rowCount() === 0) { echo "[Festival] {$label} already handled by another run.\n"; continue; }
+
+        $targets = waFestivalRecipients($db, $camp['sendto'] ?: 'all');
+        echo "[Festival] Sending {$label} to " . count($targets) . " client(s)" . ($img ? ' with image' : '') . "...\n";
+        $sent = 0; $failed = 0; $streak = 0;
+        foreach ($targets as $t) {
+            $params = [$t['name'] ?: '-', $company ?: '-', $phone ?: '-'];
+            $ok = waCronSendDirect($waToken, $waPid, $t['phone'], $tplName, $tplLang, $params, $img);
+            try {
+                $db->prepare("INSERT INTO wa_message_log (entry_id, ts, type, status, client, phone, inv_id, inv_num, inv_amt, inv_status, msg, error)
+                              VALUES (?, NOW(), 'festival', ?, ?, ?, '', '', '', '', ?, ?)")
+                   ->execute(['cron_festival_' . $camp['id'] . '_' . date('YmdHis') . '_' . substr($t['phone'], -4), $ok ? 'sent_api' : 'failed', $t['name'], $t['phone'], '[cron] ' . $camp['name'], $ok ? null : ($GLOBALS['wa_last_err'] ?? 'send failed')]);
+            } catch (Throwable $e) {}
+            if ($ok) { $sent++; $streak = 0; }
+            else {
+                $failed++; $streak++;
+                echo "  ❌ {$t['name']} ({$t['phone']}): " . ($GLOBALS['wa_last_err'] ?? 'failed') . "\n";
+                if ($streak >= 5 && $sent === 0) { echo "  Stopping — first 5 sends all failed (check template name / approval / image).\n"; break; }
+            }
+            usleep(350000);
+        }
+        $res = "{$sent} sent, {$failed} failed";
+        $db->prepare("UPDATE festival_campaigns SET last_result=? WHERE id=?")->execute([$res, $camp['id']]);
+        echo "[Festival] {$label} done: {$res}." . ($next ? " Next run: {$next}." : " One-time campaign finished.") . "\n";
     }
-    echo "[Festival] Done: {$sent} sent, {$failed} failed." . ($next ? " Next run: {$next}." : " One-time campaign finished.") . "\n";
 }
 
 // ================================================================

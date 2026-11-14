@@ -6965,11 +6965,11 @@ View Invoice: {{6}}</pre></details>
         <div class="settings-block" style="margin:0">
           <div class="sb-title"><i class="fas fa-star" style="color:var(--amber)"></i> Festival &amp; Bulk Campaign</div>
           <div style="background:var(--amber-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:14px">
-            ✨ Send personalised festival greetings to all or selected clients. Uses your approved <b>Festival Greeting</b> template (WhatsApp → Templates; add the image link here only if that template has an Image header). Inactive clients and duplicate numbers are skipped. Use <b>Send test to me</b> first. Scheduled campaigns are sent by the server cron.
+            ✨ Send personalised festival greetings to all or selected clients. Uses your approved <b>Festival Greeting</b> template (WhatsApp → Templates; add the image link here only if that template has an Image header). Inactive clients and duplicate numbers are skipped. Use <b>Send test to me</b> first. You can save several campaigns (each with its own date and picture); the server sends them automatically.
           </div>
           <div class="form-grid g2" style="gap:12px">
             <div class="field"><label>Festival / Occasion</label>
-              <select id="wa-festival" onchange="festivalPreset()">
+              <select id="wa-festival" onchange="festivalOccasionChanged()">
                 <option value="diwali">Diwali 🪔</option>
                 <option value="holi">Holi 🎨</option>
                 <option value="eid">Eid Mubarak 🌙</option>
@@ -6999,7 +6999,7 @@ View Invoice: {{6}}</pre></details>
                 <option value="active">Recent Activity (90 days)</option>
               </select>
             </div>
-            <div class="field"><label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(blank = send now)</span></label>
+            <div class="field"><label>Schedule Date &amp; Time <span style="font-size:10px;color:var(--muted)">(needed for Save Campaign)</span></label>
               <input type="datetime-local" id="wa-festival-schedule" style="width:100%">
             </div>
             <div class="field"><label>Repeat</label>
@@ -7016,7 +7016,9 @@ View Invoice: {{6}}</pre></details>
           </div>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="previewFestivalMsg()"><i class="fas fa-eye"></i> Preview</button>
-            <button class="btn btn-primary" onclick="saveFestivalCampaign()"><i class="fas fa-save"></i> Save Campaign</button>
+            <input type="hidden" id="wa-festival-edit-id">
+            <button class="btn btn-primary" id="wa-festival-save-btn" onclick="saveFestivalCampaign()" title="Saves it to the list below; the server sends it at the chosen date &amp; time"><i class="fas fa-save"></i> Save Campaign</button>
+            <button class="btn btn-outline" id="wa-festival-cancel-edit" style="display:none" onclick="festivalCancelEdit()">Cancel edit</button>
             <button class="btn btn-outline" onclick="sendFestivalTest()" title="Sends one copy to the Test Phone Number"><i class="fas fa-vial"></i> Send test to me</button>
             <button class="btn btn-whatsapp" onclick="sendFestivalBulk()"><i class="fab fa-whatsapp"></i> Send Now</button>
           </div>
@@ -31503,11 +31505,6 @@ function populateWAPage() {
   setV('wa-tpl-recurring',wa.tpl_recurring || getDefaultWATpl('recurring'));
   setV('wa-tpl-partial', wa.tpl_partial || getDefaultWATpl('partial_receipt'));
   setV('wa-tpl-festival',wa.tpl_festival|| getDefaultWATpl('festival'));
-  if (wa.festival_sendto) setV('wa-send-to', wa.festival_sendto);
-  if (wa.festival_repeat) setV('wa-festival-repeat', wa.festival_repeat);
-  if (wa.festival_name)   setV('wa-festival', wa.festival_name);
-  if (wa.festival_img && !document.getElementById('wa-festival-img')?.value) setV('wa-festival-img', wa.festival_img);
-  if (wa.festival_schedule) setV('wa-festival-schedule', wa.festival_schedule);
 
   // Toggles
   setTog('twa1', wa.auto_inv     === '1');
@@ -32421,71 +32418,147 @@ function setWAMode(mode) {
 
 
 
-// ── Festival Campaign Save & Schedule ─────────────────────────
-window.saveFestivalCampaign = async function() {
-  const payload = {
-    wa_festival_tpl:      document.getElementById('wa-tpl-festival')?.value   || '',
-    wa_festival_sendto:   document.getElementById('wa-send-to')?.value        || 'all',
-    wa_festival_img:      document.getElementById('wa-festival-img')?.value   || '',
-    wa_festival_schedule: document.getElementById('wa-festival-schedule')?.value || '',
-    wa_festival_repeat:   document.getElementById('wa-festival-repeat')?.value || '',
-    wa_festival_name:     document.getElementById('wa-festival')?.value        || 'custom',
-    // the cron job reads the template name from settings too
-    wa_tpl_name_festival: (document.getElementById('tpl-name-festival')?.value || '').trim(),
-    wa_tpl_lang_festival: (document.getElementById('tpl-lang-festival')?.value || 'en_US').trim() || 'en_US',
-  };
-  const _img = festivalImageUrl();
-  if (_img && !/^https:\/\//i.test(_img)) { toast('⚠️ The image must be a public https:// link.', 'warning'); return; }
-  payload.wa_festival_img = _img;
-  if (payload.wa_festival_schedule && new Date(payload.wa_festival_schedule) <= new Date()) {
-    toast('⚠️ Pick a schedule time in the future (or leave it blank and use Send Now).', 'warning'); return;
-  }
-  try {
-    await api('api/settings.php', 'POST', payload);
-    // Store locally
-    if (!STATE.settings.wa) STATE.settings.wa = {};
-    STATE.settings.wa.festival_schedule = payload.wa_festival_schedule;
-    STATE.settings.wa.festival_repeat   = payload.wa_festival_repeat;
-    STATE.settings.wa.festival_sendto   = payload.wa_festival_sendto;
-    STATE.settings.wa.festival_img      = payload.wa_festival_img;
-    // Show confirmation
-    const schedTime = payload.wa_festival_schedule
-      ? ' — scheduled for ' + new Date(payload.wa_festival_schedule).toLocaleString(_moneyLocale(),{dateStyle:'medium',timeStyle:'short'})
-      : '';
-    toast('✅ Campaign saved!' + schedTime, 'success');
-    renderFestivalCampaigns();
-  } catch(e) { toast('❌ ' + e.message, 'error'); }
-};
+// ── Festival campaigns: saved list, per-occasion images, scheduling ─────────────
+// Campaigns are stored on the server (api/festival.php) and sent by api/wa_cron.php at their time.
+const FEST_LABELS = { diwali:'Diwali 🪔', holi:'Holi 🎨', eid:'Eid Mubarak 🌙', christmas:'Christmas 🎄', newyear:'New Year 🎊', independence:'Independence Day 🇮🇳', custom:'Custom' };
+// Ready-made greeting pictures (upload the "festival-img" folder next to index.php once).
+const FEST_DEFAULT_IMG = { diwali:'festival-img/diwali.png', holi:'festival-img/holi.png', eid:'festival-img/eid.png', christmas:'festival-img/christmas.png', newyear:'festival-img/newyear.png', independence:'festival-img/independence.png', custom:'festival-img/general.png' };
+// Festivals that fall on the same date every year (month, day) — these auto-fill a yearly schedule.
+const FEST_FIXED = { christmas:[12,25], newyear:[1,1], independence:[8,15] };
+window.FEST = window.FEST || { campaigns: [], images: {}, loaded: false };
 
-function renderFestivalCampaigns() {
+async function festivalLoad() {
+  try {
+    const r = await api('api/festival.php');
+    FEST.campaigns = (r && r.campaigns) || [];
+    FEST.images    = (r && r.images && !Array.isArray(r.images)) ? r.images : {};
+    FEST.loaded = true;
+  } catch (e) { FEST.loaded = true; }
+}
+function festivalShowPreview(url) {
+  const el = document.getElementById('wa-festival-img-preview'); if (!el) return;
+  if (!url) { el.innerHTML = ''; return; }
+  let abs = url; try { abs = new URL(url, location.href).href; } catch (e) {}
+  el.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+    <img src="${escHtml(abs)}" style="height:44px;border-radius:4px" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
+    <span style="display:none;font-size:11px;color:var(--red)">Image not found — upload the festival-img folder or choose your own picture</span>
+    <span style="font-size:11px;color:var(--muted)">${escHtml(url.split('/').pop())}</span></div>`;
+}
+// Occasion changed: load that occasion's picture + greeting, and a yearly date for fixed-date festivals.
+window.festivalOccasionChanged = function() {
+  const occ = document.getElementById('wa-festival')?.value || 'custom';
+  const imgEl = document.getElementById('wa-festival-img');
+  if (imgEl) { imgEl.value = FEST.images[occ] || FEST_DEFAULT_IMG[occ] || ''; festivalShowPreview(imgEl.value); }
+  festivalPreset();
+  const schEl = document.getElementById('wa-festival-schedule'), repEl = document.getElementById('wa-festival-repeat');
+  if (schEl && !schEl.value && FEST_FIXED[occ]) {
+    const [mo, da] = FEST_FIXED[occ]; const now = new Date();
+    let y = now.getFullYear(); if (new Date(y, mo-1, da, 9, 0) <= now) y++;
+    const pad = n => String(n).padStart(2, '0');
+    schEl.value = `${y}-${pad(mo)}-${pad(da)}T09:00`;
+    if (repEl) repEl.value = 'yearly';
+    toast(`📅 Date set to ${da}/${mo}/${y} 9:00 AM, repeating every year — change it if you like`, 'info');
+  }
+};
+// Remember the picture chosen/uploaded for the current occasion.
+function festivalBindImage() {
+  const el = document.getElementById('wa-festival-img');
+  if (!el || el.dataset.bound) return; el.dataset.bound = '1';
+  let t;
+  el.addEventListener('input', () => {
+    festivalShowPreview(el.value.trim());
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const occ = document.getElementById('wa-festival')?.value || 'custom';
+      const v = el.value.trim();
+      if (v === (FEST.images[occ] || '')) return;
+      try { await api('api/festival.php', 'POST', { action: 'set_image', occasion: occ, url: v }); if (v) FEST.images[occ] = v; else delete FEST.images[occ]; } catch (e) {}
+    }, 700);
+  });
+}
+const _festFmt = d => { const t = new Date(String(d).replace(' ', 'T')); return isNaN(t) ? '—' : t.toLocaleString(_moneyLocale(), { dateStyle: 'medium', timeStyle: 'short' }); };
+const _festSendLbl = { all: 'All active clients', paid: 'Clients with paid invoices', active: 'Recent activity (90 days)' };
+
+window.saveFestivalCampaign = async function() {
+  const occ = document.getElementById('wa-festival')?.value || 'custom';
+  const custom = (document.getElementById('wa-festival-custom')?.value || '').trim();
+  const img = festivalImageUrl();
+  const schedule = document.getElementById('wa-festival-schedule')?.value || '';
+  if (!schedule) { toast('⚠️ Pick the date and time to send. (Leave this empty and use Send Now to send immediately.)', 'warning'); return; }
+  if (new Date(schedule) <= new Date()) { toast('⚠️ Pick a time in the future.', 'warning'); return; }
+  if (img && !/^https:\/\//i.test(img)) { toast('⚠️ The image must be a public https:// link.', 'warning'); return; }
+  const payload = {
+    action: 'save_campaign',
+    id: parseInt(document.getElementById('wa-festival-edit-id')?.value || '0') || 0,
+    occasion: occ,
+    name: (occ === 'custom' && custom) ? custom : (FEST_LABELS[occ] || occ).replace(/\s*[^\w\s].*$/u, '').trim() || occ,
+    message: document.getElementById('wa-tpl-festival')?.value || '',
+    image: img,
+    sendto: document.getElementById('wa-send-to')?.value || 'all',
+    schedule: schedule.replace('T', ' '),
+    repeat: document.getElementById('wa-festival-repeat')?.value || '',
+  };
+  try {
+    await api('api/festival.php', 'POST', payload);
+    await festivalLoad();
+    festivalResetForm(true);
+    toast('✅ Campaign saved — it will be sent automatically at ' + _festFmt(payload.schedule), 'success');
+    renderFestivalCampaigns();
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+};
+function festivalResetForm(keepOccasion) {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+  set('wa-festival-edit-id', ''); set('wa-festival-schedule', ''); set('wa-festival-repeat', ''); set('wa-festival-custom', '');
+  const sv = document.getElementById('wa-festival-save-btn'); if (sv) sv.innerHTML = '<i class="fas fa-save"></i> Save Campaign';
+  const cn = document.getElementById('wa-festival-cancel-edit'); if (cn) cn.style.display = 'none';
+}
+window.festivalCancelEdit = function() { festivalResetForm(); };
+window.festivalEdit = function(id) {
+  const c = FEST.campaigns.find(x => String(x.id) === String(id)); if (!c) return;
+  const set = (i, v) => { const e = document.getElementById(i); if (e) e.value = v; };
+  set('wa-festival', FEST_LABELS[c.occasion] ? c.occasion : 'custom');
+  set('wa-festival-custom', c.occasion === 'custom' ? c.name : '');
+  set('wa-tpl-festival', c.message || ''); set('wa-festival-img', c.image || ''); festivalShowPreview(c.image || '');
+  set('wa-send-to', c.sendto || 'all'); set('wa-festival-repeat', c.repeat_mode || '');
+  set('wa-festival-schedule', c.schedule ? String(c.schedule).replace(' ', 'T').slice(0, 16) : '');
+  set('wa-festival-edit-id', c.id);
+  const sv = document.getElementById('wa-festival-save-btn'); if (sv) sv.innerHTML = '<i class="fas fa-save"></i> Update Campaign';
+  const cn = document.getElementById('wa-festival-cancel-edit'); if (cn) cn.style.display = '';
+  document.getElementById('wa-festival')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+window.festivalToggle = async function(id, active) {
+  try { await api('api/festival.php', 'POST', { action: 'toggle', id, active }); await festivalLoad(); renderFestivalCampaigns(); } catch (e) { toast('❌ ' + e.message, 'error'); }
+};
+window.festivalDelete = async function(id) {
+  if (!confirm('Delete this saved campaign?')) return;
+  try { await api('api/festival.php', 'POST', { action: 'delete_campaign', id }); await festivalLoad(); renderFestivalCampaigns(); toast('Campaign deleted', 'info'); } catch (e) { toast('❌ ' + e.message, 'error'); }
+};
+async function renderFestivalCampaigns() {
   const el = document.getElementById('wa-campaigns-list');
   if (!el) return;
-  const wa = STATE.settings.wa || {};
-  if (!wa.festival_schedule && !wa.festival_repeat) { el.innerHTML = ''; return; }
-  const schedTime = wa.festival_schedule
-    ? new Date(wa.festival_schedule).toLocaleString(_moneyLocale(),{dateStyle:'medium',timeStyle:'short'})
-    : 'Not scheduled';
-  el.innerHTML = `<div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;border:1px solid var(--teal);margin-top:4px">
-    <div style="font-weight:700;color:var(--teal);margin-bottom:4px"><i class="fas fa-calendar-check"></i> Saved Campaign</div>
-    <div>📅 Schedule: <strong>${schedTime}</strong></div>
-    ${wa.festival_repeat ? `<div>🔁 Repeat: <strong>${wa.festival_repeat}</strong></div>` : ''}
-    <div>👥 Send to: <strong>${wa.festival_sendto || 'all clients'}</strong></div>
-    <button onclick="clearFestivalCampaign()" style="margin-top:8px;font-size:11px;padding:4px 10px;border:1px solid var(--red);color:var(--red);background:none;border-radius:6px;cursor:pointer">
-      <i class="fas fa-times"></i> Clear Campaign
-    </button>
-  </div>`;
+  festivalBindImage();
+  if (!FEST.loaded) await festivalLoad();
+  // first visit: show the default picture for the selected occasion
+  const imgEl = document.getElementById('wa-festival-img');
+  if (imgEl && !imgEl.value) { const occ = document.getElementById('wa-festival')?.value || 'diwali'; imgEl.value = FEST.images[occ] || FEST_DEFAULT_IMG[occ] || ''; }
+  if (imgEl) festivalShowPreview(imgEl.value);
+  if (!FEST.campaigns.length) { el.innerHTML = ''; return; }
+  const btn = 'font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;background:none;border:1px solid ';
+  el.innerHTML = `<div style="font-weight:700;color:var(--teal);margin:4px 0 8px"><i class="fas fa-calendar-check"></i> Saved Campaigns</div>` + FEST.campaigns.map(c => {
+    const done = !c.schedule && !parseInt(c.active);
+    const paused = c.schedule && !parseInt(c.active);
+    const status = done ? '<span style="color:var(--muted)">✔ Finished</span>' : paused ? '<span style="color:var(--amber)">⏸ Paused</span>' : '<span style="color:var(--green)">● Active</span>';
+    return `<div style="background:var(--teal-bg);border-radius:8px;padding:10px 14px;font-size:12px;border:1px solid var(--border);margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div style="font-weight:700">${escHtml(c.name || c.occasion)} &nbsp; ${status}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${c.schedule ? `<button onclick="festivalEdit(${c.id})" style="${btn}var(--border);color:var(--text)"><i class="fas fa-pen"></i> Edit</button>` : ''}
+          ${c.schedule ? `<button onclick="festivalToggle(${c.id},${parseInt(c.active) ? 0 : 1})" style="${btn}var(--border);color:var(--text)">${parseInt(c.active) ? 'Pause' : 'Resume'}</button>` : ''}
+          <button onclick="festivalDelete(${c.id})" style="${btn}var(--red);color:var(--red)"><i class="fas fa-trash"></i> Delete</button></div></div>
+      <div style="margin-top:4px;color:var(--muted)">${c.schedule ? '📅 ' + _festFmt(c.schedule) : '📅 —'}${c.repeat_mode ? ' · 🔁 ' + c.repeat_mode : ''} · 👥 ${_festSendLbl[c.sendto] || 'All'}${c.image ? ' · 🖼 image' : ''}</div>
+      ${c.last_run ? `<div style="margin-top:2px;color:var(--muted)">Last sent: ${_festFmt(c.last_run)}${c.last_result ? ' — ' + escHtml(c.last_result) : ''}</div>` : ''}
+    </div>`;
+  }).join('');
 }
-
-window.clearFestivalCampaign = async function() {
-  try {
-    await api('api/settings.php','POST',{wa_festival_schedule:'',wa_festival_repeat:''});
-    if (STATE.settings.wa) { STATE.settings.wa.festival_schedule=''; STATE.settings.wa.festival_repeat=''; }
-    document.getElementById('wa-festival-schedule').value = '';
-    document.getElementById('wa-festival-repeat').value   = '';
-    renderFestivalCampaigns();
-    toast('Campaign cleared','info');
-  } catch(e) { toast('❌ '+e.message,'error'); }
-};
 
 
 // ── Auto-save invoice draft (bank details changes; notes/tnc now come from Settings) ──

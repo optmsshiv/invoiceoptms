@@ -6965,11 +6965,11 @@ View Invoice: {{6}}</pre></details>
         <div class="settings-block" style="margin:0">
           <div class="sb-title"><i class="fas fa-star" style="color:var(--amber)"></i> Festival &amp; Bulk Campaign</div>
           <div style="background:var(--amber-bg);border-radius:8px;padding:10px 14px;font-size:12px;color:#92400E;margin-bottom:14px">
-            ✨ Send personalised festival greetings to all or selected clients. Requires WhatsApp Business API.
+            ✨ Send personalised festival greetings to all or selected clients. Uses your approved <b>Festival Greeting</b> template (WhatsApp → Templates; add the image link here only if that template has an Image header). Inactive clients and duplicate numbers are skipped. Use <b>Send test to me</b> first. Scheduled campaigns are sent by the server cron.
           </div>
           <div class="form-grid g2" style="gap:12px">
             <div class="field"><label>Festival / Occasion</label>
-              <select id="wa-festival">
+              <select id="wa-festival" onchange="festivalPreset()">
                 <option value="diwali">Diwali 🪔</option>
                 <option value="holi">Holi 🎨</option>
                 <option value="eid">Eid Mubarak 🌙</option>
@@ -6980,7 +6980,7 @@ View Invoice: {{6}}</pre></details>
               </select>
             </div>
             <div class="field"><label>Custom Occasion Name</label>
-              <input id="wa-festival-custom" placeholder="e.g. Our Anniversary Sale">
+              <input id="wa-festival-custom" placeholder="e.g. Our Anniversary Sale" oninput="festivalPreset()">
             </div>
             <div class="field"><label>Festival Image URL</label>
               <div style="display:flex;gap:6px">
@@ -7017,6 +7017,7 @@ View Invoice: {{6}}</pre></details>
           <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
             <button class="btn btn-outline" onclick="previewFestivalMsg()"><i class="fas fa-eye"></i> Preview</button>
             <button class="btn btn-primary" onclick="saveFestivalCampaign()"><i class="fas fa-save"></i> Save Campaign</button>
+            <button class="btn btn-outline" onclick="sendFestivalTest()" title="Sends one copy to the Test Phone Number"><i class="fas fa-vial"></i> Send test to me</button>
             <button class="btn btn-whatsapp" onclick="sendFestivalBulk()"><i class="fab fa-whatsapp"></i> Send Now</button>
           </div>
           <div id="wa-bulk-log" style="margin-top:14px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);display:none"></div>
@@ -30529,6 +30530,11 @@ async function loadAllData() {
         tpl_followup:  s.wa_tpl_followup || '',
         tpl_recurring: s.wa_tpl_recurring || '',
         tpl_festival:  s.wa_tpl_festival || '',
+        festival_schedule: s.wa_festival_schedule || '',
+        festival_repeat:   s.wa_festival_repeat   || '',
+        festival_sendto:   s.wa_festival_sendto   || 'all',
+        festival_img:      s.wa_festival_img      || '',
+        festival_name:     s.wa_festival_name     || '',
         auto_inv:      s.wa_auto_inv      !== undefined ? s.wa_auto_inv      : '0',
         auto_estimate: s.wa_auto_estimate !== undefined ? s.wa_auto_estimate : '1',
         auto_paid:     s.wa_auto_paid     !== undefined ? s.wa_auto_paid     : '1',
@@ -31497,6 +31503,11 @@ function populateWAPage() {
   setV('wa-tpl-recurring',wa.tpl_recurring || getDefaultWATpl('recurring'));
   setV('wa-tpl-partial', wa.tpl_partial || getDefaultWATpl('partial_receipt'));
   setV('wa-tpl-festival',wa.tpl_festival|| getDefaultWATpl('festival'));
+  if (wa.festival_sendto) setV('wa-send-to', wa.festival_sendto);
+  if (wa.festival_repeat) setV('wa-festival-repeat', wa.festival_repeat);
+  if (wa.festival_name)   setV('wa-festival', wa.festival_name);
+  if (wa.festival_img && !document.getElementById('wa-festival-img')?.value) setV('wa-festival-img', wa.festival_img);
+  if (wa.festival_schedule) setV('wa-festival-schedule', wa.festival_schedule);
 
   // Toggles
   setTog('twa1', wa.auto_inv     === '1');
@@ -32075,43 +32086,133 @@ window.fillWaManualPhone = function() {
   if (msg && !msg.value) msg.value = `Hi ${c.name}! `;
 };
 
-// ── Festival bulk sender ──────────────────────────────────────
-window.sendFestivalBulk = async function() {
-  const sendTo  = document.getElementById('wa-send-to')?.value || 'all';
-  const tpl     = document.getElementById('wa-tpl-festival')?.value || getDefaultWATpl('festival');
-  const imgUrl  = document.getElementById('wa-festival-img')?.value || '';
-  const wa      = STATE.settings.wa || {};
-
-  let targets = [...STATE.clients].filter(c => c.wa || c.whatsapp || c.phone);
-  if (sendTo === 'paid') {
-    const paidIds = new Set(STATE.invoices.filter(i=>i.status==='Paid').map(i=>String(i.client)));
-    targets = targets.filter(c => paidIds.has(String(c.id)));
-  }
-  if (sendTo === 'active') {
-    const cutoff  = new Date(); cutoff.setDate(cutoff.getDate()-90);
-    const actIds  = new Set(STATE.invoices.filter(i=>i.issued&&new Date(i.issued)>cutoff).map(i=>String(i.client)));
-    targets = targets.filter(c => actIds.has(String(c.id)));
-  }
-
-  const log = document.getElementById('wa-bulk-log');
-  if (log) { log.style.display = 'block'; log.innerHTML = `<b>Sending to ${targets.length} clients...</b><br>`; }
-
-  let sent = 0, failed = 0;
-  for (const client of targets) {
-    const phone = (client.wa || client.whatsapp || client.phone || '').replace(/\D/g,'');
-    const msg   = formatWAMsg(tpl, {}, client, STATE.settings);
-    try {
-      const result = await sendWA(phone, msg);
-      sent++;
-      if (log) log.innerHTML += `<div style="color:var(--green)">✓ ${client.name}${result?' (API)':' (web)'}</div>`;
-      if (!result) await new Promise(r => setTimeout(r, 500));
-    } catch(e) {
-      failed++;
-      if (log) log.innerHTML += `<div style="color:var(--red)">✗ ${client.name}: ${e.message}</div>`;
-    }
-  }
-  toast(`📱 Done: ${sent} sent, ${failed} failed`, sent > 0 ? 'success' : 'warning');
+// ── Festival & bulk campaign ─────────────────────────────────
+// Sends through the approved festival TEMPLATE (works for every client, not only those who
+// messaged in the last 24h), with an optional image header. Template body variables:
+// {{1}} client name  {{2}} company name  {{3}} company phone.
+const FESTIVAL_PRESETS = {
+  diwali:       n => `Hi {client_name}! 🪔\n\nWishing you and your family a very happy Diwali! May this festival of lights bring you joy, good health and prosperity.\n\nThank you for being a valued part of *{company_name}*. 🙏\n📞 {company_phone}`,
+  holi:         n => `Hi {client_name}! 🎨\n\nWishing you and your family a colourful and joyful Holi! May your life be filled with happiness and bright new beginnings.\n\nWarm wishes from *{company_name}*. 🙏\n📞 {company_phone}`,
+  eid:          n => `Hi {client_name}! 🌙\n\nEid Mubarak! Wishing you and your family peace, happiness and blessings on this special day.\n\nWarm wishes from *{company_name}*. 🙏\n📞 {company_phone}`,
+  christmas:    n => `Hi {client_name}! 🎄\n\nMerry Christmas! Wishing you and your family a joyful festive season filled with love and warmth.\n\nThank you for your trust in *{company_name}*. 🙏\n📞 {company_phone}`,
+  newyear:      n => `Hi {client_name}! 🎊\n\nHappy New Year! May the year ahead bring you success, good health and happiness.\n\nThank you for being with *{company_name}*. 🙏\n📞 {company_phone}`,
+  independence: n => `Hi {client_name}! 🇮🇳\n\nHappy Independence Day! Wishing you and your family a proud and joyful celebration.\n\nWarm wishes from *{company_name}*. 🙏\n📞 {company_phone}`,
+  custom:       n => `Hi {client_name}! 🌟\n\nWishing you and your family a wonderful ${n || 'special occasion'}! Thank you for your continued trust in *{company_name}*. 🙏\n📞 {company_phone}`,
 };
+// Fill the message box when the occasion changes (never overwrites text you wrote yourself).
+window.festivalPreset = function() {
+  const sel = document.getElementById('wa-festival')?.value || 'custom';
+  const ta  = document.getElementById('wa-tpl-festival');
+  if (!ta) return;
+  const name = (document.getElementById('wa-festival-custom')?.value || '').trim();
+  const text = (FESTIVAL_PRESETS[sel] || FESTIVAL_PRESETS.custom)(name);
+  const cur  = ta.value.trim();
+  const untouched = !cur || cur === (window._festLastPreset || '').trim() || cur === getDefaultWATpl('festival').trim()
+    || cur.startsWith('Hi {client_name}! 🌟 Wishing you and your family warm greetings');
+  if (!untouched) return;
+  ta.value = text; window._festLastPreset = text;
+  ta.dispatchEvent(new Event('input'));
+};
+// Who gets the greeting: active clients with a number, de-duplicated by phone.
+function festivalRecipients(sendTo) {
+  const skipped = { inactive: 0, nophone: 0, dupe: 0, filter: 0 };
+  let list = [];
+  const seen = new Set();
+  for (const c of STATE.clients) {
+    const ph = String(c.wa || c.whatsapp || c.phone || '').replace(/\D/g, '');
+    if (ph.length < 10) { skipped.nophone++; continue; }
+    if (parseInt(c.active) === 0 || String(c.status || '').toLowerCase() === 'inactive') { skipped.inactive++; continue; }
+    list.push({ c, ph });
+  }
+  if (sendTo === 'paid') {
+    const ids = new Set(STATE.invoices.filter(i => i.status === 'Paid').map(i => String(i.client)));
+    const n = list.length; list = list.filter(x => ids.has(String(x.c.id))); skipped.filter = n - list.length;
+  } else if (sendTo === 'active') {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+    const ids = new Set(STATE.invoices.filter(i => i.issued && new Date(i.issued) > cutoff).map(i => String(i.client)));
+    const n = list.length; list = list.filter(x => ids.has(String(x.c.id))); skipped.filter = n - list.length;
+  }
+  const out = [];
+  for (const x of list) {
+    const key = x.ph.slice(-10);
+    if (seen.has(key)) { skipped.dupe++; continue; }
+    seen.add(key); out.push(x);
+  }
+  return { targets: out, skipped };
+}
+// Meta needs a public https:// link for a header image. Uploaded files come back as relative paths.
+function festivalImageUrl() {
+  const v = (document.getElementById('wa-festival-img')?.value || '').trim();
+  if (!v) return '';
+  try { return new URL(v, location.href).href; } catch (e) { return v; }
+}
+window.sendFestivalBulk = async function(testOnly) {
+  if (window._festSending) return;
+  const wa    = STATE.settings.wa || {};
+  const token = wa.token || '', pid = wa.pid || '';
+  const tpl   = document.getElementById('wa-tpl-festival')?.value || getDefaultWATpl('festival');
+  const tplName = (document.getElementById('tpl-name-festival')?.value || wa.tpl_name_festival || '').trim();
+  const tplLang = (document.getElementById('tpl-lang-festival')?.value || wa.tpl_lang_festival || 'en_US').trim() || 'en_US';
+  const sendTo  = document.getElementById('wa-send-to')?.value || 'all';
+  const img     = festivalImageUrl();
+  const log     = document.getElementById('wa-bulk-log');
+
+  if (!token || !pid) { toast('⚠️ WhatsApp Business API is not configured (token / phone ID).', 'warning'); return; }
+  if (img && !/^https:\/\//i.test(img)) { toast('⚠️ The image must be a public https:// link (not localhost / http).', 'warning'); return; }
+
+  let targets, skipped = {};
+  if (testOnly) {
+    const ph = (document.getElementById('wa-test-phone')?.value || '').replace(/\D/g, '');
+    if (ph.length < 10) { toast('⚠️ Enter your Test Phone Number first (WhatsApp → Test Message).', 'warning'); return; }
+    targets = [{ c: { name: 'Test Client' }, ph }];
+  } else {
+    ({ targets, skipped } = festivalRecipients(sendTo));
+    if (!targets.length) { toast('⚠️ No clients match this selection.', 'warning'); return; }
+    let msg = `Send this greeting to ${targets.length} client${targets.length > 1 ? 's' : ''} now?`;
+    const sk = [];
+    if (skipped.inactive) sk.push(skipped.inactive + ' inactive');
+    if (skipped.nophone)  sk.push(skipped.nophone + ' without a valid number');
+    if (skipped.dupe)     sk.push(skipped.dupe + ' duplicate number(s)');
+    if (sk.length) msg += `\n\nSkipped: ${sk.join(', ')}.`;
+    if (!tplName) msg += `\n\n⚠️ No festival template name is set, so this goes as a plain message and is only delivered to clients who messaged you in the last 24 hours. Set the "Festival Greeting" template under WhatsApp → Templates for everyone to receive it.`;
+    if (!confirm(msg)) return;
+  }
+
+  window._festSending = true;
+  const btns = document.querySelectorAll('[onclick^="sendFestivalBulk"]');
+  btns.forEach(b => b.disabled = true);
+  if (log) { log.style.display = 'block'; log.innerHTML = `<b>${testOnly ? 'Sending test…' : 'Sending to ' + targets.length + ' clients…'}</b><br>`; }
+
+  let sent = 0, failed = 0; const fails = [];
+  for (let i = 0; i < targets.length; i++) {
+    const { c, ph } = targets[i];
+    const text = formatWAMsg(tpl, {}, c, STATE.settings);
+    try {
+      if (tplName) {
+        const params = buildWATplParams('festival', {}, c, STATE.settings).map(p => (String(p || '').trim() || '-'));
+        await sendWABusinessMsg(ph, text, token, pid, { name: tplName, lang: tplLang, params, ...(img ? { headerImage: img } : {}) });
+      } else {
+        await sendWABusinessMsg(ph, text, token, pid, null);
+      }
+      sent++;
+      if (log) log.innerHTML += `<div style="color:var(--green)">✓ ${escHtml(c.name || ph)}</div>`;
+      try { logWAMessage({ inv: {}, client: c, type: 'festival', msg: text, status: 'sent_api' }); } catch (e) {}
+    } catch (e) {
+      failed++; fails.push((c.name || ph) + ': ' + e.message);
+      if (log) log.innerHTML += `<div style="color:var(--red)">✗ ${escHtml(c.name || ph)}: ${escHtml(e.message)}</div>`;
+      try { logWAMessage({ inv: {}, client: c, type: 'festival', msg: text, status: 'failed', error: e.message }); } catch (e2) {}
+      // Stop early if the very first sends all fail for a setup reason (saves your quota & time)
+      if (failed >= 3 && sent === 0) { if (log) log.innerHTML += `<div style="color:var(--red)"><b>Stopped after 3 failures in a row — fix the error above and try again.</b></div>`; break; }
+    }
+    if (log) log.scrollTop = log.scrollHeight;
+    if (i < targets.length - 1) await new Promise(r => setTimeout(r, 350));   // gentle pacing
+  }
+  if (log) log.innerHTML += `<div style="margin-top:6px"><b>Done: ${sent} sent, ${failed} failed.</b></div>`;
+  toast(`📱 ${testOnly ? 'Test' : 'Campaign'}: ${sent} sent, ${failed} failed`, sent > 0 ? 'success' : 'error');
+  btns.forEach(b => b.disabled = false);
+  window._festSending = false;
+};
+window.sendFestivalTest = function() { return window.sendFestivalBulk(true); };
 
 // ── Preview festival message ──────────────────────────────────
 window.previewFestivalMsg = function() {
@@ -32329,13 +32430,24 @@ window.saveFestivalCampaign = async function() {
     wa_festival_schedule: document.getElementById('wa-festival-schedule')?.value || '',
     wa_festival_repeat:   document.getElementById('wa-festival-repeat')?.value || '',
     wa_festival_name:     document.getElementById('wa-festival')?.value        || 'custom',
+    // the cron job reads the template name from settings too
+    wa_tpl_name_festival: (document.getElementById('tpl-name-festival')?.value || '').trim(),
+    wa_tpl_lang_festival: (document.getElementById('tpl-lang-festival')?.value || 'en_US').trim() || 'en_US',
   };
+  const _img = festivalImageUrl();
+  if (_img && !/^https:\/\//i.test(_img)) { toast('⚠️ The image must be a public https:// link.', 'warning'); return; }
+  payload.wa_festival_img = _img;
+  if (payload.wa_festival_schedule && new Date(payload.wa_festival_schedule) <= new Date()) {
+    toast('⚠️ Pick a schedule time in the future (or leave it blank and use Send Now).', 'warning'); return;
+  }
   try {
     await api('api/settings.php', 'POST', payload);
     // Store locally
     if (!STATE.settings.wa) STATE.settings.wa = {};
     STATE.settings.wa.festival_schedule = payload.wa_festival_schedule;
     STATE.settings.wa.festival_repeat   = payload.wa_festival_repeat;
+    STATE.settings.wa.festival_sendto   = payload.wa_festival_sendto;
+    STATE.settings.wa.festival_img      = payload.wa_festival_img;
     // Show confirmation
     const schedTime = payload.wa_festival_schedule
       ? ' — scheduled for ' + new Date(payload.wa_festival_schedule).toLocaleString(_moneyLocale(),{dateStyle:'medium',timeStyle:'short'})
