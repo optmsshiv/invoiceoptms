@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/cash_book.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -27,67 +28,10 @@ $id     = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 // Expense create/edit/delete were likely never reaching Activity Log at
 // all. Removed in favor of the shared logActivity(), used below.
 
-// ── Cash in Hand ledger — shared fund pool, drawn from when an expense's
-// method is "Cash in Hand". Best-effort: wrapped in try/catch so a ledger
-// hiccup never blocks the actual expense save.
-function cihBalance($db) {
-    $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
-    return $row ? (float)$row['balance_after'] : 0.0;
-}
-function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $note, $userId) {
-    if ($amount <= 0) return;
-    try {
-        $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
-            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-            `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup',
-            `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
-            `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
-            `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
-            `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            `source_end_date` DATE NULL, PRIMARY KEY (`id`),
-            INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
-        $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-            (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by, created_at)
-            VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId, date('Y-m-d H:i:s')]);
-    } catch (Throwable $e) {
-        error_log('recordCashInHandMovement (expenses.php) failed: ' . $e->getMessage());
-    }
-}
-
-// Blocks spending from Cash in Hand if the session it belongs to was
-// already carried forward elsewhere AND the strict restriction is on —
-// same rule and same underlying data as the Cash in Hand page itself,
-// just enforced here too since an Expense can also draw from that pool.
-function expCheckCarriedRestriction($db, $sessionToDate) {
-    if (!$sessionToDate) return;
-    try {
-        $restrictSetting = $db->prepare('SELECT value FROM settings WHERE `key` = ?');
-        $restrictSetting->execute(['cih_restrict_carried_sessions']);
-        $restrictVal = $restrictSetting->fetchColumn();
-        if ($restrictVal !== false && $restrictVal !== '1') return; // explicitly turned off
-    } catch (Throwable $e) { /* settings table missing — fail open, don't block */ return; }
-
-    try {
-        $stmt = $db->prepare(
-            "SELECT l.amount, l.created_at, u.name AS by_name
-             FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-             WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-        );
-        $stmt->execute([$sessionToDate]);
-        $row = $stmt->fetch();
-        if (!$row) return;
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' =>
-            'This session\'s Cash in Hand balance (₹' . number_format($row['amount'], 2) . ') was already carried forward on ' .
-            date('d-m-Y', strtotime($row['created_at'])) . ' by ' . ($row['by_name'] ?: 'someone') .
-            '. Turn off the restriction in Settings if this expense genuinely needs to draw from it.']);
-        exit;
-    } catch (Throwable $e) { /* table/column missing — fail open, don't block */ }
-}
+// Cash Book (Cash in Hand) writes go through includes/cash_book.php — the one
+// shared, locked, transactional implementation. The private copies of
+// cihBalance / recordCashInHandMovement / expCheckCarriedRestriction that used
+// to live here were removed.
 
 try {
     $db = getDB();
@@ -132,6 +76,10 @@ try {
     // first would 500 on the DELETE handler's SELECT below without this.
     try { $db->exec("ALTER TABLE expenses ADD COLUMN source VARCHAR(20) NULL AFTER method"); }
     catch (Throwable $e) { /* already exists */ }
+
+    // All DDL above is finished — safe to ensure the Cash Book schema now (DDL
+    // would silently commit a Cash Book transaction if it ran later).
+    cbEnsureSchema($db);
 
     // ── GET ──────────────────────────────────────────────────────
     if ($method === 'GET') {
@@ -229,7 +177,13 @@ try {
             exit;
         }
         if ($meth === 'Cash in Hand') {
-            expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? '')); // checked BEFORE insert — never leaves an orphaned expense if blocked
+            // checked BEFORE insert — never leaves an orphaned expense if blocked
+            $lockMsg = cbSessionLockMessage($db, trim($body['session_to_date'] ?? ''), 'this expense');
+            if ($lockMsg) {
+                http_response_code(400);
+                echo json_encode(['success'=>false,'error'=>$lockMsg]);
+                exit;
+            }
         }
         $stmt = $db->prepare(
             'INSERT INTO expenses (`date`,category,vendor,amount,method,notes,created_by,created_at,updated_at)
@@ -240,17 +194,33 @@ try {
         // default runs on MySQL's own server timezone, which caused the
         // same "wrong time shown" bug we already fixed for email logs.
         $now = date('Y-m-d H:i:s');
-        $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
-            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
-            ':created_by'=>$_SESSION['user_id'] ?? null,
-            ':created_at'=>$now,':updated_at'=>$now]);
-        $newId = $db->lastInsertId();
-        logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'expense', (int)$newId,
-            "Expense added: $vendor (₹".number_format($amount,2).")");
-        if ($meth === 'Cash in Hand') {
-            $user = currentUser();
-            recordCashInHandMovement($db, 'out', $amount, 'expense', (int)$newId, "Expense: {$vendor}", (int)($user['id'] ?? 0));
+        $uid = (int)($_SESSION['user_id'] ?? 0);
+
+        // The expense and its Cash Book entry are saved TOGETHER or not at
+        // all. Before, a failed ledger write was swallowed and the expense
+        // stayed saved without ever drawing down the Cash Book. The entry is
+        // dated with the EXPENSE's own date (not "today"), so it lands in the
+        // right session.
+        cbBegin($db);
+        try {
+            $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
+                ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
+                ':created_by'=>$_SESSION['user_id'] ?? null,
+                ':created_at'=>$now,':updated_at'=>$now]);
+            $newId = $db->lastInsertId(); // read BEFORE the ledger insert changes it
+            if ($meth === 'Cash in Hand') {
+                cbPost($db, [
+                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => $date,
+                    'ref_type' => 'expense', 'ref_id' => (int)$newId, 'note' => "Expense: {$vendor}", 'user_id' => $uid,
+                ]);
+            }
+            cbCommit($db);
+        } catch (Throwable $ex) {
+            cbRollback($db);
+            throw $ex;
         }
+        logActivity($uid, 'create', 'expense', (int)$newId,
+            "Expense added: $vendor (₹".number_format($amount,2).")");
         echo json_encode(['success'=>true,'id'=>(int)$newId]);
         exit;
     }
@@ -263,12 +233,17 @@ try {
         $oldStmt = $db->prepare('SELECT method, amount, vendor, source FROM expenses WHERE id=:id');
         $oldStmt->execute([':id'=>$id]);
         $oldExp = $oldStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$oldExp) {
+            http_response_code(404);
+            echo json_encode(['success'=>false,'error'=>'Expense not found']);
+            exit;
+        }
 
         // Cash-in-Hand and Credit-sourced expenses can't be edited safely —
         // Cash in Hand's amount is tied to a real shared fund balance, and
         // a Credit-sourced expense's amount is tied to a credit entry's
         // converted_amount; neither gets kept in sync by a plain edit.
-        // Delete (which correctly reverses both — see recordCashInHandMovement
+        // Delete (which correctly reverses both — see cbReverse (includes/cash_book.php)
         // and the credit_entry_conversions reversal in the DELETE handler
         // below) and re-add instead. Checked here too, not just hidden in
         // the UI, since this endpoint could otherwise be called directly.
@@ -293,30 +268,45 @@ try {
             exit;
         }
         if ($meth === 'Cash in Hand') {
-            expCheckCarriedRestriction($db, trim($body['session_to_date'] ?? ''));
+            $lockMsg = cbSessionLockMessage($db, trim($body['session_to_date'] ?? ''), 'this expense');
+            if ($lockMsg) {
+                http_response_code(400);
+                echo json_encode(['success'=>false,'error'=>$lockMsg]);
+                exit;
+            }
         }
 
-        $stmt = $db->prepare(
-            'UPDATE expenses SET `date`=:date,category=:cat,vendor=:vendor,
-             amount=:amount,method=:method,notes=:notes,updated_at=:updated_at WHERE id=:id'
-        );
-        $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
-            ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
-            ':updated_at'=>date('Y-m-d H:i:s'),':id'=>$id]);
+        $uid = (int)($_SESSION['user_id'] ?? 0);
+        // An expense that was ALREADY paid from the Cash Book can't reach this
+        // point (blocked above), so the only Cash Book effect of an edit is a
+        // non-cash expense being switched TO Cash in Hand — one new entry.
+        // Saved together with the update, dated with the expense's own date.
+        cbBegin($db);
+        try {
+            $stmt = $db->prepare(
+                'UPDATE expenses SET `date`=:date,category=:cat,vendor=:vendor,
+                 amount=:amount,method=:method,notes=:notes,updated_at=:updated_at WHERE id=:id'
+            );
+            $stmt->execute([':date'=>$date,':cat'=>$cat,':vendor'=>$vendor,
+                ':amount'=>$amount,':method'=>$meth,':notes'=>$notes,
+                ':updated_at'=>date('Y-m-d H:i:s'),':id'=>$id]);
+            if ($meth === 'Cash in Hand') {
+                cbPost($db, [
+                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => $date,
+                    'ref_type' => 'expense', 'ref_id' => (int)$id, 'note' => "Expense: {$vendor} (edited)", 'user_id' => $uid,
+                ]);
+            }
+            cbCommit($db);
+        } catch (Throwable $ex) {
+            cbRollback($db);
+            throw $ex;
+        }
         $oldAmt = $oldExp ? (float)$oldExp['amount'] : null;
         $diffLabel = ($oldAmt !== null && abs($oldAmt - $amount) > 0.004)
             ? '₹'.number_format($oldAmt,2).' → ₹'.number_format($amount,2)
             : '₹'.number_format($amount,2).' (amount unchanged)';
-        logActivity((int)($_SESSION['user_id'] ?? 0), 'update', 'expense', (int)$id,
+        logActivity($uid, 'update', 'expense', (int)$id,
             "Expense edited: $vendor ($diffLabel)");
-        $user = currentUser(); $uid = $user['id'] ?? null;
-        if ($oldExp && $oldExp['method'] === 'Cash in Hand' && (float)$oldExp['amount'] > 0) {
-            recordCashInHandMovement($db, 'in', (float)$oldExp['amount'], 'adjustment', $id,
-                "Reversal: Expense {$oldExp['vendor']} edited", $uid);
-        }
-        if ($meth === 'Cash in Hand') {
-            recordCashInHandMovement($db, 'out', $amount, 'expense', $id, "Expense: {$vendor} (edited)", $uid);
-        }
         echo json_encode(['success'=>true]);
         exit;
     }
@@ -332,6 +322,12 @@ try {
         $stmt = $db->prepare('SELECT vendor,amount,method,source FROM expenses WHERE id=:id');
         $stmt->execute([':id'=>$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Everything from here to the final commit is ONE unit: the credit
+        // entry un-conversion, the expense removal and the Cash Book refund
+        // all happen, or none do (any failure is rolled back in the catch at
+        // the bottom of this file).
+        cbBegin($db);
 
         // If this expense came from a Credit entry conversion, undo that
         // portion of the conversion BEFORE the expense row itself is gone —
@@ -394,13 +390,16 @@ try {
 
         $db->prepare('DELETE FROM expenses WHERE id=:id')->execute([':id'=>$id]);
         if ($row) {
+            // Refund exactly what this expense still holds on the Cash Book.
+            // Works for expenses recorded before this fix too (old-style
+            // reversal rows are netted by their note), and posts nothing for
+            // an expense that never used Cash in Hand.
+            cbReverse($db, 'expense', (int)$id, "Reversal: Expense {$row['vendor']} deleted", (int)($_SESSION['user_id'] ?? 0));
+        }
+        cbCommit($db);
+        if ($row) {
             logActivity((int)($_SESSION['user_id'] ?? 0), 'delete', 'expense', (int)$id,
                 "Expense deleted: {$row['vendor']} (₹".number_format($row['amount'],2).")");
-            if ($row['method'] === 'Cash in Hand' && (float)$row['amount'] > 0) {
-                $user = currentUser();
-                recordCashInHandMovement($db, 'in', (float)$row['amount'], 'adjustment', $id,
-                    "Reversal: Expense {$row['vendor']} deleted", $user['id'] ?? null);
-            }
         }
         echo json_encode(['success'=>true]);
         exit;
@@ -410,6 +409,7 @@ try {
     echo json_encode(['success'=>false,'error'=>'Method not allowed']);
 
 } catch (Exception $e) {
+    if (isset($db)) cbRollback($db); // no-op unless a Cash Book transaction is still open
     error_log('expenses.php error: '.$e->getMessage());
     http_response_code(500);
     echo json_encode(['success'=>false,'error'=>$e->getMessage()]);

@@ -2,6 +2,7 @@
 ob_start();
 error_reporting(0);
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/cash_book.php';
 requireLogin();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -124,64 +125,10 @@ function saveAttachment($dataUrl) {
   return '/assets/uploads/purchases/' . $fname;
 }
 
-// ── Cash in Hand ledger — shared fund pool, drawn from when a purchase's
-// payment_mode is "Cash in Hand". Best-effort: wrapped in try/catch so a
-// ledger hiccup never blocks the actual purchase save.
-function cihBalance($db) {
-  $row = $db->query('SELECT balance_after FROM cash_in_hand_ledger ORDER BY id DESC LIMIT 1')->fetch();
-  return $row ? (float)$row['balance_after'] : 0.0;
-}
-function recordCashInHandMovement($db, $direction, $amount, $refType, $refId, $note, $userId) {
-  if ($amount <= 0) return;
-  try {
-    $db->exec("CREATE TABLE IF NOT EXISTS `cash_in_hand_ledger` (
-      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `entry_date` DATE NOT NULL,
-      `type` ENUM('topup','purchase','expense','adjustment','carry_forward') NOT NULL DEFAULT 'topup',
-      `direction` ENUM('in','out') NOT NULL DEFAULT 'in',
-      `amount` DECIMAL(12,2) NOT NULL DEFAULT 0, `balance_after` DECIMAL(12,2) NOT NULL DEFAULT 0,
-      `reference_type` VARCHAR(30) DEFAULT NULL, `reference_id` INT UNSIGNED DEFAULT NULL,
-      `note` VARCHAR(255) DEFAULT NULL, `created_by` INT UNSIGNED DEFAULT NULL,
-      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      `source_end_date` DATE NULL, PRIMARY KEY (`id`),
-      INDEX `idx_cih_date` (`entry_date`), INDEX `idx_cih_ref` (`reference_type`,`reference_id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    $newBal = $direction === 'in' ? cihBalance($db) + $amount : cihBalance($db) - $amount;
-    $stmt = $db->prepare('INSERT INTO cash_in_hand_ledger
-      (entry_date, type, direction, amount, balance_after, reference_type, reference_id, note, created_by, created_at)
-      VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$refType === 'adjustment' ? 'adjustment' : $refType, $direction, $amount, $newBal, $refType, $refId, $note, $userId, date('Y-m-d H:i:s')]);
-  } catch (Throwable $e) {
-    error_log('recordCashInHandMovement (purchases.php) failed: ' . $e->getMessage());
-  }
-}
-
-// Same rule as expenses.php / Cash in Hand page — blocks drawing from a
-// session's Cash in Hand pool once its closing balance has already been
-// carried forward elsewhere, unless the restriction's been turned off.
-function pnCheckCarriedRestriction($db, $sessionToDate) {
-  if (!$sessionToDate) return;
-  try {
-    $restrictSetting = $db->prepare('SELECT value FROM settings WHERE `key` = ?');
-    $restrictSetting->execute(['cih_restrict_carried_sessions']);
-    $restrictVal = $restrictSetting->fetchColumn();
-    if ($restrictVal !== false && $restrictVal !== '1') return;
-  } catch (Throwable $e) { return; }
-
-  try {
-    $stmt = $db->prepare(
-      "SELECT l.amount, l.created_at, u.name AS by_name
-       FROM cash_in_hand_ledger l LEFT JOIN users u ON u.id = l.created_by
-       WHERE l.type = 'carry_forward' AND l.source_end_date = ? LIMIT 1"
-    );
-    $stmt->execute([$sessionToDate]);
-    $row = $stmt->fetch();
-    if (!$row) return;
-    jsonResponse(['error' =>
-      'This session\'s Cash in Hand balance (₹' . number_format($row['amount'], 2) . ') was already carried forward on ' .
-      date('d-m-Y', strtotime($row['created_at'])) . ' by ' . ($row['by_name'] ?: 'someone') .
-      '. Turn off the restriction in Settings if this purchase genuinely needs to draw from it.'], 400);
-  } catch (Throwable $e) { /* fail open */ }
-}
+// Cash Book (Cash in Hand) writes go through includes/cash_book.php — the one
+// shared, locked, transactional implementation. The private copies of
+// cihBalance / recordCashInHandMovement / pnCheckCarriedRestriction that used
+// to live here were removed.
 
 // ── Batch tracking on receipt — receiving stock for a batch-tracked
 // product either tops up an existing batch with that code, or creates a
@@ -425,6 +372,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS `purchase_payments` (
     INDEX `idx_pp_date` (`payment_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// All DDL above is finished — safe to ensure the Cash Book schema now (DDL
+// would silently commit a Cash Book transaction if it ran later).
+cbEnsureSchema($db);
+
 switch ($method) {
   case 'GET':
     if (!empty($_GET['id'])) {
@@ -486,7 +437,9 @@ switch ($method) {
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
     if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      pnCheckCarriedRestriction($db, trim($d['session_to_date'] ?? '')); // checked before ANY insert — purchase writes its header+items before the payment-mode block further down
+      // checked before ANY insert — purchase writes its header+items before the payment-mode block further down
+      $lockMsg = cbSessionLockMessage($db, trim($d['session_to_date'] ?? ''), 'this purchase');
+      if ($lockMsg) jsonResponse(['error' => $lockMsg], 400);
     }
 
     $purchaseNo = trim($d['purchase_no'] ?? '');
@@ -597,19 +550,17 @@ switch ($method) {
     $db->prepare('UPDATE purchases SET total_bags = ? WHERE id = ?')->execute([$totalBags, $purchaseId]);
 
     logActivity((int)$_SESSION['user_id'], 'create', 'purchase', $purchaseId, 'Purchase added: ' . $purchaseNo);
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $purchaseId,
-        "Purchase {$purchaseNo}", (int)$_SESSION['user_id']);
-    }
     // First payment-history row, if anything was paid at creation time —
     // keeps the payment-history table complete from day one instead of
     // starting only from the 2nd payment onward. See purchase_payments.php
     // for how every payment after this one gets recorded.
     $initialPaid = (float)($d['amount_paid'] ?? 0);
+    $cashBookWarning = null;
     if ($initialPaid > 0) {
       $supNameStmt = $db->prepare('SELECT name FROM suppliers WHERE id = ?');
       $supNameStmt->execute([(int)$d['supplier_id']]);
       $remainingAtCreate = max(0, round($total - $initialPaid, 2));
+      $initialPayDate = ($d['payment_date'] ?? '') ?: $now;
       $db->prepare(
         'INSERT INTO purchase_payments
            (purchase_id, purchase_no, supplier_name, amount, remaining_amt,
@@ -618,12 +569,37 @@ switch ($method) {
       )->execute([
         $purchaseId, $purchaseNo, $supNameStmt->fetchColumn() ?: '',
         $initialPaid, $remainingAtCreate,
-        $d['payment_date'] ?: $now, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '',
+        $initialPayDate, $d['payment_mode'] ?? '', $d['transaction_no'] ?? '',
         'Initial payment at purchase creation',
         (int)$_SESSION['user_id'], $now,
       ]);
+      $initialPaymentId = (int)$db->lastInsertId(); // before the ledger insert changes it
+
+      // Cash Book: tie the entry to THIS payment row (not to the purchase),
+      // so deleting or reversing the payment later undoes exactly this
+      // amount. The purchase itself is saved in several steps that can't all
+      // share one transaction (stock/batch helpers run DDL), so if the book
+      // write fails the purchase stays saved and the caller is TOLD, instead
+      // of the failure being swallowed as it used to be.
+      if (($d['payment_mode'] ?? '') === 'Cash in Hand') {
+        try {
+          cbPost($db, [
+            'type' => 'purchase', 'direction' => 'out', 'amount' => $initialPaid,
+            'date' => $initialPayDate, 'ref_type' => 'purchase_payment', 'ref_id' => $initialPaymentId,
+            'note' => "Purchase {$purchaseNo}", 'user_id' => (int)$_SESSION['user_id'],
+          ]);
+        } catch (Throwable $cbEx) {
+          error_log('purchases.php Cash Book entry failed: ' . $cbEx->getMessage());
+          $cashBookWarning = 'Purchase saved, but the Cash Book entry for ₹' . number_format($initialPaid, 2)
+            . ' could not be recorded. Add a correction entry in the Cash Book.';
+          logActivity((int)$_SESSION['user_id'], 'create', 'purchase', $purchaseId,
+            '⚠ Cash Book entry FAILED for ' . $purchaseNo . ' (₹' . number_format($initialPaid, 2) . ')');
+        }
+      }
     }
-    jsonResponse(['success' => true, 'id' => $purchaseId, 'purchase_no' => $purchaseNo]);
+    $resp = ['success' => true, 'id' => $purchaseId, 'purchase_no' => $purchaseNo];
+    if ($cashBookWarning) $resp['cash_book_warning'] = $cashBookWarning;
+    jsonResponse($resp);
     break;
 
   case 'PUT':
@@ -633,14 +609,17 @@ switch ($method) {
     if (!$d) jsonResponse(['error' => 'Invalid JSON'], 400);
     $items = $d['items'] ?? [];
     if (!is_array($items) || count($items) === 0) jsonResponse(['error' => 'At least one item is required'], 400);
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      pnCheckCarriedRestriction($db, trim($d['session_to_date'] ?? ''));
-    }
+    // NOTE: editing a purchase no longer touches the Cash Book at all, so
+    // there is no carried-session check here either. What was PAID is only
+    // ever changed through purchase_payments.php (each cash payment has its
+    // own Cash Book entry); this endpoint deliberately never updates
+    // amount_paid. The old code reversed and re-posted a Cash Book entry on
+    // every edit — which could refund cash that had never been deducted
+    // (payments made later from the payment-history screen) and wrote two
+    // meaningless rows per edit even when nothing changed.
 
-    // Capture the pre-edit state so we can reverse its Cash in Hand
-    // impact below if it changes (or stays the same but the amount
-    // changed), AND so the activity log can say what actually changed
-    // instead of just "Purchase updated" with no detail — the same
+    // Capture the pre-edit state so the activity log can say what actually
+    // changed instead of just "Purchase updated" with no detail — the same
     // pre-edit-capture + diff pattern already used in expenses.php.
     $oldPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no, total, status, supplier_id FROM purchases WHERE id = ?');
     $oldPayStmt->execute([$id]);
@@ -770,18 +749,6 @@ switch ($method) {
     ));
     rebalanceStockLedger($db, array_values($affectedProducts));
 
-    // Cash in Hand: reverse the old impact (if it was paid from the fund),
-    // then reapply the new one (if it still is) — handles method changes,
-    // amount changes, and switching away from Cash in Hand cleanly.
-    if ($oldPay && $oldPay['payment_mode'] === 'Cash in Hand' && (float)$oldPay['amount_paid'] > 0) {
-      recordCashInHandMovement($db, 'in', (float)$oldPay['amount_paid'], 'adjustment', $id,
-        "Reversal: Purchase {$oldPay['purchase_no']} edited", (int)$_SESSION['user_id']);
-    }
-    if (($d['payment_mode'] ?? '') === 'Cash in Hand' && (float)($d['amount_paid'] ?? 0) > 0) {
-      recordCashInHandMovement($db, 'out', (float)$d['amount_paid'], 'purchase', $id,
-        'Purchase ' . ($d['purchase_no'] ?? ('#' . $id)) . ' (edited)', (int)$_SESSION['user_id']);
-    }
-
     jsonResponse(['success' => true]);
     break;
 
@@ -792,10 +759,19 @@ switch ($method) {
     $delProds = $db->prepare('SELECT DISTINCT product_id FROM purchase_items WHERE purchase_id = ?');
     $delProds->execute([$id]);
     $delProdIds = array_column($delProds->fetchAll(), 'product_id');
-    // Capture payment state before deleting, for the Cash in Hand reversal below
-    $delPayStmt = $db->prepare('SELECT payment_mode, amount_paid, purchase_no FROM purchases WHERE id = ?');
+    // Capture the purchase number and every payment row BEFORE deleting, for
+    // the Cash Book reversal below. All rows, including ones already
+    // soft-deleted: cbReverse nets out what is still outstanding per row, so
+    // a payment that was already refunded is simply skipped.
+    $delPayStmt = $db->prepare('SELECT purchase_no FROM purchases WHERE id = ?');
     $delPayStmt->execute([$id]);
     $delPay = $delPayStmt->fetch();
+    $delPayRows = [];
+    try {
+      $delPayRowsStmt = $db->prepare('SELECT id FROM purchase_payments WHERE purchase_id = ?');
+      $delPayRowsStmt->execute([$id]);
+      $delPayRows = $delPayRowsStmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) { /* purchase_payments missing — nothing to reverse */ }
     // Capture item batch info before deleting, to reverse batch quantities
     $delItemsStmt = $db->prepare('SELECT product_id, batch_no, qty FROM purchase_items WHERE purchase_id = ?');
     $delItemsStmt->execute([$id]);
@@ -810,11 +786,30 @@ switch ($method) {
         reverseBatchReceive($db, $di['product_id'], $di['batch_no'], (float)$di['qty']);
       }
     }
-    if ($delPay && $delPay['payment_mode'] === 'Cash in Hand' && (float)$delPay['amount_paid'] > 0) {
-      recordCashInHandMovement($db, 'in', (float)$delPay['amount_paid'], 'adjustment', $id,
-        "Reversal: Purchase {$delPay['purchase_no']} deleted", (int)$_SESSION['user_id']);
+    // Cash Book: give back whatever this purchase still holds. Reverses each
+    // payment row's own entry, plus the old-style entry that purchases made
+    // BEFORE this fix recorded under the purchase's own id. Safe when nothing
+    // was ever posted (other payment methods): nothing is outstanding, so
+    // nothing is posted. Never blocks the delete — a failure is reported.
+    $delCashWarning = null;
+    $delPurNo = $delPay['purchase_no'] ?? ('#' . $id);
+    try {
+      cbBegin($db);
+      try {
+        foreach ($delPayRows as $pid) {
+          cbReverse($db, 'purchase_payment', (int)$pid, "Reversal: Purchase {$delPurNo} deleted", (int)$_SESSION['user_id']);
+        }
+        cbReverse($db, 'purchase', $id, "Reversal: Purchase {$delPurNo} deleted", (int)$_SESSION['user_id']);
+        cbCommit($db);
+      } catch (Throwable $inner) { cbRollback($db); throw $inner; }
+    } catch (Throwable $cbEx) {
+      error_log('purchases.php delete Cash Book reversal failed: ' . $cbEx->getMessage());
+      $delCashWarning = 'Purchase deleted, but its Cash Book refund could not be recorded. Add a correction entry in the Cash Book.';
+      logActivity((int)$_SESSION['user_id'], 'delete', 'purchase', $id, '⚠ Cash Book reversal FAILED for ' . $delPurNo);
     }
-    jsonResponse(['success' => true]);
+    $delResp = ['success' => true];
+    if ($delCashWarning) $delResp['cash_book_warning'] = $delCashWarning;
+    jsonResponse($delResp);
     break;
 
   default:

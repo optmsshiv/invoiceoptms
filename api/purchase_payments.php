@@ -22,6 +22,7 @@
 // ================================================================
 date_default_timezone_set('Asia/Kolkata');
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/cash_book.php';
 requireLogin();
 $db     = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -97,6 +98,9 @@ function recachePurchasePaid(PDO $db, int $purchaseId): void {
 }
 
 try {
+    // Must run BEFORE any Cash Book transaction opens: DDL commits silently.
+    cbEnsureSchema($db);
+
     switch ($method) {
 
         case 'GET':
@@ -153,28 +157,61 @@ try {
             $grandTotal   = (float)$purchase['total'];
             $remainingAmt = max(0, round($grandTotal - $prevPaid - $amount, 2));
 
-            $stmt = $db->prepare(
-                'INSERT INTO purchase_payments
-                   (purchase_id, purchase_no, supplier_name, amount, remaining_amt,
-                    payment_date, method, transaction_id, notes, created_by, created_at)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-            );
-            $stmt->execute([
-                $purchaseId,
-                $purchase['purchase_no'] ?? '',
-                $d['supplier_name'] ?? '',
-                $amount,
-                $remainingAmt,
-                nullIfEmpty($d['payment_date'] ?? null) ?? date('Y-m-d H:i:s'),
-                $d['method'] ?? '',
-                $d['transaction_id'] ?? '',
-                $d['notes'] ?? '',
-                (int)($_SESSION['user_id'] ?? 0),
-                date('Y-m-d H:i:s'),
-            ]);
-            $id = (int)$db->lastInsertId();
+            $payMethod = (string)($d['method'] ?? '');
+            $isCash    = ($payMethod === 'Cash in Hand');
+            $payDate   = nullIfEmpty($d['payment_date'] ?? null) ?? date('Y-m-d H:i:s');
+            $userId    = (int)($_SESSION['user_id'] ?? 0);
 
-            recachePurchasePaid($db, $purchaseId);
+            // A session that was already carried forward must not be drawn
+            // from (when the restriction is on). Checked BEFORE anything is
+            // written, so a refused payment leaves no trace.
+            if ($isCash) {
+                $lockMsg = cbSessionLockMessage($db, trim($d['session_to_date'] ?? ''), 'this payment');
+                if ($lockMsg) jsonResponse(['error' => $lockMsg], 400);
+            }
+
+            // The payment row, the Cash Book entry and the purchase's cached
+            // "paid" total are saved TOGETHER or not at all. Before this fix a
+            // payment made in Cash in Hand here never reached the Cash Book,
+            // so the book kept showing cash that had already been paid out.
+            cbBegin($db);
+            try {
+                $stmt = $db->prepare(
+                    'INSERT INTO purchase_payments
+                       (purchase_id, purchase_no, supplier_name, amount, remaining_amt,
+                        payment_date, method, transaction_id, notes, created_by, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+                );
+                $stmt->execute([
+                    $purchaseId,
+                    $purchase['purchase_no'] ?? '',
+                    $d['supplier_name'] ?? '',
+                    $amount,
+                    $remainingAmt,
+                    $payDate,
+                    $payMethod,
+                    $d['transaction_id'] ?? '',
+                    $d['notes'] ?? '',
+                    $userId,
+                    date('Y-m-d H:i:s'),
+                ]);
+                $id = (int)$db->lastInsertId(); // read BEFORE the ledger insert changes it
+
+                if ($isCash) {
+                    cbPost($db, [
+                        'type' => 'purchase', 'direction' => 'out', 'amount' => $amount,
+                        'date' => $payDate, 'ref_type' => 'purchase_payment', 'ref_id' => $id,
+                        'note' => 'Purchase ' . ($purchase['purchase_no'] ?? ('#' . $purchaseId)) . ' payment',
+                        'user_id' => $userId,
+                    ]);
+                }
+
+                recachePurchasePaid($db, $purchaseId);
+                cbCommit($db);
+            } catch (Throwable $ex) {
+                cbRollback($db);
+                throw $ex;
+            }
 
             logActivity((int)($_SESSION['user_id'] ?? 0), 'create', 'purchase_payment', $id,
                 "Recorded payment of ₹{$amount} for purchase " . ($purchase['purchase_no'] ?? "#{$purchaseId}"));
@@ -190,9 +227,41 @@ try {
             $rowStmt->execute([$id]);
             $row = $rowStmt->fetch();
             if (!$row) jsonResponse(['error' => 'Not found'], 404);
+            // Already removed — nothing more to do (and, crucially, nothing
+            // more to refund to the Cash Book a second time).
+            if ((int)$row['purchase_deleted'] === 1) jsonResponse(['success' => true]);
 
-            $db->prepare('UPDATE purchase_payments SET purchase_deleted = 1 WHERE id = ?')->execute([$id]);
-            recachePurchasePaid($db, (int)$row['purchase_id']);
+            $userId = (int)($_SESSION['user_id'] ?? 0);
+            $purNo  = $row['purchase_no'] ?? ('#' . $row['purchase_id']);
+
+            cbBegin($db);
+            try {
+                $db->prepare('UPDATE purchase_payments SET purchase_deleted = 1 WHERE id = ?')->execute([$id]);
+
+                // Give back exactly what this payment took from the Cash
+                // Book. Safe for payments that never touched it (other
+                // methods, or older cash payments that were never deducted):
+                // cbReverse finds nothing outstanding and posts nothing.
+                $refunded = cbReverse($db, 'purchase_payment', $id,
+                    "Reversal: payment removed from purchase {$purNo}", $userId);
+
+                // Purchases created BEFORE this fix recorded their very first
+                // payment on the Cash Book under the purchase's own id, not
+                // the payment row's. Fall back to that old-style entry — but
+                // only for the first payment, which is what created it.
+                if ($refunded === 0
+                    && ($row['method'] ?? '') === 'Cash in Hand'
+                    && ($row['notes'] ?? '') === 'Initial payment at purchase creation') {
+                    cbReverse($db, 'purchase', (int)$row['purchase_id'],
+                        "Reversal: Purchase {$purNo} payment removed", $userId);
+                }
+
+                recachePurchasePaid($db, (int)$row['purchase_id']);
+                cbCommit($db);
+            } catch (Throwable $ex) {
+                cbRollback($db);
+                throw $ex;
+            }
 
             logActivity((int)($_SESSION['user_id'] ?? 0), 'delete', 'purchase_payment', $id,
                 'Removed payment of ₹' . $row['amount'] . ' from purchase ' . ($row['purchase_no'] ?? ''));
@@ -204,6 +273,7 @@ try {
             jsonResponse(['error' => 'Method not allowed'], 405);
     }
 } catch (Throwable $e) {
+    cbRollback($db); // no-op unless a Cash Book transaction is still open
     error_log('purchase_payments.php error: ' . $e->getMessage());
     jsonResponse(['error' => 'Purchase Payments API error: ' . $e->getMessage()], 500);
 }
