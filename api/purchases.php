@@ -585,7 +585,7 @@ switch ($method) {
         try {
           cbPost($db, [
             'type' => 'purchase', 'direction' => 'out', 'amount' => $initialPaid,
-            'date' => $initialPayDate, 'ref_type' => 'purchase_payment', 'ref_id' => $initialPaymentId,
+            'date' => cbEntryDate($db, $initialPayDate), 'ref_type' => 'purchase_payment', 'ref_id' => $initialPaymentId,
             'note' => "Purchase {$purchaseNo}", 'user_id' => (int)$_SESSION['user_id'],
           ]);
         } catch (Throwable $cbEx) {

@@ -200,7 +200,7 @@ try {
                 if ($isCash) {
                     cbPost($db, [
                         'type' => 'purchase', 'direction' => 'out', 'amount' => $amount,
-                        'date' => $payDate, 'ref_type' => 'purchase_payment', 'ref_id' => $id,
+                        'date' => cbEntryDate($db, $payDate), 'ref_type' => 'purchase_payment', 'ref_id' => $id,
                         'note' => 'Purchase ' . ($purchase['purchase_no'] ?? ('#' . $purchaseId)) . ' payment',
                         'user_id' => $userId,
                     ]);

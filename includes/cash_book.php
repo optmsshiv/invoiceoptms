@@ -164,6 +164,53 @@ function cbDateOnly($v): string {
   return date('Y-m-d');
 }
 
+// ── Session placement ─────────────────────────────────────────────
+// A session in this app is the owner-set Period (Settings → Date Range),
+// stored tenant-wide in the settings table as global_date_active /
+// global_date_from / global_date_to — the SAME keys the whole UI filters by.
+// Returns ['from' => 'Y-m-d', 'to' => 'Y-m-d'] while a period is switched on
+// and valid, otherwise null. Read server-side so every caller gets the same
+// answer and the browser can't send a different one.
+function cbActiveSession(PDO $db): ?array {
+  try {
+    $get = function (string $key) use ($db): string {
+      if (function_exists('getSetting')) return (string)getSetting($key, '');
+      $s = $db->prepare('SELECT value FROM settings WHERE `key` = ?');
+      $s->execute([$key]);
+      $v = $s->fetchColumn();
+      return $v === false ? '' : (string)$v;
+    };
+    if ($get('global_date_active') !== '1') return null;
+    $from = $get('global_date_from');
+    $to   = $get('global_date_to');
+    $re   = '/^\d{4}-\d{2}-\d{2}$/';
+    if (!preg_match($re, $from) || !preg_match($re, $to) || $from > $to) return null; // incomplete range — same rule the UI uses
+    return ['from' => $from, 'to' => $to];
+  } catch (Throwable $e) {
+    return null;
+  }
+}
+
+/**
+ * The date a purchase / payment / expense is recorded under on the Cash Book.
+ * Cash is spent in the session you are WORKING in, so while a period is
+ * active the entry always lands inside it: the real date when that date is
+ * inside the period, otherwise the nearest edge (a payment made today while
+ * the active period starts tomorrow goes on its first day; one made today
+ * while an older period is active goes on its last day). With no period
+ * active, the real date is used unchanged.
+ * The purchase / expense / payment record itself keeps its own real date —
+ * only the Cash Book entry is placed.
+ */
+function cbEntryDate(PDO $db, $realDate): string {
+  $d = cbDateOnly($realDate);
+  $s = cbActiveSession($db);
+  if ($s === null) return $d;
+  if ($d < $s['from']) return $s['from'];
+  if ($d > $s['to'])   return $s['to'];
+  return $d;
+}
+
 /**
  * Post ONE ledger entry. Returns the new row id, or 0 when amount <= 0.
  * $e keys: type, direction ('in'|'out'), amount, date, ref_type, ref_id,

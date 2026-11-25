@@ -210,7 +210,7 @@ try {
             $newId = $db->lastInsertId(); // read BEFORE the ledger insert changes it
             if ($meth === 'Cash in Hand') {
                 cbPost($db, [
-                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => $date,
+                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => cbEntryDate($db, $date),
                     'ref_type' => 'expense', 'ref_id' => (int)$newId, 'note' => "Expense: {$vendor}", 'user_id' => $uid,
                 ]);
             }
@@ -292,7 +292,7 @@ try {
                 ':updated_at'=>date('Y-m-d H:i:s'),':id'=>$id]);
             if ($meth === 'Cash in Hand') {
                 cbPost($db, [
-                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => $date,
+                    'type' => 'expense', 'direction' => 'out', 'amount' => $amount, 'date' => cbEntryDate($db, $date),
                     'ref_type' => 'expense', 'ref_id' => (int)$id, 'note' => "Expense: {$vendor} (edited)", 'user_id' => $uid,
                 ]);
             }
